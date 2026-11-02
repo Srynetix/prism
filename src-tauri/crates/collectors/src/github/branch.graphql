@@ -1,0 +1,8 @@
+fragment Checks on Commit {
+  oid url committedDate
+  statusCheckRollup { state
+    contexts(first: 100) { nodes { __typename
+      ... on CheckRun { databaseId name status conclusion startedAt completedAt detailsUrl
+        checkSuite { workflowRun { databaseId url createdAt workflow { name } } } }
+      ... on StatusContext { context state targetUrl createdAt } } } }
+}

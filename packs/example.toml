@@ -1,0 +1,72 @@
+# A pack: a team's Prism configuration, shared with its members. Same shape as config.toml;
+# each member imports it (Settings › Packs, or `prism pack import <file>`, or from a GitLab
+# repository: `prism pack import glab:group/project:packs/team.toml@main`), and their own
+# config.toml only keeps personal choices and overrides. `[open_with]` is ignored in a pack:
+# a pack does not choose the programs run on your machine.
+#
+# A real team pack often holds infrastructure names (clusters, registries, projects): host it
+# where your team keeps internal configuration, not in a public place.
+
+[pack]
+name = "example-team"
+version = "1"
+# requires = "0.2.0"          # the oldest Prism it works with: an older one refuses it
+description = "Example team: GitLab example-org/app, ClickUp Sprints, prod and staging on GKE."
+
+[runners]
+kube_context = "gke_example-ops_us-central1-a_ops"
+namespace = "gitlab-runner"
+
+[forge]
+main_branch = "main"          # every repository's, unless it names its own
+release_prefix = "release/"
+bare_mr_repo = "app"          # the [[repos]] below
+
+[tracker]
+ticket_prefix = "ABC"
+workflow_statuses = ["todo", "doing", "review", "done"]
+before_dev_statuses = ["todo"]
+in_progress_statuses = ["doing"]
+review_statuses = ["review"]
+approved_statuses = []
+after_merge_statuses = ["done"]
+done_statuses = ["done"]
+
+[clickup]
+sprint_folder = "Sprints"
+
+[[clickup.boards]]
+name = "Bugs"
+uses = ["pick"]
+tone = "warn"
+
+[[clickup.boards]]
+name = "Architecture"
+uses = ["pick", "refinement", "sync"]
+tone = "violet"
+
+[agents]
+prompt_language = "en"
+
+[[environments]]
+env = "prod"
+context = "gke_example-prod_us-central1-a_prod"
+namespaces = ["apps"]
+
+[[environments]]
+env = "staging"
+context = "gke_example-staging_us-central1-a_staging"
+namespaces = ["apps"]
+
+# The team's repository, the one bare MR references (!1294) name ([forge] bare_mr_repo above),
+# read by CI health, Renovate and Vulnerabilities; each member adds the local clone in their own
+# config.toml:
+#   [[repos]]
+#   name = "app"
+#   path = "~/Development/app"
+[[repos]]
+name = "app"
+project = "example-org/app"
+worktrees = true
+ticket_required = true
+pipelines = true

@@ -1,0 +1,28 @@
+{
+  "extends": "@tsconfig/svelte/tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "module": "esnext",
+    "types": ["svelte", "vite/client"],
+    "allowArbitraryExtensions": true,
+    "noEmit": true,
+    /**
+     * Typecheck JS in `.svelte` and `.js` files by default.
+     * Disable checkJs if you'd like to use dynamic types in JS.
+     * Note that setting allowJs false does not prevent the use
+     * of JS in `.svelte` files.
+     */
+    "allowJs": true,
+    "checkJs": true,
+    "moduleDetection": "force",
+    /** `$extra-blocks`, `$extra-components`, `$extra-i18n`: none here; vite.config.ts points them at `PRISM_EXTRA_BLOCKS`'s, if any. */
+    "paths": {
+      "$extra-blocks": ["./src/blocks/extra-none.ts"],
+      "$extra-components": ["./src/blocks/extra-none.ts"],
+      "$extra-i18n": ["./src/i18n/extra-none.ts"],
+      "$prism/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
+}

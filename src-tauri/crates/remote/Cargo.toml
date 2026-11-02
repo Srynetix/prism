@@ -1,0 +1,39 @@
+[package]
+name = "prism-remote"
+description = "Prism from a phone: the remote's server on loopback, its tunnel, pairing, passkeys, sessions, and what a phone may read."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+prism-base.workspace = true
+prism-core.workspace = true
+
+anyhow.workspace = true
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "ws"] }
+base64.workspace = true
+chrono.workspace = true
+ciborium = "0.2"
+# The page's files gzipped for the phone (already in the tree, through png).
+flate2 = "1"
+futures.workspace = true
+getrandom = "0.4"
+p256 = { version = "0.14", default-features = false, features = ["ecdsa", "std"] }
+reqwest = { workspace = true, features = ["stream"] }
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-tungstenite = "0.30"
+tracing.workspace = true
+url = "2"
+
+[target.'cfg(unix)'.dependencies]
+
+[dev-dependencies]
+prism-blocks.workspace = true
+prism-demo.workspace = true

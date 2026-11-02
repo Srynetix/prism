@@ -1,0 +1,37 @@
+[package]
+name = "prism-agents"
+description = "Prism's coding agents (Claude Code, Command Code, OpenCode, Codex): their tmux sessions, worktrees, hooks, files, tasks and chains."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# The window's types (`web/src/bindings`), exported by the app's tests.
+ts = ["dep:ts-rs", "prism-core/ts"]
+
+[dependencies]
+prism-base.workspace = true
+prism-core.workspace = true
+prism-collectors.workspace = true
+prism-sys.workspace = true
+
+anyhow.workspace = true
+base64.workspace = true
+chrono.workspace = true
+portable-pty.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+toml.workspace = true
+ts-rs = { workspace = true, optional = true }
+tracing.workspace = true
+uuid.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

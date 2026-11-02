@@ -1,0 +1,15 @@
+query($owner: String!, $name: String!, $sha: String!) {
+  repository(owner: $owner, name: $name) {
+    object(expression: $sha) {
+      ... on Commit {
+        oid
+        checkSuites(first: 50) {
+          nodes {
+            workflowRun { databaseId workflow { name } }
+            checkRuns(first: 100, filterBy: {checkType: LATEST}) { nodes { databaseId name status conclusion startedAt completedAt detailsUrl } }
+          }
+        }
+      }
+    }
+  }
+}

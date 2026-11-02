@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "description": "Prism — Tauri app commands (the CLI comes from the web/ dependencies)",
+  "scripts": {
+    "dev": "web/node_modules/.bin/tauri dev",
+    "build": "web/node_modules/.bin/tauri build"
+  }
+}

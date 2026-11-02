@@ -1,0 +1,66 @@
+import { describe, expect, it } from 'vitest'
+import type { Snapshot } from './types'
+
+// The tracker's module follows the page's address (filter.svelte.ts): none under Node.
+const page = globalThis as { location?: unknown; addEventListener?: unknown }
+page.location ??= { hash: '' }
+page.addEventListener ??= () => {}
+const { refOfUrl, refsIn, withMrs } = await import('./linkify')
+const { live } = await import('./live.svelte')
+
+const snap = {
+  conventions: { ticket_prefix: 'SHOP' },
+  ticket_base: 'https://tracker.example.org/browse/',
+  merge_requests: [
+    { iid: 1288, repo: null, url: 'https://gitlab.example.org/shop/app/-/merge_requests/1288' },
+    { iid: 214, repo: 'helm', url: 'https://gitlab.example.org/shop/helm/-/merge_requests/214' },
+  ],
+  sprint: { tickets: [{ id: 'SHOP-433', task_id: '86c1', repo: null, url: 'https://app.clickup.com/t/86c1' }] },
+  pickup: null,
+  time_tasks: null,
+  next_sprint: null,
+  outside_sprint: { tickets: [] },
+} as unknown as Snapshot
+live.snapshot = snap
+
+describe('refsIn', () => {
+  it('finds tickets and MRs named in a line, not inside a URL', () => {
+    const line = 'Fixed SHOP-433 in !1291, see https://tracker.example.org/browse/SHOP-401 and shop-12.'
+    expect(refsIn(line).map((r) => [r.text, r.ref])).toEqual([
+      ['SHOP-433', { ticket: 'SHOP-433' }],
+      ['!1291', { mr: { iid: 1291, repo: null } }],
+      ['shop-12', { ticket: 'SHOP-12' }],
+    ])
+    expect(line.slice(refsIn(line)[1].start, refsIn(line)[1].end)).toBe('!1291')
+  })
+})
+
+describe('refOfUrl', () => {
+  it("an MR of a project Prism reads, whatever its tab, in its repository", () => {
+    expect(refOfUrl('https://gitlab.example.org/shop/app/-/merge_requests/1301/diffs?view=inline', snap)).toEqual({ mr: { iid: 1301, repo: null } })
+    expect(refOfUrl('https://gitlab.example.org/shop/helm/-/merge_requests/215', snap)).toEqual({ mr: { iid: 215, repo: 'helm' } })
+  })
+  it('a ticket Prism shows, or one under the tracker’s base', () => {
+    expect(refOfUrl('https://app.clickup.com/t/86c1/', snap)).toEqual({ ticket: 'SHOP-433' })
+    expect(refOfUrl('https://tracker.example.org/browse/shop-401', snap)).toEqual({ ticket: 'SHOP-401' })
+  })
+  it('anything else stays a plain link', () => {
+    expect(refOfUrl('https://gitlab.example.org/other/-/merge_requests/3', snap)).toBeNull()
+    expect(refOfUrl('https://example.org/SHOP-401', snap)).toBeNull()
+    expect(refOfUrl('https://docs.example.org/', snap)).toBeNull()
+    // A local server, the agent's or a colleague's: the browser.
+    expect(refOfUrl('http://portfolio.localhost:3000/SHOP-401', snap)).toBeNull()
+    expect(refOfUrl('http://localhost:5173/', snap)).toBeNull()
+  })
+})
+
+describe('withMrs', () => {
+  it('makes the MRs an agent names their own spans, never in code or a link', () => {
+    const spans = withMrs([{ text: 'Merged in !1291 and !1302, see ', bold: true }, { text: '!7', code: true }, { text: 'here', href: 'https://x.org/!8' }, { text: 'nothing' }])
+    expect(spans).toEqual([
+      { text: 'Merged in ', bold: true }, { text: '!1291', bold: true, mr: 1291 }, { text: ' and ', bold: true }, { text: '!1302', bold: true, mr: 1302 }, { text: ', see ', bold: true },
+      { text: '!7', code: true }, { text: 'here', href: 'https://x.org/!8' }, { text: 'nothing' },
+    ])
+    expect(withMrs([{ text: 'Hello!123' }])).toEqual([{ text: 'Hello!123' }])
+  })
+})

@@ -1,0 +1,55 @@
+# The image scripts/linux-desktop.sh --distro arch runs Prism's Arch package in: Arch Linux with
+# an Xfce desktop behind VNC, and noVNC to reach it from a browser. x86_64 only (Arch Linux is):
+# emulated on an Apple silicon Mac.
+FROM archlinux:latest
+
+# pacman's download sandbox fails under emulation (seccomp): without it, as before pacman 7. The
+# image leaves out locales (NoExtract): glibc again with them, for Prism in French.
+RUN sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf \
+    && sed -i '/^NoExtract/d' /etc/pacman.conf \
+    && pacman -Syu --noconfirm glibc \
+    && pacman -S --noconfirm --needed \
+      xfce4 xfce4-terminal dbus gnome-keyring tigervnc python ttf-dejavu noto-fonts-emoji sudo git \
+    && sed -i 's/^#\(fr_FR.UTF-8\|en_US.UTF-8\)/\1/' /etc/locale.gen && locale-gen \
+    && pacman -Scc --noconfirm
+
+# noVNC and websockify are in the AUR only: their releases, checked, where Ubuntu's packages put
+# them (start.sh is the same for both).
+RUN curl -fsSL -o /tmp/novnc.tgz https://github.com/novnc/noVNC/archive/refs/tags/v1.6.0.tar.gz \
+    && echo '5066103959ef4e9b10f37e5a148627360dd8414e4cf8a7db92bdbd022e728aaa  /tmp/novnc.tgz' | sha256sum -c - \
+    && curl -fsSL -o /tmp/ws.tgz https://github.com/novnc/websockify/archive/refs/tags/v0.13.0.tar.gz \
+    && echo 'b6413e364efd04f3c92ec8c17747e3c4adc20157c2ef1c5d019a26d944a46df8  /tmp/ws.tgz' | sha256sum -c - \
+    && mkdir -p /usr/share/novnc /opt/websockify \
+    && tar -xzf /tmp/novnc.tgz -C /usr/share/novnc --strip-components=1 \
+    && tar -xzf /tmp/ws.tgz -C /opt/websockify --strip-components=1 \
+    && printf '#!/bin/sh\nPYTHONPATH=/opt/websockify exec python3 -m websockify "$@"\n' > /usr/local/bin/websockify \
+    && chmod +x /usr/local/bin/websockify && rm /tmp/novnc.tgz /tmp/ws.tgz
+
+# Arch's tigervnc is the newer one, whose vncserver serves vncsession (its sessions from its own
+# config, not ~/.vnc/xstartup): ahead of it in the PATH, one that starts Xvnc and the session as
+# start.sh asks, its log where start.sh follows it. The session under dbus-run-session, not
+# start.sh's xstartup: here, dbus-launch --exit-with-session's bus dies within seconds.
+RUN printf '%s\n' '#!/bin/sh' \
+      'display=$1; shift' \
+      'args=""' \
+      'while [ $# -gt 0 ]; do case "$1" in -localhost) shift ;; *) args="$args $1" ;; esac; shift; done' \
+      'log=$HOME/.vnc/$(hostname)$display.log' \
+      'Xvnc "$display" $args > "$log" 2>&1 &' \
+      'sleep 2' \
+      'DISPLAY=$display dbus-run-session -- startxfce4 >> "$log" 2>&1 &' \
+      > /usr/local/bin/vncserver && chmod +x /usr/local/bin/vncserver
+
+# The package pulls in what Prism needs (WebKitGTK, tmux).
+COPY prism.pkg.tar.zst /tmp/prism.pkg.tar.zst
+RUN pacman -U --noconfirm /tmp/prism.pkg.tar.zst && pacman -Scc --noconfirm && rm /tmp/prism.pkg.tar.zst
+
+RUN useradd -m -s /bin/bash -G wheel demo && echo 'demo ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/demo
+COPY start.sh /usr/local/bin/start-desktop
+COPY demo-config.toml /home/demo/.config/prism/config.toml
+RUN chown -R demo:demo /home/demo
+
+USER demo
+WORKDIR /home/demo
+ENV LANG=fr_FR.UTF-8 USER=demo
+EXPOSE 5901 6080
+CMD ["start-desktop"]

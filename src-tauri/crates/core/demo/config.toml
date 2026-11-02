@@ -1,0 +1,138 @@
+# The demo profile: a fictitious team's work in every block, nothing read from anywhere
+# (src-tauri/crates/demo). Turn [demo] enabled off to make it a real profile.
+
+[profile]
+name = "Demo"
+color = "blue"
+
+[demo]
+enabled = true
+
+[gitlab]
+host = "gitlab.example.org"
+release_prefix = "release/"
+merge_queue_label = "merge-queue"
+merge_priority_prefix = "merge-priority::"
+
+[forge]
+# The shop: bare MR references (!1294) name it; CI health, Renovate and Vulnerabilities read it.
+bare_mr_repo = "shop"
+
+[[repos]]
+name = "shop"
+project = "example-org/shop"
+worktrees = true
+merge_queue = true
+ticket_required = true
+pipelines = true
+
+[[repos]]
+name = "helm"
+project = "example-org/helm"
+merge_requests = true
+
+[[repos]]
+name = "toolkit"
+project = "example-dev/toolkit"
+forge = "github"
+merge_requests = true
+
+[tracker]
+ticket_prefix = "SHOP"
+# The team's workflow, as its ClickUp boards have it.
+workflow_statuses = ["ready to dev", "todo", "doing", "review", "to merge", "to validate", "validation", "done"]
+before_dev_statuses = ["ready to dev", "todo", "to specify"]
+in_progress_statuses = ["doing"]
+review_statuses = ["review", "to merge"]
+approved_statuses = ["to merge"]
+after_merge_statuses = ["to validate", "validation", "done"]
+done_statuses = ["done"]
+validation_statuses = ["to validate", "validation"]
+pick_statuses = ["ready to dev", "todo"]
+
+[clickup]
+refinement_statuses = ["to specify", "to refine", "to estimate"]
+ongoing_statuses = ["doing", "review", "to merge"]
+
+# The boards its sample data shows.
+[[clickup.boards]]
+name = "Hotfix"
+uses = ["pick"]
+tone = "ko"
+
+[[clickup.boards]]
+name = "Bugs"
+uses = ["pick"]
+tone = "warn"
+
+[[clickup.boards]]
+name = "Architecture"
+uses = ["pick", "refinement", "sync"]
+tone = "violet"
+
+[[clickup.boards]]
+name = "Shop"
+folder = "Shop"
+quarters = true
+uses = ["refinement"]
+
+[[clickup.boards]]
+name = "Team"
+uses = ["time"]
+
+# The stages Environments and ArgoCD read: these environments' names ([clusters] stages = "none").
+[[environments]]
+env = "staging"
+context = "demo-staging"
+namespaces = ["shop"]
+
+[[environments]]
+env = "preprod"
+context = "demo-preprod"
+namespaces = ["shop"]
+
+[[environments]]
+env = "prod"
+context = "demo-prod"
+namespaces = ["shop"]
+
+[vulnerabilities]
+enabled = true
+
+[renovate]
+enabled = true
+
+[[views]]
+name = "Dashboard"
+id = "dashboard"
+icon = "dashboard"
+color = "accent"
+columns = ["todo sessions notes", "mrs renovate", "sprint agenda"]
+
+[[views]]
+name = "Tickets"
+id = "tickets"
+icon = "tickets"
+color = "purple"
+columns = ["refinement", "pickup"]
+
+[[views]]
+name = "CI"
+id = "ci"
+icon = "ci"
+color = "orange"
+columns = ["ci", "pods"]
+
+[[views]]
+name = "Infra"
+id = "infra"
+icon = "infra"
+color = "blue"
+columns = ["envs", "argocd vulns"]
+
+[[views]]
+name = "Worktrees"
+id = "worktrees"
+icon = "worktrees"
+color = "orange"
+columns = ["worktrees", "tokens"]

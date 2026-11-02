@@ -1,0 +1,14 @@
+query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    viewerDefaultMergeMethod
+    pullRequest(number: $number) {
+      id state isDraft title headRefOid reviewDecision
+      baseRef { branchProtectionRule { requiredApprovingReviewCount } rules(first: 20) { nodes { type parameters { ... on PullRequestParameters { requiredApprovingReviewCount } } } } }
+      author { login }
+      autoMergeRequest { enabledAt }
+      assignees(first: 10) { nodes { login } }
+      reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } } } }
+      latestOpinionatedReviews(first: 20) { nodes { state author { login } } }
+    }
+  }
+}

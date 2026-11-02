@@ -1,0 +1,1708 @@
+/*
+ * Monospace font: Recursive (OFL, see assets/fonts/Recursive-OFL.txt), frozen on its axes
+ * MONO=1, CASL=1 (Casual), slnt=0; only the weight stays variable (300 to 1000). Bundled
+ * in the app: nothing is loaded from the network. The interface's fonts are bundled too (below).
+ * The terminals' font: RecMonoCasual Nerd Font Mono (Recursive patched by Nerd Fonts 3.3.0, the same
+ * OFL), whole, for the prompts' icons.
+ * `[appearance] font`, `font_mono` and `font_terminal` put an installed font in front of these stacks (fonts.ts,
+ * which keeps a copy of them: the two must stay in agreement).
+ */
+@font-face {
+  font-family: 'Recursive Mono';
+  src: url('./assets/fonts/recursive-mono-latin.woff2') format('woff2');
+  font-weight: 300 1000;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Recursive Mono';
+  src: url('./assets/fonts/recursive-mono-latin-ext.woff2') format('woff2');
+  font-weight: 300 1000;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+ * Interface fonts, bundled too so that macOS and Linux draw the same thing (OFL, see assets/fonts/*-OFL.txt),
+ * variable on their weight: Inter for the text, Nunito for the rounded themes (Catppuccin), Source Serif 4
+ * for the serif titles (Sand, Rosé Pine), Jost for the geometric ones (Synthwave). Never the system's fonts.
+ */
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter-latin-ext-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter-latin-wght-italic.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter-latin-ext-wght-italic.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('./assets/fonts/nunito-latin-wght-normal.woff2') format('woff2');
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('./assets/fonts/nunito-latin-ext-wght-normal.woff2') format('woff2');
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('./assets/fonts/nunito-latin-wght-italic.woff2') format('woff2');
+  font-weight: 200 1000;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('./assets/fonts/nunito-latin-ext-wght-italic.woff2') format('woff2');
+  font-weight: 200 1000;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('./assets/fonts/source-serif-4-latin-wght-normal.woff2') format('woff2');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('./assets/fonts/source-serif-4-latin-ext-wght-normal.woff2') format('woff2');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Jost';
+  src: url('./assets/fonts/jost-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Jost';
+  src: url('./assets/fonts/jost-latin-ext-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* A pixel typeface (Press Start 2P, OFL): Quest's titles, Synthwave's and Quest's boot screens. */
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('./assets/fonts/press-start-2p-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+/*
+ * Symbols and emoji, bundled for the same reason (scripts/symbol-fonts.py builds these files and
+ * prints these rules): Inter's own symbols (arrows, ⌘ ⌥ ⇧, ✓, ★), which its latin subsets leave
+ * out; box drawing for the code font, Recursive's (from the terminals' Nerd Font); the other symbols
+ * (⏸ ✕ ✦ ◌ ⋯…) and the half-width katakana of the boot screen in Prism Symbols (Noto, OFL); Twemoji
+ * (OFL, its drawings CC BY 4.0, see Twemoji-LICENSE.txt) for the emoji, in colour, but only those
+ * meant as emoji: ⚠ ⏸ ▶ ♥ stay text, in the text's colour. Each file is only loaded when one of its
+ * characters shows. Each stack lists them after its own font: `--sans`, `--mono`, the themes'.
+ */
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter-symbols-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2100-2101, U+2103, U+2105-2106, U+2109, U+2116-2117, U+211E-2121, U+2126, U+212A-212B, U+212E, U+2132, U+213B, U+214D, U+2150-217F, U+2183-2186, U+2189, U+2190, U+2192, U+2194-2199, U+21A9-21AA, U+21B0-21B1, U+21B3-21B5, U+21BA-21BB, U+21D0, U+21D2, U+21D4, U+21DE-21DF, U+21E4-21E5, U+21E7, U+21EA, U+2202, U+2205-2206, U+220F, U+2211, U+221A, U+221E, U+222B, U+2236, U+2248, U+2260, U+2264-2265, U+2295-2298, U+2303-2305, U+2318, U+2325-2327, U+232B, U+2380, U+2387, U+238B, U+23CE-23CF, U+2423, U+2460-2468, U+24B6-24CF, U+24EA, U+25A0-25A2, U+25AA, U+25B2-25B3, U+25B6-25B7, U+25BA-25BD, U+25C0-25C1, U+25C4-25C7, U+25CA-25CB, U+25CF, U+25E6, U+25EF, U+2605-2606, U+263C, U+2661, U+2665, U+266A-266B, U+26A0, U+2713, U+2717, U+2756, U+2764, U+2780-2788, U+27EF, U+27F5-27FA, U+2913, U+2A38, U+2B06, U+2B12-2B13, U+2B24;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter-symbols-wght-italic.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+2100-2101, U+2103, U+2105-2106, U+2109, U+2116-2117, U+211E-2121, U+2126, U+212A-212B, U+212E, U+2132, U+213B, U+214D, U+2150-217F, U+2183-2186, U+2189, U+2190, U+2192, U+2194-2199, U+21A9-21AA, U+21B0-21B1, U+21B3-21B5, U+21BA-21BB, U+21D0, U+21D2, U+21D4, U+21DE-21DF, U+21E4-21E5, U+21E7, U+21EA, U+2202, U+2205-2206, U+220F, U+2211, U+221A, U+221E, U+222B, U+2236, U+2248, U+2260, U+2264-2265, U+2295-2298, U+2303-2305, U+2318, U+2325-2327, U+232B, U+2380, U+2387, U+238B, U+23CE-23CF, U+2423, U+2460-2468, U+24B6-24CF, U+24EA, U+25A0-25A2, U+25AA, U+25B2-25B3, U+25B6-25B7, U+25BA-25BD, U+25C0-25C1, U+25C4-25C7, U+25CA-25CB, U+25CF, U+25E6, U+25EF, U+2605-2606, U+263C, U+2661, U+2665, U+266A-266B, U+26A0, U+2713, U+2717, U+2756, U+2764, U+2780-2788, U+27EF, U+27F5-27FA, U+2913, U+2A38, U+2B06, U+2B12-2B13, U+2B24;
+}
+@font-face {
+  font-family: 'Recursive Mono';
+  src: url('./assets/fonts/recursive-mono-box.woff2') format('woff2');
+  font-weight: 300 1000;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2500-259F;
+}
+@font-face {
+  font-family: 'Prism Symbols';
+  src: url('./assets/fonts/prism-symbols-noto-symbols-2.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+21AF, U+21E6, U+21E8-21E9, U+21EB-21F0, U+21F3, U+2218-2219, U+2299, U+22C4-22C6, U+2316, U+2324, U+2328, U+237B, U+237D-237F, U+2394, U+23ED-23EF, U+23F1-23F2, U+23F4-2422, U+2424-2426, U+2440-244A, U+25A3-25A9, U+25AB-25B1, U+25B4-25B5, U+25B8-25B9, U+25BE-25BF, U+25C2-25C3, U+25C8-25C9, U+25CC-25CE, U+25D0-25E5, U+25E7-25EE, U+25F0-25FC, U+25FF, U+2601-2604, U+2607-2609, U+260E-2612, U+2616-2623, U+2630-2637, U+2654-2660, U+2662-2664, U+2666-2668, U+2680-268F, U+269E-269F, U+26AC, U+26BF-26C3, U+26C6-26CD, U+26CF-26D3, U+26D5-26E1, U+2700-2704, U+2706-2709, U+270C-2712, U+2714-2716, U+2718-271C, U+2722-2727, U+2729-274B, U+274D, U+274F-2752, U+2758-2763, U+2765-2775, U+2794, U+2798-27AF, U+27B1-27BE, U+2800-28FF, U+2981, U+29BF, U+29EB, U+2B00-2B05, U+2B07-2B0D, U+2B14-2B1A, U+2B1D-2B23, U+2B25-2B2F, U+2B4D-2B4F, U+2B51-2B54, U+2B56-2B73, U+2B76-2B95, U+2B97-2BFD, U+2BFF;
+}
+@font-face {
+  font-family: 'Prism Symbols';
+  src: url('./assets/fonts/prism-symbols-noto-symbols-2-math.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2212;
+}
+@font-face {
+  font-family: 'Prism Symbols';
+  src: url('./assets/fonts/prism-symbols-noto-symbols.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2180-2182, U+2187-2188, U+218A-218B, U+2191, U+2193, U+2300-2302, U+2306-230F, U+2311-2315, U+2317, U+231C-231F, U+2322-2323, U+2329-232A, U+232C-2335, U+237C, U+2381-2386, U+2388-238A, U+238C-2393, U+2396-239A, U+23AF, U+23BE-23CD, U+23D0-23DB, U+23E2-23E8, U+2469-24B5, U+24D0-24E9, U+24EB-24FF, U+260A-260D, U+2613, U+2624-262F, U+2638-263B, U+263D-2647, U+2669, U+266C-267E, U+2690-2692, U+2694-269D, U+26A2-26A9, U+26AD-26BC, U+26E2-26E9, U+26EB-26F1, U+26F4, U+26F6-26F9, U+26FB-26FC, U+26FE-26FF, U+271D-2721, U+2776-277F, U+2789-2793, U+2921-2922;
+}
+@font-face {
+  font-family: 'Prism Symbols';
+  src: url('./assets/fonts/prism-symbols-noto-math.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2102, U+2107, U+210A-2113, U+2115, U+2118-211D, U+2124, U+2127-2129, U+212C-212D, U+212F-2131, U+2133-2138, U+213C-214B, U+219A-21A8, U+21AB-21AE, U+21B2, U+21B6-21B9, U+21BC-21CF, U+21D1, U+21D3, U+21D5-21DD, U+21E0-21E3, U+21F1-21F2, U+21F4-2201, U+2203-2204, U+2207-220E, U+2210, U+2213-2217, U+221B-221D, U+221F-222A, U+222C-2235, U+2237-2247, U+2249-225F, U+2261-2263, U+2266-2294, U+229A-22C3, U+22C7-22FF, U+2310, U+2319, U+2320-2321, U+2336-237A, U+2395, U+239B-23AE, U+23B0-23B9, U+23DC-23E1, U+27C0-27EE, U+27F0-27F4, U+27FB-27FF, U+2900-2912, U+2914-2920, U+2923-2980, U+2982-29BE, U+29C0-29EA, U+29EC-2A37, U+2A39-2AFF, U+2B0E-2B11, U+2B30-2B4C, U+2BFE;
+}
+@font-face {
+  font-family: 'Prism Symbols';
+  src: url('./assets/fonts/prism-symbols-katakana.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+FF61-FF9F;
+}
+@font-face {
+  font-family: 'Twemoji';
+  src: url('./assets/fonts/twemoji.woff2') format('woff2');
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+200D, U+20E3, U+231A-231B, U+23E9-23EC, U+23F0, U+23F3, U+25FD-25FE, U+2600, U+2614-2615, U+2648-2653, U+267F, U+2693, U+26A1, U+26AA-26AB, U+26BD-26BE, U+26C4-26C5, U+26CE, U+26D4, U+26EA, U+26F2-26F3, U+26F5, U+26FA, U+26FD, U+2705, U+270A-270B, U+2728, U+274C, U+274E, U+2753-2755, U+2757, U+2795-2797, U+27B0, U+27BF, U+2B1B-2B1C, U+2B50, U+2B55, U+FE0F, U+1F000-1FAFF, U+E0020-E007F;
+}
+
+@font-face {
+  font-family: 'RecMonoCasual Nerd Font Mono';
+  src: url('./assets/fonts/RecMonoCasualNerdFontMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'RecMonoCasual Nerd Font Mono';
+  src: url('./assets/fonts/RecMonoCasualNerdFontMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'RecMonoCasual Nerd Font Mono';
+  src: url('./assets/fonts/RecMonoCasualNerdFontMono-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'RecMonoCasual Nerd Font Mono';
+  src: url('./assets/fonts/RecMonoCasualNerdFontMono-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+
+/*
+ * Themes: color tokens only, on `<html data-theme=…>` (see theme.svelte.ts).
+ * Without the attribute, Paper. The "System" mode picks Paper or Graphite depending on macOS.
+ */
+:root {
+  --sans: var(--theme-sans, 'Inter', 'Twemoji', 'Prism Symbols', system-ui, sans-serif);
+  --mono: 'Recursive Mono', 'Twemoji', 'Prism Symbols', ui-monospace, 'SF Mono', Menlo, monospace;
+  --mono-term: 'RecMonoCasual Nerd Font Mono', var(--mono);
+  /* Text scale shared by all blocks: titles, content, metadata, labels. */
+  --fs-title: 13px;
+  --fs-body: 12px;
+  --fs-mono: 11.5px;
+  --fs-meta: 11px;
+  --fs-tag: 10.5px;
+  /* Room in the lists (rows, block titles, tables): `[appearance] density`, never the theme. */
+  --space: 1;
+
+  /*
+   * A theme's personality, beyond its colours: shape, depth, titles, background. Their defaults are
+   * Prism's plain look; a theme overrides some (`:root[data-theme=…]`), components never.
+   * Radii: one factor, `--round` (0: sharp, 1: as drawn, 1.6: round), through `--r1`…`--r14`,
+   * the radius a component draws at 1; circles (50%) and pills (999px) keep theirs.
+   */
+  --round: 1;
+  --r1: calc(1px * var(--round)); --r2: calc(2px * var(--round)); --r3: calc(3px * var(--round));
+  --r4: calc(4px * var(--round)); --r5: calc(5px * var(--round)); --r6: calc(6px * var(--round));
+  --r7: calc(7px * var(--round)); --r8: calc(8px * var(--round)); --r9: calc(9px * var(--round));
+  --r10: calc(10px * var(--round)); --r12: calc(12px * var(--round)); --r13: calc(13px * var(--round));
+  --r14: calc(14px * var(--round));
+  /* Chips and pills (`.pill`, a row's tags): their own radius, `999px` for round ones. */
+  --r-chip: var(--r5);
+  /* Blocks: their background (translucent: glass, with the blur), their border, the source band
+     on top (0: none), their shadow, a blur behind. Menus and popups keep `--surface`. */
+  --panel-bg: var(--surface);
+  --panel-border: 1px solid var(--border);
+  --band: 2px;
+  --panel-shadow: none;
+  --panel-blur: none;
+  /* Block titles: background, rule below, font, weight, case, spacing, glow. */
+  --title-bg: transparent;
+  --title-border: 1px solid var(--border);
+  --font-title: inherit;
+  --title-weight: 500;
+  --title-case: none;
+  --title-spacing: normal;
+  --glow: none;
+  /* The window's chrome (rail, top bar, status bar): its background and blur; the rail's edge,
+     its active item's tint and marker. */
+  --chrome-bg: var(--surface);
+  --chrome-blur: none;
+  /* An agent's Chat: its background and blur, its rail and status, its cards (tools, diffs,
+     subagents), its outputs, its dock and prompt field. Opaque unless a theme makes it glass. */
+  --chat-bg: var(--bg);
+  --chat-blur: none;
+  --chat-bar: var(--bg);
+  --chat-card: var(--surface);
+  --chat-code: var(--bg);
+  --chat-dock: var(--surface);
+  --chat-field: var(--surface-muted);
+  --rail-edge: linear-gradient(var(--src-gitlab), var(--src-clickup), var(--src-k8s), var(--src-claude));
+  --rail-edge-w: 2px;
+  --rail-active: 15%;
+  --rail-mark: 3px;
+  /* Menus and popovers, side drawers, modals: their shadow. */
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-drawer: -12px 0 32px rgba(0, 0, 0, 0.18);
+  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.45);
+  /* Statuses: chips filled (100%) or not, outlined or not; a row's dot filled or a ring, its glow, its shape. */
+  --pill-fill: 100%;
+  --pill-ring: 0px;
+  --dot-fill: 100%;
+  --dot-ring: 0px;
+  --dot-glow: 0px;
+  --r-dot: 50%;
+  /* People's initials: a circle, or a square. */
+  --r-avatar: 50%;
+  /* Text selected. */
+  --selection: color-mix(in srgb, var(--accent) 28%, transparent);
+  /* Main buttons keep their colour (accent, Claude, GitLab); a theme adds a sheen over it, a glow
+     of it, and their text's case and spacing. */
+  --btn-sheen: none;
+  --btn-glow: 0px;
+  --btn-case: none;
+  --btn-spacing: normal;
+  /* Behind everything: an image (gradient, grid, grain), and a layer over everything (scanlines). */
+  --bg-image: none;
+  --overlay: none;
+}
+
+:root, :root[data-theme='paper'] {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-muted: #efede6;
+  --border: rgba(0, 0, 0, 0.1);
+  --text: #1f1e1b;
+  --text-muted: #6b6a64;
+  --ok-bg: #eaf3de; --ok: #3b6d11;
+  --ko-bg: #fcebeb; --ko: #a32d2d;
+  --warn-bg: #faeeda; --warn: #854f0b;
+  --info-bg: #e6f1fb; --info: #185fa5;
+  --violet: #7f77dd;
+  /* Prism identity: accent, text on the accent, and one color per data source. */
+  --accent: #7c5cdb;
+  --on-accent: #ffffff;
+  --logo-bg: #ece7fb;
+  --src-gitlab: #e2590f;
+  --src-clickup: #7b68ee;
+  --src-k8s: #326ce5;
+  --src-claude: #c96442;
+  --src-alert: #d4a017;
+  --src-calendar: #0f6cbd;
+  /* Syntax highlighting of the diff (highlight.ts). */
+  --shiki-foreground: #1f1e1b; --shiki-token-keyword: #a626a4; --shiki-token-string: #50a14f;
+  --shiki-token-comment: #8e8b82; --shiki-token-constant: #986801; --shiki-token-function: #4078f2;
+  --shiki-token-parameter: #b2560a; --shiki-token-punctuation: #6b6a64; --shiki-token-string-expression: #50a14f;
+  --shiki-token-link: #0184bc;
+  color-scheme: light;
+}
+
+/* Graphite: neutral dark. */
+:root[data-theme='graphite'] {
+  --bg: #1a1a18;
+  --surface: #242422;
+  --surface-muted: #2e2e2b;
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #ecebe6;
+  --text-muted: #9c9b94;
+  --ok-bg: #27500a; --ok: #c0dd97;
+  --ko-bg: #791f1f; --ko: #f7c1c1;
+  --warn-bg: #633806; --warn: #fac775;
+  --info-bg: #0c447c; --info: #b5d4f4;
+  --violet: #7f77dd;
+  --accent: #a78bfa;
+  --on-accent: #ffffff;
+  --logo-bg: #231c3a;
+  --src-gitlab: #fc6d26;
+  --src-clickup: #9d8cf5;
+  --src-k8s: #5b8def;
+  --src-claude: #d97757;
+  --src-alert: #f5c26b;
+  --src-calendar: #4ba0e8;
+  --shiki-foreground: #ecebe6; --shiki-token-keyword: #c678dd; --shiki-token-string: #98c379;
+  --shiki-token-comment: #7f848e; --shiki-token-constant: #d19a66; --shiki-token-function: #61afef;
+  --shiki-token-parameter: #e5c07b; --shiki-token-punctuation: #abb2bf; --shiki-token-string-expression: #98c379;
+  --shiki-token-link: #56b6c2;
+  color-scheme: dark;
+}
+
+/* Fjord: cool dark, slate and teal accent. */
+:root[data-theme='fjord'] {
+  --bg: #1b2129;
+  --surface: #222a34;
+  --surface-muted: #2b3541;
+  --border: rgba(173, 198, 224, 0.12);
+  --text: #e3eaf2;
+  --text-muted: #8fa0b3;
+  --ok-bg: #1f4a2c; --ok: #a3d9a5;
+  --ko-bg: #5c2026; --ko: #f4a6a6;
+  --warn-bg: #5a4219; --warn: #f2cc8f;
+  --info-bg: #173e57; --info: #9ccfe8;
+  --violet: #b4a7f5;
+  --accent: #5fb3b3;
+  --on-accent: #10181c;
+  --logo-bg: #1d3a3d;
+  --src-gitlab: #e8875a;
+  --src-clickup: #a397f0;
+  --src-k8s: #6f9ef0;
+  --src-claude: #d9926f;
+  --src-alert: #e8c66f;
+  --src-calendar: #5aa9e6;
+  --shiki-foreground: #e3eaf2; --shiki-token-keyword: #81a1c1; --shiki-token-string: #a3be8c;
+  --shiki-token-comment: #6c7a8c; --shiki-token-constant: #b48ead; --shiki-token-function: #88c0d0;
+  --shiki-token-parameter: #ebcb8b; --shiki-token-punctuation: #8fa0b3; --shiki-token-string-expression: #a3be8c;
+  --shiki-token-link: #8fbcbb;
+  color-scheme: dark;
+}
+
+/* Midnight: midnight blue, bright violet. */
+:root[data-theme='midnight'] {
+  --bg: #0e1020;
+  --surface: #161931;
+  --surface-muted: #1e2242;
+  --border: rgba(160, 170, 255, 0.13);
+  --text: #e6e8ff;
+  --text-muted: #8e93c2;
+  --ok-bg: #123a2a; --ok: #7ee0a8;
+  --ko-bg: #4a1426; --ko: #ff8fa3;
+  --warn-bg: #4a3212; --warn: #ffc978;
+  --info-bg: #18285a; --info: #8ab4ff;
+  --violet: #c3a6ff;
+  --accent: #8b7bff;
+  --on-accent: #ffffff;
+  --logo-bg: #231f4d;
+  --src-gitlab: #ff8a50;
+  --src-clickup: #a99bff;
+  --src-k8s: #6d95ff;
+  --src-claude: #ff9f7a;
+  --src-alert: #ffd36b;
+  --src-calendar: #5cb4ff;
+  --shiki-foreground: #e6e8ff; --shiki-token-keyword: #c792ea; --shiki-token-string: #c3e88d;
+  --shiki-token-comment: #6a6f9e; --shiki-token-constant: #f78c6c; --shiki-token-function: #82aaff;
+  --shiki-token-parameter: #ffcb6b; --shiki-token-punctuation: #8e93c2; --shiki-token-string-expression: #c3e88d;
+  --shiki-token-link: #89ddff;
+  color-scheme: dark;
+}
+
+/* Sand: warm light, sand and terracotta. */
+:root[data-theme='sand'] {
+  --bg: #f3eee4;
+  --surface: #fbf8f2;
+  --surface-muted: #ebe4d6;
+  --border: rgba(70, 50, 20, 0.13);
+  --text: #2b2620;
+  --text-muted: #7a6f60;
+  --ok-bg: #e4ecd2; --ok: #4c6b1f;
+  --ko-bg: #f6dcd6; --ko: #a3352d;
+  --warn-bg: #f3e2c2; --warn: #8a5a10;
+  --info-bg: #dde9f2; --info: #2d5f8a;
+  --violet: #7a6abf;
+  --accent: #c2622d;
+  --on-accent: #ffffff;
+  --logo-bg: #f1dfd0;
+  --src-gitlab: #c2622d;
+  --src-clickup: #6f5fc9;
+  --src-k8s: #3a6fc4;
+  --src-claude: #b5583a;
+  --src-alert: #b88a12;
+  --src-calendar: #2d6ea8;
+  --shiki-foreground: #2b2620; --shiki-token-keyword: #a0452a; --shiki-token-string: #5a7a1f;
+  --shiki-token-comment: #9a8d78; --shiki-token-constant: #8a5a10; --shiki-token-function: #2d5f8a;
+  --shiki-token-parameter: #7a6abf; --shiki-token-punctuation: #7a6f60; --shiki-token-string-expression: #5a7a1f;
+  --shiki-token-link: #2d6ea8;
+  color-scheme: light;
+}
+
+/* Contrast: pure black, strong borders, yellow accent. */
+:root[data-theme='contrast'] {
+  --bg: #000000;
+  --surface: #0b0b0b;
+  --surface-muted: #1c1c1c;
+  --border: rgba(255, 255, 255, 0.35);
+  --text: #ffffff;
+  --text-muted: #c8c8c8;
+  --ok-bg: #003d17; --ok: #5dff8f;
+  --ko-bg: #4d0000; --ko: #ff6b6b;
+  --warn-bg: #4a3a00; --warn: #ffd23f;
+  --info-bg: #00335a; --info: #6cc4ff;
+  --violet: #c9a8ff;
+  --accent: #ffd23f;
+  --on-accent: #000000;
+  --logo-bg: #2a2400;
+  --src-gitlab: #ff8a3d;
+  --src-clickup: #b39dff;
+  --src-k8s: #6c9dff;
+  --src-claude: #ff9b73;
+  --src-alert: #ffd23f;
+  --src-calendar: #4fb3ff;
+  --shiki-foreground: #ffffff; --shiki-token-keyword: #ff79c6; --shiki-token-string: #5dff8f;
+  --shiki-token-comment: #c8c8c8; --shiki-token-constant: #ffd23f; --shiki-token-function: #6cc4ff;
+  --shiki-token-parameter: #ffb86c; --shiki-token-punctuation: #ffffff; --shiki-token-string-expression: #5dff8f;
+  --shiki-token-link: #8be9fd;
+  color-scheme: dark;
+}
+
+/*
+ * Catppuccin (catppuccin.com, palette under MIT license): Latte light, Frappé, Macchiato and Mocha
+ * dark. Background `mantle`, blocks `base`, accent `mauve`; each source takes the hue closest
+ * to its brand (GitLab peach, ClickUp lavender, Kubernetes blue, Claude maroon).
+ */
+
+/* Catppuccin Latte. */
+:root[data-theme='ctp-latte'] {
+  --bg: #dce0e8;
+  --surface: #eff1f5;
+  --surface-muted: #e6e9ef;
+  --border: rgba(156, 160, 176, 0.35);
+  --text: #4c4f69;
+  --text-muted: #6c6f85;
+  --ok-bg: #d3e4d5; --ok: #40a02b;
+  --ko-bg: #eacdd7; --ko: #d20f39;
+  --warn-bg: #ece1d2; --warn: #b37b34;
+  --info-bg: #cedbf5; --info: #1e66f5;
+  --violet: #7287fd;
+  --accent: #8839ef;
+  --on-accent: #eff1f5;
+  --logo-bg: #d8c9f4;
+  --src-gitlab: #fe640b;
+  --src-clickup: #7287fd;
+  --src-k8s: #1e66f5;
+  --src-claude: #e64553;
+  --src-alert: #df8e1d;
+  --src-calendar: #209fb5;
+  --shiki-foreground: #4c4f69; --shiki-token-keyword: #8839ef; --shiki-token-string: #40a02b;
+  --shiki-token-comment: #7c7f93; --shiki-token-constant: #fe640b; --shiki-token-function: #1e66f5;
+  --shiki-token-parameter: #e64553; --shiki-token-punctuation: #7c7f93; --shiki-token-string-expression: #40a02b;
+  --shiki-token-link: #dc8a78;
+  color-scheme: light;
+}
+
+/* Catppuccin Frappé. */
+:root[data-theme='ctp-frappe'] {
+  --bg: #292c3c;
+  --surface: #303446;
+  --surface-muted: #414559;
+  --border: rgba(115, 121, 148, 0.28);
+  --text: #c6d0f5;
+  --text-muted: #a5adce;
+  --ok-bg: #485353; --ok: #a6d189;
+  --ko-bg: #554452; --ko: #e78284;
+  --warn-bg: #545255; --warn: #e5c890;
+  --info-bg: #424c68; --info: #8caaee;
+  --violet: #babbf1;
+  --accent: #ca9ee6;
+  --on-accent: #232634;
+  --logo-bg: #524b69;
+  --src-gitlab: #ef9f76;
+  --src-clickup: #babbf1;
+  --src-k8s: #8caaee;
+  --src-claude: #ea999c;
+  --src-alert: #e5c890;
+  --src-calendar: #85c1dc;
+  --shiki-foreground: #c6d0f5; --shiki-token-keyword: #ca9ee6; --shiki-token-string: #a6d189;
+  --shiki-token-comment: #949cbb; --shiki-token-constant: #ef9f76; --shiki-token-function: #8caaee;
+  --shiki-token-parameter: #ea999c; --shiki-token-punctuation: #949cbb; --shiki-token-string-expression: #a6d189;
+  --shiki-token-link: #f2d5cf;
+  color-scheme: dark;
+}
+
+/* Catppuccin Macchiato. */
+:root[data-theme='ctp-macchiato'] {
+  --bg: #1e2030;
+  --surface: #24273a;
+  --surface-muted: #363a4f;
+  --border: rgba(110, 115, 141, 0.28);
+  --text: #cad3f5;
+  --text-muted: #a5adcb;
+  --ok-bg: #3e4b4c; --ok: #a6da95;
+  --ko-bg: #4c3a4c; --ko: #ed8796;
+  --warn-bg: #4c4a4e; --warn: #eed49f;
+  --info-bg: #38425f; --info: #8aadf4;
+  --violet: #b7bdf8;
+  --accent: #c6a0f6;
+  --on-accent: #181926;
+  --logo-bg: #484263;
+  --src-gitlab: #f5a97f;
+  --src-clickup: #b7bdf8;
+  --src-k8s: #8aadf4;
+  --src-claude: #ee99a0;
+  --src-alert: #eed49f;
+  --src-calendar: #7dc4e4;
+  --shiki-foreground: #cad3f5; --shiki-token-keyword: #c6a0f6; --shiki-token-string: #a6da95;
+  --shiki-token-comment: #939ab7; --shiki-token-constant: #f5a97f; --shiki-token-function: #8aadf4;
+  --shiki-token-parameter: #ee99a0; --shiki-token-punctuation: #939ab7; --shiki-token-string-expression: #a6da95;
+  --shiki-token-link: #f4dbd6;
+  color-scheme: dark;
+}
+
+/* Catppuccin Mocha. */
+:root[data-theme='ctp-mocha'] {
+  --bg: #181825;
+  --surface: #1e1e2e;
+  --surface-muted: #313244;
+  --border: rgba(108, 112, 134, 0.28);
+  --text: #cdd6f4;
+  --text-muted: #a6adc8;
+  --ok-bg: #394545; --ok: #a6e3a1;
+  --ko-bg: #493446; --ko: #f38ba8;
+  --warn-bg: #4a4548; --warn: #f9e2af;
+  --info-bg: #333c57; --info: #89b4fa;
+  --violet: #b4befe;
+  --accent: #cba6f7;
+  --on-accent: #11111b;
+  --logo-bg: #443c5a;
+  --src-gitlab: #fab387;
+  --src-clickup: #b4befe;
+  --src-k8s: #89b4fa;
+  --src-claude: #eba0ac;
+  --src-alert: #f9e2af;
+  --src-calendar: #74c7ec;
+  --shiki-foreground: #cdd6f4; --shiki-token-keyword: #cba6f7; --shiki-token-string: #a6e3a1;
+  --shiki-token-comment: #9399b2; --shiki-token-constant: #fab387; --shiki-token-function: #89b4fa;
+  --shiki-token-parameter: #eba0ac; --shiki-token-punctuation: #9399b2; --shiki-token-string-expression: #a6e3a1;
+  --shiki-token-link: #f5e0dc;
+  color-scheme: dark;
+}
+
+/*
+ * Catppuccin's personality, shared by the four flavours: rounded type, soft shapes and pill chips,
+ * no hard contours (blocks rise from the background by their shadow, their source a pastel
+ * lozenge before the title rather than a band), pink and lavender halos behind. Then a nuance
+ * per flavour: Latte's lavender shadows, Frappé's top light, Macchiato's lavender ring, Mocha's glow.
+ */
+:root:is([data-theme='ctp-latte'], [data-theme='ctp-frappe'], [data-theme='ctp-macchiato'], [data-theme='ctp-mocha']) {
+  --theme-sans: 'Nunito', 'Inter', 'Twemoji', 'Prism Symbols', sans-serif;
+  --round: 1.4;
+  --r-chip: 999px;
+  --band: 0px;
+  --panel-border: 1px solid transparent;
+  --title-weight: 650;
+  --bg-image: radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--ctp-pink) 22%, transparent) 0, transparent 55%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--violet) 24%, transparent) 0, transparent 60%);
+}
+:root:is([data-theme='ctp-latte'], [data-theme='ctp-frappe'], [data-theme='ctp-macchiato'], [data-theme='ctp-mocha']) .panel > h2::before {
+  content: ''; flex-shrink: 0; width: 14px; height: 6px; border-radius: 99px;
+  background: linear-gradient(90deg, var(--src, var(--accent)), var(--ctp-pink));
+}
+:root[data-theme='ctp-latte'] { --ctp-pink: #ea76cb; --panel-shadow: 0 1px 2px rgba(114, 135, 253, 0.1), 0 8px 22px rgba(114, 135, 253, 0.14); }
+:root[data-theme='ctp-frappe'] { --ctp-pink: #f4b8e4; --panel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 6px 16px rgba(35, 38, 52, 0.45); }
+:root[data-theme='ctp-macchiato'] { --ctp-pink: #f5bde6; --panel-shadow: inset 0 0 0 1px rgba(183, 189, 248, 0.14), 0 8px 20px rgba(24, 25, 38, 0.5); }
+:root[data-theme='ctp-mocha'] { --ctp-pink: #f5c2e7; --panel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 28px rgba(0, 0, 0, 0.45); --glow: 0 0 14px rgba(203, 166, 247, 0.4); }
+
+/* One Dark (Atom). */
+:root[data-theme='one-dark'] {
+  --bg: #21252b;
+  --surface: #282c34;
+  --surface-muted: #2f343e;
+  --border: rgba(127, 132, 142, 0.28);
+  --text: #abb2bf;
+  --text-muted: #7f848e;
+  --ok-bg: #414d43; --ok: #98c379;
+  --ko-bg: #503a42; --ko: #e06c75;
+  --warn-bg: #524d44; --warn: #e5c07b;
+  --info-bg: #35495d; --info: #61afef;
+  --violet: #c678dd;
+  --accent: #61afef;
+  --on-accent: #21252b;
+  --logo-bg: #39536c;
+  --src-gitlab: #d19a66;
+  --src-clickup: #c678dd;
+  --src-k8s: #61afef;
+  --src-claude: #be5046;
+  --src-alert: #e5c07b;
+  --src-calendar: #56b6c2;
+  --shiki-foreground: #abb2bf; --shiki-token-keyword: #c678dd; --shiki-token-string: #98c379;
+  --shiki-token-comment: #5c6370; --shiki-token-constant: #d19a66; --shiki-token-function: #61afef;
+  --shiki-token-parameter: #e06c75; --shiki-token-punctuation: #7f848e; --shiki-token-string-expression: #98c379;
+  --shiki-token-link: #56b6c2;
+  color-scheme: dark;
+}
+
+/* Dracula. */
+:root[data-theme='dracula'] {
+  --bg: #21222c;
+  --surface: #282a36;
+  --surface-muted: #343746;
+  --border: rgba(163, 171, 200, 0.28);
+  --text: #f8f8f2;
+  --text-muted: #a3abc8;
+  --ok-bg: #315845; --ok: #50fa7b;
+  --ko-bg: #57333d; --ko: #ff5555;
+  --warn-bg: #545849; --warn: #f1fa8c;
+  --info-bg: #3e5462; --info: #8be9fd;
+  --violet: #bd93f9;
+  --accent: #bd93f9;
+  --on-accent: #21222c;
+  --logo-bg: #554a70;
+  --src-gitlab: #ffb86c;
+  --src-clickup: #bd93f9;
+  --src-k8s: #8be9fd;
+  --src-claude: #ff79c6;
+  --src-alert: #f1fa8c;
+  --src-calendar: #50fa7b;
+  --shiki-foreground: #f8f8f2; --shiki-token-keyword: #ff79c6; --shiki-token-string: #f1fa8c;
+  --shiki-token-comment: #6272a4; --shiki-token-constant: #bd93f9; --shiki-token-function: #50fa7b;
+  --shiki-token-parameter: #ffb86c; --shiki-token-punctuation: #f8f8f2; --shiki-token-string-expression: #f1fa8c;
+  --shiki-token-link: #8be9fd;
+  color-scheme: dark;
+}
+
+/* Tokyo Night. */
+:root[data-theme='tokyo-night'] {
+  --bg: #16161e;
+  --surface: #1a1b26;
+  --surface-muted: #24283b;
+  --border: rgba(154, 165, 206, 0.28);
+  --text: #c0caf5;
+  --text-muted: #9aa5ce;
+  --ok-bg: #374235; --ok: #9ece6a;
+  --ko-bg: #4b2f3d; --ko: #f7768e;
+  --warn-bg: #463c35; --warn: #e0af68;
+  --info-bg: #2f3954; --info: #7aa2f7;
+  --violet: #bb9af7;
+  --accent: #7aa2f7;
+  --on-accent: #16161e;
+  --logo-bg: #374465;
+  --src-gitlab: #ff9e64;
+  --src-clickup: #bb9af7;
+  --src-k8s: #7aa2f7;
+  --src-claude: #f7768e;
+  --src-alert: #e0af68;
+  --src-calendar: #7dcfff;
+  --shiki-foreground: #c0caf5; --shiki-token-keyword: #bb9af7; --shiki-token-string: #9ece6a;
+  --shiki-token-comment: #565f89; --shiki-token-constant: #ff9e64; --shiki-token-function: #7aa2f7;
+  --shiki-token-parameter: #e0af68; --shiki-token-punctuation: #89ddff; --shiki-token-string-expression: #9ece6a;
+  --shiki-token-link: #73daca;
+  color-scheme: dark;
+}
+
+/* Nord. */
+:root[data-theme='nord'] {
+  --bg: #2e3440;
+  --surface: #3b4252;
+  --surface-muted: #434c5e;
+  --border: rgba(169, 179, 196, 0.28);
+  --text: #eceff4;
+  --text-muted: #a9b3c4;
+  --ok-bg: #525d5f; --ok: #a3be8c;
+  --ko-bg: #584957; --ko: #bf616a;
+  --warn-bg: #62605f; --warn: #ebcb8b;
+  --info-bg: #4a576a; --info: #81a1c1;
+  --violet: #b48ead;
+  --accent: #88c0d0;
+  --on-accent: #2e3440;
+  --logo-bg: #526878;
+  --src-gitlab: #d08770;
+  --src-clickup: #b48ead;
+  --src-k8s: #5e81ac;
+  --src-claude: #bf616a;
+  --src-alert: #ebcb8b;
+  --src-calendar: #8fbcbb;
+  --shiki-foreground: #eceff4; --shiki-token-keyword: #81a1c1; --shiki-token-string: #a3be8c;
+  --shiki-token-comment: #616e88; --shiki-token-constant: #b48ead; --shiki-token-function: #88c0d0;
+  --shiki-token-parameter: #d8dee9; --shiki-token-punctuation: #eceff4; --shiki-token-string-expression: #a3be8c;
+  --shiki-token-link: #8fbcbb;
+  color-scheme: dark;
+}
+
+/* GitHub Light. */
+:root[data-theme='github-light'] {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-muted: #eff2f5;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-muted: #59636e;
+  --ok-bg: #daebdf; --ok: #1a7f37;
+  --ko-bg: #f8dcde; --ko: #d1242f;
+  --warn-bg: #efe7d6; --warn: #9a6700;
+  --info-bg: #d8e7f9; --info: #0969da;
+  --violet: #8250df;
+  --accent: #0969da;
+  --on-accent: #ffffff;
+  --logo-bg: #b5d2f4;
+  --src-gitlab: #bc4c00;
+  --src-clickup: #8250df;
+  --src-k8s: #0969da;
+  --src-claude: #bf3989;
+  --src-alert: #9a6700;
+  --src-calendar: #1b7c83;
+  --shiki-foreground: #1f2328; --shiki-token-keyword: #cf222e; --shiki-token-string: #0a3069;
+  --shiki-token-comment: #6e7781; --shiki-token-constant: #0550ae; --shiki-token-function: #8250df;
+  --shiki-token-parameter: #953800; --shiki-token-punctuation: #1f2328; --shiki-token-string-expression: #0a3069;
+  --shiki-token-link: #0a3069;
+  color-scheme: light;
+}
+
+/* GitHub Dark. */
+:root[data-theme='github-dark'] {
+  --bg: #010409;
+  --surface: #0d1117;
+  --surface-muted: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8d96a0;
+  --ok-bg: #183624; --ok: #3fb950;
+  --ko-bg: #411f22; --ko: #f85149;
+  --warn-bg: #382f19; --warn: #d29922;
+  --info-bg: #1e324a; --info: #58a6ff;
+  --violet: #a371f7;
+  --accent: #2f81f7;
+  --on-accent: #ffffff;
+  --logo-bg: #17335a;
+  --src-gitlab: #db6d28;
+  --src-clickup: #a371f7;
+  --src-k8s: #58a6ff;
+  --src-claude: #f778ba;
+  --src-alert: #d29922;
+  --src-calendar: #39c5cf;
+  --shiki-foreground: #e6edf3; --shiki-token-keyword: #ff7b72; --shiki-token-string: #a5d6ff;
+  --shiki-token-comment: #8b949e; --shiki-token-constant: #79c0ff; --shiki-token-function: #d2a8ff;
+  --shiki-token-parameter: #ffa657; --shiki-token-punctuation: #e6edf3; --shiki-token-string-expression: #a5d6ff;
+  --shiki-token-link: #a5d6ff;
+  color-scheme: dark;
+}
+
+/* Gruvbox Light. */
+:root[data-theme='gruvbox-light'] {
+  --bg: #f2e5bc;
+  --surface: #fbf1c7;
+  --surface-muted: #ebdbb2;
+  --border: rgba(124, 111, 100, 0.35);
+  --text: #3c3836;
+  --text-muted: #7c6f64;
+  --ok-bg: #e6dda9; --ok: #79740e;
+  --ko-bg: #eccaa8; --ko: #9d0006;
+  --warn-bg: #f0ddaa; --warn: #b57614;
+  --info-bg: #d4dbba; --info: #076678;
+  --violet: #8f3f71;
+  --accent: #af3a03;
+  --on-accent: #fbf1c7;
+  --logo-bg: #e4ba8c;
+  --src-gitlab: #af3a03;
+  --src-clickup: #8f3f71;
+  --src-k8s: #076678;
+  --src-claude: #d65d0e;
+  --src-alert: #b57614;
+  --src-calendar: #427b58;
+  --shiki-foreground: #3c3836; --shiki-token-keyword: #9d0006; --shiki-token-string: #79740e;
+  --shiki-token-comment: #928374; --shiki-token-constant: #8f3f71; --shiki-token-function: #b57614;
+  --shiki-token-parameter: #076678; --shiki-token-punctuation: #7c6f64; --shiki-token-string-expression: #79740e;
+  --shiki-token-link: #427b58;
+  color-scheme: light;
+}
+
+/* Gruvbox Dark. */
+:root[data-theme='gruvbox-dark'] {
+  --bg: #1d2021;
+  --surface: #282828;
+  --surface-muted: #3c3836;
+  --border: rgba(168, 153, 132, 0.28);
+  --text: #ebdbb2;
+  --text-muted: #a89984;
+  --ok-bg: #484828; --ok: #b8bb26;
+  --ko-bg: #562f2b; --ko: #fb4934;
+  --warn-bg: #56492a; --warn: #fabd2f;
+  --info-bg: #3c4441; --info: #83a598;
+  --violet: #d3869b;
+  --accent: #fe8019;
+  --on-accent: #282828;
+  --logo-bg: #684224;
+  --src-gitlab: #fe8019;
+  --src-clickup: #d3869b;
+  --src-k8s: #83a598;
+  --src-claude: #d65d0e;
+  --src-alert: #fabd2f;
+  --src-calendar: #8ec07c;
+  --shiki-foreground: #ebdbb2; --shiki-token-keyword: #fb4934; --shiki-token-string: #b8bb26;
+  --shiki-token-comment: #928374; --shiki-token-constant: #d3869b; --shiki-token-function: #fabd2f;
+  --shiki-token-parameter: #83a598; --shiki-token-punctuation: #a89984; --shiki-token-string-expression: #b8bb26;
+  --shiki-token-link: #8ec07c;
+  color-scheme: dark;
+}
+
+/* Solarized Light. */
+:root[data-theme='solarized-light'] {
+  --bg: #eee8d5;
+  --surface: #fdf6e3;
+  --surface-muted: #f5efdc;
+  --border: rgba(116, 132, 135, 0.35);
+  --text: #586e75;
+  --text-muted: #748487;
+  --ok-bg: #eae7bf; --ok: #859900;
+  --ko-bg: #f8d7c6; --ko: #dc322f;
+  --warn-bg: #f1e5bf; --warn: #b58900;
+  --info-bg: #dbe5e0; --info: #268bd2;
+  --violet: #6c71c4;
+  --accent: #268bd2;
+  --on-accent: #fdf6e3;
+  --logo-bg: #bcd6de;
+  --src-gitlab: #cb4b16;
+  --src-clickup: #6c71c4;
+  --src-k8s: #268bd2;
+  --src-claude: #d33682;
+  --src-alert: #b58900;
+  --src-calendar: #2aa198;
+  --shiki-foreground: #586e75; --shiki-token-keyword: #859900; --shiki-token-string: #2aa198;
+  --shiki-token-comment: #93a1a1; --shiki-token-constant: #cb4b16; --shiki-token-function: #268bd2;
+  --shiki-token-parameter: #b58900; --shiki-token-punctuation: #657b83; --shiki-token-string-expression: #2aa198;
+  --shiki-token-link: #6c71c4;
+  color-scheme: light;
+}
+
+/* Solarized Dark. */
+:root[data-theme='solarized-dark'] {
+  --bg: #00212b;
+  --surface: #002b36;
+  --surface-muted: #073642;
+  --border: rgba(112, 132, 136, 0.28);
+  --text: #93a1a1;
+  --text-muted: #708488;
+  --ok-bg: #1d432a; --ok: #859900;
+  --ko-bg: #302d34; --ko: #dc322f;
+  --warn-bg: #28402a; --warn: #b58900;
+  --info-bg: #084058; --info: #268bd2;
+  --violet: #6c71c4;
+  --accent: #268bd2;
+  --on-accent: #fdf6e3;
+  --logo-bg: #0b4865;
+  --src-gitlab: #cb4b16;
+  --src-clickup: #6c71c4;
+  --src-k8s: #268bd2;
+  --src-claude: #d33682;
+  --src-alert: #b58900;
+  --src-calendar: #2aa198;
+  --shiki-foreground: #93a1a1; --shiki-token-keyword: #859900; --shiki-token-string: #2aa198;
+  --shiki-token-comment: #586e75; --shiki-token-constant: #cb4b16; --shiki-token-function: #268bd2;
+  --shiki-token-parameter: #b58900; --shiki-token-punctuation: #839496; --shiki-token-string-expression: #2aa198;
+  --shiki-token-link: #6c71c4;
+  color-scheme: dark;
+}
+
+/* Rosé Pine Dawn. */
+:root[data-theme='rose-pine-dawn'] {
+  --bg: #f2e9e1;
+  --surface: #fffaf3;
+  --surface-muted: #faf4ed;
+  --border: rgba(121, 117, 147, 0.35);
+  --text: #575279;
+  --text-muted: #797593;
+  --ok-bg: #e4eae6; --ok: #56949f;
+  --ko-bg: #f3e2e0; --ko: #b4637a;
+  --warn-bg: #fcebd4; --warn: #ea9d34;
+  --info-bg: #dde3e1; --info: #286983;
+  --violet: #907aa9;
+  --accent: #907aa9;
+  --on-accent: #fffaf3;
+  --logo-bg: #ded4dd;
+  --src-gitlab: #d7827e;
+  --src-clickup: #907aa9;
+  --src-k8s: #286983;
+  --src-claude: #b4637a;
+  --src-alert: #ea9d34;
+  --src-calendar: #56949f;
+  --shiki-foreground: #575279; --shiki-token-keyword: #286983; --shiki-token-string: #ea9d34;
+  --shiki-token-comment: #9893a5; --shiki-token-constant: #d7827e; --shiki-token-function: #d7827e;
+  --shiki-token-parameter: #907aa9; --shiki-token-punctuation: #797593; --shiki-token-string-expression: #ea9d34;
+  --shiki-token-link: #56949f;
+  color-scheme: light;
+}
+
+/* Rosé Pine. */
+:root[data-theme='rose-pine'] {
+  --bg: #191724;
+  --surface: #1f1d2e;
+  --surface-muted: #26233a;
+  --border: rgba(144, 140, 170, 0.28);
+  --text: #e0def4;
+  --text-muted: #908caa;
+  --ok-bg: #3a4453; --ok: #9ccfd8;
+  --ko-bg: #4c2f44; --ko: #eb6f92;
+  --warn-bg: #4e413e; --warn: #f6c177;
+  --info-bg: #26364b; --info: #3e8fb0;
+  --violet: #c4a7e7;
+  --accent: #c4a7e7;
+  --on-accent: #191724;
+  --logo-bg: #504666;
+  --src-gitlab: #ebbcba;
+  --src-clickup: #c4a7e7;
+  --src-k8s: #3e8fb0;
+  --src-claude: #eb6f92;
+  --src-alert: #f6c177;
+  --src-calendar: #9ccfd8;
+  --shiki-foreground: #e0def4; --shiki-token-keyword: #3e8fb0; --shiki-token-string: #f6c177;
+  --shiki-token-comment: #6e6a86; --shiki-token-constant: #ebbcba; --shiki-token-function: #ebbcba;
+  --shiki-token-parameter: #c4a7e7; --shiki-token-punctuation: #908caa; --shiki-token-string-expression: #f6c177;
+  --shiki-token-link: #9ccfd8;
+  color-scheme: dark;
+}
+
+/* Hacker: green phosphor on black, an old terminal's. */
+:root[data-theme='hacker'] {
+  --bg: #050805;
+  --surface: #0b120b;
+  --surface-muted: #112011;
+  --border: rgba(57, 255, 20, 0.22);
+  --text: #b6f5b0;
+  --text-muted: #5fae5a;
+  --ok-bg: #0f3a14; --ok: #39ff14;
+  --ko-bg: #3a0f0f; --ko: #ff4141;
+  --warn-bg: #3a3410; --warn: #e6db45;
+  --info-bg: #0c2f2a; --info: #2ee6c5;
+  --violet: #8fff6b;
+  --accent: #39ff14;
+  --on-accent: #050805;
+  --logo-bg: #123a12;
+  --src-gitlab: #ffb000;
+  --src-clickup: #8fff6b;
+  --src-k8s: #2ee6c5;
+  --src-claude: #c6ff5e;
+  --src-alert: #e6db45;
+  --src-calendar: #5affb4;
+  --shiki-foreground: #b6f5b0; --shiki-token-keyword: #39ff14; --shiki-token-string: #e6db45;
+  --shiki-token-comment: #3f7a3b; --shiki-token-constant: #2ee6c5; --shiki-token-function: #8fff6b;
+  --shiki-token-parameter: #c6ff5e; --shiki-token-punctuation: #6fbf69; --shiki-token-string-expression: #e6db45;
+  --shiki-token-link: #2ee6c5;
+  color-scheme: dark;
+}
+
+/* Synthwave: neon pink and cyan on an 80s dusk. */
+:root[data-theme='synthwave'] {
+  --bg: #171229;
+  --surface: #221a3d;
+  --surface-muted: #2d2350;
+  --border: rgba(255, 126, 219, 0.25);
+  --text: #f4eeff;
+  --text-muted: #a99cc9;
+  --ok-bg: #1f4a45; --ok: #72f1b8;
+  --ko-bg: #561b3c; --ko: #fe4450;
+  --warn-bg: #4f4423; --warn: #fede5d;
+  --info-bg: #1b3d58; --info: #36f9f6;
+  --violet: #b893ce;
+  --accent: #ff7edb;
+  --on-accent: #171229;
+  --logo-bg: #4a2a5e;
+  --src-gitlab: #f97e72;
+  --src-clickup: #b893ce;
+  --src-k8s: #36f9f6;
+  --src-claude: #ff7edb;
+  --src-alert: #fede5d;
+  --src-calendar: #72f1b8;
+  --shiki-foreground: #f4eeff; --shiki-token-keyword: #fede5d; --shiki-token-string: #ff8b39;
+  --shiki-token-comment: #848bbd; --shiki-token-constant: #f97e72; --shiki-token-function: #36f9f6;
+  --shiki-token-parameter: #ff7edb; --shiki-token-punctuation: #a99cc9; --shiki-token-string-expression: #ff8b39;
+  --shiki-token-link: #36f9f6;
+  color-scheme: dark;
+}
+
+/* Blueprint: white lines on an architect's blue paper, a red pencil for what is wrong. */
+:root[data-theme='blueprint'] {
+  --bg: #123766;
+  --surface: #174780;
+  --surface-muted: #1d5593;
+  --border: rgba(234, 243, 255, 0.32);
+  --text: #eef5ff;
+  --text-muted: #9fc0e6;
+  --ok-bg: #1f5a63; --ok: #b7f5c4;
+  --ko-bg: #5e3a5a; --ko: #ffb3a1;
+  --warn-bg: #4f5a4a; --warn: #fff36e;
+  --info-bg: #1f5f9e; --info: #9fdcff;
+  --violet: #cdb8ff;
+  --accent: #ffffff;
+  --on-accent: #123766;
+  --logo-bg: #0e2c55;
+  --src-gitlab: #ffc79a;
+  --src-clickup: #cdb8ff;
+  --src-k8s: #9fdcff;
+  --src-claude: #ffd9a8;
+  --src-alert: #fff36e;
+  --src-calendar: #b7f5c4;
+  --shiki-foreground: #eef5ff; --shiki-token-keyword: #fff36e; --shiki-token-string: #b7f5c4;
+  --shiki-token-comment: #7fa3cf; --shiki-token-constant: #ffc79a; --shiki-token-function: #9fdcff;
+  --shiki-token-parameter: #cdb8ff; --shiki-token-punctuation: #9fc0e6; --shiki-token-string-expression: #b7f5c4;
+  --shiki-token-link: #9fdcff;
+  color-scheme: dark;
+}
+
+/* Quest: an 8-bit RPG's windows, blue boxes with a white frame, gold for what matters. */
+:root[data-theme='quest'] {
+  --bg: #0b0e2c;
+  --surface: #122070;
+  --surface-muted: #1a2a86;
+  --border: rgba(232, 236, 255, 0.4);
+  --text: #f4f6ff;
+  --text-muted: #a3b2f0;
+  --ok-bg: #1d4a3a; --ok: #6cff4a;
+  --ko-bg: #5a1a3a; --ko: #ff7a7a;
+  --warn-bg: #4f3f1a; --warn: #ffb13b;
+  --info-bg: #1a3f86; --info: #5cc8ff;
+  --violet: #c69cff;
+  --accent: #ffd84a;
+  --on-accent: #0b0e2c;
+  --logo-bg: #2a1a6a;
+  --src-gitlab: #ff9a4a;
+  --src-clickup: #c69cff;
+  --src-k8s: #5cc8ff;
+  --src-claude: #ffd84a;
+  --src-alert: #ff7a7a;
+  --src-calendar: #6cff4a;
+  --shiki-foreground: #f4f6ff; --shiki-token-keyword: #ffd84a; --shiki-token-string: #6cff4a;
+  --shiki-token-comment: #7383c9; --shiki-token-constant: #ff9a4a; --shiki-token-function: #5cc8ff;
+  --shiki-token-parameter: #c69cff; --shiki-token-punctuation: #a3b2f0; --shiki-token-string-expression: #6cff4a;
+  --shiki-token-link: #5cc8ff;
+  color-scheme: dark;
+}
+
+/*
+ * The other themes' personalities, each from where its palette comes from. Paper and Graphite stay
+ * close to Prism's plain look; the others change shape, depth, titles or background.
+ */
+/* Paper: a sheet on a desk, barely lifted. */
+:root[data-theme='paper'], :root:not([data-theme]) { --panel-shadow: 0 1px 2px rgba(31, 30, 27, 0.04); }
+/* Graphite: a light from above on each block. */
+:root[data-theme='graphite'] { --panel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+/* Fjord: calm water; no band, hairlines, a teal depth at the bottom of the window. */
+:root[data-theme='fjord'] {
+  --round: 1.2; --band: 0px; --title-weight: 600;
+  --panel-shadow: 0 6px 18px rgba(8, 12, 18, 0.35);
+  --bg-image: linear-gradient(180deg, transparent 55%, rgba(95, 179, 179, 0.1) 100%);
+}
+:root[data-theme='fjord'] .panel > h2 { box-shadow: inset 3px 0 0 var(--src, var(--accent)); }
+/* Midnight: a starry sky, glowing blocks. */
+:root[data-theme='midnight'] {
+  --round: 1.3; --r-chip: 999px; --band: 0px;
+  --panel-border: 1px solid rgba(139, 123, 255, 0.18);
+  --panel-shadow: 0 0 24px rgba(139, 123, 255, 0.1);
+  --glow: 0 0 10px rgba(139, 123, 255, 0.45);
+  --bg-image: radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.5) 50%, transparent 51%), radial-gradient(1px 1px at 68% 8%, rgba(255, 255, 255, 0.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 84% 42%, rgba(255, 255, 255, 0.35) 50%, transparent 51%), radial-gradient(1px 1px at 32% 72%, rgba(255, 255, 255, 0.3) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 52% 88%, rgba(255, 255, 255, 0.4) 50%, transparent 51%), radial-gradient(ellipse at 50% 0%, rgba(139, 123, 255, 0.16) 0, transparent 60%);
+}
+/* Sand: a journal; serif titles over a rule, flat, square, paper grain. */
+:root[data-theme='sand'] {
+  --round: 0.3; --band: 0px;
+  --panel-border: 1px solid rgba(60, 40, 10, 0.12);
+  --title-border: 2px solid var(--text);
+  --font-title: 'Source Serif 4', 'Twemoji', 'Prism Symbols', Georgia, serif; --title-weight: 600;
+  --bg-image: radial-gradient(rgba(60, 40, 10, 0.06) 1px, transparent 1px);
+}
+:root[data-theme='sand'] body { background-size: 6px 6px; }
+:root[data-theme='sand'] .panel > h2 { font-size: calc(var(--fs-title) + 2px); }
+/* Contrast: legibility first; thick contours, a wide band, bold titles, no rounding to blur edges. */
+:root[data-theme='contrast'] { --round: 0.4; --r-chip: var(--r2); --band: 4px; --panel-border: 2px solid var(--border); --title-border: 2px solid var(--border); --title-weight: 700; }
+/* One Dark: an editor; title bars as tabs, square blocks. */
+:root[data-theme='one-dark'] { --round: 0.5; --band: 0px; --title-bg: var(--surface-muted); --title-border: 1px solid rgba(0, 0, 0, 0.35); }
+:root[data-theme='one-dark'] .panel > h2 { box-shadow: inset 0 2px 0 var(--src, var(--accent)); }
+/* Dracula: a castle at night; purple glow, round, bold titles. */
+:root[data-theme='dracula'] {
+  --round: 1.3; --r-chip: 999px; --band: 0px; --title-weight: 700;
+  --panel-border: 1px solid rgba(189, 147, 249, 0.2);
+  --panel-shadow: 0 8px 26px rgba(189, 147, 249, 0.12);
+  --bg-image: radial-gradient(ellipse at 100% 0%, rgba(255, 121, 198, 0.1) 0, transparent 45%), radial-gradient(ellipse at 0% 100%, rgba(189, 147, 249, 0.12) 0, transparent 50%);
+}
+/* Tokyo Night: city lights; neon contours, a skyline glow at the bottom, spaced titles. */
+:root[data-theme='tokyo-night'] {
+  --round: 1.1; --band: 0px; --title-weight: 600; --title-spacing: 0.4px;
+  --panel-border: 1px solid rgba(122, 162, 247, 0.22);
+  --panel-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 10px 26px rgba(0, 0, 0, 0.4);
+  --bg-image: linear-gradient(0deg, rgba(122, 162, 247, 0.12) 0, transparent 30%), radial-gradient(ellipse at 80% 100%, rgba(255, 158, 100, 0.12) 0, transparent 40%);
+}
+/* Nord: arctic and flat; frost hairlines, no band nor shadow, a polar light above. */
+:root[data-theme='nord'] {
+  --round: 0.8; --band: 0px; --title-weight: 600;
+  --panel-border: 1px solid rgba(136, 192, 208, 0.16);
+  --bg-image: linear-gradient(180deg, rgba(136, 192, 208, 0.08) 0, transparent 35%);
+}
+/* GitHub: Primer boxes; a grey header on each block, no band. */
+:root:is([data-theme='github-light'], [data-theme='github-dark']) { --band: 0px; --title-bg: var(--surface-muted); --title-weight: 600; }
+/* Gruvbox: retro and warm; monospace titles, square, a thick band. */
+:root:is([data-theme='gruvbox-light'], [data-theme='gruvbox-dark']) { --round: 0.3; --r-chip: var(--r2); --band: 3px; --font-title: var(--mono); --title-weight: 700; }
+/* Solarized: precise; small spaced capitals, a sober band. */
+:root:is([data-theme='solarized-light'], [data-theme='solarized-dark']) { --round: 0.6; --band: 1px; --title-case: uppercase; --title-spacing: 0.9px; --title-weight: 600; }
+:root:is([data-theme='solarized-light'], [data-theme='solarized-dark']) .panel > h2 { font-size: var(--fs-meta); }
+/* Rosé Pine: soho and pine; elegant serif titles, round and soft, a rose dusk behind. */
+:root:is([data-theme='rose-pine-dawn'], [data-theme='rose-pine']) {
+  --round: 1.5; --r-chip: 999px; --band: 0px; --panel-border: 1px solid transparent;
+  --font-title: 'Source Serif 4', 'Twemoji', 'Prism Symbols', Georgia, serif; --title-weight: 600; --title-border: 1px solid transparent;
+  --bg-image: radial-gradient(ellipse at 0% 0%, rgba(235, 188, 186, 0.16) 0, transparent 50%), radial-gradient(ellipse at 100% 100%, rgba(196, 167, 231, 0.14) 0, transparent 50%);
+}
+:root[data-theme='rose-pine-dawn'] { --panel-shadow: 0 2px 10px rgba(87, 82, 121, 0.08); }
+:root[data-theme='rose-pine'] { --panel-shadow: 0 8px 22px rgba(0, 0, 0, 0.35); }
+
+/*
+ * Hacker's personality: an old terminal. Monospace everywhere, sharp corners, upper-case titles
+ * after a prompt, statuses in brackets, phosphor glow, scanlines over the window.
+ */
+:root[data-theme='hacker'] {
+  --theme-sans: var(--mono);
+  --round: 0;
+  --r-chip: 0;
+  --band: 1px;
+  --title-weight: 600;
+  --title-case: uppercase;
+  --title-spacing: 1.2px;
+  --glow: 0 0 6px rgba(57, 255, 20, 0.55);
+  --overlay: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 1px, transparent 1px 3px);
+}
+:root[data-theme='hacker'] .panel > h2::before { content: '>'; color: var(--accent); }
+:root[data-theme='hacker'] .pill:not(.status) { padding: 0; background: none; }
+:root[data-theme='hacker'] .pill:not(.status)::before { content: '['; }
+:root[data-theme='hacker'] .pill:not(.status)::after { content: ']'; }
+
+/*
+ * Synthwave's personality: an 80s dusk. A gradient sky over a neon horizon grid, glass blocks
+ * with a pink glow and no band, round shapes and pill chips, display titles that shine.
+ */
+:root[data-theme='synthwave'] {
+  --round: 1.6;
+  --r-chip: 999px;
+  --band: 0px;
+  --panel-bg: rgba(34, 26, 61, 0.62);
+  --panel-blur: blur(12px) saturate(140%);
+  --panel-border: 1px solid rgba(255, 126, 219, 0.22);
+  --panel-shadow: 0 0 0 1px rgba(255, 126, 219, 0.08), 0 10px 30px rgba(255, 126, 219, 0.14);
+  --font-title: 'Jost', var(--sans);
+  --title-weight: 700;
+  --title-spacing: 0.3px;
+  --glow: 0 0 10px rgba(255, 126, 219, 0.65);
+  --bg-image: linear-gradient(180deg, transparent 62%, rgba(255, 126, 219, 0.08) 62%),
+    repeating-linear-gradient(90deg, rgba(255, 126, 219, 0.14) 0 1px, transparent 1px 64px),
+    radial-gradient(ellipse at 50% 64%, rgba(255, 126, 219, 0.3) 0, transparent 40%),
+    linear-gradient(180deg, #120c26 0%, #2b1450 60%, #3a1450 64%, #120c26 100%);
+}
+
+/*
+ * Blueprint's personality: an architect's drawing. A grid on the whole window, square blocks drawn
+ * in fine white lines, titles in spaced capitals over a rule, chips outlined like dimensions.
+ */
+:root[data-theme='blueprint'] {
+  --round: 0;
+  --r-chip: 0;
+  --band: 0px;
+  --panel-border: 1px solid rgba(234, 243, 255, 0.55);
+  --panel-shadow: none;
+  --font-title: 'Jost', var(--sans);
+  --title-weight: 600;
+  --title-case: uppercase;
+  --title-spacing: 1.6px;
+  --title-border: 2px solid rgba(234, 243, 255, 0.55);
+  --bg-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.1) 0 1px, transparent 1px 100px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0 1px, transparent 1px 100px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 20px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 20px),
+    radial-gradient(ellipse at 40% 30%, #1a4a85, #0f2f58 80%);
+}
+:root[data-theme='blueprint'] .panel > h2 { font-size: var(--fs-meta); }
+
+/*
+ * Quest's personality: an 8-bit RPG. Every block a dialog window (blue, a white frame, a black
+ * edge), titles in a pixel typeface with a hard shadow, square chips, a starry night above a field.
+ */
+:root[data-theme='quest'] {
+  --round: 0.4;
+  --r-chip: 0;
+  --band: 0px;
+  --panel-border: 2px solid #e8ecff;
+  --panel-shadow: 0 0 0 2px #000, 4px 4px 0 2px rgba(0, 0, 0, 0.45);
+  --title-weight: 600;
+  --title-border: 2px solid rgba(232, 236, 255, 0.25);
+  --glow: 2px 2px 0 #000;
+  --bg-image: linear-gradient(180deg, transparent 88%, #1d4a2a 88%, #163a20 100%),
+    radial-gradient(2px 2px at 14% 12%, #fff 50%, transparent 51%), radial-gradient(2px 2px at 62% 6%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 86% 30%, #ffd84a 50%, transparent 51%), radial-gradient(2px 2px at 34% 44%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 76% 62%, #fff 50%, transparent 51%), radial-gradient(2px 2px at 8% 70%, #c69cff 50%, transparent 51%),
+    linear-gradient(180deg, #0b0e2c 0%, #171a52 88%);
+}
+/* The pixel typeface on the title alone: it is twice as wide, the block's info and controls keep theirs. */
+:root[data-theme='quest'] .panel > h2 .title { font: 400 calc(var(--fs-title) - 4px)/1.6 'Press Start 2P', var(--mono); letter-spacing: 0.5px; color: var(--accent); }
+
+/*
+ * The chrome and the main buttons, theme by theme: the rail's edge in the palette's own colours,
+ * the chrome dark as an editor's sidebar (One Dark, Nord) or glass (Synthwave, Midnight), buttons
+ * with a sheen (Catppuccin, Synthwave, Rosé Pine), a glow (neon themes), small capitals (Sand).
+ */
+:root:is([data-theme='ctp-latte'], [data-theme='ctp-frappe'], [data-theme='ctp-macchiato'], [data-theme='ctp-mocha']) {
+  --chrome-bg: var(--bg);
+  --rail-edge: linear-gradient(var(--accent), var(--ctp-pink), var(--violet));
+  --rail-active: 22%;
+  --rail-mark: 0px;
+  --btn-sheen: linear-gradient(135deg, transparent 0, color-mix(in srgb, var(--ctp-pink) 80%, transparent) 100%);
+}
+:root[data-theme='hacker'] { --chrome-bg: #030503; --rail-edge: var(--accent); --rail-edge-w: 1px; --rail-active: 22%; --btn-glow: 8px; --btn-case: uppercase; --btn-spacing: 0.8px; }
+:root[data-theme='synthwave'] {
+  --chrome-bg: rgba(23, 18, 41, 0.55); --chrome-blur: blur(14px) saturate(150%);
+  --rail-edge: linear-gradient(#ff7edb, #b893ce, #36f9f6); --rail-edge-w: 3px; --rail-active: 24%;
+  --btn-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 60%); --btn-glow: 12px;
+}
+/* Synthwave's Chat: a pane of frosted glass like its blocks, the sky blurred behind the conversation. */
+:root[data-theme='synthwave'] {
+  --chat-bg: rgba(23, 18, 41, 0.45); --chat-blur: blur(16px) saturate(150%); --chat-bar: rgba(23, 18, 41, 0.3);
+  --chat-card: rgba(34, 26, 61, 0.6); --chat-code: rgba(12, 8, 28, 0.55); --chat-dock: rgba(34, 26, 61, 0.45); --chat-field: rgba(45, 35, 80, 0.55);
+}
+:root[data-theme='fjord'] { --rail-edge: linear-gradient(#5fb3b3, #3e7f8f, transparent); }
+:root[data-theme='blueprint'] { --chrome-bg: #0f2f58; --rail-edge: rgba(234, 243, 255, 0.8); --rail-edge-w: 1px; --rail-mark: 2px; --btn-case: uppercase; --btn-spacing: 1px; }
+:root[data-theme='quest'] { --chrome-bg: #070920; --rail-edge: #e8ecff; --rail-edge-w: 2px; --rail-active: 26%; --btn-case: uppercase; --btn-spacing: 0.6px; }
+:root[data-theme='midnight'] { --chrome-bg: rgba(14, 16, 32, 0.7); --chrome-blur: blur(10px); --rail-edge: linear-gradient(#8b7bff, transparent 80%); --btn-glow: 10px; }
+:root[data-theme='sand'] { --chrome-bg: var(--bg); --rail-edge: var(--text); --rail-edge-w: 1px; --rail-mark: 0px; --btn-case: uppercase; --btn-spacing: 0.7px; }
+:root[data-theme='contrast'] { --rail-edge: var(--accent); --rail-edge-w: 3px; --rail-active: 30%; --rail-mark: 5px; }
+:root[data-theme='one-dark'] { --chrome-bg: var(--bg); --rail-edge: none; --rail-mark: 2px; }
+:root[data-theme='dracula'] { --rail-edge: linear-gradient(#ff79c6, #bd93f9); --btn-glow: 10px; }
+:root[data-theme='tokyo-night'] { --chrome-bg: var(--bg); --rail-edge: linear-gradient(#7aa2f7, #bb9af7, #ff9e64); --btn-glow: 8px; }
+:root[data-theme='nord'] { --chrome-bg: var(--bg); --rail-edge: linear-gradient(#88c0d0, #81a1c1, #5e81ac); --rail-edge-w: 1px; }
+:root:is([data-theme='github-light'], [data-theme='github-dark']) { --rail-edge: none; --rail-mark: 2px; }
+:root:is([data-theme='gruvbox-light'], [data-theme='gruvbox-dark']) { --rail-edge: var(--accent); --rail-edge-w: 3px; }
+:root:is([data-theme='solarized-light'], [data-theme='solarized-dark']) { --rail-edge: linear-gradient(#b58900, #cb4b16, #d33682, #6c71c4, #268bd2, #2aa198, #859900); }
+:root:is([data-theme='rose-pine-dawn'], [data-theme='rose-pine']) {
+  --chrome-bg: var(--bg); --rail-edge: linear-gradient(#ebbcba, #c4a7e7, #9ccfd8); --rail-mark: 0px; --rail-active: 20%;
+  --btn-sheen: linear-gradient(135deg, transparent 0, rgba(235, 188, 186, 0.6) 100%);
+}
+
+/*
+ * Popups and statuses, theme by theme: a menu's shadow as a ring and a glow (neon themes, Hacker),
+ * offset like print (Sand, Gruvbox) or a plain contour (Contrast); a row's dot as a ring
+ * (Catppuccin, Rosé Pine), glowing (neon themes) or square (Hacker, Sand); chips outlined.
+ */
+:root[data-theme='ctp-latte'] { --shadow-pop: 0 10px 28px rgba(114, 135, 253, 0.22); --shadow-modal: 0 24px 60px rgba(114, 135, 253, 0.25); }
+:root:is([data-theme='ctp-frappe'], [data-theme='ctp-macchiato'], [data-theme='ctp-mocha']) { --shadow-pop: 0 0 0 1px rgba(180, 190, 254, 0.12), 0 12px 30px rgba(0, 0, 0, 0.45); }
+:root:is([data-theme='ctp-latte'], [data-theme='ctp-frappe'], [data-theme='ctp-macchiato'], [data-theme='ctp-mocha']) { --dot-fill: 0%; --dot-ring: 2.5px; }
+:root[data-theme='hacker'] { --shadow-pop: 0 0 0 1px var(--accent), 0 0 18px rgba(57, 255, 20, 0.22); --shadow-drawer: -1px 0 0 var(--accent), -10px 0 24px rgba(57, 255, 20, 0.12); --r-dot: 0; --dot-glow: 6px; }
+:root[data-theme='synthwave'] { --shadow-pop: 0 0 0 1px rgba(255, 126, 219, 0.35), 0 12px 32px rgba(255, 126, 219, 0.25); --dot-glow: 6px; }
+:root[data-theme='midnight'] { --shadow-pop: 0 0 0 1px rgba(139, 123, 255, 0.2), 0 0 30px rgba(139, 123, 255, 0.25); --dot-glow: 6px; }
+:root[data-theme='tokyo-night'] { --dot-glow: 5px; }
+:root[data-theme='dracula'] { --shadow-pop: 0 12px 30px rgba(189, 147, 249, 0.22); }
+:root[data-theme='blueprint'] { --shadow-pop: 0 0 0 1px rgba(234, 243, 255, 0.8), 0 10px 24px rgba(4, 16, 36, 0.45); --pill-fill: 0%; --pill-ring: 1px; --r-dot: 0; }
+:root[data-theme='quest'] { --shadow-pop: 0 0 0 2px #e8ecff, 0 0 0 4px #000, 6px 6px 0 2px rgba(0, 0, 0, 0.5); --shadow-modal: 0 0 0 2px #e8ecff, 0 0 0 4px #000, 10px 10px 0 2px rgba(0, 0, 0, 0.5); --r-dot: 0; }
+:root[data-theme='sand'] { --shadow-pop: 4px 4px 0 rgba(60, 40, 10, 0.16); --shadow-modal: 10px 10px 0 rgba(60, 40, 10, 0.18); --pill-fill: 0%; --pill-ring: 1px; --r-dot: 1px; }
+:root[data-theme='contrast'] { --shadow-pop: 0 0 0 2px var(--text); --shadow-modal: 0 0 0 3px var(--text); --pill-ring: 1px; }
+:root:is([data-theme='gruvbox-light'], [data-theme='gruvbox-dark']) { --shadow-pop: 3px 3px 0 rgba(0, 0, 0, 0.35); --pill-fill: 0%; --pill-ring: 1px; }
+:root:is([data-theme='rose-pine-dawn'], [data-theme='rose-pine']) { --dot-fill: 0%; --dot-ring: 2px; }
+
+/*
+ * The details, theme by theme: the icons' stroke (fine on Nord, Sand and Rosé Pine, thick on
+ * Contrast), the selection, the keyboard focus (dashed on Hacker, thick on Contrast), the
+ * scrollbars in the accent (neon themes), square initials (Hacker, Sand, Gruvbox).
+ */
+:root:is([data-theme='nord'], [data-theme='sand'], [data-theme='rose-pine-dawn'], [data-theme='rose-pine']) svg.icon { stroke-width: 1.5; }
+:root[data-theme='contrast'] svg.icon { stroke-width: 2.6; }
+:root[data-theme='contrast'] :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+:root[data-theme='hacker'] { --selection: var(--accent); --r-avatar: 0; }
+:root[data-theme='hacker'] ::selection { color: var(--on-accent); }
+:root[data-theme='hacker'] :focus-visible { outline: 1px dashed var(--accent); outline-offset: 2px; }
+:root:is([data-theme='hacker'], [data-theme='synthwave'], [data-theme='midnight'], [data-theme='tokyo-night'], [data-theme='dracula']) { --scroll-thumb: color-mix(in srgb, var(--accent) 55%, transparent); }
+:root[data-theme='synthwave'] { --selection: rgba(54, 249, 246, 0.3); }
+:root[data-theme='blueprint'] { --selection: rgba(255, 255, 255, 0.25); --r-avatar: 0; }
+:root[data-theme='blueprint'] svg.icon { stroke-width: 1.5; }
+:root[data-theme='blueprint'] :focus-visible { outline: 1px dashed var(--accent); outline-offset: 2px; }
+:root[data-theme='quest'] { --selection: rgba(255, 216, 74, 0.3); --r-avatar: 0; --scroll-thumb: color-mix(in srgb, var(--accent) 55%, transparent); }
+:root[data-theme='sand'] { --r-avatar: var(--r2); --selection: rgba(194, 98, 45, 0.22); }
+:root:is([data-theme='gruvbox-light'], [data-theme='gruvbox-dark']) { --r-avatar: var(--r2); }
+:root:is([data-theme='ctp-latte'], [data-theme='ctp-frappe'], [data-theme='ctp-macchiato'], [data-theme='ctp-mocha']) { --selection: color-mix(in srgb, var(--ctp-pink) 30%, transparent); }
+
+* { box-sizing: border-box; }
+
+/* `[appearance] density = "comfortable"`: larger text, airier rows, whatever the theme. */
+html[data-density='comfortable'] {
+  --fs-title: 14px; --fs-body: 13px; --fs-mono: 12.5px; --fs-meta: 12px; --fs-tag: 11.5px;
+  --space: 1.6;
+}
+/* macOS asks to reduce transparency (fun.svelte.ts): no glass nor overlay, whatever the theme. */
+:root[data-reduce-transparency][data-theme] { --panel-bg: var(--surface); --panel-blur: none; --chrome-bg: var(--surface); --chrome-blur: none; --overlay: none;
+  --chat-bg: var(--bg); --chat-blur: none; --chat-bar: var(--bg); --chat-card: var(--surface); --chat-code: var(--bg); --chat-dock: var(--surface); --chat-field: var(--surface-muted); }
+
+html, body, #app { height: 100%; margin: 0; }
+/* No WebKit rubber-band effect at the end of scrolling, neither on the page nor in the blocks. */
+html, body, * { overscroll-behavior: none; }
+/* Except inside the phone's page (remote.html): there a swipe that starts on a clipped text (a title
+   cut to two lines, a row's details — boxes in `overflow: hidden`) or on a row scrolled sideways
+   must go on to the page; `none` on them stopped it, the list only scrolled from between the texts.
+   The page itself keeps no rubber band; an area that wants its scroll kept says so (`contain`). */
+html.remote * { overscroll-behavior: auto; }
+/* A drawer over the page (an MR, a ticket, logs…) keeps its scroll: at its end, the list under it stays still. */
+html.remote [data-drawer] .body { overscroll-behavior: contain; }
+
+/*
+ * The blocks on the phone (remote.html), the window untouched: text read at arm's length and rows
+ * a thumb can hit (the comfortable density, a step up); a block's title on its own line when its
+ * information does not fit beside it, its tabs scrolled sideways rather than cut; no size, zoom
+ * nor help controls, which a phone has no use for (one block at a time, full width).
+ */
+html.remote {
+  --fs-title: 15px; --fs-body: 14px; --fs-mono: 13px; --fs-meta: 12.5px; --fs-tag: 12px;
+  --space: 1.5;
+}
+html.remote .panel > h2 { flex-wrap: wrap; row-gap: 6px; padding-block: 10px; }
+html.remote .panel > h2 .controls { display: none; }
+html.remote .panel > h2 > * { min-width: 0; }
+html.remote .panel > h2 > small { white-space: normal; }
+html.remote .panel > h2 :is(.tabs, .seg, [role='group']) { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+
+body {
+  background: var(--bg);
+  background-image: var(--bg-image);
+  background-attachment: fixed;
+  color: var(--text);
+  font: 13px/1.45 var(--sans);
+}
+::selection { background: var(--selection); }
+
+/* A theme's layer over the whole window (scanlines…): seen, never in the way of a click. */
+body::after { content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: var(--overlay); }
+
+/* The app's chrome is not text: a click or a drag on a button, an icon, a tab, a menu, the rail or
+   the status bar selects nothing (WebKit wants the prefix). Content stays selectable — titles,
+   descriptions, logs, diffs — and so does what is typed. `.selectable` lets a piece of chrome be. */
+button, [role='button'], [role='tab'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [role='switch'], label, summary, kbd, svg, img, .rail, .statusbar, .ctx {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, select, [contenteditable], .selectable, .selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/*
+ * Form controls drawn by the app, not by the system: WebKitGTK draws its own (Adwaita), macOS
+ * Aqua's, so a select, a checkbox or a slider would not look the same on Linux.
+ * Select: the components keep their box (padding, border, background); the chevron and the room
+ * it takes win over them. `.bare` leaves a select alone (one with its own chevron, or invisible).
+ * Its list of options is the app's too (SelectMenu.svelte). Checkbox and slider: in `--tick` (the accent by
+ * default), which a component sets where it used `accent-color`; a slider's filled part goes
+ * up to `--p` (0% to 100%), given by its component.
+ */
+select:not([multiple], .bare) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 18px !important;
+  background-image: linear-gradient(45deg, transparent 50%, color-mix(in srgb, currentColor 70%, transparent) 50%), linear-gradient(135deg, color-mix(in srgb, currentColor 70%, transparent) 50%, transparent 50%) !important;
+  background-position: right 10px center, right 6px center !important;
+  background-size: 4px 4px !important;
+  background-repeat: no-repeat !important;
+}
+input[type='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  border: 1px solid color-mix(in srgb, var(--text-muted) 70%, transparent);
+  border-radius: var(--r3);
+  background: var(--surface) center / 100% no-repeat;
+  vertical-align: -2px;
+  cursor: pointer;
+}
+input[type='checkbox']:checked, input[type='checkbox']:indeterminate { border-color: var(--tick, var(--accent)); background-color: var(--tick, var(--accent)); }
+input[type='checkbox']:checked { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.2l2.6 2.6L12 5.4' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+input[type='checkbox']:indeterminate { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8h7' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
+input[type='checkbox']:disabled { opacity: 0.5; cursor: default; }
+input[type='checkbox']:focus-visible, input[type='range']:focus-visible { outline: 2px solid color-mix(in srgb, var(--tick, var(--accent)) 50%, transparent); outline-offset: 1px; }
+/*
+ * A slider's rail is the input's own background, not its track's: an older WebKit leaves the track
+ * without the input's `--p`/`--tick`, and one without color-mix() (before Safari 16.2) drops the
+ * whole gradient — the rail then gone, the thumb alone.
+ */
+input[type='range'] {
+  --range-empty: color-mix(in srgb, var(--text-muted) 30%, transparent);
+  --range-edge: color-mix(in srgb, var(--text-muted) 40%, transparent);
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  background: linear-gradient(to right, var(--tick, var(--accent)) var(--p, 0%), var(--range-empty) var(--p, 0%)) center / 100% 4px no-repeat;
+  cursor: pointer;
+}
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  input[type='range'] { --range-empty: rgba(128, 128, 128, 0.35); --range-edge: rgba(128, 128, 128, 0.45); }
+}
+input[type='range']:disabled { opacity: 0.5; cursor: default; }
+input[type='range']::-webkit-slider-runnable-track { height: 4px; background: none; }
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 1px solid var(--range-edge);
+  border-radius: 50%;
+  background: var(--tick, var(--accent));
+}
+/*
+ * Scrollbars drawn by the app too (the Mac's overlay ones, GTK's vary with its theme): thin, a thumb
+ * in `--scroll-thumb` on nothing. Not on the phone (html.remote), which keeps its browser's.
+ */
+:root { --scroll-thumb: color-mix(in srgb, var(--text-muted) 35%, transparent); }
+html:not(.remote) ::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+html:not(.remote) ::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 5px; background: var(--scroll-thumb) padding-box; }
+html:not(.remote) ::-webkit-scrollbar-thumb:hover { border-width: 2px; }
+html:not(.remote) ::-webkit-scrollbar-corner { background: transparent; }
+/* A number's arrows: the keyboard's ↑ ↓ still step it. */
+input[type='number']::-webkit-inner-spin-button, input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+/* A search field's rounded box and ✕ (Aqua's, GTK's): a plain field, Esc still clears it. */
+input[type='search'] { -webkit-appearance: none; appearance: none; }
+input[type='search']::-webkit-search-cancel-button, input[type='search']::-webkit-search-decoration { -webkit-appearance: none; }
+/* A collapsible block's marker: a chevron of the app's (WebKit's triangle otherwise), turned when open. */
+summary { list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: ''; display: inline-block; width: 5px; height: 5px; margin: 0 8px 0 2px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; opacity: 0.6; transform: rotate(-45deg); transition: transform 0.12s; vertical-align: 2px; }
+details[open] > summary::before { transform: rotate(45deg); vertical-align: 3px; }
+/* A text area's grip: two strokes in the corner, the system's otherwise. */
+textarea::-webkit-resizer { background: linear-gradient(135deg, transparent 52%, color-mix(in srgb, var(--text-muted) 70%, transparent) 52% 60%, transparent 60% 72%, color-mix(in srgb, var(--text-muted) 70%, transparent) 72% 80%, transparent 80%); }
+/* A datalist's arrow: suggestions are the app's (suggest.ts). */
+input::-webkit-calendar-picker-indicator, input::-webkit-list-button { display: none !important; }
+/* Suggestions under a text field (suggest.ts), in the body: above the dialogs. */
+.suggest { position: fixed; z-index: 200; max-height: 240px; overflow-y: auto; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r7); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-meta); }
+.suggest-item { display: flex; align-items: baseline; gap: 10px; padding: 3px 8px; border-radius: var(--r5); white-space: nowrap; cursor: pointer; }
+.suggest-item:hover { background: var(--surface-muted); }
+.suggest-item.on { background: color-mix(in srgb, var(--info) 18%, transparent); }
+.suggest-label { margin-left: auto; color: var(--text-muted); font-size: var(--fs-tag); }
+
+a { color: var(--info); text-decoration: none; }
+
+/*
+ * A panel's glass (`--panel-blur`) on a layer behind it, not on itself: a backdrop-filter would make
+ * the panel the containing block of its fixed menus (⋯, help), clipped by its overflow and opening
+ * under the next blocks.
+ */
+.panel { position: relative; }
+.panel::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; backdrop-filter: var(--panel-blur); -webkit-backdrop-filter: var(--panel-blur); pointer-events: none; }
+/* Panel: only its content scrolls, never the page. The color of its source (`--src`) as a top border. */
+.panel {
+  background: var(--panel-bg);
+  border: var(--panel-border);
+  border-top: var(--band) solid var(--src, var(--accent));
+  border-radius: var(--r10);
+  box-shadow: var(--panel-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.panel > h2 {
+  margin: 0;
+  padding: calc(8px * var(--space)) 12px;
+  font-family: var(--font-title);
+  font-size: var(--fs-title);
+  font-weight: var(--title-weight);
+  text-transform: var(--title-case);
+  letter-spacing: var(--title-spacing);
+  text-shadow: var(--glow);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--title-bg);
+  border-bottom: var(--title-border);
+}
+/* The title on the left; the block's info then its controls (BlockControls) pushed to the right. */
+.panel > h2 .title { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; margin-right: auto; }
+.panel > h2 small { text-transform: none; letter-spacing: normal; text-shadow: none; font-weight: 400; font-size: var(--fs-meta); color: var(--text-muted); }
+.scroll { overflow: auto; min-height: 0; flex: 1; }
+.panel.collapsed > :not(h2) { display: none; }
+.panel.collapsed > h2 { border-bottom: none; }
+
+.pill {
+  display: inline-block;
+  font-size: var(--fs-tag);
+  padding: 1px 7px;
+  border-radius: var(--r-chip);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--surface-muted) var(--pill-fill), transparent);
+  box-shadow: inset 0 0 0 var(--pill-ring) currentColor;
+  color: var(--text-muted);
+}
+.pill.ok { background: color-mix(in srgb, var(--ok-bg) var(--pill-fill), transparent); color: var(--ok); }
+.pill.ko { background: color-mix(in srgb, var(--ko-bg) var(--pill-fill), transparent); color: var(--ko); }
+.pill.warn { background: color-mix(in srgb, var(--warn-bg) var(--pill-fill), transparent); color: var(--warn); }
+.pill.info { background: color-mix(in srgb, var(--info-bg) var(--pill-fill), transparent); color: var(--info); }
+
+.row { display: flex; align-items: center; gap: 8px; padding: calc(5px * var(--space)) 12px; border-top: 1px solid var(--border); font-size: var(--fs-body); }
+.row:first-child { border-top: none; }
+
+.mono { font-family: var(--mono); font-size: var(--fs-mono); }
+.muted { color: var(--text-muted); }
+.grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Data tables (deployments). */
+table.data { width: 100%; border-collapse: collapse; font-size: var(--fs-body); table-layout: fixed; }
+table.data td { padding: calc(5px * var(--space)) 6px; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.empty { color: var(--text-muted); font-size: var(--fs-body); padding: 8px 12px; }
+
+@keyframes pulse { 50% { opacity: 0.35; } }
+/* A block reached from elsewhere (status bar, header): pointed out a moment. */
+[data-block].flash { animation: block-flash 1.2s ease-out; border-radius: var(--r10); }
+@keyframes block-flash { from { box-shadow: 0 0 0 2px var(--accent); } to { box-shadow: 0 0 0 2px transparent; } }
+html[data-reduce-motion] [data-block].flash { animation: none; }
+/* Keyboard (keys.svelte.ts): the active block and the line under the cursor. */
+[data-kbd] > .panel { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); }
+aside[data-kbd] { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent), -8px 0 24px rgba(0, 0, 0, 0.18) !important; }
+aside [data-cursor] { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: var(--r4); }
+[data-cursor] { background: color-mix(in srgb, var(--accent) 13%, transparent) !important; box-shadow: inset 2px 0 var(--accent); }
+
+/*
+ * View change (setView): the pages are stacked in the rail's order, and the grid slides a page
+ * height up or down to the next one (`data-nav` gives the direction), the header title with it;
+ * the rest of the window (rail, status bar) does not move.
+ */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-group(view-main) { overflow: hidden; animation-duration: 340ms; }
+::view-transition-group(view-title) { animation-duration: 340ms; }
+::view-transition-old(view-main) { animation: 340ms cubic-bezier(0.6, 0, 0.2, 1) both page-out; }
+::view-transition-new(view-main) { animation: 340ms cubic-bezier(0.6, 0, 0.2, 1) both page-in; }
+::view-transition-old(view-title) { animation: 340ms cubic-bezier(0.6, 0, 0.2, 1) both title-out; }
+::view-transition-new(view-title) { animation: 340ms cubic-bezier(0.6, 0, 0.2, 1) both title-in; }
+@keyframes page-out { to { opacity: 0.3; transform: translateY(calc(var(--nav-dir, 1) * -100%)); } }
+@keyframes page-in { from { opacity: 0.3; transform: translateY(calc(var(--nav-dir, 1) * 100%)); } }
+@keyframes title-out { to { opacity: 0; transform: translateY(calc(var(--nav-dir, 1) * -24px)); } }
+@keyframes title-in { from { opacity: 0; transform: translateY(calc(var(--nav-dir, 1) * 24px)); } }
+:root[data-nav='up'] { --nav-dir: -1; }
+/* Agents, Settings and Help: layers over the pages, coming in from the right. */
+@keyframes layer-in { from { opacity: 0; transform: translateX(48px); } }
+html:not([data-animations='off']):not([data-reduce-motion]) .layer-in { animation: 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both layer-in; }
+
+/* "Short" block: a few lines, at the height of their content (bounded). */
+.short-body { display: flex; flex-direction: column; gap: 4px; padding: 6px 12px 8px; max-height: 220px; overflow: auto; font-size: var(--fs-body); }
+.short-body .srow { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; }
+.short-body .srow > .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.short-body .more { color: var(--text-muted); font-size: var(--fs-meta); }
+
+/*
+ * Small animations (fun.svelte.ts), turned off by `[appearance] animations = false` (`html[data-animations="off"]`) and
+ * when macOS asks to reduce motion.
+ */
+/* Refresh: each turn ends on a slight bounce rather than a mechanical rotation. */
+html:not([data-animations='off']):not([data-reduce-motion]) svg.icon.spin { animation-duration: 0.9s; animation-timing-function: cubic-bezier(0.3, 1.4, 0.5, 1); }
+/* Claude waiting: the asterisk beats like a heart. */
+html:not([data-animations='off']):not([data-reduce-motion]) .fun-beat { display: inline-flex; animation: fun-beat 1.4s ease-in-out infinite; }
+/* Claude working: it spins slowly. */
+html:not([data-animations='off']):not([data-reduce-motion]) .fun-turn { display: inline-flex; animation: fun-turn 6s linear infinite; }
+/* Passing shine (the "nothing to fix" shield). */
+html:not([data-animations='off']):not([data-reduce-motion]) .fun-glint { position: relative; display: inline-flex; overflow: hidden; border-radius: var(--r6); }
+html:not([data-animations='off']):not([data-reduce-motion]) .fun-glint::after { content: ''; position: absolute; inset: -20%; background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.55) 50%, transparent 60%); transform: translateX(-120%); animation: fun-glint 2.8s ease-in-out infinite; pointer-events: none; }
+@keyframes fun-beat { 0%, 40%, 100% { transform: scale(1); } 20% { transform: scale(1.35); } 30% { transform: scale(0.95); } }
+@keyframes fun-turn { to { transform: rotate(360deg); } }
+@keyframes fun-glint { 60%, 100% { transform: translateX(120%); } }
+
+/*
+ * A theme's own motion (`[appearance] theme_motion`, `html[data-theme-motion="on"]`, off with
+ * Reduce motion): the sky and the CRT layers are ThemeScene.svelte's, a row that arrives is marked
+ * by arrivals.ts. Synthwave: its sky drawn alive (the still grid and glow give way), the rail's
+ * edge flowing, a chrome shine on the main buttons and a
+ * working agent, a row coming in on a wipe.
+ */
+html[data-theme-motion='on'][data-theme='synthwave'] {
+  --bg-image: linear-gradient(180deg, #120c26 0%, #2b1450 60%, #3a1450 64%, #120c26 100%);
+  --rail-edge: linear-gradient(#ff7edb, #b893ce, #36f9f6, #b893ce, #ff7edb);
+}
+/* Moving layers (transform), never moving backgrounds: those repaint the window at 60 Hz, a
+   transform is the GPU's. The edge's colours, three rails tall, slide down one period, in a loop. */
+html[data-theme-motion='on'][data-theme='synthwave'] .rail .edge::before { top: -300%; background-size: 100% 75%; animation: sw-flow 6s linear infinite; will-change: transform; }
+@keyframes sw-flow { to { transform: translateY(75%); } }
+html[data-theme-motion='on'][data-theme='synthwave'] {
+  --btn-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 60%);
+}
+html[data-theme-motion='on'][data-theme='synthwave'] :is(.btn.primary, button.primary, .tour .go) { position: relative; overflow: hidden; }
+html[data-theme-motion='on'][data-theme='synthwave'] :is(.btn.primary, button.primary, .tour .go)::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.55) 50%, transparent 58%); transform: translateX(-100%); animation: sw-shine 4s ease-in-out infinite; pointer-events: none; }
+@keyframes sw-shine { 55%, 100% { transform: translateX(100%); } }
+html[data-theme-motion='on'][data-theme='synthwave'] .pill.working { position: relative; overflow: hidden; }
+html[data-theme-motion='on'][data-theme='synthwave'] .pill.working::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.6) 50%, transparent 65%); transform: translateX(-130%); animation: sw-glint 3.2s ease-in-out infinite; pointer-events: none; }
+@keyframes sw-glint { 60%, 100% { transform: translateX(130%); } }
+html[data-theme-motion='on'][data-theme='synthwave'] [data-arrive] { background-image: linear-gradient(90deg, rgba(255, 126, 219, 0.38), rgba(54, 249, 246, 0.28)); background-repeat: no-repeat; animation: sw-arrive 1.4s ease-out both; }
+@keyframes sw-arrive { 0% { opacity: 0; background-size: 100% 100%; } 30% { opacity: 1; } 100% { background-size: 0% 100%; } }
+/*
+ * Hacker: a block cursor blinking after the page's and each block's title, an ASCII spinner on a
+ * working agent (and the status bar's turning icon), a row that arrives typed in, a new alert
+ * that glitches.
+ */
+html[data-theme-motion='on'][data-theme='hacker'] :is(.panel > h2 .title, header > .title)::after { content: ''; display: inline-block; width: 0.6em; height: 1em; margin-left: -3px; background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: hk-blink 1.06s steps(1) infinite; }
+@keyframes hk-blink { 50% { opacity: 0; } }
+.spin-ascii { display: none; }
+html[data-theme-motion='on'][data-theme='hacker'] .spin-ascii { display: inline-block; width: 1ch; margin-right: 1ch; overflow: hidden; vertical-align: bottom; }
+html[data-theme-motion='on'][data-theme='hacker'] :is(.spin-ascii, .fun-turn)::before { content: '|/-\\'; display: inline-block; white-space: pre; animation: hk-spin 0.48s steps(4) infinite; }
+html[data-theme-motion='on'][data-theme='hacker'] .fun-turn { animation: none; width: 1ch; overflow: hidden; font-family: var(--mono); }
+html[data-theme-motion='on'][data-theme='hacker'] .fun-turn > * { display: none; }
+@keyframes hk-spin { to { transform: translateX(-4ch); } }
+html[data-theme-motion='on'][data-theme='hacker'] [data-arrive] { animation: hk-type 0.6s steps(24) both; }
+html[data-theme-motion='on'][data-theme='hacker'] [data-block='todo'] [data-arrive] { animation: hk-type 0.6s steps(24) both, hk-glitch 0.25s steps(2) 0.6s 2; }
+@keyframes hk-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes hk-glitch { 0% { text-shadow: 2px 0 var(--ko), -2px 0 var(--info); translate: 2px 0; } 50% { text-shadow: -2px 0 var(--ko), 2px 0 var(--info); translate: -2px 0; } 100% { text-shadow: none; translate: none; } }
+
+/* Resizable columns (columns.svelte.ts): a handle on a header cell's right edge. */
+.col-resizable { position: relative; }
+.col-grip { position: absolute; top: 0; right: 0; bottom: 0; z-index: 2; width: 7px; cursor: col-resize; touch-action: none; }
+.col-grip::after { content: ''; position: absolute; top: 20%; bottom: 20%; right: 0; width: 2px; border-radius: 1px; background: var(--accent); opacity: 0; transition: opacity 0.12s; }
+.col-resizable:hover .col-grip::after { opacity: 0.35; }
+.col-grip:hover::after, .col-resizing .col-grip::after { opacity: 1; }
+body.col-resizing { cursor: col-resize; user-select: none; }
+[data-sized] th, [data-sized] td { overflow: hidden; text-overflow: ellipsis; }
+
+/* ANSI colours (ansi.ts's c30…c97) of logs and terminal text (job and pod logs, the phone's
+   terminal history, Chat outputs): the theme's, as the agents' terminal (terminal-theme.ts); the
+   bright ones brought closer to the text. */
+.c30, .c90 { color: var(--text-muted); }
+.c31 { color: var(--ko); } .c32 { color: var(--ok); } .c33 { color: var(--warn); } .c34 { color: var(--info); }
+.c35 { color: var(--violet, var(--accent)); } .c36 { color: var(--src-calendar, var(--info)); } .c37, .c97 { color: var(--text); }
+.c91 { color: color-mix(in srgb, var(--ko) 72%, var(--text)); } .c92 { color: color-mix(in srgb, var(--ok) 72%, var(--text)); } .c93 { color: color-mix(in srgb, var(--warn) 72%, var(--text)); }
+.c94 { color: color-mix(in srgb, var(--info) 72%, var(--text)); } .c95 { color: color-mix(in srgb, var(--violet, var(--accent)) 72%, var(--text)); } .c96 { color: color-mix(in srgb, var(--src-calendar, var(--info)) 72%, var(--text)); }

@@ -1,0 +1,36 @@
+[package]
+name = "prism-ops"
+description = "What Prism does around its sources, without its window: clone or create a project, check a setting before it is saved, Prism's own updates, feedback to a pack's or Prism's project."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# The window's types (`web/src/bindings`), exported by the app's tests.
+ts = ["dep:ts-rs", "prism-core/ts", "prism-collectors/ts"]
+
+[dependencies]
+prism-base.workspace = true
+prism-core.workspace = true
+prism-collectors.workspace = true
+
+anyhow.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+futures.workspace = true
+# The releases' signatures (scripts/release.sh, minisign): an update installs only what its key signed.
+minisign-verify = "0.3"
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+# The tests' git identity (clones), set before they run.
+prism-sys.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

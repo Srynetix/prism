@@ -1,0 +1,178 @@
+[package]
+name = "prism"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+# The app is the Tauri shell (window, menu, tray, its own commands) over the library crates of
+# `crates/`, each a layer that only depends on the ones below it: sys, macos < base < core <
+# collectors < agents < blocks < demo, ops over collectors, remote over core, commands over
+# them all (Prism running without its window), and server, its binary without one (no Tauri). `unsafe` lives in sys (the C library) and macos
+# (Apple's frameworks) only: every other crate forbids it.
+[workspace]
+members = ["crates/*"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.package]
+version = "0.10.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+prism-sys = { path = "crates/sys" }
+prism-macos = { path = "crates/macos" }
+prism-base = { path = "crates/base" }
+prism-core = { path = "crates/core" }
+prism-collectors = { path = "crates/collectors" }
+prism-agents = { path = "crates/agents" }
+prism-blocks = { path = "crates/blocks" }
+prism-ops = { path = "crates/ops" }
+prism-demo = { path = "crates/demo" }
+prism-remote = { path = "crates/remote" }
+prism-commands = { path = "crates/commands" }
+
+anyhow = "1.0.104"
+base64 = "0.23"
+chrono = { version = "0.4.45", features = ["serde"] }
+dirs = "7.0.0"
+futures = "0.3.34"
+notify = "8.2"
+k8s-openapi = { version = "0.28.0", features = ["latest"] }
+kube = { version = "4.2.0", features = ["runtime", "client", "config"] }
+portable-pty = "0.9.0"
+regex = "1.13.1"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls", "query"] }
+# OpenCode keeps its sessions in SQLite (the Tokens block): bundled, no system library needed.
+rusqlite = { version = "0.41", features = ["bundled"] }
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha1 = "0.11"
+sha2 = "0.11"
+tokio = { version = "1.53.2", features = ["full"] }
+toml = { version = "1.1.6", features = ["preserve_order"] }
+toml_edit = "0.25.15"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+# Without its notes on serde attributes it ignores: they shape reading (deserialize_with), not the type.
+ts-rs = { version = "12.0.1", features = ["chrono-impl", "serde-json-impl", "no-serde-warnings"] }
+uuid = { version = "1", features = ["v4"] }
+# An agent's files downloaded as a zip (Files tab).
+zip = { version = "9", default-features = false, features = ["deflate"] }
+# The System block: CPU, memory, processes and network counters, on every system.
+sysinfo = { version = "0.39", default-features = false, features = ["system", "network", "disk"] }
+libc = "0.2"
+block2 = "0.6"
+objc2 = "0.6"
+objc2-event-kit = { version = "0.3", features = ["EKEventStore", "EKEvent", "EKCalendarItem", "EKObject", "EKCalendar", "EKParticipant", "EKTypes", "block2"] }
+objc2-foundation = { version = "0.3", features = ["NSData", "NSArray", "NSDate", "NSString", "NSError", "NSURL", "NSPredicate", "NSEnumerator"] }
+keyring = "3"
+
+# A team's blocks (`PRISM_EXTRA_BLOCKS`) are compiled into the app's crate: they use its crates
+# (serde, tokio, chrono, futures, regex, toml…) as their own.
+[dependencies]
+base64.workspace = true
+prism-base.workspace = true
+prism-core.workspace = true
+prism-collectors.workspace = true
+prism-agents.workspace = true
+prism-blocks.workspace = true
+prism-ops.workspace = true
+prism-demo.workspace = true
+prism-remote.workspace = true
+prism-commands = { workspace = true, features = ["tauri"] }
+prism-sys.workspace = true
+prism-macos.workspace = true
+
+anyhow.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+futures.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-window-state = "2"
+# The releases' signatures (scripts/release.sh, minisign): an update installs only what its key signed.
+minisign-verify = "0.3"
+tokio.workspace = true
+toml.workspace = true
+notify.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+# Paused time: the collection pace (Hub::pause) tested without waiting.
+tokio = { workspace = true, features = ["test-util"] }
+ts-rs.workspace = true
+# The window's types (`export_bindings`): the crates derive them with their `ts` feature.
+prism-core = { workspace = true, features = ["ts"] }
+prism-collectors = { workspace = true, features = ["ts"] }
+prism-agents = { workspace = true, features = ["ts"] }
+prism-blocks = { workspace = true, features = ["ts"] }
+prism-ops = { workspace = true, features = ["ts"] }
+prism-commands = { workspace = true, features = ["tauri", "ts"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+
+# Deploys are local and frequent: rebuilding Prism's own crates dominates (the link takes under a
+# second). Their compilation is incremental and split finely, and the crates are not optimized
+# across their codegen units (ThinLTO): a one-line change rebuilds in ~50 s, not ~130 s, for a
+# binary a few % larger and no slowdown that shows in an app waiting on I/O.
+[profile.release]
+lto = "off"
+
+[profile.release.package.prism]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-sys]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-macos]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-base]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-core]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-collectors]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-agents]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-blocks]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-commands]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-server]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-demo]
+incremental = true
+codegen-units = 256

@@ -1,0 +1,11 @@
+query($path: ID!, $ref: String, $source: String, $after: Time!, $cursor: String) {
+  project(fullPath: $path) {
+    pipelines(ref: $ref, source: $source, updatedAfter: $after, first: 50, after: $cursor) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id status createdAt duration
+        jobs(first: 100) { nodes { name status duration queuedDuration retried webPath } }
+      }
+    }
+  }
+}

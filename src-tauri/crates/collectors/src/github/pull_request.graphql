@@ -1,0 +1,19 @@
+query($owner: String!, $name: String!, $number: Int!) {
+  viewer { login }
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      body state reviewDecision
+      baseRef { branchProtectionRule { requiredApprovingReviewCount } rules(first: 20) { nodes { type parameters { ... on PullRequestParameters { requiredApprovingReviewCount } } } } }
+      author { login }
+      latestOpinionatedReviews(first: 50) { nodes { state author { login } } }
+      comments(first: 100) { nodes { databaseId body createdAt author { login ... on User { name } } } }
+      reviews(first: 100) { nodes { databaseId body createdAt state author { login ... on User { name } } } }
+      timelineItems(last: 100, itemTypes: [PULL_REQUEST_COMMIT, HEAD_REF_FORCE_PUSHED_EVENT, REVIEW_DISMISSED_EVENT]) { nodes { __typename
+        ... on PullRequestCommit { commit { committedDate author { name user { login } } } }
+        ... on HeadRefForcePushedEvent { createdAt actor { login } }
+        ... on ReviewDismissedEvent { createdAt actor { login } review { author { login } } } } }
+      reviewThreads(first: 100) { nodes { id isResolved path line originalLine startLine originalStartLine diffSide
+        comments(first: 50) { nodes { databaseId body createdAt author { login ... on User { name } } } } } }
+    }
+  }
+}

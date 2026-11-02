@@ -1,0 +1,19 @@
+[package]
+name = "prism-demo"
+description = "Prism's demo profile: sample data for every view, and the answers to the window's calls from it."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+prism-core.workspace = true
+prism-collectors.workspace = true
+prism-agents.workspace = true
+
+anyhow.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+toml.workspace = true

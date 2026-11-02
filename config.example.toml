@@ -1,0 +1,704 @@
+# Copy to ~/.config/prism/config.toml. Every section is optional; a team can share its values
+# as a pack instead (see packs/example.toml): `packs = ["team"]`, then only your own choices here.
+# Tokens never go here: they come from the environment (see docs/guide.md).
+
+# packs = ["team"]
+
+[clusters]
+# Access to the Kubernetes clusters: false (no rights on the clusters) turns off pods,
+# environments and ArgoCD, with no access error in Alerts. Optional section; these keys were
+# [runners]' (kube_context is now default_context), still read there.
+# enabled = true
+default_context = "gke_example-ops_us-central1-a_ops"   # a target's or ArgoCD's, when it names none
+# stages = "none"   # names the stages Environments and ArgoCD read: none ([[environments]] env:
+#                   # staging, preprod, prod play those roles), or a block of yours declaring them
+
+# The Pods block: each target a cluster and its namespaces (`*` matches any characters; empty:
+# every namespace). GitLab runners and their CI jobs are recognized. The former [runners]
+# namespace is the target "Runners".
+[[pods]]
+name = "Runners"
+namespaces = ["gitlab-runner"]
+# [[pods]]
+# name = "Production"
+# context = "gke_example-prod_us-central1_prod"
+# namespaces = ["shop-*"]
+
+[worktrees]
+# Worktrees of the repositories with `worktrees = true` below, discovered via `git worktree list`.
+# Base of their new worktrees, unless a repository names its own (`[[repos]] base_branch`):
+# "auto" = most recent release branch, otherwise the main one. Or an explicit branch name.
+base_branch = "auto"
+poll_seconds = 5
+# With no commit nor Claude session for this many days, a worktree is "stale" (Worktrees view).
+stale_days = 14
+
+[forge]
+# Where the repositories live, one per profile: "gitlab" (default, through glab) or "github"
+# (through gh: `gh auth login`; the [[repos]] projects are then "owner/repo"). On GitHub, Prism reads
+# the pull requests, their checks and the protected branches' checks, acts on pull requests (merge,
+# auto-merge, rebase, approve, comment, draft, people) and on GitHub Actions (jobs, logs, retries,
+# cancel, deployments to approve), scans vulnerabilities (images on ghcr.io, Dependabot's alerts), measures CI health
+# (GitHub Actions) and follows Renovate (its dashboard, its workflow or app); the merge queue
+# stays GitLab's. Authentication is that of glab or gh (token in the keychain), never in this file.
+# provider = "github"
+# Access to the forge, and to the repository: false (no account, Product profile) turns off MRs, CI,
+# worktrees, vulnerabilities, repositories and agents. `[gitlab]` and `[worktrees]` are
+# then optional.
+# enabled = true
+# Main branch and release branch prefix (Git Flow) of every repository that names none of its
+# own (`[[repos]] main_branch`, `release_prefix`): together, the protected branches whose pipelines
+# are followed; the most recent release is the base for worktrees. No main branch (the default):
+# each remote's default branch.
+# main_branch = "main"
+release_prefix = "release/"   # Git Flow; default: none, the main branch only
+merged_days = 7               # how long a merged MR is followed, in days
+poll_seconds = 15
+ci_health = true      # the CI health block (on by default)
+ci_health_days = 14   # its window, in days
+# ci_health_repo = "app"   # the repository it reads; default: the one below
+# The repository bare MR references name (!1294, no repository before it, in notes, the palette,
+# alerts): its MRs are listed without its name, always read. Default: the [[repos]] entry with
+# `primary = true` (the former key), if any; none: every MR is named app!1294.
+bare_mr_repo = "app"
+# (These keys were [gitlab]'s: still read there; [forge] wins when both say.)
+
+[gitlab]
+# What GitLab alone has. The projects are those of the [[repos]] below.
+# Instance (gitlab.com, or self-hosted): links, glab, image registry (registry.<host>).
+host = "gitlab.com"
+# Label watched by a CI job of yours that rebases then puts the MR in auto-merge. Empty
+# (default): no such job, no Merge queue button.
+# merge_queue_label = "merge-queue"
+# Prefix of the labels that order that queue (merge-priority::0, merge-priority::1…): the lowest
+# number first, then the MRs without one; the oldest first within each. Empty (default): the
+# oldest first only.
+# merge_priority_prefix = "merge-priority::"
+
+[vulnerabilities]
+# The Vulnerabilities block, off by default: Trivy (installed) scans the dependencies of its
+# repositories, on their main branch.
+enabled = true
+# repos = ["app", "helm"]   # [[repos]] names, with a local clone; default: bare_mr_repo's ([forge])
+# Branches whose dependencies are scanned: "main" (the default), "release" (the latest release
+# branch, otherwise the main one), or a branch's name. With several, each project's line carries
+# its branch.
+# branches = ["release", "main"]
+# components = "apps"   # an Nx monorepo: each project.json project of this folder apart; default: the repository as a whole
+# libs = "libs"   # shared libraries scanned besides the components (Nx project.json); default: none
+# skip_dirs = ["/home/python/.cache/uv"]   # folders of an image Trivy skips
+# images = "none"   # what names the images to scan: none (dependencies only), or a block of
+#                   # yours naming them (its own settings say which)
+
+# Repositories: Repos menu of the status bar (branch, changes, lag behind the default
+# branch; Claude session, editor, terminal, Finder, GitLab). Without `path` (no local clone),
+# the repository is only used for its MRs: `project` and `merge_requests = true` are enough.
+# The blocks that read a repository each name theirs ([forge] ci_health_repo, [renovate] repo,
+# [vulnerabilities] repos, a block of yours' `repo`), otherwise [forge] bare_mr_repo's.
+# One switch per feature, off by default: `worktrees` (its worktrees
+# listed, agents create theirs there, Claude actions on its MRs; needs `path`), `merge_queue` (the
+# [gitlab] merge_queue_label on its MRs), `ticket_required` (its MRs need a ticket id), `pipelines`
+# (its main and release branches' pipelines and pending jobs; needs `project`). Branches:
+# `main_branch`, `release_prefix` (Git Flow; empty: none) and `base_branch` (of new worktrees,
+# "auto" = latest release, else main); absent, [forge] and [worktrees] give them (no [forge]
+# main_branch: the remote's default branch).
+# `agent` ("claude", "command-code", "opencode" or "codex"): the CLI of the agents launched in its clone or its
+# worktrees; absent, [agents] provider. `forge` ("gitlab", "github"): the forge its project is on when it
+# is not the profile's (a personal project on GitHub): its MRs (`merge_requests`) join the same
+# block, read with that forge's tool and login (gh or glab); no pipelines, merge queue nor bare
+# references. Absent: its working folder's ([[workspaces]] below), if its clone is in one.
+# A pack's [[repos]] merge by name: the pack can name the repository and its project, your
+# config.toml adds its `path` (a pack's `path` is ignored: everyone keeps their clones where they
+# like; Settings › Code › Repositories finds them in a folder you pick, or clones them).
+# (Formerly `primary = true`, then `[gitlab] project` and `[worktrees] repo` before it: still read,
+# as bare_mr_repo's repository.)
+[[repos]]
+name = "app"
+path = "~/Development/app"
+project = "example-org/app"
+worktrees = true
+ticket_required = true
+pipelines = true
+
+[[repos]]
+name = "dockerfiles"
+path = "~/Development/dockerfiles"
+project = "example-org/dockerfiles"
+
+[[repos]]
+name = "helm"
+path = "~/Development/helm"
+project = "example-org/helm"
+merge_requests = true   # its MRs in the Merge requests block, as helm!12, next to app's (!1294)
+worktrees = true        # agents can work there too
+# agent = "claude"      # its agents run Claude Code, whatever [agents] provider
+
+[[repos]]
+name = "infrastructure"
+path = "~/Development/infrastructure"
+project = "example-org/infrastructure"
+merge_requests = true
+
+# Working folders, one per kind of project (work, personal…): Settings › Code › Repositories
+# creates and clones projects in one of them (the first by default), and they are the only folders
+# a phone creates projects in ([remote] projects). `name`: what the pickers show (default: the
+# folder's name); `namespace`: the forge group or owner offered for projects created or published
+# from there (default: your own account); `forge`: where its projects are cloned from, created and
+# published, "gitlab" or "github" (default: the profile's [forge] provider; glab or gh logged in).
+# A clone in a working folder is on its forge, unless its [[repos]] entry names another: on another
+# forge than the profile's, its MRs are read there, its pipelines are not. Absent: none. Personal:
+# a pack does not set them. Settings › Code › Repositories groups the repositories by them.
+# [[workspaces]]
+# name = "Work"
+# dir = "~/Development"
+# namespace = "example-org"
+# [[workspaces]]
+# name = "Personal"
+# dir = "~/Perso"
+# forge = "github"
+
+# Applications to open a repository in from the Repos menu: application names on macOS
+# (`Visual Studio Code`), commands on Linux and Windows (`code`, `kitty`). Without editor: no
+# Editor button; terminal by default: Terminal (macOS), x-terminal-emulator (Linux), wt (Windows).
+[open_with]
+editor = "Visual Studio Code"   # Linux, Windows: "code"
+# terminal = "Ghostty"
+
+# Appearance: the theme (also chosen from the Theme button of the rail), then one switch per
+# feature. The system's "Reduce motion" freezes animations and celebrations, not the boot.
+[appearance]
+theme = "system"        # or paper, graphite, fjord, midnight, sand, contrast, ctp-latte, ctp-mocha, one-dark,
+                        # dracula, tokyo-night, nord, github-light/dark, gruvbox-light/dark,
+                        # solarized-light/dark, rose-pine, rose-pine-dawn…
+theme_preview = true    # hovering a theme in the Theme menu shows it on the whole window
+boot = true             # splash screen on every launch
+animations = true       # refresh, Claude waiting or working, current step, counters, drag
+theme_motion = true     # a theme's own motion: Synthwave's sky and neon, Hacker's cursor, CRT sweep and rain
+celebrations = true     # confetti (my MR merged, my pipeline green), fireworks (sprint finished)
+easter_eggs = true      # logo (7 clicks), X-ray of the blocks (⌥ held)
+friday_guard = true     # Prod tag on Friday after 4 pm: one more confirmation
+# font = "Inter"          # text font, installed on the Mac; empty: the system one
+# font_mono = "JetBrains Mono"  # code and agent terminals; empty: Recursive Mono (bundled)
+# font_terminal = "JetBrainsMono Nerd Font Mono"  # agent terminals and shells only; empty: RecMonoCasual Nerd Font Mono, built in
+# language = "fr"        # Prism's words: en or fr; empty: the system's (English when Prism does not speak it)
+# locale = "fr-FR"        # dates, times and numbers: fr-FR (14 oct., 14:30), en-GB, en-US (Oct 14, 2:30 PM)…; empty: the system's
+screensaver = true      # screensaver on its own after screensaver_seconds without keyboard or mouse
+screensaver_seconds = 600
+screensaver_mode = "spectrum"   # spectrum, bounce, matrix, stars, life or random (also: console `screensaver`)
+tooltips = true                 # Prism's tooltips (shortcuts as keys) rather than the system's
+tooltip_delay = 400             # ms before one shows; the next one: at once
+ticket_threads = false          # a ticket row shows its thread as small squares (worktree, agent, MR…); off: the drawer only (t)
+pin_drawers = false             # a pin in the side panes (MR, ticket, logs, shells…): pinned, a click outside no longer closes it
+# The status bar's order (right-click › Customize… writes it): item ids, "|" parts left from right;
+# an item left out takes its default place. Empty: by zone, what waits for you first.
+# statusbar = ["claude", "pipeline", "meeting", "reminder", "digest", "repos", "sprint", "profiles", "shells", "|", "problems", "update", "packs", "usage", "audio", "feedback", "live", "clock"]
+statusbar_hidden = []           # items not shown (right-click on the bar)
+
+# Prism's own updates: the releases of a repository (prism-v… tags, scripts/release.sh), read
+# with glab or gh. A team's pack names its private repository, whose builds carry its blocks.
+# Settings › General › Updates checks and installs; a newer Prism shows in the status bar.
+# [updates]
+# enabled = true                # check at launch and every 6 hours
+# source = "glab:group/project" # or gh:owner/repo; empty: no updates
+# packs = true                  # the packs' sources too: a pack changed there shows in the status bar
+
+# Feedback: an issue opened from Prism (console `feedback`, Help › Send Feedback…, the status bar,
+# a block's ?) on Prism's repository or on a pack's (its [pack] source), with glab or gh. Only what
+# the composer lists goes with it, never a config value. Settings › General › Feedback.
+# [feedback]
+# enabled = true                # on by default
+# follow = true                 # the issues opened are read again with the updates
+# repo = "glab:group/project"   # where Prism's own feedback goes; empty: [updates] source
+# [feedback.labels]
+# feature = "enhancement"       # the label of each kind; empty: none
+# bug = "bug"
+# idea = ""
+
+# Prism from a phone: a page served by the Mac (Chrome on Android installs it as an app, Safari
+# adds it to the home screen), reached through a tunnel; each phone paired from Settings › Remote
+# and unlocked with a passkey. Personal: a pack does not set it. Off by default.
+# [remote]
+# enabled = false
+# tunnel = "tailscale"          # Prism runs `tailscale serve` and checks the tailnet user; or "other"
+# port = 47800                  # Prism listens on 127.0.0.1 only, never another interface
+# tailscale_socket = ""         # beside a VPN: the socket of `just tailscale` (userspace tailscaled); empty: the Tailscale app
+# url = ""                      # "other": the HTTPS address the phone opens (passkeys are bound to its host)
+# mail = false                  # the Mail block on the phone; off, its data never leaves the Mac
+# actions = false               # the phone acts (retry, rebase, comment, tickets, an agent's permission or prompt); off: it reads
+# critical = false              # merge, merge queue, manual jobs, an agent stopped, a worktree removed: the passkey each time
+# typing = true                 # the phone sends texts to agents (its answer box) and takes their terminal, confirmed by its passkey
+# settings = true              # More › Settings on the phone: every setting read (tokens never), a few changed, each save confirmed by its passkey
+# projects = true               # More › New project on the phone: in a [[workspaces]] folder only, published now or later, or a forge project cloned there; its passkey every time
+# power = false                 # the phone restarts or shuts down the Mac (More › The Mac), its passkey every time
+# tabs = ["alerts", "mrs", "tickets", "agents"]   # bottom tabs; also ci, infra, sprint, wip, trail, pet (others: More)
+# session_idle_minutes = 120    # biometrics again after this long without a request from the phone
+# session_max_hours = 12        # biometrics again after this long, active or not
+# step_up_minutes = 5           # taking a terminal again within this long asks nothing more
+# control_idle_minutes = 0      # a terminal given back after this long without a key; 0: on Release or a desk key
+# push = false                  # an agent waiting wakes the phones (an empty push: nothing of Prism goes through it)
+# keep_awake = true             # no idle sleep while the remote is on and the Mac on power
+# preview = true                # a dev server of the Dev servers block opens on the phone, through a second address, its session required
+# preview_port = 47801          # the preview's port on 127.0.0.1; Tailscale serves it on the Mac's name, port 8443
+# preview_url = ""              # "other": the HTTPS address your tunnel brings to preview_port, on the host of url; empty: no preview
+
+# Prism's logs: standard error and the profile's prism.log (Settings › General › Logs reveals or
+# copies it), rotated at 5 MB. Read at launch, from this file alone; RUST_LOG takes precedence.
+# [logs]
+# level = "info"                # error, warn, info, debug (to troubleshoot) or trace
+
+# The command palette: go to anything Prism shows (pages, blocks, agents, MRs, tickets, pipelines,
+# pods, Settings, Help) and run its commands, the console's included; ⌘↵ the chosen line's actions.
+# In an agent's terminal, its key stays the terminal's while [agents] terminal_keys lists it.
+[palette]
+enabled = true
+key = "Cmd+K"
+# What is typed (3 characters or more) is also searched in the tracker: any ticket
+# opens, closed or on another board. ClickUp has no search: the tickets of the
+# followed spaces are read once (closed ones included) and kept 10 minutes.
+tracker_search = true
+
+# The editor of an agent's Files tab: ⌘P opens a file, ⌘⇧F searches the folder, ⌘F the file,
+# ⌘S saves (once the agent's turn is over), selected lines go to the agent.
+[files]
+vim = false                   # Vim's keys (:w saves)
+wrap = false                  # long lines wrapped instead of scrolled sideways
+font_size = 11.5              # in pixels
+live_reload = true            # a file the agent changes is read again; your unsaved edit kept, you choose
+search_max = 2000             # lines found at most by the search in files
+
+# Settings › Cleanup: Prism counts on this machine how much each feature is used (a block on a
+# page you look at, an action, a palette entry; the profile's usage.json, never sent anywhere)
+# and, after 30 days, lists what is on but never used, the most used, and the keys that differ
+# from their default.
+[cleanup]
+hide_off = false              # the features turned off leave the Settings tree (a search finds them)
+
+# Prism console. Shortcut: a character ("`", "²", "@"), a key name ("F1",
+# "Backquote" = the key left of 1 whatever the layout) or a combination
+# ("Cmd+K", "Ctrl+Space", "Alt+T"). With Cmd or Ctrl, it also works while typing.
+[console]
+key = "`"
+
+# Notes: quick capture over any view (same shortcut format as [console]).
+[notes]
+key = "Cmd+Shift+N"
+
+# Agents: Claude Code, Command Code, OpenCode or Codex in Prism terminals (Agents view, ⌘5), kept alive by tmux
+# (`brew install tmux`) when Prism quits. Applied on save in Settings.
+[agents]
+enabled = true              # without the view, Claude actions open Claude Desktop
+provider = "claude"         # CLI of new agents, and plan usage shown: "claude", "command-code" (`cmd`), "opencode" or "codex"
+target = "agent"            # Claude actions of the menus: "agent" (Prism launcher) or "desktop"
+# worktrees_dir = "~/Development/app.worktrees"   # absent: <repo>.worktrees, next to the repository
+branch_prefix = "agent/"    # branch of a new worktree: prefix + its name
+permission_mode = "default" # offered by the launcher: default (the CLI's settings), acceptEdits, plan
+font_size = 12.5            # terminal text, in points (⌘+ / ⌘- / ⌘0 in the Agents view)
+scrollback = 5000           # lines kept by a terminal, on top of tmux's history
+categories = ["Refinement", "Development", "Review"]   # to sort agents; the Agents view can group them this way
+stages = ["waiting", "doing", "review", "done"]          # where an agent's work stands, set by hand; groups too
+tags = []                   # tags suggested on an agent (several each), besides those in use; any other may be typed
+prompt_language = "en"      # language of the Claude actions' prompts (and so of Claude's answers): "fr" or "en"
+terminal_keys = ["Cmd+K"]   # Prism's shortcuts an agent's terminal keeps (Cmd+K clears it); the others go up to Prism
+view = "chat"               # an agent read as its Chat (Claude Code, Codex) or its "terminal", until its Terminal | Chat says otherwise
+tasks_depth = 3             # Tasks panel: subfolder levels searched for justfile, Taskfile, package.json (0: the folder alone)
+
+# Quick answers: one click answers an agent at its prompt (its view, the panes, the Agents block,
+# its alert, the phone); ⇧-click types the text instead. Nothing while it works or asks for a
+# permission. Empty answers: Prism's, in prompt_language. {ticket} {branch} {mr} {title} {folder}:
+# the agent's; an answer whose variable it lacks is not offered.
+[agents.quick_answers]
+enabled = true
+# answers = [
+#   { label = "OK", text = "OK" },
+#   { label = "Do it", text = "Go ahead, do it." },
+#   { label = "No, wait", text = "No, wait: ", submit = false },   # typed, to finish
+#   { label = "MR", text = "Open the MR for {ticket}." },
+# ]
+
+# Each CLI's own keys, wherever it runs (by default or for a repository): [agents.claude],
+# [agents.command-code], [agents.opencode], [agents.codex]. bin: the executable (a name in the
+# PATH or a path; absent, its usual name); args: added to every launch and resume.
+# Plan usage in the status bar: Claude Code's token expired, Prism runs `claude doctor`, which
+# refreshes it without calling the model (at most once per quarter hour). Command Code: read with
+# the key of `cmd login`; Codex: from its last session's transcript; nothing to set. OpenCode: none.
+# Claude Code's keys were [agents]', [sessions]' and [usage]'s: still read there.
+[agents.claude]
+# bin = "~/.local/bin/claude"     # bin and args, of every [agents.<cli>]: personal, a pack does not set them
+# args = ["--model", "opus"]
+cost_alert = 0              # an agent estimated beyond this many dollars (API prices) is flagged in Alerts; 0: never
+show_desktop = true         # Claude Desktop sessions in the Agents view (only with provider = "claude")
+count_desktop = false       # Claude's counts (header, bars, Alerts, notifications) include Claude Desktop too
+refresh_token = true        # plan usage: run `claude doctor` when the token has expired
+# sessions_dir = "~/Library/Application Support/Claude/claude-code-sessions"   # read at launch
+# transcripts = "~/.claude/projects"
+# sessions_poll = 5
+
+# [agents.codex]
+# args = ["--profile", "work"]
+
+# Environments block: Deployments and pods, read-only (get/list pods and deployments).
+# One block per environment and per cluster.
+[[environments]]
+env = "prod"
+context = "gke_example-prod_us-central1-a_prod"
+namespaces = ["apps"]
+
+[[environments]]
+env = "prod"
+context = "gke_example-data_us-central1-a_data"
+namespaces = ["analytics"]
+
+[[environments]]
+env = "demo"
+context = "gke_example-prod_us-central1-a_prod"
+namespaces = ["demo"]
+
+[[environments]]
+env = "staging"
+context = "gke_example-staging_us-central1-a_staging"
+namespaces = ["apps"]
+
+[[environments]]
+env = "staging"
+context = "gke_example-staging_us-central1-a_staging"
+namespaces = ["analytics"]
+
+[renovate]
+# The Renovate block, off by default: the dashboard issue and what runs Renovate: a pipeline
+# schedule on GitLab; on GitHub, a GitHub Actions workflow, or the Renovate app (its dashboard's
+# "run again" box).
+enabled = true
+# repo = "app"   # the repository whose project runs Renovate; default: bare_mr_repo's ([forge])
+# dashboard_title = "Dependency Dashboard"
+# schedule = "Renovate (Daily)"   # its schedule's description (GitLab) or workflow's name (GitHub);
+#                                  # default: the first naming Renovate
+
+# Where the tickets live, and the conventions every tracker shares. These keys were [clickup]'s:
+# still read there, and moved here when changed in Settings.
+[tracker]
+provider = "clickup"     # or "obsidian" (Obsidian Kanban boards, [obsidian] below), "jira" ([jira] below)
+# To pick: tickets in these statuses (ClickUp: of the next sprint and the "pick" boards; Obsidian:
+# of every board, and they leave the Sprint block).
+pick_statuses = ["ready to dev", "todo"]
+# Ticket prefix (ABC for ABC-1234): branches, MR titles, notes, filter. Empty (default): no
+# ticket ids. With ClickUp, custom task ids must be on for MRs and time entries to find tickets.
+ticket_prefix = "ABC"
+# The ticket flow, in order, and its stages for the Sync rules of Alerts and the next
+# step of a ticket. Applied on save. Defaults: ClickUp's own statuses (to do, in progress,
+# review, complete), no approved nor validation status.
+workflow_statuses = ["ready to dev", "todo", "doing", "review", "to merge", "to validate", "validation", "done"]
+before_dev_statuses = ["ready to dev", "todo", "to specify"]
+in_progress_statuses = ["doing"]
+review_statuses = ["review", "to merge"]
+approved_statuses = ["to merge"]  # open MRs approved: a ticket still in review is flagged
+merge_queue_statuses = ["to merge"]  # its open MRs go into the merge queue: one not there is flagged
+after_merge_statuses = ["to validate", "validation", "done"]
+done_statuses = ["done"]
+blocked_statuses = ["blocked"]   # blocked ticket: no Sync alert
+validation_statuses = ["to validate", "validation"]   # "Validate locally" on these; from the first, the ticket moves to the last
+# branch_aliases = ["team-flow"]   # claude/team-flow-512-… is ticket 512 (a skill plugin naming its branches after itself)
+# Actual against estimate: the Actual section of a ticket's panel and the Actuals of My sprint
+# (the sprint's done tickets, their gap, the trend by type and by estimate over the last sprints).
+# Actual = time logged + the agents' active time (working, not waiting for you); their cost is
+# kept past their end, in the profile (agent-costs.json).
+# actuals = true
+# actuals_logged_only = false    # true: the actual is the time logged only, without the agents'
+# next_action = true             # the card at the top of a ticket's panel: where it stands and the one action that moves it on
+# ticket_type = ""               # a ticket's type for the trends: "" the tracker's task type, "tags" its first
+#                                # tag (Jira: label), or the name of a custom field of [clickup] fields
+
+[clickup]
+# Token: CLICKUP_TOKEN variable, otherwise the system keychain (see docs/guide.md). Never in this file.
+# enabled = true            # false: no ClickUp at all, no token needed
+# Folder of the sprint lists (ClickUp Sprints): the current sprint holds today, by the dates in
+# its name ("Sprint 42 (21/09 - 04/10)") or its list's own.
+sprint_folder = "Sprints"
+poll_seconds = 45
+# Refinement view: the "refinement" boards (below), tickets in these statuses (one column per
+# status, in this order). Reread every 3 min.
+refinement_statuses = ["to specify", "to refine", "to estimate"]
+# Sprint block, "Outside sprint": tickets in these statuses that are not in the sprint, reread
+# every 3 min in the spaces of the sprint, the delivery and the followed boards.
+ongoing_statuses = ["doing", "review", "to merge", "to validate", "validation"]
+# time_tracking = true     # false: no time entries (Time block, Log time)
+# Days of logged time reread (Time block, date picker).
+time_history_days = 30
+# Hours to log per working day (Time block); the week counts five.
+day_hours = 8
+# Custom fields shown on the tickets (rows and preview), by name, in this order; only those with a value.
+# fields = ["Type", "Story points"]
+# Those also offered as filters and groupings of the ticket lists; the others are only shown, and
+# sortable (Sort by). Absent: all of them.
+# filter_fields = ["Type"]
+
+# The team's boards beyond the sprint, found by name: a list (`list`, by default its `name`), or
+# every list of a folder (`folder`; with `quarters`, only its "Q4 2026" lists, current and coming).
+# Uses: pick (To pick), refinement (Refinement), sync (read whole: its tickets checked against
+# their MRs in Alerts), time (tasks to log time on, Time block). Tone, for To pick: ko, warn
+# (both before the next sprint), info, violet, ok. Default: none.
+[[clickup.boards]]
+name = "Hotfix"
+uses = ["pick"]
+tone = "ko"
+
+[[clickup.boards]]
+name = "Bugs"
+uses = ["pick"]
+tone = "warn"
+
+[[clickup.boards]]
+name = "Architecture"
+uses = ["pick", "refinement", "sync"]
+tone = "violet"
+
+[[clickup.boards]]
+name = "Product"
+folder = "Product"
+quarters = true
+uses = ["refinement"]
+
+[[clickup.boards]]
+name = "Cross-team"
+list = "Cross-team tasks"
+uses = ["time"]
+
+# Obsidian Kanban as the tracker ([tracker] provider = "obsidian"): boards of a vault, each a
+# repository's. A card's status is its lane ("🚧 En cours" reads "en cours": the flow statuses
+# above use those names); it is done when checked, in a lane marked complete, or in a done
+# status. A card linking a note ([[T-12]]) takes the note's id, title and priority (p0 to p3, or
+# a #p0 to #p3 tag) from its frontmatter; a card's indented lines are its description, and a
+# title led by an id ("**C-68 — …**") gives that id. From Prism, a card moves to another lane of its
+# board (checked as that lane's cards are; its note's status takes the value the lane's other notes
+# have), its priority is set (its note's field, or its #p0-#p3 tag) and comments go under its note's
+# "## Comments" (or, without a note, its description).
+# [obsidian]
+# vault = "~/Notes"
+#
+# [[obsidian.boards]]
+# path = "Projects/Things/Board.md"   # relative to the vault
+# repo = "Things"                     # its [[repos]] name: ids resolve in it; absent, the folder names it
+# prefix = "[ABCLM]"                  # its ids' prefix, a pattern Prism adds -<number> to (A-07 to M-23);
+#                                     # no capturing group. Absent: [tracker] ticket_prefix
+
+# Jira Cloud as the tracker ([tracker] provider = "jira"): the active sprint of a Scrum board, or the
+# open issues of a Kanban one. An issue's status is its Jira status, lowercased (the flow statuses
+# above use those names); the board's columns order them. The API token comes from JIRA_TOKEN or the
+# keychain entry prism-jira (prism-jira-<profile> for another profile: Settings › Work › Tracker › Jira › API token),
+# never this file. From Prism, an issue changes status (through a transition of its workflow),
+# priority and comments, is assigned to me or added to the active sprint; Sprint's + creates one.
+# [jira]
+# site = "team.atlassian.net"         # an Atlassian Cloud site (*.atlassian.net): the token goes nowhere else
+# email = "me@example.com"            # the Atlassian account the token belongs to
+# board = 42                          # in the board's URL: …/boards/42
+# poll_seconds = 60
+# issue_type = "Task"                 # the type of an issue created from Sprint's +
+# time_tracking = false               # my worklogs: Time block and Log time (read every 3 minutes)
+# refinement_statuses = []            # Refinement's columns, in order; empty: every open status found
+# ongoing_statuses = []               # the board's issues outside the active sprint shown in Sprint;
+#                                     # empty: Jira's "In Progress" category
+#
+# Issues followed beyond the sprint, each a JQL query. uses: pick (To pick: its issues in the
+# [tracker] pick_statuses), refinement (Refinement, by epic), sync (read whole, checked against
+# their MRs). Red and orange queues come before the next sprint (the board's first future one) in To pick.
+# [[jira.queues]]
+# name = "Bugs"
+# jql = "project = ABC AND type = Bug AND resolution = Unresolved"
+# uses = ["pick"]
+# tone = "ko"
+
+[calendar]
+# Agenda of the day, read from the macOS Calendar (Exchange / Microsoft 365 / Google accounts
+# included), or from Google Calendar on any system.
+# macOS asks for permission on first launch. false: never read, access is not requested.
+enabled = true
+# provider = "google"           # macos (default) or google: the Google Calendar API, read-only,
+#                               # signed in with [google] (Settings › Work › Calendar › Google Calendar)
+# The calendars read, by name (case aside); empty or absent: all of them, birthdays and holidays
+# included (Google: those checked in Google Calendar).
+calendars = ["Calendar", "Work"]
+
+[trail]
+# Day trail block: your day rebuilt from its traces (timeline, time to log by ticket, the
+# daily). Its journal stays in the profile's data folder (trail.json). On by default.
+# enabled = true
+# commits = true                # git log of the local clones, by your user.email
+# forge = true                  # your own events: MRs opened, merged, approved, commented
+# tickets = true                # your tickets changing status, while Prism runs
+# meetings = true               # your meetings once over
+# gap_minutes = 60              # a stretch of 9:00-18:30 without any trace is flagged; 0: never
+# keep_days = 30
+# poll_seconds = 300
+
+[pet]
+# Pet block: what it does with the Day trail's journal. All on by default.
+# forms = true                  # grown up, the form of what you did most these two weeks
+# trophies = true               # milestones put objects in its room
+# diary = true                  # a page on your week, Friday afternoon
+
+# "Audio" block of the status bar. Without this section: FIP, SomaFM, Radio Paradise,
+# musicForProgramming and three lofi lives (Chillhop, Lofi Girl). A given list replaces the default one
+# (stations, youtube and feeds, each separately).
+# [[audio.stations]]
+# label = "FIP"
+# url = "https://icecast.radiofrance.fr/fip-hifi.aac"
+#
+# [[audio.youtube]]  # video, live or playlist (…/playlist?list=…): played in a hidden player
+# label = "Chillhop · lofi hip hop"
+# url = "https://www.youtube.com/watch?v=7NOSDKb0HlU"
+#
+# [[audio.feeds]]   # podcast: RSS feed where each episode has an audio file
+# label = "musicForProgramming"
+# url = "https://musicforprogramming.net/rss.xml"
+
+# Thresholds of the Alerts block's lines and badges, applied on save.
+# [alerts]
+# behind_commits = 20            # branch behind its base
+# pending_job_minutes = 5        # job waiting for a runner
+# review_wait_hours = 4          # review waiting for me
+# doing_idle_days = 3            # ticket in progress with neither branch nor MR
+# waiting_session_hours = 2      # Claude session waiting for me, flagged during this time
+# your_turn_minutes = 15         # …its turn just over (no question, no permission): only this long (0: never)
+# argo_out_of_sync_minutes = 15  # ArgoCD application out of sync
+# meeting_lead_minutes = 5       # notification before a meeting
+# worktree_in_use_hours = 24     # more recent activity: "in use" worktree
+# large_mr_lines = 400           # MR changing more lines (added + deleted): large
+# no_reviewer_minutes = 10       # my MR out of draft, still without a reviewer this long after it opened (0: never)
+# open_threads = true            # my open MR with review threads left unresolved
+# The Alerts block by band: Now (someone waits on you), Today (your work is blocked), When you can.
+# A rule named in none goes by its severity: Now when broken, When you can for information, Today
+# otherwise. Rules: question, permission, your-turn, agent-loop, agent-cost, review, open-threads,
+# mr-ci, conflicts, rebase-failed, need-rebase, only-ci, no-reviewer, no-ticket, sync, queue,
+# branch-ci, infra, argo, source, block, worktree.
+# band_now = ["question", "permission", "review", "branch-ci", "infra"]
+# band_later = ["your-turn", "need-rebase", "only-ci", "no-ticket", "agent-cost", "worktree"]
+# band_hidden = []               # never shown, never counted
+# escalate_hours = 24            # a Today alert held longer goes up to Now (0: never)
+# group = true                   # the alerts of one MR or ticket on one line, the action that unblocks the rest first
+
+# Rail pages, in order (Settings › Interface › Pages). Without the section: Dashboard, Tickets, CI, Infra,
+# Worktrees. `columns`: the default blocks, one string per column; "Edit layout"
+# rearranges them afterwards, "Reset" returns to these. `id` keeps the layout of a renamed page.
+# Icons: dashboard, tickets, ci, infra, worktrees, agents, notes, chart, star, calendar, shield,
+# music, data. Colors: accent, orange, purple, blue, coral, gold, ocean (they follow the theme;
+# the former gitlab, clickup, k8s, claude, alert, calendar still read).
+# Blocks: todo, sessions, worktrees, notes, mrs, sprint, pods, ci, vulns, envs,
+# renovate, refinement, agenda, pickup, data, bqcost, docker, mail; with a team's blocks
+# (PRISM_EXTRA_BLOCKS), theirs.
+# [[views]]
+# name = "Dashboard"
+# id = "dashboard"
+# columns = ["todo sessions notes", "mrs renovate", "sprint agenda"]
+#
+# [[views]]
+# name = "Focus"
+# icon = "star"
+# color = "coral"
+# columns = ["sessions notes", "worktrees mrs"]
+
+# ArgoCD: sync and health state of the Applications (Environments block, alerts), read
+# read-only as Kubernetes objects (list right on applications.argoproj.io). Without this
+# section: the `argocd*` namespaces of [clusters] default_context, with no link to the UI.
+# [[argocd]]
+# namespace = "argocd-prod"
+# url = "https://argocd.example.org"     # web UI, for links
+# # context = "…"                        # cluster hosting the instance; default: [clusters] default_context
+# # envs = ["prod", "demo"]             # environments it is authoritative for; []: instance replaced
+
+# How an Application's Helm values path is read: after `root`, the segment naming a stage's
+# environment, the group before it, the component after `apps_segment`; `customer_groups`:
+# customers' instances (production, outside Environments).
+# [argocd_layout]
+# namespace_prefix = "argocd"   # discovered namespaces, without [[argocd]]
+# root = "argocd"
+# apps_segment = "apps"
+# customer_groups = ["customers"]
+
+# The Docker block: containers, images, volumes and their disk, through the docker CLI (Docker
+# Desktop, OrbStack, colima…). It starts, stops, restarts and removes containers, removes images
+# and prunes unused data (two clicks). Off by default.
+# [docker]
+# enabled = true
+# context = ""                  # the docker context read; empty: the current one
+# poll_seconds = 15             # containers and their usage; the disk every 3 minutes
+# reclaimable_gb = 10           # unused images, volumes and build cache beyond: flagged in Alerts; 0: never
+#                               # (formerly [alerts] docker_reclaimable_gb, still read there)
+
+# The Status pages block: incidents under way at the services Prism leans on, read from their
+# public status pages (no token). On by default.
+# [status]
+# enabled = true
+# services = []                 # github, gitlab (GitLab.com), clickup, jira, claude, gcp; empty: those Prism reads
+# pages = [{ name = "Sentry", url = "https://status.sentry.io" }]   # other Atlassian Statuspage pages
+# alerts = true                 # incidents in Alerts: major and critical ones notified
+# poll_seconds = 180
+
+# The System block: CPU, memory, disks and network, read locally. On by default.
+# [system]
+# enabled = true
+# hosts = []                    # more hosts to measure the latency to, beyond those Prism calls
+# alerts = true                 # memory pressure, disk, CPU and handshakes lost in Alerts
+# disk_warn_gb = 25             # the home disk getting full (orange) under this much free; 0: not by size
+# disk_warn_percent = 10        # or under this share free; 0: not by share
+# disk_alert_gb = 10            # almost full (red, notified) under this much free; 0: not by size
+# disk_alert_percent = 5        # or under this share free; 0: not by share
+# poll_seconds = 5
+
+# The Sound block (macOS): the output and the microphone, their device, volume and mute, changed
+# from the block. Read from CoreAudio's settings: nothing is listened to, no permission. On by default.
+# [sound]
+# enabled = true
+# min_input_gain = 40           # the microphone's input volume under this % in Alerts, notified while an app records; 0: never
+# muted_under = 3               # under this % the microphone is turned off (a headset's boom folded up), no alert, like muted; 0: none
+# restore_gain = 75             # what "Raise" puts the input volume back to, in %
+# status_volume = true          # the status bar item always there (output volume, a click: output and microphone); false: only while the microphone is too low
+# poll_seconds = 2
+
+# The Mail block: the unread messages of your Microsoft 365 inbox, and the flagged ones, read
+# every minute through Microsoft Graph with the delegated Mail.ReadBasic permission: your mailbox
+# only, sender, subject, date and states, never a body. You sign in once from Settings › Work ›
+# Mail (a code to type at Microsoft's address); the refresh token goes into the system keychain.
+# With provider = "gmail": your Gmail inbox instead, its starred messages as the flagged ones.
+# The application is registered in Entra ID by your organization: a team's client_id belongs in
+# its pack. Off by default.
+# [mail]
+# enabled = true
+# provider = "microsoft"        # or gmail: the Gmail API (gmail.metadata), signed in with [google]
+# client_id = ""                # the app's "Application (client) ID", allowed Mail.ReadBasic
+# tenant = ""                   # its id or domain; empty: organizations (any work account)
+# flagged = true                # the flagged messages too, read or not
+# max = 30                      # listed at most, newest first
+
+# The Google account Gmail and Google Calendar read: an OAuth client of your own Google Cloud
+# project, of the "Desktop app" type (Help › Signing in to Google). Its secret goes into the system
+# keychain (Settings › Work › Mail › Gmail or Calendar › Google Calendar, or `prism google-secret`), never here.
+# [google]
+# client_id = "1234567890-abc.apps.googleusercontent.com"
+
+# Data pipelines on GCP (Data and BigQuery cost blocks; Data profile of the pages wizard),
+# read-only with the gcloud login (`gcloud auth login`). Metadata only: no
+# rows, no schemas, no SQL, no logs, no names of the people running a query.
+# Roles: run.viewer, cloudscheduler.viewer, bigquery.metadataViewer, bigquery.resourceViewer
+# (cost: everyone's jobs), datastream.viewer, monitoring.viewer.
+# [data]
+# enabled = true                   # off by default
+# projects = ["data-prod"]
+# region = "us-central1"          # Cloud Run jobs, Cloud Scheduler, Datastream
+# bigquery_location = "us"         # scheduled queries
+# poll_seconds = 60                # BigQuery jobs (cost) are reread every 5 min
+# cloud_run_jobs = true
+# bigquery_freshness = true
+# scheduled_queries = true
+# datastream = true
+# bigquery_cost = true             # estimate: bytes billed × on-demand price
+# price_per_tib = 6.25
+# slow_factor = 2.0               # Cloud Run job longer than this multiple of its median
+# stream_lag_minutes = 5           # Datastream stream lagging
+# cost_spike_factor = 3.0          # day's BigQuery cost beyond this multiple of the median (14 d)
+#                                  # (the three formerly [alerts] data_*, still read there)
+#
+# Tables expected to be updated: late beyond max_age_hours; `fed_by`, the Cloud Run
+# job feeding it (declared, never guessed): in red when it failed.
+# [[data.tables]]
+# table = "data-prod.reporting.daily_activity"
+# max_age_hours = 26
+# fed_by = "ingest-erp-daily"

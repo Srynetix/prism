@@ -1,0 +1,25 @@
+query($path: ID!, $state: MergeRequestState!, $after: Time, $stages: Boolean!) {
+  currentUser { username }
+  project(fullPath: $path) {
+    mergeRequests(state: $state, updatedAfter: $after, first: 100, sort: UPDATED_DESC) {
+      nodes {
+        iid title draft webUrl sourceBranch targetBranch createdAt updatedAt mergedAt state
+        author { username name avatarUrl }
+        assignees { nodes { username } }
+        reviewers { nodes { username mergeRequestInteraction { reviewState } } }
+        approvedBy { nodes { username } }
+        approvalsLeft approvalsRequired
+        headPipeline {
+          id status ref updatedAt path
+          stages @include(if: $stages) {
+            nodes { name status jobs { nodes { id name status allowFailure startedAt finishedAt webPath playable canPlayJob } } }
+          }
+        }
+        detailedMergeStatus conflicts mergeabilityChecks @include(if: $stages) { identifier status } shouldBeRebased autoMergeEnabled mergeError rebaseInProgress
+        labels { nodes { title } }
+        resolvableDiscussionsCount resolvedDiscussionsCount
+        diffStatsSummary @include(if: $stages) { additions deletions fileCount }
+      }
+    }
+  }
+}

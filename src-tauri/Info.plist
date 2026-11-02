@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Merged by Tauri into the app's Info.plist: text of the Calendar access request. -->
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Prism shows your agenda for the day (meetings, Teams links), read locally from Calendar.</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>Prism shows your agenda for the day (meetings, Teams links), read locally from Calendar.</string>
+</dict>
+</plist>

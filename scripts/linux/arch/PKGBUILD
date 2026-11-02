@@ -1,0 +1,20 @@
+# Prism for Arch Linux and its derivatives: the .deb scripts/linux/build.sh makes (Ubuntu 22.04,
+# glibc 2.35: it runs on Arch's newer one), repackaged by scripts/linux/arch/build.sh.
+pkgname=prism
+pkgver=${PRISM_PKGVER:?}
+pkgrel=1
+pkgdesc='Merge requests, tickets, pipelines, clusters and AI agents in one local, real-time dashboard'
+arch=(x86_64)
+license=(MIT)
+depends=(tmux webkit2gtk-4.1 gtk3 libayatana-appindicator)
+# Built and stripped already; no -debug package of nothing.
+options=(!strip !debug)
+source=(prism.deb LICENSE)
+sha256sums=(SKIP SKIP)
+
+package() {
+  # makepkg has unpacked the .deb (an ar archive) next to it: its files are in data.tar.*.
+  bsdtar -xf data.tar.* -C "$pkgdir"
+  # The licence, where Arch keeps them.
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

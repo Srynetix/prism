@@ -1,0 +1,9 @@
+fragment Pipe on Pipeline {
+  id status ref updatedAt path
+  stages {
+    nodes {
+      name status
+      jobs { nodes { id name status allowFailure startedAt finishedAt webPath playable canPlayJob } }
+    }
+  }
+}

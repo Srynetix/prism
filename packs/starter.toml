@@ -1,0 +1,38 @@
+# Prism's starter pack: the pages wizard's Developer template, for a developer without a team
+# pack. Built into Prism: the wizard offers it when no pack brings templates, or
+# `prism pack import prism:starter`. Once imported it is a pack like any other, removed or
+# updated from Settings › General › Packs. The wizard chooses the forge, the tracker and the
+# agent CLI that go with it.
+
+[pack]
+name = "starter"
+version = "3"
+description = "Prism's Developer template: tickets, merge requests, worktrees and agents."
+
+[[templates]]
+id = "dev"
+label = "Developer"
+summary = "Tickets, merge requests, worktrees and agents."
+requires = "Requires a GitLab or GitHub account and the repository."
+gitlab = true
+
+[[templates.views]]
+name = "Dashboard"
+id = "dashboard"
+icon = "dashboard"
+color = "accent"
+columns = ["todo sessions notes", "mrs", "sprint agenda"]
+
+[[templates.views]]
+name = "Tickets"
+id = "tickets"
+icon = "tickets"
+color = "purple"
+columns = ["refinement", "pickup"]
+
+[[templates.views]]
+name = "Worktrees"
+id = "worktrees"
+icon = "worktrees"
+color = "orange"
+columns = ["worktrees"]

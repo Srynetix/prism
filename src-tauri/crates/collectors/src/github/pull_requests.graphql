@@ -1,0 +1,27 @@
+query($owner: String!, $name: String!, $states: [PullRequestState!], $first: Int!, $after: String, $open: Boolean!) {
+  viewer { login }
+  rateLimit { remaining resetAt }
+  repository(owner: $owner, name: $name) {
+    pullRequests(states: $states, first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number title isDraft url headRefName baseRefName createdAt updatedAt mergedAt state
+        author { login avatarUrl ... on User { name } }
+        assignees(first: 10) { nodes { login } }
+        reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } ... on Team { combinedSlug } } } }
+        latestOpinionatedReviews(first: 20) { nodes { state author { login } } }
+        reviewDecision mergeable mergeStateStatus
+        baseRef @include(if: $open) { branchProtectionRule { requiredApprovingReviewCount } rules(first: 20) { nodes { type parameters { ... on PullRequestParameters { requiredApprovingReviewCount } } } } }
+        autoMergeRequest { enabledAt }
+        labels(first: 20) { nodes { name } }
+        reviewThreads(first: 100) @include(if: $open) { nodes { isResolved } }
+        additions deletions changedFiles
+        commits(last: 1) { nodes { commit { oid url committedDate statusCheckRollup { state
+          contexts(first: 100) @include(if: $open) { nodes { __typename
+            ... on CheckRun { databaseId name status conclusion startedAt completedAt detailsUrl
+              checkSuite { workflowRun { databaseId url createdAt workflow { name } } } }
+            ... on StatusContext { context state targetUrl createdAt } } } } } } }
+      }
+    }
+  }
+}

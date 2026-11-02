@@ -1,0 +1,22 @@
+/src-tauri/target
+/src-tauri/gen/schemas
+/web/node_modules
+# vitest's cache, when it runs from the repository's root.
+/node_modules
+/web/dist
+# The .dmg of scripts/dmg.sh, the Linux packages of scripts/linux.sh.
+/dist
+# Snapshot of the browser preview mode: real data, never committed.
+/web/public/dev-snapshot.json
+
+# Local settings of the tasks (PRISM_EXTRA_BLOCKS).
+/.env
+
+# Mockups: kept out of the repository.
+docs/mockups/
+
+# Claude Code local settings, in any folder.
+.claude/
+
+# macOS Finder metadata, in any folder.
+.DS_Store

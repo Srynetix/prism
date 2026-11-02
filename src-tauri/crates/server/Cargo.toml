@@ -1,0 +1,42 @@
+[package]
+name = "prism-server"
+description = "Prism without a window, for a server reached from a phone only (`prism-server serve`, `prism-server pair`): no WebKit, the phone's page carried in the binary."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "prism-server"
+path = "src/main.rs"
+
+# A team's blocks (`PRISM_EXTRA_BLOCKS`) are compiled into this crate as into the app's: they use
+# its crates (serde, tokio, chrono, futures, regex, toml…) as their own.
+[dependencies]
+prism-base.workspace = true
+prism-core.workspace = true
+prism-collectors.workspace = true
+prism-agents.workspace = true
+prism-blocks.workspace = true
+prism-ops.workspace = true
+prism-demo.workspace = true
+prism-remote.workspace = true
+prism-commands.workspace = true
+prism-sys.workspace = true
+prism-macos.workspace = true
+
+anyhow.workspace = true
+base64.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+futures.workspace = true
+notify.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+toml.workspace = true
+tracing.workspace = true
