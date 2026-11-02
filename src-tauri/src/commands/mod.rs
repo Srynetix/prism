@@ -6,7 +6,7 @@ pub mod profiles;
 
 use std::sync::Arc;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 use prism_base::tr;
 use prism_commands::commands::{refused_in_demo, Cmd, DESK};
 use tauri::{AppHandle, State};
@@ -88,14 +88,15 @@ pub async fn audio_feed(state: State<'_, Arc<AppState>>, index: usize) -> Cmd<Ve
     crate::audio::episodes(&feed).await.map_err(Into::into)
 }
 
-/// macOS "Now Playing": the current state (then pushed by the `now-playing` event).
-#[cfg(target_os = "macos")]
+/// The system's "Now Playing" (macOS, Linux): the current state (then pushed by the
+/// `now-playing` event). No managed state (Windows): no player read.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 #[tauri::command]
 pub fn now_playing(latest: State<'_, crate::audio::now_playing::Latest>) -> Option<serde_json::Value> {
     latest.get().and_then(|n| serde_json::to_value(n).ok())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 #[tauri::command]
 pub fn now_playing() -> Option<serde_json::Value> {
     None
@@ -104,10 +105,10 @@ pub fn now_playing() -> Option<serde_json::Value> {
 /// Command to the "Now Playing" player: `play`, `pause`, `toggle`, `next`, `previous`.
 #[tauri::command]
 pub async fn now_playing_command(cmd: String) -> Cmd {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     return crate::audio::now_playing::command(&cmd).await.map_err(Into::into);
-    #[cfg(not(target_os = "macos"))]
-    return Err(tr!("{cmd}: macOS only", cmd = cmd).into());
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    return Err(tr!("{cmd}: macOS and Linux only", cmd = cmd).into());
 }
 
 /// The window gives its language, which the menus follow (the tray's everywhere, the menu bar on
@@ -211,13 +212,11 @@ pub fn agent_attach(state: State<'_, Arc<AppState>>, id: String, cols: u16, rows
         .map_err(Into::into)
 }
 
-/// A capture of the window, kept for the issue and put on the clipboard: its thumbnail, base64
-/// JPEG, for the composer to show.
+/// A capture of the window, as a data URI for the composer to show; written to the store too, the
+/// file a GitLab upload takes, and on the clipboard (to paste on GitHub).
 #[tauri::command]
 pub async fn feedback_capture(state: State<'_, Arc<AppState>>, window: tauri::WebviewWindow) -> Cmd<String> {
-    use base64::Engine;
-    let thumb = crate::feedback::capture(&window, &crate::feedback::capture_path(&state.store)).await?;
-    Ok(base64::engine::general_purpose::STANDARD.encode(thumb))
+    Ok(crate::feedback::capture(&window, &crate::feedback::capture_path(&state.store)).await?)
 }
 
 #[cfg(test)]

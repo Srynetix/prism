@@ -209,7 +209,7 @@
     restartTimer = setTimeout(() => {
       if (!restarting) return
       restarting = false
-      restartError = t('Prism has not come back within two minutes: check the Mac.')
+      restartError = t('Prism has not come back within two minutes: check the computer.')
     }, 120_000)
     try {
       await invoke('restart_app')
@@ -241,7 +241,7 @@
     powerDone = null
     try {
       await invoke('mac_power', unlock ? { action, password: macPassword } : { action })
-      powerDone = action === 'restart' ? t('The Mac restarts: Prism comes back once it is up and opened.') : t('The Mac shuts down: Prism is out of reach until it is on again.')
+      powerDone = action === 'restart' ? t('The computer restarts: Prism comes back once it is up and opened.') : t('The computer shuts down: Prism is out of reach until it is on again.')
     } catch (e) {
       powerError = e instanceof Error ? e.message : String(e)
     } finally {
@@ -361,14 +361,14 @@
     <button class="search" onclick={() => openPalette()} aria-label={t('Search: go to, or do')}><Icon name="search" /></button>
     {#if several()}<ProfileSwitch />{/if}
     <!-- A reconnection of a moment goes unseen: out of reach only after a few seconds. -->
-    <span class="mac" class:off={socketState.away} title={socketState.away ? t('The Mac is out of reach') : t('Connected to the Mac')}>
-      <span class="dot"></span>{socketState.away ? (socketState.error ?? 'Mac') : 'Mac'}
+    <span class="mac" class:off={socketState.away} title={socketState.away ? t('The computer is out of reach') : t('Connected to the computer')}>
+      <span class="dot"></span>{socketState.away ? (socketState.error ?? t('Computer')) : t('Computer')}
     </span>
   </header>
 
   <main>
     {#if !full}
-      <p class="empty">{t('Waiting for the Mac…')}</p>
+      <p class="empty">{t('Waiting for the computer…')}</p>
     {:else if view === 'more'}
       {#each moreGroups as [category, views] (category)}
         <p class="sect">{t(category)}</p>
@@ -380,12 +380,12 @@
       {/each}
       {#if settingsOn}
         <ul class="more">
-          <li><button onclick={() => go('settings')}><Icon name="settings" /><span>{t('Settings')}<small>{t('Read on the Mac; notifications, alerts and appearance changed from here')}</small></span><Icon name="next" /></button></li>
+          <li><button onclick={() => go('settings')}><Icon name="settings" /><span>{t('Settings')}<small>{t('Read on the computer; notifications, alerts and appearance changed from here')}</small></span><Icon name="next" /></button></li>
         </ul>
       {/if}
       {#if projectsOn}
         <ul class="more">
-          <li><button onclick={() => go('project')}><Icon name="plus" /><span>{t('New project')}<small>{t('A git repository in the Mac’s working folder, on request on the forge; or one of the forge’s cloned')}</small></span><Icon name="next" /></button></li>
+          <li><button onclick={() => go('project')}><Icon name="plus" /><span>{t('New project')}<small>{t('A git repository in the computer’s working folder, on request on the forge; or one of the forge’s cloned')}</small></span><Icon name="next" /></button></li>
         </ul>
       {/if}
       {#if hello?.push && pushSupported()}
@@ -396,17 +396,17 @@
       {/if}
       {#if hello?.classes.includes('act')}
         <ul class="more">
-          <li><button onclick={() => openFeedback({ where: 'phone remote' })}><Icon name="comment" /><span>{t('Send feedback')}<small>{t('An issue on Prism’s repository or a pack’s, opened by the Mac')}</small></span><Icon name="next" /></button></li>
-          <li><button onclick={restartMac} disabled={restarting}><Icon name="retry" /><span>{restarting ? t('Restarting Prism…') : armed.is('restart') ? t('Tap again to restart') : t('Restart Prism')}<small>{t('On the Mac: settings reread; agents and notes stay')}</small></span></button></li>
+          <li><button onclick={() => openFeedback({ where: 'phone remote' })}><Icon name="comment" /><span>{t('Send feedback')}<small>{t('An issue on Prism’s repository or a pack’s, opened by the computer')}</small></span><Icon name="next" /></button></li>
+          <li><button onclick={restartMac} disabled={restarting}><Icon name="retry" /><span>{restarting ? t('Restarting Prism…') : armed.is('restart') ? t('Tap again to restart') : t('Restart Prism')}<small>{t('On the computer: settings reread; agents and notes stay')}</small></span></button></li>
         </ul>
         {#if restartError}<p class="note ko">{restartError}</p>{/if}
       {/if}
       {#if hello?.power}
         {@const stops = runningAgents ? ` · ${tn(runningAgents, '{n} agent running stops', '{n} agents running stop')}` : ''}
-        <p class="sect">{t('The Mac')}</p>
+        <p class="sect">{t('The computer')}</p>
         <ul class="more">
-          <li><button onclick={() => power('restart')} disabled={!!powering}><Icon name="refresh" /><span>{powering === 'restart' ? t('Restarting…') : armed.is('restart') ? t('Tap again: restart the Mac') : t('Restart the Mac')}<small>{t('Confirmed by your passkey')}{stops}</small></span></button></li>
-          <li><button class="danger" onclick={() => power('shutdown')} disabled={!!powering}><Icon name="stop" /><span>{powering === 'shutdown' ? t('Shutting down…') : armed.is('shutdown') ? t('Tap again: shut the Mac down') : t('Shut down the Mac')}<small>{t('Confirmed by your passkey · out of reach until switched on')}{stops}</small></span></button></li>
+          <li><button onclick={() => power('restart')} disabled={!!powering}><Icon name="refresh" /><span>{powering === 'restart' ? t('Restarting…') : armed.is('restart') ? t('Tap again: restart the computer') : t('Restart the computer')}<small>{t('Confirmed by your passkey')}{stops}</small></span></button></li>
+          <li><button class="danger" onclick={() => power('shutdown')} disabled={!!powering}><Icon name="stop" /><span>{powering === 'shutdown' ? t('Shutting down…') : armed.is('shutdown') ? t('Tap again: shut the computer down') : t('Shut down the computer')}<small>{t('Confirmed by your passkey · out of reach until switched on')}{stops}</small></span></button></li>
         </ul>
         {#if hello.unlock === 'password'}
           <label class="unlock"><b>{t('The Mac’s password')}</b>
@@ -419,7 +419,7 @@
         {#if powerDone}<p class="note">{powerDone}</p>{/if}
         {#if powerError}<p class="note ko">{powerError}</p>{/if}
       {/if}
-      <p class="note">{settingsOn ? '' : `${t('Settings stay on the Mac.')} `}{hello ? t('This phone: {device}.', { device: hello.device }) : ''}</p>
+      <p class="note">{settingsOn ? '' : `${t('Settings stay on the computer.')} `}{hello ? t('This phone: {device}.', { device: hello.device }) : ''}</p>
     {:else if view === 'project'}{#await lazy.RemoteProject() then { default: RemoteProject }}<RemoteProject />{/await}
     {:else if view === 'settings' || settingsPage}{#await lazy.RemoteSettings() then { default: RemoteSettings }}<RemoteSettings node={settingsPage} open={(id) => go(`settings:${id}`)} />{/await}
     {:else if view === 'home'}<RemoteHome snap={full} {alerts} {go} all={allProfiles} />

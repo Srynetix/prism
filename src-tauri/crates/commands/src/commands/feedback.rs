@@ -19,7 +19,7 @@ pub struct FeedbackInfo {
     pub targets: Vec<Target>,
     /// What Prism can attach of itself.
     pub context: Vec<ContextLine>,
-    /// A capture of the window can be put on the clipboard (macOS).
+    /// A capture of the window can be put on the clipboard (macOS, Linux).
     pub capture: bool,
 }
 
@@ -30,7 +30,7 @@ fn demo_target() -> Target {
 
 #[cfg_attr(feature = "tauri", tauri::command)]
 pub async fn feedback_info(state: State<'_, AppState>) -> Cmd<FeedbackInfo> {
-    let capture = cfg!(target_os = "macos");
+    let capture = cfg!(any(target_os = "macos", target_os = "linux"));
     if crate::demo::active() {
         return Ok(FeedbackInfo { enabled: true, follow: true, targets: vec![demo_target()], context: feedback::context(&[], &state.build, &crate::deps::sample()), capture });
     }
@@ -61,9 +61,9 @@ pub fn feedback_body(text: String, context: Vec<String>) -> String {
     feedback::body(&text, &context)
 }
 
-/// Opens the issue on `target`, and remembers it. `capture`: the window's, uploaded with it (GitLab;
-/// on GitHub it stays on the clipboard); an upload that fails opens nothing, rather than an issue
-/// without the picture it was about.
+/// Opens the issue on `target`, and remembers it. `capture`: the window's, uploaded with it
+/// (GitLab's uploads, GitHub's user attachments); an upload that fails opens nothing, rather than
+/// an issue without the picture it was about.
 #[cfg_attr(feature = "tauri", tauri::command)]
 pub async fn feedback_create(state: State<'_, AppState>, target: String, kind: String, title: String, text: String, context: Vec<String>, capture: Option<bool>) -> Cmd<Request> {
     if !feedback::KINDS.contains(&kind.as_str()) {

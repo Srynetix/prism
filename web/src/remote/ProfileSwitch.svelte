@@ -45,7 +45,7 @@
   const status = (p: PhoneProfile) =>
     p.reachable
       ? [tn(p.agents, '{n} agent', '{n} agents'), p.waiting ? tn(p.waiting, '{n} waiting', '{n} waiting') : ''].filter(Boolean).join(' · ')
-      : p.open ? t('Open on the Mac; its remote is not relayed here') : t('Closed on the Mac')
+      : p.open ? t('Open on the computer; its remote is not relayed here') : t('Closed on the computer')
 </script>
 
 {#snippet badge(p: PhoneProfile, big = false)}
@@ -82,7 +82,7 @@
       </div>
     {/each}
     {#if error}<p class="note ko">{error}</p>{/if}
-    <p class="note">{t('Open launches its Prism on the Mac, beside this one, confirmed by your passkey; it shows here once it answers, if its remote is relayed (Settings › Remote › Access › Tunnel relay).')}</p>
+    <p class="note">{t('Open launches its Prism on the computer, beside this one, confirmed by your passkey; it shows here once it answers, if its remote is relayed (Settings › Remote › Access › Tunnel relay).')}</p>
   </div>
 {/if}
 

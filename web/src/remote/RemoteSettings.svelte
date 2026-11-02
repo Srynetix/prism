@@ -97,7 +97,7 @@
       const list = changes.map((c) => ({ path: c.path, value: sent(c.value) }))
       if (!preview) data = await invoke<PhoneSettings>('remote_settings_save', { edits: list })
       else for (const c of list) c.path.reduce<Record<string, unknown>>((o, k, i) => (i === c.path.length - 1 ? ((o[k] = c.value), o) : (o[k] ??= {}) as Record<string, unknown>), data!.effective)
-      saved = tn(list.length, '{n} change saved on the Mac', '{n} changes saved on the Mac')
+      saved = tn(list.length, '{n} change saved on the computer', '{n} changes saved on the computer')
       edits = {}
       confirming = false
     } catch (e) {
@@ -133,9 +133,9 @@
     <p class="note ko">{loadError}</p>
     <button class="retry" onclick={load}>{t('Try again')}</button>
   {:else if !data}
-    <p class="note">{t('Reading the Mac’s settings…')}</p>
+    <p class="note">{t('Reading the computer’s settings…')}</p>
   {:else if !page}
-    <p class="banner"><Icon name="lock" /> {t('Read on the Mac. What is marked')} <span class="ed">{t('editable')}</span> {t('changes from here, each save confirmed by your passkey.')}</p>
+    <p class="banner"><Icon name="lock" /> {t('Read on the computer. What is marked')} <span class="ed">{t('editable')}</span> {t('changes from here, each save confirmed by your passkey.')}</p>
     {#if data.error}<p class="note ko">{t('config.toml does not load: {error}', { error: data.error })}</p>{/if}
     {#each roots as root (root.id)}
       {@const pages = pagesOf(root)}
@@ -147,7 +147,7 @@
             <li><button onclick={() => open(n.id)}>
               <span class="dot" style="background: {root.color ?? 'var(--accent)'}"></span>
               <span class="t">{n.label}</span>
-              {#if nodeEditable(n)}<span class="ed">{t('editable')}</span>{:else if own}<span class="ro">{t('read')}</span>{:else}<span class="ro">{t('on the Mac')}</span>{/if}
+              {#if nodeEditable(n)}<span class="ed">{t('editable')}</span>{:else if own}<span class="ro">{t('read')}</span>{:else}<span class="ro">{t('on the computer')}</span>{/if}
               <Icon name="next" />
             </button></li>
           {/each}
@@ -158,11 +158,11 @@
     {@const any = nodeEditable(page)}
     <p class="banner" class:ok={any}>
       {#if any}<Icon name="edit" /> {t('The keys marked editable change from here; the others are read.')}
-      {:else}<Icon name="lock" /> {t('Read-only on the phone: change it in Prism on the Mac.')}{/if}
+      {:else}<Icon name="lock" /> {t('Read-only on the phone: change it in Prism on the computer.')}{/if}
     </p>
     {#each sectionsOf(page) as { id, spec } (id)}
       {#if !spec}
-        <p class="note">{id === 'file' ? t('config.toml is shown in Settings on the Mac only.') : t('This part is shown in Settings on the Mac only.')}</p>
+        <p class="note">{id === 'file' ? t('config.toml is shown in Settings on the computer only.') : t('This part is shown in Settings on the computer only.')}</p>
       {:else}
         {#if sectionsOf(page).length > 1}<p class="sect">{spec.label}</p>{/if}
         <div class="box">
@@ -227,8 +227,8 @@
 {#if confirming}
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <div class="scrim" onclick={() => !saving && (confirming = false)}></div>
-  <div class="sheet" role="dialog" aria-label={t('Save on the Mac')}>
-    <b>{t('Save on the Mac?')}</b>
+  <div class="sheet" role="dialog" aria-label={t('Save on the computer')}>
+    <b>{t('Save on the computer?')}</b>
     <div class="diff">
       {#each changes as c (dotted(c.path))}
         <div><code>{c.label}</code><span><code class="o">{show(at(data?.effective, c.path))}</code> → <code class="n">{show(sent(c.value) ?? tc('settings', 'default'))}</code></span></div>

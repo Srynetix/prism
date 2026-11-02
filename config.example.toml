@@ -214,7 +214,7 @@ statusbar_hidden = []           # items not shown (right-click on the bar)
 # bug = "bug"
 # idea = ""
 
-# Prism from a phone: a page served by the Mac (Chrome on Android installs it as an app, Safari
+# Prism from a phone: a page served by the computer (Chrome on Android installs it as an app, Safari
 # adds it to the home screen), reached through a tunnel; each phone paired from Settings › Remote
 # and unlocked with a passkey. Personal: a pack does not set it. Off by default.
 # [remote]
@@ -223,22 +223,23 @@ statusbar_hidden = []           # items not shown (right-click on the bar)
 # port = 47800                  # Prism listens on 127.0.0.1 only, never another interface
 # tailscale_socket = ""         # beside a VPN: the socket of `just tailscale` (userspace tailscaled); empty: the Tailscale app
 # url = ""                      # "other": the HTTPS address the phone opens (passkeys are bound to its host)
-# mail = false                  # the Mail block on the phone; off, its data never leaves the Mac
+# mail = false                  # the Mail block on the phone; off, its data never leaves the computer
 # actions = false               # the phone acts (retry, rebase, comment, tickets, an agent's permission or prompt); off: it reads
 # critical = false              # merge, merge queue, manual jobs, an agent stopped, a worktree removed: the passkey each time
 # typing = true                 # the phone sends texts to agents (its answer box) and takes their terminal, confirmed by its passkey
 # settings = true              # More › Settings on the phone: every setting read (tokens never), a few changed, each save confirmed by its passkey
 # projects = true               # More › New project on the phone: in a [[workspaces]] folder only, published now or later, or a forge project cloned there; its passkey every time
-# power = false                 # the phone restarts or shuts down the Mac (More › The Mac), its passkey every time
+# power = false                 # the phone restarts or shuts down the computer (More › The computer; macOS: the Apple menu, Linux: systemd), its passkey every time
 # tabs = ["alerts", "mrs", "tickets", "agents"]   # bottom tabs; also ci, infra, sprint, wip, trail, pet (others: More)
 # session_idle_minutes = 120    # biometrics again after this long without a request from the phone
 # session_max_hours = 12        # biometrics again after this long, active or not
 # step_up_minutes = 5           # taking a terminal again within this long asks nothing more
 # control_idle_minutes = 0      # a terminal given back after this long without a key; 0: on Release or a desk key
 # push = false                  # an agent waiting wakes the phones (an empty push: nothing of Prism goes through it)
-# keep_awake = true             # no idle sleep while the remote is on and the Mac on power
+# keep_awake = true             # no idle sleep while the remote is on (macOS: on power only; Linux: systemd-inhibit)
+# keep_running = false          # Prism opened again after a crash and at login (macOS: a LaunchAgent, Linux: a user systemd timer), prism watch every minute; installed Prism only
 # preview = true                # a dev server of the Dev servers block opens on the phone, through a second address, its session required
-# preview_port = 47801          # the preview's port on 127.0.0.1; Tailscale serves it on the Mac's name, port 8443
+# preview_port = 47801          # the preview's port on 127.0.0.1; Tailscale serves it on the computer's name, port 8443
 # preview_url = ""              # "other": the HTTPS address your tunnel brings to preview_port, on the host of url; empty: no preview
 
 # Prism's logs: standard error and the profile's prism.log (Settings › General › Logs reveals or
@@ -643,8 +644,9 @@ calendars = ["Calendar", "Work"]
 # disk_alert_percent = 5        # or under this share free; 0: not by share
 # poll_seconds = 5
 
-# The Sound block (macOS): the output and the microphone, their device, volume and mute, changed
-# from the block. Read from CoreAudio's settings: nothing is listened to, no permission. On by default.
+# The Sound block (macOS, Linux): the output and the microphone, their device, volume and mute,
+# changed from the block. Read from CoreAudio's or PulseAudio's settings (pactl): nothing is
+# listened to, no permission. On by default.
 # [sound]
 # enabled = true
 # min_input_gain = 40           # the microphone's input volume under this % in Alerts, notified while an app records; 0: never

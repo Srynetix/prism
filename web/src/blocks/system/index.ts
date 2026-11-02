@@ -7,7 +7,7 @@ function alerts(s: SystemState): BlockAlert[] {
   if (!s.alerts || !s.updated_at) return []
   const out: BlockAlert[] = []
   if (s.memory.pressure === 'critical') {
-    out.push({ severity: 'ko', text: t('Memory pressure is critical: the Mac is swapping, close something'), notification: { key: 'system:memory', title: t('Memory pressure') } })
+    out.push({ severity: 'ko', text: t('Memory pressure is critical: the computer is swapping, close something'), notification: { key: 'system:memory', title: t('Memory pressure') } })
   }
   if (s.cpu.hot_seconds >= HOT_SECONDS) {
     out.push({ severity: 'warn', text: t('CPU at {n} % for {min} min', { n: Math.round(s.cpu.usage), min: Math.round(s.cpu.hot_seconds / 60) }), notify: false })
@@ -30,7 +30,7 @@ export const system = {
   label: t('System'),
   category: 'Infra',
   help: {
-    purpose: t('Is the Mac keeping up — and if not, is it the agents, Docker, a dev server, or Chrome?'),
+    purpose: t('Is the computer keeping up — and if not, is it the agents, Docker, a dev server, or Chrome?'),
     points: [
       t('CPU, memory, disk and network; CPU, memory and network with their last 10 minutes. The memory’s colour is macOS’s memory pressure: green, orange when it compresses, red when it swaps.'),
       t('Who consumes, grouped by what Prism knows: its agents (their processes under tmux), Docker (its virtual machine), the shells and dev servers, Prism itself, then the three heaviest other applications (Chrome’s helpers counted with Chrome).'),

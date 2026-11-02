@@ -1,7 +1,8 @@
 //! The tools Prism runs, with their versions (Settings › General › Dependencies): tmux and git,
-//! the agents' CLIs, the forges' CLIs, kubectl, gcloud, trivy, docker. Each is looked for in the
-//! PATH (an agent CLI at its `[agents.<cli>] bin`) and asked its version, all side by side, a few
-//! seconds at most; the answer is kept a while, as the feedback composer attaches it too.
+//! the agents' CLIs, the forges' CLIs, kubectl, gcloud, trivy, docker, and on Linux the audio
+//! helpers (pactl, playerctl). Each is looked for in the PATH (an agent CLI at its
+//! `[agents.<cli>] bin`) and asked its version, all side by side, a few seconds at most; the
+//! answer is kept a while, as the feedback composer attaches it too.
 //!
 //! Only a name, a path and a version leave: no login, nothing of the config but which tools it uses.
 
@@ -64,6 +65,10 @@ fn probes(cfg: &crate::config::Config) -> Vec<Probe> {
         probe("trivy", &["--version"], cfg.vulnerabilities.enabled, "trivy"),
         probe("docker", &["--version"], false, "docker"),
     ]);
+    // Linux's audio helpers: the Sound block reads the devices through pactl, the Audio block's
+    // "Now Playing" through playerctl. Optional: without one, its block says so.
+    #[cfg(target_os = "linux")]
+    out.extend([probe("pactl", &["--version"], false, "pulseaudio-utils"), probe("playerctl", &["--version"], false, "playerctl")]);
     out
 }
 

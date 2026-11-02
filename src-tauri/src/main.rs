@@ -104,7 +104,7 @@ fn main() {
                 let remote = app.state::<std::sync::Arc<app::AppState>>().remote.clone();
                 // Bounded: quitting never waits on Tailscale for long.
                 tauri::async_runtime::block_on(async { tokio::time::timeout(std::time::Duration::from_secs(5), remote.apply(&Default::default())).await.ok() });
-                #[cfg(target_os = "macos")]
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
                 audio::now_playing::stop();
             }
             _ => {

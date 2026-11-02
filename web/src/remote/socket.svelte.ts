@@ -100,7 +100,7 @@ export function openSocket(onEnded: () => void, opts: { base?: string; state?: S
     grace ??= setTimeout(() => (socketState.away = true), GRACE)
     for (const [id, p] of pending) {
       clearTimeout(p.timer)
-      p.reject('the connection to the Mac dropped: try again')
+      p.reject('the connection to the computer dropped: try again')
       pending.delete(id)
     }
   }
@@ -224,7 +224,7 @@ export function openSocket(onEnded: () => void, opts: { base?: string; state?: S
         const i = queued.indexOf(later)
         if (i < 0) return
         queued.splice(i, 1)
-        p.reject('the Mac is out of reach')
+        p.reject('the computer is out of reach')
       }, WAIT_OPEN)
       return
     }
@@ -232,7 +232,7 @@ export function openSocket(onEnded: () => void, opts: { base?: string; state?: S
     // Long enough for the passkey's prompt.
     const timer = setTimeout(() => {
       pending.delete(id)
-      p.reject('no answer from the Mac')
+      p.reject('no answer from the computer')
     }, 120_000)
     pending.set(id, { ...p, timer })
     ws.send(JSON.stringify({ t: 'call', id, command: p.command, args: p.args ?? {}, ...(assertion ? { assertion } : {}) }))

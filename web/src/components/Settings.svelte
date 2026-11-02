@@ -513,7 +513,7 @@
             <span class="hint">{pinsOn ? t('A pin in their header') : t('Off')}</span>
           </span>
         </Field>
-        <Field label={t('Status bar order')} hint={t('Its items, from left to right; “|” parts the left side from the right, and an item left out takes its default place. Empty: by zone, what waits for you first, then the work, then the Mac and Prism. Customize… arranges them by dragging, on the bar itself.')} path={['appearance', 'statusbar']}>
+        <Field label={t('Status bar order')} hint={t('Its items, from left to right; “|” parts the left side from the right, and an item left out takes its default place. Empty: by zone, what waits for you first, then the work, then the computer and Prism. Customize… arranges them by dragging, on the bar itself.')} path={['appearance', 'statusbar']}>
           <span class="row">
             <ListInput value={valueOf<string[]>(['appearance', 'statusbar'], [])} onchange={(v) => setValue(['appearance', 'statusbar'], v, [])} options={[SIDE_BREAK, ...STATUS_ITEMS.map((i) => i.id)]} placeholder={t('default order')} compact />
             <button class="btn" onclick={() => (statusbarEditing.on = true)}>{t('Customize…')}</button>

@@ -408,20 +408,44 @@ pub fn capture_path(store: &crate::store::Store) -> std::path::PathBuf {
     store.dir().join("feedback-capture.png")
 }
 
-/// The capture uploaded to the target's project (GitLab's `uploads`, through glab): the Markdown
-/// that shows it in the issue. GitHub has no such API: None, it stays on the clipboard.
+/// The capture uploaded to the target's project, the Markdown that shows it in the issue. GitLab:
+/// the project's `uploads`. GitHub: the user-attachment assets (`uploads.github.com`), which ask
+/// the repository's numeric id — and one the user can write to, which opening an issue there
+/// already says.
 pub async fn upload(t: &Target, path: &std::path::Path) -> Result<Option<String>> {
-    if t.cli() != Cli::Glab {
-        return Ok(None);
-    }
     let png = std::fs::read(path).context(tr("the capture of the window is gone: capture it again"))?;
-    let (content_type, body) = multipart("file", "prism.png", "image/png", &png);
-    #[derive(Deserialize)]
-    struct Upload {
-        markdown: String,
+    match t.cli() {
+        Cli::Glab => {
+            let (content_type, body) = multipart("file", "prism.png", "image/png", &png);
+            #[derive(Deserialize)]
+            struct Upload {
+                markdown: String,
+            }
+            let up: Upload = Cli::Glab.send("POST", &format!("projects/{}/uploads", encode(&t.project)), &content_type, &body).await.context(tr("the capture could not be uploaded"))?;
+            Ok(Some(up.markdown))
+        }
+        Cli::Gh => {
+            #[derive(Deserialize)]
+            struct Repo {
+                id: u64,
+            }
+            let repo: Repo = Cli::Gh.json(&["api", &format!("repos/{}", t.project)]).await.context(tr("the capture could not be uploaded"))?;
+            #[derive(Deserialize)]
+            struct Upload {
+                url: String,
+            }
+            let up: Upload = Cli::Gh
+                .send(
+                    "POST",
+                    &format!("https://uploads.github.com/user-attachments/assets?name=prism.png&content_type=image/png&repository_id={}", repo.id),
+                    "image/png",
+                    &png,
+                )
+                .await
+                .context(tr("the capture could not be uploaded"))?;
+            Ok(Some(format!("![prism.png]({})", up.url)))
+        }
     }
-    let up: Upload = Cli::Glab.send("POST", &format!("projects/{}/uploads", encode(&t.project)), &content_type, &body).await.context(tr("the capture could not be uploaded"))?;
-    Ok(Some(up.markdown))
 }
 
 /// A `multipart/form-data` body of one file: its content type (with the boundary) and its bytes.

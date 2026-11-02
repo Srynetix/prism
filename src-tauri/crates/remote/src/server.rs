@@ -122,7 +122,7 @@ async fn guard(State(inner): State<Shared>, req: Request, next: Next) -> Respons
         let user = headers.get("tailscale-user-login").and_then(|h| h.to_str().ok());
         if user != Some(owner.as_str()) {
             tracing::warn!("remote: refused a request from {}", user.unwrap_or("no tailnet user"));
-            return refuse(StatusCode::FORBIDDEN, tr("only this Mac's tailnet user"));
+            return refuse(StatusCode::FORBIDDEN, tr("only this computer's tailnet user"));
         }
     }
     // A relayed profile's path as its Prism sees it (`/p/<profile>/api/ws`: `/api/ws`).
@@ -767,7 +767,7 @@ async fn call(inner: &Inner, device: &str, name: &str, command: String, args: Va
     }
     // Restarting or shutting down the Mac: `[remote] power`, and the passkey every time.
     if command == "mac_power" {
-        anyhow::ensure!(inner.live().power, "{}", tr("restarting the Mac from a phone is off (Settings › Remote › Exposure)"));
+        anyhow::ensure!(inner.live().power, "{}", tr("restarting the computer from a phone is off (Settings › Remote › Exposure)"));
         anyhow::ensure!(inner.host.class(&command, &args) == Some(Class::Critical), "{}", tr!("{other} is not answered from a phone", other = "mac_power"));
         // Bound to the action only: a FileVault password never goes into a purpose (hashed, or
         // sent to the hub when relayed).
@@ -1351,7 +1351,7 @@ mod tests {
         remote.apply(&RemoteConfig { actions: true, critical: true, typing: true, ..cfg.clone() }).await;
 
         // The Mac's power: off unless `[remote] power`; then the passkey, each time.
-        assert!(ask(&mut ws, 40, "mac_power", json!({ "action": "restart" }), None).await["error"].as_str().unwrap().contains("restarting the Mac from a phone is off"));
+        assert!(ask(&mut ws, 40, "mac_power", json!({ "action": "restart" }), None).await["error"].as_str().unwrap().contains("restarting the computer from a phone is off"));
         remote.apply(&RemoteConfig { actions: true, critical: true, typing: true, power: true, ..cfg.clone() }).await;
         let step = ask(&mut ws, 41, "mac_power", json!({ "action": "restart" }), None).await;
         let restarted = ask(&mut ws, 42, "mac_power", json!({ "action": "restart" }), Some(answer(&step))).await;

@@ -120,7 +120,11 @@ type. Prism finds these tools in the PATH of your login shell, even when opened 
 | macOS Calendar | nothing: macOS asks for access once | |
 
 On Linux, the same tools from your distribution's packages, and a Secret Service (GNOME Keyring,
-KWallet) for the keychain.
+KWallet) for the keychain. The Sound block reads the audio devices through `pactl`
+(`pulseaudio-utils`), and the Audio block's now playing through `playerctl`; a few remote
+features take the system's own when present — `spectacle`, `grim`, `scrot` or `import` for the
+feedback's capture, `iw` for the Wi-Fi's link, systemd for keep-running — and say so without
+them.
 
 **Settings › General › Dependencies** shows which of these tools Prism found, where, and their
 versions, the missing ones a source needs first, with how to install them.

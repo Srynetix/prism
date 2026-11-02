@@ -221,8 +221,8 @@ impl Auth {
     /// The phone opened the pairing's address: the code to show, and its passkey's challenge.
     pub fn pair_claim(&mut self, token: &str, name: &str, now: DateTime<Utc>) -> Result<(String, String)> {
         self.expire(now);
-        let p = self.pairing.as_mut().filter(|p| p.token == token).context(tr("this pairing has expired: open a new one on the Mac"))?;
-        ensure!(p.claim.is_none(), "this pairing is already in use: open a new one on the Mac");
+        let p = self.pairing.as_mut().filter(|p| p.token == token).context(tr("this pairing has expired: open a new one on the computer"))?;
+        ensure!(p.claim.is_none(), "{}", tr("this pairing is already in use: open a new one on the computer"));
         let name = device_name(name);
         let mut digits = [0u8; 2];
         getrandom::fill(&mut digits).expect("the system's random source");
@@ -262,7 +262,7 @@ impl Auth {
     /// A login challenge, and the passkeys that may answer it.
     pub fn login_begin(&mut self, now: DateTime<Utc>) -> Result<(String, Vec<String>)> {
         self.expire(now);
-        ensure!(!self.devices.is_empty(), "no phone is paired: pair this one from the Mac");
+        ensure!(!self.devices.is_empty(), "{}", tr("no phone is paired: pair this one from the computer"));
         if self.challenges.len() >= MAX_CHALLENGES
             && let Some(oldest) = self.challenges.iter().min_by_key(|(_, until)| **until).map(|(c, _)| c.clone())
         {

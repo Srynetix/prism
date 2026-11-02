@@ -1,5 +1,5 @@
-//! Reads CoreAudio every `[sound] poll_seconds`, and at once after a change from the window.
-//! Elsewhere than macOS the block says it cannot read.
+//! Reads the audio devices (CoreAudio on macOS, `pactl` on Linux) every `[sound] poll_seconds`,
+//! and at once after a change from the window. Elsewhere the block says it cannot read.
 
 use std::time::Duration;
 
@@ -48,9 +48,22 @@ fn read() -> Result<SoundState> {
     Ok(SoundState { output: ca::side(Scope::Output), input: ca::side(Scope::Input), devices: ca::devices(), recording: ca::listeners(app_name), updated_at: Some(Utc::now()), ..Default::default() })
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
 fn read() -> Result<SoundState> {
-    anyhow::bail!(prism_base::i18n::tr("the Sound block reads macOS's audio devices only"))
+    use chrono::Utc;
+    Ok(SoundState {
+        output: super::pulse::side(Scope::Output)?,
+        input: super::pulse::side(Scope::Input)?,
+        devices: super::pulse::devices()?,
+        recording: super::pulse::listeners(),
+        updated_at: Some(Utc::now()),
+        ..Default::default()
+    })
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn read() -> Result<SoundState> {
+    anyhow::bail!(prism_base::i18n::tr("the Sound block reads audio devices on macOS and Linux only"))
 }
 
 /// Runs a change off the async threads (CoreAudio blocks briefly), then reads again.
@@ -75,19 +88,34 @@ pub async fn set_device(s: Scope, id: u32) -> Result<()> {
     change(move || super::coreaudio::set_default(s, id)).await
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+pub async fn set_volume(s: Scope, percent: u8) -> Result<()> {
+    change(move || super::pulse::set_volume(s, percent)).await
+}
+
+#[cfg(target_os = "linux")]
+pub async fn set_mute(s: Scope, muted: bool) -> Result<()> {
+    change(move || super::pulse::set_mute(s, muted)).await
+}
+
+#[cfg(target_os = "linux")]
+pub async fn set_device(s: Scope, id: u32) -> Result<()> {
+    change(move || super::pulse::set_default(s, id)).await
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub async fn set_volume(_: Scope, _: u8) -> Result<()> {
-    change(|| anyhow::bail!(prism_base::i18n::tr("macOS only"))).await
+    change(|| anyhow::bail!(prism_base::i18n::tr("the Sound block reads audio devices on macOS and Linux only"))).await
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub async fn set_mute(_: Scope, _: bool) -> Result<()> {
-    change(|| anyhow::bail!(prism_base::i18n::tr("macOS only"))).await
+    change(|| anyhow::bail!(prism_base::i18n::tr("the Sound block reads audio devices on macOS and Linux only"))).await
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub async fn set_device(_: Scope, _: u32) -> Result<()> {
-    change(|| anyhow::bail!(prism_base::i18n::tr("macOS only"))).await
+    change(|| anyhow::bail!(prism_base::i18n::tr("the Sound block reads audio devices on macOS and Linux only"))).await
 }
 
 /// The application a recording process belongs to: a browser's helper (`com.google.Chrome.helper`)
@@ -110,6 +138,23 @@ mod tests {
         assert!(s.output.is_some() || s.devices.is_empty());
         if let Some(v) = s.output.as_ref().filter(|o| o.volume_settable).and_then(|o| o.volume) {
             super::super::coreaudio::set_volume(super::Scope::Output, v).unwrap();
+            assert_eq!(super::read().unwrap().output.and_then(|o| o.volume), Some(v));
+        }
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod linux_tests {
+    /// This machine's devices, read, and the output volume set to what it already is:
+    /// `cargo test -p prism-blocks sound -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "reads the machine's audio devices"]
+    fn reads_this_machine() {
+        let s = super::read().unwrap();
+        println!("{}", serde_json::to_string_pretty(&s).unwrap());
+        assert!(s.output.is_some() || s.devices.is_empty());
+        if let Some(v) = s.output.as_ref().filter(|o| o.volume_settable).and_then(|o| o.volume) {
+            super::super::pulse::set_volume(super::Scope::Output, v).unwrap();
             assert_eq!(super::read().unwrap().output.and_then(|o| o.volume), Some(v));
         }
     }
