@@ -6,6 +6,6 @@ export type SystemWifi = {
  */
 rssi: number, 
 /**
- * Mb/s.
+ * Mb/s; none when the system does not say (Linux without `iw`).
  */
-rate: number, };
+rate: number | null, };

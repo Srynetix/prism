@@ -61,7 +61,7 @@
           <Icon name="check" />
           <div>
             <b>{t('Opened #{number}', { number: feedback.sent.number })}</b> {t('on {name}: it is in Settings › General › Feedback, followed with the updates.', { name: feedback.sent.name })}
-            {#if feedback.captured && !uploadsCapture()}<p>{t('The capture of the window is on the clipboard: paste it into the issue.')}</p>{/if}
+            {#if feedback.captured && (!uploadsCapture() || feedback.sent.paste_capture)}<p>{t('The capture of the window is on the clipboard: paste it into the issue.')}</p>{/if}
           </div>
         </div>
         <footer>

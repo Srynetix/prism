@@ -15,9 +15,10 @@ pub use prism_ops::feedback::*;
 
 /// A capture of Prism's window, written to `path` (the full picture, the one the forge's upload
 /// takes) and put on the clipboard too (to paste into a comment); a data URI of it, for the
-/// composer to show. macOS: `screencapture` of the window's rectangle, `sips` for the thumbnail. Linux: `spectacle` (KDE, the active window), `scrot` or `import`
-/// (X11, the window's rectangle), `grim` (Wayland without them, the whole screen); the clipboard
-/// by `wl-copy` or `xclip`.
+/// composer to show. macOS: `screencapture` of the window's rectangle, `sips` for the thumbnail.
+/// Linux: `spectacle` (KDE, the active window), `scrot` or `import` (X11, the window's
+/// rectangle), `grim` (Wayland without them, the whole screen); the clipboard by the clipboard
+/// plugin, a PNG thumbnail by `image`.
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub async fn capture(window: &tauri::WebviewWindow, path: &std::path::Path) -> Result<String> {
     let file = path.to_string_lossy().into_owned();
@@ -71,12 +72,17 @@ pub async fn capture(window: &tauri::WebviewWindow, path: &std::path::Path) -> R
         } else {
             bail!(tr("a capture of the window needs spectacle (KDE), grim (Wayland) or scrot/import (X11)"))
         };
-        // The clipboard: `wl-copy` drinks its stdin, `xclip` takes a file.
-        let (program, args): (&str, Vec<&str>) = if wayland { ("wl-copy", vec![]) } else { ("xclip", vec!["-selection", "clipboard", "-t", "image/png", "-i"]) };
-        let png = std::fs::File::open(path)?;
-        let out = crate::platform::command(program).args(&args).stdin(std::process::Stdio::from(png)).output().await.context(program)?;
-        ensure!(out.status.success(), "{program}: {}", String::from_utf8_lossy(&out.stderr).trim());
-        (std::fs::read(path)?, "image/png")
+        let png = std::fs::read(path).context("the capture")?;
+        let (thumb, full) = tokio::task::spawn_blocking(move || thumbnail(&png)).await??;
+        // The clipboard (X11 or Wayland, through the clipboard plugin), best effort: the capture
+        // goes with the issue anyway.
+        use tauri::Manager;
+        use tauri_plugin_clipboard_manager::ClipboardExt;
+        let (w, h) = full.dimensions();
+        if let Err(e) = window.app_handle().clipboard().write_image(&tauri::image::Image::new_owned(full.into_raw(), w, h)) {
+            tracing::warn!("feedback: the capture is not on the clipboard: {e}");
+        }
+        (thumb, "image/png")
     };
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     let (bytes, mime) = {
@@ -84,6 +90,16 @@ pub async fn capture(window: &tauri::WebviewWindow, path: &std::path::Path) -> R
         bail!(tr("the capture of the window is made on macOS and Linux only"))
     };
     Ok(uri(bytes, mime))
+}
+
+/// A capture's thumbnail for the composer (640 px at most, PNG), and the picture decoded for the
+/// clipboard.
+#[cfg(target_os = "linux")]
+fn thumbnail(png: &[u8]) -> Result<(Vec<u8>, image::RgbaImage)> {
+    let full = image::load_from_memory_with_format(png, image::ImageFormat::Png).context("the capture")?;
+    let mut thumb = Vec::new();
+    full.thumbnail(640, 640).write_to(&mut std::io::Cursor::new(&mut thumb), image::ImageFormat::Png).context("the capture's thumbnail")?;
+    Ok((thumb, full.into_rgba8()))
 }
 
 /// `data:<mime>;base64,…`: the composer shows it as it comes.

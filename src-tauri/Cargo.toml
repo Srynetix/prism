@@ -110,6 +110,10 @@ toml.workspace = true
 notify.workspace = true
 tracing.workspace = true
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# The feedback capture's thumbnail and its clipboard picture (macOS: sips).
+image = { version = "0.25", default-features = false, features = ["png"] }
+
 [dev-dependencies]
 # Paused time: the collection pace (Hub::pause) tested without waiting.
 tokio = { workspace = true, features = ["test-util"] }

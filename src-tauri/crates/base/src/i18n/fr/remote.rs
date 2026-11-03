@@ -17,7 +17,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Keep the computer awake is off: it may sleep, out of reach until woken.", "Garder l’ordinateur éveillé est désactivé : il peut se mettre en veille, hors d’atteinte jusqu’à son réveil."),
     ("On battery: macOS sleeps despite Keep the computer awake. Plug it in before leaving.", "Sur batterie : macOS se met en veille malgré Garder l’ordinateur éveillé. Branchez-le avant de partir."),
     ("Kept awake (systemd-inhibit): the screen may lock, Prism carries on.", "Maintenu éveillé (systemd-inhibit) : l’écran peut se verrouiller, Prism continue."),
-    ("Prism is not opened again after a crash, nor at login: turn on Keep Prism running.", "Prism n’est pas rouvert après un plantage, ni à la connexion : activez Garder l’ordinateur ouvert."),
+    ("Prism is not opened again after a crash, nor at login: turn on Keep Prism running.", "Prism n’est pas rouvert après un plantage, ni à la connexion : activez Garder Prism ouvert."),
     ("On power, kept awake: the screen may lock, Prism carries on.", "Sur secteur, gardé éveillé : l’écran peut se verrouiller, Prism continue."),
     ("Closing the lid puts this Mac to sleep (no display plugged in): leave it open.", "Fermer l’écran met ce Mac en veille (aucun écran branché) : laissez-le ouvert."),
     ("macOS installs its updates by itself and may restart for them: turn it off in System Settings › General › Software Update › Automatic Updates.", "macOS installe ses mises à jour seul et peut redémarrer pour elles : désactivez-le dans Réglages Système › Général › Mise à jour de logiciels › Mises à jour automatiques."),

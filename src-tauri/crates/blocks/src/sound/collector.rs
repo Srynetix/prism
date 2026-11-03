@@ -51,14 +51,8 @@ fn read() -> Result<SoundState> {
 #[cfg(target_os = "linux")]
 fn read() -> Result<SoundState> {
     use chrono::Utc;
-    Ok(SoundState {
-        output: super::pulse::side(Scope::Output)?,
-        input: super::pulse::side(Scope::Input)?,
-        devices: super::pulse::devices()?,
-        recording: super::pulse::listeners(),
-        updated_at: Some(Utc::now()),
-        ..Default::default()
-    })
+    let s = super::pulse::read()?;
+    Ok(SoundState { output: s.output, input: s.input, devices: s.devices, recording: s.recording, updated_at: Some(Utc::now()), ..Default::default() })
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]

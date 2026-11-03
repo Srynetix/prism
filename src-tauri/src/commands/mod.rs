@@ -213,7 +213,7 @@ pub fn agent_attach(state: State<'_, Arc<AppState>>, id: String, cols: u16, rows
 }
 
 /// A capture of the window, as a data URI for the composer to show; written to the store too, the
-/// file a GitLab upload takes, and on the clipboard (to paste on GitHub).
+/// file the forge's upload takes, and on the clipboard (to paste where the upload is refused).
 #[tauri::command]
 pub async fn feedback_capture(state: State<'_, Arc<AppState>>, window: tauri::WebviewWindow) -> Cmd<String> {
     Ok(crate::feedback::capture(&window, &crate::feedback::capture_path(&state.store)).await?)

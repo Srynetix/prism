@@ -1006,7 +1006,10 @@ mod tests {
         let hub = Hub::new();
         let remote = Remote::new(&dir, hub.clone(), Arc::new(Fake::default())).unwrap();
         // Same tell as `a_terminal_pairs_a_phone`'s: retried until the server has both ports.
+        let mut tries = 0;
         let (port, pport, url, porigin) = loop {
+            tries += 1;
+            assert!(tries <= 10, "the remote server never started");
             let (port, pport) = (free(), free());
             let (url, porigin) = (format!("http://localhost:{port}"), format!("http://localhost:{pport}"));
             remote.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), preview_port: pport, preview_url: porigin.clone(), keep_awake: false, ..Default::default() }).await;
@@ -1014,7 +1017,6 @@ mod tests {
                 break (port, pport, url, porigin);
             }
         };
-        let cfg = RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), preview_port: pport, preview_url: porigin.clone(), keep_awake: false, ..Default::default() };
 
         // A phone paired.
         let mut phone = Phone { base: format!("http://127.0.0.1:{port}"), origin: url.clone(), http: reqwest::Client::new(), cookie: None };
@@ -1111,7 +1113,10 @@ mod tests {
         let remote = Remote::new(&dir, hub.clone(), Arc::new(Fake::default())).unwrap();
         // The port grabbed then released can be taken by another test's bind in between (`apply`
         // keeps the error to itself): the relay file is the tell, tried until the server is up.
+        let mut tries = 0;
         let (port, url) = loop {
+            tries += 1;
+            assert!(tries <= 10, "the remote server never started");
             let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
             let url = format!("http://localhost:{port}");
             remote.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), keep_awake: false, ..Default::default() }).await;
@@ -1119,7 +1124,6 @@ mod tests {
                 break (port, url);
             }
         };
-        let cfg = RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), keep_awake: false, ..Default::default() };
         let phone = Phone { base: format!("http://127.0.0.1:{port}"), origin: url.clone(), http: reqwest::Client::new(), cookie: None };
 
         // Without the secret, nothing.
@@ -1166,7 +1170,10 @@ mod tests {
         let typed = fake.typed.clone();
         let remote = Remote::new(&dir, hub.clone(), Arc::new(fake)).unwrap();
         // Same tell as `a_terminal_pairs_a_phone`'s: retried until the server has its port.
+        let mut tries = 0;
         let (port, url) = loop {
+            tries += 1;
+            assert!(tries <= 10, "the remote server never started");
             let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
             let url = format!("http://localhost:{port}");
             remote.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), keep_awake: false, ..Default::default() }).await;

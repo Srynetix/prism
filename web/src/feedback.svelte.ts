@@ -52,7 +52,7 @@ export const feedback = $state({
   /** glab or gh could not open it: the forge's new issue page, filled in. */
   fallback: '',
   sent: null as FeedbackRequest | null,
-  /** A capture of the window was made: uploaded with the issue (GitLab), on the clipboard too. */
+  /** A capture of the window was made: uploaded with the issue (GitLab, GitHub), on the clipboard too. */
   captured: false,
   /** Its thumbnail, a `data:` URL. */
   shot: '',

@@ -155,11 +155,11 @@ async fn gateway() -> Option<String> {
 /// The Wi-Fi link, through CoreWLAN: signal and rate, never the network's name (it needs Location).
 #[cfg(target_os = "macos")]
 pub fn wifi() -> Option<Wifi> {
-    prism_macos::corewlan::link().map(|(rssi, rate)| Wifi { rssi, rate })
+    prism_macos::corewlan::link().map(|(rssi, rate)| Wifi { rssi, rate: Some(rate) })
 }
 
 /// Linux: the level of `/proc/net/wireless` (dBm) and `iw`'s tx bitrate — the interface with a
-/// level, the first line of the file. No `iw`, no Wi-Fi shown. The network's name, macOS keeps
+/// level, the first line of the file. No `iw`, the level alone. The network's name, macOS keeps
 /// it: here too, nothing of it.
 #[cfg(target_os = "linux")]
 pub fn wifi() -> Option<Wifi> {
@@ -169,8 +169,7 @@ pub fn wifi() -> Option<Wifi> {
     let iface = words.next()?.trim_end_matches(':');
     // status, link, level (dBm, printed with a trailing dot).
     let level = words.nth(2)?.trim_end_matches('.').parse::<i64>().ok()?;
-    let out = std::process::Command::new("iw").args(["dev", iface, "link"]).output().ok()?;
-    let rate = bitrate(&String::from_utf8_lossy(&out.stdout))?;
+    let rate = std::process::Command::new("iw").args(["dev", iface, "link"]).output().ok().and_then(|out| bitrate(&String::from_utf8_lossy(&out.stdout)));
     Some(Wifi { rssi: level, rate })
 }
 

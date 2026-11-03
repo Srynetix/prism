@@ -349,6 +349,10 @@ pub struct Request {
     pub opened: String,
     #[serde(flatten)]
     pub issue: Issue,
+    /// Opened without the capture, which stayed on the clipboard (GitHub's upload refused it):
+    /// the composer says to paste it. Never remembered.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub paste_capture: bool,
 }
 
 const STORE: &str = "feedback";
@@ -411,7 +415,8 @@ pub fn capture_path(store: &crate::store::Store) -> std::path::PathBuf {
 /// The capture uploaded to the target's project, the Markdown that shows it in the issue. GitLab:
 /// the project's `uploads`. GitHub: the user-attachment assets (`uploads.github.com`), which ask
 /// the repository's numeric id — and one the user can write to, which opening an issue there
-/// already says.
+/// already says. That endpoint is the web's, not a documented API: refused, None (the capture
+/// stays on the clipboard, to paste) rather than no issue.
 pub async fn upload(t: &Target, path: &std::path::Path) -> Result<Option<String>> {
     let png = std::fs::read(path).context(tr("the capture of the window is gone: capture it again"))?;
     match t.cli() {
@@ -429,21 +434,22 @@ pub async fn upload(t: &Target, path: &std::path::Path) -> Result<Option<String>
             struct Repo {
                 id: u64,
             }
-            let repo: Repo = Cli::Gh.json(&["api", &format!("repos/{}", t.project)]).await.context(tr("the capture could not be uploaded"))?;
             #[derive(Deserialize)]
             struct Upload {
                 url: String,
             }
-            let up: Upload = Cli::Gh
-                .send(
-                    "POST",
-                    &format!("https://uploads.github.com/user-attachments/assets?name=prism.png&content_type=image/png&repository_id={}", repo.id),
-                    "image/png",
-                    &png,
-                )
-                .await
-                .context(tr("the capture could not be uploaded"))?;
-            Ok(Some(format!("![prism.png]({})", up.url)))
+            let up: Result<Upload> = async {
+                let repo: Repo = Cli::Gh.json(&["api", &format!("repos/{}", t.project)]).await?;
+                Cli::Gh.send("POST", &format!("https://uploads.github.com/user-attachments/assets?name=prism.png&content_type=image/png&repository_id={}", repo.id), "image/png", &png).await
+            }
+            .await;
+            match up {
+                Ok(up) => Ok(Some(format!("![prism.png]({})", up.url))),
+                Err(e) => {
+                    tracing::warn!("feedback: GitHub refused the capture, left on the clipboard: {e:#}");
+                    Ok(None)
+                }
+            }
         }
     }
 }

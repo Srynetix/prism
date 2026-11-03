@@ -110,7 +110,7 @@
       <div class="sec">
         <h3>{t('Network')} <span>{t('a handshake every 15 s')}</span></h3>
         <div class="net">
-          {#if sys.network.wifi}<div><span class="muted">Wi-Fi</span><b>{sys.network.wifi.rssi} dBm · {Math.round(sys.network.wifi.rate)} Mb/s</b></div>{/if}
+          {#if sys.network.wifi}<div><span class="muted">Wi-Fi</span><b>{sys.network.wifi.rssi} dBm{#if sys.network.wifi.rate !== null} · {Math.round(sys.network.wifi.rate)} Mb/s{/if}</b></div>{/if}
           <div><span class="muted">{t('Gateway')}</span><b>{ms(sys.network.gateway_ms)}</b></div>
           <div><span class="muted">{t('Lost (5 min)')}</span><b>{Math.round(sys.network.loss)} %</b></div>
           {#if sys.network.jitter_ms !== null}<div><span class="muted">{t('Jitter')}</span><b>{Math.round(sys.network.jitter_ms)} ms</b></div>{/if}

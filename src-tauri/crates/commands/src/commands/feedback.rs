@@ -62,8 +62,9 @@ pub fn feedback_body(text: String, context: Vec<String>) -> String {
 }
 
 /// Opens the issue on `target`, and remembers it. `capture`: the window's, uploaded with it
-/// (GitLab's uploads, GitHub's user attachments); an upload that fails opens nothing, rather than
-/// an issue without the picture it was about.
+/// (GitLab's uploads, GitHub's user attachments); a GitLab upload that fails opens nothing, rather
+/// than an issue without the picture it was about; GitHub's, the issue without it, the capture to
+/// paste from the clipboard (`paste_capture`).
 #[cfg_attr(feature = "tauri", tauri::command)]
 pub async fn feedback_create(state: State<'_, AppState>, target: String, kind: String, title: String, text: String, context: Vec<String>, capture: Option<bool>) -> Cmd<Request> {
     if !feedback::KINDS.contains(&kind.as_str()) {
@@ -74,12 +75,12 @@ pub async fn feedback_create(state: State<'_, AppState>, target: String, kind: S
     let markdown = if capture == Some(true) { feedback::upload(&t, &shot).await? } else { None };
     let text = feedback::with_capture(&text, markdown.as_deref());
     let issue = feedback::create(&t, &kind, &title, &feedback::body(&text, &context)).await?;
-    let request = Request { repo: t.repo.clone(), name: t.name.clone(), kind, opened: chrono::Utc::now().to_rfc3339(), issue };
+    let request = Request { repo: t.repo.clone(), name: t.name.clone(), kind, opened: chrono::Utc::now().to_rfc3339(), issue, paste_capture: false };
     feedback::remember(&state.store, request.clone())?;
     // The agent's draft and the capture have served: they are not kept.
     let _ = std::fs::remove_file(feedback::draft_path(&state.store));
     let _ = std::fs::remove_file(shot);
-    Ok(request)
+    Ok(Request { paste_capture: capture == Some(true) && markdown.is_none(), ..request })
 }
 
 /// The forge's new issue page, filled in: without glab or gh.
@@ -99,6 +100,7 @@ pub async fn feedback_requests(state: State<'_, AppState>, refresh: bool) -> Cmd
             kind: "feature".into(),
             opened: "2026-10-01T09:00:00Z".into(),
             issue: Issue { number, title: title.into(), url: format!("https://gitlab.com/acme/prism/-/issues/{number}"), state: state.into(), votes, not_planned: false },
+            paste_capture: false,
         };
         return Ok(vec![request(214, "Split the Agents view", "closed", 6), request(198, "Show the commit behind each pod", "open", 4)]);
     }

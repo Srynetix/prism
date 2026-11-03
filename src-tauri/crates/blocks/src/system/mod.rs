@@ -219,8 +219,8 @@ pub struct Disk {
 pub struct Wifi {
     /// dBm.
     pub rssi: i64,
-    /// Mb/s.
-    pub rate: f64,
+    /// Mb/s; none when the system does not say (Linux without `iw`).
+    pub rate: Option<f64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]

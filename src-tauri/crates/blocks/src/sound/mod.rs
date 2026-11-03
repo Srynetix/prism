@@ -85,7 +85,7 @@ impl Block for Sound {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct SoundConfig {
-    /// On by default: CoreAudio's settings, read locally every `poll_seconds`.
+    /// On by default: the audio devices' settings (CoreAudio, `pactl`), read locally every `poll_seconds`.
     pub enabled: bool,
     /// The microphone's input volume under this % is an alert (orange), notified when an
     /// application records from it. 0: never.
