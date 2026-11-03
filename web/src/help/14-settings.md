@@ -20,6 +20,7 @@ The left column is a tree of pages, sorted by what they configure:
 - **Security**: Vulnerabilities.
 - **Agents**: Agent (with Claude Code, Command Code, OpenCode and Codex under it), Console.
 - **Infra**: Kubernetes (with Pods and ArgoCD under it), Docker, Data (GCP), and the pages of a team's blocks, if any.
+- **Remote**: Access, Devices, Exposure, Sessions, Away (Prism from a phone), and Machines (another computer's Prism, and what other computers may do here).
 
 Wherever there are several providers, the feature's page holds what they share and the choice, and each provider has its own page with only its own keys: Forge holds `[forge]`, Forge › GitLab `[gitlab]` (host, merge queue label); Agent holds `[agents]`, and each CLI its `[agents.<cli>]` (**Binary** and **Extra arguments**, added to every launch and resume; Claude Code also its Claude Desktop sessions, cost alert and plan usage token). A page can gather several tables of the file: Repositories holds `[[workspaces]]`, `[[repos]]` and `[worktrees]`, and a page made of several stages can show them as tabs. The tables of a page are listed next to its title, and each part of the page names its own. The caret folds a branch; with the tree focused, `←` and `→` fold and unfold the current page.
 

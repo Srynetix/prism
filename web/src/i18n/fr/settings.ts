@@ -1172,4 +1172,5 @@ export default {
   'Refuse': 'Refuser',
   'Its token opens nothing anymore, its windows close (click twice)': 'Son jeton n’ouvre plus rien, ses fenêtres se ferment (deux clics)',
   'No confirmation': 'Sans confirmation',
+  'Away': 'Absence',
 } satisfies Dictionary

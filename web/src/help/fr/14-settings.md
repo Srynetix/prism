@@ -20,6 +20,7 @@ La colonne de gauche est un arbre de pages, rangées selon ce qu’elles configu
 - **Sécurité** : Vulnérabilités.
 - **Agents** : Agent (avec Claude Code, Command Code, OpenCode et Codex en dessous), Console.
 - **Infra** : Kubernetes (avec Pods et ArgoCD en dessous), Docker, Data (GCP), et les pages des blocs d’une équipe, s’il y en a.
+- **Accès à distance** : Accès, Appareils, Exposition, Sessions, Absence (Prism depuis un téléphone), et Machines (le Prism d’un autre ordinateur, et ce que les autres ordinateurs peuvent faire ici).
 
 Partout où il y a plusieurs fournisseurs, la page de la fonctionnalité contient ce qu’ils partagent et le choix, et chaque fournisseur a sa propre page avec uniquement ses clés : Forge contient `[forge]`, Forge › GitLab `[gitlab]` (hôte, label de la file de merge) ; Agent contient `[agents]`, et chaque CLI son `[agents.<cli>]` (**Binaire** et **Arguments supplémentaires**, ajoutés à chaque lancement et reprise ; Claude Code aussi ses sessions Claude Desktop, l’alerte de coût et le jeton d’usage du forfait). Une page peut regrouper plusieurs tables du fichier : Dépôts contient `[[workspaces]]`, `[[repos]]` et `[worktrees]`, et une page faite de plusieurs étapes peut les montrer en onglets. Les tables d’une page sont listées à côté de son titre, et chaque partie de la page nomme la sienne. Le chevron replie une branche ; quand l’arbre a le focus, `←` et `→` replient et déplient la page courante.
 
