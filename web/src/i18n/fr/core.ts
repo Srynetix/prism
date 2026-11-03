@@ -637,4 +637,11 @@ export default {
   'out of reach for {n} minute: its last state shown': 'injoignable depuis {n} minute : son dernier état affiché',
   'out of reach for {n} minutes: its last state shown': 'injoignable depuis {n} minutes : son dernier état affiché',
   'reconnecting…': 'reconnexion…',
+  'Accept this computer on {name}: where prism peer pair runs, or in its Settings › Remote › Devices.': 'Acceptez cet ordinateur sur {name} : là où tourne prism peer pair, ou dans ses Réglages › Accès à distance › Appareils.',
+  'Waiting for it… (five minutes at most)': 'En attente… (cinq minutes au plus)',
+  'Pair this computer: on {name}, run prism peer pair (or Settings › Remote › Devices › Pair a computer there), then type the code it shows.': 'Appairez cet ordinateur : sur {name}, lancez prism peer pair (ou Réglages › Accès à distance › Appareils › Appairer un ordinateur là-bas), puis tapez le code affiché.',
+  'Pair': 'Appairer',
+  'Paste a token instead': 'Coller un jeton à la place',
+  'Pair with a code instead': 'Appairer avec un code à la place',
+  'Its token is kept in this computer’s keychain. It opens that Prism as its account would: keep it as an SSH key.': 'Son jeton est gardé dans le trousseau de cet ordinateur. Il ouvre ce Prism comme son compte le ferait : gardez-le comme une clé SSH.',
 } satisfies Dictionary

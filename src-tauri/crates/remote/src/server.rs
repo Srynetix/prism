@@ -64,6 +64,11 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
         .route("/relay/pair/start", post(crate::pair::start))
         .route("/relay/pair/confirm", post(crate::pair::confirm))
         .route("/relay/pair/cancel", post(crate::pair::cancel))
+        // `prism peer pair`: a computer's pairing, from this machine.
+        .route("/relay/peer", get(crate::pair::peer_state))
+        .route("/relay/peer/start", post(crate::pair::peer_start))
+        .route("/relay/peer/answer", post(crate::pair::peer_answer))
+        .route("/relay/peer/cancel", post(crate::pair::peer_cancel))
         .route("/p/{id}/{*rest}", axum::routing::any(crate::relay::proxy))
         .route("/api/pair/claim", post(pair_claim))
         .route("/api/pair/finish", post(pair_finish))
@@ -79,6 +84,8 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
         // Another Prism's window (`peers`): its token, no page nor cookie.
         .route("/peer/ws", get(peer_socket))
         .route("/peer/tty", get(peer_tty))
+        .route("/peer/pair", post(peer_pair))
+        .route("/peer/pair/state", post(peer_pair_state))
         .fallback(get(asset))
         .layer(middleware::from_fn_with_state(inner.clone(), guard))
         .with_state(inner)
@@ -657,6 +664,8 @@ async fn peer_socket(State(inner): State<Shared>, headers: HeaderMap, ws: WebSoc
 /// own answered (`Host::peer_call`), until its token is revoked or it goes.
 async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: String) {
     tracing::info!("remote: peer {name} connected");
+    let seen = format!("{}{name}", crate::peers::CONNECTED);
+    inner.connect(&seen, true);
     let (mut tx, mut rx) = socket.split();
     let (out, mut queue) = tokio::sync::mpsc::channel::<Message>(64);
     let writer = tokio::spawn(async move {
@@ -683,10 +692,16 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: St
         let (inner, out, name) = (inner.clone(), out.clone(), name.clone());
         tokio::spawn(async move {
             // What changes something is logged, with the peer.
-            if !matches!(inner.host.class(&command, &args), Some(Class::Read)) {
+            let class = inner.host.class(&command, &args);
+            if !matches!(class, Some(Class::Read)) {
                 tracing::info!("remote: peer {name}: {command}");
             }
-            let reply = match inner.host.peer_call(command, args).await {
+            let allowed = peer_allowed(&inner.live().peers, &command, class);
+            let answer = match allowed {
+                Ok(()) => inner.host.peer_call(command, args).await,
+                Err(e) => Err(e),
+            };
+            let reply = match answer {
                 Ok(v) => json!({ "t": "result", "id": id, "ok": v }),
                 Err(e) => json!({ "t": "result", "id": id, "error": format!("{e:#}") }),
             };
@@ -697,6 +712,7 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: St
     snaps.abort();
     drop(out);
     let _ = writer.await;
+    inner.connect(&seen, false);
     tracing::info!("remote: peer {name} gone");
 }
 
@@ -710,8 +726,86 @@ struct PeerTtyQuery {
 /// An agent's terminal in a peer's window, typed in at the window's size, as the desk's own.
 async fn peer_tty(State(inner): State<Shared>, headers: HeaderMap, axum::extract::Query(q): axum::extract::Query<PeerTtyQuery>, ws: WebSocketUpgrade) -> Response {
     let Some((name, token)) = crate::peers::of(&inner.dir, &headers) else { return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism")) };
+    if !inner.live().peers.typing {
+        return refuse(StatusCode::FORBIDDEN, tr("typing in a terminal from another Prism is off (Settings › Remote › Machines here)"));
+    }
     let size = (q.cols.clamp(20, 500), q.rows.clamp(5, 300));
     ws.max_message_size(1 << 20).on_upgrade(move |socket| watch(inner, socket, None, q.agent, Some(size), Some((size.0, size.1, name)), Some(token)))
+}
+
+/// What types to an agent or runs a command of its own: `[remote.peers] typing`.
+const PEER_TYPING: &[&str] = &["agent_write", "agent_resize", "agent_type", "agent_send", "agent_prompt", "agent_switch", "agent_file_save", "agent_run", "agent_shell", "agent_close_shell", "worktree_shell", "worktree_close_shell", "pod_shell", "pod_close_shell", "chain_go"];
+/// What writes the settings, packs and tokens: `[remote.peers] settings`.
+const PEER_SETTINGS: &[&str] = &["save_config", "store_token", "pack_import", "pack_update", "pack_remove", "reload_collectors", "remote_settings_save", "mail_sign_in_start", "mail_sign_in_wait", "mail_sign_out", "google_sign_out", "remote_pair_start", "remote_pair_confirm", "remote_revoke", "remote_peer_pair_start", "remote_peer_pair_answer", "remote_peer_revoke"];
+
+/// Whether `[remote.peers]` lets another Prism's window call `command` (of class `class`): it
+/// always reads; acting, what is critical, typing and the settings each have their switch. A
+/// command classed `never` for a phone is the window's to call: acting, unless it types or writes
+/// the settings.
+fn peer_allowed(rights: &prism_core::config::PeerRights, command: &str, class: Option<Class>) -> anyhow::Result<()> {
+    let (on, what) = if PEER_TYPING.contains(&command) {
+        (rights.typing, "typing")
+    } else if PEER_SETTINGS.contains(&command) {
+        (rights.settings, "settings")
+    } else {
+        match class {
+            Some(Class::Read) => return Ok(()),
+            Some(Class::Critical) => (rights.critical, "critical"),
+            _ => (rights.actions, "actions"),
+        }
+    };
+    anyhow::ensure!(on, "{}", tr!("{command}: [remote.peers] {what} is off on that computer", command = command, what = what));
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct PeerClaim {
+    code: String,
+    name: String,
+    claim: String,
+}
+
+/// `POST /peer/pair`: a computer gives the code shown here, its name, and a secret of its own.
+async fn peer_pair(State(inner): State<Shared>, Json(c): Json<PeerClaim>) -> Response {
+    let r = match inner.peer_pairing().as_mut() {
+        Some(p) => p.claim(&c.code, &c.name, &c.claim, Utc::now()),
+        None => Err(anyhow::anyhow!("no pairing open: run prism peer pair there")),
+    };
+    inner.publish();
+    match r {
+        Ok(()) => Json(json!({ "state": "waiting" })).into_response(),
+        Err(e) => {
+            tracing::warn!("remote: a computer's pairing: {e:#}");
+            refuse(StatusCode::FORBIDDEN, &format!("{e:#}"))
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct PeerClaimState {
+    claim: String,
+}
+
+/// `POST /peer/pair/state`: what the computer that gave the code reads: waiting, its token (once),
+/// or gone.
+async fn peer_pair_state(State(inner): State<Shared>, Json(c): Json<PeerClaimState>) -> Response {
+    let state = {
+        let mut p = inner.peer_pairing();
+        let s = p.as_mut().map_or(crate::peers::PairState::Gone, |p| p.state(&c.claim, Utc::now()));
+        // Its token read: the pairing is over.
+        if matches!(s, crate::peers::PairState::Paired(_)) {
+            *p = None;
+        }
+        s
+    };
+    match state {
+        crate::peers::PairState::Waiting => Json(json!({ "state": "waiting" })).into_response(),
+        crate::peers::PairState::Paired(token) => {
+            inner.publish();
+            Json(json!({ "state": "paired", "token": token })).into_response()
+        }
+        crate::peers::PairState::Gone => Json(json!({ "state": "gone" })).into_response(),
+    }
 }
 
 /// What a step-up confirms: the command and its very arguments.
@@ -1322,6 +1416,67 @@ mod tests {
         assert!(recv(&mut rx, "state").await["error"].as_str().unwrap().contains("does not know this token"));
         remote.apply(&RemoteConfig::default()).await;
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A computer pairs by the code shown here: a wrong code refused, its name shown to the desk,
+    /// accepted there, its token read by it alone and good to open a window.
+    #[tokio::test]
+    async fn a_computer_pairs_by_its_code() {
+        let dir = std::env::temp_dir().join(format!("prism-remote-peer-pair-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let hub = Hub::new();
+        let remote = Remote::new(&dir, hub.clone(), Arc::new(Fake::default())).unwrap();
+        let mut tries = 0;
+        let port = loop {
+            tries += 1;
+            assert!(tries <= 10, "the remote server never started");
+            let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+            remote.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: format!("http://localhost:{port}"), keep_awake: false, ..Default::default() }).await;
+            if crate::relay::read(&dir).is_some() {
+                break port;
+            }
+        };
+        let url = format!("http://127.0.0.1:{port}");
+        assert!(crate::machine::pair(&url, "000000", "Mac").await.is_err(), "no pairing open");
+        // From the terminal, as `prism peer pair`.
+        let local = crate::pair::Local::find(&dir).unwrap();
+        let code = local.peer_start().await.unwrap().code;
+        let wrong = if code == "111111" { "222222" } else { "111111" };
+        assert!(crate::machine::pair(&url, wrong, "Mac").await.unwrap_err().to_string().contains("not the code"));
+        let pairing = tokio::spawn({
+            let (url, code) = (url.clone(), code.clone());
+            async move { crate::machine::pair(&url, &code, "MacBook").await }
+        });
+        let mut asked = None;
+        for _ in 0..100 {
+            asked = local.peer_state().await.unwrap().and_then(|p| p.name);
+            if asked.is_some() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+        }
+        assert_eq!(asked.as_deref(), Some("MacBook"));
+        local.peer_answer(true).await.unwrap();
+        let token = tokio::time::timeout(std::time::Duration::from_secs(5), pairing).await.unwrap().unwrap().unwrap();
+        assert_eq!(crate::peers::check(&dir, &token).as_deref(), Some("MacBook"));
+        assert_eq!(hub.subscribe().borrow().remote.as_ref().unwrap().peers[0].name, "MacBook");
+        assert!(local.peer_state().await.unwrap().is_none(), "over once read");
+        remote.apply(&RemoteConfig::default()).await;
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `[remote.peers]`: reads always; acting, critical, typing and settings each their switch.
+    #[test]
+    fn a_peer_does_what_its_rights_say() {
+        let mut r = prism_core::config::PeerRights::default();
+        assert!(super::peer_allowed(&r, "merge_mr", Some(Class::Critical)).is_ok());
+        r = prism_core::config::PeerRights { actions: false, critical: false, typing: false, settings: false };
+        assert!(super::peer_allowed(&r, "mr_detail", Some(Class::Read)).is_ok());
+        assert!(super::peer_allowed(&r, "read_config", Some(Class::Never)).is_err(), "never for a phone: acting, unless read");
+        assert!(super::peer_allowed(&r, "rebase_mr", Some(Class::Act)).is_err());
+        assert!(super::peer_allowed(&r, "merge_mr", Some(Class::Critical)).is_err());
+        assert!(super::peer_allowed(&r, "agent_type", Some(Class::Critical)).unwrap_err().to_string().contains("typing"));
+        assert!(super::peer_allowed(&r, "save_config", Some(Class::Never)).unwrap_err().to_string().contains("settings"));
     }
 
     /// The next message of kind `t` a machine sent.

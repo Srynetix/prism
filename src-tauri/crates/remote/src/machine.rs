@@ -31,6 +31,16 @@ pub struct Target {
 }
 
 impl Target {
+    /// `path` (`/peer/pair`) on the machine, over HTTPS or to a tunnel's end.
+    fn http(&self, path: &str) -> Result<String> {
+        let base = self.url.trim().trim_end_matches('/');
+        let host = base.strip_prefix("http://").map(|r| r.split(['/', ':']).next().unwrap_or_default());
+        if !base.starts_with("https://") && !matches!(host, Some("127.0.0.1" | "localhost" | "[::1]")) {
+            bail!("{base}: https, or http to 127.0.0.1 only (a tunnel's end)");
+        }
+        Ok(format!("{base}{path}"))
+    }
+
     /// `path` (`/peer/ws`) as a socket's request, the token in it.
     fn request(&self, path: &str) -> Result<tokio_tungstenite::tungstenite::handshake::client::Request> {
         let base = self.url.trim().trim_end_matches('/');
@@ -50,6 +60,31 @@ impl Target {
         req.headers_mut().insert("authorization", HeaderValue::from_str(&format!("Bearer {}", self.token.trim())).context("the token")?);
         Ok(req)
     }
+}
+
+/// Pairs with the machine at `url` (`prism peer pair` there, its code given here as `code`), this
+/// computer named `name` there: its token once a person accepted it there, within five minutes.
+pub async fn pair(url: &str, code: &str, name: &str) -> Result<String> {
+    let target = Target { url: url.to_string(), token: String::new() };
+    let http = reqwest::Client::builder().timeout(Duration::from_secs(15)).build()?;
+    let claim = crate::webauthn::random();
+    let res = http.post(target.http("/peer/pair")?).json(&json!({ "code": code, "name": name, "claim": claim })).send().await.context("the machine does not answer")?;
+    if !res.status().is_success() {
+        let body: Value = res.json().await.unwrap_or_default();
+        bail!("{}", body["error"].as_str().unwrap_or("refused"));
+    }
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5 * 60);
+    while tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        let Ok(res) = http.post(target.http("/peer/pair/state")?).json(&json!({ "claim": claim })).send().await else { continue };
+        let v: Value = res.json().await.unwrap_or_default();
+        match v["state"].as_str() {
+            Some("paired") => return v["token"].as_str().map(String::from).context("no token"),
+            Some("waiting") => {}
+            _ => bail!("refused there, or the pairing ended"),
+        }
+    }
+    bail!("not accepted there in time")
 }
 
 /// What the window hears of the machine: its messages (`hello`, `snapshot`, `changes`, `alive`) as

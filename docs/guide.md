@@ -152,13 +152,8 @@ packs. Prism's updater does not replace `prism-server` either: build it again.
 
 The Prism of a desk opens a server's (or another computer's) in a window of its own, the same
 page as its own: agents and their terminals, worktrees, settings, everything the window does,
-answered by that Prism. Its remote is on (above); it makes a token for the desk:
-
-```bash
-prism-server peer add macbook      # prints the token, once; `peer list`, `peer remove macbook`
-```
-
-On the desk, Settings › Remote › Machines (or by hand):
+answered by that Prism. Its remote is on (above). On the desk, Settings › Remote › Machines (or
+by hand):
 
 ```toml
 [[machines]]
@@ -167,10 +162,22 @@ url = "https://build-srv.tail1234.ts.net"   # or http://127.0.0.1:<port> at the 
 ssh = "build-srv"                           # optional: its folders open here in VS Code (Remote-SSH)
 ```
 
-The profile menu lists it under *Other computers*: its window asks for the token the first time
-(kept in the desk's keychain, never in the page), then shows that Prism with a blue band and rail
-edge. The token is worth that machine's account (any command, terminals typed in): keep it as an
-SSH key; `peer remove` closes its windows within ten seconds. What opens on a screen (Finder,
+The profile menu lists it under *Other computers*. The first time, its window asks for a code:
+
+```bash
+prism-server peer pair    # shows a code for 5 minutes, then asks to accept the desk by its name
+```
+
+(or Settings › Remote › Devices › *Pair a computer* on a machine with a window). Five wrong codes
+end the pairing; the token goes to the desk once, kept in its keychain, never in the page.
+`peer add <name>` prints a token to paste instead (or to set as `PRISM_MACHINE_TOKEN_<NAME>` where
+no keychain is unlocked); `peer list`, `peer remove <name>` (its windows close within ten seconds).
+The window then shows that Prism with a blue band and rail edge.
+
+A token is worth that machine's account: keep it as an SSH key. What a desk may do there is
+`[remote.peers]` on that machine (Settings › Remote › Machines): `actions`, `critical`, `typing`,
+`settings`, all on by default; it always reads, and each call that changes something is logged
+with the desk's name. What opens on a screen (Finder,
 Terminal, an app, a save dialog's file) stays on the desk or is not offered; the editor opens the
 machine's folders over SSH when `ssh` is set.
 

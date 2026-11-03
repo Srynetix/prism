@@ -81,9 +81,37 @@ pub async fn machine_token(name: String, token: String) -> Cmd {
     if token.is_empty() {
         return Err("no token".into());
     }
+    keep(&m, token).await
+}
+
+async fn keep(m: &MachineConfig, token: String) -> Cmd {
     let service = prism_core::profile::service(&m.token_service());
     tokio::task::spawn_blocking(move || prism_base::platform::store_secret(&service, &token)).await??;
     Ok(())
+}
+
+/// This computer's name, as the machine is asked to accept it: the Mac's, or the host's.
+async fn computer_name() -> String {
+    #[cfg(target_os = "macos")]
+    if let Ok(out) = prism_base::platform::command("scutil").args(["--get", "ComputerName"]).output().await
+        && out.status.success()
+    {
+        let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !name.is_empty() {
+            return name;
+        }
+    }
+    let host = prism_base::platform::command("hostname").output().await.ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+    if host.is_empty() { "Prism".into() } else { host }
+}
+
+/// Pairs with machine `name` by the code its Prism shows (`prism peer pair` there): returns once
+/// accepted there, its token kept in the keychain.
+#[tauri::command]
+pub async fn machine_pair(name: String, code: String) -> Cmd {
+    let m = find(&name)?;
+    let token = prism_remote::machine::pair(&m.url, &code, &computer_name().await).await?;
+    keep(&m, token).await
 }
 
 /// Machine `name` in its window: brought to the front if open, opened otherwise.
@@ -145,7 +173,7 @@ fn machine(state: &Machines, window: &WebviewWindow) -> Cmd<Arc<Machine>> {
 pub async fn machine_connect(state: State<'_, Arc<Machines>>, window: WebviewWindow) -> Cmd<Value> {
     let name = state.open.lock().unwrap().get(window.label()).map(|o| o.name.clone()).ok_or("not a machine's window")?;
     let m = find(&name)?;
-    let token = token(&m).await?.ok_or_else(|| format!("no token for {name}: paste the one `prism peer add` printed there (Settings › Machines)"))?;
+    let token = token(&m).await?.ok_or_else(|| format!("no token for {name}: pair this computer with it (prism peer pair there)"))?;
     let target = Target { url: m.url.clone(), token };
     let to = window.clone();
     let machine = Machine::open(

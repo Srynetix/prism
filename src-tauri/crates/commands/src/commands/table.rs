@@ -42,6 +42,7 @@ commands! {
         // Other computers' Prism, each in a window of this one (`[[machines]]`).
         machine_list: Never,
         machine_token: Never,
+        machine_pair: Never,
         machine_open: Never,
         machine_main: Never,
         machine_connect: Never,
@@ -142,6 +143,10 @@ commands! {
     remote::remote_pair_confirm: Never,
     remote::remote_pair_cancel: Never,
     remote::remote_revoke: Never,
+    remote::remote_peer_pair_start: Never,
+    remote::remote_peer_pair_answer: Never,
+    remote::remote_peer_pair_cancel: Never,
+    remote::remote_peer_revoke: Never,
     remote::remote_away_checks: Never,
     remote::remote_rename: Never,
     remote::remote_release: Never,

@@ -29,7 +29,7 @@ const LOCAL = new Set([
   'audio_sources', 'audio_feed', 'now_playing', 'now_playing_command', 'feedback_capture', 'reduce_transparency',
   // Written where this computer's save dialog said.
   'save_csv',
-  'machine_list', 'machine_open', 'machine_token', 'machine_main',
+  'machine_list', 'machine_open', 'machine_token', 'machine_main', 'machine_pair',
 ])
 /** The main window's alone: its Dock icon and menu bar count. */
 const IGNORED = new Set(['set_dock_icon', 'set_tray'])

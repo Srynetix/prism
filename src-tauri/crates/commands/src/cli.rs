@@ -61,10 +61,11 @@ pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
         }
         return Some(if done.is_ok() { 0 } else { 1 });
     }
-    // `prism peer add <name>` (its token printed, once), `prism peer remove <name>`, `prism peer
-    // list`: the other Prisms that open this one in their window (`[[machines]]` there).
+    // `prism peer pair` (a code typed on the other computer, its name accepted here), `prism peer
+    // add <name>` (its token printed, once), `prism peer remove <name>`, `prism peer list`: the other
+    // Prisms that open this one in their window (`[[machines]]` there).
     if args.get(1).is_some_and(|a| a == "peer") {
-        let done = peer(args);
+        let done = if args.get(2).is_some_and(|a| a == "pair") { block_on(peer_pair()) } else { peer(args) };
         if let Err(e) = &done {
             eprintln!("prism: {e:#}");
         }
@@ -115,8 +116,45 @@ fn peer(args: &[std::ffi::OsString]) -> anyhow::Result<()> {
             }
             Ok(())
         }
-        _ => anyhow::bail!("usage: prism peer add <name> | remove <name> | list"),
+        _ => anyhow::bail!("usage: prism peer pair | add <name> | remove <name> | list"),
     }
+}
+
+/// `prism peer pair`: a computer's pairing opened in the running Prism, its code shown here; the
+/// computer that gave it accepted here by name.
+async fn peer_pair() -> anyhow::Result<()> {
+    use std::io::Write;
+    let local = prism_remote::pair::Local::find(&crate::profile::data_dir(&crate::profile::data_base()))?;
+    let pairing = local.peer_start().await?;
+    let code = format!("{} {}", &pairing.code[..3], &pairing.code[3..]);
+    println!("On the other computer: profile menu › Other computers › this machine, and the code {code}");
+    println!("Valid until {}. Waiting for it… (Ctrl+C cancels)", pairing.expires_at.with_timezone(&chrono::Local).format("%H:%M:%S"));
+    let name = loop {
+        tokio::select! {
+            _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {}
+            _ = tokio::signal::ctrl_c() => {
+                let _ = local.peer_cancel().await;
+                anyhow::bail!("pairing cancelled");
+            }
+        }
+        match local.peer_state().await? {
+            None => anyhow::bail!("the pairing expired, was cancelled, or too many wrong codes were tried"),
+            Some(p) => {
+                if let Some(name) = p.name {
+                    break name;
+                }
+            }
+        }
+    };
+    print!("{name} asks to open this Prism, as this account would. Accept? [y/N] ");
+    std::io::stdout().flush()?;
+    let mut answer = String::new();
+    std::io::stdin().read_line(&mut answer)?;
+    let accept = matches!(answer.trim(), "y" | "Y" | "yes" | "o" | "oui");
+    local.peer_answer(accept).await?;
+    anyhow::ensure!(accept, "{name} refused");
+    println!("{name} paired: `prism peer remove {name}` revokes it");
+    Ok(())
 }
 
 /// A future run to its end, outside of Prism's runtime (none runs yet).

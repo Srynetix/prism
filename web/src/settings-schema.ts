@@ -528,8 +528,18 @@ export const SCHEMA: SectionSpec[] = [
     ],
   },
   {
+    id: 'remote-peers', label: t('What other computers may do'), table: '[remote.peers]', path: ['remote', 'peers'],
+    intro: t('Another computer’s Prism paired with this one (Remote › Devices › Pair a computer, or prism peer pair) opens it in a window as this account would. It always reads, settings included (tokens never: they stay in the keychain). What each switch lets it do is logged with its name. Applied at once.'),
+    fields: [
+      { key: 'actions', label: t('Actions'), hint: t('A ticket’s status, a comment, a retry, a rebase, an agent launched, answered or resumed, a worktree’s branch pulled.'), kind: 'toggle' },
+      { key: 'critical', label: t('Critical actions'), hint: t('Merge, the merge queue, a manual job, a force push, an agent stopped or closed, a worktree removed.'), kind: 'toggle' },
+      { key: 'typing', label: t('Typing'), hint: t('An agent’s or a shell’s terminal typed in, a text sent to an agent, a file of its folder written, a task run.'), kind: 'toggle' },
+      { key: 'settings', label: t('Settings'), hint: t('This computer’s settings saved, packs updated, tokens replaced (written, never read back), phones and computers paired or revoked. Off: it reads them only.'), kind: 'toggle' },
+    ],
+  },
+  {
     id: 'machines', label: t('Machines'), table: '[[machines]]', path: [],
-    intro: t('Other computers’ Prism, each opened in a window of this one from the profile menu, as if it ran here: its agents, terminals, worktrees, settings. That Prism has its remote on (a tunnel to it: Tailscale, or ssh -L to 127.0.0.1) and makes a token for this one: prism peer add <name> there, pasted in its window the first time (kept in this computer’s keychain). The token opens that Prism as its account would: keep it as an SSH key; prism peer remove <name> there revokes it.'),
+    intro: t('Other computers’ Prism, each opened in a window of this one from the profile menu, as if it ran here: its agents, terminals, worktrees, settings. That Prism has its remote on (a tunnel to it: Tailscale, or ssh -L to 127.0.0.1) and makes a token for this one: prism peer add <name> there, paired from its window the first time with the code prism peer pair shows there (its token kept in this computer’s keychain). The token opens that Prism as its account would: keep it as an SSH key; prism peer remove <name> there revokes it.'),
     fields: [
       {
         key: 'machines', label: t('Machines'), kind: 'table', blank: { name: '', url: '' },

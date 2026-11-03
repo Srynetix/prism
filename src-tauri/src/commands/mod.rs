@@ -43,6 +43,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         agent_attach,
         crate::machines::machine_list,
         crate::machines::machine_token,
+        crate::machines::machine_pair,
         crate::machines::machine_open,
         crate::machines::machine_main,
         crate::machines::machine_connect,

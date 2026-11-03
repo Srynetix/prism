@@ -74,6 +74,29 @@ pub struct RemoteConfig {
     /// `url` (another port). Empty: no preview. Tunnel `tailscale`: empty, the Mac's tailnet name
     /// on port 8443.
     pub preview_url: String,
+    /// What another Prism that opens this one in its window may do (`[remote.peers]`).
+    pub peers: PeerRights,
+}
+
+/// `[remote.peers]`: what the other Prisms paired with this one (`prism peer pair`) may do from
+/// their window. It always reads, settings included (secrets never: they stay in the keychain).
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(default)]
+pub struct PeerRights {
+    /// Act: a ticket's status, a comment, a retry, an agent launched or answered.
+    pub actions: bool,
+    /// What is critical: a merge, a manual job, an agent stopped, a worktree removed.
+    pub critical: bool,
+    /// Typing: an agent's or a shell's terminal, a text sent to an agent, a file written.
+    pub typing: bool,
+    /// The settings saved, packs and tokens included (written, never read back).
+    pub settings: bool,
+}
+
+impl Default for PeerRights {
+    fn default() -> Self {
+        Self { actions: true, critical: true, typing: true, settings: true }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -121,6 +144,7 @@ impl Default for RemoteConfig {
             preview: true,
             preview_port: 47801,
             preview_url: String::new(),
+            peers: PeerRights::default(),
         }
     }
 }

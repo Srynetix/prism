@@ -62,6 +62,29 @@ pub fn remote_rename(state: State<'_, AppState>, id: String, name: String) -> Cm
     state.remote.rename(&id, &name).map_err(Into::into)
 }
 
+/// Settings › Remote › Devices: a computer's pairing, its code in the snapshot.
+#[prism_macros::command]
+pub fn remote_peer_pair_start(state: State<'_, AppState>) -> Cmd {
+    state.remote.peer_pair_start().map(drop).map_err(Into::into)
+}
+
+/// The computer that gave the code, accepted (its token made, for it to read once) or refused.
+#[prism_macros::command]
+pub fn remote_peer_pair_answer(state: State<'_, AppState>, accept: bool) -> Cmd {
+    state.remote.peer_pair_answer(accept).map_err(Into::into)
+}
+
+#[prism_macros::command]
+pub fn remote_peer_pair_cancel(state: State<'_, AppState>) {
+    state.remote.peer_pair_cancel();
+}
+
+/// Forgets another Prism: its token opens nothing anymore, its windows close.
+#[prism_macros::command]
+pub fn remote_peer_revoke(state: State<'_, AppState>, name: String) -> Cmd {
+    state.remote.peer_revoke(&name).map_err(Into::into)
+}
+
 /// A command's class; `None` for a command this Prism does not have. `block_call` is the
 /// block's business: `block_class`.
 pub fn class(command: &str) -> Option<Class> {

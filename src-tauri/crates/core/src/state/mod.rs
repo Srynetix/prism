@@ -245,6 +245,30 @@ pub struct RemoteStatus {
     /// Tunnel `relay`: reached through another profile's Prism (its pairing, its phones); `url`
     /// is this profile's address there, absent while that Prism is closed.
     pub relay: bool,
+    /// The other Prisms that open this one in their window (`[[machines]]` there), A to Z.
+    pub peers: Vec<RemotePeer>,
+    /// A computer's pairing under way.
+    pub peer_pairing: Option<PeerPairing>,
+}
+
+/// Another Prism that opens this one in its window, with a token made here.
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct RemotePeer {
+    pub name: String,
+    pub paired_at: DateTime<Utc>,
+    /// A window of it is connected now.
+    pub connected: bool,
+}
+
+/// A computer's pairing: the code typed on it, then its name, to accept here.
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct PeerPairing {
+    pub code: String,
+    pub expires_at: DateTime<Utc>,
+    /// Once a computer has given the code: the name it gives.
+    pub name: Option<String>,
 }
 
 /// Settings › Remote › Away: one thing that decides whether the Mac stays within reach for days
