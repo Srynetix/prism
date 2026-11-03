@@ -74,7 +74,15 @@ pub const TABLE: &[(&str, &str)] = &[
     ("install the {package} package of your distribution", "installez le paquet {package} de votre distribution"),
     // relay
     ("this profile is reached through another one's remote: pair the phone there", "ce profil passe par l’accès à distance d’un autre : appairez le téléphone là-bas"),
+    ("this profile is reached through another one's remote: pair the computer there", "ce profil passe par l’accès à distance d’un autre : appairez l’ordinateur là-bas"),
     ("this profile’s Prism is closed, or its remote is not relayed here", "le Prism de ce profil est fermé, ou son accès à distance ne passe pas par ici"),
     ("this profile’s Prism does not answer", "le Prism de ce profil ne répond pas"),
     ("actions from a phone are off (Settings › Remote › Exposure)", "les actions depuis un téléphone sont désactivées (Réglages › Accès à distance › Exposition)"),
+    // machines
+    ("{command} is not answered from another Prism", "{command} n’est pas accepté depuis un autre Prism"),
+    ("{other} is not answered from another Prism", "{other} n’est pas accepté depuis un autre Prism"),
+    ("no computer to accept", "aucun ordinateur à accepter"),
+    ("not a peer of this Prism", "pas un pair de ce Prism"),
+    ("typing in a terminal from another Prism is off (Settings › Remote › Machines here)", "écrire dans un terminal depuis un autre Prism est désactivé (Réglages › Accès à distance › Machines, ici)"),
+    ("{command}: [remote.peers] {what} is off on that computer", "{command} : [remote.peers] {what} est désactivé sur cet ordinateur-là"),
 ];
