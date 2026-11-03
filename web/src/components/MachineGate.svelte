@@ -68,7 +68,7 @@
     {:else}
       <p>{t('Connecting…')}</p>
     {/if}
-    {#if machineState.error}<p class="error">{machineState.error}</p>{/if}
+    {#if machineState.error && !noToken}<p class="error">{machineState.error}</p>{/if}
     {#if error}<p class="error">{error}</p>{/if}
   </div>
 </div>

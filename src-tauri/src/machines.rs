@@ -81,13 +81,12 @@ pub async fn machine_token(name: String, token: String) -> Cmd {
     if token.is_empty() {
         return Err("no token".into());
     }
-    keep(&m, token).await
+    Ok(keep(&m, token).await?)
 }
 
-async fn keep(m: &MachineConfig, token: String) -> Cmd {
+async fn keep(m: &MachineConfig, token: String) -> anyhow::Result<()> {
     let service = prism_core::profile::service(&m.token_service());
-    tokio::task::spawn_blocking(move || prism_base::platform::store_secret(&service, &token)).await??;
-    Ok(())
+    tokio::task::spawn_blocking(move || prism_base::platform::store_secret(&service, &token)).await?
 }
 
 /// This computer's name, as the machine is asked to accept it: the Mac's, or the host's.
@@ -110,8 +109,10 @@ async fn computer_name() -> String {
 #[tauri::command]
 pub async fn machine_pair(name: String, code: String) -> Cmd {
     let m = find(&name)?;
-    let token = prism_remote::machine::pair(&m.url, &code, &computer_name().await).await?;
-    keep(&m, token).await
+    let me = computer_name().await;
+    let token = prism_remote::machine::pair(&m.url, &code, &me).await?;
+    // Accepted there, its token given once: lost here, the pairing is to be done again.
+    keep(&m, token).await.map_err(|e| format!("{name} accepted this computer, but the keychain did not keep its token ({e:#}): run prism peer remove \"{me}\" there, then pair again").into())
 }
 
 /// Machine `name` in its window: brought to the front if open, opened otherwise.
