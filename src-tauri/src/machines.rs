@@ -130,7 +130,7 @@ pub async fn machine_pair(name: String, code: String) -> Cmd {
 /// Machine `name` in its window, or one of its profiles (`profile`, reached through it) in a
 /// window of its own: brought to the front if open, opened otherwise.
 #[tauri::command]
-pub fn machine_open(app: AppHandle, state: State<'_, Arc<Machines>>, name: String, profile: Option<String>) -> Cmd {
+pub fn machine_open(app: AppHandle, state: State<'_, Arc<Machines>>, prism: State<'_, Arc<prism_commands::AppState>>, name: String, profile: Option<String>) -> Cmd {
     let m = find(&name)?;
     let name = m.name.trim().to_string();
     let profile = profile.filter(|p| !p.trim().is_empty());
@@ -145,7 +145,13 @@ pub fn machine_open(app: AppHandle, state: State<'_, Arc<Machines>>, name: Strin
     // The page learns which machine (and profile) it shows before any of its scripts.
     // Strings and an optional one: JSON that cannot fail to write.
     let script = format!("window.__PRISM_MACHINE__ = {}; window.__PRISM_MACHINE_PROFILE__ = {};", serde_json::json!(name), serde_json::json!(profile));
-    let title = match &profile {
+    // The profile by its name, as the machine said it last.
+    let shown = profile.as_ref().map(|id| {
+        let snap = prism.hub.subscribe();
+        let s = snap.borrow();
+        s.machines.iter().find(|m| m.name == name).and_then(|m| m.profiles.iter().find(|p| &p.id == id)).map_or(id.clone(), |p| p.name.clone())
+    });
+    let title = match &shown {
         Some(p) => format!("Prism — {name} · {p}"),
         None => format!("Prism — {name}"),
     };
