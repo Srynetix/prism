@@ -543,11 +543,12 @@ export const SCHEMA: SectionSpec[] = [
     fields: [
       {
         key: 'machines', label: t('Machines'), kind: 'table', blank: { name: '', url: '' },
-        hint: t('Address: https://<name>.<tailnet>.ts.net, or http://127.0.0.1:<port> at a tunnel’s end. SSH host: its name in ~/.ssh/config, to open its folders here in VS Code (Remote-SSH); empty, they open there only.'),
+        hint: t('Address: https://<name>.<tailnet>.ts.net, or http://127.0.0.1:<port> at a tunnel’s end. SSH host: its name in ~/.ssh/config, to open its folders here in VS Code (Remote-SSH); empty, they open there only. What is critical there (a merge, a manual job, an agent stopped, a worktree removed, a file of an agent saved) first asks the person at this computer: Touch ID or its password on a Mac, polkit’s agent (password or fingerprint) on Linux; No confirmation: it goes without. Asked by the app, not the page.'),
         columns: [
           { key: 'name', label: t('Name'), kind: 'text', width: '120px' },
           { key: 'url', label: t('Address'), kind: 'text', placeholder: 'https://build-srv.tail1234.ts.net' },
           { key: 'ssh', label: t('SSH host'), kind: 'text', optional: true, placeholder: t('none'), width: '120px' },
+          { key: 'skip_confirm', label: t('No confirmation'), kind: 'toggle' },
         ],
       },
     ],

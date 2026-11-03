@@ -174,6 +174,12 @@ end the pairing; the token goes to the desk once, kept in its keychain, never in
 no keychain is unlocked); `peer list`, `peer remove <name>` (its windows close within ten seconds).
 The window then shows that Prism with a blue band and rail edge.
 
+What is critical there (a merge, a manual job, an agent stopped, a worktree removed, a file of an
+agent saved) first asks the person at the desk: Touch ID or the account's password on a Mac,
+polkit's agent of the desktop on Linux (`pkcheck`, the password or a fingerprint where PAM takes
+one; refused without polkit). Asked by the app, never by the page; `skip_confirm = true` in the
+machine's `[[machines]]` goes without.
+
 A token is worth that machine's account: keep it as an SSH key. What a desk may do there is
 `[remote.peers]` on that machine (Settings › Remote › Machines): `actions`, `critical`, `typing`,
 `settings`, all on by default; it always reads, and each call that changes something is logged

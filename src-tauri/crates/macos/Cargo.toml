@@ -1,6 +1,6 @@
 [package]
 name = "prism-macos"
-description = "Prism's calls into Apple's frameworks (EventKit, CoreAudio, AppKit, CoreWLAN): every unsafe block they need, behind safe types and functions. Empty on other systems."
+description = "Prism's calls into Apple's frameworks (EventKit, CoreAudio, AppKit, CoreWLAN, LocalAuthentication): every unsafe block they need, behind safe types and functions. Empty on other systems."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -260,6 +260,10 @@ pub struct MachineConfig {
     /// Its SSH host (`~/.ssh/config`), for what opens on this computer in a folder of that one
     /// (VS Code's Remote-SSH). Empty: nothing opens here.
     pub ssh: String,
+    /// What is critical there (a merge, a manual job, an agent stopped, a worktree removed) goes
+    /// without asking the person at this computer first (Touch ID or its password on a Mac,
+    /// polkit's agent on Linux). Off by default.
+    pub skip_confirm: bool,
 }
 
 impl MachineConfig {

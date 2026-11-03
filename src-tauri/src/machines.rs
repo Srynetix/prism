@@ -190,11 +190,95 @@ pub async fn machine_connect(state: State<'_, Arc<Machines>>, window: WebviewWin
     Ok(serde_json::json!({ "name": name, "ssh": m.ssh }))
 }
 
-/// A command of the window, answered by its machine.
+/// A command of the window, answered by its machine. What is critical there is first confirmed by
+/// the person at this computer (Touch ID, or its password), unless `[[machines]] skip_confirm`:
+/// asked here, by the app, so that nothing the page does skips it.
 #[tauri::command]
 pub async fn machine_call(state: State<'_, Arc<Machines>>, window: WebviewWindow, command: String, args: Option<Value>) -> Cmd<Value> {
     let machine = machine(&state, &window)?;
-    Ok(machine.call(&command, args.unwrap_or(Value::Null)).await?)
+    let args = args.unwrap_or(Value::Null);
+    if critical(&command, &args) {
+        let name = state.open.lock().unwrap().get(window.label()).map(|o| o.name.clone()).unwrap_or_default();
+        if !find(&name).is_ok_and(|m| m.skip_confirm) {
+            let reason = format!("{} on {name}", describe(&command, &args));
+            if !tokio::task::spawn_blocking(move || confirm_here(&reason)).await? {
+                return Err(format!("{command}: not confirmed on this computer (Touch ID or its password on a Mac, polkit's agent on Linux; Settings › Remote › Machines › No confirmation goes without)").into());
+            }
+        }
+    }
+    Ok(machine.call(&command, args).await?)
+}
+
+/// Whether `command` is critical, as the machine classes it for a phone (a block's command, its
+/// block's class here).
+fn critical(command: &str, args: &Value) -> bool {
+    use prism_commands::commands::remote::{block_class, class};
+    let class = if command == "block_call" {
+        let s = |k: &str| args.get(k).and_then(Value::as_str).unwrap_or_default();
+        Some(block_class(s("block"), s("command"), args.get("args").unwrap_or(&Value::Null)))
+    } else {
+        class(command)
+    };
+    class == Some(prism_core::remote::Class::Critical)
+}
+
+/// What macOS's sheet says Prism wants to do: the command and what it acts on.
+fn describe(command: &str, args: &Value) -> String {
+    let what = command.replace('_', " ");
+    let field = |k: &str| args.get(k).and_then(|v| v.as_str().map(String::from).or_else(|| v.as_u64().map(|n| n.to_string())));
+    let target = match (field("iid"), field("repo"), field("id"), field("path"), field("command")) {
+        (Some(iid), Some(repo), ..) => format!(" !{iid} ({repo})"),
+        (Some(iid), None, ..) => format!(" !{iid}"),
+        (_, _, Some(id), ..) => format!(" {id}"),
+        (_, _, _, Some(path), _) => format!(" {path}"),
+        (_, _, _, _, Some(c)) => format!(" {c}"),
+        _ => String::new(),
+    };
+    format!("{what}{target}")
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    /// What a machine classes critical asks first; what it reads or acts on lightly does not.
+    #[test]
+    fn what_is_critical_there_is_confirmed_here() {
+        assert!(super::critical("merge_mr", &json!({ "iid": 42 })));
+        assert!(super::critical("agent_stop", &json!({ "id": "a1" })));
+        assert!(!super::critical("rebase_mr", &json!({ "iid": 42 })));
+        assert!(!super::critical("mr_detail", &json!({ "iid": 42 })));
+        assert_eq!(super::describe("merge_mr", &json!({ "repo": "api", "iid": 42 })), "merge mr !42 (api)");
+        assert_eq!(super::describe("agent_stop", &json!({ "id": "a1" })), "agent stop a1");
+    }
+}
+
+/// The person at this computer confirms. macOS: Touch ID, or the account's password
+/// (LocalAuthentication). Linux: polkit's agent of the desktop (GNOME, KDE, Xfce…) asks for the
+/// password, or a fingerprint where PAM takes one, as for any administrative action
+/// (`org.freedesktop.policykit.exec`, nothing run); without `pkcheck` or an agent, refused:
+/// `skip_confirm` goes without. Elsewhere, nothing to ask with: refused too.
+fn confirm_here(reason: &str) -> bool {
+    #[cfg(target_os = "macos")]
+    return prism_macos::localauth::confirm(reason, std::time::Duration::from_secs(90));
+    #[cfg(target_os = "linux")]
+    {
+        tracing::info!("machines: polkit asked to confirm {reason}");
+        let pid = std::process::id().to_string();
+        let asked = std::process::Command::new("pkcheck").args(["--action-id", "org.freedesktop.policykit.exec", "--process", &pid, "--allow-user-interaction"]).status();
+        match asked {
+            Ok(s) => s.success(),
+            Err(e) => {
+                tracing::warn!("machines: pkcheck: {e} (polkit missing: [[machines]] skip_confirm goes without)");
+                false
+            }
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        let _ = reason;
+        false
+    }
 }
 
 /// An agent's terminal on the window's machine, as `agent_attach` here: its output as raw bytes,
