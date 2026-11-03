@@ -29,6 +29,8 @@ pub fn run(app: &mut App, hub: state::Hub, time: collectors::time::TimeService, 
     }
     app.manage(state);
 
+    // The other computers' Prism, for the status bar and the notifications.
+    crate::machines::watch(hub.clone());
     app::broadcast(app.handle().clone(), hub);
     #[cfg(unix)]
     app::listen_signals(app.handle());

@@ -147,6 +147,9 @@ pub struct Config {
     /// Prism from a phone (`[remote]`): off by default.
     #[serde(default)]
     pub remote: RemoteConfig,
+    /// Other computers' Prism, opened here (`[[machines]]`).
+    #[serde(default)]
+    pub machines: Vec<MachineConfig>,
 }
 
 /// `[demo]`: on, Prism shows a fictitious team's work and reads nothing (no GitLab, ClickUp,

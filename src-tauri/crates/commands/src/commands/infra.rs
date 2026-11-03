@@ -10,7 +10,7 @@ use crate::app::AppState;
 use super::Cmd;
 
 /// Environments block: the pods of a Deployment, to read their logs.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn workload_pods(state: State<'_, AppState>, context: String, namespace: String, deployment: String) -> Cmd<Vec<crate::collectors::environments::PodInfo>> {
     if crate::demo::active() {
         return crate::demo::details::pods(&state.hub.subscribe().borrow(), &context, &namespace, &deployment).map_err(Into::into);
@@ -21,7 +21,7 @@ pub async fn workload_pods(state: State<'_, AppState>, context: String, namespac
 
 /// Log of a pod's container; `previous`: the one from before its last restart. `lines`: how far back
 /// (its last lines; 0, up to the container's start), the default tail when none.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn pod_log(state: State<'_, AppState>, context: String, namespace: String, pod: String, container: Option<String>, previous: bool, lines: Option<u32>) -> Cmd<crate::collectors::environments::PodLog> {
     if crate::demo::active() {
         return crate::demo::details::pod_log(&state.hub.subscribe().borrow(), &context, &namespace, &pod, previous).map_err(Into::into);
@@ -48,7 +48,7 @@ fn shell_allowed(state: &AppState, pod: &crate::agents::PodRef) -> Result<(), St
 
 /// A pod's CPU and memory over its last `minutes`: from Google Managed Prometheus for a GKE context
 /// (`[clusters] gcp_metrics`), otherwise what Prism kept of a `[[pods]]` target's.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn pod_usage_history(state: State<'_, AppState>, context: String, namespace: String, pod: String, minutes: u32) -> Cmd<crate::state::UsageHistory> {
     if crate::demo::active() {
         return crate::demo::details::pod_usage_history(&state.hub.subscribe().borrow(), &context, &namespace, &pod, minutes).map_err(Into::into);
@@ -66,7 +66,7 @@ pub async fn pod_usage_history(state: State<'_, AppState>, context: String, name
 }
 
 /// The pod's shells still open (`kubectl exec`, kept by tmux).
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn pod_shells(state: State<'_, AppState>, pod: crate::agents::PodRef) -> Cmd<Vec<crate::agents::Shell>> {
     if crate::demo::active() {
         return Ok(Vec::new());
@@ -76,7 +76,7 @@ pub async fn pod_shells(state: State<'_, AppState>, pod: crate::agents::PodRef) 
 }
 
 /// Opens the pod's shell `n`, or a new one (`null`): its terminal key.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn pod_shell(state: State<'_, AppState>, pod: crate::agents::PodRef, n: Option<u32>) -> Cmd<String> {
     if crate::demo::active() {
         return Ok(format!("{}kp0000000000000000:{}", crate::agents::SHELL, n.unwrap_or(1)));
@@ -87,13 +87,13 @@ pub async fn pod_shell(state: State<'_, AppState>, pod: crate::agents::PodRef, n
 }
 
 /// Closes the pod's shell `n`, whatever it runs.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn pod_close_shell(state: State<'_, AppState>, pod: crate::agents::PodRef, n: u32) -> Cmd {
     state.agents.close_pod_shell(&pod, n).await.map_err(Into::into)
 }
 
 /// Settings: the `kubectl` contexts, to pick them rather than type them.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn kube_contexts() -> Cmd<Vec<String>> {
     let out = crate::platform::command("kubectl").args(["config", "get-contexts", "-o", "name"]).output().await?;
     if !out.status.success() {
@@ -103,7 +103,7 @@ pub async fn kube_contexts() -> Cmd<Vec<String>> {
 }
 
 /// Reruns the Trivy scan without waiting for the next day; the result arrives through the snapshot.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn rescan_vulnerabilities() {
     if crate::demo::active() {
         return;

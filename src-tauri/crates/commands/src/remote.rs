@@ -277,7 +277,54 @@ async fn dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Val
     }
 }
 
+/// What another Prism's window never gets answered here: what opens something on this machine's
+/// own screen (an editor, the Finder, a calendar), writes where a dialog of the other machine said,
+/// restarts or powers this machine, or updates its Prism; and the window's own (`DESK`), which that
+/// window's app answers.
+pub const PEER_NEVER: &[&str] = &[
+    "open_repo",
+    "open_logs",
+    "open_config",
+    "mail_open",
+    "open_in_calendar",
+    "agent_open",
+    "agent_open_file",
+    "agent_open_external",
+    "agent_files_export",
+    "save_csv",
+    "mac_power",
+    // A browser on that machine's screen, which nobody may be at.
+    "google_sign_in",
+    "update_install",
+    // The snapshot comes over the peer's socket.
+    "snapshot_sync",
+];
+
+/// A call from another Prism's window (`prism_remote::peers`): any command of the window but its
+/// own and `PEER_NEVER`, answered as this machine's window would (the demo's guard included).
+async fn peer_dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Value> {
+    if commands::refused_in_demo(&command) {
+        bail!(crate::demo::READ_ONLY);
+    }
+    if commands::DESK.contains(&command.as_str()) || PEER_NEVER.contains(&command.as_str()) {
+        bail!(tr!("{command} is not answered from another Prism", command = command));
+    }
+    if command == "restart_app" {
+        prism_base::rt::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            state.shell.restart()
+        });
+        return Ok(Value::Null);
+    }
+    commands::peer_call(&state, &command, a).await
+}
+
 impl prism_remote::Host for Host {
+    fn peer_call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
+        let host = self.clone();
+        Box::pin(async move { peer_dispatch(host.state()?, command, args).await })
+    }
+
     fn call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
         let host = self.clone();
         Box::pin(async move { dispatch(host.state()?, command, args).await })
@@ -379,6 +426,14 @@ mod tests {
         own.chain(crate::commands::PHONE_ROUTED.iter().copied()).collect()
     }
 
+    /// A peer gets answered every command of the window but its own and those it never is.
+    #[test]
+    fn a_peer_reaches_every_command_but_the_desks() {
+        for name in super::PEER_NEVER {
+            assert!(crate::commands::COMMANDS.iter().any(|(n, _, _)| n == name), "{name}: no such command");
+        }
+    }
+
     #[test]
     fn tells_the_hidden_paths_asked_for() {
         let hidden = |v: serde_json::Value| super::hidden_paths(&v).into_iter().map(String::from).collect::<Vec<_>>();
@@ -465,9 +520,9 @@ mod tests {
         }
     }
 
-    /// `route!` passes a phone's arguments to the command by position: the table's (`[phone: …]`)
-    /// must be named and ordered as the command's own, or two of a kind (a task and a comment id)
-    /// would swap silently.
+    /// A phone's call takes the command's own route (its `peer`, arguments by name); the table's
+    /// list (`[phone: …]`), which says what a phone reaches, names them as the command does, in its
+    /// order, so that it reads as the command it routes.
     #[test]
     fn a_routed_command_gets_its_arguments_in_its_order() {
         let sources = [

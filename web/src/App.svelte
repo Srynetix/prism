@@ -40,6 +40,8 @@
   import BlockOff from './components/BlockOff.svelte'
   import { markDock } from './dock'
   import ProfileSwitch from './components/ProfileSwitch.svelte'
+  import MachineBar from './components/MachineBar.svelte'
+  import { GRACE, machineState } from './machine.svelte'
   import { wizard, wizardDue } from './wizard.svelte'
   import { pageShown } from './feature-use.svelte'
   import Notes from './components/Notes.svelte'
@@ -98,7 +100,7 @@
   import { agentsEnabled, agentsView, closeAgents, openAgents, terminalKeeps } from './agents.svelte'
   import { BLOCK_HELP } from './block-help'
   import { chord, chordKey, extraShift, inTerminal, isMac, keys, pageDigit } from './platform'
-  import { isDesktop } from './bridge'
+  import { isDesktop, machine } from './bridge'
   import { consoleKey, toggleConsole } from './console.svelte'
   import { matches, worksWhileTyping } from './shortcut'
   import { watchCelebrations } from './celebrations.svelte'
@@ -467,7 +469,7 @@
   </header>
 {/snippet}
 
-<div class="app" class:zen={zen.on} style:--view={view.color}>
+<div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!machine() && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={view.color}>
   <div class="shell">
   <!-- Two fingers up or down on the rail: the next or previous page, while one is shown. -->
   <nav class="rail" aria-label={t('Views')} {@attach pageSwipe(stepView, () => appearance().page_swipe && !editing.on && !zoomed && !agentsView.open && !settingsView.open && !helpView.open)}>
@@ -498,6 +500,7 @@
     <ProfileMenu />
   </nav>
   <div class="content">
+    {#if machine()}<MachineBar />{/if}
     <!--
       The Agents view stays mounted once opened, hidden elsewhere: its terminals stay
       attached, and coming back does not re-attach (which added a line to the prompt).
@@ -654,6 +657,11 @@
   /* The edge's colours on a layer of their own, which a theme's motion slides (app.css). */
   .rail .edge { position: absolute; top: 0; right: -1px; bottom: 0; width: var(--rail-edge-w); overflow: hidden; opacity: 0.85; pointer-events: none; }
   .rail .edge::before { content: ''; position: absolute; inset: 0; background: var(--rail-edge); }
+  /* Another computer's Prism (`machine`): its rail's edge in one color, never mistaken for this one's. */
+  .app.machine .rail .edge { width: 3px; }
+  .app.machine .rail .edge::before { background: var(--info); }
+  /* Its machine out of reach: the page is its last state, dimmed (its bar says why). */
+  .app.machine-away .content > :not(:global(.machine-bar)) { opacity: 0.6; filter: grayscale(0.6); transition: opacity 0.3s, filter 0.3s; }
   .rail .brand { display: flex; margin-bottom: 10px; }
   .rail .brand > span { display: flex; }
   .rail .brand .spin { animation: logo-spin 0.9s cubic-bezier(0.2, 0.8, 0.3, 1.2); }

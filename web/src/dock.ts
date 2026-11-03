@@ -1,4 +1,4 @@
-import { invoke, isDesktop } from './bridge'
+import { invoke, isLocal } from './bridge'
 import { initial, profileColor } from './profiles.svelte'
 
 /**
@@ -9,7 +9,7 @@ import { initial, profileColor } from './profiles.svelte'
 let drawn = ''
 
 export async function markDock(profile: { id: string; name: string; color: string; shared: boolean } | undefined) {
-  if (!isDesktop() || !profile?.shared || !navigator.userAgent.includes('Mac')) return
+  if (!isLocal() || !profile?.shared || !navigator.userAgent.includes('Mac')) return
   const key = `${profile.id}|${profile.name}|${profile.color}`
   if (key === drawn) return
   drawn = key

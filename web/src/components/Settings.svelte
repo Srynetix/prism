@@ -1,7 +1,7 @@
 <script lang="ts">
   import { suggest } from '../suggest'
   import { armer } from '../armed.svelte'
-  import { invoke, isDesktop } from '../bridge'
+  import { invoke, isDesktop, isLocal } from '../bridge'
   import Icon from './Icon.svelte'
   import Markdown from './Markdown.svelte'
   import { canPick, pickPath } from '../pick'
@@ -634,7 +634,7 @@
     {:else if s.id === 'file'}
       <div class="card">
         <div class="filerow"><Icon name="logs" /><span class="mono grow">{cfg.file?.path ?? '~/.config/prism/config.toml'}</span>
-          {#if isDesktop()}<button class="btn" onclick={() => openFile('finder')}>{t('Reveal in {app}', { app: FILE_MANAGER })}</button><button class="btn" onclick={() => openFile('editor')}>{t('Open in editor')}</button><button class="btn" onclick={loadConfig} title={t('Read the file again')}>{t('Reload')}</button>{/if}
+          {#if isLocal()}<button class="btn" onclick={() => openFile('finder')}>{t('Reveal in {app}', { app: FILE_MANAGER })}</button><button class="btn" onclick={() => openFile('editor')}>{t('Open in editor')}</button>{/if}{#if isDesktop()}<button class="btn" onclick={loadConfig} title={t('Read the file again')}>{t('Reload')}</button>{/if}
         </div>
         <p class="hint pad">{t('Saving rewrites only the keys you changed: comments, order and layout of the file are kept, and the previous version goes to config.toml.bak. A file the app could not read is not saved.')}</p>
         <p class="hint pad">{t('A setting applies as it is saved, here or in the file by hand (an editor, an agent): the sources it concerns are read again, the agents and the phone untouched. Only a pack’s block that does not reload waits for Prism to restart.')}</p>

@@ -12,14 +12,14 @@ use super::Cmd;
 
 /// The faces of an installed font family the webview cannot see (macOS's WebKit hides the
 /// user's fonts from web content): the page loads them itself, with `font_face`.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn font_faces(family: String) -> Vec<crate::fonts::Face> {
     tokio::task::spawn_blocking(move || crate::fonts::faces(&family)).await.unwrap_or_default()
 }
 
 /// Writes a table exported by the window (the Actuals of My sprint) where the save dialog said:
 /// a `.csv` file only, never anything else.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn save_csv(dest: String, text: String) -> Cmd {
     let path = std::path::PathBuf::from(dest);
     if !path.is_absolute() || path.extension().is_none_or(|e| !e.eq_ignore_ascii_case("csv")) {
@@ -32,7 +32,7 @@ pub async fn save_csv(dest: String, text: String) -> Cmd {
     tokio::fs::write(&path, text).await.map_err(|e| anyhow::anyhow!("{}: {e}", path.display()).into())
 }
 
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn get_snapshot(state: State<'_, AppState>) -> Snapshot {
     tracing::debug!("front: initial snapshot requested");
     state.hub.subscribe().borrow().clone()
@@ -40,13 +40,13 @@ pub fn get_snapshot(state: State<'_, AppState>) -> Snapshot {
 
 /// The whole snapshot as the window last got it, with its revision: what its changes
 /// (`snapshot-changes`) apply to.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn snapshot_sync(state: State<'_, AppState>) -> serde_json::Value {
     crate::app::snapshot_sync(&state.hub)
 }
 
 /// Relaunches Prism: settings that do not apply live (collectors) are reread.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn restart_app(state: State<'_, AppState>) {
     state.shell.restart()
 }
@@ -55,7 +55,7 @@ pub fn restart_app(state: State<'_, AppState>) {
 /// Mac), with `[remote] power` and its passkey (the remote's server). With FileVault, a restart
 /// takes the user's `password` (typed on the phone, never kept): the Mac comes back by itself,
 /// without waiting for it at startup.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn mac_power(action: String, password: Option<String>) -> Cmd {
     tracing::warn!("power: {action}, asked from a phone");
     if action != "restart" || crate::platform::restart_unlock().await != crate::platform::Unlock::Password {
@@ -83,7 +83,7 @@ pub async fn mac_power(action: String, password: Option<String>) -> Cmd {
 /// window: a theme's glass and overlays then stay off. On Linux, WebKitGTK without compositing
 /// (`WEBKIT_DISABLE_COMPOSITING_MODE`, the usual way around Nvidia and Wayland glitches) draws no
 /// `backdrop-filter`: the glass would be a see-through panel, so opaque panels instead.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn reduce_transparency() -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -104,7 +104,7 @@ pub fn set_for_webkit(value: Option<&std::ffi::OsStr>) -> bool {
 }
 
 /// The log file's path, and its size in bytes (absent: none yet).
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn logs_info() -> (String, Option<u64>) {
     let path = crate::logs::path();
     let size = std::fs::metadata(&path).ok().map(|m| m.len());
@@ -113,7 +113,7 @@ pub fn logs_info() -> (String, Option<u64>) {
 
 /// The tools Prism runs and their versions (Settings › General › Dependencies); `fresh`: asked
 /// again rather than the answer of the last minutes.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn dependencies(fresh: bool) -> Cmd<Vec<crate::deps::Dependency>> {
     if crate::demo::active() {
         return Ok(crate::deps::sample());
@@ -122,19 +122,19 @@ pub async fn dependencies(fresh: bool) -> Cmd<Vec<crate::deps::Dependency>> {
 }
 
 /// The last `lines` lines of the log (300 at most when absent), to copy into a report.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn logs_tail(lines: Option<usize>) -> Cmd<String> {
     crate::logs::tail(lines.unwrap_or(300).clamp(1, 5000)).map_err(Into::into)
 }
 
 /// Forgets Prism's recent problems (the status bar's list): they come back as they happen again.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn problems_clear() {
     prism_core::problems::clear();
 }
 
 /// The log file in the file manager (`finder`), or opened with its default app (`app`).
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn open_logs(with: String) -> Cmd {
     let path = crate::logs::path();
     let opened = match with.as_str() {
@@ -147,7 +147,7 @@ pub async fn open_logs(with: String) -> Cmd {
 
 /// Opens a repository from the Repos menu in the editor, the terminal (applications from the config) or the
 /// Finder. Only the folders of followed repositories are accepted.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn open_repo(state: State<'_, AppState>, path: String, with: String) -> Cmd {
     let (known, apps) = {
         let snap = state.hub.subscribe();
@@ -177,7 +177,7 @@ pub(super) async fn open_folder(path: &str, with: &str, apps: crate::state::Open
 }
 
 /// A call to a block with a source of its own (`blocks`): its command, its arguments, its answer.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn block_call(block: String, command: String, args: Option<serde_json::Value>) -> Cmd<serde_json::Value> {
     let b = crate::blocks::find(&block).ok_or_else(|| format!("no block {block} in this Prism"))?;
     // The demo profile reads nothing: a block answers from its sample data, or refuses.
@@ -187,13 +187,13 @@ pub async fn block_call(block: String, command: String, args: Option<serde_json:
     b.call(command, args.unwrap_or_default()).await.map_err(Into::into)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn store_load(state: State<'_, AppState>, name: String) -> Cmd<Option<serde_json::Value>> {
     tracing::debug!("front: load store {name}");
     state.store.load(&name).map_err(Into::into)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn store_save(state: State<'_, AppState>, name: String, value: serde_json::Value) -> Cmd {
     state.store.save(&name, &value).map_err(Into::into)
 }
@@ -208,7 +208,7 @@ fn shared_name(name: &str) -> Result<(), super::CmdError> {
 }
 
 /// A shared store, as written last by the window or a phone.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn shared_load(state: State<'_, AppState>, name: String) -> Cmd<Option<serde_json::Value>> {
     shared_name(&name)?;
     state.store.load(&name).map_err(Into::into)
@@ -216,7 +216,7 @@ pub fn shared_load(state: State<'_, AppState>, name: String) -> Cmd<Option<serde
 
 /// Writes a shared store and bumps its revision, so that the other pages read it again; returns
 /// the new revision, which the writer then knows as its own.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn shared_save(state: State<'_, AppState>, name: String, value: serde_json::Value) -> Cmd<u64> {
     shared_name(&name)?;
     if (name == "notes" && !value.is_array()) || (name != "notes" && !value.is_object()) {

@@ -27,8 +27,10 @@ calendar, the AI agents at work. Prism reads them all, live, and answers one que
 - **Drift, caught for you.** An MR in review while its ticket still says “doing”, a red pipeline on
   your branch, a pod in CrashLoopBackOff, an agent stuck on a permission: they all land in
   **Alerts**, most severe first.
-- **Local, by design.** No server, no account, no open port. Prism reuses the access you already
-  have (`glab`, `gh`, `~/.kube/config`, the system keychain) and keeps only what it displays.
+- **Local, by design.** No account, no cloud of ours, and nothing listening by default. Prism reuses
+  the access you already have (`glab`, `gh`, `~/.kube/config`, the system keychain) and keeps only
+  what it displays. Reaching it from your phone or from another computer is opt-in, on loopback
+  behind a tunnel you choose, each device paired.
 
 ## What's inside
 
@@ -82,6 +84,16 @@ sends your review notes back as a prompt. Stale worktrees are spotted and cleane
   from a repository; everyone keeps their own choices on top, and their clones where they like.
 - **Themes, fonts, keyboard shortcuts and a console**, plus a few playful touches.
 
+### From your phone, or another computer
+
+- **Your phone**: Prism as an app on it (a page your computer serves, through Tailscale or your
+  own tunnel), paired with a QR code and unlocked with a passkey; what it may do (read, act,
+  merge, type to an agent) is yours to switch on, critical actions confirmed each time.
+- **Another computer's Prism**: a server running `prism-server` (no window, no WebKit) or a second
+  desktop opens in a window of this one, its agents, terminals and settings with it; paired with a
+  code, its critical actions confirmed with Touch ID (polkit on Linux), its waiting agents in your
+  status bar and notifications.
+
 ## Getting started
 
 Prerequisites: [Rust](https://rustup.rs), Node.js with [pnpm](https://pnpm.io),
@@ -132,7 +144,10 @@ versions, the missing ones a source needs first, with how to install them.
 ## Privacy
 
 Everything runs inside the app: the window talks to the Rust core through Tauri's IPC, with no
-HTTP server and no open port. Tokens stay in the system keychain or in the CLIs that own them
+HTTP server and no open port, unless you turn on the remote: then Prism listens on 127.0.0.1 only,
+behind the tunnel you choose (Tailscale checks your tailnet user), and answers only the phones and
+computers you paired. Another computer's token never reaches the page: the app keeps it in the
+keychain. Tokens stay in the system keychain or in the CLIs that own them
 (`glab`, `gh`); Prism never stores them in its config. Data only goes between your machine and
 the services you turn on, and only the fields needed for display are kept.
 

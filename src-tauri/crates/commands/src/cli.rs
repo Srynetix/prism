@@ -1,5 +1,5 @@
 //! The subcommands `prism` runs without opening the app, with a window or without
-//! (`prism-server`): `hook`, `pack`, `restart`, `watch`, `pair`, and the tokens to the keyring.
+//! (`prism-server`): `hook`, `pack`, `restart`, `watch`, `pair`, `peer`, and the tokens to the keyring.
 
 /// Runs the subcommand of `args` (the profile already taken out), if any: its exit code.
 pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
@@ -61,6 +61,16 @@ pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
         }
         return Some(if done.is_ok() { 0 } else { 1 });
     }
+    // `prism peer pair` (a code typed on the other computer, its name accepted here), `prism peer
+    // add <name>` (its token printed, once), `prism peer remove <name>`, `prism peer list`: the other
+    // Prisms that open this one in their window (`[[machines]]` there).
+    if args.get(1).is_some_and(|a| a == "peer") {
+        let done = if args.get(2).is_some_and(|a| a == "pair") { block_on(peer_pair()) } else { peer(args) };
+        if let Err(e) = &done {
+            eprintln!("prism: {e:#}");
+        }
+        return Some(if done.is_ok() { 0 } else { 1 });
+    }
     // `prism clickup-token`, `prism jira-token`, `prism google-secret`: the token read on standard
     // input goes to the system keyring (Linux, Windows; on macOS, `security add-generic-password`).
     let keychain = match args.get(1).and_then(|a| a.to_str()) {
@@ -84,9 +94,90 @@ pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
     None
 }
 
+/// `prism peer …`, on this profile's data folder.
+fn peer(args: &[std::ffi::OsString]) -> anyhow::Result<()> {
+    let arg = |i: usize| args.get(i).and_then(|a| a.to_str()).unwrap_or_default().to_string();
+    let dir = crate::profile::data_dir(&crate::profile::data_base());
+    match (arg(2).as_str(), arg(3)) {
+        ("add", name) if !name.is_empty() => {
+            let token = prism_remote::peers::add(&dir, &name)?;
+            println!("{token}");
+            eprintln!("The token of {name}, shown once: paste it in its window there (profile menu › Other computers), or set it as PRISM_MACHINE_TOKEN_<NAME> where no keychain is unlocked. It opens this Prism as this account would: keep it as an SSH key.");
+            Ok(())
+        }
+        ("remove", name) if !name.is_empty() => {
+            anyhow::ensure!(prism_remote::peers::remove(&dir, &name)?, "no peer {name}");
+            println!("{name} removed: its windows close within ten seconds");
+            Ok(())
+        }
+        ("list", _) => {
+            for p in prism_remote::peers::list(&dir)? {
+                println!("{}\t{}", p.name, p.created.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M"));
+            }
+            Ok(())
+        }
+        _ => anyhow::bail!("usage: prism peer pair | add <name> | remove <name> | list"),
+    }
+}
+
+/// `prism peer pair`: a computer's pairing opened in the running Prism, its code shown here; the
+/// computer that gave it accepted here by name.
+async fn peer_pair() -> anyhow::Result<()> {
+    use std::io::Write;
+    let dir = crate::profile::data_dir(&crate::profile::data_base());
+    let local = prism_remote::pair::Local::find(&dir)?;
+    let pairing = local.peer_start().await?;
+    let code = format!("{} {}", &pairing.code[..3], &pairing.code[3..]);
+    println!("On the other computer: profile menu › Other computers › this machine, and the code {code}");
+    println!("Valid until {}. Waiting for it… (Ctrl+C cancels)", pairing.expires_at.with_timezone(&chrono::Local).format("%H:%M:%S"));
+    let name = loop {
+        tokio::select! {
+            _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {}
+            _ = tokio::signal::ctrl_c() => {
+                let _ = local.peer_cancel().await;
+                anyhow::bail!("pairing cancelled");
+            }
+        }
+        match local.peer_state().await? {
+            None => anyhow::bail!("the pairing expired, was cancelled, or too many wrong codes were tried"),
+            Some(p) => {
+                if let Some(name) = p.name {
+                    break name;
+                }
+            }
+        }
+    };
+    print!("{name} asks to open this Prism, as this account would. Accept? [y/N] ");
+    std::io::stdout().flush()?;
+    // Read off the runtime, Ctrl+C still heard meanwhile: it cancels, as while waiting.
+    let line = tokio::task::spawn_blocking(|| {
+        let mut answer = String::new();
+        std::io::stdin().read_line(&mut answer).map(|_| answer)
+    });
+    let answer = tokio::select! {
+        a = line => a??,
+        _ = tokio::signal::ctrl_c() => {
+            let _ = local.peer_cancel().await;
+            println!();
+            anyhow::bail!("pairing cancelled");
+        }
+    };
+    let accept = matches!(answer.trim(), "y" | "Y" | "yes" | "o" | "oui");
+    local.peer_answer(accept).await?;
+    anyhow::ensure!(accept, "{name} refused");
+    // Its name here: another computer of that name keeps its own, this one's made unique.
+    let paired = prism_remote::peers::list(&dir)?.into_iter().max_by_key(|p| p.created).map_or(name, |p| p.name);
+    println!("{paired} paired: `prism peer remove \"{paired}\"` revokes it");
+    Ok(())
+}
+
 /// A future run to its end, outside of Prism's runtime (none runs yet).
 fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a runtime").block_on(future)
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a runtime");
+    let out = rt.block_on(future);
+    // Not waiting for what still blocks (a question's line read, Ctrl+C having answered it).
+    rt.shutdown_background();
+    out
 }
 
 /// `prism pair`: the pairing opened in the running Prism, its QR code shown here; once the phone

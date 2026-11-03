@@ -9,6 +9,8 @@ export type StoreName = 'notes' | 'layout' | 'retro' | 'pet' | 'usage'
 const STORES: StoreName[] = ['notes', 'layout', 'retro', 'pet', 'usage']
 
 const cache = new Map<StoreName, unknown>()
+/** Stores that could not be read (a machine out of reach): never written, which would replace them with nothing. */
+const unread = new Set<StoreName>()
 const timers = new Map<StoreName, ReturnType<typeof setTimeout>>()
 
 /** Browser preview: `localStorage` replaces the app's data folder. */
@@ -30,6 +32,7 @@ export async function preload() {
       try {
         cache.set(name, await invoke('store_load', { name }))
       } catch (e) {
+        unread.add(name)
         console.error(`store ${name}:`, e)
       }
     }),
@@ -53,6 +56,7 @@ export function write(name: StoreName, value: unknown, onError?: (e: unknown) =>
         }
         return
       }
+      if (unread.has(name)) return onError?.(`store ${name}: not read, so not written`)
       invoke('store_save', { name, value: JSON.parse(JSON.stringify(value)) }).catch((e) => {
         console.error(`store ${name}:`, e)
         onError?.(e)

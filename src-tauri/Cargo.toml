@@ -35,6 +35,7 @@ prism-ops = { path = "crates/ops" }
 prism-demo = { path = "crates/demo" }
 prism-remote = { path = "crates/remote" }
 prism-commands = { path = "crates/commands" }
+prism-macros = { path = "crates/macros" }
 
 anyhow = "1.0.104"
 base64 = "0.23"

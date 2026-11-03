@@ -123,6 +123,7 @@ export const TREE: TreeNode[] = [
       { id: 'remote-exposure', label: t('Exposure'), sections: ['remote-exposure'] },
       { id: 'remote-sessions', label: t('Sessions'), sections: ['remote-sessions'] },
       { id: 'remote-away', label: t('Away'), sections: ['remote-away', 'remote-away-checks'] },
+      { id: 'machines', label: t('Machines'), sections: ['machines', 'remote-peers'] },
     ],
   },
   // What is used, what is not, what differs from its default: last, apart from the domains.

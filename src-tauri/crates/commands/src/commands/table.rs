@@ -7,7 +7,6 @@
 //! `block_call` takes the class its block gives the command (`remote::block_class`).
 
 use prism_core::remote::Class::{self, Act, Critical, Never, Read};
-use serde_json::Value;
 
 use super::*;
 
@@ -39,6 +38,19 @@ commands! {
         feedback_capture: Never,
         // Read-only from a phone (tmux's `-r`), through its socket: typing is `agent_write`.
         agent_attach: Read,
+        // Other computers' Prism, each in a window of this one (`[[machines]]`).
+        machine_list: Never,
+        machine_token: Never,
+        machine_pair: Never,
+        machine_open: Never,
+        machine_main: Never,
+        machine_connect: Never,
+        machine_call: Never,
+        machine_attach: Never,
+        machine_write: Never,
+        machine_resize: Never,
+        machine_detach: Never,
+        machine_export: Never,
     }
     // Config, packs, tokens, updates: never from a phone.
     config::read_config: Never,
@@ -131,6 +143,10 @@ commands! {
     remote::remote_pair_confirm: Never,
     remote::remote_pair_cancel: Never,
     remote::remote_revoke: Never,
+    remote::remote_peer_pair_start: Never,
+    remote::remote_peer_pair_answer: Never,
+    remote::remote_peer_pair_cancel: Never,
+    remote::remote_peer_revoke: Never,
     remote::remote_away_checks: Never,
     remote::remote_rename: Never,
     remote::remote_release: Never,

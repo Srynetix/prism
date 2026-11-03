@@ -116,37 +116,13 @@ pub(crate) fn args<T: serde::de::DeserializeOwned>(v: serde_json::Value) -> anyh
     Ok(serde_json::from_value(if v.is_null() { serde_json::Value::Object(Default::default()) } else { v })?)
 }
 
-/// `route!(app, args, f, state, a: T, …)`: a phone's call (`crate::remote`), its arguments read as
-/// the window sends them (camelCase), the command called with the state (`app`), its answer as JSON.
-macro_rules! route {
-    // No argument (`[phone: ]`, `[phone: sync]`).
-    ($app:ident, $args:ident, $f:path, sync) => {
-        route!($app, $args, $f; sync)
+/// A `[phone: …]` command answered: its route as any other's (`#[prism_macros::command]`'s `peer`,
+/// its arguments read as the window sends them); the list says which, and that its arguments are
+/// the command's own (`remote::tests`).
+macro_rules! phone_route {
+    ($app:ident, $args:ident, $f:path; $($phone:tt)*) => {
+        $f($app, $args).await
     };
-    ($app:ident, $args:ident, $f:path, ) => {
-        route!($app, $args, $f)
-    };
-    ($app:ident, $args:ident, $f:path, state $(, $name:ident : $ty:ty)* $(; $sync:ident)?) => {{
-        #[derive(serde::Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        #[allow(dead_code)]
-        struct A { $($name: $ty),* }
-        let a: A = args($args)?;
-        let _ = &a;
-        let state = State($app);
-        reply(route!(@call $f, (state $(, a.$name)*) $(; $sync)?))
-    }};
-    ($app:ident, $args:ident, $f:path $(, $name:ident : $ty:ty)* $(; $sync:ident)?) => {{
-        #[derive(serde::Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        #[allow(dead_code)]
-        struct A { $($name: $ty),* }
-        let a: A = args($args)?;
-        let _ = &a;
-        reply(route!(@call $f, ($(a.$name),*) $(; $sync)?))
-    }};
-    (@call $f:path, ($($a:expr),*); sync) => { $f($($a),*) };
-    (@call $f:path, ($($a:expr),*)) => { $f($($a),*).await };
 }
 
 /// `module::command: Class [demo: own | refused],` for each command (`table.rs`), after the
@@ -173,8 +149,17 @@ macro_rules! commands {
         /// A phone's call of one of them (`crate::remote`): its answer; another command is refused.
         pub async fn phone_call(app: &AppState, command: &str, a: serde_json::Value) -> anyhow::Result<serde_json::Value> {
             match command {
-                $($(stringify!($name) => route!(app, a, $module::$name, $($phone)*),)?)*
+                $($(stringify!($name) => phone_route!(app, a, $module::$name::peer; $($phone)*),)?)*
                 other => anyhow::bail!(prism_base::tr!("{other} is not answered from a phone", other = other)),
+            }
+        }
+
+        /// Another Prism's window calling any of them but the window's own (`crate::remote::peer`):
+        /// its answer; the window's own are its app's.
+        pub async fn peer_call(app: &AppState, command: &str, a: serde_json::Value) -> anyhow::Result<serde_json::Value> {
+            match command {
+                $(stringify!($name) => $module::$name::peer(app, a).await,)*
+                other => anyhow::bail!(prism_base::tr!("{other} is not answered from another Prism", other = other)),
             }
         }
 
@@ -211,7 +196,7 @@ macro_rules! demo {
 }
 
 mod table;
-pub use table::{phone_call, COMMANDS, DESK};
+pub use table::{peer_call, phone_call, COMMANDS, DESK};
 #[cfg(feature = "tauri")]
 pub use table::tauri_handler;
 #[cfg(test)]

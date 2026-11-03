@@ -258,6 +258,13 @@
         <span class="pb">{initial(p.name)}</span>{p.name}{#if p.waiting}{' '}· <b>{p.waiting}</b> {tc('agents', 'waiting')}{:else if p.agents}{' '}· {tn(p.agents, '{n} agent', '{n} agents')}{/if}
       </button>
     {/each}
+  {:else if id === 'machines' && snap?.machines?.length}
+    <!-- The other computers' Prism (`[[machines]]`): who waits there, a click opens its window. -->
+    {#each snap.machines as m (m.name)}
+      <button class="sbi prof mach" class:waits={m.waiting.length > 0} class:off={!m.reachable} style:--pc="var(--info)" onclick={() => void invoke('machine_open', { name: m.name })} title={!m.reachable ? t('{name}: {error} · open its window', { name: m.name, error: m.error ?? '' }) : m.waiting.length ? tn(m.waiting.length, '{name}: {n} agent waiting for you ({first}) · open its window', '{name}: {n} agents waiting for you, first {first} · open its window', { name: m.name, first: m.waiting[0].title }) : tn(m.agents, '{name}: {n} agent running · open its window', '{name}: {n} agents running · open its window', { name: m.name })}>
+        <span class="pb">{initial(m.name)}</span>{m.name}{#if !m.reachable}{' '}· {t('out of reach')}{:else if m.waiting.length}{' '}· <b>{m.waiting.length}</b> {tc('agents', 'waiting')}{:else if m.agents}{' '}· {tn(m.agents, '{n} agent', '{n} agents')}{/if}
+      </button>
+    {/each}
   {:else if id === 'shells'}
     <ShellsItem />
   {:else if id === 'digest'}
@@ -413,6 +420,9 @@
   .sbi.prof .pb { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: var(--r4); border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent); background: color-mix(in srgb, var(--pc) 20%, transparent); color: var(--pc); font-size: 9px; font-weight: 700; }
   .sbi.prof.waits { background: color-mix(in srgb, var(--pc) 14%, transparent); }
   .sbi.prof.waits b { color: var(--warn); }
+  /* Another computer's: its badge round, as its dot elsewhere; out of reach, faded. */
+  .sbi.mach .pb { border-radius: 50%; }
+  .sbi.mach.off { opacity: 0.55; }
   .mini { width: 38px; height: 4px; border-radius: var(--r2); overflow: hidden; background: var(--surface-muted); }
   .mini i { display: block; height: 100%; background: var(--src-gitlab); }
   .ctx { position: fixed; z-index: 50; width: 190px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }

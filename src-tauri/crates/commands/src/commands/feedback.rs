@@ -28,7 +28,7 @@ fn demo_target() -> Target {
     Target { id: "prism".into(), name: "Prism".into(), repo: "glab:acme/prism".into(), forge: "gitlab".into(), project: "acme/prism".into(), web: "https://gitlab.com/acme/prism".into(), why: "Prism and its blocks · [updates] source".into(), labels }
 }
 
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn feedback_info(state: State<'_, AppState>) -> Cmd<FeedbackInfo> {
     let capture = cfg!(any(target_os = "macos", target_os = "linux"));
     if crate::demo::active() {
@@ -40,7 +40,7 @@ pub async fn feedback_info(state: State<'_, AppState>) -> Cmd<FeedbackInfo> {
 }
 
 /// The issues of `target` that look like `title`.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn feedback_similar(target: String, title: String) -> Cmd<Vec<Issue>> {
     if crate::demo::active() {
         let issue = |number, title: &str, state: &str, votes| Issue { number, title: title.into(), url: format!("https://gitlab.com/acme/prism/-/issues/{number}"), state: state.into(), votes, not_planned: false };
@@ -50,13 +50,13 @@ pub async fn feedback_similar(target: String, title: String) -> Cmd<Vec<Issue>> 
 }
 
 /// A 👍 on issue `number` of `target`.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn feedback_vote(target: String, number: u64) -> Cmd {
     feedback::vote(&feedback::find(&crate::config_path(), &target)?, number).await.map_err(Into::into)
 }
 
 /// The issue's text as it will be sent: what was written, and the lines attached.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn feedback_body(text: String, context: Vec<String>) -> String {
     feedback::body(&text, &context)
 }
@@ -65,7 +65,7 @@ pub fn feedback_body(text: String, context: Vec<String>) -> String {
 /// (GitLab's uploads, GitHub's user attachments); a GitLab upload that fails opens nothing, rather
 /// than an issue without the picture it was about; GitHub's, the issue without it, the capture to
 /// paste from the clipboard (`paste_capture`).
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn feedback_create(state: State<'_, AppState>, target: String, kind: String, title: String, text: String, context: Vec<String>, capture: Option<bool>) -> Cmd<Request> {
     if !feedback::KINDS.contains(&kind.as_str()) {
         return Err(format!("unknown kind {kind}: {}", feedback::KINDS.join(", ")).into());
@@ -84,14 +84,14 @@ pub async fn feedback_create(state: State<'_, AppState>, target: String, kind: S
 }
 
 /// The forge's new issue page, filled in: without glab or gh.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn feedback_url(target: String, kind: String, title: String, text: String, context: Vec<String>) -> Cmd<String> {
     let t = if crate::demo::active() { demo_target() } else { feedback::find(&crate::config_path(), &target)? };
     Ok(feedback::new_issue_url(&t, &kind, &title, &feedback::body(&text, &context)))
 }
 
 /// The issues opened from Prism; `refresh`: their state read again on their forges.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn feedback_requests(state: State<'_, AppState>, refresh: bool) -> Cmd<Vec<Request>> {
     if crate::demo::active() {
         let request = |number, title: &str, state: &str, votes| Request {
@@ -111,7 +111,7 @@ pub async fn feedback_requests(state: State<'_, AppState>, refresh: bool) -> Cmd
 }
 
 /// Clears the agent's previous draft: where it is to write the new one.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn feedback_draft_reset(state: State<'_, AppState>) -> Cmd<String> {
     let path = feedback::draft_path(&state.store);
     match std::fs::remove_file(&path) {
@@ -122,7 +122,7 @@ pub fn feedback_draft_reset(state: State<'_, AppState>) -> Cmd<String> {
 }
 
 /// The agent's draft, once written: its title and text.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn feedback_draft(state: State<'_, AppState>) -> Option<(String, String)> {
     feedback::read_draft(&state.store)
 }

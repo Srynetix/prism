@@ -1,6 +1,6 @@
 <script lang="ts">
   import { clock } from '../../clock.svelte'
-  import { invoke } from '../../bridge'
+  import { invoke, isLocal } from '../../bridge'
   import { live } from '../../live.svelte'
   import { armer } from '../../armed.svelte'
   import { ago } from '../../time'
@@ -15,6 +15,9 @@
    * by someone else pairs nothing on its own. This Mac's browser can be paired the same way (Open
    * the pairing page instead of the QR code): the remote then opens on the desk, to try it at a
    * phone's size (the browser's device mode), as the phone sees it.
+   *
+   * Below, the other computers whose Prism opens this one in a window (`[[machines]]` there):
+   * paired by a code typed there, their name accepted here; revoked, their windows close.
    */
   const remote = $derived(live.snapshot?.remote ?? null)
   const pairing = $derived(remote?.pairing ?? null)
@@ -32,6 +35,9 @@
     }
   }
   const revoke = (id: string) => armed.confirm(`revoke:${id}`) && run('remote_revoke', { id })
+  const peerPairing = $derived(remote?.peer_pairing ?? null)
+  const peerLeft = $derived(peerPairing ? Math.max(0, Math.round((Date.parse(peerPairing.expires_at) - now) / 1000)) : 0)
+  const revokePeer = (name: string) => armed.confirm(`peer:${name}`) && run('remote_peer_revoke', { name })
 
   /** The phone being renamed, and its name as typed. */
   let editing = $state<string | null>(null)
@@ -86,8 +92,9 @@
     </div>
     {#if pairing}
       <div class="pair">
-        <!-- Prism's own SVG, built by the server from the pairing's address. -->
-        <div class="qr">{@html pairing.qr_svg}</div>
+        <!-- Prism's own SVG, built by this computer's server from the pairing's address: drawn as
+             HTML only here, never from a machine's snapshot (its window has another's). -->
+        {#if isLocal()}<div class="qr">{@html pairing.qr_svg}</div>{/if}
         <div class="steps">
           {#if !pairing.code}
             <b>{t('Scan this code with the phone’s camera')}</b>
@@ -128,6 +135,52 @@
         </div>
         <button class="btn" class:armed={armed.is(`revoke:${d.id}`)} onclick={() => revoke(d.id)} title={t('Its passkey opens nothing anymore, its sessions end (click twice)')}>
           <ArmedLabel label={t('Revoke')} armedLabel={t('Revoke {name}?', { name: d.name })} armed={armed.is(`revoke:${d.id}`)} />
+        </button>
+      </div>
+    {/each}
+  </div>
+{/if}
+
+{#if remote && !remote.error && !remote.relay}
+  <div class="card">
+    <div class="row head">
+      <div>
+        <b>{t('Other computers')}</b>
+        <small>{t('A computer’s Prism opens this one in a window of its own (Settings › Remote › Machines there), as this account would: its agents, terminals, settings. What it may do: Remote › Machines here.')}</small>
+      </div>
+      {#if !peerPairing}<button class="btn primary" onclick={() => run('remote_peer_pair_start')}>{t('Pair a computer')}</button>{/if}
+    </div>
+    {#if peerPairing}
+      <div class="pair">
+        <div class="steps">
+          {#if !peerPairing.name}
+            <b>{t('On the other computer: profile menu › Other computers › this machine, then this code')}</b>
+            <span class="code mono">{peerPairing.code.slice(0, 3)} {peerPairing.code.slice(3)}</span>
+            <small>{t('For {time}; five wrong codes end it.', { time: `${Math.floor(peerLeft / 60)}:${String(peerLeft % 60).padStart(2, '0')}` })}</small>
+          {:else}
+            <b>{t('{name} asks to open this Prism', { name: peerPairing.name })}</b>
+            <small>{t('As this account would: its agents, terminals and settings. Accept only a computer of yours, which you just paired.')}</small>
+          {/if}
+          <span class="row">
+            {#if peerPairing.name}
+              <button class="btn primary" onclick={() => run('remote_peer_pair_answer', { accept: true })}><Icon name="check" /> {t('Accept')}</button>
+              <button class="btn" onclick={() => run('remote_peer_pair_answer', { accept: false })}>{t('Refuse')}</button>
+            {:else}
+              <button class="btn" onclick={() => run('remote_peer_pair_cancel')}>{t('Cancel')}</button>
+            {/if}
+          </span>
+        </div>
+      </div>
+    {/if}
+    {#each remote.peers as p (p.name)}
+      <div class="row device">
+        <span class="dot" class:on={p.connected} title={p.connected ? t('Connected now') : t('Not connected')}></span>
+        <div class="grow">
+          <b>{p.name}</b>
+          <small>{t('paired {ago}', { ago: ago(p.paired_at) })}{p.connected ? t(' · connected now') : ''}</small>
+        </div>
+        <button class="btn" class:armed={armed.is(`peer:${p.name}`)} onclick={() => revokePeer(p.name)} title={t('Its token opens nothing anymore, its windows close (click twice)')}>
+          <ArmedLabel label={t('Revoke')} armedLabel={t('Revoke {name}?', { name: p.name })} armed={armed.is(`peer:${p.name}`)} />
         </button>
       </div>
     {/each}

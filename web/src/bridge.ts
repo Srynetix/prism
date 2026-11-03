@@ -3,10 +3,12 @@
  * through here rather than through Tauri directly. In the desktop window it is Tauri's IPC; on a
  * phone, the remote's page plugs its socket in (`useTransport`) before anything calls the core.
  *
- * Two questions, apart:
+ * Three questions, apart:
  * - `hasCore()`: a core answers this page (not the browser preview, which reads a file);
- * - `isDesktop()`: this page is the Mac's own window: its menu, Dock, notifications, dialogs,
- *   settings, and what opens an app on the Mac. A phone has a core, never a desktop.
+ * - `isDesktop()`: this page is a desktop window: its menu, notifications, dialogs, settings. A
+ *   phone has a core, never a desktop;
+ * - `isLocal()`: that core is this computer's, not another machine's (`machine()`): its paths and
+ *   apps are the ones here.
  */
 import { Channel, invoke as tauriInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core'
 import { listen as tauriListen, type EventCallback, type UnlistenFn } from '@tauri-apps/api/event'
@@ -32,6 +34,21 @@ export const hasCore = (): boolean => isTauri() || transport !== null
 /** This page is the desktop window. */
 export const isDesktop = (): boolean => isTauri()
 
+/**
+ * The machine this window shows (`[[machines]]`): another computer's Prism, which its calls go to
+ * (`machine.svelte.ts`); `null`, this computer's. Told by the app before any script (`machines.rs`).
+ */
+export const machine = (): string | null => (globalThis as { __PRISM_MACHINE__?: string }).__PRISM_MACHINE__ ?? null
+
+/** The machine's profile this window shows, when not the one its remote answers at (the hub's). */
+export const machineProfile = (): string | null => (globalThis as { __PRISM_MACHINE_PROFILE__?: string | null }).__PRISM_MACHINE_PROFILE__ ?? null
+
+/**
+ * The core runs on this computer: the paths it answers are this computer's, its apps and its file
+ * manager too (pickers, Reveal in Finder, Open in…). A desktop window, not a machine's.
+ */
+export const isLocal = (): boolean => isDesktop() && machine() === null
+
 /** Told of each command the core refused or failed (`problems.svelte.ts`), the caller still told too. */
 let failed: ((command: string, error: unknown) => void) | null = null
 
@@ -46,6 +63,14 @@ export function invoke<T>(command: string, args?: InvokeArgs): Promise<T> {
     failed?.(command, e)
     throw e
   }) : answer
+}
+
+/**
+ * A command of this computer's app, whatever core the page talks to: a machine's window
+ * (`machine.svelte.ts`) asks its own app for what is the window's, and for the machine's calls.
+ */
+export function localInvoke<T>(command: string, args?: InvokeArgs): Promise<T> {
+  return tauriInvoke<T>(command, args)
 }
 
 /** An event the core pushes (`snapshot`, `menu`…); the returned function stops listening. */

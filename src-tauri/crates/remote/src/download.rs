@@ -46,6 +46,18 @@ pub(crate) fn offer(inner: &Inner, device: &str, prepared: Value) -> anyhow::Res
     Ok(json!({ "name": name, "url": format!("{}/api/download/{token}", inner.base()) }))
 }
 
+/// The file this Prism prepared offered to a peer's window (`peers`, `name`): the name to save it
+/// under and the token of its address (`/peer/download/<token>`, its profile's path added there).
+pub(crate) fn offer_peer(inner: &Inner, peer: &str, prepared: Value) -> anyhow::Result<Value> {
+    let name = prepared["name"].as_str().context("a name")?.to_string();
+    let path = PathBuf::from(prepared["path"].as_str().context("a file")?);
+    let token = token();
+    let mut pending = lock(&inner.downloads);
+    sweep(&mut pending);
+    pending.insert(token.clone(), Pending { device: format!("{}{peer}", crate::peers::CONNECTED), name: name.clone(), path, until: Instant::now() + KEPT });
+    Ok(json!({ "name": name, "token": token }))
+}
+
 /// Those not fetched in time: their file goes.
 fn sweep(pending: &mut std::collections::HashMap<String, Pending>) {
     let now = Instant::now();
@@ -68,11 +80,21 @@ pub(crate) fn token() -> String {
 /// once sent (or the transfer cut).
 pub(crate) async fn serve(State(inner): State<Shared>, headers: HeaderMap, Path(token): Path<String>) -> Response {
     let Some(device) = device_of(&inner, &headers) else { return (StatusCode::UNAUTHORIZED, "no session").into_response() };
+    send(&inner, &device, &token).await
+}
+
+/// `GET /peer/download/<token>`: the same, to the peer's window it was offered to.
+pub(crate) async fn serve_peer(State(inner): State<Shared>, headers: HeaderMap, Path(token): Path<String>) -> Response {
+    let Some((name, _)) = crate::server::peer_of(&inner, &headers) else { return (StatusCode::UNAUTHORIZED, "not a peer of this Prism").into_response() };
+    send(&inner, &format!("{}{name}", crate::peers::CONNECTED), &token).await
+}
+
+async fn send(inner: &Inner, device: &str, token: &str) -> Response {
     let taken = {
         let mut pending = lock(&inner.downloads);
         sweep(&mut pending);
-        match pending.get(&token) {
-            Some(p) if p.device == device => pending.remove(&token),
+        match pending.get(token) {
+            Some(p) if p.device == device => pending.remove(token),
             _ => None,
         }
     };

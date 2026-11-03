@@ -1,6 +1,6 @@
 <script lang="ts">
   import { armer } from '../../armed.svelte'
-  import { invoke, isDesktop } from '../../bridge'
+  import { invoke, isDesktop, isLocal } from '../../bridge'
   import Field from './Field.svelte'
   import { t } from '../../i18n.svelte'
 
@@ -55,6 +55,8 @@
 <Field label="Google" hint={t('Signs in once, in your browser. Prism asks only for what the sources turned on read: {scopes}. The refresh token stays in the system keychain, this profile’s entry.', { scopes: google?.scopes.length ? google.scopes.map((s) => NAMES[s] ?? s).join(', ') : t('nothing yet') })}>
   {#if !isDesktop()}
     <small>{t('Signing in happens in the app.')}</small>
+  {:else if !isLocal()}
+    <small>{t('Google signs in through a browser on the computer Prism runs on: there, in its own window.')}</small>
   {:else if !google}
     <small>…</small>
   {:else if !google.scopes.length}

@@ -7,6 +7,7 @@ mod audio;
 mod menu;
 mod feedback;
 mod youtube_relay;
+mod machines;
 mod setup;
 
 mod blocks;
@@ -68,6 +69,8 @@ fn main() {
         // An agent's pages in the Web view: `prismfile://localhost/<agent>/<path>`, only
         // inside its folder; its CSP sandboxes it (an opaque origin: no IPC).
         .register_asynchronous_uri_scheme_protocol("prismfile", app::serve_agent_file)
+        // Other computers' Prism, each in a window of its own.
+        .manage(std::sync::Arc::new(machines::Machines::default()))
         .setup({
             let (hub, time, team_id) = (hub.clone(), time.clone(), team_id.clone());
             move |app| setup::run(app, hub, time, team_id)
@@ -76,6 +79,13 @@ fn main() {
             // Closing the window hides it: the menu bar and notifications keep running. On Linux it
             // is minimised instead: without AppIndicator (GNOME by default) there is no tray icon to
             // bring a hidden window back, while the task bar always shows a minimised one.
+            // A machine's window closes for good, its socket and terminals with it.
+            if window.label().starts_with("machine-") {
+                if let WindowEvent::Destroyed = event {
+                    machines::closed(window.app_handle(), window.label());
+                }
+                return;
+            }
             match event {
                 WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();

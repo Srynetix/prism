@@ -10,7 +10,9 @@ pub mod auth;
 pub mod away;
 mod awake;
 mod download;
+pub mod machine;
 mod pages;
+pub mod peers;
 pub use pages::page_csp;
 pub mod pair;
 mod preview;
@@ -60,6 +62,11 @@ pub trait Host: Send + Sync + 'static {
     /// percent-encoded), as `prismfile:` serves it: its bytes and type, or the error status.
     fn page(&self, path: &str) -> std::result::Result<(Vec<u8>, String), (u16, String)> {
         Err((404, format!("{path}: no pages here")))
+    }
+    /// A command of the window called by another Prism's window (`peers`): any but the window's
+    /// own, answered as the window's would be.
+    fn peer_call(&self, command: String, _args: Value) -> BoxFuture<'static, Result<Value>> {
+        Box::pin(async move { bail!(tr!("{command} is not answered from another Prism", command = command)) })
     }
     /// This machine's profiles, for a phone's switcher (`relay`): none, a single Prism.
     fn profiles(&self) -> BoxFuture<'static, Vec<prism_core::profile::Profile>> {
@@ -137,6 +144,8 @@ struct Inner {
     downloads: Mutex<HashMap<String, download::Pending>>,
     /// Agents' pages opened to a phone, by the token of their address (`pages`).
     pages: Mutex<HashMap<String, pages::Open>>,
+    /// A computer's pairing under way (`peers`).
+    peer_pairing: Mutex<Option<peers::Pairing>>,
 }
 
 /// Each lock taken even after a panic while it was held: the state it guards stays usable, where
@@ -170,6 +179,9 @@ impl Inner {
     }
     fn preview(&self) -> MutexGuard<'_, Option<u16>> {
         lock(&self.preview)
+    }
+    fn peer_pairing(&self) -> MutexGuard<'_, Option<peers::Pairing>> {
+        lock(&self.peer_pairing)
     }
 }
 
@@ -206,6 +218,8 @@ struct Live {
     /// and its loopback port.
     preview_origin: Option<String>,
     preview_port: u16,
+    /// `[remote.peers]`: what another Prism's window may do.
+    peers: prism_core::config::PeerRights,
 }
 
 /// A terminal a phone controls.
@@ -279,6 +293,7 @@ impl Remote {
             preview: Default::default(),
             downloads: Default::default(),
             pages: Default::default(),
+            peer_pairing: Default::default(),
         };
         Ok(Self { inner: Arc::new(inner) })
     }
@@ -313,6 +328,7 @@ impl Remote {
             live.settings = cfg.settings;
             live.projects = cfg.projects;
             live.push = cfg.push;
+            live.peers = cfg.peers.clone();
             live.control_idle = (cfg.control_idle_minutes > 0).then(|| std::time::Duration::from_secs(60 * cfg.control_idle_minutes as u64));
             live.tabs = cfg.tabs().into_iter().map(String::from).collect();
         }
@@ -531,6 +547,58 @@ impl Remote {
         self.publish();
     }
 
+    /// Pair a computer (`prism peer pair`, Settings › Remote › Devices): a code another Prism's
+    /// window is given, for five minutes; any other pairing of a computer dropped.
+    pub fn peer_pair_start(&self) -> Result<String> {
+        let inner = &self.inner;
+        if inner.live().relay {
+            bail!(tr("this profile is reached through another one's remote: pair the computer there"));
+        }
+        if inner.url().is_none() {
+            bail!(tr("the remote is off or does not answer"));
+        }
+        let pairing = peers::Pairing::new(Utc::now());
+        let (code, expires) = (pairing.code.clone(), pairing.expires);
+        *inner.peer_pairing() = Some(pairing);
+        self.publish();
+        let me = self.clone();
+        let wait = (expires - Utc::now()).to_std().unwrap_or_default() + std::time::Duration::from_secs(1);
+        prism_base::rt::spawn(async move {
+            tokio::time::sleep(wait).await;
+            me.publish();
+        });
+        Ok(code)
+    }
+
+    /// The computer that gave the code is accepted (its token made, for it to read once), or refused.
+    pub fn peer_pair_answer(&self, accept: bool) -> Result<()> {
+        let r = match self.inner.peer_pairing().as_mut() {
+            Some(p) => p.answer(&self.inner.dir, accept, Utc::now()),
+            None => Err(anyhow::anyhow!(tr("no computer to accept"))),
+        };
+        if r.is_ok() {
+            match self.inner.peer_pairing().as_ref().and_then(|p| p.accepted_as().map(String::from)) {
+                Some(name) => tracing::info!("remote: the computer {name} paired"),
+                None => tracing::info!("remote: a computer's pairing refused"),
+            }
+        }
+        self.publish();
+        r
+    }
+
+    pub fn peer_pair_cancel(&self) {
+        *self.inner.peer_pairing() = None;
+        self.publish();
+    }
+
+    /// Forgets another Prism: its token opens nothing anymore, its windows close.
+    pub fn peer_revoke(&self, name: &str) -> Result<()> {
+        let removed = peers::remove(&self.inner.dir, name)?;
+        self.publish();
+        anyhow::ensure!(removed, "no peer {name}");
+        Ok(())
+    }
+
     /// The desk takes an agent's terminal back (Take back, or a key typed on the desk): the
     /// phones controlling it go back to watching.
     pub fn release(&self, agent: &str) {
@@ -659,7 +727,14 @@ impl Inner {
                 .map(|d| RemoteDevice { id: d.id.clone(), name: d.name.clone(), paired_at: d.paired_at, last_seen: d.last_seen, connected: connected.get(&d.id).is_some_and(|n| *n > 0) })
                 .collect();
             let controls = self.controls().iter().map(|c| prism_core::state::RemoteControl { agent: c.agent.clone(), device: c.device_name.clone(), since: c.since }).collect();
-            RemoteStatus { url: url.clone(), error, devices, pairing, controls, relay: relayed }
+            let peers = peers::list(&self.dir)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| prism_core::state::RemotePeer { connected: connected.get(&format!("{}{}", peers::CONNECTED, p.name)).is_some_and(|n| *n > 0), name: p.name, paired_at: p.created })
+                .collect();
+            let now = Utc::now();
+            let peer_pairing = self.peer_pairing().as_ref().filter(|p| p.open(now) && !p.done()).map(|p| prism_core::state::PeerPairing { code: p.code.clone(), expires_at: p.expires, name: p.request.as_ref().map(|r| r.name.clone()) });
+            RemoteStatus { url: url.clone(), error, devices, pairing, controls, relay: relayed, peers, peer_pairing }
         });
         self.hub.update(|s| replace(&mut s.remote, status));
     }

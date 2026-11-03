@@ -64,6 +64,8 @@ pub(crate) const DEVICE: &str = "x-prism-device";
 pub(crate) const DEVICE_NAME: &str = "x-prism-device-name";
 /// The address phones open the hub at: an agent's page is framed by it only.
 pub(crate) const ORIGIN: &str = "x-prism-origin";
+/// The peer the hub let in (`peers`): its name (percent-encoded).
+pub(crate) const PEER: &str = "x-prism-peer";
 
 /// An agent that started waiting, here or in a relayed profile: what a woken phone says.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +179,9 @@ pub(crate) struct Summary {
     pub waiting: usize,
     #[serde(default)]
     pub dev_ports: Vec<u16>,
+    /// Those waiting, longest first: what a peer's desk notifies.
+    #[serde(default)]
+    pub waiting_agents: Vec<prism_core::state::WaitingAgent>,
 }
 
 /// A relayed profile's summary, if its Prism answers.
@@ -202,10 +207,162 @@ pub(crate) async fn summary_cached(inner: &Inner, id: &str) -> Option<Summary> {
     s
 }
 
-fn counts(snap: &prism_core::state::Snapshot) -> Summary {
+pub(crate) fn counts(snap: &prism_core::state::Snapshot) -> Summary {
     use prism_core::state::{AgentState, SessionStatus::*};
     let running: Vec<_> = snap.agents.iter().filter(|a| a.state == AgentState::Running).collect();
-    Summary { agents: running.len(), waiting: running.iter().filter(|a| matches!(a.status, WaitingTool | NeedsYou | ReviewReady)).count(), dev_ports: crate::preview::dev_ports(snap) }
+    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, WaitingTool | NeedsYou | ReviewReady)).collect();
+    waiting.sort_by_key(|a| a.last_activity);
+    let waiting_agents = waiting
+        .iter()
+        .map(|a| prism_core::state::WaitingAgent { id: a.id.clone(), title: a.title.clone(), status: serde_json::to_value(a.status).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default(), profile: None })
+        .collect();
+    Summary { agents: running.len(), waiting: waiting.len(), dev_ports: crate::preview::dev_ports(snap), waiting_agents }
+}
+
+/// This machine's profiles as a peer's desk shows them (`/peer/summary`): this one (the hub)
+/// first, then those relayed here, with their agents and those waiting; each one's waiting
+/// agents among `waiting`, named by their profile.
+pub(crate) async fn peer_profiles(inner: &Inner) -> (Vec<prism_core::state::MachineProfile>, Vec<prism_core::state::WaitingAgent>) {
+    let mine = counts(&inner.hub.subscribe().borrow());
+    let mut profiles = Vec::new();
+    let mut waiting = mine.waiting_agents.clone();
+    let mut listed = inner.host.profiles().await;
+    // A single Prism (a test's host, or none set up): itself.
+    if listed.is_empty() {
+        profiles.push(prism_core::state::MachineProfile { id: inner.profile.clone(), name: inner.profile.clone(), hub: true, reachable: true, agents: mine.agents as u32, waiting: mine.waiting as u32, ..Default::default() });
+    }
+    listed.sort_by_key(|p| p.id != inner.profile);
+    for p in listed {
+        let hub = p.id == inner.profile;
+        let s = if hub { Some(mine.clone()) } else { summary_cached(inner, &p.id).await };
+        let reachable = s.is_some();
+        let s = s.unwrap_or_default();
+        if !hub {
+            waiting.extend(s.waiting_agents.iter().cloned().map(|w| prism_core::state::WaitingAgent { profile: Some(p.id.clone()), ..w }));
+        }
+        profiles.push(prism_core::state::MachineProfile { id: p.id, name: p.name, color: p.color, hub, reachable, agents: s.agents as u32, waiting: s.waiting as u32 });
+    }
+    (profiles, waiting)
+}
+
+/// `/peer/p/<profile>/<ws | tty | summary>`: a peer's window on a profile relayed here, its token
+/// checked here; forwarded to that profile's Prism with its secret and the peer's name, its socket
+/// closed once the token is revoked here.
+pub(crate) async fn peer_proxy(State(inner): State<Shared>, UrlPath((id, rest)): UrlPath<(String, String)>, req: Request) -> Response {
+    let refuse = |status: StatusCode, why: String| (status, Json(json!({ "error": why }))).into_response();
+    let Some((name, token)) = crate::peers::of(&inner.dir, req.headers()) else { return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism").into()) };
+    let download = rest.strip_prefix("download/").is_some_and(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_hexdigit()));
+    if !matches!(rest.as_str(), "ws" | "tty" | "summary") && !download {
+        return refuse(StatusCode::NOT_FOUND, "no such path".into());
+    }
+    let Some(e) = relayed(&inner, &id) else { return refuse(StatusCode::NOT_FOUND, tr("this profile’s Prism is closed, or its remote is not relayed here").into()) };
+    let query = req.uri().query().map(|q| format!("?{q}")).unwrap_or_default();
+    let path = format!("/peer/{rest}{query}");
+    let encoded: String = url::form_urlencoded::byte_serialize(name.as_bytes()).collect();
+    let mut up = HeaderMap::new();
+    for (k, v) in [(SECRET, e.secret.as_str()), (PEER, encoded.as_str())] {
+        if let Ok(v) = HeaderValue::from_str(v) {
+            up.insert(k, v);
+        }
+    }
+    if let Ok(h) = HeaderValue::from_str(&format!("127.0.0.1:{}", e.port)) {
+        up.insert(header::HOST, h);
+    }
+    if rest == "summary" {
+        let res = match client().get(format!("http://127.0.0.1:{}{path}", e.port)).headers(up).timeout(Duration::from_secs(5)).send().await {
+            Ok(r) => r,
+            Err(_) => return refuse(StatusCode::BAD_GATEWAY, tr("this profile’s Prism does not answer").into()),
+        };
+        let status = res.status();
+        let body = res.bytes().await.unwrap_or_default();
+        return (status, [(header::CONTENT_TYPE, "application/json")], body).into_response();
+    }
+    // A file it prepared: streamed through, its headers kept (its name, its length).
+    if download {
+        let res = match client().get(format!("http://127.0.0.1:{}{path}", e.port)).headers(up).send().await {
+            Ok(r) => r,
+            Err(_) => return refuse(StatusCode::BAD_GATEWAY, tr("this profile’s Prism does not answer").into()),
+        };
+        let status = res.status();
+        let mut h = HeaderMap::new();
+        for (k, v) in res.headers() {
+            if !HOP.contains(&k.as_str()) {
+                h.append(k.clone(), v.clone());
+            }
+        }
+        let mut out = Response::new(Body::from_stream(res.bytes_stream()));
+        *out.status_mut() = status;
+        *out.headers_mut() = h;
+        return out;
+    }
+    let (mut parts, _) = req.into_parts();
+    let upgrade = match WebSocketUpgrade::from_request_parts(&mut parts, &()).await {
+        Ok(u) => u,
+        Err(e) => return e.into_response(),
+    };
+    let Ok(mut request) = format!("ws://127.0.0.1:{}{path}", e.port).into_client_request() else { return refuse(StatusCode::BAD_REQUEST, "bad address".into()) };
+    for (k, v) in up {
+        if let Some(k) = k {
+            request.headers_mut().insert(k, v);
+        }
+    }
+    let theirs = match tokio_tungstenite::connect_async(request).await {
+        Ok((s, _)) => s,
+        Err(err) => {
+            tracing::debug!("remote: peer relay to {id}: {err}");
+            return refuse(StatusCode::BAD_GATEWAY, tr("this profile’s Prism does not answer").into());
+        }
+    };
+    let main = rest == "ws";
+    upgrade.max_message_size(4 << 20).on_upgrade(move |ours| pipe_peer(inner, ours, theirs, name, token, main))
+}
+
+/// A peer's socket and the relayed Prism's, joined as they are; its token checked here every few
+/// seconds: revoked, both close.
+async fn pipe_peer(inner: Shared, ours: WebSocket, theirs: Upstream, name: String, token: String, main: bool) {
+    let seen = format!("{}{name}", crate::peers::CONNECTED);
+    if main {
+        inner.connect(&seen, true);
+    }
+    let (mut ours_tx, mut ours_rx) = ours.split();
+    let (mut theirs_tx, mut theirs_rx) = theirs.split();
+    let mut tick = tokio::time::interval_at(tokio::time::Instant::now() + Duration::from_secs(10), Duration::from_secs(10));
+    loop {
+        tokio::select! {
+            m = ours_rx.next() => match m {
+                Some(Ok(Message::Text(t))) => if theirs_tx.send(tungstenite::Message::Text(t.as_str().into())).await.is_err() { break },
+                Some(Ok(Message::Binary(b))) => if theirs_tx.send(tungstenite::Message::Binary(b)).await.is_err() { break },
+                Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
+                Some(Ok(_)) => {}
+            },
+            m = theirs_rx.next() => match m {
+                Some(Ok(m @ tungstenite::Message::Close(_))) => {
+                    if let Some(m) = to_axum(m) { let _ = ours_tx.send(m).await; }
+                    break;
+                }
+                Some(Ok(m)) => if let Some(m) = to_axum(m) && ours_tx.send(m).await.is_err() { break },
+                Some(Err(_)) | None => break,
+            },
+            _ = tick.tick() => {
+                if crate::peers::check(&inner.dir, &token).is_none() {
+                    let _ = ours_tx.send(Message::Close(Some(CloseFrame { code: 4401, reason: "session ended".into() }))).await;
+                    break;
+                }
+            }
+        }
+    }
+    let _ = theirs_tx.close().await;
+    let _ = ours_tx.close().await;
+    if main {
+        inner.connect(&seen, false);
+    }
+}
+
+/// The peer the hub let in, on a relayed Prism: its name.
+pub(crate) fn peer_name(headers: &HeaderMap) -> Option<String> {
+    let raw = headers.get(PEER)?.to_str().ok()?;
+    let name: String = url::form_urlencoded::parse(format!("n={raw}").as_bytes()).find(|(k, _)| k == "n").map(|(_, v)| v.into_owned())?;
+    (!name.is_empty()).then_some(name)
 }
 
 /// `GET /api/profiles`: this machine's profiles, for the phone's switcher: which this hub is,
@@ -617,6 +774,17 @@ mod tests {
             let me = self.0;
             Box::pin(async move { Ok(json!({ "by": me, "command": command })) })
         }
+        fn peer_call(&self, command: String, _args: Value) -> futures::future::BoxFuture<'static, anyhow::Result<Value>> {
+            let me = self.0;
+            Box::pin(async move {
+                if command == "agent_files_download" {
+                    let path = std::env::temp_dir().join(format!("prism-relay-peer-download-{}-{me}", std::process::id()));
+                    std::fs::write(&path, me.as_bytes()).unwrap();
+                    return Ok(json!({ "name": "f.txt", "path": path }));
+                }
+                Ok(json!({ "peer_by": me, "command": command }))
+            })
+        }
         fn class(&self, command: &str, _args: &Value) -> Option<Class> {
             match command {
                 "mr_detail" => Some(Class::Read),
@@ -756,6 +924,67 @@ mod tests {
         assert!(super::read(&base.join("profiles/perso")).is_none());
         let gone = http.get(format!("http://127.0.0.1:{port}/p/perso/api/download/x")).header("cookie", &cookie).send().await.unwrap();
         assert_eq!(gone.status(), 404);
+        work.apply(&RemoteConfig::default()).await;
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    /// Another Prism's window reaches a profile relayed by the hub: its token checked by the hub
+    /// only, its calls answered by that profile, the profiles listed in the hub's summary; nothing
+    /// reaches the relayed Prism without the hub, nor through it once the token is revoked.
+    #[tokio::test]
+    async fn a_peer_reaches_a_relayed_profile_through_the_hub() {
+        use crate::machine::{Machine, Target};
+        let base = std::env::temp_dir().join(format!("prism-relay-peer-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        let work = Remote::of_profile(&base, "default", Hub::new(), Arc::new(Fake("work"))).unwrap();
+        work.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: format!("http://localhost:{port}"), keep_awake: false, preview: false, ..Default::default() }).await;
+        let perso = Remote::of_profile(&base.join("profiles/perso"), "perso", Hub::new(), Arc::new(Fake("perso"))).unwrap();
+        perso.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Relay, keep_awake: false, ..Default::default() }).await;
+        let told = super::read(&base.join("profiles/perso")).unwrap();
+        let token = crate::peers::add(&base, "desk").unwrap();
+        let url = format!("http://127.0.0.1:{port}");
+
+        // The hub's summary lists its profiles: itself first, the relayed one answering.
+        let s = crate::machine::summary(&Target { url: url.clone(), token: token.clone(), profile: None }).await.unwrap();
+        let listed: Vec<(String, bool, bool)> = s.profiles.iter().map(|p| (p.id.clone(), p.hub, p.reachable)).collect();
+        assert_eq!(listed, [("default".into(), true, true), ("perso".into(), false, true), ("closed".into(), false, false)]);
+
+        // Its window on the relayed profile, through the hub.
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
+        let machine = Machine::open(Target { url: url.clone(), token: token.clone(), profile: Some("perso".into()) }, Arc::new(move |v| drop(tx.send(v))));
+        let hello = loop {
+            let v = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv()).await.unwrap().unwrap();
+            if v["t"] == "hello" {
+                break v;
+            }
+        };
+        assert_eq!((hello["peer"].as_str(), hello["profile"].as_str()), (Some("desk"), Some("perso")));
+        assert_eq!(machine.call("mr_detail", json!({ "iid": 7 })).await.unwrap()["peer_by"], "perso");
+        // A file of its agents, prepared there, streamed through the hub.
+        let offered = machine.call("agent_files_download", json!({})).await.unwrap();
+        let dest = base.join("f.txt");
+        machine.download(offered["token"].as_str().unwrap(), &dest).await.unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), b"perso");
+
+        // The relayed Prism, reached without the hub: nothing, a peer's name forged or not.
+        let mut req = format!("ws://127.0.0.1:{}/peer/ws", told.port).into_client_request().unwrap();
+        req.headers_mut().insert(super::PEER, "desk".parse().unwrap());
+        assert!(tokio_tungstenite::connect_async(req).await.is_err());
+        // Nor with a token the hub did not make.
+        let forged = Target { url: url.clone(), token: "forged".into(), profile: Some("perso".into()) };
+        assert!(crate::machine::summary(&forged).await.unwrap_err().to_string().contains("token"));
+
+        // Revoked at the hub: the relayed profile's window closes.
+        crate::peers::remove(&base, "desk").unwrap();
+        loop {
+            let v = tokio::time::timeout(std::time::Duration::from_secs(15), rx.recv()).await.unwrap().unwrap();
+            if v["t"] == "state" && v["connected"] == false {
+                break;
+            }
+        }
+        drop(machine);
+        perso.apply(&RemoteConfig::default()).await;
         work.apply(&RemoteConfig::default()).await;
         let _ = std::fs::remove_dir_all(base);
     }

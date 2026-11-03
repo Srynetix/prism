@@ -1,9 +1,12 @@
-import { isDesktop } from './bridge'
+import { isLocal } from './bridge'
 import { homeDir } from '@tauri-apps/api/path'
 import { open } from '@tauri-apps/plugin-dialog'
 
-/** The system's picker exists only in the app: the browser preview types paths. */
-export const canPick = () => isDesktop()
+/**
+ * The system's picker exists only in the app, and picks this computer's paths: the browser
+ * preview and a machine's window type them.
+ */
+export const canPick = () => isLocal()
 
 let home: Promise<string> | null = null
 const homeOf = () => (home ??= homeDir().then((h) => h.replace(/\/+$/, '')))

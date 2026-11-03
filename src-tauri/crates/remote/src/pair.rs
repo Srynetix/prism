@@ -57,6 +57,47 @@ pub(crate) async fn cancel(State(inner): State<Shared>) -> Response {
     answer(&inner, Ok(()))
 }
 
+/// A computer's pairing under way, as the snapshot has it.
+fn peer_pairing(inner: &Shared) -> Value {
+    let pairing = inner.hub.subscribe().borrow().remote.as_ref().and_then(|r| r.peer_pairing.clone());
+    json!({ "pairing": pairing })
+}
+
+fn peer_answer_of(inner: &Shared, done: Result<()>) -> Response {
+    match done {
+        Ok(()) => Json(peer_pairing(inner)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "error": format!("{e:#}") }))).into_response(),
+    }
+}
+
+/// `POST /relay/peer/start`: a computer's pairing opened, its code shown.
+pub(crate) async fn peer_start(State(inner): State<Shared>) -> Response {
+    let done = Remote { inner: inner.clone() }.peer_pair_start().map(drop);
+    peer_answer_of(&inner, done)
+}
+
+/// `GET /relay/peer`.
+pub(crate) async fn peer_state(State(inner): State<Shared>) -> Response {
+    Json(peer_pairing(&inner)).into_response()
+}
+
+#[derive(Deserialize)]
+pub(crate) struct Answer {
+    accept: bool,
+}
+
+/// `POST /relay/peer/answer`: the computer that gave the code accepted, or refused.
+pub(crate) async fn peer_answer(State(inner): State<Shared>, Json(a): Json<Answer>) -> Response {
+    let done = Remote { inner: inner.clone() }.peer_pair_answer(a.accept);
+    peer_answer_of(&inner, done)
+}
+
+/// `POST /relay/peer/cancel`.
+pub(crate) async fn peer_cancel(State(inner): State<Shared>) -> Response {
+    Remote { inner: inner.clone() }.peer_pair_cancel();
+    peer_answer_of(&inner, Ok(()))
+}
+
 // The terminal's side.
 
 /// A pairing under way, as the terminal shows it.
@@ -114,6 +155,45 @@ impl Local {
     pub async fn cancel(&self) -> Result<()> {
         self.call(reqwest::Method::POST, "/cancel", Value::Null).await.map(drop)
     }
+
+    async fn peer(&self, method: reqwest::Method, path: &str, body: Value) -> Result<Option<PeerPairing>> {
+        let url = format!("http://127.0.0.1:{}/relay/peer{path}", self.0.port);
+        let res = relay::client().request(method, url).header(relay::SECRET, &self.0.secret).json(&body).timeout(Duration::from_secs(10)).send().await.context(tr("the remote is off or does not answer"))?;
+        let ok = res.status().is_success();
+        let body: Value = res.json().await.unwrap_or_default();
+        if !ok {
+            bail!("{}", body.get("error").and_then(Value::as_str).unwrap_or("refused"));
+        }
+        Ok(serde_json::from_value(body.get("pairing").cloned().unwrap_or_default()).ok())
+    }
+
+    /// Opens a computer's pairing: its code.
+    pub async fn peer_start(&self) -> Result<PeerPairing> {
+        self.peer(reqwest::Method::POST, "/start", Value::Null).await?.context(tr("the remote is off or does not answer"))
+    }
+
+    /// The computer's pairing under way; none once over.
+    pub async fn peer_state(&self) -> Result<Option<PeerPairing>> {
+        self.peer(reqwest::Method::GET, "", Value::Null).await
+    }
+
+    /// The computer that gave the code accepted, or refused.
+    pub async fn peer_answer(&self, accept: bool) -> Result<()> {
+        self.peer(reqwest::Method::POST, "/answer", json!({ "accept": accept })).await.map(drop)
+    }
+
+    pub async fn peer_cancel(&self) -> Result<()> {
+        self.peer(reqwest::Method::POST, "/cancel", Value::Null).await.map(drop)
+    }
+}
+
+/// A computer's pairing, as the terminal shows it.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PeerPairing {
+    pub code: String,
+    pub expires_at: DateTime<Utc>,
+    /// Once a computer gave the code: its name.
+    pub name: Option<String>,
 }
 
 /// `link` as a QR code a terminal shows: two rows of modules per line of text.

@@ -74,6 +74,29 @@ pub struct RemoteConfig {
     /// `url` (another port). Empty: no preview. Tunnel `tailscale`: empty, the Mac's tailnet name
     /// on port 8443.
     pub preview_url: String,
+    /// What another Prism that opens this one in its window may do (`[remote.peers]`).
+    pub peers: PeerRights,
+}
+
+/// `[remote.peers]`: what the other Prisms paired with this one (`prism peer pair`) may do from
+/// their window. It always reads, settings included (secrets never: they stay in the keychain).
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(default)]
+pub struct PeerRights {
+    /// Act: a ticket's status, a comment, a retry, an agent launched or answered.
+    pub actions: bool,
+    /// What is critical: a merge, a manual job, an agent stopped, a worktree removed.
+    pub critical: bool,
+    /// Typing: an agent's or a shell's terminal, a text sent to an agent, a file written.
+    pub typing: bool,
+    /// The settings saved, packs and tokens included (written, never read back).
+    pub settings: bool,
+}
+
+impl Default for PeerRights {
+    fn default() -> Self {
+        Self { actions: true, critical: true, typing: true, settings: true }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -121,6 +144,7 @@ impl Default for RemoteConfig {
             preview: true,
             preview_port: 47801,
             preview_url: String::new(),
+            peers: PeerRights::default(),
         }
     }
 }
@@ -219,5 +243,38 @@ mod tests {
         assert!(!phone_may_set(&p("alerts", "digest_times"), Some(&json!([{ "x": 1 }]))));
         assert!(!phone_may_set(&p("alerts", "quiet_hours"), Some(&json!({ "a": "b" }))));
         assert!(!phone_may_set(&["alerts".to_string()], Some(&json!({ "digest": true }))));
+    }
+}
+
+/// `[[machines]]`: another computer's Prism, opened in a window of this one (the profile menu),
+/// as its own. Its Prism made a token for this one (`prism peer add <name>` there), kept in the
+/// keychain (Settings › Machines). Personal: a pack does not set it.
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[serde(default)]
+pub struct MachineConfig {
+    /// Its name here: the window's title, the keychain entry of its token.
+    pub name: String,
+    /// Where its remote answers: `https://<name>.<tailnet>.ts.net` (its `[remote]` on, tunnel
+    /// tailscale), or `http://127.0.0.1:<port>` at a tunnel's end (`ssh -L`).
+    pub url: String,
+    /// Its SSH host (`~/.ssh/config`), for what opens on this computer in a folder of that one
+    /// (VS Code's Remote-SSH). Empty: nothing opens here.
+    pub ssh: String,
+    /// What is critical there (a merge, a manual job, an agent stopped, a worktree removed) goes
+    /// without asking the person at this computer first (Touch ID or its password on a Mac,
+    /// polkit's agent on Linux). Off by default.
+    pub skip_confirm: bool,
+}
+
+impl MachineConfig {
+    /// The keychain entry of its token.
+    pub fn token_service(&self) -> String {
+        format!("prism-machine-{}", self.name.trim())
+    }
+
+    /// The environment variable its token is read from first: `PRISM_MACHINE_TOKEN_BUILD_SRV`.
+    pub fn token_env(&self) -> String {
+        let name: String = self.name.trim().chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_uppercase() } else { '_' }).collect();
+        format!("PRISM_MACHINE_TOKEN_{name}")
     }
 }

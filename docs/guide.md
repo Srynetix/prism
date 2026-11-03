@@ -148,6 +148,62 @@ captures, the Mac's power and `keep_running`. Nor what the window runs on its ti
 meeting reminders, the digest, alerts' notifications, the checks for updates of Prism and its
 packs. Prism's updater does not replace `prism-server` either: build it again.
 
+### Another computer's Prism in a window (`[[machines]]`)
+
+The Prism of a desk opens a server's (or another computer's) in a window of its own, the same
+page as its own: agents and their terminals, worktrees, settings, everything the window does,
+answered by that Prism. Its remote is on (above). On the desk, Settings › Remote › Machines (or
+by hand):
+
+```toml
+[[machines]]
+name = "build-srv"
+url = "https://build-srv.tail1234.ts.net"   # or http://127.0.0.1:9000 with `ssh -L 9000:127.0.0.1:<its port> build-srv`
+ssh = "build-srv"                           # optional: its folders open here in VS Code (Remote-SSH)
+```
+
+The profile menu lists it under *Other computers*. The first time, its window asks for a code:
+
+```bash
+prism-server peer pair    # shows a code for 5 minutes, then asks to accept the desk by its name
+```
+
+(or Settings › Remote › Devices › *Pair a computer* on a machine with a window). Five wrong codes
+end the pairing; the token goes to the desk once, kept in its keychain, never in the page.
+`peer add <name>` prints a token to paste instead (or to set as `PRISM_MACHINE_TOKEN_<NAME>` where
+no keychain is unlocked); `peer list`, `peer remove <name>` (its windows close within ten seconds).
+The window then shows that Prism with a blue band and rail edge. Open or not, the status bar
+has a chip per machine (its agents, those waiting for you; faded out of reach, a click opens its
+window), and an agent waiting there notifies here as one of this computer's would (a permission,
+a question; quiet hours and the digest apply), counted in the menu bar too.
+
+What that machine classes critical (a merge, a manual job, an agent stopped, a worktree removed,
+a file of an agent saved or a secret of its folder downloaded, a command of one of its own blocks)
+first asks the person at the desk: Touch ID or the account's password on a Mac,
+polkit's agent of the desktop on Linux (`pkcheck`, the password or a fingerprint where PAM takes
+one; refused without polkit). Asked by the app, never by the page; `skip_confirm = true` in the
+machine's `[[machines]]` goes without.
+
+A machine with several profiles (each its own `prism-server --profile <id> serve`, the others
+with `[remote] tunnel = "relay"` behind the one with the tunnel, as for a phone) lists them under
+its name in the profile menu: each opens in a window of its own, reached through the hub, which
+checks the token; each keeps its own `[remote.peers]` rights. Its chip and notifications count
+every profile's agents.
+
+That confirmation guards against someone at the desk, not against a token in other hands: a
+token holder can confirm by itself, so what holds is the machine's own `[remote.peers]`. `actions`
+includes launching an agent, which runs commands of its own (so `typing = false` with `actions`
+on does not stop code from running there). Pairing needs the tailnet's user when the tunnel is
+Tailscale (a peer with its token may come through `ssh -L` without it).
+
+A token is worth that machine's account: keep it as an SSH key. What a desk may do there is
+`[remote.peers]` on that machine (Settings › Remote › Machines): `actions`, `critical`, `typing`,
+`settings`, all on by default; it always reads, and each call that changes something is logged
+with the desk's name. What opens on a screen (Finder,
+Terminal, an app) stays on the desk or is not offered; the editor opens the machine's folders over
+SSH when `ssh` is set. An agent's files downloaded (Files tab) are prepared there (a zip for
+several) and saved here, where the desk's dialog says, fetched once over the machine's remote.
+
 ### Signing (macOS)
 
 Signed ad hoc, the app is refused at its first launch on another Mac: System Settings › Privacy &

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { armer } from '../../armed.svelte'
   import { invoke, isDesktop } from '../../bridge'
-  import { openUrl } from '@tauri-apps/plugin-opener'
+  import { openLink } from '../../links'
   import Field from './Field.svelte'
   import { t } from '../../i18n.svelte'
   import { live } from '../../live.svelte'
@@ -23,7 +23,7 @@
     error = ''
     try {
       code = await invoke<{ user_code: string; verification_uri: string; expires_in: number }>('mail_sign_in_start')
-      await openUrl(code.verification_uri).catch(() => {})
+      openLink(code.verification_uri)
       await invoke('mail_sign_in_wait')
       code = null
     } catch (e) {
@@ -51,7 +51,7 @@
     <span class="row">
       <code class="code">{code.user_code}</code>
       <button class="btn" onclick={() => copy(code!.user_code, t('Code copied'))}>{t('Copy')}</button>
-      <button class="btn" onclick={() => openUrl(code!.verification_uri)}>{t('Open {address}', { address: code.verification_uri.replace(/^https?:\/\//, '') })}</button>
+      <button class="btn" onclick={() => openLink(code!.verification_uri)}>{t('Open {address}', { address: code.verification_uri.replace(/^https?:\/\//, '') })}</button>
     </span>
     <small>{t('Type this code at Microsoft’s address, sign in and accept. Waiting…')}</small>
   {:else if mail.signed_in}

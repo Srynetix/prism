@@ -28,7 +28,8 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 tokio.workspace = true
-tokio-tungstenite = "0.30"
+# Another Prism reached over HTTPS (`machine`): the system's roots, as the browser's.
+tokio-tungstenite = { version = "0.30", features = ["rustls-tls-native-roots"] }
 tracing.workspace = true
 url = "2"
 

@@ -47,7 +47,7 @@ impl prism_commands::Shell for Desk {
                 tracing::warn!("notification: {e}");
             }
         }
-        if let Err(e) = self.0.emit("notice", serde_json::json!({ "text": n.text, "ms": n.ms })) {
+        if let Err(e) = self.0.emit_to("main", "notice", serde_json::json!({ "text": n.text, "ms": n.ms })) {
             tracing::warn!("notice: {e}");
         }
     }
@@ -77,7 +77,8 @@ pub fn broadcast(app: AppHandle, hub: Hub) {
             let snap = rx.borrow_and_update().clone();
             let now = serde_json::to_value(&snap).unwrap_or_default();
             prism_commands::app::send_changes(now, |changes| {
-                if let Err(e) = app.emit("snapshot-changes", changes) {
+                // The main window's: a machine's has its own (`machines`).
+                if let Err(e) = app.emit_to("main", "snapshot-changes", changes) {
                     tracing::warn!("emit snapshot: {e}");
                 }
             });

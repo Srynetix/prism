@@ -3,7 +3,7 @@
   import { t, tn } from '../i18n.svelte'
   import { actorName } from '../agent-cli'
   import { dismissable } from '../popup'
-  import { invoke, isDesktop } from '../bridge'
+  import { invoke, isDesktop, isLocal } from '../bridge'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
   import { claudeClick, repoAction } from '../claude-actions'
@@ -83,6 +83,8 @@
           <a class="act claude" href={repoAction(r.name, r.path).href} onclick={claudeClick(repoAction(r.name, r.path))} title={t('New {agent} agent in {path}', { agent: actorName(r.name), path: r.path })}><Logo name="agent" size={10} repo={r.name} />{actorName(r.name)}</a>
           {#if isDesktop()}
             {#if editor}<button class="act" onclick={() => openWith(r, 'editor')} title={t('Open in {app}', { app: editor })}>{t('Editor')}</button>{/if}
+          {/if}
+          {#if isLocal()}
             <button class="act" onclick={() => openWith(r, 'terminal')} title={t('Open in {app}', { app: snap?.open_with?.terminal ?? 'Terminal' })}>{t('Terminal')}</button>
             <button class="act" onclick={() => openWith(r, 'finder')} title={keys(t('Show in the Finder'))}>{FILE_MANAGER}</button>
           {/if}
