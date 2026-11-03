@@ -165,6 +165,7 @@ fn hosts(ctx: &BlockCtx, agent: &str, extra: &[String]) -> Vec<String> {
 /// The memory: sysinfo's figures; on macOS, its pressure and what applications, the system and
 /// the compressor hold.
 async fn memory(sys: &System) -> Memory {
+    #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
     let mut m = Memory { total: sys.total_memory(), used: sys.used_memory(), swap: sys.used_swap(), ..Default::default() };
     #[cfg(target_os = "macos")]
     {

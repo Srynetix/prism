@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::Result;
+#[cfg(target_os = "macos")]
 use crate::{i18n::tr, tr};
 
 /// Default `[open_with] terminal`: the one every system has.
