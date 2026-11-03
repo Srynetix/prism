@@ -173,7 +173,11 @@ async fn peer_pair() -> anyhow::Result<()> {
 
 /// A future run to its end, outside of Prism's runtime (none runs yet).
 fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a runtime").block_on(future)
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a runtime");
+    let out = rt.block_on(future);
+    // Not waiting for what still blocks (a question's line read, Ctrl+C having answered it).
+    rt.shutdown_background();
+    out
 }
 
 /// `prism pair`: the pairing opened in the running Prism, its QR code shown here; once the phone
