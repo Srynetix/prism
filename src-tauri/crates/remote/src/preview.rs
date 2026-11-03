@@ -70,7 +70,7 @@ async fn proxy(State(inner): State<Shared>, req: Request) -> Response {
     if let Some(owner) = &live.owner
         && headers.get("tailscale-user-login").and_then(|h| h.to_str().ok()) != Some(owner.as_str())
     {
-        return page(StatusCode::FORBIDDEN, "Only this Mac's tailnet user.");
+        return page(StatusCode::FORBIDDEN, "Only this computer's tailnet user.");
     }
     if server::device_of(&inner, headers).is_none() {
         return page(StatusCode::UNAUTHORIZED, "Unlock Prism on this phone first, then open the preview again from Dev servers.");

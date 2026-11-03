@@ -448,12 +448,12 @@
     {:else if view === 'refinement'}{#await lazy.Refinement() then { default: Refinement }}<Refinement refinement={full.refinement} me={full.tracker_me} />{/await}
     {:else if view === 'worktrees'}{#await lazy.Worktrees() then { default: Worktrees }}<Worktrees snap={full} />{/await}
     {:else if view === 'today'}{#await lazy.Agenda() then { default: Agenda }}<Agenda agenda={full.agenda} />{/await}
-    {:else if view === 'renovate' && full.features?.renovate === false}<p class="empty">{t('{name} is off on the Mac.', { name: 'Renovate' })}</p>
+    {:else if view === 'renovate' && full.features?.renovate === false}<p class="empty">{t('{name} is off on the computer.', { name: 'Renovate' })}</p>
     {:else if view === 'renovate'}{#await lazy.Renovate() then { default: Renovate }}<Renovate renovate={full.renovate} merge_requests={full.merge_requests} error={full.errors.renovate} />{/await}
     {:else if view === 'mail'}{#await lazy.Mail() then { default: Mail }}<Mail mail={full.mail} enabled={!!full.mail} error={full.errors.mail} />{/await}
     {:else}
       {@const b = block(view)}
-      {#if b && (b.state !== undefined || !b.def.off)}{#await b.Block then Block}{#if Block}<Block state={b.state as never} error={full.errors[b.def.source ?? view]} snap={full} />{/if}{/await}{:else}<p class="empty">{t('{name} is off on the Mac.', { name: VIEWS[view]?.label ?? view })}</p>{/if}
+      {#if b && (b.state !== undefined || !b.def.off)}{#await b.Block then Block}{#if Block}<Block state={b.state as never} error={full.errors[b.def.source ?? view]} snap={full} />{/if}{/await}{:else}<p class="empty">{t('{name} is off on the computer.', { name: VIEWS[view]?.label ?? view })}</p>{/if}
     {/if}
   </main>
 

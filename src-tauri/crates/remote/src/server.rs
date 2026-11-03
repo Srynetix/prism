@@ -1053,7 +1053,7 @@ async fn call(inner: &Inner, device: &str, name: &str, command: String, args: Va
         if let Some(reply) = step_up(inner, device, &purpose(&command, &json!({ "action": action })), proof)? {
             return Ok(reply);
         }
-        tracing::warn!("remote: {name}: {action} the Mac (confirmed by its passkey)");
+        tracing::warn!("remote: {name}: {action} the computer (confirmed by its passkey)");
         return inner.host.call(command, args).await.map(Reply::Value);
     }
     // The settings: `[remote] settings`; read as they are, changed (the few the Mac lets a phone
@@ -1989,7 +1989,7 @@ async fn remote_preview() {
                     }
                     // What scrolled off a Claude Code screen, its frame and spinner included.
                     "agent_history" => Ok(Value::String((1..=40).map(|i| format!("\x1b[32m⏺\x1b[0m \x1b[1mBash\x1b[0m(npm test -- part {i})\n  ⎿  {i} passed\n")).collect::<String>() + "╭────────────────────────╮\n│ > round per line       │\n╰────────────────────────╯\n\x1b[33m✻ Whirring… (34s · esc to interrupt)\x1b[0m\n")),
-                    _ => anyhow::bail!("preview: no Mac behind {command}"),
+                    _ => anyhow::bail!("preview: no computer behind {command}"),
                 }
             })
         }
@@ -2015,7 +2015,7 @@ async fn remote_preview() {
         }
         fn watch(&self, agent: String, size: Option<(u16, u16)>, _control: bool, on_data: Box<dyn Fn(Vec<u8>) + Send>, _on_end: Box<dyn FnOnce() + Send>) -> futures::future::BoxFuture<'static, anyhow::Result<crate::Watch>> {
             Box::pin(async move {
-                on_data(format!("\x1b[1;32m● {agent}\x1b[0m: the preview has no tmux; a Mac shows the agent's terminal here.\r\n\r\n\x1b[32m⏺\x1b[0m \x1b[1mBash\x1b[0m(npm run test:invoices -- --verbose)\r\n\x1b[33m✻ Whirring… (12s · esc to interrupt)\x1b[0m\r\n╭──────────────────────╮\r\n│ >                    │\r\n╰──────────────────────╯\r\n  ⏵⏵ accept edits on\r\n").into_bytes());
+                on_data(format!("\x1b[1;32m● {agent}\x1b[0m: the preview has no tmux; a computer shows the agent's terminal here.\r\n\r\n\x1b[32m⏺\x1b[0m \x1b[1mBash\x1b[0m(npm run test:invoices -- --verbose)\r\n\x1b[33m✻ Whirring… (12s · esc to interrupt)\x1b[0m\r\n╭──────────────────────╮\r\n│ >                    │\r\n╰──────────────────────╯\r\n  ⏵⏵ accept edits on\r\n").into_bytes());
                 let (cols, rows) = size.unwrap_or((100, 30));
                 Ok(crate::Watch { cols, rows, term: Box::new(crate::ReadOnly(())) })
             })

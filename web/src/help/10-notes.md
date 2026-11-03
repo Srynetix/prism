@@ -84,7 +84,7 @@ In Settings › Work › Calendar:
 
 - **Agenda** (`[calendar] enabled`): off, Prism never reads a calendar nor asks for access. There is then no Today block, no meeting countdown and no meeting notification. The change applies on the next launch.
 - **Provider** (`[calendar] provider`): `macos` (the default, macOS only) or `google` (any system). Read at launch. Each has its page under Calendar: **macOS Calendar**, and **Google Calendar** with the Google account to sign in to; the provider not chosen is dimmed, and its page offers to become the calendar.
-- **Calendars** (`[calendar] calendars`): the calendars read, checked among the provider's; none checked, all of the Mac's (birthdays and holidays included), or those checked in Google Calendar. A calendar checked then renamed or removed stays in the list, struck through, to uncheck.
+- **Calendars** (`[calendar] calendars`): the calendars read, checked among the provider's; none checked, all of macOS Calendar's (birthdays and holidays included), or those checked in Google Calendar. A calendar checked then renamed or removed stays in the list, struck through, to uncheck.
 
 [Open Settings › Work › Calendar](prism:settings/calendar)
 [Open the Today block](prism:block/agenda)

@@ -97,12 +97,12 @@ pub async fn node(cli: &Cli) -> Result<Node> {
     if status.backend_state != "Running" {
         bail!(tr!("Tailscale is not connected ({state}): {hint}", state = status.backend_state, hint = if cli.socket.is_some() { "just tailscale" } else { tr("start it on the computer") }));
     }
-    let me = status.me.context("tailscale status without this Mac")?;
+    let me = status.me.context("tailscale status without this computer")?;
     let host = me.dns_name.trim_end_matches('.');
     if host.is_empty() {
         bail!(tr("this computer has no tailnet name: turn MagicDNS on in Tailscale's admin console"));
     }
-    let owner = status.user.and_then(|u| u.get(&me.user_id.to_string()).map(|u| u.login_name.clone())).context("tailscale status without this Mac's user")?;
+    let owner = status.user.and_then(|u| u.get(&me.user_id.to_string()).map(|u| u.login_name.clone())).context("tailscale status without this computer's user")?;
     Ok(Node { url: format!("https://{host}"), owner })
 }
 

@@ -67,7 +67,7 @@ Certaines lignes ne demandent aucune action de votre part. Pour en mettre une de
 Une ligne vue revient d’elle-même quand son texte change (un nouveau compte, un nouvel état), et une marque expire au bout de sept jours : un problème récurrent ne reste jamais caché longtemps.
 
 ## Reporter
-Une ligne que vous traiterez plus tard : son bouton lune (⏾) la reporte d’**1 heure**, à **cet après-midi**, au **lendemain matin**, **après ma réunion** (celle en cours ou la prochaine du jour, d’après le calendrier) ou **quand ça change**. Elle passe dans la section **Reportées**, repliée, avec l’heure de son retour ; le bouton d’annulation la fait revenir tout de suite. Reportée sur le Mac, elle l’est aussi sur le téléphone, et inversement. **Bande de ce type d’alerte…** ouvre les réglages où se choisit la bande de sa règle.
+Une ligne que vous traiterez plus tard : son bouton lune (⏾) la reporte d’**1 heure**, à **cet après-midi**, au **lendemain matin**, **après ma réunion** (celle en cours ou la prochaine du jour, d’après le calendrier) ou **quand ça change**. Elle passe dans la section **Reportées**, repliée, avec l’heure de son retour ; le bouton d’annulation la fait revenir tout de suite. Reportée sur l’ordinateur, elle l’est aussi sur le téléphone, et inversement. **Bande de ce type d’alerte…** ouvre les réglages où se choisit la bande de sa règle.
 
 ## Pour moi et le voyant de CI
 ![Pour moi, ouvert depuis l’en-tête : une revue en attente, une session Claude en attente, une MR et son ticket désynchronisés](images/for-me.webp){width=520}
@@ -106,4 +106,4 @@ La même section contient les seuils des badges et des données, comme `large_mr
 [Ouvrir Réglages › Interface › Alertes et son](prism:settings/alerts)
 
 ## Sur le téléphone
-L’onglet **Alertes** de l’accès à distance les montre par bande — **Maintenant**, **Aujourd’hui**, **Quand vous pouvez** — chacune en entier, son type et son âge au-dessus. Ses correctifs (une action d’agent, un statut, un rebase…) et **Ouvrir** sont des boutons sous le texte ; **⏾** affiche dessous les moments où la reporter, **✓** la marque comme vue, comme sur le Mac : les vues et les reportées se replient en bas, un appui les réaffiche.
+L’onglet **Alertes** de l’accès à distance les montre par bande — **Maintenant**, **Aujourd’hui**, **Quand vous pouvez** — chacune en entier, son type et son âge au-dessus. Ses correctifs (une action d’agent, un statut, un rebase…) et **Ouvrir** sont des boutons sous le texte ; **⏾** affiche dessous les moments où la reporter, **✓** la marque comme vue, comme sur l’ordinateur : les vues et les reportées se replient en bas, un appui les réaffiche.

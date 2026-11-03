@@ -188,7 +188,7 @@
       </label>
       <div class="field">
         <div class="l"><b>{t('Also on {forge}', { forge: forgeLabel(ws?.forge) })}</b><button class="sw" class:on={onForge} onclick={() => (onForge = !onForge)} aria-label={t('Also on {forge}', { forge: forgeLabel(ws?.forge) })} aria-pressed={onForge}></button></div>
-        <span class="h">{t('Its project created with {cli} (the Mac’s login), set as origin and pushed.', { cli: ws?.forge === 'github' ? 'gh' : 'glab' })}</span>
+        <span class="h">{t('Its project created with {cli} (the computer’s login), set as origin and pushed.', { cli: ws?.forge === 'github' ? 'gh' : 'glab' })}</span>
       </div>
       {#if onForge}
         <label class="field"><b>{ws?.forge === 'github' ? t('Owner') : t('Group')}</b>

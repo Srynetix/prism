@@ -67,7 +67,7 @@ Some lines need no action from you. To set one aside:
 A seen line comes back on its own when its text changes (a new count, a new state), and a mark expires after seven days, so a recurring problem never stays hidden for long.
 
 ## Putting off
-A line you will deal with later: its moon button (⏾) puts it off **1 hour**, **this afternoon**, until the **next morning**, **after my meeting** (the one under way or the next today, from the calendar) or **when it changes**. It moves to the **Put off** section, folded, with when it comes back; the undo button brings it back at once. Put off on the Mac, off on the phone too, and the other way round. **Band of this kind of alert…** opens the settings where its rule's band is chosen.
+A line you will deal with later: its moon button (⏾) puts it off **1 hour**, **this afternoon**, until the **next morning**, **after my meeting** (the one under way or the next today, from the calendar) or **when it changes**. It moves to the **Put off** section, folded, with when it comes back; the undo button brings it back at once. Put off on the computer, off on the phone too, and the other way round. **Band of this kind of alert…** opens the settings where its rule's band is chosen.
 
 ## For me and the CI light
 ![For me, opened from the header: a review waiting, a Claude session waiting, an MR and its ticket out of sync](images/for-me.webp){width=520}
@@ -106,5 +106,5 @@ The same section holds the badge and data thresholds, such as `large_mr_lines`. 
 [Open Settings › Interface › Alerts & sound](prism:settings/alerts)
 
 ## On the phone
-The remote's **Alerts** tab shows them by band — **Now**, **Today**, **When you can** — each one in full, its kind and age above it. Its fixes (an agent action, a status, a rebase…) and **Open** are buttons under the text; **⏾** shows the times to put it off under it, **✓** marks it seen, as on the Mac: the seen and the put off ones fold at the bottom, a tap shows them again.
+The remote's **Alerts** tab shows them by band — **Now**, **Today**, **When you can** — each one in full, its kind and age above it. Its fixes (an agent action, a status, a rebase…) and **Open** are buttons under the text; **⏾** shows the times to put it off under it, **✓** marks it seen, as on the computer: the seen and the put off ones fold at the bottom, a tap shows them again.
 

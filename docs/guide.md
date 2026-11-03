@@ -92,7 +92,7 @@ Each system builds its own bundle, no cross-compilation, except Linux through Do
 - **`just dmg`** (`scripts/dmg.sh`) builds `dist/Prism_<version>_<commit>_universal.dmg` and its
   `.sha256`: checks (frontend types, Rust tests), a universal release build (Apple silicon and
   Intel), then a disk image with `Prism.app` and a link to `/Applications`. `--native` builds for
-  this Mac only.
+  this machine's architecture only.
 
 Both refuse uncommitted changes to tracked files, so the app names its commit (`--allow-dirty`
 anyway), and run the checks first (`--skip-checks` not). Nothing personal goes into a package:
@@ -143,8 +143,8 @@ code the phone shows confirmed there. `prism-server restart` (or Restart from th
 it in place; its log is the journal's and `~/.local/state/app.prism.desktop/`. A chain's *Notify
 me* step reaches the phone as a push (`[remote] push`), as an agent waiting does.
 
-What only a window or a Mac has is not there: profiles' switcher, clipboard, Audio, Now Playing,
-captures, the Mac's power and `keep_running`. Nor what the window runs on its timers: note and
+What only a window or a desktop has is not there: profiles' switcher, clipboard, Audio, Now Playing,
+captures, the computer's power and `keep_running`. Nor what the window runs on its timers: note and
 meeting reminders, the digest, alerts' notifications, the checks for updates of Prism and its
 packs. Prism's updater does not replace `prism-server` either: build it again.
 
@@ -175,7 +175,7 @@ no keychain is unlocked); `peer list`, `peer remove <name>` (its windows close w
 The window then shows that Prism with a blue band and rail edge. Open or not, the status bar
 has a chip per machine (its agents, those waiting for you; faded out of reach, a click opens its
 window), and an agent waiting there notifies here as one of this computer's would (a permission,
-a question; quiet hours and the digest apply), counted in the menu bar too.
+a question; quiet hours and the digest apply), counted in the menu bar (the tray on Linux) too.
 
 What that machine classes critical (a merge, a manual job, an agent stopped, a worktree removed,
 a file of an agent saved or a secret of its folder downloaded, a command of one of its own blocks)
@@ -199,8 +199,8 @@ Tailscale (a peer with its token may come through `ssh -L` without it).
 A token is worth that machine's account: keep it as an SSH key. What a desk may do there is
 `[remote.peers]` on that machine (Settings › Remote › Machines): `actions`, `critical`, `typing`,
 `settings`, all on by default; it always reads, and each call that changes something is logged
-with the desk's name. What opens on a screen (Finder,
-Terminal, an app) stays on the desk or is not offered; the editor opens the machine's folders over
+with the desk's name. What opens on a screen (Finder or the file
+manager, a terminal, an app) stays on the desk or is not offered; the editor opens the machine's folders over
 SSH when `ssh` is set. An agent's files downloaded (Files tab) are prepared there (a zip for
 several) and saved here, where the desk's dialog says, fetched once over the machine's remote.
 

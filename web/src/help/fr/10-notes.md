@@ -84,7 +84,7 @@ Dans Réglages › Travail › Calendrier :
 
 - **Agenda** (`[calendar] enabled`) : désactivé, Prism ne lit jamais de calendrier et ne demande pas d’accès. Il n’y a alors ni bloc Aujourd’hui, ni compte à rebours, ni notification de réunion. Le changement s’applique au prochain lancement.
 - **Fournisseur** (`[calendar] provider`) : `macos` (par défaut, macOS uniquement) ou `google` (tout système). Lu au lancement. Chacun a sa page sous Calendrier : **Calendrier macOS**, et **Google Agenda** avec le compte Google auquel se connecter ; le fournisseur non choisi est grisé, et sa page propose de devenir le calendrier.
-- **Calendriers** (`[calendar] calendars`) : les calendriers lus, cochés parmi ceux du fournisseur ; aucun coché, tous ceux du Mac (anniversaires et jours fériés compris), ou ceux cochés dans Google Agenda. Un calendrier coché puis renommé ou supprimé reste dans la liste, barré, à décocher.
+- **Calendriers** (`[calendar] calendars`) : les calendriers lus, cochés parmi ceux du fournisseur ; aucun coché, tous ceux du Calendrier de macOS (anniversaires et jours fériés compris), ou ceux cochés dans Google Agenda. Un calendrier coché puis renommé ou supprimé reste dans la liste, barré, à décocher.
 
 [Ouvrir Réglages › Travail › Calendrier](prism:settings/calendar)
 [Ouvrir le bloc Aujourd’hui](prism:block/agenda)

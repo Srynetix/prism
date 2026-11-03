@@ -39,7 +39,7 @@ calendar, the AI agents at work. Prism reads them all, live, and answers one que
 The Alerts block ranks what is wrong right now: failed pipelines, queued jobs, unhealthy pods,
 apps out of sync, tickets out of step with their MR, agents waiting for you. The header sums it up
 in **For me**: reviews waiting, agents asking, tickets to sync, and a CI light. A counter in the
-menu bar and notifications keep you informed with the window closed.
+menu bar (the tray on Linux) and notifications keep you informed with the window closed.
 
 ### Merge requests and CI
 
@@ -113,7 +113,7 @@ anything. Then turn on the sources you use in Settings; each one checks its acce
 ### What each source needs
 
 Every source is optional and off until you turn it on; Settings checks each one's access as you
-type. Prism finds these tools in the PATH of your login shell, even when opened from the Finder.
+type. Prism finds these tools in the PATH of your login shell, even when opened from the Finder or the desktop's launcher.
 
 | Source | Needs | Install (macOS) |
 |---|---|---|
