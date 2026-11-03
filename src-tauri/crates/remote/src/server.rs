@@ -84,6 +84,7 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
         // Another Prism's window (`peers`): its token, no page nor cookie.
         .route("/peer/ws", get(peer_socket))
         .route("/peer/tty", get(peer_tty))
+        .route("/peer/summary", get(peer_summary))
         .route("/peer/pair", post(peer_pair))
         .route("/peer/pair/state", post(peer_pair_state))
         .fallback(get(asset))
@@ -714,6 +715,21 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: St
     let _ = writer.await;
     inner.connect(&seen, false);
     tracing::info!("remote: peer {name} gone");
+}
+
+/// `GET /peer/summary`: what a peer's status bar shows of this Prism, read every few seconds
+/// whether its window is open or not: its agents running, those waiting for you, longest first.
+async fn peer_summary(State(inner): State<Shared>, headers: HeaderMap) -> Response {
+    if crate::peers::of(&inner.dir, &headers).is_none() {
+        return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism"));
+    }
+    use prism_core::state::{AgentState, SessionStatus::*};
+    let snap = inner.hub.subscribe().borrow().clone();
+    let running: Vec<_> = snap.agents.iter().filter(|a| a.state == AgentState::Running).collect();
+    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, WaitingTool | NeedsYou | ReviewReady)).collect();
+    waiting.sort_by_key(|a| a.last_activity);
+    let waiting: Vec<Value> = waiting.iter().map(|a| json!({ "id": a.id, "title": a.title, "status": a.status })).collect();
+    Json(json!({ "agents": running.len(), "waiting": waiting })).into_response()
 }
 
 #[derive(Deserialize)]
@@ -1389,6 +1405,11 @@ mod tests {
         });
         let changes = recv(&mut rx, "changes").await;
         assert_eq!(changes["changes"][0]["path"], json!(["me"]), "{changes}");
+
+        // Its summary, for the desk's status bar; nothing without the token.
+        let summary = crate::machine::summary(&Target { url: url.clone(), token: token.clone() }).await.unwrap();
+        assert_eq!((summary.agents, summary.waiting.len()), (0, 0));
+        assert!(crate::machine::summary(&Target { url: url.clone(), token: "forged".into() }).await.unwrap_err().to_string().contains("token"));
 
         // Any command of the window, its arguments as sent; one it never answers, its error.
         assert_eq!(machine.call("save_config", json!({ "edits": [] })).await.unwrap(), json!({ "peer": "save_config", "args": { "edits": [] } }));

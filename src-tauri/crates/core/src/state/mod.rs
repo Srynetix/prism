@@ -51,6 +51,31 @@ pub struct OtherProfile {
     pub first: Option<String>,
 }
 
+/// Another computer's Prism (`[[machines]]`), for the status bar and the notifications.
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct MachinePresence {
+    pub name: String,
+    /// It answered last time it was asked.
+    pub reachable: bool,
+    /// Why not, if it did not.
+    pub error: Option<String>,
+    /// Its agents running.
+    pub agents: u32,
+    /// Those waiting for you there, longest first.
+    pub waiting: Vec<WaitingAgent>,
+}
+
+/// An agent waiting for you on another computer: a permission, a question, its turn.
+#[derive(Debug, Clone, Default, Serialize, serde::Deserialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct WaitingAgent {
+    pub id: String,
+    pub title: String,
+    /// `waiting_tool` (a permission), `needs_you` (its turn, a question), `review_ready`.
+    pub status: String,
+}
+
 /// The active profile, for the rail and the window title.
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -128,6 +153,9 @@ pub struct Snapshot {
     pub profile: ActiveProfile,
     /// The other profiles open beside this one, by name.
     pub other_profiles: Vec<OtherProfile>,
+    /// The other computers' Prism (`[[machines]]`) this one opens, as they say they are: read by
+    /// the window's app, which holds their tokens.
+    pub machines: Vec<MachinePresence>,
     /// Blocks whose source is on (`[vulnerabilities]`, `[renovate] enabled`,
     /// `[gitlab] ci_health`): an off one says so instead of waiting for data.
     pub features: Features,

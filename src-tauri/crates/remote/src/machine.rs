@@ -87,6 +87,25 @@ pub async fn pair(url: &str, code: &str, name: &str) -> Result<String> {
     bail!("not accepted there in time")
 }
 
+/// What a machine says of itself (`/peer/summary`): its agents running, those waiting for you.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct Summary {
+    pub agents: u32,
+    pub waiting: Vec<prism_core::state::WaitingAgent>,
+}
+
+/// The machine's summary, within a few seconds.
+pub async fn summary(target: &Target) -> Result<Summary> {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    let http = CLIENT.get_or_init(|| reqwest::Client::builder().timeout(Duration::from_secs(5)).build().expect("an HTTP client"));
+    let res = http.get(target.http("/peer/summary")?).bearer_auth(target.token.trim()).send().await.context("out of reach")?;
+    if res.status() == 401 {
+        bail!("the machine does not know this token");
+    }
+    anyhow::ensure!(res.status().is_success(), "{}", res.status());
+    Ok(res.json().await?)
+}
+
 /// What the window hears of the machine: its messages (`hello`, `snapshot`, `changes`, `alive`) as
 /// they come, and `{"t":"state","connected":…,"error":…}` when the socket opens or drops.
 pub type OnMessage = Arc<dyn Fn(Value) + Send + Sync>;

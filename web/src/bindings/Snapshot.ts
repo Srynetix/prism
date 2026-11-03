@@ -20,6 +20,7 @@ import type { Features } from "./Features";
 import type { FilesConfig } from "./FilesConfig";
 import type { ForgeProvider } from "./ForgeProvider";
 import type { LeftSession } from "./LeftSession";
+import type { MachinePresence } from "./MachinePresence";
 import type { MailState } from "./MailState";
 import type { MergeRequest } from "./MergeRequest";
 import type { NodeLoad } from "./NodeLoad";
@@ -135,6 +136,11 @@ profile: ActiveProfile,
  * The other profiles open beside this one, by name.
  */
 other_profiles: Array<OtherProfile>, 
+/**
+ * The other computers' Prism (`[[machines]]`) this one opens, as they say they are: read by
+ * the window's app, which holds their tokens.
+ */
+machines: Array<MachinePresence>, 
 /**
  * Blocks whose source is on (`[vulnerabilities]`, `[renovate] enabled`,
  * `[gitlab] ci_health`): an off one says so instead of waiting for data.

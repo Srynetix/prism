@@ -172,7 +172,10 @@ prism-server peer pair    # shows a code for 5 minutes, then asks to accept the 
 end the pairing; the token goes to the desk once, kept in its keychain, never in the page.
 `peer add <name>` prints a token to paste instead (or to set as `PRISM_MACHINE_TOKEN_<NAME>` where
 no keychain is unlocked); `peer list`, `peer remove <name>` (its windows close within ten seconds).
-The window then shows that Prism with a blue band and rail edge.
+The window then shows that Prism with a blue band and rail edge. Open or not, the status bar
+has a chip per machine (its agents, those waiting for you; faded out of reach, a click opens its
+window), and an agent waiting there notifies here as one of this computer's would (a permission,
+a question; quiet hours and the digest apply), counted in the menu bar too.
 
 What is critical there (a merge, a manual job, an agent stopped, a worktree removed, a file of an
 agent saved) first asks the person at the desk: Touch ID or the account's password on a Mac,

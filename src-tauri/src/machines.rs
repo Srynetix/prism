@@ -150,6 +150,47 @@ pub fn machine_main(app: AppHandle) {
     crate::app::show_main(&app);
 }
 
+/// Each machine's summary into the snapshot (`Snapshot.machines`), every few seconds while the
+/// window shows, less often hidden: the status bar's chips, and what the window notifies (an
+/// agent there waiting for you), whether its window is open or not. Its config read each round:
+/// a machine added or paired shows without a restart.
+pub fn watch(hub: prism_core::state::Hub) {
+    tauri::async_runtime::spawn(async move {
+        // The tokens as read last: the keychain (`security` on macOS) is not run every few seconds;
+        // read again when missing or refused.
+        let mut tokens: std::collections::HashMap<String, String> = Default::default();
+        loop {
+            let machines = config().map(|c| c.machines).unwrap_or_default();
+            let mut out = Vec::new();
+            for m in machines.iter().filter(|m| !m.name.trim().is_empty()) {
+                let name = m.name.trim().to_string();
+                if !tokens.contains_key(&name)
+                    && let Ok(Some(t)) = token(m).await
+                {
+                    tokens.insert(name.clone(), t);
+                }
+                let presence = match tokens.get(&name).cloned() {
+                    Some(token) => match prism_remote::machine::summary(&Target { url: m.url.clone(), token }).await {
+                        Ok(s) => prism_core::state::MachinePresence { name, reachable: true, error: None, agents: s.agents, waiting: s.waiting },
+                        Err(e) => {
+                            // Refused: its token may have been replaced (paired again) since.
+                            if format!("{e:#}").contains("token") {
+                                tokens.remove(&name);
+                            }
+                            prism_core::state::MachinePresence { name, error: Some(format!("{e:#}")), ..Default::default() }
+                        }
+                    },
+                    None => prism_core::state::MachinePresence { name, error: Some("not paired yet".into()), ..Default::default() },
+                };
+                out.push(presence);
+            }
+            hub.update(|s| prism_core::state::replace(&mut s.machines, out));
+            let pace = if hub.shown() { 5 } else { 15 };
+            tokio::time::sleep(std::time::Duration::from_secs(pace)).await;
+        }
+    });
+}
+
 /// A machine window closed: its socket and terminals with it.
 pub fn closed(app: &AppHandle, label: &str) {
     if !label.starts_with(PREFIX) {

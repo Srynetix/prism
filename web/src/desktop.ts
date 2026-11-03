@@ -1,4 +1,4 @@
-import { invoke, isDesktop } from './bridge'
+import { invoke, isLocal } from './bridge'
 import { t, tn } from './i18n.svelte'
 import { countedSessions, waitingAlert, type Alert } from './rules'
 import type { Snapshot } from './types'
@@ -33,6 +33,13 @@ function events(s: Snapshot, alerts: Alert[]): Event[] {
     const agent = c.origin === 'agent' ? s.agents?.find((a) => a.id === c.id) : undefined
     if (c.status === 'waiting_tool') out.push({ key: `session:${c.id}:tool`, title: t('{agent} needs a permission', { agent: agent ? nameOf(agent) : 'Claude' }), body: c.title, kind: 'agent' })
   }
+  // Another computer's agents waiting for you (`[[machines]]`), whether its window is open or not.
+  for (const m of s.machines ?? []) {
+    for (const w of m.waiting) {
+      if (w.status === 'waiting_tool') out.push({ key: `machine:${m.name}:${w.id}:tool`, title: t('{machine}: an agent needs a permission', { machine: m.name }), body: w.title, kind: 'agent' })
+      else if (w.status === 'needs_you') out.push({ key: `machine:${m.name}:${w.id}:needs_you`, title: t('{machine}: an agent waits for you', { machine: m.name }), body: w.title, kind: 'agent' })
+    }
+  }
   return out
 }
 
@@ -40,15 +47,19 @@ function events(s: Snapshot, alerts: Alert[]): Event[] {
 let lastTray: { count: number; tooltip: string } | null = null
 
 export async function syncDesktop(s: Snapshot, alerts: Alert[]) {
-  if (!isDesktop()) return
+  // This computer's window: a machine's shows that one's agents, which this one's notifies already
+  // (`Snapshot.machines`), and leaves the menu bar to it.
+  if (!isLocal()) return
   const waiting = countedSessions(s).filter(waitingAlert)
   const urgent = alerts.filter((a) => a.severity !== 'info' && a.kind !== 'Claude')
+  const away = (s.machines ?? []).reduce((n, m) => n + m.waiting.length, 0)
   const lines = [
     waiting.length && tn(waiting.length, '{n} {agent} session waiting', '{n} {agent} sessions waiting', { agent: agentName() }),
+    away && tn(away, '{n} agent waiting on another computer', '{n} agents waiting on other computers'),
     ...urgent.slice(0, 5).map((a) => `${t(a.kind)}: ${a.text}`),
   ].filter(Boolean)
   // Only when it changed: an IPC call and the menu bar item set again at every snapshot otherwise.
-  const tray = { count: waiting.length + urgent.length, tooltip: lines.length ? `${prismName()}\n${lines.join('\n')}` : `${prismName()} · ${t('nothing to report')}` }
+  const tray = { count: waiting.length + away + urgent.length, tooltip: lines.length ? `${prismName()}\n${lines.join('\n')}` : `${prismName()} · ${t('nothing to report')}` }
   if (tray.count !== lastTray?.count || tray.tooltip !== lastTray.tooltip) {
     lastTray = tray
     invoke('set_tray', tray).catch((e) => {
