@@ -143,8 +143,11 @@ async fn guard(State(inner): State<Shared>, req: Request, next: Next) -> Respons
     if let Some(owner) = &live.owner {
         let user = headers.get("tailscale-user-login").and_then(|h| h.to_str().ok());
         // Through `tailscale serve`, the tailnet's user, checked; a peer straight on loopback (an
-        // SSH tunnel's end) has none, its token checked instead.
-        let unproxied_peer = peer_route && user.is_none();
+        // SSH tunnel's end) has none, its token checked instead. Pairing, before any token, is the
+        // tailnet user's only: without that header it may as well come through Funnel or a tagged
+        // node (`prism peer add` pastes a token through an SSH tunnel instead).
+        let pairing = req.uri().path().starts_with("/peer/pair");
+        let unproxied_peer = peer_route && !pairing && user.is_none();
         if user != Some(owner.as_str()) && !unproxied_peer {
             tracing::warn!("remote: refused a request from {}", user.unwrap_or("no tailnet user"));
             return refuse(StatusCode::FORBIDDEN, tr("only this computer's tailnet user"));
@@ -739,7 +742,8 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: Op
             let allowed = peer_allowed(&inner.live().peers, &command, class);
             // What this Prism classes critical is confirmed at the desk first, as it classes it
             // (a block of its own, a command the desk does not know): the window's app asks the
-            // person there, then calls again with this purpose.
+            // person there, then calls again with this purpose. Advisory against a token in other
+            // hands, which can send the purpose itself: `[remote.peers] critical` is what holds.
             let purpose = purpose(&command, &args);
             if allowed.is_ok() && class == Some(Class::Critical) && confirmed.as_deref() != Some(purpose.as_str()) {
                 let _ = out.send(text(json!({ "t": "result", "id": id, "stepUp": { "purpose": purpose } }))).await;
@@ -1591,6 +1595,18 @@ mod tests {
         assert_eq!(crate::peers::check(&dir, &token).as_deref(), Some("MacBook"));
         assert_eq!(hub.subscribe().borrow().remote.as_ref().unwrap().peers[0].name, "MacBook");
         assert!(local.peer_state().await.unwrap().is_none(), "over once read");
+
+        // Tunnel tailscale: a peer with its token comes straight on loopback (an SSH tunnel's end),
+        // without the tailnet's header; a pairing never does (Funnel, a tagged node).
+        remote.inner.live().owner = Some("me@example.com".into());
+        let http = reqwest::Client::new();
+        let summary = http.get(format!("{url}/peer/summary")).bearer_auth(&token).send().await.unwrap();
+        assert_eq!(summary.status(), 200);
+        let pair = http.post(format!("{url}/peer/pair")).json(&json!({ "code": "123456", "name": "x", "claim": "a-secret-of-its-own-1234" })).send().await.unwrap();
+        assert_eq!(pair.status(), 403, "a pairing without the tailnet's user");
+        let other = http.post(format!("{url}/peer/pair")).header("tailscale-user-login", "someone@else.com").json(&json!({ "code": "123456", "name": "x", "claim": "a-secret-of-its-own-1234" })).send().await.unwrap();
+        assert_eq!(other.status(), 403, "another tailnet user");
+        remote.inner.live().owner = None;
         remote.apply(&RemoteConfig::default()).await;
         let _ = std::fs::remove_dir_all(&dir);
     }

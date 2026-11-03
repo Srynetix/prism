@@ -1,6 +1,6 @@
 import { hasCore, invoke, isDesktop } from './bridge'
+import { openLink } from './links'
 import { feedbackOn, loadRequests, openFeedback, requests, setDraft as setFeedbackDraft, shipped } from './feedback.svelte'
-import { openUrl } from '@tauri-apps/plugin-opener'
 import { agentsTarget, promptAction } from './claude-actions'
 import { agentsEnabled, openAgents, openLauncher, spawnAgent } from './agents.svelte'
 import { defaultSaver, replayBoot, SAVER_MODES, startSaver, type SaverMode } from './fun.svelte'
@@ -61,8 +61,7 @@ const ok = (text: string) => print(`→ ${text}`, 'ok')
 const err = (text: string) => print(text, 'err')
 
 async function open(url: string) {
-  if (isDesktop()) await openUrl(url)
-  else window.open(url, '_blank', 'noopener')
+  openLink(url)
 }
 
 interface Command {

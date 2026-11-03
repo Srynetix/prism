@@ -190,6 +190,12 @@ its name in the profile menu: each opens in a window of its own, reached through
 checks the token; each keeps its own `[remote.peers]` rights. Its chip and notifications count
 every profile's agents.
 
+That confirmation guards against someone at the desk, not against a token in other hands: a
+token holder can confirm by itself, so what holds is the machine's own `[remote.peers]`. `actions`
+includes launching an agent, which runs commands of its own (so `typing = false` with `actions`
+on does not stop code from running there). Pairing needs the tailnet's user when the tunnel is
+Tailscale (a peer with its token may come through `ssh -L` without it).
+
 A token is worth that machine's account: keep it as an SSH key. What a desk may do there is
 `[remote.peers]` on that machine (Settings › Remote › Machines): `actions`, `critical`, `typing`,
 `settings`, all on by default; it always reads, and each call that changes something is logged

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { clock } from '../../clock.svelte'
-  import { invoke } from '../../bridge'
+  import { invoke, isLocal } from '../../bridge'
   import { live } from '../../live.svelte'
   import { armer } from '../../armed.svelte'
   import { ago } from '../../time'
@@ -92,8 +92,9 @@
     </div>
     {#if pairing}
       <div class="pair">
-        <!-- Prism's own SVG, built by the server from the pairing's address. -->
-        <div class="qr">{@html pairing.qr_svg}</div>
+        <!-- Prism's own SVG, built by this computer's server from the pairing's address: drawn as
+             HTML only here, never from a machine's snapshot (its window has another's). -->
+        {#if isLocal()}<div class="qr">{@html pairing.qr_svg}</div>{/if}
         <div class="steps">
           {#if !pairing.code}
             <b>{t('Scan this code with the phone’s camera')}</b>
