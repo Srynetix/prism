@@ -13,6 +13,6 @@ pub enum Class {
     /// Cannot be undone from Prism, or types into a terminal (a merge, a deploy, a kill, the TTY):
     /// biometrics each time, with `[remote] critical`.
     Critical,
-    /// Never routed: the config and its secrets, or what acts on the Mac itself.
+    /// Never routed: the config and its secrets, or what acts on the computer itself.
     Never,
 }

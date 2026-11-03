@@ -1,4 +1,4 @@
-//! The Tailscale tunnel: `tailscale serve` brings HTTPS on the Mac's tailnet name to Prism's
+//! The Tailscale tunnel: `tailscale serve` brings HTTPS on the computer's tailnet name to Prism's
 //! loopback port, and tells Prism who is asking (`Tailscale-User-Login`).
 
 use std::ffi::OsString;
@@ -8,12 +8,12 @@ use prism_base::{i18n::tr, tr};
 use serde::Deserialize;
 use serde_json::Value;
 
-/// The Mac as its tailnet knows it.
+/// The computer as its tailnet knows it.
 #[derive(Debug, Clone)]
 pub struct Node {
     /// `https://mac.tail1234.ts.net`.
     pub url: String,
-    /// The tailnet user owning this Mac: the only one let in.
+    /// The tailnet user owning this computer: the only one let in.
     pub owner: String,
 }
 
@@ -91,7 +91,7 @@ fn which(name: &str) -> Option<std::path::PathBuf> {
     std::env::var_os("PATH").and_then(|paths| std::env::split_paths(&paths).map(|p| p.join(name)).find(|p| p.is_file()))
 }
 
-/// This Mac on its tailnet, which must be up.
+/// This computer on its tailnet, which must be up.
 pub async fn node(cli: &Cli) -> Result<Node> {
     let status: Status = serde_json::from_str(&cli.run(&["status", "--json"]).await?).context("tailscale status")?;
     if status.backend_state != "Running" {

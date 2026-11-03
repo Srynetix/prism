@@ -31,7 +31,7 @@ function load(): Record<string, { text: string; at: number }> {
   }
 }
 
-// A phone's of a former Prism, kept in its browser for good: gone. (The Mac's, words without
+// A phone's of a former Prism, kept in its browser for good: gone. (The computer's, words without
 // their time, are not read.)
 try {
   if (!isDesktop()) localStorage.removeItem(KEY)

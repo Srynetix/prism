@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct RemoteConfig {
     pub enabled: bool,
-    /// How a phone reaches the Mac: `tailscale` (Prism runs `tailscale serve` and checks the
+    /// How a phone reaches the computer: `tailscale` (Prism runs `tailscale serve` and checks the
     /// tailnet user), `other` (a tunnel of yours brings HTTPS to `port`, at `url`), or `relay`
     /// (another profile's Prism, open beside this one with one of those, brings the phone here).
     pub tunnel: RemoteTunnel,
@@ -19,9 +19,9 @@ pub struct RemoteConfig {
     /// (`just tailscale`): its socket. Empty: the Tailscale app's.
     pub tailscale_socket: String,
     /// `other`: the HTTPS address the phone opens (`https://prism.example.net`); the passkeys are
-    /// bound to its host. `tailscale`: empty, the Mac's tailnet name.
+    /// bound to its host. `tailscale`: empty, the computer's tailnet name.
     pub url: String,
-    /// The Mail block on the phone; off, its data never leaves the Mac.
+    /// The Mail block on the phone; off, its data never leaves the computer.
     pub mail: bool,
     /// A phone may act (class `act`): retry, rebase, comment, a ticket's status, an agent's
     /// permission or prompt. Off, it only reads.
@@ -33,7 +33,7 @@ pub struct RemoteConfig {
     /// in it, both confirmed by its passkey (once per agent for `step_up_minutes`). Off: it watches,
     /// and answers with its quick answers and keys only. On by default: the passkey guards it.
     pub typing: bool,
-    /// A phone may restart or shut down the Mac (More › The Mac), each time confirmed by its
+    /// A phone may restart or shut down the computer (More › The computer), each time confirmed by its
     /// passkey. Off by default.
     pub power: bool,
     /// A phone reads the settings (More › Settings, secrets aside) and changes the few of
@@ -58,7 +58,7 @@ pub struct RemoteConfig {
     pub session_idle_minutes: u32,
     /// Biometrics again after this long, active or not.
     pub session_max_hours: u32,
-    /// The Mac does not idle-sleep while the remote is on and on power.
+    /// The computer does not idle-sleep while the remote is on and on power.
     pub keep_awake: bool,
     /// macOS, while the remote is on: Prism opens at login and again after a crash (a LaunchAgent
     /// runs `prism watch` every minute); quit with ⌘Q, it stays closed until the next login. Off by
@@ -71,7 +71,7 @@ pub struct RemoteConfig {
     /// The preview's loopback port; never another interface.
     pub preview_port: u16,
     /// Tunnel `other`: the HTTPS address your tunnel brings to `preview_port`, on the same host as
-    /// `url` (another port). Empty: no preview. Tunnel `tailscale`: empty, the Mac's tailnet name
+    /// `url` (another port). Empty: no preview. Tunnel `tailscale`: empty, the computer's tailnet name
     /// on port 8443.
     pub preview_url: String,
     /// What another Prism that opens this one in its window may do (`[remote.peers]`).
@@ -151,7 +151,7 @@ impl Default for RemoteConfig {
 
 /// The settings a phone may change (`[remote] settings`): what only tells Prism how to show and
 /// when to notify. Nothing that runs a program, lets someone in, or decides what is read: those
-/// stay on the Mac. Each is a key of a table, `["alerts", "quiet_hours"]`.
+/// stay on the computer. Each is a key of a table, `["alerts", "quiet_hours"]`.
 pub const PHONE_SETTINGS: &[(&str, &str)] = &[
     ("alerts", "digest"),
     ("alerts", "digest_times"),

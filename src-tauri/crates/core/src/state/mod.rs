@@ -37,7 +37,7 @@ pub struct Features {
     pub ci_health: bool,
 }
 
-/// Another profile open in its own Prism on this Mac (`profile::Presence`): its agents and those
+/// Another profile open in its own Prism on this computer (`profile::Presence`): its agents and those
 /// waiting, for the status bar.
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -320,7 +320,7 @@ pub struct PeerPairing {
     pub name: Option<String>,
 }
 
-/// Settings › Remote › Away: one thing that decides whether the Mac stays within reach for days
+/// Settings › Remote › Away: one thing that decides whether the computer stays within reach for days
 /// without anyone at it (`prism_remote::away`).
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]

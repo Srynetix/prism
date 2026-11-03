@@ -12,7 +12,7 @@
   /**
    * Settings › Remote › Devices: the phones paired with this Prism, and pairing one. The QR code
    * holds a one-time address; the phone then shows a code, which is confirmed here: a QR code seen
-   * by someone else pairs nothing on its own. This Mac's browser can be paired the same way (Open
+   * by someone else pairs nothing on its own. This computer's browser can be paired the same way (Open
    * the pairing page instead of the QR code): the remote then opens on the desk, to try it at a
    * phone's size (the browser's device mode), as the phone sees it.
    *

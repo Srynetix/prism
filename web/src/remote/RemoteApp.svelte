@@ -124,7 +124,7 @@
 
   const full = $derived(live.snapshot)
   const hello = $derived(socketState.hello)
-  /** A block the Mac has off (its `off` placeholder in the window) is not offered. */
+  /** A block the computer has off (its `off` placeholder in the window) is not offered. */
   const blockOff = (id: string) => {
     const def = BLOCK_DEFS.find((b) => b.id === id)
     return !!def?.off && stateOf(def, full) === undefined
@@ -173,9 +173,9 @@
   /** All (several profiles): Home and Agents show every profile's agents. */
   const allProfiles = $derived(several() && phoneProfiles.choice === ALL)
 
-  // The language changed on the Mac or from here: the page starts again in it.
+  // The language changed on the computer or from here: the page starts again in it.
   $effect(watchLanguage)
-  /** This phone's notifications, shown in More when the Mac pushes (`[remote] push`). */
+  /** This phone's notifications, shown in More when the computer pushes (`[remote] push`). */
   let notifying = $state(false)
   let notifyError = $state<string | null>(null)
   $effect(() => {
@@ -191,7 +191,7 @@
     }
   }
   /**
-   * Prism relaunched on the Mac, from the phone (`[remote] actions`): two taps. Its agents and
+   * Prism relaunched on the computer, from the phone (`[remote] actions`): two taps. Its agents and
    * notes outlive it; the socket comes back by itself once the new Prism is up.
    */
   const armed = armer(4000)
@@ -220,7 +220,7 @@
     }
   }
   /**
-   * The Mac itself (`[remote] power`): restarted or shut down as from its Apple menu, after a second
+   * The computer itself (`[remote] power`): restarted or shut down as from its Apple menu, after a second
    * tap and the passkey. The agents running stop with it.
    */
   let powering = $state<'restart' | 'shutdown' | null>(null)

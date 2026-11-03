@@ -18,7 +18,7 @@
   let { id, onask }: { id: string; onask: (text: string) => void } = $props()
 
   type Source = 'artifacts' | 'folder'
-  /** Picked here; until then, the artifacts when one is under an hour old (as the Mac's picker), else the last one picked. */
+  /** Picked here; until then, the artifacts when one is under an hour old (as the computer's picker), else the last one picked. */
   let picked = $state<Source | null>(null)
   const setSource = (s: Source) => setPref('remote.web.source', (picked = s))
 
@@ -85,7 +85,7 @@
       try {
         bases[k] = (await invoke<{ url: string }>('agent_page_open', { id, scratchpad })).url
       } catch {
-        // An older Mac, or the browser preview: the page's text only (no scripts).
+        // An older Prism, or the browser preview: the page's text only (no scripts).
         bases[k] = null
       }
     }

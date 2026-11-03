@@ -7,7 +7,7 @@ import { NO_BOOT } from './switched'
 
 /**
  * Several profiles on one phone (`[remote] tunnel = "relay"`, `prism_remote::relay`): the page is
- * the hub's, the profile whose remote has the tunnel; another profile open beside it on the Mac is
+ * the hub's, the profile whose remote has the tunnel; another profile open beside it on the computer is
  * reached at `/p/<profile>/`. The phone shows one profile at a time (its tabs, its views), or All:
  * the hub's views, with the agents waiting in every profile on Home and the agents of all of them
  * under Agents. The choice is the phone's own, kept in it; switching reloads the page there.
@@ -19,7 +19,7 @@ export interface PhoneProfile {
   color: string
   /** The profile whose remote has the tunnel: this page's. */
   hub: boolean
-  /** Its Prism runs on the Mac. */
+  /** Its Prism runs on the computer. */
   open: boolean
   /** Its Prism answers here (tunnel relay). */
   reachable: boolean

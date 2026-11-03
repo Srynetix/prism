@@ -1,4 +1,4 @@
-//! Quick answers sent from a phone (`agent_quick_answer`): the text is the Mac's, from the config's
+//! Quick answers sent from a phone (`agent_quick_answer`): the text is the computer's, from the config's
 //! list and the agent's values, never the phone's — a phone without its passkey sends no free text.
 //! The same rules as the window's (quick-answers.ts).
 

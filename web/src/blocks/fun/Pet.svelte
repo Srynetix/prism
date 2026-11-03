@@ -80,7 +80,7 @@
   const restore = (k: Partial<Pet>): Pet => ({ ...NEW, ...k, growth: { ...structuredClone(NEW_GROWTH), ...k.growth, shot: { ...NEW_GROWTH.shot, ...k.growth?.shot } } })
   let p = $state<Pet>(restore(kept))
   const save = () => savePet($state.snapshot(p) as unknown as Record<string, unknown>)
-  // The same pet on the Mac and the phones: one written elsewhere comes in.
+  // The same pet on the computer and the phones: one written elsewhere comes in.
   let seenVersion = petStore.version
   $effect(() => {
     if (petStore.version === seenVersion || !petStore.value) return

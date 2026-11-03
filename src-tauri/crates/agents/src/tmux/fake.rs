@@ -45,7 +45,7 @@ impl Server {
         }
     }
 
-    /// The server is gone (a Mac restart): no session left.
+    /// The server is gone (a computer restart): no session left.
     pub fn crash(&self) {
         self.sessions.lock().unwrap().clear();
     }

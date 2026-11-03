@@ -10,15 +10,15 @@
 
   /**
    * More › New project on a phone (`[remote] projects`): a folder with a git repository, a README
-   * and a first commit in one of the Mac's working folders (`[[workspaces]]`: the phone picks one
-   * and names the project, never a folder), on request its project on the forge, pushed. The Mac adds it to
+   * and a first commit in one of the computer's working folders (`[[workspaces]]`: the phone picks one
+   * and names the project, never a folder), on request its project on the forge, pushed. The computer adds it to
    * the repositories, read when Prism restarts. A project kept local is published later from
    * here (Kept local): its project created on the forge, its branch pushed, written in its
    * `[[repos]]` entry. Or a project of the working folder's forge cloned into it (Clone), found
    * among those you are a member of. Confirmed by the passkey each time.
    */
 
-  /** A working folder of the Mac: `dir` as config.toml writes it (`~/…`), `abs` expanded. */
+  /** A working folder of the computer: `dir` as config.toml writes it (`~/…`), `abs` expanded. */
   interface Workspace {
     name: string
     dir: string
@@ -28,7 +28,7 @@
     forge: ForgeProvider
   }
 
-  /** The preview (no Mac): folders of its own, nothing created. */
+  /** The preview (no computer): folders of its own, nothing created. */
   const preview = !hasCore()
   let workspaces = $state<Workspace[] | undefined>(undefined)
   /** The working folder picked, by name. */
@@ -37,7 +37,7 @@
   const dir = $derived(ws?.dir ?? '')
   /** The working folder a path is in. */
   const workspaceOf = (p: string) => workspaces?.find((w) => [w.dir, w.abs].some((d) => p === d || p.startsWith(`${d}/`)))
-  /** The forge a repository is published on: its working folder's, else the profile's (as the Mac decides). */
+  /** The forge a repository is published on: its working folder's, else the profile's (as the computer decides). */
   const forgeOf = (p: string): ForgeProvider => workspaceOf(p)?.forge ?? profileForge()
   function pick(w: Workspace) {
     picked = w.name
@@ -96,7 +96,7 @@
     }
   })()
 
-  /** As the Mac checks it (`clones::valid_name`): one folder, nothing a shell or git trips on. */
+  /** As the computer checks it (`clones::valid_name`): one folder, nothing a shell or git trips on. */
   const why = $derived.by(() => {
     const n = name.trim()
     if (!n) return ''

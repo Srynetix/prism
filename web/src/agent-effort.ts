@@ -5,7 +5,7 @@ import { t } from './i18n.svelte'
 import { cliOf } from './agent-cli'
 
 /**
- * An agent's reasoning effort (Claude Code, Codex), on the Mac (its header) and on a phone (its
+ * An agent's reasoning effort (Claude Code, Codex), on the computer (its header) and on a phone (its
  * ⋯ menu): its own, else its CLI's (`[agents.<cli>] effort`), its levels as its CLI tells them.
  */
 export const takesEffort = (a: Agent) => cliOf(a.provider).takes_effort

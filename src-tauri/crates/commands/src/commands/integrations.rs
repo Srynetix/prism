@@ -25,7 +25,7 @@ pub async fn calendar_day(day: String) -> Cmd<Vec<crate::state::CalendarEvent>> 
     crate::collectors::calendar::day(day).await.map_err(Into::into)
 }
 
-/// The Mac's calendars, for Settings › Work › Calendar to pick the ones read.
+/// The computer's calendars, for Settings › Work › Calendar to pick the ones read.
 #[prism_macros::command]
 pub async fn calendar_names() -> Cmd<Vec<String>> {
     crate::collectors::calendar::names().await.map_err(Into::into)

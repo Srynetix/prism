@@ -13,7 +13,7 @@ import type { Agent, AgentProvider, HandoffMaterial } from './types'
 
 /**
  * Continue with… (agent_switch): another CLI takes an agent on, in its folder, from a relay — the
- * words it starts from (`handoff.ts`). Its window (AgentSwitch.svelte, on the Mac and the phone)
+ * words it starts from (`handoff.ts`). Its window (AgentSwitch.svelte, on the computer and the phone)
  * opens from the agent's CLI chip, its ⋯ menu, the palette, its limit banner and the alert; Back
  * to a CLI it ran before from its Activity tab. `[agents] handoff` picks the relay first,
  * `handoff_review` off sends it without the window when nothing is to wait for.
@@ -43,7 +43,7 @@ export const switching = $state({
 let installed = $state<AgentProvider[] | null>(null)
 let loadingInstalled = false
 
-/** The CLIs found on the Mac (read once): those an agent can continue with. */
+/** The CLIs found on the computer (read once): those an agent can continue with. */
 export function installedClis(): AgentProvider[] | null {
   if (installed === null && !loadingInstalled && hasCore()) {
     loadingInstalled = true
@@ -64,7 +64,7 @@ export const limitReached = (a: Agent) => (agentsSettings().suggest_switch ?? tr
 /** The CLI offered when its own is used up: the least used of the others found. */
 export const suggestedFor = (a: Agent) => suggestTarget(a.provider, installedClis() ?? [], planUse)
 
-/** The CLIs it can continue with: the others found on the Mac (all of them until that is known). */
+/** The CLIs it can continue with: the others found on the computer (all of them until that is known). */
 export const targetsOf = (a: Agent): AgentProvider[] => (installedClis() ?? (Object.keys(CLIS) as AgentProvider[])).filter((p) => p !== a.provider)
 
 const agentOf = (id: string) => live.snapshot?.agents?.find((a) => a.id === id)

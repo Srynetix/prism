@@ -1,6 +1,6 @@
 //! A dev server's preview on a phone (`[remote] preview`): the app an agent's folder serves
 //! (Dev servers block), as the phone's browser runs it, hot reload included. A second loopback
-//! port (`preview_port`), behind a second address of the tunnel (Tailscale: the Mac's name on port
+//! port (`preview_port`), behind a second address of the tunnel (Tailscale: the computer's name on port
 //! 8443), forwards each request to the dev server the phone chose last (`preview_open`).
 //!
 //! Its own origin, so the app's scripts never run in the remote's page; the same host, so the

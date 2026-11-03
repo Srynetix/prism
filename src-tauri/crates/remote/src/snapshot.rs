@@ -1,9 +1,9 @@
-//! The snapshot as a phone (and the window) gets it: filtered on the Mac for a phone (what it may
+//! The snapshot as a phone (and the window) gets it: filtered on the computer for a phone (what it may
 //! not see is never sent), then as changes to the last one sent.
 
 use serde_json::{Map, Value};
 
-/// The snapshot's JSON without what stays on the Mac: the remote's own state (its pairing token),
+/// The snapshot's JSON without what stays on the computer: the remote's own state (its pairing token),
 /// Prism's own warnings and errors (paths, hosts, a mail's error), and the mail unless `[remote]
 /// mail` lets it out.
 pub fn filter(mut snap: Value, mail: bool) -> Value {

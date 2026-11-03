@@ -8,7 +8,7 @@ import type { Worktree } from './types'
  * Worktrees archived: out of the Worktrees block, its counts, the stale badge and alert, until
  * unarchived — or until something happens in them after being archived (a new commit, files
  * changed): then they come back by themselves. Archiving changes nothing on disk: the folder, its
- * branch and its agents stay. Shared Mac ↔ phone (`worktrees.archived`): its path → its state
+ * branch and its agents stay. Shared computer ↔ phone (`worktrees.archived`): its path → its state
  * when archived. A repository's main checkout too (a project folder an agent works in), for focus:
  * archiving never removes anything.
  *

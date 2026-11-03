@@ -394,7 +394,7 @@ pub async fn agent_send_suggestion(state: State<'_, AppState>, id: String, text:
     state.agents.send_suggestion(&id, &text).await.map_err(Into::into)
 }
 
-/// A quick answer from a phone: the config's, filled on the Mac and checked against what the
+/// A quick answer from a phone: the config's, filled on the computer and checked against what the
 /// phone showed — no free text, so no passkey.
 #[prism_macros::command]
 pub async fn agent_quick_answer(state: State<'_, AppState>, id: String, label: String, text: String) -> Cmd {
@@ -687,7 +687,7 @@ pub async fn agent_files(state: State<'_, AppState>, id: String, ignored: Option
     state.agents.files(&id, ignored.unwrap_or(false)).await.map_err(Into::into)
 }
 
-/// Files of an agent's folder saved where the Mac's save dialog said (`dest`): one as it is,
+/// Files of an agent's folder saved where the computer's save dialog said (`dest`): one as it is,
 /// several or a folder as a zip.
 #[prism_macros::command]
 pub async fn agent_files_export(state: State<'_, AppState>, id: String, paths: Vec<String>, name: String, dest: String) -> Cmd {

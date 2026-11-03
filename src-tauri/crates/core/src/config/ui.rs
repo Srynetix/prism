@@ -199,7 +199,7 @@ pub struct AppearanceConfig {
     /// longer closes the pane. Off (the default): no pin, a click outside closes.
     pub pin_drawers: bool,
     /// The status bar's order: item ids, `|` parting the left side from the right; an item left
-    /// out takes its default place. Empty: by zone (what waits for you, the work, the Mac).
+    /// out takes its default place. Empty: by zone (what waits for you, the work, the computer).
     pub statusbar: Vec<String>,
     /// The status bar's items not shown.
     pub statusbar_hidden: Vec<String>,

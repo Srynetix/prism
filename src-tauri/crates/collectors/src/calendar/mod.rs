@@ -68,7 +68,7 @@ pub async fn day(day: NaiveDate) -> anyhow::Result<Vec<CalendarEvent>> {
     tokio::task::spawn_blocking(move || platform::day_events(day, &cfg)).await?
 }
 
-/// The names of the calendars (the Mac's, or Google's), sorted, for Settings to pick from; none
+/// The names of the calendars (macOS Calendar's, or Google's), sorted, for Settings to pick from; none
 /// without access.
 pub async fn names() -> anyhow::Result<Vec<String>> {
     if provider() == CalendarProvider::Google {

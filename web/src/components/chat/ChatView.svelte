@@ -30,7 +30,7 @@
    * few seconds while shown, kept at the bottom unless scrolled up; earlier turns on demand. Under
    * it, the terminal's last lines, live: a tap opens the terminal (its menus). Its questions
    * (`AskUserQuestion`) as cards, answered here.
-   * On the Mac (`wide`), the same in place of the agent's terminal, which stays attached under it.
+   * On the computer (`wide`), the same in place of the agent's terminal, which stays attached under it.
    * Turns: the conversation as a list of its turns, each summed up (files edited, commands, how
    * long, its last words), searched; a tap goes to that turn.
    * As it works: its thinking (its words when its CLI keeps them), each call's time, a subagent's
@@ -59,7 +59,7 @@
     passkey?: boolean
     /** The terminal's last lines, cleaned (a phone), behind a tap on what it does. */
     tail?: string[]
-    /** On the Mac: a reading width, in a wide pane. */
+    /** On the computer: a reading width, in a wide pane. */
     wide?: boolean
     /** Words just sent, shown at once until its transcript has them (`onlanded`). */
     pending?: string | null
@@ -228,7 +228,7 @@
   const commentAnswers = $derived(agentsSettings().comment_answers ?? true)
 
   /**
-   * A link in its conversation to an MR or a ticket Prism shows opens its panel (on the Mac, as in
+   * A link in its conversation to an MR or a ticket Prism shows opens its panel (on the computer, as in
    * its Terminal); any other — and with ⇧ or ⌘ — goes on to the browser (main.ts).
    */
   function onlink(e: MouseEvent) {
@@ -519,7 +519,7 @@
       {/if}
     </div>
   {/if}
-  <!-- On the Mac, its text size (`[agents] chat_font_size`, 13.5 the base): the conversation scaled. -->
+  <!-- On the computer, its text size (`[agents] chat_font_size`, 13.5 the base): the conversation scaled. -->
   <div class="pane" bind:this={pane} {onscroll} style:zoom={wide && chatFontSize() !== 13.5 ? chatFontSize() / 13.5 : undefined}>
     {#if convo === undefined && !error}
       <p class="muted">…</p>
@@ -754,7 +754,7 @@
   .down { position: absolute; right: 14px; bottom: 96px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--info); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); display: grid; place-items: center; }
   .live { display: block; width: 100%; text-align: left; border: none; border-top: 1px solid var(--border); background: var(--chat-code); color: var(--text); padding: 5px 10px 7px; font: 11px/1.4 ui-monospace, 'SF Mono', Menlo, monospace; }
   .live .lbl { display: flex; justify-content: space-between; align-items: center; font: 600 10px var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
-  /* On the Mac: a column to read, in a pane of any width. */
+  /* On the computer: a column to read, in a pane of any width. */
   .wide .pane { padding-left: max(16px, calc((100% - 820px) / 2)); padding-right: max(16px, calc((100% - 820px) / 2)); }
   .wide .me, .wide .ai { font-size: 13.5px; }
   .wide .status, .wide .rail { padding-left: max(12px, calc((100% - 820px) / 2)); padding-right: max(12px, calc((100% - 820px) / 2)); }

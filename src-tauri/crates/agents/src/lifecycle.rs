@@ -289,7 +289,7 @@ impl Agents {
         tokio::task::spawn_blocking(move || worktree::repo_of(&dir, &repos)).await.ok().flatten().unwrap_or(default)
     }
 
-    /// Relaunches a stopped agent (its CLI exited, or tmux session lost on Mac restart)
+    /// Relaunches a stopped agent (its CLI exited, or tmux session lost on the computer's restart)
     /// on its conversation, in its folder. Claude still running: nothing to do.
     pub async fn resume(&self, id: &str) -> Result<()> {
         self.relaunch(id, false).await

@@ -8,7 +8,7 @@ import type { SessionStatus, Snapshot } from './types'
  * phone's Agents) and their counts, until unarchived — or until they wait for you again after
  * being archived (a turn's end, a permission, a question): then they come back by themselves.
  * Archiving changes nothing else: an agent goes on, its terminal stays, Desktop keeps its session.
- * Shared Mac ↔ phone (`agents.archived`): its id → its last activity when archived.
+ * Shared computer ↔ phone (`agents.archived`): its id → its last activity when archived.
  */
 const KEY = 'agents.archived'
 

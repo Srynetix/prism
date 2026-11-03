@@ -1,7 +1,7 @@
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 
 /**
- * The system's notifications, on the Mac: asked for once, then sent. Every module that notifies
+ * The system's notifications, on the computer: asked for once, then sent. Every module that notifies
  * (desk events, digest, agenda, reminders) goes through here; the chains notify from Rust.
  */
 let permission: Promise<boolean> | null = null

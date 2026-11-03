@@ -28,7 +28,7 @@ function save(doc: UsageDoc) {
   write('usage', doc)
 }
 
-/** One more use of `id` today. A phone's page counts nothing: its Mac's window does. */
+/** One more use of `id` today. A phone's page counts nothing: its computer's window does. */
 export function used(id: string) {
   if (hasCore() && !isDesktop()) return
   const doc = state.doc ?? loaded()

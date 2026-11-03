@@ -5,11 +5,11 @@
   import { api, create, get, supported } from './passkey'
 
   /**
-   * Before the remote: pairing this phone (the address of the Mac's QR code, `/pair#<token>`),
+   * Before the remote: pairing this phone (the address of the computer's QR code, `/pair#<token>`),
    * or unlocking it with its passkey. `ready` once a session is open.
    * Locked, a phone's lock screen: the time and the date, Prism's mark, Unlock at the thumb.
-   * Pairing, its three steps shown, the code the Mac checks in large digits.
-   * `preview` (development only, `remote.html?gate=<step>`): a step shown without a Mac.
+   * Pairing, its three steps shown, the code the computer checks in large digits.
+   * `preview` (development only, `remote.html?gate=<step>`): a step shown without a computer.
    */
   type Step = 'name' | 'passkey' | 'confirm' | 'login'
   let { paired, ready, preview }: { paired: boolean; ready: () => void; preview?: Step } = $props()
@@ -59,7 +59,7 @@
       wait()
     })
 
-  /** Until the Mac confirms the code: then the session's cookie arrives. */
+  /** Until the computer confirms the code: then the session's cookie arrives. */
   async function wait() {
     for (;;) {
       await new Promise((r) => setTimeout(r, 1000))

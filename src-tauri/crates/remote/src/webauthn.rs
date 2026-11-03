@@ -27,7 +27,7 @@ pub struct Party {
 
 impl Party {
     /// From the address phones open: `https://mac.tail1234.ts.net` (or `http://localhost:…`,
-    /// which browsers treat as secure, to try it on the Mac).
+    /// which browsers treat as secure, to try it on the computer).
     pub fn of(url: &str) -> Result<Self> {
         let u = url::Url::parse(url).with_context(|| format!("not an address: {url}"))?;
         let host = u.host_str().context("an address without a host")?.to_string();

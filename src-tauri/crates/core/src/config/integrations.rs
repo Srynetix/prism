@@ -114,7 +114,7 @@ impl Default for CalendarConfig {
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum CalendarProvider {
-    /// EventKit: the accounts added to the Mac's Calendar, Exchange and Google included.
+    /// EventKit: the accounts added to macOS's Calendar, Exchange and Google included.
     #[default]
     Macos,
     /// The Google Calendar API, signed in with `[google]`.

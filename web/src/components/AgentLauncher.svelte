@@ -35,8 +35,8 @@
    */
   let quick = $state(false)
   /**
-   * On the phone (the remote): its "Then" run by Prism on the Mac, as the desk's; a task step
-   * is one of the tasks its folder declares, picked, never a command line typed (the Mac checks).
+   * On the phone (the remote): its "Then" run by Prism on the computer, as the desk's; a task step
+   * is one of the tasks its folder declares, picked, never a command line typed (the computer checks).
    */
   const onPhone = document.documentElement.classList.contains('remote')
 

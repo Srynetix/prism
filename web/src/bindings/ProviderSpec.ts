@@ -7,7 +7,7 @@ import type { AgentProvider } from "./AgentProvider";
  */
 export type ProviderSpec = { provider: AgentProvider, 
 /**
- * Its usual executable (`program`, the Mac's).
+ * Its usual executable (`program`, the computer's).
  */
 program: string, 
 /**

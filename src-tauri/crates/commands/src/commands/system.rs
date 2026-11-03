@@ -52,7 +52,7 @@ pub fn restart_app(state: State<'_, AppState>) {
 }
 
 /// Restarts or shuts down the computer (`restart`, `shutdown`): from a phone only (More › The
-/// Mac), with `[remote] power` and its passkey (the remote's server). With FileVault, a restart
+/// computer), with `[remote] power` and its passkey (the remote's server). With FileVault, a restart
 /// takes the user's `password` (typed on the phone, never kept): the Mac comes back by itself,
 /// without waiting for it at startup.
 #[prism_macros::command]
@@ -71,7 +71,7 @@ pub async fn mac_power(action: String, password: Option<String>) -> Cmd {
         crate::platform::arm_unlock(&password, true).await?;
         return Ok(());
     }
-    // Cancelled by an app with unsaved work: said where it shows (Problems), on the Mac and the phone.
+    // Cancelled by an app with unsaved work: said where it shows (Problems), on the computer and the phone.
     prism_base::rt::spawn(async {
         tokio::time::sleep(std::time::Duration::from_secs(120)).await;
         tracing::error!("power: the Mac did not restart (an application refused?) and FileVault's unlock is armed until it does: restart it");

@@ -2,8 +2,8 @@ import { invoke } from '../bridge'
 import { t } from '../i18n.svelte'
 
 /**
- * This phone's notifications (`[remote] push`): subscribed with the Mac's VAPID key, the
- * subscription's endpoint handed to the Mac, which pushes nothing but a wake-up.
+ * This phone's notifications (`[remote] push`): subscribed with the computer's VAPID key, the
+ * subscription's endpoint handed to the computer, which pushes nothing but a wake-up.
  */
 const key = (b64: string): Uint8Array<ArrayBuffer> => Uint8Array.from(atob(b64.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
 

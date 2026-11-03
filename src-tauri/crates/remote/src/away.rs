@@ -1,4 +1,4 @@
-//! Settings › Remote › Away: what decides whether the Mac stays within reach of the phone for
+//! Settings › Remote › Away: what decides whether the computer stays within reach of the phone for
 //! days without anyone at it — its sleep, its restarts (macOS updates, FileVault, a power cut),
 //! Prism itself. Read when the page opens; nothing is changed.
 

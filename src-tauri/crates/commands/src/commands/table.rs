@@ -2,7 +2,7 @@
 //! (`prism_core::remote`), and what the demo profile does with it. `tauri_handler()` registers
 //! them with Tauri (the window's own, `desk`, its app does), `class()` answers the remote, and the
 //! demo profile's guard is derived from the class: a command that acts (`Act`, `Critical`) is
-//! refused there, unless it answers the demo itself (`[demo: own]`); one that acts on the Mac or
+//! refused there, unless it answers the demo itself (`[demo: own]`); one that acts on the computer or
 //! an account is refused too (`[demo: refused]`).
 //! `block_call` takes the class its block gives the command (`remote::block_class`).
 
@@ -112,7 +112,7 @@ commands! {
     config::remote_project_search: Read [phone: workspace: String, query: String],
     config::remote_project_clone: Critical [demo: refused] [phone: workspace: String, project: String],
     config::remote_project_publish: Critical [demo: refused] [phone: name: String, remote: crate::clones::NewRemote],
-    // What opens something on the Mac, or belongs to its window.
+    // What opens something on the computer, or belongs to its window.
     system::open_repo: Never [demo: refused],
     system::open_logs: Never,
     integrations::mail_open: Never [demo: refused],
@@ -264,7 +264,7 @@ commands! {
     // Free text sent to an agent, Enter included: from a phone, `agent_type` (typing, its passkey).
     agents::agent_prompt: Never [demo: refused],
     agents::agent_send: Never [demo: refused],
-    // A quick answer: the config's text, filled and checked on the Mac (no free text).
+    // A quick answer: the config's text, filled and checked on the computer (no free text).
     agents::agent_quick_answer: Act [phone: state, id: String, label: String, text: String],
     // The agent's own suggestion, checked on its screen (no free text).
     agents::agent_send_suggestion: Act [phone: state, id: String, text: String],

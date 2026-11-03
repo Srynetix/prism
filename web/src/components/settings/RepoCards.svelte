@@ -19,7 +19,7 @@
    * Settings › Repositories: the `[[repos]]` as cards, grouped by working folder (`[[workspaces]]`,
    * the folder their clone is in), then those without a clone (their MRs only) and those whose
    * clone is elsewhere. A card folds to one line, its switches as chips; open, its identity, what
-   * Prism reads of it on this Mac (needs the clone) and on the forge (needs the project), the
+   * Prism reads of it on this computer (needs the clone) and on the forge (needs the project), the
    * blocks that read it and its branches. A working folder's header holds its own keys and adds a
    * clone or a project there.
    */

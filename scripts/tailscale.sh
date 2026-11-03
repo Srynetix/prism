@@ -2,7 +2,7 @@
 # Tailscale for Prism's remote, beside a VPN: the open-source tailscaled in userspace mode, which
 # creates no network interface, route nor DNS setting (the Tailscale app does, and fights a VPN
 # for them). It only connects out to the tailnet; `tailscale serve`, run by Prism, brings phones
-# to Prism's loopback port through it. Nothing else of the Mac, nor of the VPN's network, is
+# to Prism's loopback port through it. Nothing else of the computer, nor of the VPN's network, is
 # reachable: no subnet router, no exit node.
 #
 #   scripts/tailscale.sh [up | down | status]
@@ -44,7 +44,7 @@ case "${1:-up}" in
       [[ -S "$sock" ]] || { echo "tailscaled did not start: see $dir/tailscaled.log" >&2; exit 1; }
       echo "tailscaled started (userspace), log: $dir/tailscaled.log"
     fi
-    # Its own name in the tailnet, apart from the Tailscale app's node of this Mac.
+    # Its own name in the tailnet, apart from the Tailscale app's node of this computer.
     ts up --hostname="prism-$(hostname -s | tr '[:upper:]' '[:lower:]')"
     ts status --self --peers=false || true
     echo

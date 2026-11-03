@@ -308,7 +308,7 @@ pub enum AgentState {
     Running,
     /// Claude has exited; its last screen stays displayed.
     Exited,
-    /// No tmux session anymore (Mac restarted): the agent can resume its conversation.
+    /// No tmux session anymore (the computer restarted): the agent can resume its conversation.
     Gone,
     /// Declared, not started: its launch is ready, nothing runs and no worktree exists yet.
     Prepared,

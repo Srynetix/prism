@@ -646,7 +646,7 @@
   /*
    * On the phone: a note's text over the full width, its time and actions on a line under it,
    * every one of them shown (no hover) and big enough for a thumb; a status box a thumb can hit;
-   * the input at 16 px (below that, iOS zooms in on focus), without the Mac's shortcut.
+   * the input at 16 px (below that, iOS zooms in on focus), without the computer's shortcut.
    */
   :global(html.remote) .note { flex-wrap: wrap; row-gap: 0; padding: 8px 12px; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
   :global(html.remote) .sec + .note { border-top: none; }
