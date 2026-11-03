@@ -90,7 +90,7 @@ sends your review notes back as a prompt. Stale worktrees are spotted and cleane
   own tunnel), paired with a QR code and unlocked with a passkey; what it may do (read, act,
   merge, type to an agent) is yours to switch on, critical actions confirmed each time.
 - **Another computer's Prism**: a server running `prism-server` (no window, no WebKit) or a second
-  Mac opens in a window of this one, its agents, terminals and settings with it; paired with a
+  desktop opens in a window of this one, its agents, terminals and settings with it; paired with a
   code, its critical actions confirmed with Touch ID (polkit on Linux), its waiting agents in your
   status bar and notifications.
 

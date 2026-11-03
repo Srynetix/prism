@@ -46,7 +46,7 @@ pub(crate) fn offer(inner: &Inner, device: &str, prepared: Value) -> anyhow::Res
     Ok(json!({ "name": name, "url": format!("{}/api/download/{token}", inner.base()) }))
 }
 
-/// The file the Mac prepared offered to a peer's window (`peers`, `name`): the name to save it
+/// The file this Prism prepared offered to a peer's window (`peers`, `name`): the name to save it
 /// under and the token of its address (`/peer/download/<token>`, its profile's path added there).
 pub(crate) fn offer_peer(inner: &Inner, peer: &str, prepared: Value) -> anyhow::Result<Value> {
     let name = prepared["name"].as_str().context("a name")?.to_string();

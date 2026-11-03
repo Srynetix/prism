@@ -1,4 +1,4 @@
-//! The person at the Mac, confirmed by LocalAuthentication: Touch ID, or the Mac's password where
+//! The person at this Mac, confirmed by LocalAuthentication: Touch ID, or the account's password where
 //! there is none (or it is locked out), as macOS asks it in its own sheet.
 
 use std::{sync::mpsc, time::Duration};
