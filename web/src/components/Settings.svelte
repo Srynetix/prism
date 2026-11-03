@@ -227,7 +227,7 @@
 
   /* ---------- Appearance ---------- */
   /** One switch per feature, in config.example.toml order. */
-  /** Offered fonts, those installed on this Mac first (the others remain possible). */
+  /** Offered fonts, those installed on this computer first (the others remain possible). */
   const fontChoices = (list: string[]) => {
     const found = list.filter(installed)
     return [...found.map((f) => ({ name: f, here: true })), ...list.filter((f) => !found.includes(f)).map((f) => ({ name: f, here: false }))]

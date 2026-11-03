@@ -404,7 +404,7 @@ mod tests {
         assert!(m.cores > 0 && mem.total > 0);
     }
 
-    /// This Mac's disks, as shown: `cargo test -p prism-blocks this_machines_disks -- --ignored --nocapture`.
+    /// This computer's disks, as shown: `cargo test -p prism-blocks this_machines_disks -- --ignored --nocapture`.
     #[test]
     #[ignore]
     fn this_machines_disks() {

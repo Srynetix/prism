@@ -6,7 +6,7 @@
   import type { AwayCheck } from '../../bindings/AwayCheck'
 
   /**
-   * Settings › Remote › Away: before leaving the Mac for days, what keeps it within reach of the
+   * Settings › Remote › Away: before leaving the computer for days, what keeps it within reach of the
    * phone — its sleep, its restarts (macOS updates, FileVault, a power cut), Prism itself. Read on
    * opening and on demand (after a save above); nothing is changed here.
    */

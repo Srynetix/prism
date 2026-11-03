@@ -279,7 +279,7 @@ export const SESSION_LABEL: Record<ClaudeSession['status'], string> = {
 export const waitsForYou = (s: ClaudeSession['status']) => s === 'needs_you' || s === 'waiting_tool'
 /** Working: on its turn, or its turn over while its subagents or background tasks go on. */
 export const isWorking = (s: ClaudeSession['status']) => s === 'running' || s === 'background'
-/** An agent that does not run, in words: the same on the Mac and the phone. */
+/** An agent that does not run, in words: the same on the computer and the phone. */
 export const AGENT_STATE: Record<Agent['state'], string> = { running: '', exited: tr('Exited'), gone: tr('Stopped'), prepared: tr('Prepared') }
 /** An agent's state in words: its CLI's while it runs, otherwise why it stopped; `short` in the phone's header. */
 export const agentStateLabel = (a: Agent, short = false) =>

@@ -108,7 +108,7 @@ page_swipe: boolean,
 pin_drawers: boolean, 
 /**
  * The status bar's order: item ids, `|` parting the left side from the right; an item left
- * out takes its default place. Empty: by zone (what waits for you, the work, the Mac).
+ * out takes its default place. Empty: by zone (what waits for you, the work, the computer).
  */
 statusbar: Array<string>, 
 /**

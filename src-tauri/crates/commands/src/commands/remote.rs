@@ -20,7 +20,7 @@ pub async fn remote_restart(state: State<'_, AppState>) -> Cmd {
     Ok(())
 }
 
-/// Settings › Remote › Away: what keeps the Mac within reach of the phone for days, or not.
+/// Settings › Remote › Away: what keeps the computer within reach of the phone for days, or not.
 #[prism_macros::command]
 pub async fn remote_away_checks() -> Cmd<Vec<prism_core::state::AwayCheck>> {
     let cfg = crate::config::load(&crate::config_path())?;

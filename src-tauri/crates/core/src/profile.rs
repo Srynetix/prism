@@ -142,7 +142,7 @@ fn lock_path(id: &str) -> PathBuf {
     data_dir_of(&data_base(), id).join("instance.pid")
 }
 
-/// What a Prism tells the others open on this Mac of its agents (`presence.json`, in its data
+/// What a Prism tells the others open on this computer of its agents (`presence.json`, in its data
 /// folder): another profile's status bar shows who waits here, without the remote.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Presence {

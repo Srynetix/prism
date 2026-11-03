@@ -13,7 +13,7 @@
   import type { Agent } from '../../types'
 
   /**
-   * Search in every file of the agent's folder (⌘⇧F): `git grep` on the Mac — tracked and
+   * Search in every file of the agent's folder (⌘⇧F): `git grep` on the computer — tracked and
    * untracked files, `.gitignore` honoured, binaries skipped — as you type. Case, whole words, a
    * regular expression; globs to include or leave out (`src/**`, `!*.test.ts`); the changed files
    * only. A line found opens its file there. Replace all writes each file found (as it was read,

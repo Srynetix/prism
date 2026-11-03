@@ -45,7 +45,7 @@
   const size = (n: number) => (n < 1024 ? `${n} B` : n < 1 << 20 ? `${Math.round(n / 1024)} KB` : `${(n / (1 << 20)).toFixed(1)} MB`)
   const folderOf = (p: string) => p.slice(0, p.lastIndexOf('/') + 1)
   const phone = !isDesktop()
-  /** The Mac's editor: not from a phone, which cannot open an app there. */
+  /** The computer's editor: not from a phone, which cannot open an app there. */
   const editor = $derived(isDesktop() ? live.snapshot?.open_with?.editor : undefined)
 
   const key = $derived(keyOf(agent.id, path))

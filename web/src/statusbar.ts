@@ -6,7 +6,7 @@ import { BLOCK_DEFS } from './blocks'
  *
  * Its order is `[appearance] statusbar` (empty: `DEFAULT_ORDER`), `|` parting the left side from
  * the right; `[appearance] statusbar_hidden` the items hidden. Each item belongs to a zone, what
- * it asks of you: `you` (waits for an action), `work` (context), `machine` (the Mac and Prism);
+ * it asks of you: `you` (waits for an action), `work` (context), `machine` (the computer and Prism);
  * consecutive items of a zone are drawn together, between thin separators. Squeezed, the bar moves
  * its least needed items (`rank`) into a ⋯ at its end, never those of `you`.
  */

@@ -16,7 +16,7 @@
   import { t } from '../i18n.svelte'
 
   /**
-   * An agent's Chat on the Mac, in place of its terminal (which stays attached under it): its
+   * An agent's Chat on the computer, in place of its terminal (which stays attached under it): its
    * conversation from its transcript, its questions answered as cards, and a box to write to it.
    * The text goes through the inbox, as a quick answer: at once, even while it works or once
    * interrupted (its CLI reads it when its turn is over); held only while a menu of its waits. Enter sends, ⇧Enter adds a line, `/` offers its CLI's commands, Tab takes the

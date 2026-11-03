@@ -3,7 +3,7 @@ import { rawAppearance } from './fun.svelte'
 
 /**
  * App fonts (`[appearance] font`, `font_mono` and `font_terminal`): the name of a family installed
- * on the Mac, placed in front of the default stack of `--sans` and `--mono` (app.css), which stays the
+ * on the computer, placed in front of the default stack of `--sans` and `--mono` (app.css), which stays the
  * fallback. Empty: Inter (bundled) for text, Recursive Mono (bundled) for code, and
  * RecMonoCasual Nerd Font Mono (bundled) for the terminals (`--mono-term`).
  */
@@ -11,7 +11,7 @@ export const SANS_STACK = "'Inter', 'Twemoji', 'Prism Symbols', system-ui, sans-
 export const MONO_STACK = "'Recursive Mono', 'Twemoji', 'Prism Symbols', ui-monospace, 'SF Mono', Menlo, monospace"
 /** The terminals' default: a Nerd Font, for the prompts' icons, bundled in the app. */
 export const TERMINAL_FONT = 'RecMonoCasual Nerd Font Mono'
-/** The fonts the app carries (app.css): loaded from it, never looked for on the Mac. */
+/** The fonts the app carries (app.css): loaded from it, never looked for on the computer. */
 const BUNDLED = ['Inter', 'Nunito', 'Source Serif 4', 'Jost', 'Recursive Mono', 'Twemoji', 'Prism Symbols', TERMINAL_FONT]
 
 /** Suggestions: macOS's, then the most common among developers. */

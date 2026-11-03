@@ -114,7 +114,7 @@ Les Alertes signalent un conteneur en mauvaise santé, qui redémarre en boucle 
 [Ouvrir Réglages › Infra › Docker](prism:settings/docker)
 
 ## Système
-Le bloc **Système** montre ce que le Mac a sous le pied pendant que tournent les agents, les serveurs de dev et Docker. Il est activé par défaut (Réglages › Infra › Système) ; ajoutez-le à une page.
+Le bloc **Système** montre ce que l’ordinateur a sous le pied pendant que tournent les agents, les serveurs de dev et Docker. Il est activé par défaut (Réglages › Infra › Système) ; ajoutez-le à une page.
 
 - **CPU**, **Mémoire** et **Réseau**, chacun avec ses 10 dernières minutes. La couleur de la mémoire est la pression mémoire de macOS : vert, orange quand il compresse, rouge quand il swappe ; la barre répartit ce que tiennent les apps, le système (wired) et le compresseur.
 - **Disque** : l’espace libre du disque qui contient votre dossier personnel — orange sous 10 % ou 25 Go, rouge sous 5 % ou 10 Go, limites réglées dans Réglages › Infra › Système (`[system] disk_warn_gb`, `disk_warn_percent`, `disk_alert_gb`, `disk_alert_percent` ; 0 en désactive une) — et, sous **Disques**, les volumes externes branchés. Sur macOS, c’est ce qu’un fichier peut encore occuper : le Finder ajoute l’espace que le système pourrait purger.
@@ -123,7 +123,7 @@ Le bloc **Système** montre ce que le Mac a sous le pied pendant que tournent le
 
 Dans la barre d’état : le CPU avec ses dernières minutes, la RAM et la latence ; un clic affiche le bloc. Les Alertes signalent une pression mémoire rouge et un disque presque plein (tous deux avec une notification), un disque qui se remplit, un CPU à 90 % ou plus pendant 5 minutes, et plus de 5 % de poignées de main perdues (`[system] alerts`).
 
-Sur le téléphone, **Système** est l’une des vues de l’accès à distance (sous **Plus**, ou un onglet du bas avec `[remote] tabs`) : les jauges deux par deux, puis qui consomme, les disques et le réseau. Le bloc prend aussi cette disposition dans une colonne étroite sur le Mac.
+Sur le téléphone, **Système** est l’une des vues de l’accès à distance (sous **Plus**, ou un onglet du bas avec `[remote] tabs`) : les jauges deux par deux, puis qui consomme, les disques et le réseau. Le bloc prend aussi cette disposition dans une colonne étroite sur l’ordinateur.
 
 [Ouvrir le bloc Système](prism:block/system)
 [Ouvrir Réglages › Infra › Système](prism:settings/system)

@@ -208,7 +208,7 @@ pub fn deps_changed(dir: &Path, since: std::time::SystemTime) -> Vec<String> {
 /// Beyond this, a download is refused.
 pub const MAX_DOWNLOAD: u64 = 256 << 20;
 
-/// A download made ready for a phone (`prepare`): its name, and the file of the Mac's it was
+/// A download made ready for a phone (`prepare`): its name, and the file of the computer's it was
 /// written to, which the remote serves once, then removes.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Prepared {

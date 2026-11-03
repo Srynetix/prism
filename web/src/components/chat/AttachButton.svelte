@@ -4,7 +4,7 @@
   import { t } from '../../i18n.svelte'
 
   /**
-   * An agent's Chat box: attach images, from the Mac's files or a phone's photos and camera. Saved
+   * An agent's Chat box: attach images, from the computer's files or a phone's photos and camera. Saved
    * where it reads them (`.prism/attach/`), their `@path` added to the draft, sent with it.
    */
   let { id, text, write, disabled = false, onerror, phone = false }: { id: string; text: string; write: (t: string) => void; disabled?: boolean; onerror: (e: string | null) => void; phone?: boolean } = $props()

@@ -1,6 +1,6 @@
 //! An agent's pages on a phone (its Web tab): a mockup, a report, an artifact of its session,
 //! served for real (its scripts, the files next to it) at `/page/<token>/<path>`, as `prismfile:`
-//! serves them on the Mac. The token is the right to read: one agent's folder, or its scratchpad,
+//! serves them on the computer. The token is the right to read: one agent's folder, or its scratchpad,
 //! for an hour after it was last used. The page never runs as the remote's page: its CSP's
 //! `sandbox` gives it an opaque origin, so the session's cookie (SameSite=Strict) does not go with
 //! its requests and the socket refuses its origin; it fetches only under its own token.
@@ -68,7 +68,7 @@ fn sweep(open: &mut HashMap<String, Open>) {
 /// that serve packages and fonts, whose request logs a page's author cannot read.
 const PAGE_CDNS: &str = "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com https://esm.sh https://cdn.tailwindcss.com https://code.jquery.com https://fonts.googleapis.com https://fonts.gstatic.com";
 
-/// The CSP of an agent's page (Mac `prismfile:` and phone `/page/`), `own` being its own
+/// The CSP of an agent's page (the desktop's `prismfile:` and phone `/page/`), `own` being its own
 /// files' source and `connect` what it may fetch. Sandboxed (an opaque origin, no popup), it
 /// reads its folder but has no way to send what it read out: no `https:` at large, so no
 /// image, script or frame address to carry it, no form, no socket.

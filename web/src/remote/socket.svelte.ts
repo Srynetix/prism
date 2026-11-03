@@ -18,28 +18,28 @@ export interface Hello {
   classes: string[]
   /// `[remote] typing`: an agent's terminal can be taken.
   typing: boolean
-  /// `[remote] power`: the Mac can be restarted or shut down, confirmed by the passkey.
+  /// `[remote] power`: the computer can be restarted or shut down, confirmed by the passkey.
   power?: boolean
   /**
-   * With `power`: whether a restart brings the Mac back by itself. `password`: FileVault, the
+   * With `power`: whether a restart brings the computer back by itself. `password`: FileVault, the
    * Mac's password typed for the restart to skip the unlock at startup; `stuck`: FileVault on a Mac
    * without authenticated restarts, it waits at startup.
    */
   unlock?: 'free' | 'password' | 'stuck' | null
   /** `[remote] settings`: More › Settings, read and the few phone keys changed. */
   settings?: boolean
-  /** `[remote] projects`: More › New project, in the Mac's working folder, confirmed by the passkey. */
+  /** `[remote] projects`: More › New project, in the computer's working folder, confirmed by the passkey. */
   projects?: boolean
   /** `[remote] preview`: the dev servers open on the phone, through the preview's address. */
   preview?: boolean
-  /// `[remote] push`: the Mac's VAPID key, to subscribe with.
+  /// `[remote] push`: the computer's VAPID key, to subscribe with.
   push: string | null
 }
 
 
 /**
  * `connected`: the socket is open. `away`: it has been closed for a while (`GRACE`): what the page
- * shows as the Mac out of reach, a reconnection of a moment going unseen.
+ * shows as the computer out of reach, a reconnection of a moment going unseen.
  */
 export interface SocketState {
   connected: boolean
@@ -53,11 +53,11 @@ export interface SocketState {
 export const socketState = $state<SocketState>({ connected: false, away: false, hello: null, ended: false, error: null })
 const ownState = socketState
 
-/** Closed for this long, the Mac is shown out of reach. */
+/** Closed for this long, the computer is shown out of reach. */
 const GRACE = 5000
 /** A call made while the socket reconnects waits this long for it. */
 const WAIT_OPEN = 12_000
-/** The Mac's sign of life comes every 10 s: nothing heard for this long, the socket is dead. */
+/** The computer's sign of life comes every 10 s: nothing heard for this long, the socket is dead. */
 const SILENT = 30_000
 
 /**
@@ -94,7 +94,7 @@ export function openSocket(onEnded: () => void, opts: { base?: string; state?: S
     for (const h of listeners.get(event) ?? []) h({ event, id: 0, payload } as never)
   }
 
-  /** The socket lost: the calls it carried may not have reached the Mac, they fail. */
+  /** The socket lost: the calls it carried may not have reached the computer, they fail. */
   const dropped = () => {
     socketState.connected = false
     grace ??= setTimeout(() => (socketState.away = true), GRACE)
@@ -166,7 +166,7 @@ export function openSocket(onEnded: () => void, opts: { base?: string; state?: S
       retry = setTimeout(connect, delay)
       delay = Math.min(delay * 2, 5000)
       // A socket refused before it opens says nothing of why (a 401 reads as any close): after two,
-      // the Mac is asked whether this page's session still holds. A Prism that came back without
+      // the computer is asked whether this page's session still holds. A Prism that came back without
       // it (ended meanwhile, or older than its 12 hours) wants the passkey again, not a retry.
       if (++failed >= 2) void sessionGone().then((gone) => {
         if (!gone || socketState.ended || ws !== sock) return
@@ -179,7 +179,7 @@ export function openSocket(onEnded: () => void, opts: { base?: string; state?: S
   }
   connect()
 
-  /** The Mac answers, and this page has no session there (the Mac out of reach: not gone). */
+  /** The computer answers, and this page has no session there (the computer out of reach: not gone). */
   const sessionGone = () =>
     fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' })
       .then((r) => (r.ok ? (r.json() as Promise<{ device: string | null }>) : null))

@@ -198,7 +198,7 @@ pub struct AgentsConfig {
     pub permission_mode: String,
     /// Terminal text size, in points.
     pub font_size: f32,
-    /// Text size of an agent's Chat on the Mac (its conversation), in points; the rest of the Chat
+    /// Text size of an agent's Chat on the computer (its conversation), in points; the rest of the Chat
     /// (its steps, its cards) scaled with it.
     pub chat_font_size: f32,
     /// Lines kept by an agent's terminal, on top of tmux's history.
@@ -234,7 +234,7 @@ pub struct AgentsConfig {
     /// Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
     /// to Prism, as everywhere else.
     pub terminal_keys: Vec<String>,
-    /// How an agent is read on the Mac, until its own Terminal | Chat says otherwise: `chat` (its
+    /// How an agent is read on the computer, until its own Terminal | Chat says otherwise: `chat` (its
     /// conversation, from its transcript: Claude Code, Codex) or `terminal`. The others: their terminal.
     #[cfg_attr(feature = "ts", ts(type = "'chat' | 'terminal'"))]
     pub view: String,
@@ -242,7 +242,7 @@ pub struct AgentsConfig {
     /// (its counts: files edited, commands, failures), unfolded on a click; the turn under way
     /// shows its last ones. Off: one line per call.
     pub fold_steps: bool,
-    /// An agent's header on the Mac: `read`, its ticket, MR, branch, kind and tags on a
+    /// An agent's header on the computer: `read`, its ticket, MR, branch, kind and tags on a
     /// quiet line, changed behind Edit; `edit`, their fields always there.
     #[cfg_attr(feature = "ts", ts(type = "'read' | 'edit'"))]
     pub header_meta: String,

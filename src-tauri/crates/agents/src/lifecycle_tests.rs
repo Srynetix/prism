@@ -107,7 +107,7 @@ async fn resume_relaunches_only_a_stopped_agent() {
     b.agents.resume(&id).await.unwrap();
     assert_eq!(b.tmux.calls_of("respawn-pane").len(), 1, "its pane is reused");
     assert_eq!(b.shown(&id).await.unwrap().state, AgentState::Running);
-    // Its tmux session lost (a Mac restart): a new one.
+    // Its tmux session lost (a computer restart): a new one.
     b.tmux.crash();
     b.agents.resume(&id).await.unwrap();
     assert_eq!(b.tmux.calls_of("new-session").len(), 2);

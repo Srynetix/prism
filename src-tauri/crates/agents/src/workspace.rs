@@ -19,7 +19,7 @@ impl Agents {
         files::list(&self.dir(id)?, ignored).await
     }
 
-    /// Files of the agent's folder written to `dest` (the Mac's save dialog): one as it is,
+    /// Files of the agent's folder written to `dest` (the computer's save dialog): one as it is,
     /// several or a folder as a zip, as it goes. The name to save it under.
     pub async fn export(&self, id: &str, paths: Vec<String>, name: String, max: u64, dest: PathBuf) -> Result<String> {
         let dir = self.dir(id)?;

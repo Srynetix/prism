@@ -70,8 +70,8 @@
   type Show = 'mine' | 'open' | 'unassigned' | 'done' | 'all'
   type Group = 'status' | 'assignee' | 'none' | string
   /**
-   * On the phone (the remote), "Mine" (my open tickets) first, "Open" by default as on the Mac,
-   * remembered under `<id>.phoneShow`: this phone's own, the Mac's `<id>.show` untouched.
+   * On the phone (the remote), "Mine" (my open tickets) first, "Open" by default as on the computer,
+   * remembered under `<id>.phoneShow`: this phone's own, the computer's `<id>.show` untouched.
    */
   const phone = document.documentElement.classList.contains('remote')
   const showKey = phone ? 'phoneShow' : 'show'

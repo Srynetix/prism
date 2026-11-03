@@ -26,7 +26,7 @@
   }
 
   /**
-   * The snapshot's recent days; the older ones asked of the Mac the first time ‹ needs them (the
+   * The snapshot's recent days; the older ones asked of the computer the first time ‹ needs them (the
    * period shown, or the one it is compared with), then kept: they no longer change.
    */
   const recent = $derived(usage?.days ?? [])

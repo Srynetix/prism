@@ -7,7 +7,7 @@
   import type { Agent, AgentProvider } from '../types'
 
   /**
-   * An agent's CLI in its header: a chip whose menu lists the other CLIs found on the Mac, each
+   * An agent's CLI in its header: a chip whose menu lists the other CLIs found on the computer, each
    * with its plan's use, to continue with (agent-switch.svelte.ts). A prepared agent's is read
    * only: its launch is changed in the launcher.
    */

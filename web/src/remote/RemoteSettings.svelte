@@ -8,11 +8,11 @@
   import Icon from '../components/Icon.svelte'
 
   /**
-   * More › Settings on a phone (`[remote] settings`): the Mac's Settings tree, every value read,
-   * and the few keys the Mac lets a phone change (`PHONE_SETTINGS`, listed in `editable`) edited
-   * in place, then saved together after a summary and the passkey. The Mac checks each key again:
+   * More › Settings on a phone (`[remote] settings`): the computer's Settings tree, every value read,
+   * and the few keys the computer lets a phone change (`PHONE_SETTINGS`, listed in `editable`) edited
+   * in place, then saved together after a summary and the passkey. The computer checks each key again:
    * the page only offers what it would accept. Sections drawn by Settings itself (profiles, packs,
-   * console…) are shown on the Mac only.
+   * console…) are shown on the computer only.
    */
   let { node, open }: { node: string | null; open: (id: string) => void } = $props()
 
@@ -25,7 +25,7 @@
     editable: string[]
   }
 
-  /** `[appearance]` is drawn by Settings itself on the Mac: its plain keys, for the phone. */
+  /** `[appearance]` is drawn by Settings itself on the computer: its plain keys, for the phone. */
   const APPEARANCE: SectionSpec = {
     id: 'appearance', label: t('Appearance'), table: '[appearance]', path: ['appearance'],
     fields: [
@@ -44,7 +44,7 @@
 
   let data = $state<PhoneSettings | null>(null)
   let loadError = $state<string | null>(null)
-  /** The preview (no Mac): the snapshot's few settings, saved nowhere. */
+  /** The preview (no computer): the snapshot's few settings, saved nowhere. */
   const preview = !hasCore()
 
   async function load() {
@@ -61,7 +61,7 @@
       loadError = e instanceof Error ? e.message : String(e)
     }
   }
-  /** The preview's stand-in for the Mac's `PHONE_SETTINGS` (src-tauri, config/remote.rs), which decides. */
+  /** The preview's stand-in for the computer's `PHONE_SETTINGS` (src-tauri, config/remote.rs), which decides. */
   const EDITABLE_PREVIEW = [
     ...['digest', 'digest_times', 'digest_urgent', 'quiet_hours', 'focus_events', 'behind_commits', 'pending_job_minutes', 'review_wait_hours', 'doing_idle_days', 'waiting_session_hours', 'argo_out_of_sync_minutes', 'meeting_lead_minutes', 'worktree_in_use_hours', 'large_mr_lines'].map((k) => `alerts.${k}`),
     ...['theme', 'language', 'density', 'animations', 'tooltips', 'screensaver', 'screensaver_seconds'].map((k) => `appearance.${k}`),

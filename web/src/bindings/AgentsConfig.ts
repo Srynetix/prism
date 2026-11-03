@@ -43,7 +43,7 @@ permission_mode: 'default' | 'acceptEdits' | 'plan',
  */
 font_size: number, 
 /**
- * Text size of an agent's Chat on the Mac (its conversation), in points; the rest of the Chat
+ * Text size of an agent's Chat on the computer (its conversation), in points; the rest of the Chat
  * (its steps, its cards) scaled with it.
  */
 chat_font_size: number, 
@@ -102,7 +102,7 @@ quick_answers: QuickAnswersConfig,
  */
 terminal_keys: Array<string>, 
 /**
- * How an agent is read on the Mac, until its own Terminal | Chat says otherwise: `chat` (its
+ * How an agent is read on the computer, until its own Terminal | Chat says otherwise: `chat` (its
  * conversation, from its transcript: Claude Code, Codex) or `terminal`. The others: their terminal.
  */
 view: 'chat' | 'terminal', 
@@ -113,7 +113,7 @@ view: 'chat' | 'terminal',
  */
 fold_steps: boolean, 
 /**
- * An agent's header on the Mac: `read`, its ticket, MR, branch, kind and tags on a
+ * An agent's header on the computer: `read`, its ticket, MR, branch, kind and tags on a
  * quiet line, changed behind Edit; `edit`, their fields always there.
  */
 header_meta: 'read' | 'edit', 

@@ -466,8 +466,8 @@ export const runInShell = (id: string, n: number | null, command: string, opts: 
 export const agentFiles = (id: string, ignored = false) => invoke<AgentFileListing>('agent_files', { id, ignored })
 /**
  * Files of the agent's folder downloaded: one file as it is, several or a folder (`dir/`) as
- * `<name>.zip`. On the Mac, saved where its dialog says (Downloads first); on a phone, prepared
- * by the Mac and fetched once from the address it gives. Its name once saved; null: cancelled.
+ * `<name>.zip`. On the computer, saved where its dialog says (Downloads first); on a phone, prepared
+ * by the computer and fetched once from the address it gives. Its name once saved; null: cancelled.
  */
 export async function downloadAgentFiles(id: string, paths: string[], name: string): Promise<string | null> {
   const single = paths.length === 1 && !paths[0].endsWith('/')
@@ -479,7 +479,7 @@ export async function downloadAgentFiles(id: string, paths: string[], name: stri
     await invoke('agent_files_export', { id, paths, name, dest })
     return dest.split('/').pop() ?? file
   }
-  // Prepared on the Mac, fetched once from its address over HTTP, streamed into the phone's downloads.
+  // Prepared on the computer, fetched once from its address over HTTP, streamed into the phone's downloads.
   const d = await invoke<AgentDownload>('agent_files_download', { id, paths, name })
   const link = Object.assign(document.createElement('a'), { href: d.url, download: d.name })
   document.body.append(link)

@@ -1,6 +1,6 @@
 //! A dev server's preview on a phone (`[remote] preview`): the app an agent's folder serves
 //! (Dev servers block), as the phone's browser runs it, hot reload included. A second loopback
-//! port (`preview_port`), behind a second address of the tunnel (Tailscale: the Mac's name on port
+//! port (`preview_port`), behind a second address of the tunnel (Tailscale: the computer's name on port
 //! 8443), forwards each request to the dev server the phone chose last (`preview_open`).
 //!
 //! Its own origin, so the app's scripts never run in the remote's page; the same host, so the
@@ -70,7 +70,7 @@ async fn proxy(State(inner): State<Shared>, req: Request) -> Response {
     if let Some(owner) = &live.owner
         && headers.get("tailscale-user-login").and_then(|h| h.to_str().ok()) != Some(owner.as_str())
     {
-        return page(StatusCode::FORBIDDEN, "Only this Mac's tailnet user.");
+        return page(StatusCode::FORBIDDEN, "Only this computer's tailnet user.");
     }
     if server::device_of(&inner, headers).is_none() {
         return page(StatusCode::UNAUTHORIZED, "Unlock Prism on this phone first, then open the preview again from Dev servers.");

@@ -135,7 +135,7 @@
     <div class="list">
       {#if audio.external && !ext}
         {@const x = audio.external}
-        <p class="group">{t('On this Mac')}<small>{appLabel(x)}</small></p>
+        <p class="group">{t('On this computer')}<small>{appLabel(x)}</small></p>
         <button class="it" style:--prov={EXT_COLOR} onclick={() => externalCommand('toggle')} title="{x.title} · {appLabel(x)}">
           <span class="pv" aria-hidden="true"><Icon name="artwork" /></span>
           <span class="name">{x.title}{#if x.artist}{' '}— {x.artist}{/if}</span>

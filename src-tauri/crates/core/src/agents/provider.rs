@@ -38,7 +38,7 @@ pub const OPENCODE_PLUGIN: &str = include_str!("opencode_plugin.ts");
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct ProviderSpec {
     pub provider: Provider,
-    /// Its usual executable (`program`, the Mac's).
+    /// Its usual executable (`program`, the computer's).
     pub program: String,
     /// It creates the agent's worktree itself (`delegates_worktree`).
     pub delegates_worktree: bool,

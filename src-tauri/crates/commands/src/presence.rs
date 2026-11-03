@@ -1,4 +1,4 @@
-//! Profiles open side by side on this Mac, each in its own Prism: each one writes what its agents
+//! Profiles open side by side on this computer, each in its own Prism: each one writes what its agents
 //! are doing (`profile::Presence`) and reads the others', for the status bar (`other_profiles`).
 
 use std::time::Duration;

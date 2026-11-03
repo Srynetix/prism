@@ -41,7 +41,7 @@
    * read-only tmux client whose size the agent's window takes while the phone is its latest
    * client (the desk typing takes it back); taken (`[remote] typing`, confirmed by the passkey),
    * a client that types too, with a keys bar; the desk taking it back, it is watched again. The
-   * phone turned, the terminal follows. A Mac too old to size a watching client gives its window's
+   * phone turned, the terminal follows. A Prism too old to size a watching client gives its window's
    * size: fitted to the width, or readable and scrolled sideways (Zoom).
    * Watched, what scrolled off its screen is above it, in the same scroll: scrolled up, it is read,
    * a tap on Live comes back down. An agent's has its tools beside it (Shell, Tasks, Web:
@@ -59,15 +59,15 @@
     status?: string
     onclose: () => void
     shell?: boolean
-    /** Its context window and what it consumed: the bar under its terminal, as on the Mac. */
+    /** Its context window and what it consumed: the bar under its terminal, as on the computer. */
     context?: Agent['context']
     usage?: Agent['usage']
   } = $props()
   /** Its agent, for the quick answers. */
   const quickAgent = $derived(live.snapshot?.agents?.find((x) => x.id === id))
-  /** Its CLI exited, or its terminal is gone (the Mac restarted): Resume picks the conversation up again. */
+  /** Its CLI exited, or its terminal is gone (the computer restarted): Resume picks the conversation up again. */
   const stopped = $derived(!shell && (quickAgent?.state === 'exited' || quickAgent?.state === 'gone'))
-  /** Prepared, not started: no terminal yet; Start launches it as prepared (its Then steps with it, on the Mac). */
+  /** Prepared, not started: no terminal yet; Start launches it as prepared (its Then steps with it, on the computer). */
   const prepared = $derived(!shell && quickAgent?.state === 'prepared')
   type Tab = 'chat' | 'terminal' | 'shell' | 'tasks' | 'web' | 'files' | 'diff' | 'activity' | 'launch' | 'notes' | 'plan'
   /** The panels the window's AgentSide shows on the phone too; Shell, Tasks and Web are the phone's own (AgentTools). */
@@ -126,7 +126,7 @@
     }
   }
   /**
-   * The text, typed as a paste then submitted, as on the Mac (even while the agent works): the
+   * The text, typed as a paste then submitted, as on the computer (even while the agent works): the
    * phone's keyboard, dictation and autocorrect. Typing (`[remote] typing`): the passkey confirms
    * it, once per agent for `[remote] step_up_minutes`, the same confirmation as Take.
    */
@@ -159,7 +159,7 @@
   let control = $state(false)
   /** Its context as a line on the dock's edge, its bar behind a tap; without the dock, the bar. */
   const ctxLine = $derived(calm && !!context && acts && !stopped && !control)
-  /** The Mac sized this terminal to the phone (watched or typed in). */
+  /** The computer sized this terminal to the phone (watched or typed in). */
   let sized = $state(false)
   let height = $state(0)
   let zoomed = $state(false)
@@ -171,7 +171,7 @@
   const fit = $derived(size && width ? Math.max(4, Math.min(13, Math.floor((width / size.cols / 0.602) * 10) / 10)) : 10)
   /** Typing: a readable font, the terminal sized to the phone. */
   const TYPING_FONT = 11
-  /** The bundled Nerd Font, as on the Mac by default: a prompt's icons are in it, not in the phone's fonts. */
+  /** The bundled Nerd Font, as on the computer by default: a prompt's icons are in it, not in the phone's fonts. */
   const TERM_FONT = terminalStack()
 
   const encoder = new TextEncoder()
@@ -266,14 +266,14 @@
   }
 
   /**
-   * A socket can die without a word (the phone asleep, a network change): the Mac's sign of life
+   * A socket can die without a word (the phone asleep, a network change): the computer's sign of life
    * every 10 s missing for 25, the terminal connects again; so it does on coming back to the
    * foreground after a while, or when the network returns.
    */
   const RECONNECTING = t('Reconnecting…')
   let heard = 0
   let retries = 0
-  /** The Mac refused this terminal (said why): trying again would not help. */
+  /** The computer refused this terminal (said why): trying again would not help. */
   let refused = false
   let hiddenAt = 0
   function revive() {
@@ -409,7 +409,7 @@
     connect(false)
   }
 
-  // A prepared agent has no terminal yet: watched once started (here or on the Mac).
+  // A prepared agent has no terminal yet: watched once started (here or on the computer).
   let waited = false
   $effect(() => {
     if (prepared) waited = true
@@ -425,7 +425,7 @@
     }
   })
 
-  // Watched at the window's size (an older Mac): fitted to the width, or readable and scrolled sideways.
+  // Watched at the window's size (an older Prism): fitted to the width, or readable and scrolled sideways.
   $effect(() => {
     const px = zoomed ? 11 : fit
     if (size && term && !sized && term.options.fontSize !== px) term.options.fontSize = px

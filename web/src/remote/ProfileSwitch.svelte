@@ -5,9 +5,9 @@
   import { ALL, openProfile, phoneProfiles, refreshProfiles, shown, switchProfile, type PhoneProfile } from './phone-profiles.svelte'
 
   /**
-   * The header's profile switcher (several profiles on the Mac, `phone-profiles`): the profile
+   * The header's profile switcher (several profiles on the computer, `phone-profiles`): the profile
    * shown, its initial on its color, or the badges of All; a tap opens the sheet of choices: All,
-   * then each profile with what it is doing, a closed one with Open (its Prism launched on the Mac
+   * then each profile with what it is doing, a closed one with Open (its Prism launched on the computer
    * beside this one, confirmed by the passkey).
    */
   let open = $state(false)

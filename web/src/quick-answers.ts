@@ -68,7 +68,7 @@ export function answersFor(cfg: QuickAnswersConfig | undefined, language: string
 }
 
 /**
- * From a phone: the Mac sends the answer `label`, filled there and checked against `sent` (what the
+ * From a phone: the computer sends the answer `label`, filled there and checked against `sent` (what the
  * phone shows); no free text leaves the phone this way, so no passkey. Typed (`submit = false`) or
  * sent as the answer says.
  */
@@ -78,5 +78,5 @@ export const sendFromPhone = (a: Agent, q: QuickAnswer & { sent: string }) => in
 /** The prompt the agent suggests at its prompt (Claude Code's dimmed text), when there is one. */
 export const suggestionOf = (a: Agent) => (atPrompt(a) ? (a.suggestion?.trim() || null) : null)
 
-/** Sends the agent its own suggestion: the Mac reads its screen again and sends it only if it is still this text. */
+/** Sends the agent its own suggestion: the computer reads its screen again and sends it only if it is still this text. */
 export const sendSuggestion = (a: Agent, text: string) => invoke<void>('agent_send_suggestion', { id: a.id, text })

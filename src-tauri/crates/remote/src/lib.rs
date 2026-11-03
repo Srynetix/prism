@@ -202,7 +202,7 @@ struct Live {
     /// confirmed by the passkey.
     critical: bool,
     typing: bool,
-    /// `[remote] power`: restarting or shutting down the Mac, each time confirmed by the passkey.
+    /// `[remote] power`: restarting or shutting down the computer, each time confirmed by the passkey.
     power: bool,
     /// `[remote] settings`: the settings read, and the few of `PHONE_SETTINGS` changed, each save
     /// confirmed by the passkey.
@@ -437,7 +437,7 @@ impl Remote {
     }
 
     /// The dev servers' preview: its loopback port, and its address on the tunnel (Tailscale: the
-    /// Mac's name on port 8443; another tunnel: `[remote] preview_url`, on the remote's host).
+    /// computer's name on port 8443; another tunnel: `[remote] preview_url`, on the remote's host).
     async fn start_preview(&self, cli: &tailscale::Cli, node: Option<&tailscale::Node>, port: u16, preview_url: &str) -> Result<Preview> {
         let inner = &self.inner;
         let origin = match node {

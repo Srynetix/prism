@@ -15,7 +15,7 @@ import { t } from './i18n.svelte'
  * to a protected branch (`agent_open_mr` refuses).
  *
  * Prism runs them (`prism_agents::chains`), whatever the window shows: a launch's "Then" steps
- * start with it, from the Mac or a phone. Their state comes with the snapshot (`chains`); Start,
+ * start with it, from the computer or a phone. Their state comes with the snapshot (`chains`); Start,
  * Skip, Stop and Hide go to Prism (`chain_go`, `chain_order`).
  */
 

@@ -114,7 +114,7 @@ Alerts flags a container unhealthy, restarting or exited with an error (a stop's
 [Open Settings › Infra › Docker](prism:settings/docker)
 
 ## System
-The **System** block shows what the Mac has under its feet while the agents, the dev servers and Docker run. It is on by default (Settings › Infra › System); add it to a page.
+The **System** block shows what the computer has under its feet while the agents, the dev servers and Docker run. It is on by default (Settings › Infra › System); add it to a page.
 
 - **CPU**, **Memory** and **Network**, each with its last 10 minutes. The memory's colour is macOS's memory pressure: green, orange when it compresses, red when it swaps; the bar splits what apps, the system (wired) and the compressor hold.
 - **Disk**: the free space of the disk your home folder is on — orange under 10 % or 25 GB, red under 5 % or 10 GB, limits set in Settings › Infra › System (`[system] disk_warn_gb`, `disk_warn_percent`, `disk_alert_gb`, `disk_alert_percent`; 0 turns one off) — and, under **Disks**, the external volumes plugged in. On macOS it is what a file can still take: the Finder adds the space the system could purge.
@@ -123,7 +123,7 @@ The **System** block shows what the Mac has under its feet while the agents, the
 
 In the status bar: CPU with its last minutes, RAM and latency; a click shows the block. Alerts flags the memory pressure red and the disk almost full (both with a notification), the disk getting full, the CPU at 90 % or more for 5 minutes, and more than 5 % of the handshakes lost (`[system] alerts`).
 
-On the phone, **System** is one of the remote's views (under **More**, or a bottom tab with `[remote] tabs`): the gauges two by two, then who consumes, the disks and the network. The block takes that layout too in a narrow column on the Mac.
+On the phone, **System** is one of the remote's views (under **More**, or a bottom tab with `[remote] tabs`): the gauges two by two, then who consumes, the disks and the network. The block takes that layout too in a narrow column on the computer.
 
 [Open the System block](prism:block/system)
 [Open Settings › Infra › System](prism:settings/system)

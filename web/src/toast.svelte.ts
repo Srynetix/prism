@@ -27,7 +27,7 @@ export function toast(message: string, ms = 2200, action: ToastAction | null = n
 if (isDesktop()) void listen<{ text: string; ms: number }>('notice', ({ payload }) => toast(payload.text, payload.ms))
 
 /**
- * Puts text on the clipboard. On the Mac, through the core: the webview refuses
+ * Puts text on the clipboard. On the computer, through the core: the webview refuses
  * `navigator.clipboard` outside a click's own moment (`NotAllowedError`), as for an action of a
  * menu, a shortcut or the palette, or after an await. On a phone, its own clipboard.
  */

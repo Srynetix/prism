@@ -6,7 +6,7 @@ import { onShared, shareSave } from '../../shared.svelte'
 /**
  * The pet's state, one for the window and the phones: kept by the app (`pet.json`, shared through
  * the core), formerly in the layout's prefs (moved over at the window's first launch). A phone
- * only writes it once it has read the Mac's: a fresh pet of its own never replaces the real one.
+ * only writes it once it has read the computer's: a fresh pet of its own never replaces the real one.
  */
 const own = read<Record<string, unknown>>('pet')
 const former = isDesktop() ? pref<Record<string, unknown> | null>('pet', null) : null
@@ -14,7 +14,7 @@ const former = isDesktop() ? pref<Record<string, unknown> | null>('pet', null) :
 export const petStore = $state<{ value: Record<string, unknown> | null; version: number; ready: boolean }>({
   value: own ?? former,
   version: 0,
-  // The window has its file (or its prefs); a phone waits for the Mac's.
+  // The window has its file (or its prefs); a phone waits for the computer's.
   ready: !hasCore() || isDesktop(),
 })
 

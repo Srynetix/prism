@@ -238,7 +238,7 @@
         <PrioritySelect taskId={t.task_id} priority={t.priority} />
       {/if}
       <span class="grow"></span>
-      <!-- The Time form, its ticket filled in: on the Mac, where it lives. -->
+      <!-- The Time form, its ticket filled in: on the computer, where it lives. -->
       {#if t && !phone && sprintName}<button class="log" class:armed={sprintArm.is()} onclick={toSprint} disabled={sprintBusy} title={sprintArm.is() ? tr('Click again: {id} is added to {sprint} and stays in its list', { id: t.id, sprint: sprintName }) : tr('Add {id} to {sprint} (it keeps its list)', { id: t.id, sprint: sprintName })}><Icon name="add" />{sprintArm.is() ? tr('Confirm: add to {sprint}', { sprint: sprintName }) : tr('Add to {sprint}', { sprint: sprintName })}</button>{/if}
       {#if t && !phone && offers('time')}<button class="log" onclick={() => openTimeDraft(t.id, '')} title={tr('Log time on {id} (T in its menu)', { id: t.id })}><Icon name="timer" />{tr('Log time')}</button>{/if}
       <button class="icon" onclick={refreshTicket} disabled={ticketView.loading} title={tr('Reload from {tracker}', { tracker: trackerName() })} aria-label={tr('Reload')}><Icon name="refresh" /></button>

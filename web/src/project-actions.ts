@@ -8,7 +8,7 @@ import { nextTicket } from './projects'
 import type { Ticket } from './types'
 
 /**
- * What a project of the Agents view does (`projects.ts`), on the Mac and the phone: a new agent in
+ * What a project of the Agents view does (`projects.ts`), on the computer and the phone: a new agent in
  * it, the agent left in it brought back, its next ticket implemented.
  */
 

@@ -633,7 +633,7 @@ fn snapshots(inner: Shared, out: tokio::sync::mpsc::Sender<Message>, still: impl
     tokio::spawn(async move {
         let mut rx = inner.hub.subscribe();
         let mut sent: Option<Value> = None;
-        // Ten seconds without a change: a sign of life, so that the phone tells a quiet Mac
+        // Ten seconds without a change: a sign of life, so that the phone tells a quiet computer
         // from a socket dead without a word (asleep, a network change, a proxy), and that
         // nothing on the way closes it for being idle.
         let mut quiet = false;
@@ -1043,7 +1043,7 @@ async fn call(inner: &Inner, device: &str, name: &str, command: String, args: Va
         tracing::info!("remote: {name}: previews the dev server on port {port}");
         return Ok(Reply::Value(json!({ "url": format!("{origin}/") })));
     }
-    // Restarting or shutting down the Mac: `[remote] power`, and the passkey every time.
+    // Restarting or shutting down the computer: `[remote] power`, and the passkey every time.
     if command == "mac_power" {
         anyhow::ensure!(inner.live().power, "{}", tr("restarting the computer from a phone is off (Settings › Remote › Exposure)"));
         anyhow::ensure!(inner.host.class(&command, &args) == Some(Class::Critical), "{}", tr!("{other} is not answered from a phone", other = "mac_power"));
@@ -1053,10 +1053,10 @@ async fn call(inner: &Inner, device: &str, name: &str, command: String, args: Va
         if let Some(reply) = step_up(inner, device, &purpose(&command, &json!({ "action": action })), proof)? {
             return Ok(reply);
         }
-        tracing::warn!("remote: {name}: {action} the Mac (confirmed by its passkey)");
+        tracing::warn!("remote: {name}: {action} the computer (confirmed by its passkey)");
         return inner.host.call(command, args).await.map(Reply::Value);
     }
-    // The settings: `[remote] settings`; read as they are, changed (the few the Mac lets a phone
+    // The settings: `[remote] settings`; read as they are, changed (the few the computer lets a phone
     // change, checked again there) with the passkey every time, bound to the changes.
     if command == "remote_settings_read" || command == "remote_settings_save" {
         anyhow::ensure!(inner.live().settings, "{}", tr("the settings from a phone are off (Settings › Remote › Exposure)"));
@@ -1071,7 +1071,7 @@ async fn call(inner: &Inner, device: &str, name: &str, command: String, args: Va
         return inner.host.call(command, args).await.map(Reply::Value);
     }
     // A new project, or a local one published on the forge: `[remote] projects`, and the passkey
-    // every time, bound to its name and forge choice; the Mac creates in its working folder only,
+    // every time, bound to its name and forge choice; the computer creates in its working folder only,
     // and publishes only one of its repositories without a project.
     // The forge's projects, to clone one: read, with `[remote] projects`.
     if command == "remote_project_search" {
@@ -1102,7 +1102,7 @@ async fn call(inner: &Inner, device: &str, name: &str, command: String, args: Va
         anyhow::ensure!(inner.host.class("agent_page_text", &args) == Some(Class::Read), "{}", tr!("{other} is not answered from a phone", other = command));
         return crate::pages::open(inner, &args).map(Reply::Value);
     }
-    // An agent's files: prepared on the Mac, then fetched once over HTTP (`download`).
+    // An agent's files: prepared on the computer, then fetched once over HTTP (`download`).
     if command == "agent_files_download" {
         match inner.host.class(&command, &args) {
             Some(Class::Read) => {}
@@ -1708,7 +1708,7 @@ mod tests {
         assert_eq!((hello["t"].as_str(), hello["device"].as_str()), (Some("hello"), Some("Pixel 9")));
         let snap = next().await;
         assert_eq!(snap["t"], "snapshot");
-        assert!(snap["value"].get("remote").is_none(), "the pairing stays on the Mac");
+        assert!(snap["value"].get("remote").is_none(), "the pairing stays on the computer");
         ws.send(Message::Text(json!({ "t": "call", "id": 1, "command": "mr_detail", "args": {} }).to_string().into())).await.unwrap();
         ws.send(Message::Text(json!({ "t": "call", "id": 2, "command": "merge_mr", "args": {} }).to_string().into())).await.unwrap();
         let mut results = std::collections::BTreeMap::new();
@@ -1733,7 +1733,7 @@ mod tests {
             }
         };
         assert_eq!(offered["name"], "work é.zip");
-        assert!(offered.get("path").is_none(), "where it lies stays on the Mac");
+        assert!(offered.get("path").is_none(), "where it lies stays on the computer");
         let address = format!("{}{}", phone.base, offered["url"].as_str().unwrap());
         let get = |cookie: Option<&str>| {
             let mut r = phone.http.get(&address).header("host", format!("localhost:{port}"));
@@ -1849,7 +1849,7 @@ mod tests {
         assert!(ask(&mut ws, 64, "agent_spawn", launch, None).await["stepUp"].is_object(), "typing off: still the passkey, still possible");
         remote.apply(&RemoteConfig { actions: true, critical: true, typing: true, ..cfg.clone() }).await;
 
-        // The Mac's power: off unless `[remote] power`; then the passkey, each time.
+        // The computer's power: off unless `[remote] power`; then the passkey, each time.
         assert!(ask(&mut ws, 40, "mac_power", json!({ "action": "restart" }), None).await["error"].as_str().unwrap().contains("restarting the computer from a phone is off"));
         remote.apply(&RemoteConfig { actions: true, critical: true, typing: true, power: true, ..cfg.clone() }).await;
         let step = ask(&mut ws, 41, "mac_power", json!({ "action": "restart" }), None).await;
@@ -1989,7 +1989,7 @@ async fn remote_preview() {
                     }
                     // What scrolled off a Claude Code screen, its frame and spinner included.
                     "agent_history" => Ok(Value::String((1..=40).map(|i| format!("\x1b[32m⏺\x1b[0m \x1b[1mBash\x1b[0m(npm test -- part {i})\n  ⎿  {i} passed\n")).collect::<String>() + "╭────────────────────────╮\n│ > round per line       │\n╰────────────────────────╯\n\x1b[33m✻ Whirring… (34s · esc to interrupt)\x1b[0m\n")),
-                    _ => anyhow::bail!("preview: no Mac behind {command}"),
+                    _ => anyhow::bail!("preview: no computer behind {command}"),
                 }
             })
         }
@@ -2015,7 +2015,7 @@ async fn remote_preview() {
         }
         fn watch(&self, agent: String, size: Option<(u16, u16)>, _control: bool, on_data: Box<dyn Fn(Vec<u8>) + Send>, _on_end: Box<dyn FnOnce() + Send>) -> futures::future::BoxFuture<'static, anyhow::Result<crate::Watch>> {
             Box::pin(async move {
-                on_data(format!("\x1b[1;32m● {agent}\x1b[0m: the preview has no tmux; a Mac shows the agent's terminal here.\r\n\r\n\x1b[32m⏺\x1b[0m \x1b[1mBash\x1b[0m(npm run test:invoices -- --verbose)\r\n\x1b[33m✻ Whirring… (12s · esc to interrupt)\x1b[0m\r\n╭──────────────────────╮\r\n│ >                    │\r\n╰──────────────────────╯\r\n  ⏵⏵ accept edits on\r\n").into_bytes());
+                on_data(format!("\x1b[1;32m● {agent}\x1b[0m: the preview has no tmux; a computer shows the agent's terminal here.\r\n\r\n\x1b[32m⏺\x1b[0m \x1b[1mBash\x1b[0m(npm run test:invoices -- --verbose)\r\n\x1b[33m✻ Whirring… (12s · esc to interrupt)\x1b[0m\r\n╭──────────────────────╮\r\n│ >                    │\r\n╰──────────────────────╯\r\n  ⏵⏵ accept edits on\r\n").into_bytes());
                 let (cols, rows) = size.unwrap_or((100, 30));
                 Ok(crate::Watch { cols, rows, term: Box::new(crate::ReadOnly(())) })
             })

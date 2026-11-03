@@ -432,7 +432,7 @@ export function setPref(key: string, value: unknown) {
 }
 
 /**
- * The blocks' filters, sorts and groupings, the same on the Mac and on a phone: kept in the
+ * The blocks' filters, sorts and groupings, the same on the computer and on a phone: kept in the
  * shared store `prefs` besides each page's own layout. Whoever changes one writes them all; the
  * other page takes them in, and its blocks show them when they open next. Not what belongs to
  * one screen: tabs, folds, widths, panes.
@@ -457,7 +457,7 @@ const SHARED_SUFFIX = /\.(show|priorities|person|group|sort|desc)$/
 export const sharedPref = (key: string) => SHARED_PREFS.has(key) || SHARED_SUFFIX.test(key)
 const sharedPrefs = () => Object.fromEntries(Object.entries(layout.prefs).filter(([k]) => sharedPref(k)))
 
-/** The Mac starts from its own; a phone writes them only once it has read them (it would wipe the Mac's). */
+/** The computer starts from its own; a phone writes them only once it has read them (it would wipe the computer's). */
 let prefsRead = isDesktop()
 onShared('prefs', (value) => {
   prefsRead = true
@@ -467,7 +467,7 @@ onShared('prefs', (value) => {
   for (const [k, v] of Object.entries(theirs)) if (sharedPref(k)) layout.prefs[k] = v
   save()
 })
-// Never shared yet (before this version): the Mac gives its own.
+// Never shared yet (before this version): the computer gives its own.
 if (isDesktop()) {
   $effect.root(() => {
     $effect(() => {

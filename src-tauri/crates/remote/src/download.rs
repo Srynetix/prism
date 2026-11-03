@@ -1,7 +1,7 @@
-//! Files a phone downloads (an agent's Files tab): the Mac writes them to a file of its own
+//! Files a phone downloads (an agent's Files tab): the computer writes them to a file of its own
 //! (`agent_files_download`), the phone fetches it once over HTTP, streamed, at an address only
 //! it may open and only for a few minutes, rather than as base64 through its socket (a 60 MB zip
-//! took ~395 MB on the Mac, and its decoding seconds on the phone).
+//! took ~395 MB on the computer, and its decoding seconds on the phone).
 
 use std::{
     path::PathBuf,
@@ -34,7 +34,7 @@ pub(crate) struct Pending {
     until: Instant,
 }
 
-/// The file the Mac prepared (`{name, path}`) offered to `device`: the name to save it under and
+/// The file the computer prepared (`{name, path}`) offered to `device`: the name to save it under and
 /// the address to fetch it from (`AgentDownload`).
 pub(crate) fn offer(inner: &Inner, device: &str, prepared: Value) -> anyhow::Result<Value> {
     let name = prepared["name"].as_str().context("a name")?.to_string();

@@ -26,14 +26,14 @@
    * at hand; then those working, then the others; the stopped ones folded, Resume picking their
    * conversation up again. A tap opens its terminal; each of its open ports (found by the Dev servers block)
    * opens in the remote's preview.
-   * At the top, the plan's usage (the status bar's on the Mac: a tap shows its windows and resets,
+   * At the top, the plan's usage (the status bar's on the computer: a tap shows its windows and resets,
    * a section per CLI when agents run on several), then a new agent from a prompt, in a new worktree.
    * By project (a shared pref): a card per repository instead, its agents in it (those waiting for
    * you first), where it was left with Reopen, its next ticket, a + for a new agent in it.
    */
   let { snap, acts }: { snap: Snapshot; acts: boolean } = $props()
 
-  /** By status (the default) or by project, shared with the Mac's phone prefs. */
+  /** By status (the default) or by project, shared with the computer's phone prefs. */
   let by = $state<'status' | 'project'>(pref<'status' | 'project'>('agents.phoneBy', 'status'))
   const setBy = (b: 'status' | 'project') => setPref('agents.phoneBy', (by = b))
 
@@ -133,7 +133,7 @@
         <div class="chips"><QuickAnswers agent={a} /></div>
       {/if}
     {:else if acts && a.state === 'prepared'}
-      <!-- Its Then steps: started by the Mac with it (remote.rs, agent_start). -->
+      <!-- Its Then steps: started by the computer with it (remote.rs, agent_start). -->
       <div class="chips"><button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => startPrepared(a.id))} title={t('Start it now, as prepared (its worktree is made then)')}><Icon name="play" /> {t('Start')}</button></div>
     {:else if acts}
       <div class="chips"><button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => resumeAgent(a.id))} title={t('{command}, same folder', { command: cliOf(a.provider).resume })}>↻ {t('Resume')}</button></div>
@@ -234,7 +234,7 @@
   .w:not(.warn):not(.ko) b { color: var(--text); }
   .bar { width: 44px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--fill); }
-  /* The other CLIs in use, as on the Mac: tinted once one of them nears a limit. */
+  /* The other CLIs in use, as on the computer: tinted once one of them nears a limit. */
   .more { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 10px; background: var(--surface-muted); font-size: 12px; color: var(--text-muted); }
   .more.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
   .more.ko { background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); }

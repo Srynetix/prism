@@ -99,7 +99,7 @@ fn gitlab(state: &AppState) -> Cmd<crate::collectors::gitlab::Actions> {
 }
 
 /// What the demo profile does with a command: refused (it would act on GitLab, ClickUp, an agent,
-/// the Mac), or allowed (it reads, or answers the demo itself).
+/// the computer), or allowed (it reads, or answers the demo itself).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Demo {
     Allowed,
