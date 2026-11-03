@@ -118,6 +118,9 @@ export function openMachine(): Transport {
         return tauriInvoke<T>('machine_resize', { id: a.id, cols: a.cols, rows: a.rows })
       case 'agent_detach':
         return tauriInvoke<T>('machine_detach', { id: a.id })
+      // Prepared there, saved here, where this computer's dialog said.
+      case 'agent_files_export':
+        return tauriInvoke<T>('machine_export', { id: a.id, paths: a.paths, name: a.name, dest: a.dest })
       case 'open_repo':
         return (await open(a.path as string, a.with)) as T
       case 'agent_open':

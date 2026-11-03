@@ -55,6 +55,7 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
             .route("/peer/ws", get(peer_socket))
             .route("/peer/tty", get(peer_tty))
             .route("/peer/summary", get(peer_summary))
+            .route("/peer/download/{token}", get(crate::download::serve_peer))
             .layer(middleware::from_fn_with_state(inner.clone(), guard))
             .with_state(inner);
     }
@@ -89,6 +90,7 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
         .route("/peer/ws", get(peer_socket))
         .route("/peer/tty", get(peer_tty))
         .route("/peer/summary", get(peer_summary))
+        .route("/peer/download/{token}", get(crate::download::serve_peer))
         .route("/peer/p/{id}/{*rest}", axum::routing::any(crate::relay::peer_proxy))
         .route("/peer/pair", post(peer_pair))
         .route("/peer/pair/state", post(peer_pair_state))
@@ -662,7 +664,7 @@ fn snapshots(inner: Shared, out: tokio::sync::mpsc::Sender<Message>, still: impl
 
 /// The peer a request comes from: its token checked here (its name and token); relayed, the name
 /// the hub let in (no token: the hub watches it, `relay::pipe_peer`).
-fn peer_of(inner: &Inner, headers: &HeaderMap) -> Option<(String, Option<String>)> {
+pub(crate) fn peer_of(inner: &Inner, headers: &HeaderMap) -> Option<(String, Option<String>)> {
     if inner.live().relay {
         return crate::relay::peer_name(headers).map(|n| (n, None));
     }
@@ -717,9 +719,15 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: Op
                 tracing::info!("remote: peer {name}: {command}");
             }
             let allowed = peer_allowed(&inner.live().peers, &command, class);
+            let download = command == "agent_files_download";
             let answer = match allowed {
                 Ok(()) => inner.host.peer_call(command, args).await,
                 Err(e) => Err(e),
+            };
+            // An agent's files: prepared here, then fetched once by the window's app (`download`).
+            let answer = match answer {
+                Ok(prepared) if download => crate::download::offer_peer(&inner, &name, prepared),
+                other => other,
             };
             let reply = match answer {
                 Ok(v) => json!({ "t": "result", "id": id, "ok": v }),
@@ -1132,6 +1140,11 @@ mod tests {
         fn peer_call(&self, command: String, args: Value) -> futures::future::BoxFuture<'static, anyhow::Result<Value>> {
             Box::pin(async move {
                 anyhow::ensure!(command != "mac_power", "{command} is not answered from another Prism");
+                if command == "agent_files_download" {
+                    let path = std::env::temp_dir().join(format!("prism-peer-download-{}", std::process::id()));
+                    std::fs::write(&path, b"the zip").unwrap();
+                    return Ok(json!({ "name": "work.zip", "path": path }));
+                }
                 Ok(json!({ "peer": command, "args": args }))
             })
         }
@@ -1435,6 +1448,16 @@ mod tests {
         // Any command of the window, its arguments as sent; one it never answers, its error.
         assert_eq!(machine.call("save_config", json!({ "edits": [] })).await.unwrap(), json!({ "peer": "save_config", "args": { "edits": [] } }));
         assert!(machine.call("mac_power", json!({})).await.unwrap_err().to_string().contains("not answered from another Prism"));
+
+        // An agent's files: prepared there, fetched once here, whole.
+        let offered = machine.call("agent_files_download", json!({ "id": "a1", "paths": ["src/"], "name": "work" })).await.unwrap();
+        assert_eq!(offered["name"], "work.zip");
+        let token = offered["token"].as_str().unwrap().to_string();
+        let dest = dir.join("saved.zip");
+        machine.download(&token, &dest).await.unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), b"the zip");
+        assert!(machine.download(&token, &dir.join("again.zip")).await.is_err(), "once");
+        assert!(!dir.join("again.zip").exists() && !dir.join("again.zip.part").exists(), "nothing left of a refused one");
 
         // A terminal: its screen, then what is typed reaches the agent.
         let (dtx, mut drx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();

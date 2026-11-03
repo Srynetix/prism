@@ -251,7 +251,8 @@ pub(crate) async fn peer_profiles(inner: &Inner) -> (Vec<prism_core::state::Mach
 pub(crate) async fn peer_proxy(State(inner): State<Shared>, UrlPath((id, rest)): UrlPath<(String, String)>, req: Request) -> Response {
     let refuse = |status: StatusCode, why: String| (status, Json(json!({ "error": why }))).into_response();
     let Some((name, token)) = crate::peers::of(&inner.dir, req.headers()) else { return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism").into()) };
-    if !matches!(rest.as_str(), "ws" | "tty" | "summary") {
+    let download = rest.strip_prefix("download/").is_some_and(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_hexdigit()));
+    if !matches!(rest.as_str(), "ws" | "tty" | "summary") && !download {
         return refuse(StatusCode::NOT_FOUND, "no such path".into());
     }
     let Some(e) = relayed(&inner, &id) else { return refuse(StatusCode::NOT_FOUND, tr("this profile’s Prism is closed, or its remote is not relayed here").into()) };
@@ -275,6 +276,24 @@ pub(crate) async fn peer_proxy(State(inner): State<Shared>, UrlPath((id, rest)):
         let status = res.status();
         let body = res.bytes().await.unwrap_or_default();
         return (status, [(header::CONTENT_TYPE, "application/json")], body).into_response();
+    }
+    // A file it prepared: streamed through, its headers kept (its name, its length).
+    if download {
+        let res = match client().get(format!("http://127.0.0.1:{}{path}", e.port)).headers(up).send().await {
+            Ok(r) => r,
+            Err(_) => return refuse(StatusCode::BAD_GATEWAY, tr("this profile’s Prism does not answer").into()),
+        };
+        let status = res.status();
+        let mut h = HeaderMap::new();
+        for (k, v) in res.headers() {
+            if !HOP.contains(&k.as_str()) {
+                h.append(k.clone(), v.clone());
+            }
+        }
+        let mut out = Response::new(Body::from_stream(res.bytes_stream()));
+        *out.status_mut() = status;
+        *out.headers_mut() = h;
+        return out;
     }
     let (mut parts, _) = req.into_parts();
     let upgrade = match WebSocketUpgrade::from_request_parts(&mut parts, &()).await {
@@ -757,7 +776,14 @@ mod tests {
         }
         fn peer_call(&self, command: String, _args: Value) -> futures::future::BoxFuture<'static, anyhow::Result<Value>> {
             let me = self.0;
-            Box::pin(async move { Ok(json!({ "peer_by": me, "command": command })) })
+            Box::pin(async move {
+                if command == "agent_files_download" {
+                    let path = std::env::temp_dir().join(format!("prism-relay-peer-download-{}-{me}", std::process::id()));
+                    std::fs::write(&path, me.as_bytes()).unwrap();
+                    return Ok(json!({ "name": "f.txt", "path": path }));
+                }
+                Ok(json!({ "peer_by": me, "command": command }))
+            })
         }
         fn class(&self, command: &str, _args: &Value) -> Option<Class> {
             match command {
@@ -935,6 +961,11 @@ mod tests {
         };
         assert_eq!((hello["peer"].as_str(), hello["profile"].as_str()), (Some("desk"), Some("perso")));
         assert_eq!(machine.call("mr_detail", json!({ "iid": 7 })).await.unwrap()["peer_by"], "perso");
+        // A file of its agents, prepared there, streamed through the hub.
+        let offered = machine.call("agent_files_download", json!({})).await.unwrap();
+        let dest = base.join("f.txt");
+        machine.download(offered["token"].as_str().unwrap(), &dest).await.unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), b"perso");
 
         // The relayed Prism, reached without the hub: nothing, a peer's name forged or not.
         let mut req = format!("ws://127.0.0.1:{}/peer/ws", told.port).into_client_request().unwrap();

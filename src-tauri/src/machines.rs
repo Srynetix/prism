@@ -275,6 +275,16 @@ pub async fn machine_call(state: State<'_, Arc<Machines>>, window: WebviewWindow
     Ok(machine.call(&command, args).await?)
 }
 
+/// Files of an agent's folder on the window's machine, saved where this computer's dialog said
+/// (`dest`): prepared there (one as it is, several or a folder as a zip), then fetched once.
+#[tauri::command]
+pub async fn machine_export(state: State<'_, Arc<Machines>>, window: WebviewWindow, id: String, paths: Vec<String>, name: String, dest: String) -> Cmd {
+    let machine = machine(&state, &window)?;
+    let offered = machine.call("agent_files_download", serde_json::json!({ "id": id, "paths": paths, "name": name })).await?;
+    let token = offered["token"].as_str().ok_or("the machine offered no download")?;
+    Ok(machine.download(token, std::path::Path::new(&dest)).await?)
+}
+
 /// Whether `command` is critical, as the machine classes it for a phone (a block's command, its
 /// block's class here).
 fn critical(command: &str, args: &Value) -> bool {

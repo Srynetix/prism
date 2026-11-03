@@ -52,6 +52,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         crate::machines::machine_write,
         crate::machines::machine_resize,
         crate::machines::machine_detach,
+        crate::machines::machine_export,
     ];
     move |invoke: tauri::ipc::Invoke| {
         let command = invoke.message.command();

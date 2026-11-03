@@ -193,8 +193,9 @@ A token is worth that machine's account: keep it as an SSH key. What a desk may 
 `[remote.peers]` on that machine (Settings › Remote › Machines): `actions`, `critical`, `typing`,
 `settings`, all on by default; it always reads, and each call that changes something is logged
 with the desk's name. What opens on a screen (Finder,
-Terminal, an app, a save dialog's file) stays on the desk or is not offered; the editor opens the
-machine's folders over SSH when `ssh` is set.
+Terminal, an app) stays on the desk or is not offered; the editor opens the machine's folders over
+SSH when `ssh` is set. An agent's files downloaded (Files tab) are prepared there (a zip for
+several) and saved here, where the desk's dialog says, fetched once over the machine's remote.
 
 ### Signing (macOS)
 

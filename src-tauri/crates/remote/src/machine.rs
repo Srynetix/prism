@@ -176,6 +176,34 @@ impl Machine {
         }
     }
 
+    /// A file it prepared (`agent_files_download`, its `token`) written to `dest` on this computer,
+    /// streamed: whole, or not at all (a part file first, renamed once done).
+    pub async fn download(&self, token: &str, dest: &std::path::Path) -> Result<()> {
+        anyhow::ensure!(!token.is_empty() && token.chars().all(|c| c.is_ascii_hexdigit()), "not a download");
+        let url = self.target.http(&self.target.peer(&format!("download/{token}")))?;
+        let res = reqwest::Client::new().get(url).bearer_auth(self.target.token.trim()).send().await.context("the machine does not answer")?;
+        anyhow::ensure!(res.status().is_success(), "the machine refused the download ({})", res.status());
+        let part = dest.with_extension(format!("{}.part", dest.extension().and_then(|e| e.to_str()).unwrap_or("")));
+        let written = async {
+            use tokio::io::AsyncWriteExt;
+            let mut file = tokio::fs::File::create(&part).await.with_context(|| part.display().to_string())?;
+            let mut body = res.bytes_stream();
+            while let Some(chunk) = body.next().await {
+                file.write_all(&chunk.context("the download was cut")?).await?;
+            }
+            file.flush().await?;
+            anyhow::Ok(())
+        }
+        .await;
+        match written {
+            Ok(()) => tokio::fs::rename(&part, dest).await.with_context(|| dest.display().to_string()),
+            Err(e) => {
+                let _ = tokio::fs::remove_file(&part).await;
+                Err(e)
+            }
+        }
+    }
+
     /// An agent's terminal on the machine, typed in, at `cols` × `rows`: its output through
     /// `on_data` until `on_end`.
     pub async fn attach(&self, agent: &str, cols: u16, rows: u16, on_data: Box<dyn Fn(Vec<u8>) + Send>, on_end: Box<dyn FnOnce() + Send>) -> Result<Tty> {

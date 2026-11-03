@@ -51,6 +51,7 @@ commands! {
         machine_write: Never,
         machine_resize: Never,
         machine_detach: Never,
+        machine_export: Never,
     }
     // Config, packs, tokens, updates: never from a phone.
     config::read_config: Never,
