@@ -41,6 +41,7 @@
   import { markDock } from './dock'
   import ProfileSwitch from './components/ProfileSwitch.svelte'
   import MachineBar from './components/MachineBar.svelte'
+  import { GRACE, machineState } from './machine.svelte'
   import { wizard, wizardDue } from './wizard.svelte'
   import { pageShown } from './feature-use.svelte'
   import Notes from './components/Notes.svelte'
@@ -468,7 +469,7 @@
   </header>
 {/snippet}
 
-<div class="app" class:zen={zen.on} class:machine={!!machine()} style:--view={view.color}>
+<div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!machine() && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={view.color}>
   <div class="shell">
   <!-- Two fingers up or down on the rail: the next or previous page, while one is shown. -->
   <nav class="rail" aria-label={t('Views')} {@attach pageSwipe(stepView, () => appearance().page_swipe && !editing.on && !zoomed && !agentsView.open && !settingsView.open && !helpView.open)}>
@@ -659,6 +660,8 @@
   /* Another computer's Prism (`machine`): its rail's edge in one color, never mistaken for this one's. */
   .app.machine .rail .edge { width: 3px; }
   .app.machine .rail .edge::before { background: var(--info); }
+  /* Its machine out of reach: the page is its last state, dimmed (its bar says why). */
+  .app.machine-away .content > :not(:global(.machine-bar)) { opacity: 0.6; filter: grayscale(0.6); transition: opacity 0.3s, filter 0.3s; }
   .rail .brand { display: flex; margin-bottom: 10px; }
   .rail .brand > span { display: flex; }
   .rail .brand .spin { animation: logo-spin 0.9s cubic-bezier(0.2, 0.8, 0.3, 1.2); }

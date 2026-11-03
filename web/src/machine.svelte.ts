@@ -14,13 +14,20 @@ import { applyChanges, type Change } from './snapshot-changes'
  */
 
 /** What the window shows of its machine's socket (the bar over the page). */
-export const machineState = $state<{ name: string; ssh: string; connected: boolean; error: string | null; since: number | null }>({
+export const machineState = $state<{ name: string; ssh: string; connected: boolean; error: string | null; reason: MachineReason | null; since: number | null }>({
   name: '',
   ssh: '',
   connected: false,
   error: null,
+  reason: null,
   since: null,
 })
+
+/** Why the socket closed (`prism_remote::machine::reason`): what the bar says, the error its detail. */
+export type MachineReason = 'token' | 'refused' | 'unknown_host' | 'unreachable' | 'certificate' | 'dropped'
+
+/** Out of reach this long, the page shows its last state as such (dimmed): a reconnection of a moment goes unseen. */
+export const GRACE = 5000
 
 /** Answered by this computer: the window's own commands, and what reads or writes here. */
 const LOCAL = new Set([
@@ -69,6 +76,7 @@ export function openMachine(): Transport {
     } else if (m.t === 'state') {
       machineState.connected = !!m.connected
       machineState.error = (m.error as string | null) ?? null
+      machineState.reason = (m.reason as MachineReason | null) ?? null
       if (m.connected) machineState.since = null
       else machineState.since ??= Date.now()
     }

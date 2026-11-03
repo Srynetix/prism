@@ -11,7 +11,7 @@
    * (`main.ts`).
    */
   const name = $derived(machineState.name || machine() || '')
-  const noToken = $derived(!!machineState.error && /no token|does not know this token|revoked/.test(machineState.error))
+  const noToken = $derived(machineState.reason === 'token' || (!!machineState.error && /no token/.test(machineState.error)))
   let token = $state('')
   let code = $state('')
   /** A token pasted rather than a code typed. */

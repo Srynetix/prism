@@ -220,6 +220,28 @@ impl Tty {
     }
 }
 
+/// Why a socket closed or did not open, for the window to say in words (its detail aside):
+/// `token` (refused, revoked), `refused` (nothing listens: its Prism closed, its remote off),
+/// `unknown_host` (its name not found: the tunnel down), `unreachable` (no route, a timeout,
+/// silent), `certificate` (its HTTPS refused), `dropped` (anything else).
+fn reason(detail: &str) -> &'static str {
+    let d = detail.to_ascii_lowercase();
+    let has = |words: &[&str]| words.iter().any(|w| d.contains(w));
+    if has(&["token"]) {
+        "token"
+    } else if has(&["connection refused"]) {
+        "refused"
+    } else if has(&["lookup address", "nodename nor servname", "name or service not known", "no such host", "dns"]) {
+        "unknown_host"
+    } else if has(&["certificate", "tls alert", "tls handshake"]) {
+        "certificate"
+    } else if has(&["timed out", "silent", "unreachable", "network is down", "no route"]) {
+        "unreachable"
+    } else {
+        "dropped"
+    }
+}
+
 /// The socket, open again and again until the `Machine` is dropped: each time it opens, the
 /// machine sends its snapshot whole.
 async fn run(target: Target, mut out: mpsc::UnboundedReceiver<String>, pending: Pending, connected: Arc<tokio::sync::watch::Sender<bool>>, on_message: OnMessage) {
@@ -234,7 +256,8 @@ async fn run(target: Target, mut out: mpsc::UnboundedReceiver<String>, pending: 
         for (_, tx) in pending.lock().unwrap().drain() {
             let _ = tx.send(Err(anyhow!("the connection to the machine dropped: try again")));
         }
-        on_message(json!({ "t": "state", "connected": false, "error": error }));
+        let reason = error.as_deref().map(reason);
+        on_message(json!({ "t": "state", "connected": false, "error": error, "reason": reason }));
         tokio::time::sleep(delay).await;
         delay = (delay * 2).min(Duration::from_secs(10));
         if error.is_none() {
@@ -288,5 +311,19 @@ async fn connect(target: &Target, out: &mut mpsc::UnboundedReceiver<String>, pen
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// What the window says of a socket closed, from what the system said.
+    #[test]
+    fn tells_why_a_machine_is_out_of_reach() {
+        assert_eq!(super::reason("IO error: Connection refused (os error 61)"), "refused");
+        assert_eq!(super::reason("IO error: failed to lookup address information: nodename nor servname provided"), "unknown_host");
+        assert_eq!(super::reason("the machine went silent"), "unreachable");
+        assert_eq!(super::reason("IO error: invalid peer certificate: UnknownIssuer"), "certificate");
+        assert_eq!(super::reason("the machine does not know this token (prism peer add there)"), "token");
+        assert_eq!(super::reason("Connection reset without closing handshake"), "dropped");
     }
 }
