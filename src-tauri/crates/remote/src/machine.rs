@@ -20,7 +20,15 @@ const WAIT_ANSWER: Duration = Duration::from_secs(120);
 /// Nothing heard for this long (the other side says something every 10 s): the socket is dead.
 const SILENT: Duration = Duration::from_secs(30);
 
-type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value>>>>>;
+type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Answer>>>>>;
+
+/// A call's answer: its value, or the machine asking the person at this computer to confirm it
+/// first (what it classes critical), with the purpose to call it again with.
+#[derive(Debug)]
+pub enum Answer {
+    Value(Value),
+    Confirm(String),
+}
 
 /// A machine's address and its token.
 #[derive(Clone)]
@@ -40,31 +48,28 @@ impl Target {
             None => format!("/peer/{rest}"),
         }
     }
+    /// Its address, checked: HTTPS, or HTTP to this computer only (a tunnel's end, `ssh -L`):
+    /// the token never crosses a network unencrypted. Whether it is HTTPS, and the address.
+    fn base(&self) -> Result<(bool, &str)> {
+        let base = self.url.trim().trim_end_matches('/');
+        let parsed = url::Url::parse(base).with_context(|| format!("{base}: not an address"))?;
+        match parsed.scheme() {
+            "https" => Ok((true, base)),
+            "http" if matches!(parsed.host(), Some(url::Host::Ipv4(ip)) if ip.is_loopback()) || matches!(parsed.host(), Some(url::Host::Ipv6(ip)) if ip.is_loopback()) || parsed.host_str() == Some("localhost") => Ok((false, base)),
+            _ => bail!("{base}: https, or http to 127.0.0.1 only (a tunnel's end)"),
+        }
+    }
+
     /// `path` (`/peer/pair`) on the machine, over HTTPS or to a tunnel's end.
     fn http(&self, path: &str) -> Result<String> {
-        let base = self.url.trim().trim_end_matches('/');
-        let host = base.strip_prefix("http://").map(|r| r.split(['/', ':']).next().unwrap_or_default());
-        if !base.starts_with("https://") && !matches!(host, Some("127.0.0.1" | "localhost" | "[::1]")) {
-            bail!("{base}: https, or http to 127.0.0.1 only (a tunnel's end)");
-        }
-        Ok(format!("{base}{path}"))
+        Ok(format!("{}{path}", self.base()?.1))
     }
 
     /// `path` (`/peer/ws`) as a socket's request, the token in it.
     fn request(&self, path: &str) -> Result<tokio_tungstenite::tungstenite::handshake::client::Request> {
-        let base = self.url.trim().trim_end_matches('/');
-        let ws = if let Some(rest) = base.strip_prefix("https://") {
-            format!("wss://{rest}{path}")
-        } else if let Some(rest) = base.strip_prefix("http://") {
-            // Clear only to this machine (a tunnel's end, `ssh -L`): the token never crosses a network unencrypted.
-            let host = rest.split(['/', ':']).next().unwrap_or_default();
-            if !matches!(host, "127.0.0.1" | "localhost" | "[::1]") {
-                bail!("{base}: https, or http to 127.0.0.1 only (a tunnel's end)");
-            }
-            format!("ws://{rest}{path}")
-        } else {
-            bail!("{base}: an https:// address");
-        };
+        let (secure, base) = self.base()?;
+        let rest = base.split_once("://").map_or(base, |(_, r)| r);
+        let ws = format!("{}://{rest}{path}", if secure { "wss" } else { "ws" });
         let mut req = ws.into_client_request().with_context(|| format!("{base}: not an address"))?;
         req.headers_mut().insert("authorization", HeaderValue::from_str(&format!("Bearer {}", self.token.trim())).context("the token")?);
         Ok(req)
@@ -148,8 +153,16 @@ impl Machine {
         Self { target, out, pending, next: Mutex::new(1), connected, task }
     }
 
-    /// A command of the window, answered by the machine.
+    /// A command of the window, answered by the machine; one it asks to confirm first fails.
     pub async fn call(&self, command: &str, args: Value) -> Result<Value> {
+        match self.ask(command, args, None).await? {
+            Answer::Value(v) => Ok(v),
+            Answer::Confirm(_) => bail!("{command}: to be confirmed at this computer first"),
+        }
+    }
+
+    /// A command of the window, `confirmed` the purpose the machine asked to confirm (`Confirm`).
+    pub async fn ask(&self, command: &str, args: Value, confirmed: Option<&str>) -> Result<Answer> {
         let mut open = self.connected.subscribe();
         if !*open.borrow() {
             tokio::time::timeout(WAIT_OPEN, open.wait_for(|c| *c)).await.map_err(|_| anyhow!("the machine is out of reach"))?.map_err(|_| anyhow!("the machine is closed"))?;
@@ -161,7 +174,11 @@ impl Machine {
         };
         let (tx, rx) = oneshot::channel();
         self.pending.lock().unwrap().insert(id, tx);
-        let msg = json!({ "t": "call", "id": id, "command": command, "args": args }).to_string();
+        let mut msg = json!({ "t": "call", "id": id, "command": command, "args": args });
+        if let Some(c) = confirmed {
+            msg["confirmed"] = json!(c);
+        }
+        let msg = msg.to_string();
         if self.out.send(msg).is_err() {
             self.pending.lock().unwrap().remove(&id);
             bail!("the machine is closed");
@@ -312,8 +329,14 @@ async fn connect(target: &Target, out: &mut mpsc::UnboundedReceiver<String>, pen
         e => anyhow!(e),
     })?;
     let (mut tx, mut rx) = socket.split();
-    // Calls queued while it was closed are dropped: they already failed, or will wait for it.
-    while out.try_recv().is_ok() {}
+    // Calls queued for the socket that dropped: failed now (their pending entry may have come in
+    // after the drop's), never sent to a new one that knows nothing of them.
+    while let Ok(m) = out.try_recv() {
+        let id = serde_json::from_str::<Value>(&m).ok().and_then(|v| v["id"].as_u64());
+        if let Some(tx) = id.and_then(|id| pending.lock().unwrap().remove(&id)) {
+            let _ = tx.send(Err(anyhow!("the connection to the machine dropped: try again")));
+        }
+    }
     connected.send_replace(true);
     on_message(json!({ "t": "state", "connected": true, "error": null }));
     loop {
@@ -341,9 +364,10 @@ async fn connect(target: &Target, out: &mut mpsc::UnboundedReceiver<String>, pen
                 let Ok(v) = serde_json::from_str::<Value>(&text) else { continue };
                 if v["t"] == "result" {
                     let Some(tx) = v["id"].as_u64().and_then(|id| pending.lock().unwrap().remove(&id)) else { continue };
-                    let answer = match v.get("error") {
-                        Some(e) => Err(anyhow!(e.as_str().map(String::from).unwrap_or_else(|| e.to_string()))),
-                        None => Ok(v.get("ok").cloned().unwrap_or(Value::Null)),
+                    let answer = match (v.get("error"), v["stepUp"]["purpose"].as_str()) {
+                        (Some(e), _) => Err(anyhow!(e.as_str().map(String::from).unwrap_or_else(|| e.to_string()))),
+                        (None, Some(p)) => Ok(Answer::Confirm(p.to_string())),
+                        (None, None) => Ok(Answer::Value(v.get("ok").cloned().unwrap_or(Value::Null))),
                     };
                     let _ = tx.send(answer);
                 } else {

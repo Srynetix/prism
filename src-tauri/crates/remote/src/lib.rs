@@ -573,11 +573,14 @@ impl Remote {
     /// The computer that gave the code is accepted (its token made, for it to read once), or refused.
     pub fn peer_pair_answer(&self, accept: bool) -> Result<()> {
         let r = match self.inner.peer_pairing().as_mut() {
-            Some(p) => p.answer(&self.inner.dir, accept),
+            Some(p) => p.answer(&self.inner.dir, accept, Utc::now()),
             None => Err(anyhow::anyhow!(tr("no computer to accept"))),
         };
         if r.is_ok() {
-            tracing::info!("remote: a computer's pairing {}", if accept { "accepted" } else { "refused" });
+            match self.inner.peer_pairing().as_ref().and_then(|p| p.accepted_as().map(String::from)) {
+                Some(name) => tracing::info!("remote: the computer {name} paired"),
+                None => tracing::info!("remote: a computer's pairing refused"),
+            }
         }
         self.publish();
         r

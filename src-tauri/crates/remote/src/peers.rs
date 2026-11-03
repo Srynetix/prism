@@ -167,11 +167,29 @@ impl Pairing {
         }
     }
 
-    /// Accepted here: its token made (`dir`'s peers); or refused.
-    pub fn answer(&mut self, dir: &Path, accept: bool) -> Result<()> {
+    /// Accepted here, within its five minutes: its token made (`dir`'s peers) under its name, or
+    /// one made unique (`MacBook (2)`) when another computer has it, which keeps its own; or refused.
+    pub fn answer(&mut self, dir: &Path, accept: bool, now: DateTime<Utc>) -> Result<()> {
+        if now >= self.expires {
+            bail!("the pairing expired: open another");
+        }
         let Some(r) = self.request.as_mut().filter(|r| r.answer.is_none()) else { bail!("no computer to accept") };
+        if accept {
+            let taken: Vec<String> = list(dir)?.into_iter().map(|p| p.name).collect();
+            let base = r.name.clone();
+            let mut n = 1;
+            while taken.contains(&r.name) {
+                n += 1;
+                r.name = format!("{base} ({n})");
+            }
+        }
         r.answer = Some(if accept { Some(add(dir, &r.name)?) } else { None });
         Ok(())
+    }
+
+    /// The name it was accepted under.
+    pub fn accepted_as(&self) -> Option<&str> {
+        self.request.as_ref().filter(|r| matches!(r.answer, Some(Some(_)))).map(|r| r.name.as_str())
     }
 
     /// Done with: its answer read, or refused.
@@ -212,10 +230,23 @@ mod tests {
         assert!(p.claim(&code, "Other", "another-secret-5678901", now).is_err(), "one computer at a time");
         assert!(matches!(p.state("not-its-claim-0000000", now), super::PairState::Gone));
         assert!(matches!(p.state(claim, now), super::PairState::Waiting));
-        p.answer(&dir, true).unwrap();
+        p.answer(&dir, true, now).unwrap();
         let super::PairState::Paired(token) = p.state(claim, now) else { panic!("paired") };
         assert_eq!(super::check(&dir, &token).as_deref(), Some("MacBook"));
         assert!(matches!(p.state(claim, now), super::PairState::Gone), "given once");
+        // Another computer of the same name: its own, the first one kept.
+        let mut other = super::Pairing::new(now);
+        let code = other.code.clone();
+        other.claim(&code, "MacBook", claim, now).unwrap();
+        other.answer(&dir, true, now).unwrap();
+        assert_eq!(other.accepted_as(), Some("MacBook (2)"));
+        assert_eq!(super::check(&dir, &token).as_deref(), Some("MacBook"), "the first one still opens");
+        // Accepted too late: nothing made.
+        let mut late = super::Pairing::new(now);
+        let code = late.code.clone();
+        late.claim(&code, "Late", claim, now).unwrap();
+        assert!(late.answer(&dir, true, now + chrono::Duration::minutes(6)).is_err());
+        assert!(!super::list(&dir).unwrap().iter().any(|p| p.name == "Late"));
         // Five wrong codes end it.
         let mut q = super::Pairing::new(now);
         for _ in 0..5 {

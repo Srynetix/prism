@@ -24,11 +24,11 @@ pub fn confirm(reason: &str, wait: Duration) -> bool {
         let _ = tx.send(ok.as_bool());
     });
     let reason = NSString::from_str(reason);
-    // SAFETY: LAContext's designated initializer, then its documented
-    // `evaluatePolicy:localizedReason:reply:` with a policy it defines, a string, and a block of
-    // the signature it calls (copied by LocalAuthentication, so it may outlive this frame). The
-    // context is kept alive until the answer came or the wait ended.
+    // SAFETY: LAContext's designated initializer, a class method with no argument.
     let context: Retained<AnyObject> = unsafe { msg_send![class, new] };
+    // SAFETY: its documented `evaluatePolicy:localizedReason:reply:` with a policy it defines, a
+    // string, and a block of the signature it calls (copied by LocalAuthentication, so it may
+    // outlive this frame); the context is kept alive until the answer came or the wait ended.
     unsafe {
         let _: () = msg_send![&*context, evaluatePolicy: DEVICE_OWNER, localizedReason: &*reason, reply: &*reply];
     }

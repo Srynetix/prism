@@ -124,7 +124,8 @@ fn peer(args: &[std::ffi::OsString]) -> anyhow::Result<()> {
 /// computer that gave it accepted here by name.
 async fn peer_pair() -> anyhow::Result<()> {
     use std::io::Write;
-    let local = prism_remote::pair::Local::find(&crate::profile::data_dir(&crate::profile::data_base()))?;
+    let dir = crate::profile::data_dir(&crate::profile::data_base());
+    let local = prism_remote::pair::Local::find(&dir)?;
     let pairing = local.peer_start().await?;
     let code = format!("{} {}", &pairing.code[..3], &pairing.code[3..]);
     println!("On the other computer: profile menu › Other computers › this machine, and the code {code}");
@@ -148,12 +149,25 @@ async fn peer_pair() -> anyhow::Result<()> {
     };
     print!("{name} asks to open this Prism, as this account would. Accept? [y/N] ");
     std::io::stdout().flush()?;
-    let mut answer = String::new();
-    std::io::stdin().read_line(&mut answer)?;
+    // Read off the runtime, Ctrl+C still heard meanwhile: it cancels, as while waiting.
+    let line = tokio::task::spawn_blocking(|| {
+        let mut answer = String::new();
+        std::io::stdin().read_line(&mut answer).map(|_| answer)
+    });
+    let answer = tokio::select! {
+        a = line => a??,
+        _ = tokio::signal::ctrl_c() => {
+            let _ = local.peer_cancel().await;
+            println!();
+            anyhow::bail!("pairing cancelled");
+        }
+    };
     let accept = matches!(answer.trim(), "y" | "Y" | "yes" | "o" | "oui");
     local.peer_answer(accept).await?;
     anyhow::ensure!(accept, "{name} refused");
-    println!("{name} paired: `prism peer remove {name}` revokes it");
+    // Its name here: another computer of that name keeps its own, this one's made unique.
+    let paired = prism_remote::peers::list(&dir)?.into_iter().max_by_key(|p| p.created).map_or(name, |p| p.name);
+    println!("{paired} paired: `prism peer remove \"{paired}\"` revokes it");
     Ok(())
 }
 

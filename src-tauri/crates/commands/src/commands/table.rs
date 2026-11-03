@@ -7,7 +7,6 @@
 //! `block_call` takes the class its block gives the command (`remote::block_class`).
 
 use prism_core::remote::Class::{self, Act, Critical, Never, Read};
-use serde_json::Value;
 
 use super::*;
 

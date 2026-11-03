@@ -133,12 +133,19 @@ async fn guard(State(inner): State<Shared>, req: Request, next: Next) -> Respons
     let host = headers.get(header::HOST).and_then(|h| h.to_str().ok()).unwrap_or_default();
     let host_name = host.rsplit_once(':').map_or(host, |(h, _)| h);
     let loopback = [format!("127.0.0.1:{}", live.port), format!("localhost:{}", live.port)];
-    if host_name != party.id && !loopback.iter().any(|l| l == host) {
+    // A peer reaches it through a tunnel's end too (`ssh -L 9000:127.0.0.1:<port>`): any loopback
+    // port. No cookie nor page there, its token sent by hand: nothing for a rebound name to borrow.
+    let peer_route = req.uri().path().starts_with("/peer/");
+    let peer_loopback = peer_route && matches!(host_name, "127.0.0.1" | "localhost" | "[::1]");
+    if host_name != party.id && !loopback.iter().any(|l| l == host) && !peer_loopback {
         return refuse(StatusCode::MISDIRECTED_REQUEST, "unexpected host");
     }
     if let Some(owner) = &live.owner {
         let user = headers.get("tailscale-user-login").and_then(|h| h.to_str().ok());
-        if user != Some(owner.as_str()) {
+        // Through `tailscale serve`, the tailnet's user, checked; a peer straight on loopback (an
+        // SSH tunnel's end) has none, its token checked instead.
+        let unproxied_peer = peer_route && user.is_none();
+        if user != Some(owner.as_str()) && !unproxied_peer {
             tracing::warn!("remote: refused a request from {}", user.unwrap_or("no tailnet user"));
             return refuse(StatusCode::FORBIDDEN, tr("only this computer's tailnet user"));
         }
@@ -471,6 +478,11 @@ async fn watch(inner: Shared, mut socket: WebSocket, token: Option<String>, agen
                 Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
                 // Keys: only a controlled terminal takes them (a watched one's are dropped).
                 Some(Ok(Message::Binary(keys))) if control.is_some() => {
+                    // A peer's typing turned off since: the terminal closes, nothing typed.
+                    if peer.is_some() && !inner.live().peers.typing {
+                        let _ = socket.send(Message::Close(Some(axum::extract::ws::CloseFrame { code: 4403, reason: "typing from another Prism is off".into() }))).await;
+                        break;
+                    }
                     last_key = std::time::Instant::now();
                     if w.term.write(&keys).is_err() { break }
                 }
@@ -705,8 +717,14 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: Op
     };
     let calls = Arc::new(tokio::sync::Semaphore::new(MAX_CALLS * 2));
     while let Some(Ok(msg)) = rx.next().await {
+        // Each message checks the token again: revoked, nothing more is answered, a peer that
+        // ignores the close included.
+        if !peer_alive(&inner, &token) {
+            let _ = out.send(Message::Close(Some(axum::extract::ws::CloseFrame { code: 4401, reason: "session ended".into() }))).await;
+            break;
+        }
         let Message::Text(body) = msg else { continue };
-        let Ok(FromPage::Call { id, command, args, .. }) = serde_json::from_str::<FromPage>(&body) else { continue };
+        let Ok(FromPage::Call { id, command, args, confirmed, .. }) = serde_json::from_str::<FromPage>(&body) else { continue };
         let Ok(permit) = calls.clone().try_acquire_owned() else {
             let _ = out.send(text(json!({ "t": "result", "id": id, "error": "too many calls at once" }))).await;
             continue;
@@ -719,6 +737,15 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: Op
                 tracing::info!("remote: peer {name}: {command}");
             }
             let allowed = peer_allowed(&inner.live().peers, &command, class);
+            // What this Prism classes critical is confirmed at the desk first, as it classes it
+            // (a block of its own, a command the desk does not know): the window's app asks the
+            // person there, then calls again with this purpose.
+            let purpose = purpose(&command, &args);
+            if allowed.is_ok() && class == Some(Class::Critical) && confirmed.as_deref() != Some(purpose.as_str()) {
+                let _ = out.send(text(json!({ "t": "result", "id": id, "stepUp": { "purpose": purpose } }))).await;
+                drop(permit);
+                return;
+            }
             let download = command == "agent_files_download";
             let answer = match allowed {
                 Ok(()) => inner.host.peer_call(command, args).await,
@@ -781,7 +808,31 @@ async fn peer_tty(State(inner): State<Shared>, headers: HeaderMap, axum::extract
 /// What types to an agent or runs a command of its own: `[remote.peers] typing`.
 const PEER_TYPING: &[&str] = &["agent_write", "agent_resize", "agent_type", "agent_send", "agent_prompt", "agent_switch", "agent_file_save", "agent_run", "agent_shell", "agent_close_shell", "worktree_shell", "worktree_close_shell", "pod_shell", "pod_close_shell", "chain_go"];
 /// What writes the settings, packs and tokens: `[remote.peers] settings`.
-const PEER_SETTINGS: &[&str] = &["save_config", "store_token", "pack_import", "pack_update", "pack_remove", "reload_collectors", "remote_settings_save", "mail_sign_in_start", "mail_sign_in_wait", "mail_sign_out", "google_sign_out", "remote_pair_start", "remote_pair_confirm", "remote_revoke", "remote_peer_pair_start", "remote_peer_pair_answer", "remote_peer_revoke"];
+const PEER_SETTINGS: &[&str] = &[
+    "save_config",
+    "store_token",
+    "pack_import",
+    "pack_update",
+    "pack_remove",
+    "reload_collectors",
+    "remote_settings_save",
+    "mail_sign_in_start",
+    "mail_sign_in_wait",
+    "mail_sign_out",
+    "google_sign_in",
+    "google_sign_out",
+    "remote_pair_start",
+    "remote_pair_confirm",
+    "remote_pair_cancel",
+    "remote_revoke",
+    "remote_rename",
+    "remote_restart",
+    "remote_release",
+    "remote_peer_pair_start",
+    "remote_peer_pair_answer",
+    "remote_peer_pair_cancel",
+    "remote_peer_revoke",
+];
 
 /// Whether `[remote.peers]` lets another Prism's window call `command` (of class `class`): it
 /// always reads; acting, what is critical, typing and the settings each have their switch. A
@@ -1447,7 +1498,12 @@ mod tests {
 
         // Any command of the window, its arguments as sent; one it never answers, its error.
         assert_eq!(machine.call("save_config", json!({ "edits": [] })).await.unwrap(), json!({ "peer": "save_config", "args": { "edits": [] } }));
-        assert!(machine.call("mac_power", json!({})).await.unwrap_err().to_string().contains("not answered from another Prism"));
+        // What it classes critical (its own class, not the desk's): the desk's confirmation first,
+        // the purpose it gave, then the call goes through (here refused by the host itself).
+        let crate::machine::Answer::Confirm(purpose) = machine.ask("mac_power", json!({ "action": "restart" }), None).await.unwrap() else { panic!("a confirmation first") };
+        assert_eq!(purpose, super::purpose("mac_power", &json!({ "action": "restart" })));
+        assert!(matches!(machine.ask("mac_power", json!({ "action": "restart" }), Some("another")).await.unwrap(), crate::machine::Answer::Confirm(_)), "another purpose confirms nothing");
+        assert!(machine.ask("mac_power", json!({ "action": "restart" }), Some(&purpose)).await.unwrap_err().to_string().contains("not answered from another Prism"));
 
         // An agent's files: prepared there, fetched once here, whole.
         let offered = machine.call("agent_files_download", json!({ "id": "a1", "paths": ["src/"], "name": "work" })).await.unwrap();
@@ -1473,8 +1529,17 @@ mod tests {
         }
         assert_eq!(typed.lock().unwrap().as_slice(), b"ls\r");
 
-        // Revoked: no new socket opens with it.
+        // Typing turned off: the open terminal closes at its next key.
+        remote.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: format!("http://localhost:{port}"), keep_awake: false, peers: prism_core::config::PeerRights { typing: false, ..Default::default() }, ..Default::default() }).await;
+        assert!(machine.attach("a2", 100, 30, Box::new(|_| {}), Box::new(|| {})).await.is_err(), "no new terminal without typing");
+        let before = typed.lock().unwrap().len();
+        let _ = tty.write(b"x");
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert_eq!(typed.lock().unwrap().len(), before, "nothing typed once typing is off");
+
+        // Revoked: no new socket opens with it, and the open one answers nothing more.
         assert!(crate::peers::remove(&dir, "mac").unwrap());
+        assert!(machine.call("save_config", json!({})).await.is_err(), "a revoked peer's call");
         drop((tty, machine));
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
         let _revoked = Machine::open(Target { url: url.clone(), token, profile: None }, Arc::new(move |v| drop(tx.send(v))));

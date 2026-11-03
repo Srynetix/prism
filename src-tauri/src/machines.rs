@@ -29,13 +29,14 @@ struct Open {
 const PREFIX: &str = "machine-";
 
 /// A window's label for machine `name` (and one of its profiles): Tauri takes letters, digits,
-/// `-` and `_` only.
+/// `-` and `_` only, so the name is made of those, and a hash of the very name and profile keeps
+/// two that would read the same (`a b`, `a_b`) apart.
 fn label(name: &str, profile: Option<&str>) -> String {
-    let safe = |s: &str| -> String { s.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect() };
-    match profile {
-        Some(p) => format!("{PREFIX}{}--{}", safe(name), safe(p)),
-        None => format!("{PREFIX}{}", safe(name)),
-    }
+    let safe: String = name.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+    // FNV-1a: the same label for the same machine from one launch to the next (the window's size kept).
+    let key = format!("{name}\0{}", profile.unwrap_or_default());
+    let hash = key.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
+    format!("{PREFIX}{safe}-{:08x}", hash as u32)
 }
 
 fn config() -> anyhow::Result<prism_core::config::Config> {
@@ -98,7 +99,9 @@ pub async fn machine_token(name: String, token: String) -> Cmd {
 
 async fn keep(m: &MachineConfig, token: String) -> anyhow::Result<()> {
     let service = prism_core::profile::service(&m.token_service());
-    tokio::task::spawn_blocking(move || prism_base::platform::store_secret(&service, &token)).await?
+    tokio::task::spawn_blocking(move || prism_base::platform::store_secret(&service, &token)).await??;
+    TOKENS_CHANGED.store(true, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
 }
 
 /// This computer's name, as the machine is asked to accept it: the Mac's, or the host's.
@@ -180,41 +183,65 @@ pub fn machine_main(app: AppHandle) {
 /// agent there waiting for you), whether its window is open or not. Its config read each round:
 /// a machine added or paired shows without a restart.
 pub fn watch(hub: prism_core::state::Hub) {
+    use std::time::{Duration, Instant};
     tauri::async_runtime::spawn(async move {
-        // The tokens as read last: the keychain (`security` on macOS) is not run every few seconds;
-        // read again when missing or refused.
-        let mut tokens: std::collections::HashMap<String, String> = Default::default();
+        // The config, read again when its file changes; the tokens as read last (`security` on
+        // macOS is not run every few seconds): one missing read again a minute later, or at once
+        // after a pairing here (`TOKENS_CHANGED`), one refused at once.
+        let mut machines: Vec<MachineConfig> = Vec::new();
+        let mut stamp: Option<std::time::SystemTime> = None;
+        let mut tokens: HashMap<String, (Option<String>, Instant)> = HashMap::new();
         loop {
-            let machines = config().map(|c| c.machines).unwrap_or_default();
-            let mut out = Vec::new();
-            for m in machines.iter().filter(|m| !m.name.trim().is_empty()) {
+            let now_stamp = std::fs::metadata(crate::config_path()).and_then(|m| m.modified()).ok();
+            if stamp.is_none() || now_stamp != stamp {
+                machines = config().map(|c| c.machines).unwrap_or_default();
+                machines.retain(|m| !m.name.trim().is_empty());
+                stamp = now_stamp;
+            }
+            if TOKENS_CHANGED.swap(false, std::sync::atomic::Ordering::Relaxed) {
+                tokens.clear();
+            }
+            for m in &machines {
                 let name = m.name.trim().to_string();
-                if !tokens.contains_key(&name)
-                    && let Ok(Some(t)) = token(m).await
-                {
-                    tokens.insert(name.clone(), t);
+                let stale = tokens.get(&name).is_none_or(|(t, at)| t.is_none() && at.elapsed() > Duration::from_secs(60));
+                if stale {
+                    tokens.insert(name, (token(m).await.ok().flatten(), Instant::now()));
                 }
-                let presence = match tokens.get(&name).cloned() {
-                    Some(token) => match prism_remote::machine::summary(&Target { url: m.url.clone(), token, profile: None }).await {
-                        Ok(s) => prism_core::state::MachinePresence { name, reachable: true, error: None, agents: s.agents, waiting: s.waiting, profiles: s.profiles },
-                        Err(e) => {
-                            // Refused: its token may have been replaced (paired again) since.
-                            if format!("{e:#}").contains("token") {
-                                tokens.remove(&name);
-                            }
-                            prism_core::state::MachinePresence { name, error: Some(format!("{e:#}")), ..Default::default() }
-                        }
-                    },
-                    None => prism_core::state::MachinePresence { name, error: Some("not paired yet".into()), ..Default::default() },
-                };
-                out.push(presence);
+            }
+            // Every machine asked at once: one asleep (its 5 s timeout) holds none of the others back.
+            let asked = machines.iter().map(|m| {
+                let name = m.name.trim().to_string();
+                let token = tokens.get(&name).and_then(|(t, _)| t.clone());
+                let url = m.url.clone();
+                async move {
+                    let Some(token) = token else {
+                        return (name.clone(), Err(anyhow::anyhow!("not paired yet")), false);
+                    };
+                    let r = prism_remote::machine::summary(&Target { url, token, profile: None }).await;
+                    // Refused: its token may have been replaced (paired again) since.
+                    let refused = r.as_ref().is_err_and(|e| format!("{e:#}").contains("token"));
+                    (name, r, refused)
+                }
+            });
+            let mut out = Vec::new();
+            for (name, r, refused) in futures::future::join_all(asked).await {
+                if refused {
+                    tokens.remove(&name);
+                }
+                out.push(match r {
+                    Ok(s) => prism_core::state::MachinePresence { name, reachable: true, error: None, agents: s.agents, waiting: s.waiting, profiles: s.profiles },
+                    Err(e) => prism_core::state::MachinePresence { name, error: Some(format!("{e:#}")), ..Default::default() },
+                });
             }
             hub.update(|s| prism_core::state::replace(&mut s.machines, out));
             let pace = if hub.shown() { 5 } else { 15 };
-            tokio::time::sleep(std::time::Duration::from_secs(pace)).await;
+            tokio::time::sleep(Duration::from_secs(pace)).await;
         }
     });
 }
+
+/// A token kept or replaced here (a pairing, one pasted): `watch` reads them again.
+static TOKENS_CHANGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// A machine window closed: its socket and terminals with it.
 pub fn closed(app: &AppHandle, label: &str) {
@@ -256,46 +283,43 @@ pub async fn machine_connect(state: State<'_, Arc<Machines>>, window: WebviewWin
     Ok(serde_json::json!({ "name": name, "ssh": m.ssh }))
 }
 
-/// A command of the window, answered by its machine. What is critical there is first confirmed by
-/// the person at this computer (Touch ID, or its password), unless `[[machines]] skip_confirm`:
-/// asked here, by the app, so that nothing the page does skips it.
+/// A command of the window, answered by its machine. What the machine classes critical (its own
+/// blocks and commands included, whatever this computer knows of them) it asks to confirm first:
+/// the person at this computer confirms (Touch ID, or its password), unless `[[machines]]
+/// skip_confirm`, asked here, by the app, so that nothing the page does skips it; then it is called
+/// again with that purpose.
 #[tauri::command]
 pub async fn machine_call(state: State<'_, Arc<Machines>>, window: WebviewWindow, command: String, args: Option<Value>) -> Cmd<Value> {
-    let machine = machine(&state, &window)?;
-    let args = args.unwrap_or(Value::Null);
-    if critical(&command, &args) {
-        let name = state.open.lock().unwrap().get(window.label()).map(|o| o.name.clone()).unwrap_or_default();
-        if !find(&name).is_ok_and(|m| m.skip_confirm) {
-            let reason = format!("{} on {name}", describe(&command, &args));
-            if !tokio::task::spawn_blocking(move || confirm_here(&reason)).await? {
-                return Err(format!("{command}: not confirmed on this computer (Touch ID or its password on a Mac, polkit's agent on Linux; Settings › Remote › Machines › No confirmation goes without)").into());
-            }
+    call_confirmed(&state, &window, &command, args.unwrap_or(Value::Null)).await
+}
+
+async fn call_confirmed(state: &Machines, window: &WebviewWindow, command: &str, args: Value) -> Cmd<Value> {
+    let machine = machine(state, window)?;
+    let purpose = match machine.ask(command, args.clone(), None).await? {
+        prism_remote::machine::Answer::Value(v) => return Ok(v),
+        prism_remote::machine::Answer::Confirm(p) => p,
+    };
+    let name = state.open.lock().unwrap().get(window.label()).map(|o| o.name.clone()).unwrap_or_default();
+    if !find(&name).is_ok_and(|m| m.skip_confirm) {
+        let reason = format!("{} on {name}", describe(command, &args));
+        if !tokio::task::spawn_blocking(move || confirm_here(&reason)).await? {
+            return Err(format!("{command}: not confirmed on this computer (Touch ID or its password on a Mac, polkit's agent on Linux; Settings › Remote › Machines › No confirmation goes without)").into());
         }
     }
-    Ok(machine.call(&command, args).await?)
+    match machine.ask(command, args, Some(&purpose)).await? {
+        prism_remote::machine::Answer::Value(v) => Ok(v),
+        prism_remote::machine::Answer::Confirm(_) => Err(format!("{command}: the machine asked to confirm it again").into()),
+    }
 }
 
 /// Files of an agent's folder on the window's machine, saved where this computer's dialog said
 /// (`dest`): prepared there (one as it is, several or a folder as a zip), then fetched once.
 #[tauri::command]
 pub async fn machine_export(state: State<'_, Arc<Machines>>, window: WebviewWindow, id: String, paths: Vec<String>, name: String, dest: String) -> Cmd {
-    let machine = machine(&state, &window)?;
-    let offered = machine.call("agent_files_download", serde_json::json!({ "id": id, "paths": paths, "name": name })).await?;
+    // A secret of its folder (`.env`) is critical there: confirmed here as any other.
+    let offered = call_confirmed(&state, &window, "agent_files_download", serde_json::json!({ "id": id, "paths": paths, "name": name })).await?;
     let token = offered["token"].as_str().ok_or("the machine offered no download")?;
-    Ok(machine.download(token, std::path::Path::new(&dest)).await?)
-}
-
-/// Whether `command` is critical, as the machine classes it for a phone (a block's command, its
-/// block's class here).
-fn critical(command: &str, args: &Value) -> bool {
-    use prism_commands::commands::remote::{block_class, class};
-    let class = if command == "block_call" {
-        let s = |k: &str| args.get(k).and_then(Value::as_str).unwrap_or_default();
-        Some(block_class(s("block"), s("command"), args.get("args").unwrap_or(&Value::Null)))
-    } else {
-        class(command)
-    };
-    class == Some(prism_core::remote::Class::Critical)
+    Ok(machine(&state, &window)?.download(token, std::path::Path::new(&dest)).await?)
 }
 
 /// What macOS's sheet says Prism wants to do: the command and what it acts on.
@@ -317,13 +341,18 @@ fn describe(command: &str, args: &Value) -> String {
 mod tests {
     use serde_json::json;
 
-    /// What a machine classes critical asks first; what it reads or acts on lightly does not.
+    /// Two machines, or a machine and one of another's profiles, never share a window.
     #[test]
-    fn what_is_critical_there_is_confirmed_here() {
-        assert!(super::critical("merge_mr", &json!({ "iid": 42 })));
-        assert!(super::critical("agent_stop", &json!({ "id": "a1" })));
-        assert!(!super::critical("rebase_mr", &json!({ "iid": 42 })));
-        assert!(!super::critical("mr_detail", &json!({ "iid": 42 })));
+    fn a_window_per_machine_and_profile() {
+        assert_ne!(super::label("a b", None), super::label("a_b", None));
+        assert_ne!(super::label("a--b", None), super::label("a", Some("b")));
+        assert_eq!(super::label("build-srv", Some("perso")), super::label("build-srv", Some("perso")));
+        assert!(super::label("a b", Some("p")).chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'));
+    }
+
+    /// What the confirmation says the machine is about to do.
+    #[test]
+    fn says_what_is_confirmed() {
         assert_eq!(super::describe("merge_mr", &json!({ "repo": "api", "iid": 42 })), "merge mr !42 (api)");
         assert_eq!(super::describe("agent_stop", &json!({ "id": "a1" })), "agent stop a1");
     }

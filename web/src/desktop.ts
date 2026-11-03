@@ -56,7 +56,8 @@ export async function syncDesktop(s: Snapshot, alerts: Alert[]) {
   if (!isLocal()) return
   const waiting = countedSessions(s).filter(waitingAlert)
   const urgent = alerts.filter((a) => a.severity !== 'info' && a.kind !== 'Claude')
-  const away = (s.machines ?? []).reduce((n, m) => n + m.waiting.length, 0)
+  // As they notify: a permission or your turn, not a review ready.
+  const away = (s.machines ?? []).reduce((n, m) => n + m.waiting.filter((w) => w.status === 'waiting_tool' || w.status === 'needs_you').length, 0)
   const lines = [
     waiting.length && tn(waiting.length, '{n} {agent} session waiting', '{n} {agent} sessions waiting', { agent: agentName() }),
     away && tn(away, '{n} agent waiting on another computer', '{n} agents waiting on other computers'),

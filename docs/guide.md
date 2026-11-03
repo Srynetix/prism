@@ -158,7 +158,7 @@ by hand):
 ```toml
 [[machines]]
 name = "build-srv"
-url = "https://build-srv.tail1234.ts.net"   # or http://127.0.0.1:<port> at the end of `ssh -L`
+url = "https://build-srv.tail1234.ts.net"   # or http://127.0.0.1:9000 with `ssh -L 9000:127.0.0.1:<its port> build-srv`
 ssh = "build-srv"                           # optional: its folders open here in VS Code (Remote-SSH)
 ```
 
@@ -177,8 +177,9 @@ has a chip per machine (its agents, those waiting for you; faded out of reach, a
 window), and an agent waiting there notifies here as one of this computer's would (a permission,
 a question; quiet hours and the digest apply), counted in the menu bar too.
 
-What is critical there (a merge, a manual job, an agent stopped, a worktree removed, a file of an
-agent saved) first asks the person at the desk: Touch ID or the account's password on a Mac,
+What that machine classes critical (a merge, a manual job, an agent stopped, a worktree removed,
+a file of an agent saved or a secret of its folder downloaded, a command of one of its own blocks)
+first asks the person at the desk: Touch ID or the account's password on a Mac,
 polkit's agent of the desktop on Linux (`pkcheck`, the password or a fingerprint where PAM takes
 one; refused without polkit). Asked by the app, never by the page; `skip_confirm = true` in the
 machine's `[[machines]]` goes without.

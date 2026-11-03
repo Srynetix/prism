@@ -293,6 +293,8 @@ pub const PEER_NEVER: &[&str] = &[
     "agent_files_export",
     "save_csv",
     "mac_power",
+    // A browser on that machine's screen, which nobody may be at.
+    "google_sign_in",
     "update_install",
     // The snapshot comes over the peer's socket.
     "snapshot_sync",
@@ -518,9 +520,9 @@ mod tests {
         }
     }
 
-    /// `route!` passes a phone's arguments to the command by position: the table's (`[phone: …]`)
-    /// must be named and ordered as the command's own, or two of a kind (a task and a comment id)
-    /// would swap silently.
+    /// A phone's call takes the command's own route (its `peer`, arguments by name); the table's
+    /// list (`[phone: …]`), which says what a phone reaches, names them as the command does, in its
+    /// order, so that it reads as the command it routes.
     #[test]
     fn a_routed_command_gets_its_arguments_in_its_order() {
         let sources = [
