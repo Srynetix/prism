@@ -412,7 +412,8 @@ fn device_name(name: &str) -> String {
 
 #[cfg(test)]
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("prism-remote-{name}-{}", std::process::id()));
+    // `auth-` prefixed: `prism-remote-pair-{pid}` is the server tests' data dir, never to meet this one's.
+    let dir = std::env::temp_dir().join(format!("prism-remote-auth-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     dir
 }

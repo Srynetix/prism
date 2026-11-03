@@ -19,6 +19,6 @@ targets: Array<FeedbackTarget>,
  */
 context: Array<ContextLine>, 
 /**
- * A capture of the window can be put on the clipboard (macOS).
+ * A capture of the window can be put on the clipboard (macOS, Linux).
  */
 capture: boolean, };
