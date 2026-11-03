@@ -520,7 +520,7 @@
           <span class="muted">{t('or')}</span>
           {#each RECIPES as r (r.name)}<button type="button" class="recipe" onclick={() => useRecipe(r)} title={r.steps.map((s) => STEP_LABEL[s.kind]).join(' → ')}>{r.name}</button>{/each}
         </div>
-        {#if steps.length}<small class="muted">{t('After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.')}{#if onPhone} {t('The Mac runs them; a task needs critical actions on.')}{/if}</small>{/if}
+        {#if steps.length}<small class="muted">{t('After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.')}{#if onPhone} {t('The computer runs them; a task needs critical actions on.')}{/if}</small>{/if}
       </div>
     </div>
     {#if kinds.length}

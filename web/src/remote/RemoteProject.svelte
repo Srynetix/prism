@@ -171,11 +171,11 @@
   {#if loadError}
     <p class="note ko">{loadError}</p>
   {:else if workspaces === undefined}
-    <p class="note">{t('Asking the Mac…')}</p>
+    <p class="note">{t('Asking the computer…')}</p>
   {:else if !workspaces.length}
-    <p class="banner">{t('No working folder on the Mac: add one in Settings › Code › Repositories › Working folders there, then come back.')}</p>
+    <p class="banner">{t('No working folder on the computer: add one in Settings › Code › Repositories › Working folders there, then come back.')}</p>
   {:else}
-    <p class="banner">{t('In')} <code>{dir}</code> {t('on the Mac: a git repository, a README.md and a first commit; added to the repositories. Confirmed by your passkey.')}</p>
+    <p class="banner">{t('In')} <code>{dir}</code> {t('on the computer: a git repository, a README.md and a first commit; added to the repositories. Confirmed by your passkey.')}</p>
     <div class="box">
       {#if workspaces.length > 1}
         <div class="field"><b>{t('Working folder')}</b>
@@ -212,7 +212,7 @@
     <div class="box">
       <label class="field"><b>{t('Project')}</b>
         <input type="search" bind:value={query} placeholder={t('search your projects')} autocapitalize="off" autocorrect="off" spellcheck="false" />
-        <span class="h plain">{t('Cloned into')} <code>{dir}</code> {t('with {cli} (the Mac’s login), added to the repositories. Confirmed by your passkey.', { cli: ws?.forge === 'github' ? 'gh' : 'glab' })}</span>
+        <span class="h plain">{t('Cloned into')} <code>{dir}</code> {t('with {cli} (the computer’s login), added to the repositories. Confirmed by your passkey.', { cli: ws?.forge === 'github' ? 'gh' : 'glab' })}</span>
       </label>
       {#if searchError}<div class="field"><span class="h ko">{searchError}</span></div>{/if}
       {#each found ?? [] as p (p.path)}

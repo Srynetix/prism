@@ -4115,6 +4115,7 @@ dependencies = [
  "chrono",
  "dirs",
  "futures",
+ "image",
  "minisign-verify",
  "notify",
  "prism-agents",

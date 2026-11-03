@@ -101,7 +101,9 @@ To try one:
 3. Click or press another key to wake up. Nothing is lost.
 
 ## Audio
-The **Audio** block of the status bar plays something while you work: radio stations, YouTube videos, lives or playlists, and podcasts. Without configuration, it offers a built-in selection; lists you give in **Settings › Interface › Alerts & sound** (`[audio]`) replace it. On macOS, it also picks up what the system shows as now playing (music in your browser, Music…), and lets you pause it or skip from the bar. The **×** of its menu stops and deselects what Prism plays: the bar goes back to *Audio* (an episode keeps its position).
+The **Audio** block of the status bar plays something while you work: radio stations, YouTube videos, lives or playlists, and podcasts. Without configuration, it offers a built-in selection; lists you give in **Settings › Interface › Alerts & sound** (`[audio]`) replace it. On macOS and Linux, it also picks up what the system shows as now playing (music in your browser, Music…), and lets you pause it or skip from the bar. The **×** of its menu stops and deselects what Prism plays: the bar goes back to *Audio* (an episode keeps its position).
+
+> Now Playing on Linux needs `playerctl` on the PATH (your distribution's package): without it, the bar shows only what Prism plays itself.
 
 YouTube refuses a player embedded without a referrer, which the app's own page cannot send: Prism embeds it in a page of a small relay of its own, on `http://localhost` and a port the system picks, started when you first play a video. It serves that page only, to the machine only.
 

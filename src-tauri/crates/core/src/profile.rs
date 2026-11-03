@@ -275,10 +275,31 @@ fn start_args() -> &'static [&'static str] {
     START_ARGS.get().copied().unwrap_or_default()
 }
 
-/// Starts Prism on profile `id`, detached from the terminal (its output discarded).
+/// The Prism to start again: the running executable, or the AppImage it came from — an
+/// AppImage runs from a mount (`/tmp/.mount_…`) gone as soon as it quits.
+fn executable() -> Result<PathBuf> {
+    if let Some(image) = std::env::var_os("APPIMAGE").map(PathBuf::from).filter(|p| p.is_file()) {
+        return Ok(image);
+    }
+    std::env::current_exe().context("locating the Prism executable")
+}
+
+/// Starts Prism on profile `id`, detached from the terminal (its output discarded). On Linux,
+/// from a systemd unit (the watch's service, `INVOCATION_ID`), in a scope of its own: it would
+/// otherwise live (its tmux and agents with it) in that service's control group.
 #[cfg(unix)]
 fn start(id: &str) -> Result<()> {
-    let exe = std::env::current_exe().context("locating the Prism executable")?;
+    let exe = executable()?;
+    #[cfg(target_os = "linux")]
+    let mut cmd = match crate::detect::which("systemd-run").filter(|_| std::env::var_os("INVOCATION_ID").is_some()) {
+        Some(run) => {
+            let mut cmd = std::process::Command::new(run);
+            cmd.args(["--user", "--scope", "--quiet", "--collect", "--"]).arg(exe);
+            cmd
+        }
+        None => std::process::Command::new(exe),
+    };
+    #[cfg(not(target_os = "linux"))]
     let mut cmd = std::process::Command::new(exe);
     cmd.args(start_args()).env("PRISM_PROFILE", id).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
     prism_sys::process::new_session(&mut cmd).spawn().context("starting Prism")?;
@@ -293,7 +314,7 @@ pub fn restart() -> Result<String> {
 /// Opens profile `id` in another Prism, next to this one.
 pub fn launch(id: &str) -> Result<()> {
     ensure!(id == DEFAULT || config_of(id).is_file(), tr!("unknown profile {id}", id = id));
-    let exe = std::env::current_exe().context("locating the Prism executable")?;
+    let exe = executable()?;
     let mut args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
     take_arg(&mut args);
     std::process::Command::new(exe).arg("--profile").arg(id).args(args).env("PRISM_PROFILE", id).spawn().context("opening Prism")?;
@@ -580,7 +601,7 @@ pub fn choose(id: &str) -> Result<()> {
 /// Starts Prism again on profile `id`: the same executable and arguments, without a former
 /// `--profile`, with `PRISM_PROFILE` set for the new process only. The caller then exits.
 pub fn relaunch(id: &str) -> Result<()> {
-    let exe = std::env::current_exe().context("locating the Prism executable")?;
+    let exe = executable()?;
     let mut args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
     take_arg(&mut args);
     std::process::Command::new(exe).args(args).env("PRISM_PROFILE", id).spawn().context("relaunching Prism")?;
@@ -641,7 +662,7 @@ pub fn keep_running(on: bool) -> Result<()> {
         }
         return Ok(());
     }
-    let exe = std::env::current_exe().context("locating the Prism executable")?;
+    let exe = executable()?;
     ensure!(exe.to_string_lossy().contains(".app/Contents/MacOS/"), tr("Keep Prism running: only for Prism installed as an app, not a build of its repository"));
     let job = watch_job(id, &exe);
     let loaded = launchctl(&["print", &format!("{target}/{}", watch_label(id))])?.status.success();
@@ -658,24 +679,115 @@ pub fn keep_running(on: bool) -> Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_os = "macos"))]
+/// Linux's counterpart of the LaunchAgent: a user systemd timer running `prism watch` every
+/// minute, from the user's manager start on; the service a oneshot. The Prism it starts goes to a
+/// scope of its own (`start`); `KillMode=process` keeps it alive all the same without systemd-run.
+#[cfg(target_os = "linux")]
+fn watch_service(id: &str, exe: &Path) -> String {
+    // systemd's quoting: a path with spaces in double quotes, `\` and `"` escaped, `%` doubled.
+    let exe = exe.to_string_lossy().replace('\\', "\\\\").replace('"', "\\\"").replace('%', "%%");
+    format!(
+        r#"[Unit]
+Description=Prism watch (profile {id})
+
+[Service]
+Type=oneshot
+ExecStart="{exe}" watch
+Environment=PRISM_PROFILE={id}
+KillMode=process
+"#,
+    )
+}
+
+/// 15 s after the user's manager starts (the login, or the boot with lingering), then every
+/// minute. `watch` waits for the graphical session itself (`has_display`).
+#[cfg(target_os = "linux")]
+fn watch_timer() -> &'static str {
+    r#"[Unit]
+Description=Prism watch every minute
+
+[Timer]
+OnActiveSec=15
+OnUnitActiveSec=60
+
+[Install]
+WantedBy=timers.target
+"#
+}
+
+/// `[remote] keep_running` for the active profile, as `on` says: its units written and the timer
+/// enabled, or disabled and removed. On, only for an installed Prism (not a build of the
+/// repository, whose place would be written into the units). Blocking (`systemctl`).
+#[cfg(target_os = "linux")]
+pub fn keep_running(on: bool) -> Result<()> {
+    use anyhow::{ensure, Context};
+    let id = active();
+    let user = dirs::home_dir().unwrap_or_default().join(".config/systemd/user");
+    let label = watch_label(id);
+    let service = user.join(format!("{label}.service"));
+    let timer = user.join(format!("{label}.timer"));
+    let unit = format!("{label}.timer");
+    let systemctl = |args: &[&str]| std::process::Command::new("systemctl").arg("--user").args(args).output().context("systemctl");
+    if !on {
+        let had = timer.exists() || service.exists();
+        if timer.exists() {
+            let _ = systemctl(&["disable", "--now", &unit]);
+            let _ = std::fs::remove_file(&timer);
+        }
+        let _ = std::fs::remove_file(&service);
+        if had {
+            let _ = systemctl(&["daemon-reload"]);
+        }
+        return Ok(());
+    }
+    let exe = executable()?;
+    ensure!(!exe.to_string_lossy().contains("/target/"), tr("Keep Prism running: only for Prism installed as an app, not a build of its repository"));
+    let body = watch_service(id, &exe);
+    let enabled = systemctl(&["is-enabled", &unit]).map(|o| o.status.success()).unwrap_or(false);
+    if enabled && std::fs::read_to_string(&service).is_ok_and(|s| s == body) {
+        return Ok(());
+    }
+    std::fs::create_dir_all(&user)?;
+    std::fs::write(&service, &body).with_context(|| format!("writing {}", service.display()))?;
+    std::fs::write(&timer, watch_timer()).with_context(|| format!("writing {}", timer.display()))?;
+    let _ = systemctl(&["daemon-reload"]);
+    let out = systemctl(&["enable", "--now", &unit])?;
+    ensure!(out.status.success(), "systemctl enable {unit}: {}", String::from_utf8_lossy(&out.stderr).trim());
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn keep_running(_on: bool) -> Result<()> {
     Ok(())
 }
 
-/// Whether `prism watch` starts Prism: none running, and either the first watch since the Mac
+/// Whether `prism watch` starts Prism: none running, and either the first watch since the computer
 /// started (the login), or a lock left behind (a crash: a Prism that quits removes its lock).
 fn watch_starts(running: bool, new_boot: bool, lock_left: bool) -> bool {
     !running && (new_boot || lock_left)
 }
 
-/// When the Mac started (`kern.boottime`, seconds).
-#[cfg(unix)]
+/// When the computer started (`kern.boottime`, seconds).
+#[cfg(target_os = "macos")]
 fn boot_time() -> Option<u64> {
     let out = std::process::Command::new("/usr/sbin/sysctl").args(["-n", "kern.boottime"]).output().ok()?;
     // `{ sec = 1761900000, usec = 123456 } Sat Nov  1 …`
     let text = String::from_utf8_lossy(&out.stdout).into_owned();
     text.split("sec = ").nth(1)?.split(',').next()?.trim().parse().ok()
+}
+
+/// A display to open Prism's window on: the session's `DISPLAY` or `WAYLAND_DISPLAY`, which the
+/// desktop gives the user's systemd manager once it is up.
+#[cfg(target_os = "linux")]
+fn has_display() -> bool {
+    ["DISPLAY", "WAYLAND_DISPLAY"].iter().any(|k| std::env::var_os(k).is_some_and(|v| !v.is_empty()))
+}
+
+/// When the computer started (`/proc/stat`'s `btime`, seconds).
+#[cfg(target_os = "linux")]
+fn boot_time() -> Option<u64> {
+    let stat = std::fs::read_to_string("/proc/stat").ok()?;
+    stat.lines().find(|l| l.starts_with("btime "))?.split_whitespace().nth(1)?.parse().ok()
 }
 
 /// `prism watch`, run by the LaunchAgent of `keep_running`: starts the active profile's Prism
@@ -692,6 +804,12 @@ pub fn watch() -> Result<Option<String>> {
     if wanted != Some(true) {
         keep_running(false)?;
         return Ok(Some(format!("keep_running is off for profile {id}: the watch is removed")));
+    }
+    // Linux: the graphical session not there yet (the user's manager starts before it, or at boot
+    // with lingering): nothing done, nothing noted, the next minute looks again.
+    #[cfg(target_os = "linux")]
+    if !has_display() {
+        return Ok(None);
     }
     let seen = data_dir_of(&data_base(), id).join("watch-boot");
     let boot = boot_time().map(|b| b.to_string()).unwrap_or_default();
@@ -719,6 +837,20 @@ pub fn watch() -> Result<Option<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_watch_units_run_watch_every_minute() {
+        let service = watch_service("perso", Path::new("/usr/bin/prism"));
+        assert!(service.contains("ExecStart=\"/usr/bin/prism\" watch"));
+        assert!(service.contains("Environment=PRISM_PROFILE=perso"));
+        assert!(service.contains("KillMode=process"));
+        // A path with a space, a quote and a percent, as systemd reads it.
+        let odd = watch_service("default", Path::new("/opt/My Apps/pr\"ism%.AppImage"));
+        assert!(odd.contains(r#"ExecStart="/opt/My Apps/pr\"ism%%.AppImage" watch"#), "{odd}");
+        let timer = watch_timer();
+        assert!(timer.contains("OnUnitActiveSec=60") && !timer.contains("Persistent"));
+    }
 
     #[test]
     fn a_binary_says_how_it_runs_prism() {

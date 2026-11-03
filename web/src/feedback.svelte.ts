@@ -52,7 +52,7 @@ export const feedback = $state({
   /** glab or gh could not open it: the forge's new issue page, filled in. */
   fallback: '',
   sent: null as FeedbackRequest | null,
-  /** A capture of the window was made: uploaded with the issue (GitLab), on the clipboard too. */
+  /** A capture of the window was made: uploaded with the issue (GitLab, GitHub), on the clipboard too. */
   captured: false,
   /** Its thumbnail, a `data:` URL. */
   shot: '',
@@ -194,19 +194,19 @@ export async function send() {
   }
 }
 
-/** The capture goes to GitLab with the issue; GitHub's API takes none: it is pasted there. */
-export const uploadsCapture = () => target()?.forge === 'gitlab'
+/** The capture goes to the forge with the issue (GitLab's uploads, GitHub's user attachments). */
+export const uploadsCapture = () => ['gitlab', 'github'].includes(target()?.forge ?? '')
 
 /**
- * A capture of the window, uploaded with the issue on GitLab and put on the clipboard (to paste on
- * GitHub, or on the forge's page when glab fails): the composer hides for the moment of the capture.
+ * A capture of the window, uploaded with the issue on GitLab and GitHub and put on the clipboard
+ * (to paste into a comment): the composer hides for the moment of the capture.
  */
 export async function capture() {
   if (!isDesktop() || !feedback.info?.capture) return
   feedback.capturing = true
   try {
     await new Promise((r) => setTimeout(r, 180))
-    feedback.shot = `data:image/jpeg;base64,${await invoke<string>('feedback_capture')}`
+    feedback.shot = await invoke<string>('feedback_capture')
     feedback.captured = true
   } catch (e) {
     feedback.error = String(e)

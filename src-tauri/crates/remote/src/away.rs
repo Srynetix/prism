@@ -49,8 +49,8 @@ pub async fn checks(cfg: &RemoteConfig) -> Vec<AwayCheck> {
         // Sleep: `caffeinate -s` holds on power only.
         let on_battery = batt.as_deref().is_some_and(|b| b.contains("'Battery Power'"));
         out.push(match (cfg.keep_awake, on_battery) {
-            (false, _) => check(false, tr("Keep the Mac awake is off: it may sleep, out of reach until woken.")),
-            (true, true) => check(false, tr("On battery: macOS sleeps despite Keep the Mac awake. Plug it in before leaving.")),
+            (false, _) => check(false, tr("Keep the computer awake is off: it may sleep, out of reach until woken.")),
+            (true, true) => check(false, tr("On battery: macOS sleeps despite Keep the computer awake. Plug it in before leaving.")),
             (true, false) => check(true, tr("On power, kept awake: the screen may lock, Prism carries on.")),
         });
         if lid_sleeps(clamshell.as_deref().unwrap_or_default()) == Some(true) {
@@ -66,7 +66,7 @@ pub async fn checks(cfg: &RemoteConfig) -> Vec<AwayCheck> {
         out.push(match unlock {
             Unlock::Free => check(true, tr("No FileVault: after a restart the Mac comes back by itself, up to the login window or the session (automatic login).")),
             Unlock::Password if cfg.power => check(true, tr("FileVault: a restart from the phone takes the Mac's password and comes back by itself. A power cut or a crash still waits for the password at startup.")),
-            Unlock::Password => check(false, tr("FileVault: after any restart the Mac waits for its password at startup. With Restart or shut down the Mac (Exposure), a restart from the phone skips it.")),
+            Unlock::Password => check(false, tr("FileVault: after any restart the Mac waits for its password at startup. With Restart or shut down the computer (Exposure), a restart from the phone skips it.")),
             Unlock::Stuck => check(false, tr("FileVault on a Mac without authenticated restarts: after any restart it waits for its password at startup.")),
         });
         // `autorestart`: desktop Macs only.
@@ -81,6 +81,20 @@ pub async fn checks(cfg: &RemoteConfig) -> Vec<AwayCheck> {
             check(true, tr("Prism opens at login and again after a crash."))
         } else {
             check(false, tr("Prism is not opened again after a crash, nor at login unless in Login Items: turn on Keep Prism running."))
+        });
+    }
+    // Sleep: `systemd-inhibit` holds whatever the power.
+    #[cfg(target_os = "linux")]
+    {
+        out.push(if cfg.keep_awake {
+            check(true, tr("Kept awake (systemd-inhibit): the screen may lock, Prism carries on."))
+        } else {
+            check(false, tr("Keep the computer awake is off: it may sleep, out of reach until woken."))
+        });
+        out.push(if cfg.keep_running {
+            check(true, tr("Prism opens at login and again after a crash."))
+        } else {
+            check(false, tr("Prism is not opened again after a crash, nor at login: turn on Keep Prism running."))
         });
     }
     out

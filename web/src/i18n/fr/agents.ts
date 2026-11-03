@@ -426,7 +426,7 @@ export default {
   'Remove step {n}': 'Retirer l’étape {n}',
   'or': 'ou',
   'After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.': 'Après son travail : chaque étape une fois la précédente terminée. Une tâche en échec revient une fois à l’agent. Rien n’est mergé ; aucun push sur une branche protégée.',
-  'The Mac runs them; a task needs critical actions on.': 'Le Mac les exécute ; une tâche demande que les actions critiques soient activées.',
+  'The computer runs them; a task needs critical actions on.': 'L’ordinateur les exécute ; une tâche demande que les actions critiques soient activées.',
   'Guessed from the command the prompt starts with (Settings › Agents › Kinds)': 'Deviné d’après la commande par laquelle commence le prompt (Réglages › Agents › Types)',
   'Remove #{tag}': 'Retirer #{tag}',
   'Remove tag {tag}': 'Retirer l’étiquette {tag}',

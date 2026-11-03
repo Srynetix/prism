@@ -17,8 +17,8 @@ import type { External as NowPlaying } from './bindings/External'
  * musicForProgramming by default). To add one: an
  * `AudioProvider` object in `PROVIDERS`, and its groups appear in the menu.
  *
- * Apart, `external`: what macOS shows in "Now Playing" (Spotify in the browser,
- * YouTube, Music…), relayed by the Rust core (`now-playing` event) and remote-controlled.
+ * Apart, `external`: what the system shows in "Now Playing" (macOS, Linux: Spotify in the
+ * browser, YouTube, Music…), relayed by the Rust core (`now-playing` event) and remote-controlled.
  * Starting one pauses the other; the bar shows the last of the two to have played.
  */
 export interface Track {
@@ -108,7 +108,7 @@ const podcast: AudioProvider = {
 export const PROVIDERS: AudioProvider[] = [radio, youtube, podcast]
 export const providerOf = (id: ProviderId) => PROVIDERS.find((p) => p.id === id)!
 
-/** Player outside the app, as seen by macOS "Now Playing" (`audio/now_playing.rs`). */
+/** Player outside the app, as seen by the system's "Now Playing" (`audio/now_playing/`). */
 export interface External extends NowPlaying {
   /** Reception of this state (ms): the position advances by itself from `elapsed`. */
   at: number

@@ -51,7 +51,7 @@
   const openWaiting = (w: Waiting) => (w.p && !w.p.hub ? switchProfile(w.p.id, { view: 'agents', agent: w.a.id }) : openAgents(w.a.id))
   /** A profile's card in All: what it is doing, its MRs that need you when its snapshot is here. */
   const sub = (p: PhoneProfile) => {
-    if (!p.reachable) return p.open ? t('Open on the Mac; its remote is not relayed here') : t('Closed on the Mac')
+    if (!p.reachable) return p.open ? t('Open on the computer; its remote is not relayed here') : t('Closed on the computer')
     const s = p.hub ? snap : (phoneProfiles.sides[p.id]?.snap ?? null)
     const agents = s ? s.agents.filter((a) => a.state === 'running').length : p.agents
     const n = s ? waitingIn(s).length : p.waiting

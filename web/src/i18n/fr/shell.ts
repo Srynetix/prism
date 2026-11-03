@@ -282,7 +282,7 @@ export default {
   '{n} {agent} sessions waiting': '{n} sessions {agent} en attente',
   'nothing to report': 'rien à signaler',
   '{n} new items need your attention': '{n} nouveaux éléments demandent votre attention',
-  'The preview is off: Settings › Remote › Exposure on the Mac': 'L’aperçu est désactivé : Réglages › Accès à distance › Exposition sur le Mac',
+  'The preview is off: Settings › Remote › Exposure on the computer': 'L’aperçu est désactivé : Réglages › Accès à distance › Exposition sur l’ordinateur',
   'Could not copy: {error}': 'Impossible de copier : {error}',
   'Invalid YouTube link': 'Lien YouTube invalide',
   'YouTube cannot play this here': 'YouTube ne peut pas lire ceci ici',

@@ -1,8 +1,8 @@
-//! The Sound block (`[sound]`): the Mac's output and microphone, their device, volume and mute,
+//! The Sound block (`[sound]`): the output and the microphone, their device, volume and mute,
 //! changed from the block; and an alert when the microphone's input volume (its gain) is too low,
-//! notified when an application records from it (muted is not one). Read from CoreAudio's settings:
-//! nothing is ever listened to, no permission asked. macOS only. Its window side:
-//! `web/src/blocks/sound/`.
+//! notified when an application records from it (muted is not one). Read from the audio devices'
+//! settings — CoreAudio on macOS, `pactl` on Linux: nothing is ever listened to, no permission
+//! asked. macOS and Linux. Its window side: `web/src/blocks/sound/`.
 
 use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
@@ -16,6 +16,9 @@ mod collector;
 #[cfg(target_os = "macos")]
 mod coreaudio;
 mod demo;
+/// Linux's side. Its parsing compiles on every OS, tested from any of them.
+#[cfg(any(target_os = "linux", test))]
+mod pulse;
 
 pub struct Sound;
 
@@ -62,7 +65,7 @@ impl Block for Sound {
                     collector::set_volume(scope, v.min(100) as u8).await?
                 }
                 "mute" => collector::set_mute(scope, args.get("muted").and_then(Value::as_bool).unwrap_or(true)).await?,
-                // The device macOS uses for it, by its CoreAudio id (`Device::id`).
+                // The device the system defaults it to, by its id (`Device::id`).
                 "device" => {
                     let Some(id) = args.get("id").and_then(Value::as_u64) else { bail!("device: an id") };
                     collector::set_device(scope, id as u32).await?
@@ -82,7 +85,7 @@ impl Block for Sound {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct SoundConfig {
-    /// On by default: CoreAudio's settings, read locally every `poll_seconds`.
+    /// On by default: the audio devices' settings (CoreAudio, `pactl`), read locally every `poll_seconds`.
     pub enabled: bool,
     /// The microphone's input volume under this % is an alert (orange), notified when an
     /// application records from it. 0: never.
@@ -129,7 +132,7 @@ pub enum Scope {
 }
 
 impl Scope {
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    #[cfg_attr(not(any(target_os = "macos", target_os = "linux")), allow(dead_code))]
     fn word(self) -> &'static str {
         match self {
             Scope::Input => "input",

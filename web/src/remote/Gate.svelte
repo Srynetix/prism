@@ -71,7 +71,7 @@
           return ready()
         }
         if (s.state === 'gone') {
-          error = t('The pairing ended on the Mac (cancelled or expired): open a new one there.')
+          error = t('The pairing ended on the computer (cancelled or expired): open a new one there.')
           return
         }
       } catch {
@@ -98,7 +98,7 @@
   const period = $derived(parts.find((p) => p.type === 'dayPeriod')?.value ?? '')
   const date = $derived(now.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' }))
 
-  const STEPS: [Step, string][] = [['name', t('Name')], ['passkey', t('Passkey')], ['confirm', t('On the Mac')]]
+  const STEPS: [Step, string][] = [['name', t('Name')], ['passkey', t('Passkey')], ['confirm', t('On the computer')]]
   const at = $derived(STEPS.findIndex(([s]) => s === step))
 </script>
 
@@ -124,7 +124,7 @@
         <div class="card">
           <b>{t('No phone paired with this Prism yet')}</b>
           <ol>
-            <li>{t('On the Mac:')} <em>{t('Settings › Remote › Devices')}</em></li>
+            <li>{t('On the computer:')} <em>{t('Settings › Remote › Devices')}</em></li>
             <li><em>{t('Pair a phone')}</em>{t(', a QR code shows')}</li>
             <li>{t('Scan it with this phone’s camera')}</li>
           </ol>
@@ -143,11 +143,11 @@
       </ol>
 
       {#if step === 'name'}
-        <p>{t('Its name shows on the Mac, in Settings › Remote › Devices.')}</p>
+        <p>{t('Its name shows on the computer, in Settings › Remote › Devices.')}</p>
         <input bind:value={name} maxlength="40" aria-label={t('This phone’s name')} />
         <button class="primary" onclick={begin} disabled={busy || !name.trim()}>{t('Continue')}</button>
       {:else}
-        <p>{step === 'passkey' ? t('The Mac will ask you to check this code:') : t('Confirm this code on the Mac, in Settings › Remote › Devices.')}</p>
+        <p>{step === 'passkey' ? t('The computer will ask you to check this code:') : t('Confirm this code on the computer, in Settings › Remote › Devices.')}</p>
         <div class="code" aria-label={t('Code {code}', { code })}>
           {#each code.split('') as d, i (i)}<span>{d}</span>{/each}
         </div>
@@ -155,7 +155,7 @@
           <p class="muted">{t('A passkey for this Prism is created on this phone; biometrics or the screen lock unlock it.')}</p>
           <button class="primary" onclick={makePasskey} disabled={busy}><Icon name="lock" /> {t('Create the passkey')}</button>
         {:else}
-          <p class="wait"><Icon name="refresh" spin /> {t('Waiting for the Mac…')}</p>
+          <p class="wait"><Icon name="refresh" spin /> {t('Waiting for the computer…')}</p>
           <p class="muted">{t('Then install the app: Chrome’s menu › Install app (Safari: Share › Add to Home Screen).')}</p>
         {/if}
       {/if}

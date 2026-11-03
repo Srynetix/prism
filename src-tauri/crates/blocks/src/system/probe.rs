@@ -155,10 +155,33 @@ async fn gateway() -> Option<String> {
 /// The Wi-Fi link, through CoreWLAN: signal and rate, never the network's name (it needs Location).
 #[cfg(target_os = "macos")]
 pub fn wifi() -> Option<Wifi> {
-    prism_macos::corewlan::link().map(|(rssi, rate)| Wifi { rssi, rate })
+    prism_macos::corewlan::link().map(|(rssi, rate)| Wifi { rssi, rate: Some(rate) })
 }
 
-#[cfg(not(target_os = "macos"))]
+/// Linux: the level of `/proc/net/wireless` (dBm) and `iw`'s tx bitrate — the interface with a
+/// level, the first line of the file. No `iw`, the level alone. The network's name, macOS keeps
+/// it: here too, nothing of it.
+#[cfg(target_os = "linux")]
+pub fn wifi() -> Option<Wifi> {
+    let proc = std::fs::read_to_string("/proc/net/wireless").ok()?;
+    let line = proc.lines().find(|l| !l.contains('|'))?;
+    let mut words = line.split_whitespace();
+    let iface = words.next()?.trim_end_matches(':');
+    // status, link, level (dBm, printed with a trailing dot).
+    let level = words.nth(2)?.trim_end_matches('.').parse::<i64>().ok()?;
+    let rate = std::process::Command::new("iw").args(["dev", iface, "link"]).output().ok().and_then(|out| bitrate(&String::from_utf8_lossy(&out.stdout)));
+    Some(Wifi { rssi: level, rate })
+}
+
+/// `tx bitrate: 866.7 MBit/s` of an `iw dev … link`, its number.
+#[cfg(any(target_os = "linux", test))]
+fn bitrate(out: &str) -> Option<f64> {
+    let after = out.split("tx bitrate:").nth(1)?;
+    let value: String = after.trim_start().chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
+    value.parse().ok()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn wifi() -> Option<Wifi> {
     None
 }
@@ -166,6 +189,14 @@ pub fn wifi() -> Option<Wifi> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(any(target_os = "linux", test))]
+    #[test]
+    fn the_tx_bitrate_of_iw() {
+        let out = "Connected to 3a:07:16:0b:86:30 (on wlp7s0)\n\tSSID: Freebox-A45EE5-5\n\tfreq: 5220.0\n\tsignal: -59 dBm\n\ttx bitrate: 866.7 MBit/s VHT-MCS 9 80MHz\n";
+        assert_eq!(bitrate(out), Some(866.7));
+        assert_eq!(bitrate("Connected to aa:bb (on wlan0)\n"), None);
+    }
 
     #[test]
     fn targets_from_hosts_ports_and_urls() {

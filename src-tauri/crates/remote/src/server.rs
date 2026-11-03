@@ -122,7 +122,7 @@ async fn guard(State(inner): State<Shared>, req: Request, next: Next) -> Respons
         let user = headers.get("tailscale-user-login").and_then(|h| h.to_str().ok());
         if user != Some(owner.as_str()) {
             tracing::warn!("remote: refused a request from {}", user.unwrap_or("no tailnet user"));
-            return refuse(StatusCode::FORBIDDEN, tr("only this Mac's tailnet user"));
+            return refuse(StatusCode::FORBIDDEN, tr("only this computer's tailnet user"));
         }
     }
     // A relayed profile's path as its Prism sees it (`/p/<profile>/api/ws`: `/api/ws`).
@@ -767,7 +767,7 @@ async fn call(inner: &Inner, device: &str, name: &str, command: String, args: Va
     }
     // Restarting or shutting down the Mac: `[remote] power`, and the passkey every time.
     if command == "mac_power" {
-        anyhow::ensure!(inner.live().power, "{}", tr("restarting the Mac from a phone is off (Settings › Remote › Exposure)"));
+        anyhow::ensure!(inner.live().power, "{}", tr("restarting the computer from a phone is off (Settings › Remote › Exposure)"));
         anyhow::ensure!(inner.host.class(&command, &args) == Some(Class::Critical), "{}", tr!("{other} is not answered from a phone", other = "mac_power"));
         // Bound to the action only: a FileVault password never goes into a purpose (hashed, or
         // sent to the hub when relayed).
@@ -1001,15 +1001,22 @@ mod tests {
         tokio::spawn(async move { axum::serve(dev, app).await.unwrap() });
 
         let free = || std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        let (port, pport) = (free(), free());
         let dir = std::env::temp_dir().join(format!("prism-remote-preview-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let hub = Hub::new();
         let remote = Remote::new(&dir, hub.clone(), Arc::new(Fake::default())).unwrap();
-        let url = format!("http://localhost:{port}");
-        let porigin = format!("http://localhost:{pport}");
-        let cfg = RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), preview_port: pport, preview_url: porigin.clone(), keep_awake: false, ..Default::default() };
-        remote.apply(&cfg).await;
+        // Same tell as `a_terminal_pairs_a_phone`'s: retried until the server has both ports.
+        let mut tries = 0;
+        let (port, pport, url, porigin) = loop {
+            tries += 1;
+            assert!(tries <= 10, "the remote server never started");
+            let (port, pport) = (free(), free());
+            let (url, porigin) = (format!("http://localhost:{port}"), format!("http://localhost:{pport}"));
+            remote.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), preview_port: pport, preview_url: porigin.clone(), keep_awake: false, ..Default::default() }).await;
+            if crate::relay::read(&dir).is_some() {
+                break (port, pport, url, porigin);
+            }
+        };
 
         // A phone paired.
         let mut phone = Phone { base: format!("http://127.0.0.1:{port}"), origin: url.clone(), http: reqwest::Client::new(), cookie: None };
@@ -1100,14 +1107,23 @@ mod tests {
     /// the endpoint's secret only; the phone's side unchanged.
     #[tokio::test]
     async fn a_terminal_pairs_a_phone() {
-        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         let dir = std::env::temp_dir().join(format!("prism-remote-pair-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let hub = Hub::new();
         let remote = Remote::new(&dir, hub.clone(), Arc::new(Fake::default())).unwrap();
-        let url = format!("http://localhost:{port}");
-        let cfg = RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), keep_awake: false, ..Default::default() };
-        remote.apply(&cfg).await;
+        // The port grabbed then released can be taken by another test's bind in between (`apply`
+        // keeps the error to itself): the relay file is the tell, tried until the server is up.
+        let mut tries = 0;
+        let (port, url) = loop {
+            tries += 1;
+            assert!(tries <= 10, "the remote server never started");
+            let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+            let url = format!("http://localhost:{port}");
+            remote.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), keep_awake: false, ..Default::default() }).await;
+            if crate::relay::read(&dir).is_some() {
+                break (port, url);
+            }
+        };
         let phone = Phone { base: format!("http://127.0.0.1:{port}"), origin: url.clone(), http: reqwest::Client::new(), cookie: None };
 
         // Without the secret, nothing.
@@ -1147,16 +1163,25 @@ mod tests {
 
     #[tokio::test]
     async fn a_phone_pairs_logs_in_and_only_reads() {
-        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         let dir = std::env::temp_dir().join(format!("prism-remote-server-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let hub = Hub::new();
         let fake = Fake::default();
         let typed = fake.typed.clone();
         let remote = Remote::new(&dir, hub.clone(), Arc::new(fake)).unwrap();
-        let url = format!("http://localhost:{port}");
+        // Same tell as `a_terminal_pairs_a_phone`'s: retried until the server has its port.
+        let mut tries = 0;
+        let (port, url) = loop {
+            tries += 1;
+            assert!(tries <= 10, "the remote server never started");
+            let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+            let url = format!("http://localhost:{port}");
+            remote.apply(&RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), keep_awake: false, ..Default::default() }).await;
+            if crate::relay::read(&dir).is_some() {
+                break (port, url);
+            }
+        };
         let cfg = RemoteConfig { enabled: true, tunnel: RemoteTunnel::Other, port, url: url.clone(), keep_awake: false, ..Default::default() };
-        remote.apply(&cfg).await;
         let status = hub.subscribe().borrow().remote.clone().unwrap();
         assert_eq!((status.url.as_deref(), status.error), (Some(url.as_str()), None));
         let mut phone = Phone { base: format!("http://127.0.0.1:{port}"), origin: url.clone(), http: reqwest::Client::new(), cookie: None };
@@ -1351,7 +1376,7 @@ mod tests {
         remote.apply(&RemoteConfig { actions: true, critical: true, typing: true, ..cfg.clone() }).await;
 
         // The Mac's power: off unless `[remote] power`; then the passkey, each time.
-        assert!(ask(&mut ws, 40, "mac_power", json!({ "action": "restart" }), None).await["error"].as_str().unwrap().contains("restarting the Mac from a phone is off"));
+        assert!(ask(&mut ws, 40, "mac_power", json!({ "action": "restart" }), None).await["error"].as_str().unwrap().contains("restarting the computer from a phone is off"));
         remote.apply(&RemoteConfig { actions: true, critical: true, typing: true, power: true, ..cfg.clone() }).await;
         let step = ask(&mut ws, 41, "mac_power", json!({ "action": "restart" }), None).await;
         let restarted = ask(&mut ws, 42, "mac_power", json!({ "action": "restart" }), Some(answer(&step))).await;

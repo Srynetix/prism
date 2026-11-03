@@ -12,7 +12,7 @@ export const devPreview = $state({ phone: false, on: false })
 
 export function openDevServer(port: number) {
   if (!devPreview.phone) return openLink(`http://localhost:${port}`)
-  if (!devPreview.on) return toast(t('The preview is off: Settings › Remote › Exposure on the Mac'), 5000)
+  if (!devPreview.on) return toast(t('The preview is off: Settings › Remote › Exposure on the computer'), 5000)
   // Opened now, from the tap (a page opened after an await is blocked), then sent to its address;
   // the preview never reaches back to this page.
   const tab = window.open('', '_blank')

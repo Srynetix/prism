@@ -1,6 +1,6 @@
 //! "Audio" block of the status bar: playback happens in the WebView; the Rust core provides
 //! the sources from the config, reads the podcasts' RSS feeds (no CORS on the Rust side) and relays
-//! macOS "Now Playing" (`now_playing`).
+//! the system's "Now Playing" (`now_playing`, macOS and Linux).
 
 use anyhow::{Context, Result};
 use regex::Regex;
@@ -8,7 +8,6 @@ use serde::Serialize;
 
 use crate::config::{AudioConfig, AudioSource};
 
-#[cfg(target_os = "macos")]
 pub mod now_playing;
 
 #[derive(Debug, Clone, Serialize)]

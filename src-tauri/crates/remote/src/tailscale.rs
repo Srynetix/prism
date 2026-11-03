@@ -95,12 +95,12 @@ fn which(name: &str) -> Option<std::path::PathBuf> {
 pub async fn node(cli: &Cli) -> Result<Node> {
     let status: Status = serde_json::from_str(&cli.run(&["status", "--json"]).await?).context("tailscale status")?;
     if status.backend_state != "Running" {
-        bail!(tr!("Tailscale is not connected ({state}): {hint}", state = status.backend_state, hint = if cli.socket.is_some() { "just tailscale" } else { tr("start it on the Mac") }));
+        bail!(tr!("Tailscale is not connected ({state}): {hint}", state = status.backend_state, hint = if cli.socket.is_some() { "just tailscale" } else { tr("start it on the computer") }));
     }
     let me = status.me.context("tailscale status without this Mac")?;
     let host = me.dns_name.trim_end_matches('.');
     if host.is_empty() {
-        bail!(tr("this Mac has no tailnet name: turn MagicDNS on in Tailscale's admin console"));
+        bail!(tr("this computer has no tailnet name: turn MagicDNS on in Tailscale's admin console"));
     }
     let owner = status.user.and_then(|u| u.get(&me.user_id.to_string()).map(|u| u.login_name.clone())).context("tailscale status without this Mac's user")?;
     Ok(Node { url: format!("https://{host}"), owner })

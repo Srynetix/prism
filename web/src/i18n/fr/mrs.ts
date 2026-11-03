@@ -412,7 +412,7 @@ export default {
   '{n} phones connected': '{n} téléphones connectés',
   'Remote on': 'Accès à distance actif',
   'Prism answers phones on {url} · Settings › Remote': 'Prism répond aux téléphones sur {url} · Réglages › Accès à distance',
-  'Take the terminal back: the phone goes back to watching (a key typed in it on the desk does too)': 'Reprendre le terminal : le téléphone repasse en lecture seule (une touche tapée ici sur le Mac aussi)',
+  'Take the terminal back: the phone goes back to watching (a key typed in it on the desk does too)': 'Reprendre le terminal : le téléphone repasse en lecture seule (une touche tapée ici au bureau aussi)',
   'Take back': 'Reprendre',
   'Start the remote again: Tailscale up now?': 'Relancer l’accès à distance : Tailscale est-il actif maintenant ?',
   'Start the remote again: the phones’ sessions end, they stay paired (click twice)': 'Relancer l’accès à distance : les sessions des téléphones se terminent, ils restent appairés (cliquer deux fois)',

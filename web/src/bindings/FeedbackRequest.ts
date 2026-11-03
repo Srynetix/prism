@@ -15,7 +15,12 @@ name: string, kind: string,
 /**
  * When it was opened (RFC 3339).
  */
-opened: string, number: number, title: string, url: string, 
+opened: string, 
+/**
+ * Opened without the capture, which stayed on the clipboard (GitHub's upload refused it):
+ * the composer says to paste it. Never remembered.
+ */
+paste_capture?: boolean, number: number, title: string, url: string, 
 /**
  * `open` or `closed`.
  */

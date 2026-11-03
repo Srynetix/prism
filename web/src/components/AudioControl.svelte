@@ -29,7 +29,7 @@
   const extPos = $derived(ext ? externalPosition(ext, now) : null)
   const extPct = $derived(ext?.duration && extPos !== null ? (100 * extPos) / ext.duration : null)
   const EXT_COLOR = 'var(--info)'
-  const appLabel = (x: External) => x.app_name ?? t('this Mac')
+  const appLabel = (x: External) => x.app_name ?? t('this computer')
 
   /** YouTube: the current video takes precedence over the source name (live, playlist). */
   const title = $derived(track ? (audio.detail?.title ?? track.title) : '')

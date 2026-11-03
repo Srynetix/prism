@@ -25,7 +25,7 @@ pub fn state(now: DateTime<Utc>) -> SystemState {
             rx: 3_100_000,
             tx: 400_000,
             gateway_ms: Some(3.0),
-            wifi: Some(Wifi { rssi: -58, rate: 866.0 }),
+            wifi: Some(Wifi { rssi: -58, rate: Some(866.0) }),
             hosts: vec![
                 host("gitlab.example.org", 31.0, [30.0, 33.0, 29.0, 64.0, 31.0, 30.0, 32.0, 31.0]),
                 host("api.clickup.com", 96.0, [94.0, 97.0, 92.0, 99.0, 95.0, 96.0, 98.0, 96.0]),

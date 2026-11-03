@@ -8,7 +8,9 @@ use tauri::{App, Manager};
 
 use crate::{app, collectors, profile, state};
 #[cfg(target_os = "macos")]
-use crate::{audio, menu};
+use crate::menu;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use crate::audio;
 
 pub fn run(app: &mut App, hub: state::Hub, time: collectors::time::TimeService, team_id: collectors::clickup::TeamId) -> Result<(), Box<dyn std::error::Error>> {
     // The active profile's data: agents, tmux, notes, layout.
@@ -19,7 +21,7 @@ pub fn run(app: &mut App, hub: state::Hub, time: collectors::time::TimeService, 
     if shared && let Some(w) = app.get_webview_window("main") {
         let _ = w.set_title(&format!("Prism — {name}"));
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let now_playing = audio::now_playing::Latest::default();
         audio::now_playing::run(app.handle().clone(), now_playing.clone());

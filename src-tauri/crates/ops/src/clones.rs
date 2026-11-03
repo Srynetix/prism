@@ -295,7 +295,7 @@ pub async fn create_in_workspace(config: &Path, workspace: &str, name: &str, rem
 
 /// The working folder a phone names (empty: the only one).
 fn pick_workspace<'a>(cfg: &'a crate::config::Config, workspace: &str) -> Result<&'a crate::config::Workspace> {
-    ensure!(!cfg.workspaces.is_empty(), tr("no working folder: add one in Settings › Code › Repositories › Working folders on the Mac"));
+    ensure!(!cfg.workspaces.is_empty(), tr("no working folder: add one in Settings › Code › Repositories › Working folders"));
     Ok(match workspace.trim() {
         "" if cfg.workspaces.len() == 1 => &cfg.workspaces[0],
         "" => bail!(tr("pick a working folder")),

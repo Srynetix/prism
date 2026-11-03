@@ -79,7 +79,7 @@
       </div>
       {#if !pairing}
         <span class="row">
-          {#if remote.url}<button class="btn" onclick={() => remote.url && openLink(remote.url)} title={t('The remote in this Mac’s browser, as a phone sees it: pair this browser once (Pair a phone › this Mac’s browser), then its device mode gives a phone’s size')}>{t('Open on this Mac')}</button>{/if}
+          {#if remote.url}<button class="btn" onclick={() => remote.url && openLink(remote.url)} title={t('The remote in this computer’s browser, as a phone sees it: pair this browser once (Pair a phone › this computer’s browser), then its device mode gives a phone’s size')}>{t('Open on this computer')}</button>{/if}
           <button class="btn primary" onclick={() => run('remote_pair_start')}>{t('Pair a phone')}</button>
         </span>
       {/if}
@@ -91,8 +91,8 @@
         <div class="steps">
           {#if !pairing.code}
             <b>{t('Scan this code with the phone’s camera')}</b>
-            <small>{t('A one-time address, for {time}. Only this Mac’s tailnet user, or your tunnel, reaches it.', { time: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` })}</small>
-            <small>{t('To try the remote on this Mac:')} <button class="link" onclick={() => openLink(pairing.url)}>{t('pair this Mac’s browser instead')}</button> {t('(its passkey with Touch ID), then open it at a phone’s size with the browser’s device mode.')}</small>
+            <small>{t('A one-time address, for {time}. Only this computer’s tailnet user, or your tunnel, reaches it.', { time: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` })}</small>
+            <small>{t('To try the remote on this computer:')} <button class="link" onclick={() => openLink(pairing.url)}>{t('pair this computer’s browser instead')}</button> {t('(its passkey), then open it at a phone’s size with the browser’s device mode.')}</small>
           {:else}
             <b>{t('{device} shows the code', { device: pairing.device ?? '' })}</b>
             <span class="code mono">{pairing.code.split('').join(' ')}</span>

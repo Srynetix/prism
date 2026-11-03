@@ -101,8 +101,10 @@ Pour en essayer un :
 3. Cliquez ou appuyez sur une autre touche pour le réveiller. Rien n’est perdu.
 
 ## Audio
-Le bloc **Audio** de la barre d’état joue quelque chose pendant que vous travaillez : stations de radio, vidéos YouTube, lives ou playlists, et podcasts. Sans configuration, il propose une sélection intégrée ; les listes que vous donnez dans **Réglages › Interface › Alertes et son** (`[audio]`) la remplacent. Sur macOS, il reprend aussi ce que le système affiche comme en cours de lecture (la musique de votre navigateur, Musique…), et vous laisse le mettre en pause ou passer au suivant depuis la barre. Le **×** de son menu arrête et désélectionne ce que joue Prism : la barre revient à *Audio* (un épisode garde sa position).
+Le bloc **Audio** de la barre d’état joue quelque chose pendant que vous travaillez : stations de radio, vidéos YouTube, lives ou playlists, et podcasts. Sans configuration, il propose une sélection intégrée ; les listes que vous donnez dans **Réglages › Interface › Alertes et son** (`[audio]`) la remplacent. Sur macOS et Linux, il reprend aussi ce que le système affiche comme en cours de lecture (la musique de votre navigateur, Musique…), et vous laisse le mettre en pause ou passer au suivant depuis la barre. Le **×** de son menu arrête et désélectionne ce que joue Prism : la barre revient à *Audio* (un épisode garde sa position).
 
-YouTube refuse un lecteur intégré sans referrer, ce que la page de l’application ne peut pas envoyer : Prism l’intègre dans une page d’un petit relais à lui, sur `http://localhost` et un port choisi par le système, démarré quand vous lisez une vidéo pour la première fois. Il ne sert que cette page, et à la machine seulement.
+> La lecture en cours sous Linux a besoin de `playerctl` dans le PATH (le paquet de votre distribution) : sans lui, la barre ne montre que ce que joue Prism lui-même.
+
+YouTube refuse un lecteur intégré sans referrer, ce que la page de l’application ne peut pas envoyer : Prism l’intègre dans une page d’un petit relais à lui, sur `http://localhost` et un port choisi par le système, démarré quand vous lisez une vidéo pour la première fois. Il ne sert que cette page, et à la machine seulement.
 
 [Ouvrir Réglages › Interface › Alertes et son](prism:settings/audio)
