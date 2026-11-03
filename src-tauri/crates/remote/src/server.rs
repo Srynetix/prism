@@ -51,6 +51,10 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
             .route("/api/download/{token}", get(crate::download::serve))
             .route("/page/{*rest}", get(crate::pages::serve))
             .route("/relay/summary", get(crate::relay::own_summary))
+            // A peer's window, through the hub (`relay::peer_proxy`), which checked its token.
+            .route("/peer/ws", get(peer_socket))
+            .route("/peer/tty", get(peer_tty))
+            .route("/peer/summary", get(peer_summary))
             .layer(middleware::from_fn_with_state(inner.clone(), guard))
             .with_state(inner);
     }
@@ -85,6 +89,7 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
         .route("/peer/ws", get(peer_socket))
         .route("/peer/tty", get(peer_tty))
         .route("/peer/summary", get(peer_summary))
+        .route("/peer/p/{id}/{*rest}", axum::routing::any(crate::relay::peer_proxy))
         .route("/peer/pair", post(peer_pair))
         .route("/peer/pair/state", post(peer_pair_state))
         .fallback(get(asset))
@@ -411,7 +416,7 @@ async fn tty(State(inner): State<Shared>, headers: HeaderMap, axum::extract::Que
 
 /// `peer`: a peer's token (`peers`), its window's terminal: neither in the desk's sight nor
 /// given back when idle, as the desk's own.
-async fn watch(inner: Shared, mut socket: WebSocket, token: Option<String>, agent: String, size: Option<(u16, u16)>, control: Option<(u16, u16, String)>, peer: Option<String>) {
+async fn watch(inner: Shared, mut socket: WebSocket, token: Option<String>, agent: String, size: Option<(u16, u16)>, control: Option<(u16, u16, String)>, peer: Option<Option<String>>) {
     let (out, mut queue) = tokio::sync::mpsc::unbounded_channel::<Option<Vec<u8>>>();
     let ended = out.clone();
     // Only `on_end` ends the terminal: a source done writing (a demo's recorded screen) stays shown.
@@ -489,7 +494,7 @@ async fn watch(inner: Shared, mut socket: WebSocket, token: Option<String>, agen
                     break;
                 }
                 let still = match &peer {
-                    Some(t) => crate::peers::check(&inner.dir, t).is_some(),
+                    Some(t) => peer_alive(&inner, t),
                     None => alive(&inner, &token),
                 };
                 if !still {
@@ -655,15 +660,29 @@ fn snapshots(inner: Shared, out: tokio::sync::mpsc::Sender<Message>, still: impl
     })
 }
 
+/// The peer a request comes from: its token checked here (its name and token); relayed, the name
+/// the hub let in (no token: the hub watches it, `relay::pipe_peer`).
+fn peer_of(inner: &Inner, headers: &HeaderMap) -> Option<(String, Option<String>)> {
+    if inner.live().relay {
+        return crate::relay::peer_name(headers).map(|n| (n, None));
+    }
+    crate::peers::of(&inner.dir, headers).map(|(n, t)| (n, Some(t)))
+}
+
+/// Whether a peer's token still opens this Prism (relayed: the hub's to say).
+fn peer_alive(inner: &Inner, token: &Option<String>) -> bool {
+    token.as_ref().is_none_or(|t| crate::peers::check(&inner.dir, t).is_some())
+}
+
 /// Another Prism's window (`peers`), its token checked.
 async fn peer_socket(State(inner): State<Shared>, headers: HeaderMap, ws: WebSocketUpgrade) -> Response {
-    let Some((name, token)) = crate::peers::of(&inner.dir, &headers) else { return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism")) };
+    let Some((name, token)) = peer_of(&inner, &headers) else { return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism")) };
     ws.max_message_size(MAX_MESSAGE).on_upgrade(move |socket| converse_peer(inner, socket, name, token))
 }
 
 /// A peer's window connected: the snapshot then its changes, every command of the window but its
 /// own answered (`Host::peer_call`), until its token is revoked or it goes.
-async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: String) {
+async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: Option<String>) {
     tracing::info!("remote: peer {name} connected");
     let seen = format!("{}{name}", crate::peers::CONNECTED);
     inner.connect(&seen, true);
@@ -680,7 +699,7 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: St
     let _ = out.send(text(json!({ "t": "hello", "protocol": PROTOCOL, "peer": name, "profile": inner.profile }))).await;
     let snaps = {
         let token = token.clone();
-        snapshots(inner.clone(), out.clone(), move |inner| crate::peers::check(&inner.dir, &token).is_some(), |_| true)
+        snapshots(inner.clone(), out.clone(), move |inner| peer_alive(inner, &token), |_| true)
     };
     let calls = Arc::new(tokio::sync::Semaphore::new(MAX_CALLS * 2));
     while let Some(Ok(msg)) = rx.next().await {
@@ -719,17 +738,19 @@ async fn converse_peer(inner: Shared, socket: WebSocket, name: String, token: St
 
 /// `GET /peer/summary`: what a peer's status bar shows of this Prism, read every few seconds
 /// whether its window is open or not: its agents running, those waiting for you, longest first.
+/// The hub's, with its profiles (those relayed here, their agents and those waiting); a relayed
+/// profile's, its own only.
 async fn peer_summary(State(inner): State<Shared>, headers: HeaderMap) -> Response {
-    if crate::peers::of(&inner.dir, &headers).is_none() {
+    if peer_of(&inner, &headers).is_none() {
         return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism"));
     }
-    use prism_core::state::{AgentState, SessionStatus::*};
-    let snap = inner.hub.subscribe().borrow().clone();
-    let running: Vec<_> = snap.agents.iter().filter(|a| a.state == AgentState::Running).collect();
-    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, WaitingTool | NeedsYou | ReviewReady)).collect();
-    waiting.sort_by_key(|a| a.last_activity);
-    let waiting: Vec<Value> = waiting.iter().map(|a| json!({ "id": a.id, "title": a.title, "status": a.status })).collect();
-    Json(json!({ "agents": running.len(), "waiting": waiting })).into_response()
+    let mine = crate::relay::counts(&inner.hub.subscribe().borrow());
+    if inner.live().relay {
+        return Json(json!({ "agents": mine.agents, "waiting": mine.waiting_agents, "profiles": [] })).into_response();
+    }
+    let (profiles, waiting) = crate::relay::peer_profiles(&inner).await;
+    let agents: u32 = profiles.iter().filter(|p| p.reachable).map(|p| p.agents).sum();
+    Json(json!({ "agents": agents, "waiting": waiting, "profiles": profiles })).into_response()
 }
 
 #[derive(Deserialize)]
@@ -741,7 +762,7 @@ struct PeerTtyQuery {
 
 /// An agent's terminal in a peer's window, typed in at the window's size, as the desk's own.
 async fn peer_tty(State(inner): State<Shared>, headers: HeaderMap, axum::extract::Query(q): axum::extract::Query<PeerTtyQuery>, ws: WebSocketUpgrade) -> Response {
-    let Some((name, token)) = crate::peers::of(&inner.dir, &headers) else { return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism")) };
+    let Some((name, token)) = peer_of(&inner, &headers) else { return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism")) };
     if !inner.live().peers.typing {
         return refuse(StatusCode::FORBIDDEN, tr("typing in a terminal from another Prism is off (Settings › Remote › Machines here)"));
     }
@@ -1386,7 +1407,7 @@ mod tests {
 
         // A token this Prism did not make: refused, and said so.
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
-        let stranger = Machine::open(Target { url: url.clone(), token: "forged".into() }, Arc::new(move |v| drop(tx.send(v))));
+        let stranger = Machine::open(Target { url: url.clone(), token: "forged".into(), profile: None }, Arc::new(move |v| drop(tx.send(v))));
         let state = recv(&mut rx, "state").await;
         assert_eq!(state["connected"], false);
         assert!(state["error"].as_str().unwrap().contains("does not know this token"), "{state}");
@@ -1394,7 +1415,7 @@ mod tests {
 
         let token = crate::peers::add(&dir, "mac").unwrap();
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
-        let machine = Machine::open(Target { url: url.clone(), token: token.clone() }, Arc::new(move |v| drop(tx.send(v))));
+        let machine = Machine::open(Target { url: url.clone(), token: token.clone(), profile: None }, Arc::new(move |v| drop(tx.send(v))));
         assert_eq!(recv(&mut rx, "state").await["connected"], true);
         assert_eq!(recv(&mut rx, "hello").await["peer"], "mac");
         let snap = recv(&mut rx, "snapshot").await;
@@ -1407,9 +1428,9 @@ mod tests {
         assert_eq!(changes["changes"][0]["path"], json!(["me"]), "{changes}");
 
         // Its summary, for the desk's status bar; nothing without the token.
-        let summary = crate::machine::summary(&Target { url: url.clone(), token: token.clone() }).await.unwrap();
+        let summary = crate::machine::summary(&Target { url: url.clone(), token: token.clone(), profile: None }).await.unwrap();
         assert_eq!((summary.agents, summary.waiting.len()), (0, 0));
-        assert!(crate::machine::summary(&Target { url: url.clone(), token: "forged".into() }).await.unwrap_err().to_string().contains("token"));
+        assert!(crate::machine::summary(&Target { url: url.clone(), token: "forged".into(), profile: None }).await.unwrap_err().to_string().contains("token"));
 
         // Any command of the window, its arguments as sent; one it never answers, its error.
         assert_eq!(machine.call("save_config", json!({ "edits": [] })).await.unwrap(), json!({ "peer": "save_config", "args": { "edits": [] } }));
@@ -1433,7 +1454,7 @@ mod tests {
         assert!(crate::peers::remove(&dir, "mac").unwrap());
         drop((tty, machine));
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
-        let _revoked = Machine::open(Target { url: url.clone(), token }, Arc::new(move |v| drop(tx.send(v))));
+        let _revoked = Machine::open(Target { url: url.clone(), token, profile: None }, Arc::new(move |v| drop(tx.send(v))));
         assert!(recv(&mut rx, "state").await["error"].as_str().unwrap().contains("does not know this token"));
         remote.apply(&RemoteConfig::default()).await;
         let _ = std::fs::remove_dir_all(&dir);

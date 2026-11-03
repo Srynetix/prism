@@ -7,4 +7,8 @@ export type WaitingAgent = { id: string, title: string,
 /**
  * `waiting_tool` (a permission), `needs_you` (its turn, a question), `review_ready`.
  */
-status: string, };
+status: string, 
+/**
+ * Its profile there, when not the hub's.
+ */
+profile: string | null, };

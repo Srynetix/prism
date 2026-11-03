@@ -28,9 +28,18 @@ pub struct Target {
     /// `https://build-srv.tail1234.ts.net`, `http://127.0.0.1:7777` (`ssh -L`).
     pub url: String,
     pub token: String,
+    /// One of its profiles reached through it (`/peer/p/<profile>/`); `None`, the one it answers at.
+    pub profile: Option<String>,
 }
 
 impl Target {
+    /// A peer route (`ws`, `tty?…`) of its profile.
+    fn peer(&self, rest: &str) -> String {
+        match &self.profile {
+            Some(id) => format!("/peer/p/{}/{rest}", url::form_urlencoded::byte_serialize(id.as_bytes()).collect::<String>()),
+            None => format!("/peer/{rest}"),
+        }
+    }
     /// `path` (`/peer/pair`) on the machine, over HTTPS or to a tunnel's end.
     fn http(&self, path: &str) -> Result<String> {
         let base = self.url.trim().trim_end_matches('/');
@@ -65,7 +74,7 @@ impl Target {
 /// Pairs with the machine at `url` (`prism peer pair` there, its code given here as `code`), this
 /// computer named `name` there: its token once a person accepted it there, within five minutes.
 pub async fn pair(url: &str, code: &str, name: &str) -> Result<String> {
-    let target = Target { url: url.to_string(), token: String::new() };
+    let target = Target { url: url.to_string(), token: String::new(), profile: None };
     let http = reqwest::Client::builder().timeout(Duration::from_secs(15)).build()?;
     let claim = crate::webauthn::random();
     let res = http.post(target.http("/peer/pair")?).json(&json!({ "code": code, "name": name, "claim": claim })).send().await.context("the machine does not answer")?;
@@ -92,13 +101,16 @@ pub async fn pair(url: &str, code: &str, name: &str) -> Result<String> {
 pub struct Summary {
     pub agents: u32,
     pub waiting: Vec<prism_core::state::WaitingAgent>,
+    /// Its profiles, the hub first (none from an older Prism).
+    #[serde(default)]
+    pub profiles: Vec<prism_core::state::MachineProfile>,
 }
 
 /// The machine's summary, within a few seconds.
 pub async fn summary(target: &Target) -> Result<Summary> {
     static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
     let http = CLIENT.get_or_init(|| reqwest::Client::builder().timeout(Duration::from_secs(5)).build().expect("an HTTP client"));
-    let res = http.get(target.http("/peer/summary")?).bearer_auth(target.token.trim()).send().await.context("out of reach")?;
+    let res = http.get(target.http(&target.peer("summary"))?).bearer_auth(target.token.trim()).send().await.context("out of reach")?;
     if res.status() == 401 {
         bail!("the machine does not know this token");
     }
@@ -168,7 +180,7 @@ impl Machine {
     /// `on_data` until `on_end`.
     pub async fn attach(&self, agent: &str, cols: u16, rows: u16, on_data: Box<dyn Fn(Vec<u8>) + Send>, on_end: Box<dyn FnOnce() + Send>) -> Result<Tty> {
         let agent_q: String = url::form_urlencoded::byte_serialize(agent.as_bytes()).collect();
-        let req = self.target.request(&format!("/peer/tty?agent={agent_q}&cols={cols}&rows={rows}"))?;
+        let req = self.target.request(&self.target.peer(&format!("tty?agent={agent_q}&cols={cols}&rows={rows}")))?;
         let (socket, _) = tokio_tungstenite::connect_async(req).await.context("the machine's terminal")?;
         let (mut tx, mut rx) = socket.split();
         let (keys, mut queue) = mpsc::unbounded_channel::<Message>();
@@ -267,7 +279,7 @@ async fn run(target: Target, mut out: mpsc::UnboundedReceiver<String>, pending: 
 }
 
 async fn connect(target: &Target, out: &mut mpsc::UnboundedReceiver<String>, pending: &Pending, connected: &tokio::sync::watch::Sender<bool>, on_message: &OnMessage) -> Result<()> {
-    let (socket, _) = tokio_tungstenite::connect_async(target.request("/peer/ws")?).await.map_err(|e| match e {
+    let (socket, _) = tokio_tungstenite::connect_async(target.request(&target.peer("ws"))?).await.map_err(|e| match e {
         tokio_tungstenite::tungstenite::Error::Http(r) if r.status() == 401 => anyhow!("the machine does not know this token (prism peer add there)"),
         e => anyhow!(e),
     })?;

@@ -60,10 +60,28 @@ pub struct MachinePresence {
     pub reachable: bool,
     /// Why not, if it did not.
     pub error: Option<String>,
-    /// Its agents running.
+    /// Its agents running, every profile open there.
     pub agents: u32,
-    /// Those waiting for you there, longest first.
+    /// Those waiting for you there, longest first, every profile's.
     pub waiting: Vec<WaitingAgent>,
+    /// Its profiles, the one its remote answers at first (the hub): those open beside it are
+    /// reached through it, each in a window of its own.
+    pub profiles: Vec<MachineProfile>,
+}
+
+/// A profile of another computer's Prism.
+#[derive(Debug, Clone, Default, Serialize, serde::Deserialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct MachineProfile {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    /// The one its remote answers at (the others are reached through it).
+    pub hub: bool,
+    /// Its Prism runs, reached through the hub (`tunnel = "relay"` there).
+    pub reachable: bool,
+    pub agents: u32,
+    pub waiting: u32,
 }
 
 /// An agent waiting for you on another computer: a permission, a question, its turn.
@@ -74,6 +92,9 @@ pub struct WaitingAgent {
     pub title: String,
     /// `waiting_tool` (a permission), `needs_you` (its turn, a question), `review_ready`.
     pub status: String,
+    /// Its profile there, when not the hub's.
+    #[serde(default)]
+    pub profile: Option<String>,
 }
 
 /// The active profile, for the rail and the window title.

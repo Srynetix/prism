@@ -40,6 +40,9 @@ export const isDesktop = (): boolean => isTauri()
  */
 export const machine = (): string | null => (globalThis as { __PRISM_MACHINE__?: string }).__PRISM_MACHINE__ ?? null
 
+/** The machine's profile this window shows, when not the one its remote answers at (the hub's). */
+export const machineProfile = (): string | null => (globalThis as { __PRISM_MACHINE_PROFILE__?: string | null }).__PRISM_MACHINE_PROFILE__ ?? null
+
 /**
  * The core runs on this computer: the paths it answers are this computer's, its apps and its file
  * manager too (pickers, Reveal in Finder, Open in…). A desktop window, not a machine's.

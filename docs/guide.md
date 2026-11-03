@@ -183,6 +183,12 @@ polkit's agent of the desktop on Linux (`pkcheck`, the password or a fingerprint
 one; refused without polkit). Asked by the app, never by the page; `skip_confirm = true` in the
 machine's `[[machines]]` goes without.
 
+A machine with several profiles (each its own `prism-server --profile <id> serve`, the others
+with `[remote] tunnel = "relay"` behind the one with the tunnel, as for a phone) lists them under
+its name in the profile menu: each opens in a window of its own, reached through the hub, which
+checks the token; each keeps its own `[remote.peers]` rights. Its chip and notifications count
+every profile's agents.
+
 A token is worth that machine's account: keep it as an SSH key. What a desk may do there is
 `[remote.peers]` on that machine (Settings › Remote › Machines): `actions`, `critical`, `typing`,
 `settings`, all on by default; it always reads, and each call that changes something is logged

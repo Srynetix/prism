@@ -21,15 +21,21 @@ pub struct Machines {
 
 struct Open {
     name: String,
+    /// One of its profiles reached through it; `None`, the one its remote answers at.
+    profile: Option<String>,
     machine: Option<Arc<Machine>>,
 }
 
 const PREFIX: &str = "machine-";
 
-/// A window's label for machine `name`: Tauri takes letters, digits, `-` and `_` only.
-fn label(name: &str) -> String {
-    let safe: String = name.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
-    format!("{PREFIX}{safe}")
+/// A window's label for machine `name` (and one of its profiles): Tauri takes letters, digits,
+/// `-` and `_` only.
+fn label(name: &str, profile: Option<&str>) -> String {
+    let safe = |s: &str| -> String { s.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect() };
+    match profile {
+        Some(p) => format!("{PREFIX}{}--{}", safe(name), safe(p)),
+        None => format!("{PREFIX}{}", safe(name)),
+    }
 }
 
 fn config() -> anyhow::Result<prism_core::config::Config> {
@@ -59,16 +65,22 @@ pub struct MachineView {
     token: bool,
     /// Its window is open.
     open: bool,
+    /// Its profiles as it said last (`watch`), the hub first; none read yet, none.
+    profiles: Vec<prism_core::state::MachineProfile>,
 }
 
-/// The machines of `[[machines]]`.
+/// The machines of `[[machines]]`, with their profiles: this computer's view, whichever window asks
+/// (a machine's has that machine's snapshot, not this one's).
 #[tauri::command]
-pub async fn machine_list(state: State<'_, Arc<Machines>>) -> Cmd<Vec<MachineView>> {
+pub async fn machine_list(state: State<'_, Arc<Machines>>, app: State<'_, Arc<prism_commands::AppState>>) -> Cmd<Vec<MachineView>> {
+    let presence = app.hub.subscribe().borrow().machines.clone();
     let mut out = Vec::new();
     for m in config()?.machines.into_iter().filter(|m| !m.name.trim().is_empty()) {
+        let name = m.name.trim().to_string();
         let token = token(&m).await.ok().flatten().is_some();
-        let open = state.open.lock().unwrap().contains_key(&label(m.name.trim()));
-        out.push(MachineView { name: m.name.trim().to_string(), url: m.url, ssh: m.ssh, token, open });
+        let open = state.open.lock().unwrap().contains_key(&label(&name, None));
+        let profiles = presence.iter().find(|p| p.name == name).map(|p| p.profiles.clone()).unwrap_or_default();
+        out.push(MachineView { name, url: m.url, ssh: m.ssh, token, open, profiles });
     }
     Ok(out)
 }
@@ -115,23 +127,30 @@ pub async fn machine_pair(name: String, code: String) -> Cmd {
     keep(&m, token).await.map_err(|e| format!("{name} accepted this computer, but the keychain did not keep its token ({e:#}): run prism peer remove \"{me}\" there, then pair again").into())
 }
 
-/// Machine `name` in its window: brought to the front if open, opened otherwise.
+/// Machine `name` in its window, or one of its profiles (`profile`, reached through it) in a
+/// window of its own: brought to the front if open, opened otherwise.
 #[tauri::command]
-pub fn machine_open(app: AppHandle, state: State<'_, Arc<Machines>>, name: String) -> Cmd {
+pub fn machine_open(app: AppHandle, state: State<'_, Arc<Machines>>, name: String, profile: Option<String>) -> Cmd {
     let m = find(&name)?;
     let name = m.name.trim().to_string();
-    let label = label(&name);
+    let profile = profile.filter(|p| !p.trim().is_empty());
+    let label = label(&name, profile.as_deref());
     if let Some(w) = app.get_webview_window(&label) {
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
         return Ok(());
     }
-    state.open.lock().unwrap().insert(label.clone(), Open { name: name.clone(), machine: None });
-    // The page learns which machine it shows before any of its scripts.
-    let script = format!("window.__PRISM_MACHINE__ = {};", serde_json::to_string(&name).map_err(|e| e.to_string())?);
+    state.open.lock().unwrap().insert(label.clone(), Open { name: name.clone(), profile: profile.clone(), machine: None });
+    // The page learns which machine (and profile) it shows before any of its scripts.
+    // Strings and an optional one: JSON that cannot fail to write.
+    let script = format!("window.__PRISM_MACHINE__ = {}; window.__PRISM_MACHINE_PROFILE__ = {};", serde_json::json!(name), serde_json::json!(profile));
+    let title = match &profile {
+        Some(p) => format!("Prism — {name} · {p}"),
+        None => format!("Prism — {name}"),
+    };
     let window = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
-        .title(format!("Prism — {name}"))
+        .title(title)
         .inner_size(1440.0, 900.0)
         .min_inner_size(900.0, 560.0)
         .disable_drag_drop_handler()
@@ -170,8 +189,8 @@ pub fn watch(hub: prism_core::state::Hub) {
                     tokens.insert(name.clone(), t);
                 }
                 let presence = match tokens.get(&name).cloned() {
-                    Some(token) => match prism_remote::machine::summary(&Target { url: m.url.clone(), token }).await {
-                        Ok(s) => prism_core::state::MachinePresence { name, reachable: true, error: None, agents: s.agents, waiting: s.waiting },
+                    Some(token) => match prism_remote::machine::summary(&Target { url: m.url.clone(), token, profile: None }).await {
+                        Ok(s) => prism_core::state::MachinePresence { name, reachable: true, error: None, agents: s.agents, waiting: s.waiting, profiles: s.profiles },
                         Err(e) => {
                             // Refused: its token may have been replaced (paired again) since.
                             if format!("{e:#}").contains("token") {
@@ -213,10 +232,10 @@ fn machine(state: &Machines, window: &WebviewWindow) -> Cmd<Arc<Machine>> {
 /// SSH host.
 #[tauri::command]
 pub async fn machine_connect(state: State<'_, Arc<Machines>>, window: WebviewWindow) -> Cmd<Value> {
-    let name = state.open.lock().unwrap().get(window.label()).map(|o| o.name.clone()).ok_or("not a machine's window")?;
+    let (name, profile) = state.open.lock().unwrap().get(window.label()).map(|o| (o.name.clone(), o.profile.clone())).ok_or("not a machine's window")?;
     let m = find(&name)?;
     let token = token(&m).await?.ok_or_else(|| format!("no token for {name}: pair this computer with it (prism peer pair there)"))?;
-    let target = Target { url: m.url.clone(), token };
+    let target = Target { url: m.url.clone(), token, profile };
     let to = window.clone();
     let machine = Machine::open(
         target,

@@ -651,4 +651,7 @@ export default {
   'for {n} minute, its last state shown · trying again': 'depuis {n} minute, son dernier état affiché · nouvel essai',
   'for {n} minutes, its last state shown · trying again': 'depuis {n} minutes, son dernier état affiché · nouvel essai',
   'its last state shown · trying again': 'son dernier état affiché · nouvel essai',
+  '{profile} on {name}, in a window of its own': '{profile} sur {name}, dans sa propre fenêtre',
+  'Its Prism is closed on {name}, or its remote not relayed there': 'Son Prism est fermé sur {name}, ou son accès à distance n’y est pas relayé',
+  'closed there': 'fermé là-bas',
 } satisfies Dictionary

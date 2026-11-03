@@ -6,9 +6,10 @@
   import { openSettings } from '../settings.svelte'
   import { toast } from '../toast.svelte'
   import { t, tn } from '../i18n.svelte'
-  import { invoke, isDesktop, machine } from '../bridge'
+  import { invoke, isDesktop, machine, machineProfile } from '../bridge'
+  import type { MachineProfile } from '../bindings/MachineProfile'
 
-  interface Machine { name: string; url: string; ssh: string; token: boolean; open: boolean }
+  interface Machine { name: string; url: string; ssh: string; token: boolean; open: boolean; profiles: MachineProfile[] }
 
   /**
    * Foot of the rail: the active profile's badge, its letter on its color. Its menu lists the
@@ -21,6 +22,9 @@
   let button: HTMLButtonElement | undefined = $state()
   const me = $derived(activeProfile())
   const here = machine()
+  const hereProfile = machineProfile()
+  /** This window is machine `name`'s profile `profile` (`null`: its hub's). */
+  const isHere = (name: string, profile: string | null) => name === here && profile === hereProfile
   let machines = $state<Machine[]>([])
 
   async function toggle(e: MouseEvent) {
@@ -41,10 +45,10 @@
     if (p.active) return
     await switchProfile(p).catch((err) => toast(String(err), 6000))
   }
-  async function openMachine(e: MouseEvent, name: string) {
+  async function openMachine(e: MouseEvent, name: string, profile: string | null = null) {
     e.stopPropagation()
     open = false
-    await invoke('machine_open', { name }).catch((err) => toast(String(err), 6000))
+    await invoke('machine_open', { name, profile }).catch((err) => toast(String(err), 6000))
   }
   function settingsMachines(e: MouseEvent) {
     e.stopPropagation()
@@ -90,11 +94,20 @@
     {#if machines.length}
       <div class="t">{t('Other computers')}</div>
       {#each machines as m (m.name)}
-        <button role="menuitemradio" aria-checked={m.name === here} class:cur={m.name === here} style:--c="var(--info)" onclick={(e) => openMachine(e, m.name)} title={m.name === here ? t('This window') : t('{name}’s Prism, in a window of its own', { name: m.name })}>
-          <span class="chk">{m.name === here ? '✓' : ''}</span>
+        {@const hub = m.profiles.find((p) => p.hub)}
+        <button role="menuitemradio" aria-checked={isHere(m.name, null)} class:cur={isHere(m.name, null)} style:--c="var(--info)" onclick={(e) => openMachine(e, m.name)} title={isHere(m.name, null) ? t('This window') : t('{name}’s Prism, in a window of its own', { name: m.name })}>
+          <span class="chk">{isHere(m.name, null) ? '✓' : ''}</span>
           <span class="pf sm rm">{initial(m.name)}</span>
-          <span class="name">{m.name}{#if m.open && m.name !== here}<em>{t('open')}</em>{/if}<small>{m.token ? m.url : t('no token yet')}</small></span>
+          <span class="name">{m.name}{#if m.open && !isHere(m.name, null)}<em>{t('open')}</em>{/if}<small>{!m.token ? t('no token yet') : hub ? `${hub.name}${hub.agents ? ` · ${tn(hub.agents, '{n} agent running', '{n} agents running')}` : ''}` : m.url}</small></span>
         </button>
+        <!-- Its other profiles, reached through it: each in a window of its own. -->
+        {#each m.profiles.filter((p) => !p.hub) as p (p.id)}
+          <button class="sub" role="menuitemradio" aria-checked={isHere(m.name, p.id)} class:cur={isHere(m.name, p.id)} style:--c={profileColor(p.color)} disabled={!p.reachable} onclick={(e) => openMachine(e, m.name, p.id)} title={p.reachable ? t('{profile} on {name}, in a window of its own', { profile: p.name, name: m.name }) : t('Its Prism is closed on {name}, or its remote not relayed there', { name: m.name })}>
+            <span class="chk">{isHere(m.name, p.id) ? '✓' : ''}</span>
+            <span class="pf sm rm">{initial(p.name)}</span>
+            <span class="name">{p.name}<small>{!p.reachable ? t('closed there') : p.waiting ? tn(p.waiting, '{n} agent waiting', '{n} agents waiting') : tn(p.agents, '{n} agent running', '{n} agents running')}</small></span>
+          </button>
+        {/each}
       {/each}
     {/if}
     <hr />
@@ -115,6 +128,8 @@
   .menu .t { padding: 4px 8px 3px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .menu button { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
   .menu button:hover { background: var(--surface-muted); }
+  .menu button.sub { padding-left: 22px; }
+  .menu button:disabled { opacity: 0.5; cursor: default; }
   .row { display: flex; align-items: stretch; gap: 2px; }
   .row > button:first-child { flex: 1; min-width: 0; }
   .menu .side { flex: 0 0 auto; justify-content: center; width: 28px; padding: 0; color: var(--text-muted); font-size: 13px; }

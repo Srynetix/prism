@@ -36,8 +36,12 @@ function events(s: Snapshot, alerts: Alert[]): Event[] {
   // Another computer's agents waiting for you (`[[machines]]`), whether its window is open or not.
   for (const m of s.machines ?? []) {
     for (const w of m.waiting) {
-      if (w.status === 'waiting_tool') out.push({ key: `machine:${m.name}:${w.id}:tool`, title: t('{machine}: an agent needs a permission', { machine: m.name }), body: w.title, kind: 'agent' })
-      else if (w.status === 'needs_you') out.push({ key: `machine:${m.name}:${w.id}:needs_you`, title: t('{machine}: an agent waits for you', { machine: m.name }), body: w.title, kind: 'agent' })
+      // On one of its other profiles: named too.
+      const profile = w.profile ? m.profiles.find((p) => p.id === w.profile)?.name ?? w.profile : null
+      const machine = profile ? `${m.name} · ${profile}` : m.name
+      const at = `machine:${m.name}:${w.profile ?? ''}:${w.id}`
+      if (w.status === 'waiting_tool') out.push({ key: `${at}:tool`, title: t('{machine}: an agent needs a permission', { machine }), body: w.title, kind: 'agent' })
+      else if (w.status === 'needs_you') out.push({ key: `${at}:needs_you`, title: t('{machine}: an agent waits for you', { machine }), body: w.title, kind: 'agent' })
     }
   }
   return out
