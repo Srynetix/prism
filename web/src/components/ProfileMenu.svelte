@@ -84,7 +84,7 @@
       <div class="row">
         <button role="menuitemradio" aria-checked={p.active && !here} class:cur={p.active && !here} style:--c={profileColor(p.color)} onclick={(e) => pick(e, p.id)} title={p.active ? t('This Prism') : p.open ? t('Open in another Prism: bring it to the front') : t('Switch this Prism to {name}', { name: p.name })}>
           <span class="chk">{p.active && !here ? '✓' : ''}</span>
-          <span class="pf sm">{initial(p.name)}</span>
+          <span class="pf sm" style:--c={profileColor(p.color)}>{initial(p.name)}</span>
           <span class="name">{p.name}{#if p.open}<em>{t('open')}</em>{/if}<small>{p.error ? t('config not readable') : describe(p)}</small></span>
           {#if i < 9}<kbd>{keys(`⌥⌘${i + 1}`)}</kbd>{/if}
         </button>
@@ -97,14 +97,14 @@
         {@const hub = m.profiles.find((p) => p.hub)}
         <button role="menuitemradio" aria-checked={isHere(m.name, null)} class:cur={isHere(m.name, null)} style:--c="var(--info)" onclick={(e) => openMachine(e, m.name)} title={isHere(m.name, null) ? t('This window') : t('{name}’s Prism, in a window of its own', { name: m.name })}>
           <span class="chk">{isHere(m.name, null) ? '✓' : ''}</span>
-          <span class="pf sm rm">{initial(m.name)}</span>
+          <span class="pf sm rm" style:--c={hub ? profileColor(hub.color) : 'var(--info)'}>{initial(m.name)}</span>
           <span class="name">{m.name}{#if m.open && !isHere(m.name, null)}<em>{t('open')}</em>{/if}<small>{!m.token ? t('no token yet') : hub ? `${hub.name}${hub.agents ? ` · ${tn(hub.agents, '{n} agent running', '{n} agents running')}` : ''}` : m.url}</small></span>
         </button>
         <!-- Its other profiles, reached through it: each in a window of its own. -->
         {#each m.profiles.filter((p) => !p.hub) as p (p.id)}
           <button class="sub" role="menuitemradio" aria-checked={isHere(m.name, p.id)} class:cur={isHere(m.name, p.id)} style:--c={profileColor(p.color)} disabled={!p.reachable} onclick={(e) => openMachine(e, m.name, p.id)} title={p.reachable ? t('{profile} on {name}, in a window of its own', { profile: p.name, name: m.name }) : t('Its Prism is closed on {name}, or its remote not relayed there', { name: m.name })}>
             <span class="chk">{isHere(m.name, p.id) ? '✓' : ''}</span>
-            <span class="pf sm rm">{initial(p.name)}</span>
+            <span class="pf sm rm" style:--c={profileColor(p.color)}>{initial(p.name)}</span>
             <span class="name">{p.name}<small>{!p.reachable ? t('closed there') : p.waiting ? tn(p.waiting, '{n} agent waiting', '{n} agents waiting') : tn(p.agents, '{n} agent running', '{n} agents running')}</small></span>
           </button>
         {/each}
@@ -119,6 +119,7 @@
 {/if}
 
 <style>
+  /* Its own color on the badge itself (`style:--c`): this rule's default would hide a parent's. */
   .pf { --c: var(--accent); display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--r7); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); font-weight: 700; font-size: 12px; line-height: 1; }
   /* Another computer's: a dot of its own color. */
   .pf.rm { position: relative; }
