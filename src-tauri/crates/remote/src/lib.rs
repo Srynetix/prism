@@ -10,7 +10,9 @@ pub mod auth;
 pub mod away;
 mod awake;
 mod download;
+pub mod machine;
 mod pages;
+pub mod peers;
 pub use pages::page_csp;
 pub mod pair;
 mod preview;
@@ -60,6 +62,11 @@ pub trait Host: Send + Sync + 'static {
     /// percent-encoded), as `prismfile:` serves it: its bytes and type, or the error status.
     fn page(&self, path: &str) -> std::result::Result<(Vec<u8>, String), (u16, String)> {
         Err((404, format!("{path}: no pages here")))
+    }
+    /// A command of the window called by another Prism's window (`peers`): any but the window's
+    /// own, answered as the window's would be.
+    fn peer_call(&self, command: String, _args: Value) -> BoxFuture<'static, Result<Value>> {
+        Box::pin(async move { bail!(tr!("{command} is not answered from another Prism", command = command)) })
     }
     /// This machine's profiles, for a phone's switcher (`relay`): none, a single Prism.
     fn profiles(&self) -> BoxFuture<'static, Vec<prism_core::profile::Profile>> {

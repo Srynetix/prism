@@ -1,4 +1,4 @@
-import { invoke, isDesktop } from './bridge'
+import { invoke, isDesktop, isLocal } from './bridge'
 import { restartApp } from './settings.svelte'
 import type { UpdateInfo } from './bindings/UpdateInfo'
 import type { PackCheck } from './bindings/PackCheck'
@@ -40,7 +40,8 @@ export const updateReady = () => !!updates.info?.enabled && updates.info.availab
 
 /** `auto`: the periodic check, which reads nothing with the switch off. */
 export async function checkUpdates(auto = false) {
-  if (!isDesktop() || updates.checking) return
+  // This computer's Prism: a machine's window leaves that one's to it.
+  if (!isLocal() || updates.checking) return
   updates.checking = true
   try {
     updates.info = await invoke<UpdateInfo>('update_check', { auto })

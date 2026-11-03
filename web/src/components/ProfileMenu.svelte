@@ -6,26 +6,51 @@
   import { openSettings } from '../settings.svelte'
   import { toast } from '../toast.svelte'
   import { t, tn } from '../i18n.svelte'
+  import { invoke, isDesktop, machine } from '../bridge'
+
+  interface Machine { name: string; url: string; ssh: string; token: boolean; open: boolean }
 
   /**
    * Foot of the rail: the active profile's badge, its letter on its color. Its menu lists the
    * profiles (⌥⌘1…) and switches to one, which relaunches Prism; New and Manage open Settings › General › Profiles.
+   * Below, the other computers' Prism (`[[machines]]`), each opened in a window of its own. In a
+   * machine's window, the badge is that machine's profile, and this computer's profiles open its
+   * own window rather than relaunching anything.
    */
   let open = $state(false)
   let button: HTMLButtonElement | undefined = $state()
   const me = $derived(activeProfile())
+  const here = machine()
+  let machines = $state<Machine[]>([])
 
   async function toggle(e: MouseEvent) {
     e.stopPropagation()
     open = !open
-    if (open) await loadProfiles().catch(() => {})
+    if (open) {
+      await loadProfiles().catch(() => {})
+      if (isDesktop()) machines = await invoke<Machine[]>('machine_list').catch(() => [])
+    }
   }
   async function pick(e: MouseEvent, id: string) {
     e.stopPropagation()
     const p = profiles.list.find((x) => x.id === id)
-    if (!p || p.active) return (open = false)
     open = false
+    if (!p) return
+    // From a machine's window, this computer's profile is its own window; another, its own Prism.
+    if (here) return void (p.active ? invoke('machine_main') : openProfile({ id })).catch((err) => toast(String(err), 6000))
+    if (p.active) return
     await switchProfile(p).catch((err) => toast(String(err), 6000))
+  }
+  async function openMachine(e: MouseEvent, name: string) {
+    e.stopPropagation()
+    open = false
+    await invoke('machine_open', { name }).catch((err) => toast(String(err), 6000))
+  }
+  function settingsMachines(e: MouseEvent) {
+    e.stopPropagation()
+    open = false
+    closeAgents()
+    openSettings('machines')
   }
   /** Next to this Prism, in its own: Open alongside. */
   async function alongside(e: MouseEvent, id: string) {
@@ -45,32 +70,46 @@
 </script>
 
 <button bind:this={button} class="v pf-btn" class:on={open} onclick={toggle} title={t('Profile: {name}', { name: me.name })} aria-label={t('Profile {name}', { name: me.name })} aria-expanded={open}>
-  <span class="pf" style:--c={profileColor(me.color)}>{initial(me.name)}</span>
+  <span class="pf" class:rm={!!here} style:--c={profileColor(me.color)}>{initial(me.name)}</span>
   <span>{me.name}</span>
 </button>
 {#if open}
   <div class="menu" role="menu" tabindex="-1" {@attach anchored(() => button, { side: 'right', gap: 8, align: 'end' })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, resize: true })}>
-    <div class="t">{t('Profile')}</div>
+    <div class="t">{here ? t('This computer') : t('Profile')}</div>
     {#each profiles.list as p, i (p.id)}
       <div class="row">
-        <button role="menuitemradio" aria-checked={p.active} class:cur={p.active} style:--c={profileColor(p.color)} onclick={(e) => pick(e, p.id)} title={p.active ? t('This Prism') : p.open ? t('Open in another Prism: bring it to the front') : t('Switch this Prism to {name}', { name: p.name })}>
-          <span class="chk">{p.active ? '✓' : ''}</span>
+        <button role="menuitemradio" aria-checked={p.active && !here} class:cur={p.active && !here} style:--c={profileColor(p.color)} onclick={(e) => pick(e, p.id)} title={p.active ? t('This Prism') : p.open ? t('Open in another Prism: bring it to the front') : t('Switch this Prism to {name}', { name: p.name })}>
+          <span class="chk">{p.active && !here ? '✓' : ''}</span>
           <span class="pf sm">{initial(p.name)}</span>
           <span class="name">{p.name}{#if p.open}<em>{t('open')}</em>{/if}<small>{p.error ? t('config not readable') : describe(p)}</small></span>
           {#if i < 9}<kbd>{keys(`⌥⌘${i + 1}`)}</kbd>{/if}
         </button>
-        {#if !p.active && !p.open}<button class="side" onclick={(e) => alongside(e, p.id)} title={t('Open {name} alongside, in its own Prism', { name: p.name })} aria-label={t('Open {name} alongside', { name: p.name })}>⧉</button>{/if}
+        {#if !p.active && !p.open && !here}<button class="side" onclick={(e) => alongside(e, p.id)} title={t('Open {name} alongside, in its own Prism', { name: p.name })} aria-label={t('Open {name} alongside', { name: p.name })}>⧉</button>{/if}
       </div>
     {/each}
+    {#if machines.length}
+      <div class="t">{t('Other computers')}</div>
+      {#each machines as m (m.name)}
+        <button role="menuitemradio" aria-checked={m.name === here} class:cur={m.name === here} style:--c="var(--info)" onclick={(e) => openMachine(e, m.name)} title={m.name === here ? t('This window') : t('{name}’s Prism, in a window of its own', { name: m.name })}>
+          <span class="chk">{m.name === here ? '✓' : ''}</span>
+          <span class="pf sm rm">{initial(m.name)}</span>
+          <span class="name">{m.name}{#if m.open && m.name !== here}<em>{t('open')}</em>{/if}<small>{m.token ? m.url : t('no token yet')}</small></span>
+        </button>
+      {/each}
+    {/if}
     <hr />
     <p class="note">{t('Switching relaunches Prism; ⧉ opens a profile alongside, in its own Prism. Agents keep running, in their own profile.')}</p>
     <button onclick={(e) => manage(e, true)}><span class="chk"></span>{t('New profile…')}</button>
     <button onclick={(e) => manage(e, false)}><span class="chk"></span>{t('Manage profiles…')}</button>
+    {#if isDesktop() && !here}<button onclick={settingsMachines}><span class="chk"></span>{t('Other computers…')}</button>{/if}
   </div>
 {/if}
 
 <style>
   .pf { --c: var(--accent); display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--r7); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); font-weight: 700; font-size: 12px; line-height: 1; }
+  /* Another computer's: a dot of its own color. */
+  .pf.rm { position: relative; }
+  .pf.rm::after { content: ''; position: absolute; right: -4px; bottom: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--info); border: 2px solid var(--surface); }
   .pf.sm { width: 18px; height: 18px; border-radius: var(--r5); font-size: 10px; border-width: 1px; flex-shrink: 0; }
   .menu { position: fixed; z-index: 45; width: 270px; padding: 4px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
   .menu .t { padding: 4px 8px 3px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }

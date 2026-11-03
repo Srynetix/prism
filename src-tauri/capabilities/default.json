@@ -1,13 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Prism's main window: its own commands, external links, notifications, the open and save dialogs.",
-  "windows": ["main"],
+  "description": "Prism's windows (the main one, and each machine's): their own commands, external links, notifications, the open and save dialogs.",
+  "windows": ["main", "machine-*"],
   "permissions": [
     "core:default",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "claude://*" }, { "url": "obsidian://*" }]
+      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "claude://*" }, { "url": "obsidian://*" }, { "url": "vscode://*" }]
     },
     "notification:default",
     "dialog:allow-open",

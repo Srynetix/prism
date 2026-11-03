@@ -178,6 +178,15 @@ macro_rules! commands {
             }
         }
 
+        /// Another Prism's window calling any of them but the window's own (`crate::remote::peer`):
+        /// its answer; the window's own are its app's.
+        pub async fn peer_call(app: &AppState, command: &str, a: serde_json::Value) -> anyhow::Result<serde_json::Value> {
+            match command {
+                $(stringify!($name) => $module::$name::peer(app, a).await,)*
+                other => anyhow::bail!(prism_base::tr!("{other} is not answered from another Prism", other = other)),
+            }
+        }
+
         /// The commands but the window's own, registered with Tauri; the demo profile's guard
         /// (`refused_in_demo`) is the app's, in front of them and its own.
         #[cfg(feature = "tauri")]
@@ -211,7 +220,7 @@ macro_rules! demo {
 }
 
 mod table;
-pub use table::{phone_call, COMMANDS, DESK};
+pub use table::{peer_call, phone_call, COMMANDS, DESK};
 #[cfg(feature = "tauri")]
 pub use table::tauri_handler;
 #[cfg(test)]

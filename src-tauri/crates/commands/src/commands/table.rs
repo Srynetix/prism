@@ -39,6 +39,17 @@ commands! {
         feedback_capture: Never,
         // Read-only from a phone (tmux's `-r`), through its socket: typing is `agent_write`.
         agent_attach: Read,
+        // Other computers' Prism, each in a window of this one (`[[machines]]`).
+        machine_list: Never,
+        machine_token: Never,
+        machine_open: Never,
+        machine_main: Never,
+        machine_connect: Never,
+        machine_call: Never,
+        machine_attach: Never,
+        machine_write: Never,
+        machine_resize: Never,
+        machine_detach: Never,
     }
     // Config, packs, tokens, updates: never from a phone.
     config::read_config: Never,

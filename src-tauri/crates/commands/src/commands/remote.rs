@@ -11,7 +11,7 @@ use crate::app::AppState;
 
 /// Stops the remote's server and starts it again as `[remote]` says: Tailscale was off when it
 /// started, or went down since. The phones' sessions end; nothing to do if it is off.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn remote_restart(state: State<'_, AppState>) -> Cmd {
     let cfg = crate::config::load(&crate::config_path())?;
     if cfg.remote.enabled {
@@ -21,43 +21,43 @@ pub async fn remote_restart(state: State<'_, AppState>) -> Cmd {
 }
 
 /// Settings › Remote › Away: what keeps the Mac within reach of the phone for days, or not.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub async fn remote_away_checks() -> Cmd<Vec<prism_core::state::AwayCheck>> {
     let cfg = crate::config::load(&crate::config_path())?;
     Ok(prism_remote::away::checks(&cfg.remote).await)
 }
 
 /// Settings › Remote › Devices: opens a pairing, its QR code in the snapshot.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn remote_pair_start(state: State<'_, AppState>) -> Cmd {
     state.remote.pair_start().map_err(Into::into)
 }
 
 /// The desk confirms the code the phone shows: the phone is paired.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn remote_pair_confirm(state: State<'_, AppState>) -> Cmd {
     state.remote.pair_confirm(None).map_err(Into::into)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn remote_pair_cancel(state: State<'_, AppState>) {
     state.remote.pair_cancel();
 }
 
 /// The desk takes an agent's terminal back from the phone typing in it.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn remote_release(state: State<'_, AppState>, agent: String) {
     state.remote.release(&agent);
 }
 
 /// Forgets a phone: its passkey opens nothing anymore, its sessions end.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn remote_revoke(state: State<'_, AppState>, id: String) -> Cmd {
     state.remote.revoke(&id).map_err(Into::into)
 }
 
 /// Renames a phone: its passkey and sessions stay.
-#[cfg_attr(feature = "tauri", tauri::command)]
+#[prism_macros::command]
 pub fn remote_rename(state: State<'_, AppState>, id: String, name: String) -> Cmd {
     state.remote.rename(&id, &name).map_err(Into::into)
 }

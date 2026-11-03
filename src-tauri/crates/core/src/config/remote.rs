@@ -221,3 +221,32 @@ mod tests {
         assert!(!phone_may_set(&["alerts".to_string()], Some(&json!({ "digest": true }))));
     }
 }
+
+/// `[[machines]]`: another computer's Prism, opened in a window of this one (the profile menu),
+/// as its own. Its Prism made a token for this one (`prism peer add <name>` there), kept in the
+/// keychain (Settings › Machines). Personal: a pack does not set it.
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[serde(default)]
+pub struct MachineConfig {
+    /// Its name here: the window's title, the keychain entry of its token.
+    pub name: String,
+    /// Where its remote answers: `https://<name>.<tailnet>.ts.net` (its `[remote]` on, tunnel
+    /// tailscale), or `http://127.0.0.1:<port>` at a tunnel's end (`ssh -L`).
+    pub url: String,
+    /// Its SSH host (`~/.ssh/config`), for what opens on this computer in a folder of that one
+    /// (VS Code's Remote-SSH). Empty: nothing opens here.
+    pub ssh: String,
+}
+
+impl MachineConfig {
+    /// The keychain entry of its token.
+    pub fn token_service(&self) -> String {
+        format!("prism-machine-{}", self.name.trim())
+    }
+
+    /// The environment variable its token is read from first: `PRISM_MACHINE_TOKEN_BUILD_SRV`.
+    pub fn token_env(&self) -> String {
+        let name: String = self.name.trim().chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_uppercase() } else { '_' }).collect();
+        format!("PRISM_MACHINE_TOKEN_{name}")
+    }
+}

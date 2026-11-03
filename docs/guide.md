@@ -148,6 +148,32 @@ captures, the Mac's power and `keep_running`. Nor what the window runs on its ti
 meeting reminders, the digest, alerts' notifications, the checks for updates of Prism and its
 packs. Prism's updater does not replace `prism-server` either: build it again.
 
+### Another computer's Prism in a window (`[[machines]]`)
+
+The Prism of a desk opens a server's (or another computer's) in a window of its own, the same
+page as its own: agents and their terminals, worktrees, settings, everything the window does,
+answered by that Prism. Its remote is on (above); it makes a token for the desk:
+
+```bash
+prism-server peer add macbook      # prints the token, once; `peer list`, `peer remove macbook`
+```
+
+On the desk, Settings › Remote › Machines (or by hand):
+
+```toml
+[[machines]]
+name = "build-srv"
+url = "https://build-srv.tail1234.ts.net"   # or http://127.0.0.1:<port> at the end of `ssh -L`
+ssh = "build-srv"                           # optional: its folders open here in VS Code (Remote-SSH)
+```
+
+The profile menu lists it under *Other computers*: its window asks for the token the first time
+(kept in the desk's keychain, never in the page), then shows that Prism with a blue band and rail
+edge. The token is worth that machine's account (any command, terminals typed in): keep it as an
+SSH key; `peer remove` closes its windows within ten seconds. What opens on a screen (Finder,
+Terminal, an app, a save dialog's file) stays on the desk or is not offered; the editor opens the
+machine's folders over SSH when `ssh` is set.
+
 ### Signing (macOS)
 
 Signed ad hoc, the app is refused at its first launch on another Mac: System Settings › Privacy &

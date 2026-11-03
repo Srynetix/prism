@@ -1,5 +1,5 @@
-import { mount } from 'svelte'
-import { hasCore, invoke, isDesktop } from './bridge'
+import { mount, unmount } from 'svelte'
+import { hasCore, invoke, isDesktop, machine, useTransport } from './bridge'
 import { openLink } from './links'
 import './app.css'
 import { preload } from './persist'
@@ -26,6 +26,20 @@ document.addEventListener('click', (e) => {
 // First of all: the system theme, so as not to show Paper for an instant in dark mode.
 document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'graphite' : 'paper'
 
+// A machine's window: its calls go to that machine. Out of reach (or no token yet), a screen
+// says so until it answers; then the page starts as the main window's.
+if (machine()) {
+  const m = await import('./machine.svelte')
+  useTransport(m.openMachine())
+  const ready = m.firstSnapshot()
+  if (!(await Promise.race([ready.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))]))) {
+    await (await import('./i18n.svelte')).loadLanguage()
+    const { default: MachineGate } = await import('./components/MachineGate.svelte')
+    const gate = mount(MachineGate, { target: document.getElementById('app')! })
+    await ready
+    unmount(gate)
+  }
+}
 // Notes and layout are read from disk before the components initialize.
 await preload()
 // The snapshot before mounting: theme and config.toml settings known from the first frame.

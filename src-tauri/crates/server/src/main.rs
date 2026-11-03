@@ -21,7 +21,7 @@ mod page {
     include!(concat!(env!("OUT_DIR"), "/page.rs"));
 }
 
-const USAGE: &str = "usage: prism-server [--profile <id>] serve | pair | restart | pack … | clickup-token | jira-token | google-secret";
+const USAGE: &str = "usage: prism-server [--profile <id>] serve | pair | peer … | restart | pack … | clickup-token | jira-token | google-secret";
 
 fn main() {
     blocks::register();

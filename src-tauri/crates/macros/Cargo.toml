@@ -1,0 +1,17 @@
+[package]
+name = "prism-macros"
+description = "Prism's own attribute: a command of the window registered with Tauri, and answered as JSON for another Prism (`peer`)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }

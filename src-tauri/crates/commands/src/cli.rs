@@ -1,5 +1,5 @@
 //! The subcommands `prism` runs without opening the app, with a window or without
-//! (`prism-server`): `hook`, `pack`, `restart`, `watch`, `pair`, and the tokens to the keyring.
+//! (`prism-server`): `hook`, `pack`, `restart`, `watch`, `pair`, `peer`, and the tokens to the keyring.
 
 /// Runs the subcommand of `args` (the profile already taken out), if any: its exit code.
 pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
@@ -61,6 +61,15 @@ pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
         }
         return Some(if done.is_ok() { 0 } else { 1 });
     }
+    // `prism peer add <name>` (its token printed, once), `prism peer remove <name>`, `prism peer
+    // list`: the other Prisms that open this one in their window (`[[machines]]` there).
+    if args.get(1).is_some_and(|a| a == "peer") {
+        let done = peer(args);
+        if let Err(e) = &done {
+            eprintln!("prism: {e:#}");
+        }
+        return Some(if done.is_ok() { 0 } else { 1 });
+    }
     // `prism clickup-token`, `prism jira-token`, `prism google-secret`: the token read on standard
     // input goes to the system keyring (Linux, Windows; on macOS, `security add-generic-password`).
     let keychain = match args.get(1).and_then(|a| a.to_str()) {
@@ -82,6 +91,32 @@ pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
         return Some(if stored.is_ok() { 0 } else { 1 });
     }
     None
+}
+
+/// `prism peer …`, on this profile's data folder.
+fn peer(args: &[std::ffi::OsString]) -> anyhow::Result<()> {
+    let arg = |i: usize| args.get(i).and_then(|a| a.to_str()).unwrap_or_default().to_string();
+    let dir = crate::profile::data_dir(&crate::profile::data_base());
+    match (arg(2).as_str(), arg(3)) {
+        ("add", name) if !name.is_empty() => {
+            let token = prism_remote::peers::add(&dir, &name)?;
+            println!("{token}");
+            eprintln!("The token of {name}, shown once: paste it in its window there (profile menu › Other computers), or set it as PRISM_MACHINE_TOKEN_<NAME> where no keychain is unlocked. It opens this Prism as this account would: keep it as an SSH key.");
+            Ok(())
+        }
+        ("remove", name) if !name.is_empty() => {
+            anyhow::ensure!(prism_remote::peers::remove(&dir, &name)?, "no peer {name}");
+            println!("{name} removed: its windows close within ten seconds");
+            Ok(())
+        }
+        ("list", _) => {
+            for p in prism_remote::peers::list(&dir)? {
+                println!("{}\t{}", p.name, p.created.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M"));
+            }
+            Ok(())
+        }
+        _ => anyhow::bail!("usage: prism peer add <name> | remove <name> | list"),
+    }
 }
 
 /// A future run to its end, outside of Prism's runtime (none runs yet).

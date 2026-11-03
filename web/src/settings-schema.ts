@@ -528,6 +528,21 @@ export const SCHEMA: SectionSpec[] = [
     ],
   },
   {
+    id: 'machines', label: t('Machines'), table: '[[machines]]', path: [],
+    intro: t('Other computers’ Prism, each opened in a window of this one from the profile menu, as if it ran here: its agents, terminals, worktrees, settings. That Prism has its remote on (a tunnel to it: Tailscale, or ssh -L to 127.0.0.1) and makes a token for this one: prism peer add <name> there, pasted in its window the first time (kept in this computer’s keychain). The token opens that Prism as its account would: keep it as an SSH key; prism peer remove <name> there revokes it.'),
+    fields: [
+      {
+        key: 'machines', label: t('Machines'), kind: 'table', blank: { name: '', url: '' },
+        hint: t('Address: https://<name>.<tailnet>.ts.net, or http://127.0.0.1:<port> at a tunnel’s end. SSH host: its name in ~/.ssh/config, to open its folders here in VS Code (Remote-SSH); empty, they open there only.'),
+        columns: [
+          { key: 'name', label: t('Name'), kind: 'text', width: '120px' },
+          { key: 'url', label: t('Address'), kind: 'text', placeholder: 'https://build-srv.tail1234.ts.net' },
+          { key: 'ssh', label: t('SSH host'), kind: 'text', optional: true, placeholder: t('none'), width: '120px' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'calendar', label: t('Calendar'), table: '[calendar]', path: ['calendar'],
     intro: t('The Today block’s agenda, meeting countdown and reminders. Where it is read: the macOS Calendar, or Google Calendar on any system; each is set up in its own page below.'),
     fields: [

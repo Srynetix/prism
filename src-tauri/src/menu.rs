@@ -94,8 +94,18 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         if action.starts_with("profile:") || action.starts_with("profile-open:") {
             let _ = set_profiles(app);
         }
-        crate::app::show_main(app);
-        let _ = app.emit("menu", action.to_string());
+        // To the window in front: a machine's acts on its machine; otherwise the main one, shown.
+        use tauri::Manager;
+        let front = app.webview_windows().into_values().find(|w| w.label().starts_with("machine-") && w.is_focused().unwrap_or(false));
+        match front {
+            Some(w) => {
+                let _ = w.emit_to(tauri::EventTarget::webview_window(w.label()), "menu", action.to_string());
+            }
+            None => {
+                crate::app::show_main(app);
+                let _ = app.emit_to("main", "menu", action.to_string());
+            }
+        }
     });
     Ok(())
 }
