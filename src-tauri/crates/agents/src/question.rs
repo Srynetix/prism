@@ -57,11 +57,12 @@ pub enum Menu {
     CommandCode,
 }
 
-/// A step of the answer: a key pressed, or a text pasted.
+/// A step of the answer: a key pressed, a text pasted, or typed (where a paste is not taken).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Step {
     Key(&'static str),
     Paste(String),
+    Type(String),
 }
 
 /// The tool call's question, `None` for anything else.

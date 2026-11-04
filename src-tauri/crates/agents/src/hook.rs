@@ -88,6 +88,10 @@ pub struct Line {
     /// transcript is written once it is answered, its Chat shows it from here meanwhile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ask: Option<serde_json::Value>,
+    /// The plan proposed (Command Code's mod, `exit_plan_mode`: its plan file, or failing that its
+    /// input's `plan`), for the same reason.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -295,6 +299,7 @@ fn parse(input: Input, t: i64) -> Option<(String, Line)> {
         transcript,
         sub: input.agent_id.is_some_and(|a| !a.is_empty()),
         ask: None,
+        plan: None,
     };
     Some((input.session_id, line))
 }

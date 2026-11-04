@@ -134,6 +134,18 @@ impl Fold {
         }
     }
 
+    /// Its last plan's review (Command Code): your comments, sent back with it.
+    pub(super) fn plan_reviewed(&mut self, comments: Option<String>) {
+        let plan = |e: &Entry| matches!(e, Entry::Tool(Tool { proposal: Some(_), .. }));
+        let Some((t, e)) = self.turns.iter().enumerate().rev().find_map(|(t, turn)| turn.entries.iter().rposition(plan).map(|e| (t, e))) else { return };
+        if let Some(Entry::Tool(Tool { proposal: Some(p), .. })) = self.turns.get_mut(t).and_then(|turn| turn.entries.get_mut(e)) {
+            if p.verdict == "refused" {
+                p.verdict = "changes";
+            }
+            p.feedback = comments;
+        }
+    }
+
     /// A plan file written or edited (plan mode): kept as it now reads.
     pub(super) fn plan_written(&mut self, name: &str, input: &Value) {
         let Some(path) = input.get("file_path").and_then(Value::as_str).filter(|p| crate::plan::is_plan_file(p) || self.plan_file.as_deref() == Some(*p)) else { return };

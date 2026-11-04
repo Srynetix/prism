@@ -96,15 +96,33 @@ pub struct Conversation {
 }
 
 impl Conversation {
-    /// The question it asks right now (Command Code's, from its mod: its transcript is written
-    /// once it is answered), a turn of its own unless the transcript already has its call.
-    pub fn asking(&mut self, ask: crate::question::Ask) {
-        let known = self.turns.iter().flat_map(|t| &t.entries).any(|e| matches!(e, Entry::Tool(Tool { ask: Some(a), .. }) if a.call == ask.call));
-        if known {
-            return;
-        }
+    /// The question it asks or the plan it proposes right now (Command Code's, from its mod: its
+    /// transcript is written once they are answered), a turn of its own unless the transcript
+    /// already has its call.
+    pub(crate) fn waiting(&mut self, waiting: crate::status::Waiting) {
+        use crate::status::Waiting;
+        let tools = || self.turns.iter().flat_map(|t| &t.entries).filter_map(|e| match e {
+            Entry::Tool(t) => Some(t),
+            _ => None,
+        });
+        let tool = match waiting {
+            Waiting::Question(ask) => {
+                if tools().any(|t| t.ask.as_ref().is_some_and(|a| a.call == ask.call)) {
+                    return;
+                }
+                Tool { tool: "AskUserQuestion".into(), ask: Some(ask), ..Tool::default() }
+            }
+            Waiting::Plan { call, text } => {
+                if tools().any(|t| t.proposal.as_ref().is_some_and(|p| p.call == call)) {
+                    return;
+                }
+                let version = tools().filter(|t| t.proposal.is_some()).count() as u32 + 1;
+                let proposal = crate::plan::Proposal { call, text: cut(text.trim(), TEXT_CHARS), version, verdict: "waiting", feedback: None, file: None };
+                Tool { tool: "ExitPlanMode".into(), proposal: Some(proposal), ..Tool::default() }
+            }
+        };
         let n = self.turns.last().map_or(1, |t| t.n + 1);
-        let tool = Tool { tool: "AskUserQuestion".into(), kind: kind_of("AskUserQuestion"), state: "running", ask: Some(ask), ..Tool::default() };
+        let tool = Tool { kind: kind_of(&tool.tool), state: "running", ..tool };
         self.turns.push(Turn { n, entries: vec![Entry::Tool(tool)], ..Turn::default() });
         self.total += 1;
     }

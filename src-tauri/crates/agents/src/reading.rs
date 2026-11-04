@@ -89,11 +89,11 @@ impl Agents {
     /// Code's or Command Code's transcript, or Codex's rollout; absent for OpenCode, or before it has one.
     /// `have`: the signatures of the turns the reader holds, left out (`Conversation::kept`).
     pub async fn conversation(&self, id: &str, turns: u32, have: &[String]) -> Result<Option<conversation::Conversation>> {
-        // Its question asked, not in its transcript yet (Command Code): a conversation of its own
+        // Its question asked or plan proposed, not in its transcript yet (Command Code): a conversation of its own
         // before its first turn is written.
-        let asking = self.inner.folds.lock().unwrap().get(id).and_then(|f| f.asking.clone());
+        let waiting = self.inner.folds.lock().unwrap().get(id).and_then(|f| f.waiting.clone());
         let transcript = self.transcript(id)?;
-        if transcript.is_none() && asking.is_none() {
+        if transcript.is_none() && waiting.is_none() {
             return Ok(None);
         }
         let cwd = self.dir(id).ok();
@@ -103,8 +103,8 @@ impl Agents {
         let have = have.to_vec();
         let mut c = tokio::task::spawn_blocking(move || {
             let mut c = transcript.map(|t| conversation::read(&t, cwd.as_deref(), turns)).unwrap_or_default();
-            if let Some(ask) = asking {
-                c.asking(ask);
+            if let Some(w) = waiting {
+                c.waiting(w);
             }
             c.only_new(&have);
             c

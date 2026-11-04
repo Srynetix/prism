@@ -166,6 +166,10 @@ impl Agents {
                     tmux.send_keys(id, &[k]).await?;
                     tokio::time::sleep(Duration::from_millis(150)).await;
                 }
+                question::Step::Type(t) => {
+                    tmux.send_keys(id, &["-l", &t]).await?;
+                    tokio::time::sleep(Duration::from_millis(150)).await;
+                }
                 question::Step::Paste(t) => {
                     tmux.paste(id, &t).await?;
                     tokio::time::sleep(Duration::from_millis(300)).await;

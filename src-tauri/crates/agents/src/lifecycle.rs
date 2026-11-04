@@ -354,14 +354,16 @@ impl Agents {
     }
 
     /// Grants once the permission the agent is asking for: key 1 of the CLI's question
-    /// ("1. Yes"), Enter on OpenCode's ("Allow once"), `y` on Codex's ("Yes, proceed"). With no pending request, nothing is sent.
+    /// ("1. Yes"), Enter on OpenCode's ("Allow once"), `y` on Codex's ("Yes, proceed"); ctrl+a on
+    /// Command Code's plan review (Approve), where a digit would start a comment. With no pending
+    /// request, nothing is sent.
     pub async fn allow(&self, id: &str) -> Result<()> {
-        let waiting = self.inner.folds.lock().unwrap().get(id).is_some_and(|f| f.status == SessionStatus::WaitingTool);
+        let (waiting, review) = self.inner.folds.lock().unwrap().get(id).map_or((false, false), |f| (f.status == SessionStatus::WaitingTool, matches!(f.waiting, Some(status::Waiting::Plan { .. }))));
         if !waiting {
             bail!(tr("this agent is not waiting for a permission"));
         }
         let provider = self.provider(id)?;
-        self.inner.tmux.send_keys(id, provider.allow_keys()).await?;
+        self.inner.tmux.send_keys(id, if review { &["C-a"] } else { provider.allow_keys() }).await?;
         self.permission_answered(id);
         Ok(())
     }
