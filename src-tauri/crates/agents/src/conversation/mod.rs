@@ -297,10 +297,11 @@ pub struct Tool {
     pub prompt: Option<String>,
     #[serde(skip)]
     pub call: Option<String>,
-    /// A skill run as a subagent (forked): its agent's id, which names its transcript
-    /// (`agent-<id>.jsonl`, whose `.meta.json` has no call's id).
+    /// A skill run as a subagent (forked), or a subagent woken by a message (`SendMessage`): its
+    /// agent's id, which names its transcript (`agent-<id>.jsonl`, whose `.meta.json` has no call's
+    /// id, or that of the call that first launched it).
     #[serde(skip)]
-    pub forked: Option<String>,
+    pub agent_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
@@ -489,7 +490,7 @@ pub fn read(transcript: &Path, cwd: Option<&Path>, turns: usize) -> Conversation
 /// (`subagents`), a plan waiting whose text is in its file (`waiting_plan`).
 fn filled_elsewhere(t: &Turn) -> bool {
     t.entries.iter().any(|e| match e {
-        Entry::Tool(tool) => (tool.kind == "agent" && (tool.prompt.is_some() || tool.forked.is_some())) || tool.proposal.as_ref().is_some_and(|p| p.verdict == "waiting" && p.text.is_empty()),
+        Entry::Tool(tool) => (tool.kind == "agent" && (tool.prompt.is_some() || tool.agent_id.is_some())) || tool.proposal.as_ref().is_some_and(|p| p.verdict == "waiting" && p.text.is_empty()),
         _ => false,
     })
 }

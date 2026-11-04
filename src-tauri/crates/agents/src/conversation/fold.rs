@@ -336,8 +336,36 @@ impl Fold {
             tool.kind = "agent";
             tool.agent = Some("Skill".into());
             tool.call = call.map(String::from);
-            tool.forked = Some(agent.to_string());
+            tool.agent_id = Some(agent.to_string());
         }
+    }
+
+    /// A subagent over woken by a message (`SendMessage`, its result's `resumedAgentId`): it works
+    /// again, in the background, until its next notification. Its call becomes its card (its type,
+    /// what it was told), its calls read from the same transcript; one still running is left as is.
+    pub(super) fn resumed(&mut self, call: Option<&str>, result: Option<&Value>, at: Option<&str>) {
+        let Some(result) = result.filter(|r| r.get("success").and_then(Value::as_bool) != Some(false)) else { return };
+        let Some(agent) = result.get("resumedAgentId").or(result.get("revivedAgentId")).and_then(Value::as_str) else { return };
+        let Some(call) = call else { return };
+        let Some(first) = self.background.iter().rev().find(|b| b.kind == "agent" && b.id == agent) else { return };
+        if first.state == "running" {
+            return;
+        }
+        // Its type, from the call that launched it (done, so no longer among `calls`).
+        let agent_type = self.turns.iter().rev().flat_map(|turn| turn.entries.iter()).find_map(|e| match e {
+            Entry::Tool(tool) if tool.call.as_deref() == Some(first.call.as_str()) => Some(tool.agent.clone()),
+            _ => None,
+        });
+        let (agent_type, described) = (agent_type.flatten(), first.what.clone());
+        let Some((t, e)) = self.calls.get(call).copied() else { return };
+        let Some(Entry::Tool(tool)) = self.turns.get_mut(t).and_then(|turn| turn.entries.get_mut(e)) else { return };
+        tool.kind = "agent";
+        tool.agent = agent_type;
+        tool.what = tool.what.take().or(described);
+        tool.call = Some(call.to_string());
+        tool.agent_id = Some(agent.to_string());
+        let what = tool.what.clone();
+        self.background.push(Background { kind: "agent", what, state: "running", at: at.map(String::from), id: agent.to_string(), call: call.to_string(), ..Background::default() });
     }
 
     /// A skill you typed that runs as a subagent (`/code-review`): no call in the transcript, only
@@ -348,7 +376,7 @@ impl Fold {
         let Some(agent) = launch.get("agentId").and_then(Value::as_str) else { return };
         let skill = launch.get("skillName").and_then(Value::as_str).map(String::from);
         let call = format!("forked:{agent}");
-        let tool = Tool { tool: "Skill".into(), kind: "agent", agent: Some("Skill".into()), what: skill.clone(), state: "ok", call: Some(call.clone()), forked: Some(agent.to_string()), ..Tool::default() };
+        let tool = Tool { tool: "Skill".into(), kind: "agent", agent: Some("Skill".into()), what: skill.clone(), state: "ok", call: Some(call.clone()), agent_id: Some(agent.to_string()), ..Tool::default() };
         self.call(Some(&call), at, tool);
         if tagged(text, "local-command-stdout").is_some_and(|s| s.contains("in the background")) {
             self.background.push(Background { kind: "agent", what: skill, state: "running", at: at.map(String::from), id: agent.to_string(), call, ..Background::default() });

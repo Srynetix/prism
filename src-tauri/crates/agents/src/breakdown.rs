@@ -281,6 +281,7 @@ impl Names {
             "WebSearch" => field("query").map(String::from),
             "Agent" | "Task" => field("description").map(String::from),
             "Skill" => field("skill").or(field("command")).map(String::from),
+            "SendMessage" => field("summary").map(String::from),
             _ => None,
         }?;
         Some(short(&raw))
