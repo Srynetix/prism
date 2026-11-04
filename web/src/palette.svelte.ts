@@ -8,6 +8,7 @@ import { sendPrompt } from './agent-inbox.svelte'
 import { CLIS, cliOf } from './agent-cli'
 import { continueWith, targetsOf } from './agent-switch.svelte'
 import { answersFor, onPhone, sendFromPhone } from './quick-answers'
+import { quickActionsOn, runQuickAction } from './quick-actions'
 import { commands, consoleKey, runCommand, toggleConsole, type CommandInfo } from './console.svelte'
 import { KIND_LABEL, KIND_ONE, search as searchEntries, type Entry, type Group, type Kind, type PaletteAction, type Row } from './palette-search'
 import { flatten, mrMenu, ticketMenu, type Menu } from './menus'
@@ -395,11 +396,27 @@ function foundEntries(query: string, all: Entry[]): Entry[] {
   return out
 }
 
+/** The quick actions, one line per repository they are offered on: ↵ launches, ⌘↵ changes it first. */
+function quickEntries(s: Snapshot): Entry[] {
+  if (!agentsEnabled()) return []
+  return (s.repos ?? []).filter((r) => r.path && !r.error).flatMap((r) =>
+    quickActionsOn(r.name).map((a) => ({
+      id: `quick:${r.name}:${a.name}`,
+      kind: 'command' as const,
+      title: a.name,
+      hint: `${r.name} · ${a.prompt}`,
+      words: `${r.name} quick action agent`,
+      run: () => runQuickAction(a, r.name),
+      actions: isDesktop() ? () => [{ key: 'edit', label: t('Change it before it goes'), hint: t('The launcher, prefilled'), run: () => runQuickAction(a, r.name, true) }] : undefined,
+    })),
+  )
+}
+
 /** Everything the palette can find, now. */
 export function entries(): Entry[] {
   const s = live.snapshot
   const objects = s ? [...agentEntries(s), ...mrEntries(s), ...ticketEntries(s), ...fileEntries(), ...pipelineEntries(s), ...(phone() ? [] : infraEntries(s))] : []
-  return [...objects, ...(phone() ? [] : backEntries()), ...pageEntries(), ...commandEntries(), ...settingEntries(), ...helpEntries()]
+  return [...objects, ...(phone() ? [] : backEntries()), ...pageEntries(), ...(s ? quickEntries(s) : []), ...commandEntries(), ...settingEntries(), ...helpEntries()]
 }
 
 /** What the query finds (`palette-search.ts`), among everything the palette can find now. */

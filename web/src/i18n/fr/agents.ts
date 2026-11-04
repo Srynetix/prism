@@ -770,4 +770,8 @@ export default {
   '{machine}: an agent waits for you': '{machine} : un agent vous attend',
   '{n} agent waiting on another computer': '{n} agent en attente sur un autre ordinateur',
   '{n} agents waiting on other computers': '{n} agents en attente sur d’autres ordinateurs',
+  '{repo}: no local clone': '{repo}\xa0: aucun clone local',
+  '⇧-click: change it before it goes': '⇧-clic\xa0: le modifier avant de le lancer',
+  'Change it before it goes': 'Le modifier avant de le lancer',
+  'The launcher, prefilled': 'Le lanceur, prérempli',
 } satisfies Dictionary

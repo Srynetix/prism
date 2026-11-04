@@ -231,6 +231,9 @@ pub struct AgentsConfig {
     pub codex: CliConfig,
     /// One-click answers to an agent at its prompt (`[agents.quick_answers]`).
     pub quick_answers: QuickAnswersConfig,
+    /// Agents launched in one click on a repository (`[[agents.quick_actions]]`), the same job each
+    /// time: from its project in the Agents view, the palette and the phone.
+    pub quick_actions: Vec<QuickAction>,
     /// Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
     /// to Prism, as everywhere else.
     pub terminal_keys: Vec<String>,
@@ -329,6 +332,26 @@ impl AgentsConfig {
             Provider::Codex => &self.codex,
         }
     }
+}
+
+/// An agent launched in one click (`[[agents.quick_actions]]`): its prompt, in a repository.
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct QuickAction {
+    /// Its button, and the agent's title.
+    pub name: String,
+    /// What the agent is asked; `{repo}` and `{base}` (its default branch, `main`): the repository's.
+    pub prompt: String,
+    /// The repositories (`[[repos]] name`) it is offered on; empty: every one.
+    pub repos: Vec<String>,
+    /// In a new worktree, where the repository makes them; otherwise in its clone, as it is.
+    pub worktree: bool,
+    /// `default`, `acceptEdits` or `plan`; absent: the mode from the CLI's settings.
+    #[cfg_attr(feature = "ts", ts(type = "'default' | 'acceptEdits' | 'plan' | null"))]
+    pub mode: Option<String>,
+    /// One of the `[[agents.kinds]]`; absent: the one its prompt's command names.
+    pub kind: Option<String>,
 }
 
 /// How a coding agent CLI is launched (`[agents.<cli>]`): by default, its usual name from the PATH.
@@ -439,6 +462,7 @@ impl Default for AgentsConfig {
             opencode: CliConfig::default(),
             codex: CliConfig::default(),
             quick_answers: QuickAnswersConfig::default(),
+            quick_actions: Vec::new(),
             terminal_keys: vec!["Cmd+K".into()],
             view: "chat".into(),
             fold_steps: true,
@@ -822,6 +846,14 @@ pub mod tests {
         assert_eq!(c.agents.kinds, [AgentKind { name: "Refinement".into(), when: String::new() }, AgentKind { name: "Ops".into(), when: String::new() }]);
         let c = parsed("[agents]\nkinds = [\"A\"]\ncategories = [\"B\"]\n");
         assert_eq!(c.agents.kinds.iter().map(|k| k.name.as_str()).collect::<Vec<_>>(), ["A"], "the new key wins");
+    }
+
+    /// `[[agents.quick_actions]]`: a prompt on some repositories, in their clone unless asked otherwise.
+    #[test]
+    fn quick_actions_read() {
+        let c = parsed("[[agents.quick_actions]]\nname = \"Upstream + Trivy\"\nprompt = \"Update {base}.\"\nrepos = [\"api\"]\nmode = \"acceptEdits\"\n");
+        assert_eq!(c.agents.quick_actions, [QuickAction { name: "Upstream + Trivy".into(), prompt: "Update {base}.".into(), repos: vec!["api".into()], worktree: false, mode: Some("acceptEdits".into()), kind: None }]);
+        assert!(AgentsConfig::default().quick_actions.is_empty());
     }
 
     /// A phone's quick answer is checked against this list: the window's defaults must be the same.

@@ -209,6 +209,24 @@ export const SCHEMA: SectionSpec[] = [
     ],
   },
   {
+    id: 'agents-actions', label: t('Quick actions'), table: '[[agents.quick_actions]]', path: ['agents'],
+    intro: t('The same job asked again and again of an agent on a repository (bring its main branch up to date, run a scan…): one button each on its project in the Agents view (grouped by repository) and on the phone, and a line in the palette. A click launches the agent at once; ⇧-click, or ⌘↵ in the palette, opens the launcher prefilled, to change it first.'),
+    fields: [
+      {
+        key: 'quick_actions', label: t('Quick actions'), kind: 'table', blank: { name: '', prompt: '', repos: [], worktree: false },
+        hint: t('The prompt may name {repo} and {base} (the repository’s default branch). Repositories empty: offered on every one. Worktree: in a new worktree where the repository makes them; off, in its clone as it is. Mode empty: the one of the CLI’s settings.'),
+        columns: [
+          { key: 'name', label: t('Name'), kind: 'text', width: '140px' },
+          { key: 'prompt', label: t('Prompt'), kind: 'text', placeholder: t('Update {base} from upstream, then scan with Trivy.') },
+          { key: 'repos', label: t('Repositories'), kind: 'list', optional: true, width: '140px' },
+          { key: 'worktree', label: t('Worktree'), kind: 'toggle', width: '80px' },
+          { key: 'mode', label: t('Mode'), kind: 'select', options: ['default', 'acceptEdits', 'plan'], optional: true, width: '110px' },
+          { key: 'kind', label: t('Kind'), kind: 'text', optional: true, width: '110px' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'agents', label: t('Agents'), table: '[agents]', path: ['agents'],
     intro: t('Claude Code, Command Code, OpenCode or Codex sessions in Prism terminals, kept alive by tmux when Prism quits. The agent actions of the menus open their launcher. What every CLI shares is here; each CLI’s own keys (binary, arguments; Claude Desktop for Claude Code) are on its page below.'),
     fields: [

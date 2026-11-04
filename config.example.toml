@@ -316,6 +316,18 @@ enabled = true
 #   { label = "MR", text = "Open the MR for {ticket}." },
 # ]
 
+# Quick actions: the same job asked again and again of an agent on a repository, one button on its
+# project (Agents view by repository, phone) and a line in the palette; a click launches at once,
+# ⇧-click opens the launcher prefilled. prompt: {repo} and {base} (its default branch) replaced;
+# repos: where it is offered (empty: every repository); worktree: a new worktree (where the
+# repository makes them) instead of its clone as it is; mode: default | acceptEdits | plan; kind:
+# one of [[agents.kinds]].
+# [[agents.quick_actions]]
+# name = "Upstream + Trivy"
+# prompt = "Update {base} from upstream and push it, then run a Trivy scan of the repository and sum up what it finds."
+# repos = ["api"]
+# mode = "acceptEdits"
+
 # Each CLI's own keys, wherever it runs (by default or for a repository): [agents.claude],
 # [agents.command-code], [agents.opencode], [agents.codex]. bin: the executable (a name in the
 # PATH or a path; absent, its usual name); args: added to every launch and resume.

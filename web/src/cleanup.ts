@@ -116,7 +116,7 @@ export function features(trackerIsClickup: () => boolean): Feature[] {
     { id: 'mail', label: t('Mail'), area: t('Work'), path: ['mail', 'enabled'], counts: ['block:mail'] },
     { id: 'renovate', label: t('Renovate'), area: t('CI'), path: ['renovate', 'enabled'], counts: ['block:renovate'] },
     { id: 'vulns', label: t('Vulnerabilities'), area: t('Security'), path: ['vulnerabilities', 'enabled'], counts: ['block:vulns'] },
-    { id: 'agents', label: t('Agents'), area: t('Agents'), path: ['agents', 'enabled'], counts: ['block:sessions', 'agents:', 'action:', 'palette:agent', 'quick-answer'] },
+    { id: 'agents', label: t('Agents'), area: t('Agents'), path: ['agents', 'enabled'], counts: ['block:sessions', 'agents:', 'action:', 'palette:agent', 'quick-answer', 'quick-action'] },
     { id: 'quick-answers', label: t('Quick answers'), area: t('Agents'), path: ['agents', 'quick_answers', 'enabled'], counts: ['quick-answer'] },
     { id: 'clusters', label: t('Clusters: pods, environments, ArgoCD'), area: t('Infra'), path: ['clusters', 'enabled'], counts: ['block:pods', 'block:envs', 'block:argocd', 'palette:pod', 'palette:env'] },
     { id: 'palette', label: t('Palette'), area: t('Interface'), path: ['palette', 'enabled'], counts: ['palette:'] },
@@ -141,6 +141,7 @@ export function labelOf(id: string): string {
   if (kind === 'action') return t('Agent action: {action}', { action: rest })
   if (id === 'agents:view') return t('Agents view')
   if (id === 'quick-answer') return t('Quick answers')
+  if (id === 'quick-action') return t('Quick actions')
   if (id === 'thread') return t('Ticket threads')
   if (id === 'page-swipe') return t('Swipe between pages')
   return id
