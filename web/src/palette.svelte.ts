@@ -8,7 +8,7 @@ import { sendPrompt } from './agent-inbox.svelte'
 import { CLIS, cliOf } from './agent-cli'
 import { continueWith, targetsOf } from './agent-switch.svelte'
 import { answersFor, onPhone, sendFromPhone } from './quick-answers'
-import { quickActionsOn, runQuickAction } from './quick-actions'
+import { quickActionsOn, quickPrompt, runQuickAction } from './quick-actions'
 import { commands, consoleKey, runCommand, toggleConsole, type CommandInfo } from './console.svelte'
 import { KIND_LABEL, KIND_ONE, search as searchEntries, type Entry, type Group, type Kind, type PaletteAction, type Row } from './palette-search'
 import { flatten, mrMenu, ticketMenu, type Menu } from './menus'
@@ -404,7 +404,7 @@ function quickEntries(s: Snapshot): Entry[] {
       id: `quick:${r.name}:${a.name}`,
       kind: 'command' as const,
       title: a.name,
-      hint: `${r.name} · ${a.prompt}`,
+      hint: `${r.name} · ${quickPrompt(a, r)}`,
       words: `${r.name} quick action agent`,
       run: () => runQuickAction(a, r.name),
       actions: isDesktop() ? () => [{ key: 'edit', label: t('Change it before it goes'), hint: t('The launcher, prefilled'), run: () => runQuickAction(a, r.name, true) }] : undefined,
