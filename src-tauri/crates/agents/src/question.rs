@@ -4,7 +4,9 @@
 //! review tab ("Submit answers") when there are several questions or one picks several choices.
 //! A choice's digit picks it and moves on (one choice) or ticks it (several); the line after the
 //! choices takes your own words ("Type something"), the one after it moves on. One choice takes a
-//! choice or your words: both go as words, the choice's label first.
+//! choice or your words: both go as words, the choice's label first. Command Code's menu (1.88) is
+//! the same but for two things: no digit reaches the line for your words (the arrows do), and its
+//! review tab is always there, one question picked at once included.
 
 use anyhow::{bail, ensure, Result};
 use prism_base::tr;
@@ -48,6 +50,13 @@ pub struct Answer {
     pub text: Option<String>,
 }
 
+/// Whose menu the question is in.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Menu {
+    Claude,
+    CommandCode,
+}
+
 /// A step of the answer: a key pressed, or a text pasted.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Step {
@@ -80,14 +89,27 @@ impl Ask {
         }
     }
 
+    /// The answers Command Code gave its model, a line per question: `Which color? → Blue`.
+    pub fn answered_text(&mut self, text: &str) {
+        for (q, a) in self.questions.iter().zip(self.answers.iter_mut()) {
+            let lead = format!("{} → ", q.question);
+            *a = text.lines().find_map(|l| l.strip_prefix(&lead)).map(|t| t.trim().to_string());
+        }
+    }
+
     /// The keys that give these answers, checked against the question: one answer per question,
     /// one choice or your words for a single choice, choices that exist.
-    pub fn keys(&self, answers: &[Answer]) -> Result<Vec<Step>> {
+    pub fn keys(&self, answers: &[Answer], menu: Menu) -> Result<Vec<Step>> {
         const DIGITS: [&str; 9] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
         ensure!(answers.len() == self.questions.len(), "{} answers for {} questions", answers.len(), self.questions.len());
         let mut steps = Vec::new();
         for (q, a) in self.questions.iter().zip(answers) {
             let n = q.options.len();
+            // Down to the line for your words, from the first.
+            let words = |steps: &mut Vec<Step>| match menu {
+                Menu::Claude => steps.push(Step::Key(DIGITS[n])),
+                Menu::CommandCode => steps.extend(std::iter::repeat_n(Step::Key("Down"), n)),
+            };
             // The choices and the line for your words, each a digit.
             ensure!(n < DIGITS.len(), "too many choices");
             let text = a.text.as_deref().map(str::trim).filter(|t| !t.is_empty());
@@ -110,29 +132,34 @@ impl Ask {
                 // as words, the choice's label first.
                 match (picks.as_slice(), text) {
                     ([p], None) => steps.push(Step::Key(DIGITS[*p as usize - 1])),
-                    ([], Some(t)) => steps.extend([Step::Key(DIGITS[n]), Step::Paste(t.to_string()), Step::Key("Enter")]),
+                    ([], Some(t)) => {
+                        words(&mut steps);
+                        steps.extend([Step::Paste(t.to_string()), Step::Key("Enter")]);
+                    }
                     ([p], Some(t)) => {
                         let label = &q.options[*p as usize - 1].label;
-                        steps.extend([Step::Key(DIGITS[n]), Step::Paste(format!("{label} — {t}")), Step::Key("Enter")]);
+                        words(&mut steps);
+                        steps.extend([Step::Paste(format!("{label} — {t}")), Step::Key("Enter")]);
                     }
                     _ => bail!(tr!("“{header}”: one choice", header = q.header)),
                 }
             }
         }
-        if self.questions.len() > 1 || self.questions.iter().any(|q| q.multi) {
+        if menu == Menu::CommandCode || self.questions.len() > 1 || self.questions.iter().any(|q| q.multi) {
             steps.push(Step::Key("1"));
         }
         Ok(steps)
     }
 
     /// Its menu is on `screen` (`capture-pane -e`): a question's tab ("Enter to select") or the
-    /// review one ("Ready to submit"), one of its questions written on it. Before the keys, so
-    /// they go to its menu only; after them, the answer was not taken while it still shows.
+    /// review one ("Ready to submit", Command Code's "← to go back and edit"), one of its questions
+    /// written on it. Before the keys, so they go to its menu only; after them, the answer was not
+    /// taken while it still shows.
     pub fn on_screen(&self, screen: &str) -> bool {
         // Words alone: a question wrapped on the screen's width is the same.
         let words = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
         let screen = words(&screen.lines().map(crate::suggestion::visible).collect::<Vec<_>>().join("\n"));
-        let menu = screen.contains("Enter to select") || screen.contains("Ready to submit");
+        let menu = screen.contains("Enter to select") || screen.contains("Ready to submit") || screen.contains("to go back and edit");
         menu && self.questions.iter().any(|q| {
             let q = words(&q.question);
             !q.is_empty() && screen.contains(&q.chars().take(40).collect::<String>())
@@ -173,12 +200,25 @@ mod tests {
     #[test]
     fn answers_as_the_menu_takes_them() {
         use Step::{Key, Paste};
-        let steps = ask().keys(&[pick(&[2], None), pick(&[3, 1], Some("Mango"))]).unwrap();
+        let steps = ask().keys(&[pick(&[2], None), pick(&[3, 1], Some("Mango"))], Menu::Claude).unwrap();
         assert_eq!(steps, vec![Key("2"), Key("1"), Key("3"), Key("Down"), Key("Down"), Key("Down"), Paste("Mango".into()), Key("Down"), Key("Enter"), Key("1")]);
         let one = Ask { questions: vec![ask().questions[0].clone()], ..ask() };
-        assert_eq!(one.keys(&[pick(&[1], None)]).unwrap(), vec![Key("1")], "one question, one choice: its digit sends it");
-        assert_eq!(one.keys(&[pick(&[], Some("Green"))]).unwrap(), vec![Key("3"), Paste("Green".into()), Key("Enter")]);
-        assert_eq!(one.keys(&[pick(&[1], Some("but darker"))]).unwrap(), vec![Key("3"), Paste("Red — but darker".into()), Key("Enter")], "a choice and your words: both, as words");
+        assert_eq!(one.keys(&[pick(&[1], None)], Menu::Claude).unwrap(), vec![Key("1")], "one question, one choice: its digit sends it");
+        assert_eq!(one.keys(&[pick(&[], Some("Green"))], Menu::Claude).unwrap(), vec![Key("3"), Paste("Green".into()), Key("Enter")]);
+        assert_eq!(one.keys(&[pick(&[1], Some("but darker"))], Menu::Claude).unwrap(), vec![Key("3"), Paste("Red — but darker".into()), Key("Enter")], "a choice and your words: both, as words");
+    }
+
+    /// The keys tried on Command Code 1.88's menu: the arrows to your words, its review tab always.
+    #[test]
+    fn answers_as_command_codes_menu_takes_them() {
+        use Step::{Key, Paste};
+        let steps = ask().keys(&[pick(&[], Some("Green")), pick(&[1, 3], Some("Mango"))], Menu::CommandCode).unwrap();
+        assert_eq!(steps, vec![Key("Down"), Key("Down"), Paste("Green".into()), Key("Enter"), Key("1"), Key("3"), Key("Down"), Key("Down"), Key("Down"), Paste("Mango".into()), Key("Down"), Key("Enter"), Key("1")]);
+        let one = Ask { questions: vec![ask().questions[0].clone()], ..ask() };
+        assert_eq!(one.keys(&[pick(&[2], None)], Menu::CommandCode).unwrap(), vec![Key("2"), Key("1")], "one question: its review tab too");
+        let mut a = ask();
+        a.answered_text("Which color? → Blue\nWhich fruits? → Apple, Kiwi, Mango\n\nContinue with the user's answers in mind.");
+        assert_eq!(a.answers, vec![Some("Blue".into()), Some("Apple, Kiwi, Mango".into())]);
     }
 
     /// Screens of Claude Code 2.1.306's menu, its colors as `capture-pane -e` gives them.
@@ -187,6 +227,7 @@ mod tests {
         let a = ask();
         let tab = "←  ☐ Color  ☐ Fruits  ✔ Submit  →\n\x1b[1mWhich \x1b[0mcolor?\n\x1b[38;5;153m❯ 1. Red\x1b[0m\n  2. Blue\n  3. Type something.\nEnter to select · Tab/Arrow keys to navigate · Esc to cancel";
         assert!(a.on_screen(tab));
+        assert!(a.on_screen("✔ Color | ✔ Fruits | ● Review\n\n1. Which color?\n   Blue\n\n❯ 1. Submit\n  2. Cancel\n\n← to go back and edit"), "Command Code 1.88's review tab");
         assert!(a.on_screen("Review your answers\n ● Which\n   color?\n   → Red\nReady to submit your answers?\n❯ 1. Submit answers"), "the review tab, a question wrapped");
         assert!(!a.on_screen("⏺ User answered Claude's questions:\n  ⎿  · Which color? → Red\n❯ \n  -- INSERT --"), "answered: its menu gone");
         assert!(!a.on_screen("Which pet?\n❯ 1. Cat\nEnter to select"), "another question's menu");
@@ -195,9 +236,9 @@ mod tests {
     #[test]
     fn refuses_what_the_question_does_not_offer() {
         let a = ask();
-        assert!(a.keys(&[pick(&[1], None)]).is_err(), "an answer per question");
-        assert!(a.keys(&[pick(&[3], None), pick(&[1], None)]).is_err(), "no third color");
-        assert!(a.keys(&[pick(&[1, 2], None), pick(&[1], None)]).is_err(), "one color");
-        assert!(a.keys(&[pick(&[1], None), pick(&[], Some("  "))]).is_err(), "some fruit");
+        assert!(a.keys(&[pick(&[1], None)], Menu::Claude).is_err(), "an answer per question");
+        assert!(a.keys(&[pick(&[3], None), pick(&[1], None)], Menu::Claude).is_err(), "no third color");
+        assert!(a.keys(&[pick(&[1, 2], None), pick(&[1], None)], Menu::Claude).is_err(), "one color");
+        assert!(a.keys(&[pick(&[1], None), pick(&[], Some("  "))], Menu::Claude).is_err(), "some fruit");
     }
 }

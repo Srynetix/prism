@@ -4,7 +4,9 @@
 // Prism follows the agent's status from it.
 //
 // Only metadata is kept (event, tool, what it touches, the context's token count and model):
-// never the prompt, the response or a tool's output. Outside a Prism agent (no PRISM_AGENT), it does nothing.
+// never the prompt, the response or a tool's output. One exception, a question it asks you
+// (`ask_user_question`): its questions and choices, which its Chat shows to answer it, its transcript
+// being written once it is answered. Outside a Prism agent (no PRISM_AGENT), it does nothing.
 
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -28,6 +30,8 @@ export default function (cmd: any): void {
   }
 
   const pending = new Map<string, ReturnType<typeof setTimeout>>()
+  /** The questions queued, until they are asked. */
+  const questions = new Map<string, unknown>()
   const settle = (id?: string) => {
     for (const [key, timer] of pending) {
       if (id === undefined || key === id) {
@@ -43,6 +47,7 @@ export default function (cmd: any): void {
   })
   cmd.on('run_start', () => log({ event: 'UserPromptSubmit' }))
   cmd.on('tool_queued', ({ toolCallId, toolName, input }: { toolCallId: string; toolName: string; input: unknown }) => {
+    if (toolName === 'ask_user_question') questions.set(toolCallId, input)
     const what = summarize(input)
     const timer = setTimeout(() => {
       pending.delete(toolCallId)
@@ -54,6 +59,11 @@ export default function (cmd: any): void {
   cmd.on('tool_running', ({ toolCallId, toolName }: { toolCallId: string; toolName: string }) => {
     settle(toolCallId)
     log({ event: 'PreToolUse', tool: toolName })
+    // Its question asks no permission but waits for you, as Claude Code's (`AskUserQuestion`).
+    if (questions.has(toolCallId)) {
+      log({ event: 'PermissionRequest', tool: 'AskUserQuestion', id: toolCallId, ask: questions.get(toolCallId) })
+      questions.delete(toolCallId)
+    }
   })
   for (const event of ['tool_completed', 'tool_errored']) {
     cmd.on(event, ({ toolCallId, toolName }: { toolCallId: string; toolName: string }) => {
@@ -62,10 +72,14 @@ export default function (cmd: any): void {
     })
   }
   // A refusal aborts the whole batch; a mod's block ends that call without running it.
-  cmd.on('tool_denied', () => settle())
+  cmd.on('tool_denied', () => {
+    settle()
+    questions.clear()
+  })
   cmd.on('tool_hook_blocked', ({ toolCallId }: { toolCallId?: string }) => settle(toolCallId))
   cmd.on('run_end', () => {
     settle()
+    questions.clear()
     log({ event: 'Stop' })
   })
   // The context, as Command Code counts it: the request's input (cache included) and its answer,

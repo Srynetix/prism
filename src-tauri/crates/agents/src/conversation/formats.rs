@@ -144,7 +144,7 @@ impl Fold {
 
     /// A line of Command Code's transcript: Claude Code's messages under other names (`type`
     /// `message` and its role, its tools in snake_case, its usage in camelCase with its own cost),
-    /// folded as Claude Code's. Its questions stay plain calls: answered in its terminal.
+    /// folded as Claude Code's. Its questions' answers are in their results' text, a line each.
     pub(super) fn command_code(&mut self, r: &Value) {
         let Some(msg) = r.get("message") else { return };
         let role = msg.get("role").and_then(Value::as_str).unwrap_or_default();
@@ -163,11 +163,16 @@ impl Fold {
                 Some("agent") => "Agent",
                 Some("web_fetch") => "WebFetch",
                 Some("web_search") => "WebSearch",
+                Some("ask_user_question") => "AskUserQuestion",
                 _ => continue,
             };
             b["name"] = claude.into();
         }
         let at = r.get("timestamp").cloned().unwrap_or(Value::Null);
+        // Before its result, which forgets its call.
+        for b in content.as_array().into_iter().flatten().filter(|b| b.get("type").and_then(Value::as_str) == Some("tool_result")) {
+            self.answered_text(b.get("tool_use_id").and_then(Value::as_str), &b.get("content").map(content_text).unwrap_or_default());
+        }
         self.claude(&serde_json::json!({ "type": role, "timestamp": at, "message": { "model": model, "content": content } }));
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]

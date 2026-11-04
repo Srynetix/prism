@@ -96,6 +96,19 @@ pub struct Conversation {
 }
 
 impl Conversation {
+    /// The question it asks right now (Command Code's, from its mod: its transcript is written
+    /// once it is answered), a turn of its own unless the transcript already has its call.
+    pub fn asking(&mut self, ask: crate::question::Ask) {
+        let known = self.turns.iter().flat_map(|t| &t.entries).any(|e| matches!(e, Entry::Tool(Tool { ask: Some(a), .. }) if a.call == ask.call));
+        if known {
+            return;
+        }
+        let n = self.turns.last().map_or(1, |t| t.n + 1);
+        let tool = Tool { tool: "AskUserQuestion".into(), kind: kind_of("AskUserQuestion"), state: "running", ask: Some(ask), ..Tool::default() };
+        self.turns.push(Turn { n, entries: vec![Entry::Tool(tool)], ..Turn::default() });
+        self.total += 1;
+    }
+
     /// Signs each turn not signed yet (`read` keeps those of unchanged turns), then leaves out
     /// those whose signature the reader holds (`have`): a Chat read every second while its agent
     /// works gets the turn that moved, not all of them again (16 MB a second with all of a long

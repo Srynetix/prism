@@ -126,7 +126,8 @@ impl Agents {
                 _ => None,
             })
             .context(tr("this question is no longer asked"))?;
-        let steps = ask.keys(answers)?;
+        let menu = if self.provider(id)? == Provider::CommandCode { question::Menu::CommandCode } else { question::Menu::Claude };
+        let steps = ask.keys(answers, menu)?;
         let tmux = &self.inner.tmux;
         tmux.leave_copy_mode(id).await?;
         ensure!(ask.on_screen(&tmux.screen(id).await?), "its question's menu is not on its screen: answer it in the terminal");
@@ -139,7 +140,7 @@ impl Agents {
             }
         }
         tracing::warn!("agents: {id}: its question's menu still open after the keys of its answer");
-        bail!(tr("Claude Code did not take the answer: its menu is still open, answer it in the terminal"))
+        bail!(tr("The agent did not take the answer: its menu is still open, answer it in the terminal"))
     }
 
     /// Answers the plan the agent proposes (`call`, its `ExitPlanMode`) as its menu's keys:

@@ -126,6 +126,14 @@ impl Fold {
         }
     }
 
+    /// A question's answers, as Command Code gave them to its model (its result's text).
+    pub(super) fn answered_text(&mut self, id: Option<&str>, text: &str) {
+        let Some(&(t, e)) = id.and_then(|id| self.calls.get(id)) else { return };
+        if let Some(Entry::Tool(Tool { ask: Some(ask), .. })) = self.turns.get_mut(t).and_then(|turn| turn.entries.get_mut(e)) {
+            ask.answered_text(text);
+        }
+    }
+
     /// A plan file written or edited (plan mode): kept as it now reads.
     pub(super) fn plan_written(&mut self, name: &str, input: &Value) {
         let Some(path) = input.get("file_path").and_then(Value::as_str).filter(|p| crate::plan::is_plan_file(p) || self.plan_file.as_deref() == Some(*p)) else { return };

@@ -332,6 +332,28 @@ fn reads_a_question_and_its_answers() {
     assert_eq!((t.state, &t.ask.as_ref().unwrap().answers), ("ok", &vec![Some("Dog".into())]));
 }
 
+/// As Command Code 1.88.2 writes it once answered: the answers in the result's text, a line
+/// each; before, its mod's question (`Conversation::asking`) stands in, a turn of its own.
+#[test]
+fn reads_command_codes_question() {
+    let input = json!({ "questions": [{ "header": "Pet", "question": "Which pet?", "options": [{ "label": "Cat" }, { "label": "Dog" }] }] });
+    let ask = crate::question::parse("call_1", &input).unwrap();
+    let mut c = Conversation::default();
+    c.asking(ask.clone());
+    let Entry::Tool(t) = &c.turns[0].entries[0] else { panic!() };
+    assert_eq!((c.total, c.turns[0].n, t.state, t.ask.as_ref()), (1, 1, "running", Some(&ask)));
+    let path = file("command-code-ask", &[
+        json!({ "type": "message", "id": "u1", "timestamp": "2026-11-04T10:07:32Z", "message": { "role": "user", "content": [{ "type": "text", "text": "ask me" }] } }),
+        json!({ "type": "message", "id": "a1", "timestamp": "2026-11-04T10:07:32Z", "message": { "role": "assistant", "content": [{ "type": "tool_use", "id": "call_1", "name": "ask_user_question", "input": input }] } }),
+        json!({ "type": "message", "id": "r1", "timestamp": "2026-11-04T10:07:32Z", "message": { "role": "user", "content": [{ "type": "tool_result", "tool_use_id": "call_1", "content": [{ "type": "text", "text": "Which pet? → Dog\n\nContinue with the user's answers in mind." }] }] } }),
+    ]);
+    let mut c = read(&path, None, 10);
+    c.asking(ask);
+    assert_eq!(c.total, 1, "its call in the transcript: no second one");
+    let Entry::Tool(t) = &c.turns[0].entries[0] else { panic!() };
+    assert_eq!((t.tool.as_str(), t.state, &t.ask.as_ref().unwrap().answers), ("AskUserQuestion", "ok", &vec![Some("Dog".into())]));
+}
+
 #[test]
 fn reads_thinking_times_usage_plan_and_a_subagent() {
     let dir = std::env::temp_dir().join(format!("prism-conversation-sub-{}", std::process::id()));
