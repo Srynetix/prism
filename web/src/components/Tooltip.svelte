@@ -37,7 +37,7 @@
    * The titles of `current`'s ancestors, set aside as well: the system, finding none on `current`,
    * would show the nearest of theirs (a row's "Double-click to edit") over Prism's tooltip.
    */
-  let above = new Map<HTMLElement, string>()
+  let above = new Map<Element, string>()
   let observer: MutationObserver | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let watch: ReturnType<typeof setInterval> | undefined
@@ -60,13 +60,13 @@
    * The element whose tooltip `target` shows: the nearest with a `title` or a `data-tip`, `current`
    * included, its title set aside, and the ancestors whose titles are set aside. Without it, the
    * pointer moving onto a child of `current` (its icon, its count) would pass over it to a titled
-   * ancestor: the status bar's tooltip, instead of its item's. Never a frame: the pointer inside it no longer reaches Prism, which would not see it
-   * leave and would keep the tooltip on screen.
+   * ancestor: the status bar's tooltip, instead of its item's. Never a frame: the pointer inside it
+   * no longer reaches Prism, which would not see it leave and would keep the tooltip on screen.
    */
   function owner(target: EventTarget | null): HTMLElement | null {
     if (target instanceof HTMLIFrameElement) return null
     for (let n = target instanceof Element ? target : null; n; n = n.parentElement) {
-      if (n === current || above.has(n as HTMLElement) || n.hasAttribute('title') || n.hasAttribute('data-tip')) return n as HTMLElement
+      if (n === current || above.has(n) || n.hasAttribute('title') || n.hasAttribute('data-tip')) return n as HTMLElement
     }
     return null
   }
@@ -75,8 +75,8 @@
     return (el.getAttribute('data-tip') ?? el.getAttribute('title') ?? saved ?? '').trim()
   }
 
-  /** An ancestor's title set aside (again, when the app sets it back). */
-  function setAbove(n: HTMLElement) {
+  /** An ancestor's title set aside (again, when the app sets it back or gives it one). */
+  function setAbove(n: Element) {
     const title = n.getAttribute('title')
     if (title === null) return
     above.set(n, title)
@@ -87,10 +87,12 @@
     current = el
     saved = el.getAttribute('title')
     if (saved !== null) el.removeAttribute('title')
-    for (let n = el.parentElement; n; n = n.parentElement) setAbove(n)
+    const ancestors: Element[] = []
+    for (let n = el.parentElement; n; n = n.parentElement) ancestors.push(n)
+    ancestors.forEach(setAbove)
     // The app changes the title while it is set aside (a count, a state): followed, and set aside again.
     observer = new MutationObserver((records) => {
-      for (const r of records) if (r.target !== current && r.target instanceof HTMLElement) setAbove(r.target)
+      for (const r of records) if (r.target !== current && r.target instanceof Element) setAbove(r.target)
       if (!current?.hasAttribute('title')) return
       saved = current.getAttribute('title')
       current.removeAttribute('title')
@@ -99,7 +101,14 @@
       else if (shown) void place()
     })
     observer.observe(el, { attributes: true, attributeFilter: ['title', 'data-tip'] })
-    for (const n of above.keys()) observer.observe(n, { attributes: true, attributeFilter: ['title'] })
+    // Every ancestor, not only the titled ones: one given a title during the hover is set aside too.
+    for (const n of ancestors) observer.observe(n, { attributes: true, attributeFilter: ['title'] })
+    clearInterval(watch)
+    // Its element gone (a list re-rendered under the pointer): no tooltip left behind, the titles
+    // put back, even once the tooltip is hidden by a click (which may be what removed it).
+    watch = setInterval(() => {
+      if (!current?.isConnected) leave()
+    }, 250)
     text = textOf(el)
     if (!text) return
     clearTimeout(timer)
@@ -108,6 +117,7 @@
 
   function leave() {
     clearTimeout(timer)
+    clearInterval(watch)
     observer?.disconnect()
     observer = null
     if (current && saved !== null && !current.hasAttribute('title')) current.setAttribute('title', saved)
@@ -122,17 +132,11 @@
     if (!current?.isConnected || !text) return
     shown = true
     await place()
-    clearInterval(watch)
-    // Its element gone (a list re-rendered under the pointer): no tooltip left behind.
-    watch = setInterval(() => {
-      if (!current?.isConnected) leave()
-    }, 250)
   }
 
   function hide() {
     if (shown) hiddenAt = Date.now()
     shown = false
-    clearInterval(watch)
   }
 
   /**
