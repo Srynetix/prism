@@ -11,7 +11,7 @@ pub(super) fn subagents(transcript: &Path, turns: &mut [Turn], names: &Names, ba
         .iter_mut()
         .flat_map(|t| t.entries.iter_mut())
         .filter_map(|e| match e {
-            Entry::Tool(t) if t.kind == "agent" && (t.prompt.is_some() || t.forked.is_some()) => Some(t),
+            Entry::Tool(t) if t.kind == "agent" && (t.prompt.is_some() || t.agent_id.is_some()) => Some(t),
             _ => None,
         })
         .collect();
@@ -29,22 +29,23 @@ pub(super) fn subagents(transcript: &Path, turns: &mut [Turn], names: &Names, ba
         let by_call = |t: &&mut Tool| seen.call.is_some() && t.call == seen.call;
         let by_prompt = |t: &&mut Tool| seen.prompt.as_deref().is_some_and(|p| t.prompt.as_deref().map(str::trim) == Some(p.trim()));
         let stem = path.file_stem().and_then(|s| s.to_str()).and_then(|s| s.strip_prefix("agent-"));
-        let by_id = |t: &&mut Tool| stem.is_some() && t.forked.as_deref() == stem;
+        let by_id = |t: &&mut Tool| stem.is_some() && t.agent_id.as_deref() == stem;
         let free = |t: &&mut Tool| t.sub.is_none();
-        let Some(n) = wanted
-            .iter()
-            .position(|t| free(t) && by_id(t))
-            .or_else(|| wanted.iter().position(|t| free(t) && by_call(t)))
-            .or_else(|| wanted.iter().position(|t| free(t) && t.forked.is_none() && by_prompt(t)))
-        else {
+        // Every call that names it (a forked skill, each message that woke it), and the one that
+        // launched it.
+        let mut cards: Vec<usize> = (0..wanted.len()).filter(|&n| free(&wanted[n]) && by_id(&wanted[n])).collect();
+        cards.extend(wanted.iter().position(|t| free(t) && by_call(t)).or_else(|| wanted.iter().position(|t| free(t) && t.agent_id.is_none() && by_prompt(t))));
+        if cards.is_empty() {
             continue;
-        };
-        let tool = &mut wanted[n];
+        }
         // Only what it wrote since is read.
         seen.fold.catch_up(&path, len, names);
-        let mut sub = seen.fold.sub();
-        sub.running = tool.state == "running" || background.iter().any(|b| b.state == "running" && tool.call.as_deref() == Some(b.call.as_str()));
-        tool.sub = Some(sub);
+        for n in cards {
+            let tool = &mut wanted[n];
+            let mut sub = seen.fold.sub();
+            sub.running = tool.state == "running" || background.iter().any(|b| b.state == "running" && tool.call.as_deref() == Some(b.call.as_str()));
+            tool.sub = Some(sub);
+        }
     }
 }
 

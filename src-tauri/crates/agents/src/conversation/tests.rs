@@ -559,3 +559,48 @@ fn a_skill_you_typed_forked_in_the_background_is_a_subagent_until_its_task_ends(
     assert_eq!(tool(&read(&dir.join("s1.jsonl"), None, 5)).3, Some((1, false)));
     std::fs::remove_dir_all(dir).ok();
 }
+
+#[test]
+fn a_subagent_woken_by_a_message_works_again_until_its_task_ends() {
+    let dir = std::env::temp_dir().join(format!("prism-conversation-resumed-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("s1/subagents")).unwrap();
+    let line = |v: Value| v.to_string();
+    let mut main = vec![
+        json!({ "type": "user", "message": { "content": "build it" } }),
+        assistant(json!([{ "type": "tool_use", "id": "a1", "name": "Agent", "input": { "description": "Build the lib", "prompt": "Build the lib", "subagent_type": "Implementer" } }])),
+        json!({ "type": "user", "toolUseResult": { "isAsync": true, "status": "async_launched", "agentId": "x1" }, "message": { "content": [{ "type": "tool_result", "tool_use_id": "a1", "content": "Async agent launched" }] } }),
+        json!({ "type": "user", "message": { "content": "<task-notification>\n<task-id>x1</task-id>\n<status>completed</status>\n<summary>Agent \"Build the lib\" completed</summary>\n</task-notification>" } }),
+        json!({ "type": "user", "message": { "content": "fix the tests" } }),
+        assistant(json!([{ "type": "tool_use", "id": "m1", "name": "SendMessage", "input": { "to": "x1", "summary": "Fix the failing tests", "message": "The tests fail" } }])),
+        json!({ "type": "user", "toolUseResult": { "success": true, "resumedAgentId": "x1", "revivedAgentId": "x1" }, "message": { "content": [{ "type": "tool_result", "tool_use_id": "m1", "content": "Message sent" }] } }),
+    ];
+    std::fs::write(dir.join("s1.jsonl"), main.iter().cloned().map(line).collect::<Vec<_>>().join("\n")).unwrap();
+    std::fs::write(
+        dir.join("s1/subagents/agent-x1.jsonl"),
+        [
+            json!({ "type": "user", "message": { "content": "Build the lib" } }),
+            assistant(json!([{ "type": "tool_use", "id": "b1", "name": "Bash", "input": { "command": "cargo build" } }])),
+            json!({ "type": "user", "message": { "content": "The tests fail" } }),
+            assistant(json!([{ "type": "tool_use", "id": "b2", "name": "Bash", "input": { "command": "cargo test" } }])),
+        ]
+        .map(line)
+        .join("\n"),
+    )
+    .unwrap();
+    std::fs::write(dir.join("s1/subagents/agent-x1.meta.json"), line(json!({ "toolUseId": "a1", "requestShape": "background" }))).unwrap();
+    let card = |c: &Conversation, n: usize| {
+        let Entry::Tool(t) = &c.turns[n].entries[0] else { panic!() };
+        (t.kind, t.agent.clone(), t.what.clone(), t.sub.as_ref().map(|s| (s.count, s.running)))
+    };
+    let c = read(&dir.join("s1.jsonl"), None, 5);
+    // The first card over, the message's one at work in the background on the same transcript.
+    assert_eq!(card(&c, 0), ("agent", Some("Implementer".into()), Some("Build the lib".into()), Some((2, false))));
+    assert_eq!(card(&c, 1), ("agent", Some("Implementer".into()), Some("Fix the failing tests".into()), Some((2, true))));
+    assert_eq!(c.background.iter().map(|b| b.state).collect::<Vec<_>>(), ["completed", "running"]);
+    main.push(json!({ "type": "user", "message": { "content": "<task-notification>\n<task-id>x1</task-id>\n<status>completed</status>\n<summary>Agent \"Build the lib\" completed: tests fixed</summary>\n</task-notification>" } }));
+    std::fs::write(dir.join("s1.jsonl"), main.into_iter().map(line).collect::<Vec<_>>().join("\n")).unwrap();
+    let c = read(&dir.join("s1.jsonl"), None, 5);
+    assert_eq!(card(&c, 1).3, Some((2, false)));
+    assert_eq!(c.background.iter().map(|b| b.state).collect::<Vec<_>>(), ["completed", "completed"]);
+    std::fs::remove_dir_all(dir).ok();
+}

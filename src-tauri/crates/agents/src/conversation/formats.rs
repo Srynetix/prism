@@ -61,6 +61,9 @@ impl Fold {
                                         approved = id.and_then(|id| self.calls.get(id).copied());
                                     }
                                     self.forked(id, r.get("toolUseResult"));
+                                    if !failed {
+                                        self.resumed(id, r.get("toolUseResult"), at);
+                                    }
                                     self.result(b.get("tool_use_id").and_then(Value::as_str), at, failed, b.get("content").map(content_text));
                                 }
                                 Some("text") => words.extend(b.get("text").and_then(Value::as_str)),
