@@ -84,6 +84,14 @@ pub struct Line {
     /// Fired from within a subagent (Claude Code's `agent_id`): its tools say nothing of whose turn it is.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub sub: bool,
+    /// The question asked (Command Code's mod, its `ask_user_question` input, `id` its call): its
+    /// transcript is written once it is answered, its Chat shows it from here meanwhile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ask: Option<serde_json::Value>,
+    /// The plan proposed (Command Code's mod, `exit_plan_mode`: its plan file, or failing that its
+    /// input's `plan`), for the same reason.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -290,6 +298,8 @@ fn parse(input: Input, t: i64) -> Option<(String, Line)> {
         cmd,
         transcript,
         sub: input.agent_id.is_some_and(|a| !a.is_empty()),
+        ask: None,
+        plan: None,
     };
     Some((input.session_id, line))
 }

@@ -96,6 +96,37 @@ pub struct Conversation {
 }
 
 impl Conversation {
+    /// The question it asks or the plan it proposes right now (Command Code's, from its mod: its
+    /// transcript is written once they are answered), a turn of its own unless the transcript
+    /// already has its call.
+    pub(crate) fn waiting(&mut self, waiting: crate::status::Waiting) {
+        use crate::status::Waiting;
+        let tools = || self.turns.iter().flat_map(|t| &t.entries).filter_map(|e| match e {
+            Entry::Tool(t) => Some(t),
+            _ => None,
+        });
+        let tool = match waiting {
+            Waiting::Question(ask) => {
+                if tools().any(|t| t.ask.as_ref().is_some_and(|a| a.call == ask.call)) {
+                    return;
+                }
+                Tool { tool: "AskUserQuestion".into(), ask: Some(ask), ..Tool::default() }
+            }
+            Waiting::Plan { call, text } => {
+                if tools().any(|t| t.proposal.as_ref().is_some_and(|p| p.call == call)) {
+                    return;
+                }
+                let version = tools().filter(|t| t.proposal.is_some()).count() as u32 + 1;
+                let proposal = crate::plan::Proposal { call, text: cut(text.trim(), TEXT_CHARS), version, verdict: "waiting", feedback: None, file: None };
+                Tool { tool: "ExitPlanMode".into(), proposal: Some(proposal), ..Tool::default() }
+            }
+        };
+        let n = self.turns.last().map_or(1, |t| t.n + 1);
+        let tool = Tool { kind: kind_of(&tool.tool), state: "running", ..tool };
+        self.turns.push(Turn { n, entries: vec![Entry::Tool(tool)], ..Turn::default() });
+        self.total += 1;
+    }
+
     /// Signs each turn not signed yet (`read` keeps those of unchanged turns), then leaves out
     /// those whose signature the reader holds (`have`): a Chat read every second while its agent
     /// works gets the turn that moved, not all of them again (16 MB a second with all of a long

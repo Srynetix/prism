@@ -7,6 +7,11 @@
 //! for your words, Enter sends them (the plan refused, "the user said:\n…"), shift+tab approves the
 //! plan with them as its first choice (auto mode: Prism does not use it, approves, then sends them). The line takes one line: a line break
 //! pasted is dropped, the words before and after glued.
+//!
+//! Command Code (1.88) reviews it like a PR instead ("Plan review: …"): a character typed on a
+//! line opens a comment there (a paste opens none, it goes into one), Enter pins it; then ctrl+r
+//! sends the comments back (it plans again), ctrl+a approves (edits allowed, comments as notes),
+//! Esc refuses. `?`, `x` and `!` typed first are quick comments ("why", "cut", "risky").
 
 use anyhow::{bail, Context, Result};
 use prism_base::i18n::tr;
@@ -51,9 +56,9 @@ pub enum How {
     ApproveWith,
 }
 
-/// A plan file of Claude Code's: what its `Write` and `Edit` calls make a plan of.
+/// A plan file of Claude Code's or Command Code's: what its `Write` and `Edit` calls make a plan of.
 pub fn is_plan_file(path: &str) -> bool {
-    path.contains("/.claude/plans/") && path.ends_with(".md")
+    (path.contains("/.claude/plans/") || path.contains("/.commandcode/plans/")) && path.ends_with(".md")
 }
 
 /// Your words in a refused plan's result (`… the user said:\n<words>\n\nNote: …`).
@@ -107,6 +112,9 @@ fn menu(screen: &str) -> Option<Menu> {
 /// The keys that answer the plan whose menu `screen` shows; `text`: your words, needed to refuse
 /// it or to approve with them.
 pub fn keys(screen: &str, how: How, text: Option<&str>) -> Result<Vec<Step>> {
+    if screen.contains("Plan review:") && screen.contains("ctrl+a") {
+        return review_keys(how, text);
+    }
     const DIGITS: [&str; 9] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
     let menu = menu(screen).context(tr("its plan's menu is not on its screen"))?;
     let digit = |d: char| DIGITS[(d as u8 - b'1') as usize];
@@ -118,6 +126,34 @@ pub fn keys(screen: &str, how: How, text: Option<&str>) -> Result<Vec<Step>> {
         (How::Changes, Some(w)) => vec![Step::Key(digit(menu.tell)), Step::Paste(w), Step::Key("Enter")],
         // Not shift+tab on the words' line: it approves as the menu's first choice, auto mode.
         (How::ApproveWith, Some(w)) => vec![Step::Key(digit(menu.approve)), Step::Paste(w), Step::Key("Enter")],
+        (How::Changes | How::ApproveWith, None) => bail!(tr("no words to send with it")),
+    })
+}
+
+/// Command Code's review: your words a comment on its first line, sent back or with the approval.
+fn review_keys(how: How, text: Option<&str>) -> Result<Vec<Step>> {
+    let comment = |words: String| {
+        let mut chars = words.chars();
+        // Its first character typed opens the comment, never as a quick one.
+        let first = match chars.next() {
+            Some(c @ ('?' | 'x' | '!')) => format!("— {c}"),
+            c => c.map(String::from).unwrap_or_default(),
+        };
+        let mut steps = vec![Step::Type(first)];
+        let rest: String = chars.collect();
+        if !rest.is_empty() {
+            steps.push(Step::Paste(rest));
+        }
+        steps.push(Step::Key("Enter"));
+        steps
+    };
+    let words = text.map(one_line).filter(|t| !t.is_empty());
+    Ok(match (how, words) {
+        (How::Approve, _) => vec![Step::Key("C-a")],
+        (How::Changes, Some(w)) => [comment(w), vec![Step::Key("C-r")]].concat(),
+        (How::ApproveWith, Some(w)) => [comment(w), vec![Step::Key("C-a")]].concat(),
+        (How::ApproveAuto, _) => bail!(tr("its menu offers no auto mode")),
+        (How::ApproveEach, _) => bail!(tr("its review offers no approval asking each edit")),
         (How::Changes | How::ApproveWith, None) => bail!(tr("no words to send with it")),
     })
 }
@@ -142,6 +178,16 @@ mod tests {
         let older = " Would you like to proceed?\n ❯ 1. Yes, and auto-accept edits\n   2. Yes, manually approve edits\n   3. Tell Claude what to change\n";
         assert_eq!(keys(older, How::Approve, None).unwrap(), vec![Key("1")], "its edits allowed where offered");
         assert!(keys(older, How::ApproveAuto, None).is_err(), "no auto mode offered");
+    }
+
+    /// Command Code 1.88.2's review, as tried: a comment typed then pinned, ctrl+r or ctrl+a.
+    #[test]
+    fn answers_command_codes_review() {
+        let screen = "Plan review: Create hello.txt · ~/.commandcode/plans/hello-txt.md · v1\n   1   # Plan: Create hello.txt\n REVIEW\nApprove ctrl+a   executes the plan\nCancel esc\ntype + enter to comment · quick: ? why  x cut  ! risky · ctrl+g $EDITOR";
+        assert_eq!(keys(screen, How::Approve, None).unwrap(), vec![Key("C-a")]);
+        assert_eq!(keys(screen, How::Changes, Some("Write bye.\nSkip step 2.")).unwrap(), vec![Step::Type("W".into()), Paste("rite bye. Skip step 2.".into()), Key("Enter"), Key("C-r")]);
+        assert_eq!(keys(screen, How::ApproveWith, Some("x too")).unwrap(), vec![Step::Type("— x".into()), Paste(" too".into()), Key("Enter"), Key("C-a")], "never a quick comment");
+        assert!(keys(screen, How::ApproveEach, None).is_err() && keys(screen, How::ApproveAuto, None).is_err());
     }
 
     /// An older menu: four choices, the context cleared first.

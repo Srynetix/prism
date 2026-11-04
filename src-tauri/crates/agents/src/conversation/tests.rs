@@ -332,6 +332,61 @@ fn reads_a_question_and_its_answers() {
     assert_eq!((t.state, &t.ask.as_ref().unwrap().answers), ("ok", &vec![Some("Dog".into())]));
 }
 
+/// As Command Code 1.88.2 writes it once answered: the answers in the result's text, a line
+/// each; before, its mod's question (`Conversation::waiting`) stands in, a turn of its own.
+#[test]
+fn reads_command_codes_question() {
+    let input = json!({ "questions": [{ "header": "Pet", "question": "Which pet?", "options": [{ "label": "Cat" }, { "label": "Dog" }] }] });
+    let ask = crate::question::parse("call_1", &input).unwrap();
+    let mut c = Conversation::default();
+    c.waiting(crate::status::Waiting::Question(ask.clone()));
+    let Entry::Tool(t) = &c.turns[0].entries[0] else { panic!() };
+    assert_eq!((c.total, c.turns[0].n, t.state, t.ask.as_ref()), (1, 1, "running", Some(&ask)));
+    let path = file("command-code-ask", &[
+        json!({ "type": "message", "id": "u1", "timestamp": "2026-11-04T10:07:32Z", "message": { "role": "user", "content": [{ "type": "text", "text": "ask me" }] } }),
+        json!({ "type": "message", "id": "a1", "timestamp": "2026-11-04T10:07:32Z", "message": { "role": "assistant", "content": [{ "type": "tool_use", "id": "call_1", "name": "ask_user_question", "input": input }] } }),
+        json!({ "type": "message", "id": "r1", "timestamp": "2026-11-04T10:07:32Z", "message": { "role": "user", "content": [{ "type": "tool_result", "tool_use_id": "call_1", "content": [{ "type": "text", "text": "Which pet? → Dog\n\nContinue with the user's answers in mind." }] }] } }),
+    ]);
+    let mut c = read(&path, None, 10);
+    c.waiting(crate::status::Waiting::Question(ask));
+    assert_eq!(c.total, 1, "its call in the transcript: no second one");
+    let Entry::Tool(t) = &c.turns[0].entries[0] else { panic!() };
+    assert_eq!((t.tool.as_str(), t.state, &t.ask.as_ref().unwrap().answers), ("AskUserQuestion", "ok", &vec![Some("Dog".into())]));
+}
+
+/// As Command Code 1.88.2 wrote it, tried: v1 sent back with a comment (its review a "steering"
+/// message), v2 approved; before, the mod's plan (`Conversation::waiting`) stands in.
+#[test]
+fn reads_command_codes_plans() {
+    let msg = |id: &str, role: &str, source: &str, content: Value| json!({ "type": "message", "id": id, "timestamp": "2026-11-04T10:30:00Z", "message": { "role": role, "content": content, "meta": { "source": source } } });
+    let write = |id: &str, text: &str| json!([{ "type": "tool_use", "id": id, "name": "write_file", "input": { "file_path": "~/.commandcode/plans/hello-txt.md", "content": text } }]);
+    let result = |id: &str, text: &str| json!([{ "type": "tool_result", "tool_use_id": id, "content": [{ "type": "text", "text": text }] }]);
+    let lines = [
+        msg("u1", "user", "user", json!([{ "type": "text", "text": "Plan hello.txt" }])),
+        msg("a1", "assistant", "model", write("w1", "# Plan\n\n1. Write hi.\n")),
+        msg("r1", "user", "tool", result("w1", "File created")),
+        msg("a2", "assistant", "model", json!([{ "type": "tool_use", "id": "p1", "name": "exit_plan_mode", "input": { "plan": "1. Write hi." } }])),
+        msg("r2", "user", "tool", result("p1", "Plan not approved — staying in plan mode. STOP and ask the user what they would like changed.")),
+        msg("s1", "user", "steering", json!([{ "type": "text", "text": "I reviewed the plan \"Hello\" saved at /x/hello-txt.md and commented on specific lines:\n\n- Line 1: \"# Plan\"\n  Comment: Write bye instead.\n\nAddress every comment." }])),
+        msg("a3", "assistant", "model", write("w2", "# Plan\n\n1. Write bye.\n")),
+        msg("r3", "user", "tool", result("w2", "updated")),
+        msg("a4", "assistant", "model", json!([{ "type": "tool_use", "id": "p2", "name": "exit_plan_mode", "input": {} }])),
+        msg("r4", "user", "tool", result("p2", "Plan approved — exited plan mode, now in auto-accept mode.\n\nYour plan is saved at: /x/hello-txt.md\n\n## Approved Plan:\n# Plan\n\n1. Write bye.\n")),
+    ];
+    let mut c = read(&file("command-code-plans", &lines), None, 10);
+    assert_eq!(c.total, 1, "its review is no prompt of yours");
+    let plans: Vec<&crate::plan::Proposal> = c.turns[0].entries.iter().filter_map(|e| match e {
+        Entry::Tool(t) => t.proposal.as_ref(),
+        _ => None,
+    }).collect();
+    assert_eq!(plans.iter().map(|p| (p.version, p.verdict, p.feedback.as_deref())).collect::<Vec<_>>(), [(1, "changes", Some("Write bye instead.")), (2, "approved", None)]);
+    assert_eq!((plans[0].text.as_str(), plans[1].text.as_str()), ("# Plan\n\n1. Write hi.", "# Plan\n\n1. Write bye."));
+    c.waiting(crate::status::Waiting::Plan { call: "p3".into(), text: "# Plan\n\n1. Write ciao.\n".into() });
+    let Entry::Tool(t) = &c.turns[1].entries[0] else { panic!() };
+    let p = t.proposal.as_ref().unwrap();
+    assert_eq!((t.state, p.version, p.verdict, p.text.as_str()), ("running", 3, "waiting", "# Plan\n\n1. Write ciao."));
+}
+
 #[test]
 fn reads_thinking_times_usage_plan_and_a_subagent() {
     let dir = std::env::temp_dir().join(format!("prism-conversation-sub-{}", std::process::id()));

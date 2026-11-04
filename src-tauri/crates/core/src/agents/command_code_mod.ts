@@ -4,9 +4,13 @@
 // Prism follows the agent's status from it.
 //
 // Only metadata is kept (event, tool, what it touches, the context's token count and model):
-// never the prompt, the response or a tool's output. Outside a Prism agent (no PRISM_AGENT), it does nothing.
+// never the prompt, the response or a tool's output. Two exceptions, what it waits for you on: a
+// question (`ask_user_question`, its questions and choices) and a plan (`exit_plan_mode`, its plan
+// file), which its Chat shows to answer them, its transcript being written once they are answered.
+// Outside a Prism agent (no PRISM_AGENT), it does nothing.
 
-import { appendFileSync, mkdirSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 /** Command Code has no permission event: a tool still queued after this delay is waiting for one. */
@@ -28,6 +32,11 @@ export default function (cmd: any): void {
   }
 
   const pending = new Map<string, ReturnType<typeof setTimeout>>()
+  /** The questions queued, until they are asked; the plans proposed, until they are shown. */
+  const questions = new Map<string, unknown>()
+  const plans = new Map<string, string | undefined>()
+  /** Its plan file, as it last wrote it: the plan its review shows. */
+  let planFile: string | undefined
   const settle = (id?: string) => {
     for (const [key, timer] of pending) {
       if (id === undefined || key === id) {
@@ -43,6 +52,10 @@ export default function (cmd: any): void {
   })
   cmd.on('run_start', () => log({ event: 'UserPromptSubmit' }))
   cmd.on('tool_queued', ({ toolCallId, toolName, input }: { toolCallId: string; toolName: string; input: unknown }) => {
+    if (toolName === 'ask_user_question') questions.set(toolCallId, input)
+    if (toolName === 'exit_plan_mode') plans.set(toolCallId, field(input, 'plan'))
+    const path = field(input, 'file_path')
+    if ((toolName === 'write_file' || toolName === 'edit_file') && path && /\/\.commandcode\/plans\/[^/]+\.md$/.test(path)) planFile = path.replace(/^~(?=\/)/, homedir())
     const what = summarize(input)
     const timer = setTimeout(() => {
       pending.delete(toolCallId)
@@ -54,6 +67,21 @@ export default function (cmd: any): void {
   cmd.on('tool_running', ({ toolCallId, toolName }: { toolCallId: string; toolName: string }) => {
     settle(toolCallId)
     log({ event: 'PreToolUse', tool: toolName })
+    // Its question asks no permission but waits for you, as Claude Code's (`AskUserQuestion`).
+    if (questions.has(toolCallId)) {
+      log({ event: 'PermissionRequest', tool: 'AskUserQuestion', id: toolCallId, ask: questions.get(toolCallId) })
+      questions.delete(toolCallId)
+    }
+    if (plans.has(toolCallId)) {
+      let plan = plans.get(toolCallId)
+      try {
+        if (planFile) plan = readFileSync(planFile, 'utf8')
+      } catch {
+        // Its argument, failing its file.
+      }
+      log({ event: 'PermissionRequest', tool: 'ExitPlanMode', id: toolCallId, plan: plan ?? '' })
+      plans.delete(toolCallId)
+    }
   })
   for (const event of ['tool_completed', 'tool_errored']) {
     cmd.on(event, ({ toolCallId, toolName }: { toolCallId: string; toolName: string }) => {
@@ -62,10 +90,16 @@ export default function (cmd: any): void {
     })
   }
   // A refusal aborts the whole batch; a mod's block ends that call without running it.
-  cmd.on('tool_denied', () => settle())
+  cmd.on('tool_denied', () => {
+    settle()
+    questions.clear()
+    plans.clear()
+  })
   cmd.on('tool_hook_blocked', ({ toolCallId }: { toolCallId?: string }) => settle(toolCallId))
   cmd.on('run_end', () => {
     settle()
+    questions.clear()
+    plans.clear()
     log({ event: 'Stop' })
   })
   // The context, as Command Code counts it: the request's input (cache included) and its answer,
@@ -83,10 +117,7 @@ export default function (cmd: any): void {
  */
 function summarize(input: unknown): string | undefined {
   if (!input || typeof input !== 'object') return undefined
-  const get = (key: string) => {
-    const v = (input as Record<string, unknown>)[key]
-    return typeof v === 'string' && v.trim() ? v : undefined
-  }
+  const get = (key: string) => field(input, key)
   const middle = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max - Math.floor(max / 3) - 1)}…${text.slice(-Math.floor(max / 3))}`)
   const command = get('command')
   if (command) {
@@ -98,4 +129,10 @@ function summarize(input: unknown): string | undefined {
   if (path) return middle(path, 100)
   const url = get('url')
   return url ? url.split('://')[1]?.split('/')[0] : undefined
+}
+
+/** A string field of a tool's input, not blank. */
+function field(input: unknown, key: string): string | undefined {
+  const v = input && typeof input === 'object' ? (input as Record<string, unknown>)[key] : undefined
+  return typeof v === 'string' && v.trim() ? v : undefined
 }

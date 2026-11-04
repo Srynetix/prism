@@ -144,10 +144,20 @@ impl Fold {
 
     /// A line of Command Code's transcript: Claude Code's messages under other names (`type`
     /// `message` and its role, its tools in snake_case, its usage in camelCase with its own cost),
-    /// folded as Claude Code's. Its questions stay plain calls: answered in its terminal.
+    /// folded as Claude Code's. Its questions' answers are in their results' text, a line each; a
+    /// plan's verdict too ("Plan not approved", "Plan approved" and the plan), the comments of its
+    /// review in a message of their own ("steering").
     pub(super) fn command_code(&mut self, r: &Value) {
         let Some(msg) = r.get("message") else { return };
         let role = msg.get("role").and_then(Value::as_str).unwrap_or_default();
+        if msg.pointer("/meta/source").and_then(Value::as_str) == Some("steering") {
+            let text = msg.get("content").map(content_text).unwrap_or_default();
+            if text.starts_with("I reviewed the plan") {
+                let comments: Vec<&str> = text.lines().filter_map(|l| l.trim().strip_prefix("Comment: ")).collect();
+                self.plan_reviewed((!comments.is_empty()).then(|| comments.join("\n")));
+                return;
+            }
+        }
         let model = r.get("model").and_then(Value::as_str).unwrap_or_default();
         let mut content = msg.get("content").cloned().unwrap_or(Value::Null);
         for b in content.as_array_mut().into_iter().flatten() {
@@ -163,12 +173,29 @@ impl Fold {
                 Some("agent") => "Agent",
                 Some("web_fetch") => "WebFetch",
                 Some("web_search") => "WebSearch",
+                Some("ask_user_question") => "AskUserQuestion",
+                Some("exit_plan_mode") => "ExitPlanMode",
                 _ => continue,
             };
             b["name"] = claude.into();
         }
         let at = r.get("timestamp").cloned().unwrap_or(Value::Null);
-        self.claude(&serde_json::json!({ "type": role, "timestamp": at, "message": { "model": model, "content": content } }));
+        let mut line = serde_json::json!({ "type": role, "timestamp": at, "message": { "model": model } });
+        // Before its result, which forgets its call.
+        for b in content.as_array_mut().into_iter().flatten().filter(|b| b.get("type").and_then(Value::as_str) == Some("tool_result")) {
+            let text = b.get("content").map(content_text).unwrap_or_default();
+            self.answered_text(b.get("tool_use_id").and_then(Value::as_str), &text);
+            // A plan refused, as Claude Code's is: its result an error.
+            if text.starts_with("Plan not approved") {
+                b["is_error"] = true.into();
+            } else if text.starts_with("Plan approved")
+                && let Some((_, plan)) = text.split_once("\n## Approved Plan").and_then(|(_, rest)| rest.split_once(":\n"))
+            {
+                line["toolUseResult"] = serde_json::json!({ "plan": plan });
+            }
+        }
+        line["message"]["content"] = content;
+        self.claude(&line);
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct Usage {

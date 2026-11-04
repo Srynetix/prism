@@ -15,6 +15,14 @@ pub const SWITCH: &str = "ProviderSwitch";
 /// What an agent asking its question waits for.
 pub const QUESTION: &str = "Answer its question";
 
+/// What it waits for you on, its transcript not saying it yet (Command Code writes it once
+/// answered): its question, or its plan.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Waiting {
+    Question(crate::question::Ask),
+    Plan { call: String, text: String },
+}
+
 /// Status of an agent, deduced from its hook log as it is read.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fold {
@@ -48,6 +56,9 @@ pub struct Fold {
     pub transcript: Option<String>,
     /// It has proposed a plan (`ExitPlanMode`) in this conversation: its Plan tab has something to show.
     pub planned: bool,
+    /// The question it asks or the plan it proposes, while it waits for your answer (Command Code,
+    /// whose transcript holds them once answered only): for its Chat.
+    pub waiting: Option<Waiting>,
     /// Its permission answered (`PermissionReplied`), nothing since: the permission's notification,
     /// a few seconds late, asks nothing any more.
     replied: bool,
@@ -68,7 +79,7 @@ const LONGEST_STRETCH_MS: i64 = 3 * 3_600_000;
 
 impl Default for Fold {
     fn default() -> Self {
-        Self { status: SessionStatus::Idle, needs_action: None, last_activity: None, turn_at: None, worktree: None, worktree_note: None, adopted: Vec::new(), background: false, session: None, context: None, model: None, failing: None, transcript: None, planned: false, replied: false, active_ms: 0, working_since: None, now: 0, offset: 0, partial: Vec::new() }
+        Self { status: SessionStatus::Idle, needs_action: None, last_activity: None, turn_at: None, worktree: None, worktree_note: None, adopted: Vec::new(), background: false, session: None, context: None, model: None, failing: None, transcript: None, planned: false, waiting: None, replied: false, active_ms: 0, working_since: None, now: 0, offset: 0, partial: Vec::new() }
     }
 }
 
@@ -186,7 +197,10 @@ impl Fold {
             "UserPromptSubmit" | "PreToolUse" | "PostToolUse" => self.set(SessionStatus::Running, None),
             // Its question (`AskUserQuestion`) goes through the permissions, but answers it: your turn,
             // not a permission to grant (Allow would pick its first choice).
-            "PermissionRequest" if l.tool.as_deref() == Some("AskUserQuestion") => self.set(SessionStatus::NeedsYou, Some(QUESTION.into())),
+            "PermissionRequest" if l.tool.as_deref() == Some("AskUserQuestion") => {
+                self.set(SessionStatus::NeedsYou, Some(QUESTION.into()));
+                self.waiting = l.ask.as_ref().and_then(|a| crate::question::parse(l.id.as_deref().unwrap_or_default(), a)).map(Waiting::Question);
+            }
             "PermissionRequest" => {
                 let tool = l.tool.as_deref().unwrap_or("a tool");
                 let ask = match &l.what {
@@ -194,6 +208,9 @@ impl Fold {
                     None => format!("Allow {tool}"),
                 };
                 self.set(SessionStatus::WaitingTool, Some(ask));
+                if l.tool.as_deref() == Some("ExitPlanMode") && let Some(text) = &l.plan {
+                    self.waiting = Some(Waiting::Plan { call: l.id.clone().unwrap_or_default(), text: text.clone() });
+                }
             }
             // The permission answered, the tool runs (or the turn ends, refused): OpenCode's plugin
             // says so, Prism too when it answers (Allow, a key of the menu) — Claude Code's hooks
@@ -267,6 +284,8 @@ impl Fold {
         if is && !was {
             self.working_since = Some(self.now);
         }
+        // Whatever comes next, it no longer waits on it; set again by the line that says so.
+        self.waiting = None;
         self.status = status;
         self.needs_action = needs_action;
     }
@@ -390,6 +409,7 @@ mod tests {
         f.apply(&Line { notification: Some("permission_prompt".into()), ..line("Notification") });
         assert_eq!(f.status, SessionStatus::NeedsYou);
         f.apply(&Line { tool: Some("AskUserQuestion".into()), ..line("PostToolUse") });
+        assert_eq!(f.waiting, None, "Claude Code's question is in its transcript");
         assert_eq!((f.status, f.needs_action), (SessionStatus::Running, None));
     }
 
@@ -452,6 +472,23 @@ mod tests {
 
     /// The lines Command Code's mod writes for a turn where a write waits for permission
     /// (sequence seen with `cmd` 1.79): it keeps the CLI's session id, to resume it.
+    #[test]
+    fn keeps_command_codes_question_while_it_is_asked() {
+        let mut f = Fold::default();
+        let ask = serde_json::json!({ "questions": [{ "header": "Color", "question": "Which color?", "options": [{ "label": "Red" }, { "label": "Blue" }] }] });
+        f.apply(&Line { tool: Some("ask_user_question".into()), ..line("PreToolUse") });
+        f.apply(&Line { tool: Some("AskUserQuestion".into()), id: Some("call_1".into()), ask: Some(ask), ..line("PermissionRequest") });
+        assert_eq!((f.status, f.needs_action.as_deref()), (SessionStatus::NeedsYou, Some(QUESTION)));
+        let Some(Waiting::Question(a)) = &f.waiting else { panic!() };
+        assert_eq!((a.call.as_str(), a.questions[0].options.len()), ("call_1", 2));
+        f.apply(&Line { tool: Some("ask_user_question".into()), ..line("PostToolUse") });
+        assert_eq!((f.status, f.waiting.is_none()), (SessionStatus::Running, true), "answered");
+        f.apply(&Line { tool: Some("ExitPlanMode".into()), id: Some("call_2".into()), plan: Some("# Plan".into()), ..line("PermissionRequest") });
+        assert_eq!((f.waiting.clone(), f.planned), (Some(Waiting::Plan { call: "call_2".into(), text: "# Plan".into() }), true));
+        f.apply(&Line { tool: Some("exit_plan_mode".into()), ..line("PostToolUse") });
+        assert_eq!(f.waiting, None);
+    }
+
     #[test]
     fn follows_command_code_through_its_mod() {
         let mut f = Fold::default();
