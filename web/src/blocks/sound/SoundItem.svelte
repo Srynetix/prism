@@ -8,7 +8,7 @@
 
   /**
    * The status bar's item. With `[sound] status_volume` (on by default): always there, the output
-   * volume, the microphone's beside it while too low; the wheel sets the output volume, a click opens
+   * volume and the microphone's beside it (coloured while too low); the wheel sets the output volume, a click opens
    * a panel — output and microphone, each with its mute, volume and device, "Raise" while too low.
    * Off: nothing, unless the microphone is too low; a click shows the block.
    */
@@ -72,6 +72,7 @@
     void setVolume('output', value)
   }
 
+  const level = (side: Side, s: SoundSide) => (s.muted ? t('muted') : s.volume === null ? '—' : `${shown(side, s)} %`)
   const icon = (side: Side, s: SoundSide | null) => (side === 'input' ? (s?.muted ? 'micOff' : 'mic') : s?.muted ? 'speakerOff' : 'speaker')
   const title = $derived.by(() => {
     if (!snd?.input || !problem) return ''
@@ -84,10 +85,11 @@
 
 {#if always && snd}
   {@const out = snd.output}
-  <button class="sbi snd" class:open bind:this={chip} onclick={toggle} title={`${out ? `${out.name}: ${out.muted ? t('muted') : out.volume === null ? '—' : `${shown('output', out)} %`}` : t('No output device.')}${title ? ` · ${title.replace(/ · .*$/, '')}` : ''} · ${t('a click: output and microphone, the wheel: volume')}`}>
+  {@const inp = snd.input}
+  <button class="sbi snd" class:open bind:this={chip} onclick={toggle} title={`${out ? `${out.name}: ${level('output', out)}` : t('No output device.')}${title ? ` · ${title.replace(/ · .*$/, '')}` : inp ? ` · ${inp.name}: ${level('input', inp)}` : ''} · ${t('a click: output and microphone, the wheel: volume')}`}>
     <Icon name={icon('output', out)} />
     {#if out?.muted}{t('muted')}{:else if out && out.volume !== null}{shown('output', out)} %{/if}
-    {#if snd.input && problem}<span class="mic" class:ko={rec}><Icon name="mic" />{problem.volume} %</span>{/if}
+    {#if inp}<span class="mic" class:low={!!problem} class:ko={!!problem && rec}><Icon name={icon('input', inp)} />{#if !inp.muted && inp.volume !== null}{shown('input', inp)} %{/if}</span>{/if}
   </button>
 {:else if snd?.input && problem}
   <button class="sbi mic" class:ko={rec} onclick={toggle} {title}>
@@ -146,7 +148,9 @@
 <style>
   .mic { display: inline-flex; align-items: center; gap: 3px; color: var(--warn); }
   .mic.ko { color: var(--ko); }
-  .snd .mic { margin-left: 3px; }
+  .snd .mic { margin-left: 3px; color: inherit; }
+  .snd .mic.low { color: var(--warn); }
+  .snd .mic.ko { color: var(--ko); }
   .pop { position: fixed; z-index: 60; width: 290px; padding: 2px 0; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-drawer); font-size: var(--fs-meta); }
   .sec { padding: 7px 12px 8px; border-top: 1px solid var(--border); }
   .sec:first-child { border-top: none; }
