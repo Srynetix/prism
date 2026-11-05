@@ -664,7 +664,7 @@ calendars = ["Calendar", "Work"]
 # min_input_gain = 40           # the microphone's input volume under this % in Alerts, notified while an app records; 0: never
 # muted_under = 3               # under this % the microphone is turned off (a headset's boom folded up), no alert, like muted; 0: none
 # restore_gain = 75             # what "Raise" puts the input volume back to, in %
-# status_volume = true          # the status bar item always there (output volume, a click: output and microphone); false: only while the microphone is too low
+# status_volume = true          # the status bar item always there (output and microphone volumes, the wheel sets the one under it, a click: output and microphone); false: only while the microphone is too low
 # poll_seconds = 2
 
 # The Mail block: the unread messages of your Microsoft 365 inbox, and the flagged ones, read
