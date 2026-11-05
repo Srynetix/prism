@@ -30,10 +30,14 @@ pub struct Entry {
     pub dataless: bool,
 }
 
+/// `ATTR_CMN_ERROR` (`sys/attr.h`, not in `libc`): an entry whose attributes cannot be read says
+/// so in its own record, instead of failing the whole call (and the whole folder with it).
+const ATTR_CMN_ERROR: libc::attrgroup_t = 0x2000_0000;
+
 /// `SF_DATALESS` (`sys/stat.h`).
 const DATALESS: u32 = 0x4000_0000;
 
-const COMMON: libc::attrgroup_t = libc::ATTR_CMN_RETURNED_ATTRS | libc::ATTR_CMN_NAME | libc::ATTR_CMN_DEVID | libc::ATTR_CMN_OBJTYPE | libc::ATTR_CMN_FLAGS | libc::ATTR_CMN_FILEID;
+const COMMON: libc::attrgroup_t = libc::ATTR_CMN_RETURNED_ATTRS | libc::ATTR_CMN_NAME | libc::ATTR_CMN_DEVID | libc::ATTR_CMN_OBJTYPE | libc::ATTR_CMN_FLAGS | libc::ATTR_CMN_FILEID | ATTR_CMN_ERROR;
 const DIR: libc::attrgroup_t = libc::ATTR_DIR_MOUNTSTATUS;
 const FILE: libc::attrgroup_t = libc::ATTR_FILE_LINKCOUNT | libc::ATTR_FILE_ALLOCSIZE;
 
@@ -131,6 +135,13 @@ fn entry(e: &[u8]) -> Option<Entry> {
     if common & libc::ATTR_CMN_FILEID != 0 {
         ino = read_u64(e, at);
         at += 8;
+    }
+    // Its attributes could not be read: left out, as `readdir` + `lstat` would.
+    if common & ATTR_CMN_ERROR != 0 {
+        if read_u32(e, at) != 0 {
+            return None;
+        }
+        at += 4;
     }
     let mut mount_point = false;
     if dir & libc::ATTR_DIR_MOUNTSTATUS != 0 {

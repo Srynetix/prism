@@ -27,10 +27,13 @@ fn kept(n: &Node) -> bool {
     n.flags & REMOVED == 0 && n.bytes >= if n.flags & DIR != 0 { KEEP_DIR } else { KEEP_FILE }
 }
 
-/// The file of `root`'s scans: its path, readable.
+/// The file of `root`'s scans: its path, readable, then a hash of it (two roots never share one).
 fn file_for(dir: &Path, root: &Path) -> PathBuf {
-    let slug: String = root.to_string_lossy().chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '.' { c } else { '_' }).collect();
-    dir.join(format!("{slug}.tsv"))
+    let text = root.to_string_lossy();
+    let slug: String = text.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '.' { c } else { '_' }).collect();
+    // FNV-1a: stable from one run of Prism to the next, unlike std's hasher.
+    let hash = text.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3));
+    dir.join(format!("{slug}-{:08x}.tsv", hash as u32))
 }
 
 fn escape(s: &str) -> String {
@@ -231,5 +234,12 @@ mod tests {
         assert_eq!(back.path(nm[0]), root.join("a\tb/node_modules"));
         assert_eq!(back.info.reclaim[0].kind, Reclaim::NodeModules);
         fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn roots_alike_keep_their_own_file() {
+        let d = Path::new("/x");
+        assert_ne!(file_for(d, Path::new("/Volumes/My Disk")), file_for(d, Path::new("/Volumes/My_Disk")));
+        assert_eq!(file_for(d, Path::new("/a")), file_for(d, Path::new("/a")));
     }
 }

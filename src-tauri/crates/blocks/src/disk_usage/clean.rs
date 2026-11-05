@@ -13,8 +13,9 @@ use prism_base::tr;
 
 use super::{kinds::Reclaim, scan};
 
-/// Each path of a reclaim group freed: `None` gone, else what is left in it (size, files).
-pub async fn clean(kind: Reclaim, root: &Path, paths: Vec<PathBuf>) -> Result<Vec<Option<(u64, u64)>>> {
+/// Each path of a reclaim group freed, one by one (one failing leaves the others freed): `None`
+/// gone, else what is left in it (size, files).
+pub async fn clean(kind: Reclaim, root: &Path, paths: Vec<PathBuf>) -> Result<Vec<Result<Option<(u64, u64)>>>> {
     for p in &paths {
         anyhow::ensure!(p.starts_with(root) && p != root, "{} is outside the scan", p.display());
     }
@@ -23,20 +24,17 @@ pub async fn clean(kind: Reclaim, root: &Path, paths: Vec<PathBuf>) -> Result<Ve
         Reclaim::Docker => run("docker", &["system", "prune", "-a", "-f"]).await?,
         _ => {}
     }
-    tokio::task::spawn_blocking(move || {
+    Ok(tokio::task::spawn_blocking(move || {
         paths
             .iter()
             .map(|p| match kind {
                 Reclaim::Simulators | Reclaim::Docker => Ok(Some(scan::measure(p))),
                 k if k.removes_folder() => remove(p).map(|()| None),
-                _ => {
-                    empty(p)?;
-                    Ok(Some(scan::measure(p)))
-                }
+                _ => empty(p).map(|()| Some(scan::measure(p))),
             })
             .collect()
     })
-    .await?
+    .await?)
 }
 
 /// A tool's cleanup, its error said.
@@ -104,17 +102,26 @@ pub fn trash(path: &Path) -> Result<()> {
         target = files.join(format!("{} {n}", name.to_string_lossy()));
         n += 1;
     }
+    let mut record = None;
     if let Some(info) = &info {
         fs::create_dir_all(info)?;
         let deleted = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S");
         let entry = info.join(format!("{}.trashinfo", target.file_name().unwrap_or_default().to_string_lossy()));
         fs::write(&entry, format!("[Trash Info]\nPath={}\nDeletionDate={deleted}\n", percent_encode(&path.to_string_lossy())))?;
+        record = Some(entry);
     }
-    fs::rename(path, &target).map_err(|e| match e.raw_os_error() {
-        // Another volume than the home's: its own Trash is the file manager's business.
-        Some(18) => anyhow::anyhow!(tr!("{path} is on another disk than the Trash: delete it from the file manager", path = path.display())),
-        _ => anyhow::Error::from(e).context(tr!("could not move {path} to the Trash", path = path.display())),
-    })
+    fs::rename(path, &target)
+        .inspect_err(|_| {
+            // Not moved: no record of it in the Trash either.
+            if let Some(r) = &record {
+                let _ = fs::remove_file(r);
+            }
+        })
+        .map_err(|e| match e.raw_os_error() {
+            // Another volume than the home's: its own Trash is the file manager's business.
+            Some(18) => anyhow::anyhow!(tr!("{path} is on another disk than the Trash: delete it from the file manager", path = path.display())),
+            _ => anyhow::Error::from(e).context(tr!("could not move {path} to the Trash", path = path.display())),
+        })
 }
 
 /// The freedesktop `Path=`: a URI path, `/` kept.
@@ -140,11 +147,13 @@ mod tests {
         fs::create_dir_all(dir.join("Caches/app")).unwrap();
         fs::write(dir.join("Caches/app/c"), "x").unwrap();
         assert!(clean(Reclaim::NodeModules, &dir.join("p/node_modules/x"), vec![dir.join("p/node_modules")]).await.is_err());
-        assert_eq!(clean(Reclaim::NodeModules, &dir, vec![dir.join("p/node_modules")]).await.unwrap(), [None]);
+        let gone = clean(Reclaim::NodeModules, &dir, vec![dir.join("missing/node_modules"), dir.join("p/node_modules")]).await.unwrap();
+        // The first one failing leaves the second freed.
+        assert!(gone[0].is_err() && matches!(gone[1], Ok(None)));
         assert!(!dir.join("p/node_modules").exists());
         let left = clean(Reclaim::Caches, &dir, vec![dir.join("Caches")]).await.unwrap();
         assert!(dir.join("Caches").exists() && !dir.join("Caches/app").exists());
-        assert_eq!(left[0].map(|l| l.1), Some(0));
+        assert_eq!(left[0].as_ref().ok().and_then(|l| l.map(|l| l.1)), Some(0));
         fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -95,7 +95,7 @@ impl Block for DiskUsage {
                 // To the Trash (the space is freed once it is emptied).
                 "trash" => {
                     s.cleanup_allowed()?;
-                    let path = s.read(&args, |tree, id| tree.path(id))?;
+                    let path = s.trashable(&args)?;
                     tracing::info!("disk usage: {} to the Trash", path.display());
                     tokio::task::spawn_blocking(move || clean::trash(&path)).await??;
                     s.removed(&args)?;

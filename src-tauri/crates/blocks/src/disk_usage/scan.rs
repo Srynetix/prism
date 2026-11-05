@@ -179,11 +179,25 @@ impl Tree {
         (0..self.nodes.len() as u32).filter(|i| self.nodes[*i as usize].reclaim == Some(kind) && self.nodes[*i as usize].flags & REMOVED == 0).collect()
     }
 
-    /// Node `id` gone: its size leaves its ancestors'.
+    /// Node `id` gone, and everything under it: its size leaves its ancestors'. The reclaim
+    /// groups are the caller's to count again (`refresh`), once for many removals.
     pub fn remove(&mut self, id: u32) {
+        if self.nodes[id as usize].flags & REMOVED != 0 {
+            return;
+        }
         let (bytes, files) = (self.nodes[id as usize].bytes, self.nodes[id as usize].files);
-        self.nodes[id as usize].flags |= REMOVED;
+        self.remove_under(id);
         self.shrink_ancestors(id, bytes, files);
+    }
+
+    /// `id` and its descendants marked gone (nothing below it is listed nor reclaimed any more).
+    fn remove_under(&mut self, id: u32) {
+        let mut stack = vec![id];
+        while let Some(i) = stack.pop() {
+            let n = &mut self.nodes[i as usize];
+            n.flags |= REMOVED;
+            stack.extend(n.first..n.first + n.count);
+        }
     }
 
     /// Node `id` now holds `bytes` in `files` (a folder emptied): its children are gone.
@@ -192,8 +206,8 @@ impl Tree {
         let (less, fewer) = (n.bytes.saturating_sub(bytes), n.files.saturating_sub(files));
         let (first, count) = (n.first as usize, n.count as usize);
         (n.bytes, n.files, n.own, n.own_files) = (bytes, files, bytes, files);
-        for c in &mut self.nodes[first..first + count] {
-            c.flags |= REMOVED;
+        for c in first..first + count {
+            self.remove_under(c as u32);
         }
         self.shrink_ancestors(id, less, fewer);
     }
@@ -206,6 +220,10 @@ impl Tree {
             p.bytes = p.bytes.saturating_sub(bytes);
             p.files = p.files.saturating_sub(files);
         }
+    }
+
+    /// Its totals and reclaim groups, after removals.
+    pub fn refresh(&mut self) {
         self.info.bytes = self.nodes[0].bytes;
         self.info.files = self.nodes[0].files;
         self.info.reclaim = self.reclaim_groups();
@@ -259,9 +277,11 @@ impl Tree {
 
 /// The tool a reclaim group runs is installed (`xcrun`, `docker`); the others need none.
 fn tool_for(kind: Reclaim) -> bool {
+    static XCRUN: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    static DOCKER: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     match kind {
-        Reclaim::Simulators => cfg!(target_os = "macos") && prism_core::detect::which("xcrun").is_some(),
-        Reclaim::Docker => prism_core::detect::which("docker").is_some(),
+        Reclaim::Simulators => *XCRUN.get_or_init(|| cfg!(target_os = "macos") && prism_core::detect::which("xcrun").is_some()),
+        Reclaim::Docker => *DOCKER.get_or_init(|| prism_core::detect::which("docker").is_some()),
         _ => true,
     }
 }
@@ -552,7 +572,8 @@ pub struct Scanner {
     pub ctx: BlockCtx,
     shown: Mutex<DiskUsageState>,
     tree: RwLock<Option<Tree>>,
-    stop: Arc<AtomicBool>,
+    /// The running scan's own stop: a scan ending never stops the next one.
+    stop: Mutex<Arc<AtomicBool>>,
     running: AtomicBool,
 }
 
@@ -567,7 +588,7 @@ pub fn start(cfg: DiskUsageConfig, ctx: BlockCtx) {
     let state = DiskUsageState { roots: cfg.roots.clone(), cleanup: cfg.cleanup, delta: cfg.delta, ..Default::default() };
     ctx.publish(&state);
     ctx.set_error(None);
-    let s = SCANNER.set(Scanner { cfg, ctx, shown: Mutex::new(state), tree: RwLock::new(None), stop: Arc::new(AtomicBool::new(false)), running: AtomicBool::new(false) });
+    let s = SCANNER.set(Scanner { cfg, ctx, shown: Mutex::new(state), tree: RwLock::new(None), stop: Mutex::new(Arc::new(AtomicBool::new(false))), running: AtomicBool::new(false) });
     prism_base::rt::spawn(async move {
         let dir = s.store_dir();
         let Ok(Some(tree)) = tokio::task::spawn_blocking(move || super::store::load_latest(&dir)).await.map_err(anyhow::Error::from).and_then(|r| r) else { return };
@@ -614,14 +635,15 @@ impl Scanner {
         if self.running.swap(true, Ordering::SeqCst) {
             bail!(tr!("a scan is already running"));
         }
-        self.stop.store(false, Ordering::SeqCst);
+        let stop = Arc::new(AtomicBool::new(false));
+        *self.stop.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = stop.clone();
         let counters = Arc::new(Counters::default());
-        let opts = options(&path, &self.cfg, self.stop.clone(), counters.clone());
+        let opts = options(&path, &self.cfg, stop.clone(), counters.clone());
         let started = Utc::now();
         let label = super::shorten(&path);
         self.publish(|s| s.running = Some(Progress { root: label.clone(), started_at: started, ..Default::default() }));
         prism_base::rt::spawn(async move {
-            let _guard = StopOnDrop(self.stop.clone());
+            let _guard = StopOnDrop(stop.clone());
             let clock = Instant::now();
             let root = path.clone();
             let mut job = tokio::task::spawn_blocking(move || walk(&root, threads(), &opts));
@@ -630,7 +652,7 @@ impl Scanner {
                     done = &mut job => break done,
                     _ = tokio::time::sleep(Duration::from_millis(400)) => {
                         // Stopped: the block answers at once, even with a thread still waiting on a disk that does not.
-                        if self.stop.load(Ordering::SeqCst) {
+                        if stop.load(Ordering::SeqCst) {
                             break Ok(Tree::default());
                         }
                         let p = Progress {
@@ -645,7 +667,7 @@ impl Scanner {
                     }
                 }
             };
-            let stopped = self.stop.load(Ordering::SeqCst);
+            let stopped = stop.load(Ordering::SeqCst);
             let result = match tree {
                 Ok(_) if stopped => Ok(None),
                 Ok(mut tree) => {
@@ -694,12 +716,18 @@ impl Scanner {
     }
 
     pub fn stop(&self) {
-        self.stop.store(true, Ordering::SeqCst);
+        self.stop.lock().unwrap_or_else(std::sync::PoisonError::into_inner).store(true, Ordering::SeqCst);
     }
 
     pub fn cleanup_allowed(&self) -> Result<()> {
         anyhow::ensure!(self.cfg.cleanup, tr!("the Disk usage block only reads ([disk_usage] cleanup)"));
         Ok(())
+    }
+
+    /// The path of node `args.id` to move to the Trash: never the scanned folder itself.
+    pub fn trashable(&self, args: &Value) -> Result<PathBuf> {
+        anyhow::ensure!(args.get("id").and_then(Value::as_u64).is_some_and(|id| id != 0), tr!("the scanned folder itself does not go to the Trash"));
+        self.read(args, |tree, id| tree.path(id))
     }
 
     /// `f` on the tree of the scan `args.scan` and its node `args.id`.
@@ -717,6 +745,7 @@ impl Scanner {
             let tree = guard.as_mut().context(tr!("no scan yet"))?;
             let id = node_arg(tree, args)?;
             tree.remove(id);
+            tree.refresh();
             tree.info.clone()
         };
         self.publish(|s| s.scan = Some(info));
@@ -725,32 +754,42 @@ impl Scanner {
 
     /// Frees a reclaim group: what it freed, in bytes.
     pub async fn clean(&'static self, kind: Reclaim) -> Result<u64> {
-        let targets: Vec<(u32, PathBuf, u64)> = {
+        let (scan, root, targets): (u64, PathBuf, Vec<(u32, PathBuf, u64)>) = {
             let guard = self.tree.read().expect("tree");
             let tree = guard.as_ref().context(tr!("no scan yet"))?;
-            tree.of_reclaim(kind).into_iter().map(|id| (id, tree.path(id), tree.nodes[id as usize].bytes)).collect()
+            (tree.info.id, tree.path.clone(), tree.of_reclaim(kind).into_iter().map(|id| (id, tree.path(id), tree.nodes[id as usize].bytes)).collect())
         };
         anyhow::ensure!(!targets.is_empty(), tr!("nothing left to free there"));
         tracing::info!("disk usage: freeing {kind:?} ({} places)", targets.len());
-        let root = self.tree.read().expect("tree").as_ref().map(|t| t.path.clone()).unwrap_or_default();
         let after = super::clean::clean(kind, &root, targets.iter().map(|(_, p, _)| p.clone()).collect()).await?;
-        let freed = {
+        let mut failed = Vec::new();
+        let mut freed = 0;
+        {
             let mut guard = self.tree.write().expect("tree");
-            let tree = guard.as_mut().context(tr!("no scan yet"))?;
-            let mut freed = 0;
-            for ((id, _, before), left) in targets.iter().zip(after) {
-                match left {
-                    None => tree.remove(*id),
-                    Some((bytes, files)) => tree.shrink(*id, bytes, files),
+            // Another scan replaced it meanwhile: its ids are not these; it measured the disk after the cleanup anyway.
+            if let Some(tree) = guard.as_mut().filter(|t| t.info.id == scan) {
+                for ((id, _, before), left) in targets.iter().zip(after) {
+                    match left {
+                        Ok(None) => tree.remove(*id),
+                        Ok(Some((bytes, files))) => tree.shrink(*id, bytes, files),
+                        Err(e) => {
+                            failed.push(e);
+                            continue;
+                        }
+                    }
+                    freed += before.saturating_sub(tree.nodes[*id as usize].bytes * u64::from(tree.nodes[*id as usize].flags & REMOVED == 0));
                 }
-                freed += before.saturating_sub(tree.nodes[*id as usize].bytes * u64::from(tree.nodes[*id as usize].flags & REMOVED == 0));
+                tree.refresh();
+                let info = tree.info.clone();
+                self.publish(|s| s.scan = Some(info));
             }
-            let info = tree.info.clone();
-            self.publish(|s| s.scan = Some(info));
-            freed
-        };
+        }
         let disk = super::disk_of(&root);
         self.publish(|s| s.disk = disk);
+        // What was freed stays freed; the first failure is said, with how many there were.
+        if let Some(first) = failed.first() {
+            bail!("{first:#} ({})", tr!("{n} of {total} not freed", n = failed.len(), total = targets.len()));
+        }
         Ok(freed)
     }
 }
@@ -830,6 +869,21 @@ mod tests {
         let a = tree.nodes[b as usize].parent;
         assert_eq!(tree.nodes[a as usize].bytes, tree.nodes[a as usize].own);
         assert!(tree.view(a, 2).children.unwrap().is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_folder_removed_takes_its_reclaimable_with_it() {
+        let dir = std::env::temp_dir().join(format!("prism-du-sub-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("proj/node_modules")).unwrap();
+        std::fs::write(dir.join("proj/node_modules/x.bin"), vec![1u8; 2 << 20]).unwrap();
+        let mut tree = walk(&dir, 2, &opts());
+        assert_eq!(tree.of_reclaim(Reclaim::NodeModules).len(), 1);
+        let proj = (0..tree.len() as u32).find(|i| &*tree.nodes[*i as usize].name == "proj").unwrap();
+        tree.remove(proj);
+        tree.refresh();
+        assert!(tree.of_reclaim(Reclaim::NodeModules).is_empty() && tree.info.reclaim.is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

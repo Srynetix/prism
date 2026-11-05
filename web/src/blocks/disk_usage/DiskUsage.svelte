@@ -44,14 +44,27 @@
 
   const args = (id: number, more: Record<string, unknown> = {}) => ({ scan: scan?.id, id, ...more })
 
-  async function load(id: number) {
-    if (!scan) return
+  async function load(id: number): Promise<boolean> {
+    if (!scan) return false
     try {
       view = await call<DiskNode>('disk_usage', 'tree', args(id, { depth: 3 }))
       failed = null
+      return true
     } catch (e) {
       failed = String(e)
+      return false
     }
+  }
+  /** The folder shown read again after something was freed; gone itself: the nearest one above still there. */
+  async function reload() {
+    if (await load(view?.id ?? 0)) return
+    while (trail.length) {
+      const up = trail[trail.length - 1]
+      trail = trail.slice(0, -1)
+      selected = null
+      if (await load(up.id)) return
+    }
+    await load(0)
   }
 
   /** A new scan: back to its root; the same one changed (something freed): read again where it was. */
@@ -69,7 +82,7 @@
         selected = null
         void load(0)
       } else {
-        void load(view?.id ?? 0)
+        void reload()
       }
     })
   })

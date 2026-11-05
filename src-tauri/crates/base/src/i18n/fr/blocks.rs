@@ -42,5 +42,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{path} is on another disk than the Trash: delete it from the file manager", "{path} est sur un autre disque que la corbeille : supprimez-le depuis le gestionnaire de fichiers"),
     ("{path}: a full path, or one starting with ~", "{path} : un chemin complet, ou commençant par ~"),
     ("{program} did not finish within 10 minutes", "{program} n’a pas fini en 10 minutes"),
-    ("{program} not found", "{program} introuvable"),
+    ("{n} of {total} not freed", "{n} sur {total} non libérés"),
+    ("the scanned folder itself does not go to the Trash", "le dossier scanné lui-même ne va pas à la corbeille"),
 ];
