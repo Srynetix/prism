@@ -18,7 +18,8 @@ source: string,
  */
 def?: CustomBlockDef, pending?: CustomPending, running: boolean, ran_at?: string, took_ms?: number, output?: CustomOutput, 
 /**
- * Why its last read failed (exit code, timeout, JSON off the contract).
+ * Why its last read failed (exit code, timeout, JSON off the contract), in a few words: never
+ * its error output, which goes in `stderr` (a phone gets this one, not that).
  */
 error?: string, 
 /**

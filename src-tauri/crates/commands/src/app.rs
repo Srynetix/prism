@@ -72,6 +72,11 @@ impl AppState {
             spawn(agents.clone().run());
             // Their chains and the prompts held for them: run here, whatever the window shows.
             spawn(agents.clone().run_chains());
+            // The routines, at their times: here too, the window open or not.
+            spawn(agents.clone().run_routines());
+        }
+        if let Ok(cfg) = crate::config::load(&crate::config_path()) {
+            routine_context(&agents, &cfg, &crate::config_path());
         }
         // Prism from a phone: off until `[remote]` turns it on, here and on each save.
         let host = crate::remote::Host::default();
@@ -141,6 +146,13 @@ fn notices(state: &Arc<AppState>) {
             }
         }
     });
+}
+
+/// What the routines read of the config beyond `[agents]`: where it lives, the first working
+/// folder (a builtin runs there), whether Prism is started again when closed.
+pub fn routine_context(agents: &crate::agents::Agents, cfg: &crate::config::Config, path: &std::path::Path) {
+    let workspace = cfg.workspaces.first().map(|w| w.dir.clone());
+    agents.set_routine_context(path.parent().map(std::path::Path::to_path_buf), workspace, cfg.remote.enabled && cfg.remote.keep_running);
 }
 
 /// `[remote] keep_running` as the config now says (a LaunchAgent: `launchctl`, off the async

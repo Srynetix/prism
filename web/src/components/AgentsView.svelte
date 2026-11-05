@@ -45,6 +45,7 @@
   import { projectsOf, type Project } from '../projects'
   import { implement, newAgentIn, nextOf, reopenLeft } from '../project-actions'
   import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
+  import RoutineReview from './RoutineReview.svelte'
 
   /**
    * Agents view: the agents launched by Prism and the desktop
@@ -598,6 +599,8 @@
       <AgentLabels onclose={() => (managing = false)} />
     {:else}
     <div class="scroll">
+      <!-- The routines' runs that wait for you ("To review"), at the head of the list. -->
+      {#if !showArchived}<RoutineReview compact />{/if}
       {#if projects}
         {#each projects.active as p (p.name)}{@render project(p)}{/each}
         {#each others as g (g.name)}{@render group(g)}{/each}

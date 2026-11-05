@@ -475,3 +475,176 @@ async fn a_chain_stops_when_the_work_failed() {
     assert_eq!(runs[1].state, RunState::Skipped);
     assert!(b.hub.subscribe().borrow().chains[&id].stopped);
 }
+
+/// A git repository with one commit, known to the snapshot as `api`.
+fn routine_bench() -> Bench {
+    let b = Bench::new();
+    let git = |args: &[&str]| assert!(std::process::Command::new("git").args(args).current_dir(&b.project).output().unwrap().status.success(), "git {args:?}");
+    git(&["init", "-q", "-b", "main"]);
+    std::fs::write(b.project.join("README"), "hi\n").unwrap();
+    git(&["add", "."]);
+    git(&["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "first"]);
+    let repo = state::Repo { name: "api".into(), path: b.project.display().to_string(), project: None, branch: Some("main".into()), base: "main".into(), behind: 0, ahead: 0, dirty: false, is_main: true, error: None, forge: None };
+    b.hub.update(|s| {
+        s.repos = vec![repo];
+        true
+    });
+    b
+}
+
+fn routine_config(every: &str) -> AgentsConfig {
+    AgentsConfig {
+        quick_actions: vec![config::QuickAction { name: "Bump".into(), prompt: "Bump {repo} since {since}.".into(), repos: vec!["api".into()], ..Default::default() }],
+        routines: vec![toml::from_str(&format!("name = \"Nightly\"\naction = \"Bump\"\nevery = \"{every}\"\nmax_minutes = 600\n")).unwrap()],
+        ..Default::default()
+    }
+}
+
+fn runs(b: &Bench) -> Vec<state::RoutineRun> {
+    b.hub.subscribe().borrow().routines.runs.clone()
+}
+
+async fn until(what: &str, f: impl Fn() -> bool) {
+    for _ in 0..150 {
+        if f() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    panic!("never: {what}");
+}
+
+#[tokio::test]
+async fn a_routine_runs_at_its_time_and_nothing_to_do_is_archived() {
+    let b = routine_bench();
+    b.agents.inner.routines_live.store(true, std::sync::atomic::Ordering::Relaxed);
+    let cfg = routine_config("30m");
+    // Saved from Settings: trusted as saved.
+    b.agents.routines_saved(None, &cfg);
+    b.agents.configure(cfg);
+    let t0 = Utc::now();
+    b.agents.schedule(t0);
+    assert!(runs(&b).is_empty(), "its first sight sets its times, runs nothing");
+    let view = b.hub.subscribe().borrow().routines.routines[0].clone();
+    assert!(view.pending.is_none() && view.error.is_none() && view.next.len() == 5, "{view:?}");
+    b.agents.schedule(t0 + chrono::Duration::minutes(31));
+    until("its agent launched", || runs(&b).first().is_some_and(|r| r.agent.is_some())).await;
+    let run = runs(&b)[0].clone();
+    assert_eq!((run.state, run.repo.as_deref(), run.caught_up), (state::RoutineRunState::Running, Some("api"), false));
+    let id = run.agent.clone().unwrap();
+    let argv = b.tmux.argv(&id).unwrap();
+    assert_eq!(argv.last().map(String::as_str), Some("Bump api since never: this is its first run."));
+    // Its next time while it still runs: skipped, and noted.
+    b.agents.schedule(t0 + chrono::Duration::minutes(61));
+    let r = runs(&b);
+    assert_eq!((r[0].state, r.len()), (state::RoutineRunState::Skipped, 2));
+    assert!(r[0].note.as_deref().unwrap_or_default().contains("still goes on"));
+    // It works, then stops at its prompt: no file changed, nothing to do; its agent closed.
+    let mut a = b.shown(&id).await.unwrap();
+    a.status = SessionStatus::Running;
+    b.agents.watch_runs(std::slice::from_ref(&a), Utc::now()).await;
+    a.status = SessionStatus::NeedsYou;
+    b.agents.watch_runs(std::slice::from_ref(&a), Utc::now()).await;
+    until("its run ended", || runs(&b).iter().any(|r| r.id == run.id && r.state == state::RoutineRunState::Nothing)).await;
+    until("its agent closed", || !b.registered(&id)).await;
+    assert!(!runs(&b).iter().any(state::RoutineRun::to_review));
+    // Kept for the next Prism.
+    let kept: serde_json::Value = serde_json::from_slice(&std::fs::read(b.root.join("data/routines.json")).unwrap()).unwrap();
+    assert!(kept["slots"]["Nightly"]["ok"].is_string());
+}
+
+#[tokio::test]
+async fn a_routine_changed_elsewhere_waits_and_a_late_one_is_caught_up_once() {
+    let b = routine_bench();
+    b.agents.inner.routines_live.store(true, std::sync::atomic::Ordering::Relaxed);
+    let cfg = routine_config("30m");
+    b.agents.routines_saved(None, &cfg);
+    b.agents.configure(cfg.clone());
+    let t0 = Utc::now() - chrono::Duration::hours(3);
+    b.agents.schedule(t0);
+    // Its quick action changed outside Settings: suspended.
+    let mut other = cfg.clone();
+    other.quick_actions[0].prompt = "Bump {repo}, then merge it.".into();
+    b.agents.configure(other.clone());
+    b.agents.schedule(t0 + chrono::Duration::minutes(31));
+    assert!(runs(&b).is_empty());
+    let pending = b.hub.subscribe().borrow().routines.routines[0].pending.clone().expect("waits for trust");
+    assert_eq!(pending.reason, state::RoutinePendingReason::ActionModified);
+    assert!(pending.diff.iter().any(|l| l.starts_with("+ prompt") && l.contains("merge")), "{:?}", pending.diff);
+    assert!(b.agents.run_routine_now("Nightly", None).is_err(), "nor run by hand");
+    assert!(b.agents.trust_routine("Nightly", "stale").is_err());
+    // Trusted: its times from now on; asleep three hours, it catches up once.
+    b.agents.trust_routine("Nightly", &pending.hash).unwrap();
+    b.agents.inner.routines.lock().unwrap().kept.slots.get_mut("Nightly").unwrap().last = t0 - chrono::Duration::minutes(10);
+    b.agents.schedule(Utc::now());
+    let r = runs(&b);
+    assert_eq!(r.len(), 1, "one run for three hours of times");
+    assert!(r[0].caught_up);
+    // A routine and an every both: said, not run.
+    let mut both = other.clone();
+    both.routines[0].cron = Some("0 3 * * *".into());
+    b.agents.configure(both);
+    let view = b.hub.subscribe().borrow().routines.routines[0].clone();
+    assert!(view.error.unwrap().contains("exclude") && view.next.is_empty());
+}
+
+/// Launched by `schedule` at its first time, and seen working: the run and its agent.
+async fn running_routine(b: &Bench, cfg: AgentsConfig) -> (state::RoutineRun, Agent) {
+    b.agents.inner.routines_live.store(true, std::sync::atomic::Ordering::Relaxed);
+    b.agents.routines_saved(None, &cfg);
+    b.agents.configure(cfg);
+    let t0 = Utc::now();
+    b.agents.schedule(t0);
+    b.agents.schedule(t0 + chrono::Duration::minutes(31));
+    until("its agent launched", || runs(b).first().is_some_and(|r| r.agent.is_some())).await;
+    let run = runs(b)[0].clone();
+    let mut a = b.shown(run.agent.as_deref().unwrap()).await.unwrap();
+    a.status = SessionStatus::Running;
+    b.agents.watch_runs(std::slice::from_ref(&a), Utc::now()).await;
+    (run, a)
+}
+
+#[tokio::test]
+async fn a_run_past_its_time_ends_too_long_not_ready() {
+    let b = routine_bench();
+    let (run, mut a) = running_routine(&b, routine_config("30m")).await;
+    // Past max_minutes: interrupted (Esc), after which its CLI waits as after a turn.
+    let late = Utc::now() + chrono::Duration::minutes(601);
+    b.agents.schedule(late);
+    assert!(b.agents.inner.routines.lock().unwrap().kept.watch[&run.id].interrupted.is_some());
+    a.status = SessionStatus::NeedsYou;
+    b.agents.watch_runs(std::slice::from_ref(&a), late).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(runs(&b).iter().find(|r| r.id == run.id).unwrap().state, state::RoutineRunState::Running, "not finished as ready");
+    // Its grace over: stopped, too long.
+    b.agents.schedule(late + chrono::Duration::seconds(GRACE + 1));
+    until("too long", || runs(&b).iter().any(|r| r.id == run.id && r.state == state::RoutineRunState::TooLong)).await;
+    assert!(runs(&b).iter().find(|r| r.id == run.id).unwrap().to_review());
+}
+
+const GRACE: i64 = 30;
+
+#[tokio::test]
+async fn run_now_on_a_busy_repository_makes_no_run() {
+    let b = routine_bench();
+    let (run, _) = running_routine(&b, routine_config("30m")).await;
+    let before = runs(&b).len();
+    assert!(b.agents.run_routine_now("Nightly", None).unwrap_err().to_string().contains("still goes on"));
+    assert_eq!(runs(&b).len(), before, "nothing left half launched");
+    assert!(runs(&b).iter().filter(|r| r.under_way()).all(|r| r.id == run.id));
+}
+
+#[tokio::test]
+async fn archiving_a_blocked_run_frees_its_routine() {
+    let b = routine_bench();
+    let (run, mut a) = running_routine(&b, routine_config("30m")).await;
+    a.status = SessionStatus::WaitingTool;
+    a.needs_action = Some("Allow Bash: npm install".into());
+    b.agents.watch_runs(std::slice::from_ref(&a), Utc::now()).await;
+    assert_eq!(runs(&b).iter().find(|r| r.id == run.id).unwrap().state, state::RoutineRunState::Blocked);
+    b.agents.archive_runs(std::slice::from_ref(&run.id));
+    let r = runs(&b).into_iter().find(|r| r.id == run.id).unwrap();
+    assert!(r.archived && !r.under_way() && !r.to_review(), "{r:?}");
+    // Its next time runs again.
+    b.agents.run_routine_now("Nightly", None).unwrap();
+}

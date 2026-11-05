@@ -5,6 +5,7 @@ import type { ClaudeConfig } from "./ClaudeConfig";
 import type { CliConfig } from "./CliConfig";
 import type { QuickAction } from "./QuickAction";
 import type { QuickAnswersConfig } from "./QuickAnswersConfig";
+import type { Routine } from "./Routine";
 
 /**
  * Agents (`[agents]`): the Agents view, where Claude actions go, and the agents' worktrees.
@@ -102,6 +103,12 @@ quick_answers: QuickAnswersConfig,
  * time: from its project in the Agents view, the palette and the phone.
  */
 quick_actions: Array<QuickAction>, 
+/**
+ * Agents launched on their own at fixed times (`[[agents.routines]]`): a quick action (or one
+ * of Prism's, `builtin:`) run by a cron or at a pace, its result waiting in "To review" or
+ * going to the Digest.
+ */
+routines: Array<Routine>, 
 /**
  * Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
  * to Prism, as everywhere else.

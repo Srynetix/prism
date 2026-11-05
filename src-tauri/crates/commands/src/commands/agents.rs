@@ -823,3 +823,55 @@ mod tests {
         }
     }
 }
+
+/// Settings › Routines' Run now: the routine as saved, its result where it would go at its time.
+#[prism_macros::command]
+pub fn routine_run(state: State<'_, AppState>, name: String) -> Cmd {
+    state.agents.run_routine_now(&name, None).map_err(Into::into)
+}
+
+/// "To review"'s Rerun: that run's routine on its repository, now; the row archived.
+#[prism_macros::command]
+pub fn routine_rerun(state: State<'_, AppState>, run: String) -> Cmd {
+    state.agents.rerun_routine(&run).map_err(Into::into)
+}
+
+/// Rows out of "To review" (Archive, Archive the ready ones); their agents stay.
+#[prism_macros::command]
+pub fn routine_archive(state: State<'_, AppState>, runs: Vec<String>) -> Cmd {
+    state.agents.archive_runs(&runs);
+    Ok(())
+}
+
+/// The version of a routine shown (`hash`, the routine and its quick action) trusted, on the computer only.
+#[prism_macros::command]
+pub fn routine_trust(state: State<'_, AppState>, name: String, hash: String) -> Cmd {
+    state.agents.trust_routine(&name, &hash).map_err(Into::into)
+}
+
+/// A routine switched on or off in `config.toml` (Settings, a phone with its passkey): its trust
+/// holds, the switch is not what it runs.
+#[prism_macros::command(async)]
+pub fn routine_enable(state: State<'_, AppState>, name: String, on: bool) -> Cmd {
+    let path = crate::config_path();
+    prism_core::settings::set_nested_entry_key(&path, "agents", "routines", "name", &name, "enabled", &serde_json::Value::Bool(on))?;
+    super::config::apply_live(&state, &path);
+    Ok(())
+}
+
+/// A routine waiting for trust taken out of `config.toml` (Settings' Remove), its trust forgotten.
+#[prism_macros::command(async)]
+pub fn routine_remove(state: State<'_, AppState>, name: String) -> Cmd {
+    let path = crate::config_path();
+    prism_core::settings::remove_nested_entry(&path, "agents", "routines", "name", &name)?;
+    state.agents.forget_routine(&name);
+    super::config::apply_live(&state, &path);
+    Ok(())
+}
+
+/// What the builtins read, as the window shows it: the open alerts, the current sprint's retro figures.
+#[prism_macros::command]
+pub fn routine_inputs(state: State<'_, AppState>, alerts: Option<String>, retro: Option<String>) -> Cmd {
+    state.agents.set_routine_inputs(crate::agents::RoutineInputs { alerts, retro });
+    Ok(())
+}

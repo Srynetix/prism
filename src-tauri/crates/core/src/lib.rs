@@ -15,6 +15,7 @@ pub mod packs;
 pub mod problems;
 pub mod profile;
 pub mod remote;
+pub mod schedule;
 pub mod settings;
 pub mod stages;
 pub mod state;

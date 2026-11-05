@@ -6,6 +6,7 @@ import { prismName } from './profiles.svelte'
 import { agentName, nameOf } from './agent-cli'
 import { route, type DeskEvent } from './digest.svelte'
 import { canNotify, notify } from './notify'
+import { routineEvents } from './routines.svelte'
 
 /**
  * Desktop integration: a counter in the menu bar / tray, and notifications for what has just
@@ -33,6 +34,8 @@ function events(s: Snapshot, alerts: Alert[]): Event[] {
     const agent = c.origin === 'agent' ? s.agents?.find((a) => a.id === c.id) : undefined
     if (c.status === 'waiting_tool') out.push({ key: `session:${c.id}:tool`, title: t('{agent} needs a permission', { agent: agent ? nameOf(agent) : 'Claude' }), body: c.title, kind: 'agent' })
   }
+  // A routine delivered to the Digest (`deliver = "digest"`): its summary, or at once with the digest off.
+  out.push(...routineEvents(s))
   // Another computer's agents waiting for you (`[[machines]]`), whether its window is open or not.
   for (const m of s.machines ?? []) {
     for (const w of m.waiting) {

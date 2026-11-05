@@ -13,6 +13,7 @@
   import { locale } from '../locale'
   import type { Agent, CalendarEvent, Snapshot } from '../types'
   import QuickAnswers from '../components/QuickAnswers.svelte'
+  import RoutineReview from '../components/RoutineReview.svelte'
   import { initial, profileColor } from '../profiles.svelte'
   import { phoneProfiles, switchProfile, type PhoneProfile } from './phone-profiles.svelte'
   import { socketState } from './socket.svelte'
@@ -112,6 +113,9 @@
     {/each}
   </ul>
 {/if}
+
+<!-- The routines' runs waiting for you ("To review"): the same pile as the computer's, Rerun with the passkey. -->
+<RoutineReview next={false} />
 
 {#if all}
   <p class="sect">{t('Profiles')}</p>

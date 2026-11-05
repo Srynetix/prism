@@ -328,6 +328,38 @@ enabled = true
 # repos = ["api"]
 # mode = "acceptEdits"
 
+# Routines: a quick action launched on its own, by a cron or at a pace, while Prism runs (its
+# window open or not; [remote] keep_running keeps it running). Its result waits in "To review"
+# (head of the Agents view, the routines block, the phone's Home) or goes to the Digest; blocked
+# (a permission, a question) or failed, it always waits in "To review". A run that changed no file
+# is archived at once (history only, its agent closed). One run at a time per routine and
+# repository: a time whose run still goes on is skipped, and noted.
+# action: a [[agents.quick_actions]] by its name, or builtin:alerts-triage (your open alerts,
+# sorted) / builtin:retro-draft (My sprint's Draft my points), which run without a repository, in
+# the first [[workspaces]] dir, in plan mode. A quick action's prompt may also name {since} (the
+# routine's last successful run) and {alerts} (the open alerts, quoted as data).
+# repos: one run each (empty: its quick action's); cron (five fields) or every ("30m", "6h",
+# "1d"), not both; time_zone: the cron's (empty: the computer's); deliver: review | digest;
+# missed: once (its time passed while the computer slept or Prism was closed: run once on waking,
+# if less than 12 h late) | skip; max_minutes: beyond it, interrupted (Esc), then stopped.
+# Added or changed outside Settings (an editor, an agent, a pack), a routine — or the quick action
+# it runs — waits for your trust in Settings › Agents › Routines before it runs: saving there
+# trusts it. Never set from a phone; a phone only turns one on or off, with its passkey.
+# [[agents.routines]]
+# name = "Nightly deps"
+# action = "Bump deps"
+# repos = ["api", "web"]
+# cron = "0 3 * * 1-5"
+# time_zone = "Europe/Paris"
+# deliver = "review"
+# missed = "once"
+# max_minutes = 60
+#
+# [[agents.routines]]
+# name = "Alerts triage"
+# action = "builtin:alerts-triage"
+# cron = "30 8 * * 1-5"
+
 # Each CLI's own keys, wherever it runs (by default or for a repository): [agents.claude],
 # [agents.command-code], [agents.opencode], [agents.codex]. bin: the executable (a name in the
 # PATH or a path; absent, its usual name); args: added to every launch and resume.

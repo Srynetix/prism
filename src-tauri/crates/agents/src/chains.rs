@@ -102,7 +102,7 @@ fn fill(text: &str, mr: Option<&ChainMr>, agent: Option<&Agent>) -> String {
 /// Text from elsewhere put in an agent's prompt (a task's output): fenced so that nothing in it
 /// can close the block, said to be data rather than instructions, its control characters dropped
 /// and its lines cut (`web/src/untrusted.ts`).
-fn untrusted(source: &str, text: &str) -> String {
+pub(crate) fn untrusted(source: &str, text: &str) -> String {
     const MAX_LINE: usize = 300;
     let clean: Vec<String> = text
         .replace("\r\n", "\n")
@@ -169,11 +169,11 @@ pub fn defines_task(path: &str) -> bool {
 const READY: [SessionStatus; 4] = [SessionStatus::NeedsYou, SessionStatus::ReviewReady, SessionStatus::Completed, SessionStatus::Idle];
 
 /// Back at its prompt after a turn.
-fn ready(a: &Agent) -> bool {
+pub(crate) fn ready(a: &Agent) -> bool {
     a.state == AgentState::Running && READY.contains(&a.status)
 }
 
-fn working(a: &Agent) -> bool {
+pub(crate) fn working(a: &Agent) -> bool {
     a.state == AgentState::Running && matches!(a.status, SessionStatus::Running | SessionStatus::WaitingTool)
 }
 

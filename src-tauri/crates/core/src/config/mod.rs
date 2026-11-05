@@ -234,6 +234,10 @@ pub struct AgentsConfig {
     /// Agents launched in one click on a repository (`[[agents.quick_actions]]`), the same job each
     /// time: from its project in the Agents view, the palette and the phone.
     pub quick_actions: Vec<QuickAction>,
+    /// Agents launched on their own at fixed times (`[[agents.routines]]`): a quick action (or one
+    /// of Prism's, `builtin:`) run by a cron or at a pace, its result waiting in "To review" or
+    /// going to the Digest.
+    pub routines: Vec<Routine>,
     /// Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
     /// to Prism, as everywhere else.
     pub terminal_keys: Vec<String>,
@@ -355,6 +359,86 @@ pub struct QuickAction {
     pub kind: Option<String>,
 }
 
+/// An agent launched on its own (`[[agents.routines]]`): a quick action, at the times a cron
+/// names or at a pace. Read as it is: what does not hold (both `cron` and `every`, a cron that
+/// does not read, an action unknown) shows in Problems, and that routine does not run.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct Routine {
+    /// Its name, unique: what it is known by (its trust, its runs).
+    pub name: String,
+    /// A `[[agents.quick_actions]]` by its name, or one of Prism's: `builtin:alerts-triage`,
+    /// `builtin:retro-draft`.
+    pub action: String,
+    /// The repositories it runs on, one run each; empty: its quick action's.
+    pub repos: Vec<String>,
+    /// Five fields (`0 3 * * 1-5`); or `every`, not both.
+    pub cron: Option<String>,
+    /// A pace (`30m`, `6h`, `1d`); or `cron`, not both.
+    pub every: Option<String>,
+    /// The cron's time zone (`Europe/Paris`); absent: the computer's.
+    pub time_zone: Option<String>,
+    /// Where its result goes: `review` (the "To review" pile) or `digest` (the next summary).
+    /// Blocked or failed, it goes to "To review" whatever this says.
+    #[cfg_attr(feature = "ts", ts(type = "'review' | 'digest'"))]
+    pub deliver: String,
+    /// Its time passed while the computer slept or Prism was closed: `once`, run once on waking
+    /// (less than 12 hours late), or `skip`.
+    #[cfg_attr(feature = "ts", ts(type = "'skip' | 'once'"))]
+    pub missed: String,
+    /// Longer than this, the agent is interrupted, then stopped: "too long".
+    pub max_minutes: u32,
+    pub enabled: bool,
+}
+
+impl Default for Routine {
+    fn default() -> Self {
+        Self { name: String::new(), action: String::new(), repos: Vec::new(), cron: None, every: None, time_zone: None, deliver: "review".into(), missed: "once".into(), max_minutes: 60, enabled: true }
+    }
+}
+
+/// Prism's own actions a routine may run, without a repository.
+pub const ROUTINE_BUILTINS: [&str; 2] = ["builtin:alerts-triage", "builtin:retro-draft"];
+
+impl Routine {
+    /// When it runs, and what it runs: the quick action named, none for a builtin. What does not
+    /// hold, in a few words.
+    pub fn check<'a>(&self, actions: &'a [QuickAction]) -> std::result::Result<(crate::schedule::When, Option<&'a QuickAction>), String> {
+        if self.name.trim().is_empty() {
+            return Err(tr("a routine has no name").into());
+        }
+        let when = crate::schedule::When::of(self.cron.as_deref(), self.every.as_deref(), self.time_zone.as_deref()).map_err(|e| format!("{e:#}"))?;
+        if !matches!(self.deliver.as_str(), "review" | "digest") {
+            return Err(tr!("deliver {value}: review or digest", value = self.deliver));
+        }
+        if !matches!(self.missed.as_str(), "skip" | "once") {
+            return Err(tr!("missed {value}: skip or once", value = self.missed));
+        }
+        if self.max_minutes == 0 {
+            return Err(tr("max_minutes: a minute at least").into());
+        }
+        let action = self.action.trim();
+        if ROUTINE_BUILTINS.contains(&action) {
+            return Ok((when, None));
+        }
+        let qa = actions.iter().find(|a| a.name == action).ok_or_else(|| tr!("no quick action named {name}", name = action))?;
+        if qa.prompt.trim().is_empty() {
+            return Err(tr!("quick action {name} has no prompt", name = action));
+        }
+        Ok((when, Some(qa)))
+    }
+
+    /// The repositories it runs on: its own, otherwise its quick action's; none for a builtin.
+    pub fn targets(&self, qa: Option<&QuickAction>) -> Vec<String> {
+        match qa {
+            None => Vec::new(),
+            Some(_) if !self.repos.is_empty() => self.repos.clone(),
+            Some(qa) => qa.repos.clone(),
+        }
+    }
+}
+
 /// How a coding agent CLI is launched (`[agents.<cli>]`): by default, its usual name from the PATH.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -464,6 +548,7 @@ impl Default for AgentsConfig {
             codex: CliConfig::default(),
             quick_answers: QuickAnswersConfig::default(),
             quick_actions: Vec::new(),
+            routines: Vec::new(),
             terminal_keys: vec!["Cmd+K".into()],
             view: "chat".into(),
             fold_steps: true,
@@ -859,6 +944,23 @@ pub mod tests {
         assert_eq!(c.agents.kinds, [AgentKind { name: "Refinement".into(), when: String::new() }, AgentKind { name: "Ops".into(), when: String::new() }]);
         let c = parsed("[agents]\nkinds = [\"A\"]\ncategories = [\"B\"]\n");
         assert_eq!(c.agents.kinds.iter().map(|k| k.name.as_str()).collect::<Vec<_>>(), ["A"], "the new key wins");
+    }
+
+    /// `[[agents.routines]]`: a quick action at fixed times; what does not hold is said, not refused.
+    #[test]
+    fn routines_read() {
+        let c = parsed("[[agents.quick_actions]]\nname = \"Bump deps\"\nprompt = \"Bump {repo}.\"\nrepos = [\"api\"]\n[[agents.routines]]\nname = \"Nightly\"\naction = \"Bump deps\"\ncron = \"0 3 * * 1-5\"\n[[agents.routines]]\nname = \"Both\"\naction = \"builtin:alerts-triage\"\ncron = \"0 3 * * *\"\nevery = \"6h\"\n[[agents.routines]]\nname = \"Nowhere\"\naction = \"Scan\"\nevery = \"6h\"\n");
+        let [nightly, both, nowhere] = &c.agents.routines[..] else { panic!("three routines") };
+        assert_eq!((nightly.deliver.as_str(), nightly.missed.as_str(), nightly.max_minutes, nightly.enabled), ("review", "once", 60, true));
+        let (_, qa) = nightly.check(&c.agents.quick_actions).unwrap();
+        assert_eq!(nightly.targets(qa), ["api"], "the quick action's repositories");
+        assert!(both.check(&c.agents.quick_actions).unwrap_err().contains("exclude"));
+        assert!(nowhere.check(&c.agents.quick_actions).unwrap_err().contains("Scan"));
+        // A routine launches an agent without me: never set from a phone, whole or in part.
+        for path in [vec!["agents", "routines"], vec!["agents", "quick_actions"], vec!["agents"]] {
+            let path: Vec<String> = path.into_iter().map(String::from).collect();
+            assert!(!phone_may_set(&path, Some(&serde_json::json!([]))), "{path:?}");
+        }
     }
 
     /// `[[agents.quick_actions]]`: a prompt on some repositories, in their clone unless asked otherwise.

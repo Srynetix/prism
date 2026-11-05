@@ -872,6 +872,56 @@ impl Demo {
         ]
     }
 
+    /// The routines of the demo's config, trusted, and their last runs: two to review, a blocked
+    /// one, one that found nothing to do, a skipped time. None runs.
+    fn routines(&self) -> Routines {
+        let cfg: crate::config::Config = toml::from_str(CONFIG).expect("demo config");
+        let routines = cfg
+            .agents
+            .routines
+            .iter()
+            .map(|r| {
+                let (when, qa) = r.check(&cfg.agents.quick_actions).expect("demo routine");
+                let mut next = Vec::new();
+                let mut at = self.now;
+                while next.len() < 5 {
+                    let Some(n) = when.next_after(at) else { break };
+                    next.push(n);
+                    at = n;
+                }
+                let action = qa.map(|a| RoutineAction { prompt: a.prompt.clone(), mode: a.mode.clone(), worktree: a.worktree });
+                RoutineView { name: r.name.clone(), enabled: r.enabled, next, repos: r.targets(qa), error: None, pending: None, action }
+            })
+            .collect();
+        let run = |id: &str, routine: &str, repo: Option<&str>, hours: i64, minutes: i64, state: RoutineRunState, deliver: &str| RoutineRun {
+            id: id.into(),
+            routine: routine.into(),
+            repo: repo.map(String::from),
+            agent: None,
+            due: self.ago(hours * 60),
+            started: Some(self.ago(hours * 60)),
+            ended: (state != RoutineRunState::Blocked).then(|| self.ago(hours * 60 - minutes)),
+            state,
+            deliver: deliver.into(),
+            caught_up: false,
+            manual: false,
+            note: None,
+            said: None,
+            files: 0,
+            branch: None,
+            archived: false,
+            cost: None,
+        };
+        let runs = vec![
+            RoutineRun { said: Some("11 alerts: 2 to handle (shop main pipeline red, pod checkout-api in CrashLoop), 3 in progress, 6 noise.".into()), cost: Some(0.08), ..run("r5", "Alerts triage", None, 1, 2, RoutineRunState::Ready, "review") },
+            RoutineRun { said: Some("Should I move vite 7 → 8? The tests pass but its config changes.".into()), files: 12, branch: Some("agent/nightly-deps-20261105-0300".into()), ..run("r4", "Nightly deps", Some("helm"), 6, 0, RoutineRunState::Blocked, "review") },
+            RoutineRun { said: Some("9 dependencies updated, tests green, draft MR opened. tokio 1.48 → 1.49 left aside (breaking changelog).".into()), files: 3, branch: Some("agent/nightly-deps-20261105-0300".into()), cost: Some(0.31), ..run("r3", "Nightly deps", Some("shop"), 6, 7, RoutineRunState::Ready, "review") },
+            RoutineRun { said: Some("Nothing to update since yesterday.".into()), ..run("r2", "Nightly deps", Some("helm"), 30, 3, RoutineRunState::Nothing, "review") },
+            RoutineRun { note: Some("the run of 03:00 still goes on".into()), ended: Some(self.ago(29 * 60)), started: None, ..run("r1", "Nightly deps", Some("shop"), 29, 0, RoutineRunState::Skipped, "review") },
+        ];
+        Routines { routines, runs, keep_running: true }
+    }
+
     /// Prism's agents: their terminal replays a recorded session (`details::terminal`).
     fn agents(&self) -> Vec<Agent> {
         let agent = |id: &str, title: &str, category: &str, branch: &str, ticket: u32, status: SessionStatus, needs: Option<&str>, minutes: i64| Agent {
@@ -1029,6 +1079,7 @@ impl Demo {
         s.tracker = Some(crate::tracker::Provider::Clickup);
         s.tracker_features = crate::tracker::Provider::Clickup.features();
         s.agents = self.agents();
+        s.routines = self.routines();
         // Agents count as sessions too (header, rail, Alerts), as the real ones do.
         s.sessions = self.sessions();
         s.sessions.extend(s.agents.iter().map(|a| ClaudeSession {

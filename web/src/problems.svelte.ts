@@ -55,6 +55,11 @@ export function current(snap: Snapshot | null): Problem[] {
     if (b.error && !b.pending) out.push({ level: 'ko', where: `custom:${b.id}`, message: b.stderr ? `${b.error}\n${b.stderr}` : b.error, count: 1, settings: 'custom-blocks' })
   }
   for (const e of (snap?.blocks?.custom_blocks as CustomBlocksState | undefined)?.errors ?? []) out.push({ level: 'ko', where: 'custom_blocks', message: e, count: 1, settings: 'custom-blocks' })
+  // A routine whose declaration does not hold (cron and every both, a cron that does not read, an action unknown): it does not run.
+  for (const r of snap?.routines?.routines ?? []) {
+    if (r.error) out.push({ level: 'ko', where: t('routine {name}', { name: r.name }), message: r.error, count: 1, settings: 'routines' })
+    else if (r.pending) out.push({ level: 'warn', where: t('routine {name}', { name: r.name }), message: t('changed outside Settings: it waits for your trust'), count: 1, settings: 'routines' })
+  }
   for (const p of packUpdates.list) {
     if (p.error) out.push({ level: 'ko', where: t('pack {name}', { name: p.name }), message: t('its source does not read: {error}', { error: p.error }), count: 1, settings: 'packs' })
     else if (p.too_new) out.push({ level: 'warn', where: t('pack {name}', { name: p.name }), message: t('its source needs Prism {version}: update Prism to get it', { version: p.requires ?? '?' }), count: 1, settings: 'updates-now' })

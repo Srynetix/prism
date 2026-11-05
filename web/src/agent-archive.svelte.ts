@@ -17,6 +17,7 @@ interface Archivable {
   id: string
   status: SessionStatus
   last_activity: string | null
+  needs_action?: string | null
 }
 
 const archived = () => pref<Record<string, string>>(KEY, {})
@@ -26,10 +27,24 @@ const woke = (x: Archivable, at: string) => waitsForYou(x.status) && (x.last_act
 
 export function isArchived(x: Archivable): boolean {
   const at = archived()[x.id]
-  return at !== undefined && !woke(x, at)
+  if (at === undefined) return routineHidden(x)
+  return !woke(x, at)
+}
+
+/** Opened from "To review" (routines.svelte.ts): a routine's agent in the lists from then on. */
+export const ROUTINE_OPENED = 'routines.opened'
+/**
+ * A routine's agent (`Snapshot.routines`) is archived at once: it comes back when it waits for a
+ * permission or an answer, or once opened.
+ */
+function routineHidden(x: Archivable): boolean {
+  if (!live.snapshot?.routines?.runs.some((r) => r.agent === x.id)) return false
+  if (pref<string[]>(ROUTINE_OPENED, []).includes(x.id)) return false
+  return !(x.status === 'waiting_tool' || x.needs_action === 'Answer its question')
 }
 
 export function setArchived(x: Archivable, on: boolean) {
+  if (!on && routineHidden(x)) setPref(ROUTINE_OPENED, [...pref<string[]>(ROUTINE_OPENED, []).slice(-199), x.id])
   const { [x.id]: _, ...rest } = archived()
   setPref(KEY, on ? { ...rest, [x.id]: x.last_activity ?? '' } : rest)
 }

@@ -280,6 +280,15 @@ commands! {
     agents::agent_git_sync: Act [phone: state, id: String],
     // A chain's held step skipped, a chain stopped or hidden.
     agents::chain_order: Act [phone: state, id: String, action: String; sync],
+    // Routines: a row out of "To review"; a run again, or a routine switched, launches an agent
+    // on the computer (the passkey); trusting one, removing one, and the builtins' inputs: never.
+    agents::routine_archive: Act [phone: state, runs: Vec<String>; sync],
+    agents::routine_rerun: Critical [phone: state, run: String; sync],
+    agents::routine_run: Critical [phone: state, name: String; sync],
+    agents::routine_enable: Critical [phone: state, name: String, on: bool],
+    agents::routine_trust: Never,
+    agents::routine_remove: Never,
+    agents::routine_inputs: Never,
     agents::agent_rename: Act [phone: state, id: String, title: String; sync],
     agents::agent_set_tags: Act [phone: state, id: String, tags: Vec<String>; sync],
     agents::agent_set_category: Act [phone: state, id: String, category: Option<String>; sync],

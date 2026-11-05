@@ -131,6 +131,17 @@ export const BLOCK_HELP: Record<BlockId, BlockHelp> = {
       return t('What the Sprint, Merge requests and Agents blocks read: no request of its own.')
     },
   },
+  routines: {
+    purpose: t('What the agents launched on their own at fixed times (the routines) left for you to look at, and when they run next.'),
+    points: [
+      t('To review: one row per run that waits for you, blocked ones first: the routine, its repository, what its agent said in a line, what it produced (its MR, branch, files, cost). Reply or Open brings its agent out of the archive; Archive takes the row out; Rerun runs it again.'),
+      t('A run blocked (a permission, a question) or failed (its CLI, too long) is here whatever its delivery; a ready one delivered to the Digest goes there instead. One that changed no file is archived at once: the history of Settings › Routines keeps it.'),
+      t('Under the rows, the next times: a click opens Settings › Routines. The same pile heads the Agents view, and the phone’s Home and Agents.'),
+    ],
+    get source() {
+      return t('Prism’s routines ([[agents.routines]]), run by Prism itself while it runs, its window open or not: no request of its own.')
+    },
+  },
   retro: {
     purpose: t('The current sprint seen from your side, for the retro: what you delivered, where your time went, what you could focus on.'),
     points: [
