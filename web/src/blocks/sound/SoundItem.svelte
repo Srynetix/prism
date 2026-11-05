@@ -16,7 +16,6 @@
 
   type Side = 'output' | 'input'
   const snd = $derived(stateOf<SoundState>({ id: 'sound' }, snap))
-  const problem = $derived(micProblem(snd))
   const always = $derived(!!snd?.updated_at && snd.limits.status_volume !== false)
   const rec = $derived(!!snd?.recording.length)
   const app = hasCore()
@@ -24,10 +23,13 @@
   let open = $state(false)
   let at = $state({ left: 0, bottom: 0 })
   let failed = $state<string | null>(null)
-  /** The slider being dragged, or the wheel's value: shown until the next read. */
-  let pending = $state<{ side: Side; value: number } | null>(null)
+  /** Per side, the slider being dragged or the wheel's value: shown until its last call is answered. */
+  let pending = $state<Partial<Record<Side, number>>>({})
+  const sent: Record<Side, number> = { output: 0, input: 0 }
   const LABEL: Record<Side, string> = { output: t('Output'), input: t('Microphone') }
-  const shown = (side: Side, s: SoundSide) => (pending?.side === side ? pending.value : (s.volume ?? 0))
+  const shown = (side: Side, s: SoundSide) => pending[side] ?? s.volume ?? 0
+  /** Judged on the volume shown: the colour and the alert follow the wheel at once, not the next read. */
+  const problem = $derived(micProblem(snd?.input && pending.input !== undefined ? { ...snd, input: { ...snd.input, volume: pending.input } } : snd))
 
   async function run(command: string, args: Record<string, unknown>) {
     failed = null
@@ -38,8 +40,11 @@
     }
   }
   const setVolume = async (side: Side, value: number) => {
+    const n = ++sent[side]
+    pending[side] = value
     await run('volume', { side, value })
-    pending = null
+    // An older call answered while a newer one runs keeps the newer value.
+    if (n === sent[side]) delete pending[side]
   }
 
   function toggle(e: MouseEvent) {
@@ -51,8 +56,11 @@
     open = !open
   }
 
-  /** The wheel on the item: ±5 % a notch — the microphone's volume over its part, else the output's —, a trackpad's flow taken a step at a time. */
+  /** The wheel on the item: ±5 % a notch — the microphone's volume over its part, else the output's —, a trackpad's flow taken a step at a time.
+   *  One gesture keeps the side it started on, and a muted microphone's hidden volume is left alone. */
   let lastWheel = 0
+  let lastEvent = -Infinity
+  let gesture: Side = 'output'
   let chip = $state<HTMLButtonElement>()
   // Not passive, so it does not scroll the status bar too.
   $effect(() => {
@@ -62,15 +70,15 @@
     return () => el.removeEventListener('wheel', wheel)
   })
   function wheel(e: WheelEvent) {
-    const side: Side = (e.target as Element | null)?.closest('.mic') ? 'input' : 'output'
+    if (e.timeStamp - lastEvent > 300) gesture = (e.target as Element | null)?.closest('.mic') ? 'input' : 'output'
+    lastEvent = e.timeStamp
+    const side = gesture
     const s = snd?.[side]
     if (!always || !app || !s || s.volume === null || !s.volume_settable) return
     e.preventDefault()
-    if (e.timeStamp - lastWheel < 60 || e.deltaY === 0) return
+    if ((side === 'input' && s.muted) || e.timeStamp - lastWheel < 60 || e.deltaY === 0) return
     lastWheel = e.timeStamp
-    const value = Math.max(0, Math.min(100, shown(side, s) + (e.deltaY < 0 ? 5 : -5)))
-    pending = { side, value }
-    void setVolume(side, value)
+    void setVolume(side, Math.max(0, Math.min(100, shown(side, s) + (e.deltaY < 0 ? 5 : -5))))
   }
 
   const level = (side: Side, s: SoundSide) => (s.muted ? t('muted') : s.volume === null ? '—' : `${shown(side, s)} %`)
@@ -80,6 +88,18 @@
     const vars = { name: snd.input.name, volume: problem.volume, min: snd.limits.min_input_gain, who: rec ? recorders(snd) : '' }
     return rec ? t('{name}: input volume {volume} %, under {min} % while {who} records · open Sound', vars) : t('{name}: input volume {volume} %, under {min} % · open Sound', vars)
   })
+  /** The always-there item's tooltip: the output, the microphone (why it is too low), what a click and the wheel do. */
+  const chipTitle = $derived.by(() => {
+    if (!snd) return ''
+    const { output: out, input: inp } = snd
+    const parts = [out ? `${out.name}: ${level('output', out)}` : t('No output device.')]
+    if (inp && problem) {
+      const vars = { name: inp.name, volume: problem.volume, min: snd.limits.min_input_gain, who: rec ? recorders(snd) : '' }
+      parts.push(rec ? t('{name}: input volume {volume} %, under {min} % while {who} records', vars) : t('{name}: input volume {volume} %, under {min} %', vars))
+    } else if (inp) parts.push(`${inp.name}: ${level('input', inp)}`)
+    parts.push(t('a click: output and microphone, the wheel: volume'))
+    return parts.join(' · ')
+  })
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (open = false)} onclick={() => (open = false)} />
@@ -87,7 +107,7 @@
 {#if always && snd}
   {@const out = snd.output}
   {@const inp = snd.input}
-  <button class="sbi snd" class:open bind:this={chip} onclick={toggle} title={`${out ? `${out.name}: ${level('output', out)}` : t('No output device.')}${title ? ` · ${title.replace(/ · .*$/, '')}` : inp ? ` · ${inp.name}: ${level('input', inp)}` : ''} · ${t('a click: output and microphone, the wheel: volume')}`}>
+  <button class="sbi snd" class:open bind:this={chip} onclick={toggle} title={chipTitle}>
     <Icon name={icon('output', out)} />
     {#if out?.muted}{t('muted')}{:else if out && out.volume !== null}{shown('output', out)} %{/if}
     {#if inp}<span class="mic" class:low={!!problem} class:ko={!!problem && rec}><Icon name={icon('input', inp)} />{#if !inp.muted && inp.volume !== null}{shown('input', inp)} %{/if}</span>{/if}
@@ -112,7 +132,7 @@
           <span class="ic"><Icon name={icon(side, s)} /></span>
         {/if}
         {#if s.volume !== null}
-          <input type="range" min="0" max="100" value={shown(side, s)} style:--p="{shown(side, s)}%" disabled={!app || !s.volume_settable} aria-label={t('{side} volume', { side: LABEL[side] })} oninput={(e) => (pending = { side, value: Number(e.currentTarget.value) })} onchange={(e) => setVolume(side, Number(e.currentTarget.value))} />
+          <input type="range" min="0" max="100" value={shown(side, s)} style:--p="{shown(side, s)}%" disabled={!app || !s.volume_settable} aria-label={t('{side} volume', { side: LABEL[side] })} oninput={(e) => (pending[side] = Number(e.currentTarget.value))} onchange={(e) => setVolume(side, Number(e.currentTarget.value))} />
           <span class="n" class:low={side === 'input' && !!problem}>{shown(side, s)} %</span>
         {:else}
           <span class="none grow">{t('No volume on this device: set it on the device itself.')}</span>
@@ -147,11 +167,10 @@
 {/if}
 
 <style>
-  .mic { display: inline-flex; align-items: center; gap: 3px; color: var(--warn); }
+  .mic { display: inline-flex; align-items: center; gap: 3px; }
+  button.mic, .mic.low { color: var(--warn); }
   .mic.ko { color: var(--ko); }
-  .snd .mic { margin-left: 3px; color: inherit; }
-  .snd .mic.low { color: var(--warn); }
-  .snd .mic.ko { color: var(--ko); }
+  .snd .mic { margin-left: 3px; }
   .pop { position: fixed; z-index: 60; width: 290px; padding: 2px 0; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-drawer); font-size: var(--fs-meta); }
   .sec { padding: 7px 12px 8px; border-top: 1px solid var(--border); }
   .sec:first-child { border-top: none; }

@@ -685,6 +685,8 @@ export default {
   '{lag} behind (threshold {limit})': '{lag} de retard (seuil {limit})',
   '{name}: input volume {volume} %, under {min} % while {who} records · open Sound': '{name} : volume d’entrée {volume} %, sous {min} % pendant que {who} enregistre · ouvrir Son',
   '{name}: input volume {volume} %, under {min} % · open Sound': '{name} : volume d’entrée {volume} %, sous {min} % · ouvrir Son',
+  '{name}: input volume {volume} %, under {min} % while {who} records': '{name} : volume d’entrée {volume} %, sous {min} % pendant que {who} enregistre',
+  '{name}: input volume {volume} %, under {min} %': '{name} : volume d’entrée {volume} %, sous {min} %',
   '{name}: pet it': '{name} : le caresser',
   '{name}: {n} % lost over 5 min': '{name} : {n} % perdus sur 5 min',
   '{name}: {state}': '{name} : {state}',
