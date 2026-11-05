@@ -3,6 +3,8 @@
 //! (`prism-macos`). Each block says why it holds; a function whose soundness rests on its caller
 //! says so in its own documentation.
 
+#[cfg(target_os = "macos")]
+pub mod dirlist;
 pub mod env;
 #[cfg(unix)]
 pub mod fd;

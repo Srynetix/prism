@@ -48,6 +48,7 @@ import Folder from '@lucide/svelte/icons/folder'
 import Code from '@lucide/svelte/icons/code'
 import BrushCleaning from '@lucide/svelte/icons/brush-cleaning'
 import Trash from '@lucide/svelte/icons/trash'
+import HardDrive from '@lucide/svelte/icons/hard-drive'
 import GitCompareArrows from '@lucide/svelte/icons/git-compare-arrows'
 import GitMerge from '@lucide/svelte/icons/git-merge'
 import Kanban from '@lucide/svelte/icons/kanban'
@@ -229,6 +230,8 @@ export const ICONS = {
   radio: Radio, // stations (≋)
   video: MonitorPlay, // YouTube videos (▶)
   podcast: Podcast, // RSS feeds (▤)
+  // The Disk usage block
+  disk: HardDrive,
   // Block layout
   blockNormal: Rows3, // ▤
   blockShort: RectangleHorizontal, // ▭

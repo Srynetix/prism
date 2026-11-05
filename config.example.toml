@@ -667,6 +667,17 @@ calendars = ["Calendar", "Work"]
 # status_volume = true          # the status bar item always there (output and microphone volumes, the wheel sets the one under it, a click: output and microphone); false: only while the microphone is too low
 # poll_seconds = 2
 
+# The Disk usage block (macOS, Linux): a folder or a disk scanned on demand, where its space goes
+# (a list by size and a treemap), and what can be rebuilt (node_modules, target/, caches, the
+# Trash…) freed in two clicks. Nothing is read until you scan. On by default.
+# [disk_usage]
+# enabled = true
+# roots = ["~", "/"]            # offered to scan; any other folder can be chosen from the block
+# exclude = []                  # folders never entered (~ allowed)
+# one_volume = true             # stay on the scanned folder's disk: other disks and shares mounted inside it are left out
+# delta = true                  # how much each folder grew since the scan before (the last scan of each folder is kept)
+# cleanup = true                # Reclaimable and the Trash from the block; false: the block only reads
+
 # The Mail block: the unread messages of your Microsoft 365 inbox, and the flagged ones, read
 # every minute through Microsoft Graph with the delegated Mail.ReadBasic permission: your mailbox
 # only, sender, subject, date and states, never a body. You sign in once from Settings › Work ›

@@ -1,7 +1,7 @@
 ---
 title: Environnements, vulnérabilités et Docker
 group: Watch the system
-blocks: envs, argocd, vulns, docker
+blocks: envs, argocd, vulns, docker, disk_usage
 related: ci, agents, settings, todo
 ---
 Les applications déployées sont-elles en bonne santé et tournent-elles avec la version attendue, et quelles vulnérabilités connues partent avec ce que vous construisez ? Depuis ces deux blocs, une session Claude peut prendre en charge le diagnostic ou le correctif.
@@ -117,7 +117,7 @@ Les Alertes signalent un conteneur en mauvaise santé, qui redémarre en boucle 
 Le bloc **Système** montre ce que l’ordinateur a sous le pied pendant que tournent les agents, les serveurs de dev et Docker. Il est activé par défaut (Réglages › Infra › Système) ; ajoutez-le à une page.
 
 - **CPU**, **Mémoire** et **Réseau**, chacun avec ses 10 dernières minutes. La couleur de la mémoire est la pression mémoire de macOS : vert, orange quand il compresse, rouge quand il swappe ; la barre répartit ce que tiennent les apps, le système (wired) et le compresseur.
-- **Disque** : l’espace libre du disque qui contient votre dossier personnel — orange sous 10 % ou 25 Go, rouge sous 5 % ou 10 Go, limites réglées dans Réglages › Infra › Système (`[system] disk_warn_gb`, `disk_warn_percent`, `disk_alert_gb`, `disk_alert_percent` ; 0 en désactive une) — et, sous **Disques**, les volumes externes branchés. Sur macOS, c’est ce qu’un fichier peut encore occuper : le Finder ajoute l’espace que le système pourrait purger.
+- **Disque** : l’espace libre du disque qui contient votre dossier personnel — orange sous 10 % ou 25 Go, rouge sous 5 % ou 10 Go, limites réglées dans Réglages › Infra › Système (`[system] disk_warn_gb`, `disk_warn_percent`, `disk_alert_gb`, `disk_alert_percent` ; 0 en désactive une) — et, sous **Disques**, les volumes externes branchés. Sur macOS, c’est ce qu’un fichier peut encore occuper : le Finder ajoute l’espace que le système pourrait purger. Pour voir où va la place, le bloc Espace disque ci-dessous scanne un dossier.
 - **Qui consomme**, groupé selon ce que Prism connaît : ses agents (leurs processus sous tmux), Docker (sa machine virtuelle), les shells et serveurs de dev, Prism lui-même, puis les trois autres applications les plus lourdes, leurs processus auxiliaires comptés avec elles. Le CPU est en % d’un cœur, additionné.
 - **Réseau** : la latence d’une poignée de main TCP vers les services qu’appelle Prism (sa forge, son tracker, l’API de ses agents, et `[system] hosts`), toutes les 15 s, avec les dernières poignées de main de chaque hôte ; la perte et la gigue sur 5 minutes, la passerelle par défaut, le trafic, et le signal et le débit du lien Wi-Fi (jamais le nom du réseau).
 
@@ -127,3 +127,17 @@ Sur le téléphone, **Système** est l’une des vues de l’accès à distance 
 
 [Ouvrir le bloc Système](prism:block/system)
 [Ouvrir Réglages › Infra › Système](prism:settings/system)
+
+## Espace disque
+Le bloc **Espace disque** montre où va la place d’un dossier ou de tout le disque, scanné à la demande : rien n’est lu avant que vous scanniez, rien n’est surveillé entre deux scans. Il est activé par défaut (Réglages › Infra › Espace disque) ; ajoutez-le à une page.
+
+- **Scanner** : choisissez un dossier de `[disk_usage] roots` (le dossier personnel `~`, tout le disque `/`…) ou **Choisir…** n’importe quel autre, puis **Scanner** ; **Rescanner** le relit, **Arrêter** met fin au scan tout de suite. Le bloc reste sur le disque du dossier (`[disk_usage] one_volume`) : les autres disques et partages réseau montés à l’intérieur sont laissés de côté, comme les dossiers gardés seulement dans le cloud (iCloud Drive, OneDrive…), qui n’occupent pas de place. Sur macOS, le système peut demander une fois si Prism peut lire Documents, Bureau, Téléchargements ou Photos : le scan attend votre réponse (l’accès complet au disque l’évite).
+- **La liste**, à gauche : les dossiers par taille, ouverts un niveau à la fois avec ▸, leur part et **Δ**, de combien chacun a grossi ou diminué depuis le scan précédent (`[disk_usage] delta`). Les dépôts git et les worktrees sont signalés.
+- **La treemap**, à droite : chaque dossier un rectangle de sa taille, sur trois niveaux, coloré par type (build, cache, VM, médias, modèles, archives…) ou par dossier.
+- Un clic sélectionne (son chemin et sa taille en dessous, avec ses actions), un double-clic ouvre un dossier, le chemin au-dessus permet de remonter ; un clic droit donne les actions : l’afficher dans le gestionnaire de fichiers, un terminal à cet endroit, copier son chemin, le scanner seul, le mettre à la corbeille (deux clics).
+- **Récupérable** : ce qui peut être reconstruit, reconnu par son nom — `node_modules`, `target/` de Rust, `.venv`, `.next` et les autres builds JavaScript, `.terraform`, CocoaPods, le DerivedData de Xcode, les caches, les simulateurs iOS qu’aucun Xcode ne peut lancer, l’image disque de Docker, la corbeille. Chaque groupe indique comment il est libéré et part en deux clics ; **Afficher** trouve le plus gros. Désactivez `[disk_usage] cleanup` pour un bloc qui ne fait que lire.
+
+Les tailles sont ce que les fichiers occupent sur le disque (une image disque creuse compte ce qu’elle contient, un lien dur une seule fois). Le dernier scan de chaque dossier est conservé dans le dossier de données de Prism : Δ s’y compare, et le bloc le réaffiche après un redémarrage, moins détaillé (les petits dossiers additionnés dans leur parent) jusqu’au scan suivant.
+
+[Ouvrir le bloc Espace disque](prism:block/disk_usage)
+[Ouvrir Réglages › Infra › Espace disque](prism:settings/disk_usage)

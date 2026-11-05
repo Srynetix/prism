@@ -2,6 +2,7 @@ import { EXTRA_BLOCKS } from '$extra-blocks'
 import type { BlockDef } from './block'
 import { bqcost, data } from './data'
 import { devServers } from './dev_servers'
+import { diskUsage } from './disk_usage'
 import { docker } from './docker'
 import { pet, quotes, shipit } from './fun'
 import { sound } from './sound'
@@ -14,7 +15,7 @@ import { trail } from './trail'
  * The blocks with a source of their own compiled into this Prism (see `block.ts`): their
  * declarations, without their components (`components.ts`, read by the grid only).
  */
-export const BLOCKS = [trail, devServers, docker, data, bqcost, status, system, sound, tokens, shipit, quotes, pet] as const
+export const BLOCKS = [trail, devServers, docker, data, bqcost, status, system, diskUsage, sound, tokens, shipit, quotes, pet] as const
 
 /**
  * Prism's own; those of another repository (`$extra-blocks`) are not in the type: the core never
