@@ -15,7 +15,7 @@ import { ALERT_RULES } from './alert-bands'
  * they read of it changed (bootstrap.rs); only a pack's block that does not reload waits for a
  * restart (`Snapshot.waiting_restart`).
  */
-export type Kind = 'text' | 'path' | 'number' | 'toggle' | 'list' | 'select' | 'checks' | 'table'
+export type Kind = 'text' | 'longtext' | 'path' | 'number' | 'toggle' | 'list' | 'select' | 'checks' | 'table'
 /** Choice lists read from the machine. */
 export type Source = 'kube' | 'apps' | 'envs' | 'stages' | 'calendars' | `models:${AgentCli}` | `efforts:${AgentCli}`
 /**
@@ -216,12 +216,12 @@ export const SCHEMA: SectionSpec[] = [
         key: 'quick_actions', label: t('Quick actions'), kind: 'table', blank: { name: '', prompt: '', repos: [], worktree: false },
         hint: t('The prompt may name {repo} and {base} (the repository’s default branch). Repositories empty: offered on every one. Worktree: in a new worktree where the repository makes them; off, in its clone as it is. Mode empty: the one of the CLI’s settings.'),
         columns: [
-          { key: 'name', label: t('Name'), kind: 'text', width: '140px' },
-          { key: 'prompt', label: t('Prompt'), kind: 'text', placeholder: t('Update {base} from upstream, then scan with Trivy.') },
-          { key: 'repos', label: t('Repositories'), kind: 'list', optional: true, width: '140px' },
-          { key: 'worktree', label: t('Worktree'), kind: 'toggle', width: '80px' },
+          { key: 'name', label: t('Name'), kind: 'text', width: '130px' },
+          { key: 'prompt', label: t('Prompt'), kind: 'longtext', placeholder: t('Update {base} from upstream, then scan with Trivy.') },
+          { key: 'repos', label: t('Repositories'), kind: 'list', optional: true, width: '130px' },
+          { key: 'worktree', label: t('Worktree'), kind: 'toggle', width: '70px' },
           { key: 'mode', label: t('Mode'), kind: 'select', options: ['default', 'acceptEdits', 'plan'], optional: true, width: '110px' },
-          { key: 'kind', label: t('Kind'), kind: 'text', optional: true, width: '110px' },
+          { key: 'kind', label: t('Kind'), kind: 'text', optional: true, width: '90px' },
         ],
       },
     ],
