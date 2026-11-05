@@ -1,6 +1,8 @@
 import { EXTRA_COMPONENTS } from '$extra-components'
 import type { BlockComponent } from './block'
 import BigQueryCost from './data/BigQueryCost.svelte'
+import CustomBlocks from './custom/CustomBlocks.svelte'
+import CustomItem from './custom/CustomItem.svelte'
 import DataPipelines from './data/DataPipelines.svelte'
 import DevServers from './dev_servers/DevServers.svelte'
 import DiskUsage from './disk_usage/DiskUsage.svelte'
@@ -33,9 +35,11 @@ export const BLOCK_COMPONENTS: Record<string, BlockComponent<never>> = {
   system: System as BlockComponent<never>,
   sound: Sound as BlockComponent<never>,
   disk_usage: DiskUsage as BlockComponent<never>,
+  custom_blocks: CustomBlocks as BlockComponent<never>,
   'status:status': StatusItem as unknown as BlockComponent<never>,
   'system:status': SystemItem as unknown as BlockComponent<never>,
   'sound:status': SoundItem as unknown as BlockComponent<never>,
   'pet:status': PetItem as unknown as BlockComponent<never>,
+  'custom_blocks:status': CustomItem as unknown as BlockComponent<never>,
   ...EXTRA_COMPONENTS,
 }

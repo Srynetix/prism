@@ -15,6 +15,7 @@
   import RemoteAway from './settings/RemoteAway.svelte'
   import FeedbackRequests from './settings/FeedbackRequests.svelte'
   import DependenciesPanel from './settings/DependenciesPanel.svelte'
+  import CustomBlocksSettings from './settings/CustomBlocksSettings.svelte'
   import CleanupUsage from './settings/CleanupUsage.svelte'
   import { broughtBy } from '../feedback.svelte'
   import SectionFields from './settings/SectionFields.svelte'
@@ -56,6 +57,7 @@
     { id: 'remote-away-checks', label: t('Before leaving'), table: '[remote]' },
     { id: 'feedback-requests', label: t('My requests'), table: 'feedback.json' },
     { id: 'dependencies', label: t('Dependencies'), table: 'PATH' },
+    { id: 'custom-blocks', label: t('Custom blocks'), table: '[[custom_blocks]]' },
     { id: 'cleanup-usage', label: t('What you use'), table: 'usage.json' },
     ...SCHEMA.map((spec) => ({ id: spec.id, label: spec.label, table: spec.table, spec })),
     { id: 'file', label: t('Config file'), table: 'config.toml' },
@@ -593,6 +595,8 @@
       <FeedbackRequests />
     {:else if s.id === 'dependencies'}
       <DependenciesPanel />
+    {:else if s.id === 'custom-blocks'}
+      <CustomBlocksSettings />
     {:else if s.id === 'cleanup-usage'}
       <CleanupUsage onToml={() => !showToml && toggleToml()} />
     {:else if s.id === 'updates-now'}

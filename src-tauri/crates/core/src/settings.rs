@@ -164,6 +164,104 @@ pub fn set_repo(path: &Path, name: &str, keys: &serde_json::Map<String, serde_js
     write(path, &old, &doc.to_string())
 }
 
+/// Sets the file's `[[array]]` entry whose `key` is `id` (a custom block: `custom_blocks`, `id`):
+/// `entry` replaces it whole, keeping its place, or is added after the file's own when there is
+/// none; `None` removes it. The rest of the file as it is; a text on several lines written as a
+/// literal block (`'''`), as one types a script. Saved as `save` does.
+pub fn set_entry(path: &Path, array: &str, key: &str, id: &str, entry: Option<&serde_json::Map<String, serde_json::Value>>) -> Result<()> {
+    let old = std::fs::read_to_string(path).unwrap_or_default();
+    let new = entry_text(&old, array, key, id, entry)?;
+    write(path, &old, &new)
+}
+
+fn entry_text(old: &str, array: &str, key: &str, id: &str, entry: Option<&serde_json::Map<String, serde_json::Value>>) -> Result<String> {
+    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+    match doc.get(array) {
+        None if entry.is_none() => return Ok(old.to_string()),
+        None => {
+            doc.insert(array, Item::ArrayOfTables(ArrayOfTables::new()));
+        }
+        Some(Item::ArrayOfTables(_)) => {}
+        Some(_) => bail!("{array} is not a list of [[{array}]] tables"),
+    }
+    let rows = doc[array].as_array_of_tables_mut().context("array")?;
+    let at = rows.iter().position(|t| t.get(key).and_then(Item::as_str) == Some(id));
+    match (entry, at) {
+        (None, Some(i)) => {
+            rows.remove(i);
+        }
+        (None, None) => {}
+        (Some(map), at) => {
+            let t = entry_table(map)?;
+            match at.and_then(|i| rows.get_mut(i)) {
+                Some(row) => {
+                    // Its place and the comment above it kept.
+                    let decor = row.decor().clone();
+                    *row = t;
+                    *row.decor_mut() = decor;
+                }
+                None => rows.push(t),
+            }
+        }
+    }
+    if rows.is_empty() {
+        doc.remove(array);
+    }
+    Ok(doc.to_string())
+}
+
+/// The keys of an entry in the order one reads them (JSON objects come sorted): what it is, what
+/// it runs, when, the rest by name, its `[[tables]]` last.
+const ENTRY_ORDER: [&str; 18] = ["id", "name", "label", "command", "script", "args", "agent", "when", "every_seconds", "on_demand", "timeout_seconds", "cwd", "env", "critical", "remote", "enabled", "show_source", "actions"];
+
+fn entry_table(map: &serde_json::Map<String, serde_json::Value>) -> Result<Table> {
+    let rank = |k: &str| ENTRY_ORDER.iter().position(|o| *o == k).unwrap_or(ENTRY_ORDER.len() - 1);
+    let mut keys: Vec<_> = map.iter().filter(|(_, v)| !v.is_null()).collect();
+    keys.sort_by_key(|(k, v)| (v.as_array().is_some_and(|a| !a.is_empty() && a.iter().all(|i| i.is_object())), rank(k)));
+    let mut t = Table::new();
+    for (k, v) in keys {
+        t.insert(k, entry_item(v)?);
+    }
+    Ok(t)
+}
+
+/// `to_item`, a text on several lines as a literal block (`'''`), or a basic one escaped when it
+/// holds `'''` or a control character; its nested `[[tables]]` the same.
+fn entry_item(v: &serde_json::Value) -> Result<Item> {
+    match v {
+        serde_json::Value::String(s) if s.contains('\n') => {
+            let odd = |c: char| c.is_control() && c != '\n' && c != '\t';
+            let repr = if !s.contains("'''") && !s.chars().any(odd) {
+                format!("'''\n{s}'''")
+            } else {
+                let mut out = String::from("\"\"\"\n");
+                for c in s.chars() {
+                    match c {
+                        '\\' => out.push_str("\\\\"),
+                        '"' => out.push_str("\\\""),
+                        c if odd(c) => out.push_str(&format!("\\u{:04X}", c as u32)),
+                        c => out.push(c),
+                    }
+                }
+                out.push_str("\"\"\"");
+                out
+            };
+            // Parsed back, as written: toml_edit keeps the text of a value it read.
+            let value: Value = repr.parse().map_err(|e| anyhow::anyhow!("a text on several lines: {e}"))?;
+            anyhow::ensure!(value.as_str() == Some(s.as_str()), "a text on several lines not read back the same");
+            Ok(Item::Value(value))
+        }
+        serde_json::Value::Array(items) if !items.is_empty() && items.iter().all(|i| i.is_object()) => {
+            let mut tables = ArrayOfTables::new();
+            for i in items {
+                tables.push(entry_table(i.as_object().context("a table")?)?);
+            }
+            Ok(Item::ArrayOfTables(tables))
+        }
+        v => to_item(v),
+    }
+}
+
 /// `new` in place of `old`: the old copied to `.bak`, the new reread by `config::load`, the old
 /// put back if it does not load.
 fn write(path: &Path, old: &str, new: &str) -> Result<()> {
@@ -307,6 +405,30 @@ mod tests {
 
     fn edit(path: &[&str], value: Option<serde_json::Value>) -> Edit {
         Edit { path: path.iter().map(|s| s.to_string()).collect(), value }
+    }
+
+    /// A custom block saved from Settings: its script as a literal block, its actions as
+    /// `[[custom_blocks.actions]]`, replaced in place, then removed.
+    #[test]
+    fn sets_an_entry() {
+        let text = "[gitlab]\nproject = \"a\"\n\n# backups\n[[custom_blocks]]\nid = \"b\"\ncommand = [\"x\"]\n";
+        let entry = json!({ "id": "b", "script": "#!/bin/sh\necho '{}'\n", "every_seconds": 60, "actions": [{ "id": "go", "command": ["y"] }] });
+        let out = entry_text(text, "custom_blocks", "id", "b", entry.as_object()).unwrap();
+        let back: toml::Table = out.parse().unwrap();
+        assert_eq!(back["custom_blocks"][0]["script"].as_str(), Some("#!/bin/sh\necho '{}'\n"));
+        assert_eq!(back["custom_blocks"][0]["actions"][0]["id"].as_str(), Some("go"));
+        assert!(out.contains("# backups\n[[custom_blocks]]\nid = \"b\"\n"), "{out}");
+        assert!(out.contains("script = '''\n#!/bin/sh\necho '{}'\n'''\n"), "{out}");
+        assert!(out.contains("[[custom_blocks.actions]]"), "{out}");
+        // A script holding ''' itself, quotes and a control character: escaped, read back the same.
+        let odd = "a'''b\\\"\"\"\u{7}\n";
+        let tricky = json!({ "id": "c", "script": odd });
+        let out2 = entry_text(&out, "custom_blocks", "id", "c", tricky.as_object()).unwrap();
+        let back: toml::Table = out2.parse().unwrap();
+        assert_eq!(back["custom_blocks"][1]["script"].as_str(), Some(odd));
+        let gone = entry_text(&out2, "custom_blocks", "id", "b", None).unwrap();
+        let gone = entry_text(&gone, "custom_blocks", "id", "c", None).unwrap();
+        assert_eq!(gone.trim_end(), "[gitlab]\nproject = \"a\"");
     }
 
     #[test]

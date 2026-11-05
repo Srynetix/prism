@@ -214,6 +214,8 @@ fn export_bindings() {
     prism_blocks::system::SystemState::export_all(&cfg).unwrap();
     prism_blocks::sound::SoundState::export_all(&cfg).unwrap();
     prism_blocks::disk_usage::DiskUsageState::export_all(&cfg).unwrap();
+    prism_blocks::custom::State::export_all(&cfg).unwrap();
+    prism_blocks::custom::Read::export_all(&cfg).unwrap();
     prism_blocks::disk_usage::NodeView::export_all(&cfg).unwrap();
     prism_blocks::tokens::TokensState::export_all(&cfg).unwrap();
     prism_blocks::data::GcpData::export_all(&cfg).unwrap();

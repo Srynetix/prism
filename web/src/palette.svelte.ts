@@ -299,6 +299,7 @@ const CUSTOM_KEYS: Record<string, string> = {
   file: 'config.toml file',
   'updates-now': 'updates install version release',
   'remote-devices': 'remote phone devices pair passkey',
+  'custom-blocks': 'custom blocks script command json own block',
   'remote-away-checks': 'remote away leave sleep filevault restart power cut crash keep running awake',
   'feedback-requests': 'feedback requests issues',
   'cleanup-usage': 'cleanup usage unused never used most used default reset',

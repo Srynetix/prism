@@ -8,7 +8,7 @@ import { untrack } from 'svelte'
 import { closeHelp } from './help-view.svelte'
 import { closeSettings, saveEdits } from './settings.svelte'
 import { toast } from './toast.svelte'
-import { ALL_BLOCKS, BLOCK_LABELS, OPS_VIEWS, LAYOUT_VERSION, MAX_BANDS, MERGED_BLOCKS, RENAMED_VIEWS, RESET_VIEWS, bandRanges, compactBands, fitBands, viewById, viewRows, views, type BlockId, type View } from './views'
+import { knownBlock, blockLabel, OPS_VIEWS, LAYOUT_VERSION, MAX_BANDS, MERGED_BLOCKS, RENAMED_VIEWS, RESET_VIEWS, bandRanges, compactBands, fitBands, viewById, viewRows, views, type BlockId, type View } from './views'
 import { t } from './i18n.svelte'
 
 /**
@@ -84,7 +84,7 @@ function load(): Layout {
     // A block gone from the app is forgotten; an emptied column stays (it is removed in edit mode).
     // A merged block takes the place of the first of those it replaces.
     const seen = new Set<BlockId>()
-    const a = cols?.map((c) => c.map((b) => MERGED_BLOCKS[b] ?? b).filter((b) => ALL_BLOCKS.includes(b) && !seen.has(b) && !!seen.add(b)))
+    const a = cols?.map((c) => c.map((b) => MERGED_BLOCKS[b] ?? b).filter((b) => knownBlock(b) && !seen.has(b) && !!seen.add(b)))
     if (a?.length) arrangements[id] = a
   }
   const bands = Object.fromEntries(Object.entries(saved.bands ?? {}).filter(([id]) => arrangements[id]))
@@ -184,7 +184,7 @@ export function setView(id: string): Promise<void> {
 export function showBlock(id: BlockId | (string & {})) {
   const block = id as BlockId
   const v = views().find((x) => columnsOf(x).flat().includes(block))
-  if (!v) return toast(t('{block} is on no page: add it with Edit layout', { block: t(BLOCK_LABELS[block] ?? block) }))
+  if (!v) return toast(t('{block} is on no page: add it with Edit layout', { block: blockLabel(block) }))
   closeSettings()
   closeAgents()
   closeHelp()

@@ -27,7 +27,7 @@ Vous pouvez aussi modifier les pages une à une dans **Réglages › Interface �
 
 1. Cliquez sur **Modifier la disposition** dans l’en-tête.
 2. Faites glisser un bloc par sa poignée vers un autre emplacement ou une autre colonne.
-3. Cliquez sur **+ Bloc** pour ajouter un bloc. Le menu les regroupe par sujet (Vue d’ensemble, Tickets, Code et agents, CI et livraison, Sécurité, Infra, Data, Fun) ; survoler un bloc montre son aide et un aperçu en direct ; un bloc peut apparaître sur plusieurs pages.
+3. Cliquez sur **+ Bloc** pour ajouter un bloc. Le menu les regroupe par sujet (Vue d’ensemble, Tickets, Code et agents, CI et livraison, Sécurité, Infra, Data, Sur mesure, Fun) ; survoler un bloc montre son aide et un aperçu en direct ; un bloc peut apparaître sur plusieurs pages.
 4. Cliquez sur **+ Colonne** pour ajouter une colonne (quatre au plus), ou sur **×** sur un bloc pour le retirer de cette page.
 5. Cliquez sur **Terminé**, ou appuyez sur `Esc`. Les colonnes vides sont supprimées.
 
@@ -61,6 +61,16 @@ Ses éléments sont groupés selon ce qu’ils vous demandent, entre de fins tra
 
 > [!NOTE]
 > Faites un clic droit sur la barre d’état pour choisir les éléments qu’elle affiche, ou **Personnaliser…** pour les ranger : glissez-les le long de la barre, le trait orange séparant la gauche de la droite, ou dans le tiroir au-dessus pour les masquer. L’ordre est enregistré dans `[appearance] statusbar` (Réglages › Interface › Apparence) ; **Ordre par défaut** revient aux zones.
+
+## Les blocs sur mesure
+Un bloc à vous, sans Rust ni Svelte : une commande, ou un script écrit dans `config.toml`, qui affiche du JSON. Déclarez-le dans **Réglages › Interface › Blocs sur mesure** (ou `[[custom_blocks]]`) : **Commande** lance un programme avec ses arguments tels quels, jamais par un shell ; **Script** contient le programme lui-même, dans l’éditeur de l’onglet Fichiers, lancé par son shebang (bash, python3, node, `uv run --script` avec ses dépendances ; `/bin/sh` sans shebang), avec des modèles de départ qui affichent déjà un JSON valide. **Lancer maintenant** lance ce que vous éditez, enregistré ou non, et montre sa sortie ; **Écrire avec un agent** ouvre le lanceur avec le contrat et votre description, et **Charger le script de l’agent** amène ce qu’il a écrit dans l’éditeur.
+
+Sa sortie est un objet JSON dont le `kind` est `list` (titre, sous-titre, état `ok`/`warn`/`ko`, badge, lien), `gauge` ou `stats` (des chiffres avec seuils `warn`/`ko`, et une sparkline de leurs dernières valeurs), `markdown`, ou `table` (un clic sur une colonne la trie) ; tout le reste s’affiche tel quel. Ses `alerts` vont dans Alertes, une par `key`, et son `status` dans la barre d’état ; un échec, un timeout ou un JSON hors contrat s’affiche dans **Problèmes** avec la fin de sa sortie d’erreur. Chaque bloc est un bloc de page à part entière, `custom:<id>`, sous **Sur mesure** dans **+ Bloc** ; sur le téléphone, ils sont tous dans la vue **Blocs sur mesure** (sauf ceux en `remote = false`).
+
+Les actions (`[[custom_blocks.actions]]`) mettent des boutons sur les lignes concernées (`when = "state != 'ok'"`) : une commande ou un script lancé avec la ligne dans `PRISM_ITEM`, le bloc relu juste après, ou un agent ouvert dans le lanceur avec la ligne comme donnée. Elles viennent de la config uniquement : la sortie d’un script ne dit jamais quoi lancer.
+
+> [!WARNING]
+> Un bloc sur mesure tourne avec vos droits, à intervalle régulier, sans que personne ne regarde. Enregistré depuis les Réglages, il a votre confiance ; ajouté ou modifié ailleurs (un éditeur, un agent, une mise à jour de pack), il l’attend : le bloc montre ce qui a changé et d’où ça vient, et **Faire confiance et lancer** (deux clics, sur l’ordinateur uniquement) le laisse tourner. Le bloc d’un pack garde sa version de confiance en attendant ; un téléphone peut supprimer un bloc en attente, jamais lui faire confiance. Les secrets passent par référence (`env = { TOKEN = "keychain:<service>" }`), jamais en clair.
 
 ## Sur le téléphone
 

@@ -238,6 +238,10 @@ mod tests {
         // What runs a program, lets someone in, or is not a plain value: never.
         assert!(!phone_may_set(&p("agents", "bin"), Some(&json!("sh"))));
         assert!(!phone_may_set(&["agents".into(), "claude".into(), "bin".into()], Some(&json!("sh"))));
+        // A custom block runs its command on the computer: never set from a phone, whole or a key of it.
+        assert!(PHONE_SETTINGS.iter().all(|(t, _)| *t != "custom_blocks"));
+        assert!(!phone_may_set(&["custom_blocks".into()], Some(&json!([{ "id": "x", "command": ["sh"] }]))));
+        assert!(!phone_may_set(&p("custom_blocks", "command"), Some(&json!(["sh"]))));
         assert!(!phone_may_set(&p("remote", "settings"), Some(&json!(true))));
         assert!(!phone_may_set(&p("appearance", "friday_guard"), Some(&json!(false))));
         assert!(!phone_may_set(&p("alerts", "digest_times"), Some(&json!([{ "x": 1 }]))));

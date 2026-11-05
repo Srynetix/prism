@@ -1,6 +1,6 @@
 <script lang="ts">
   import { BLOCK_HELP } from '../block-help'
-  import { BLOCK_LABELS, type BlockId } from '../views'
+  import { blockLabel, isCustom, type BlockId } from '../views'
   import { openHelp } from '../help.svelte'
   import type { Guide } from '../help-guides'
   import { t } from '../i18n.svelte'
@@ -10,16 +10,17 @@
    * reads the guides when shown: every block imports this, the phone's too, which never shows it.
    */
   let { id }: { id: BlockId } = $props()
-  const help = $derived(BLOCK_HELP[id])
+  // A custom block: the help of custom blocks, under its own name.
+  const help = $derived(BLOCK_HELP[isCustom(id) ? 'custom_blocks' : id])
   let guide = $state<Guide | undefined>()
   $effect(() => {
     const block = id
-    void import('../help-guides').then((m) => (guide = m.guideFor(block)))
+    void import('../help-guides').then((m) => (guide = m.guideFor(isCustom(block) ? 'custom_blocks' : block)))
   })
 </script>
 
 {#if help}
-  <p class="purpose"><b>{t(BLOCK_LABELS[id])}</b> · {t(help.purpose)}</p>
+  <p class="purpose"><b>{blockLabel(id)}</b> · {t(help.purpose)}</p>
   <ul>{#each help.points as p, i (i)}<li>{t(p)}</li>{/each}</ul>
   <p class="source"><span>{t('Data: {source}', { source: t(help.source) })}</span>{#if guide}{@const g = guide}<button onclick={() => openHelp(g.id)} title={t('Help › {title}', { title: g.title })}>{t('Read the guide →')}</button>{/if}</p>
 {/if}

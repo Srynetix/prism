@@ -1,6 +1,6 @@
 [package]
 name = "prism-blocks"
-description = "Prism's own blocks (Docker, Disk usage, Dev servers, Data, Day trail, Pet, Status, System, Sound) and the SDK a team's blocks are written against."
+description = "Prism's own blocks (Docker, Disk usage, Dev servers, Data, Day trail, Pet, Status, System, Sound, Custom blocks) and the SDK a team's blocks are written against."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -29,6 +29,7 @@ reqwest.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 sysinfo.workspace = true
 tokio.workspace = true
 toml.workspace = true

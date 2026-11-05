@@ -14,7 +14,9 @@
   import Alerts from './components/Alerts.svelte'
   import { addColumn, bandsOf, columnsOf, currentView, editing, ensureSizes, showBlock, modeOf, moveBand, moveBlock, resetLayout, setView, shift, sizesOf, stepView, toggleEditing, toggleZen, zen, zoom } from './layout.svelte'
   import LayoutMenu from './components/LayoutMenu.svelte'
-  import { MAX_COLUMNS, bandRanges, views, type BlockId, type View } from './views'
+  import { MAX_COLUMNS, bandRanges, isCustom, views, type BlockId, type View } from './views'
+  import CustomBlock from './blocks/custom/CustomBlock.svelte'
+  import { customBlock } from './blocks/custom/types'
   import { BLOCK_COMPONENTS } from './blocks/components'
   import { BLOCK_DEFS } from './blocks'
   import { stateOf } from './blocks/block'
@@ -402,7 +404,8 @@
     const shown = columnsOf(v).flat()
     const sources = new Map<string, { count: number; title: string }>()
     for (const b of BLOCK_DEFS) {
-      const state = b.badge && shown.includes(b.id as BlockId) ? stateOf(b, full) : undefined
+      // Custom blocks: their badge on the pages showing any of them.
+      const state = b.badge && (shown.includes(b.id as BlockId) || (b.id === 'custom_blocks' && shown.some(isCustom))) ? stateOf(b, full) : undefined
       const badge = state !== undefined && b.badge!(state as never)
       if (badge && badge.count) sources.set(b.source ?? b.id, badge)
     }
@@ -549,6 +552,7 @@
     {:else if id === 'mail'}<Mail mail={full!.mail} enabled={!!full!.mail} error={full!.errors.mail} />
     {:else if id === 'ci' && full!.features?.ci_health === false}<BlockOff {id} title="CI health" logo="gitlab" color="var(--src-gitlab)" section="forge" setting="[forge] ci_health" reads="ci_health" />
     {:else if id === 'ci'}<CiHealth health={full!.ci_health} error={full!.errors.ci_health} />
+    {:else if isCustom(id)}<CustomBlock block={customBlock(full, id.slice('custom:'.length))} pageId={id} />
     {:else if id in BLOCK_COMPONENTS}{@const Block = BLOCK_COMPONENTS[id]}{@const def = BLOCK_DEFS.find((b) => b.id === id)!}{#if def.off && stateOf(def, full) === undefined}<BlockOff {id} {...def.off} />{:else}<Block state={stateOf(def, full) as never} error={full!.errors[def.source ?? id]} snap={full!} />{/if}
     {/if}
   {/snippet}

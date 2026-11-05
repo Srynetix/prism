@@ -1,6 +1,7 @@
 import { live } from './live.svelte'
 import { BLOCK_DEFS, type PluginBlockId } from './blocks'
 import type { ViewConfig } from './types'
+import { t } from './i18n.svelte'
 
 /**
  * App views (the rail's pages): each is a list of columns, each column a list
@@ -9,7 +10,27 @@ import type { ViewConfig } from './types'
  * (`EMPTY_VIEW`), and the pages wizard offers its templates. A new block of the core is declared
  * here; a block with a source of its own, in `blocks/`.
  */
-export type BlockId = 'todo' | 'sessions' | 'worktrees' | 'notes' | 'mrs' | 'sprint' | 'pods' | 'ci' | 'vulns' | 'envs' | 'renovate' | 'refinement' | 'agenda' | 'pickup' | 'mail' | 'retro' | 'argocd' | 'queue' | 'wip' | PluginBlockId
+export type BlockId = 'todo' | 'sessions' | 'worktrees' | 'notes' | 'mrs' | 'sprint' | 'pods' | 'ci' | 'vulns' | 'envs' | 'renovate' | 'refinement' | 'agenda' | 'pickup' | 'mail' | 'retro' | 'argocd' | 'queue' | 'wip' | PluginBlockId | CustomBlockId
+
+/** A custom block of `[[custom_blocks]]` (`blocks/custom/`): `custom:<id>`, declared in config.toml, not here. */
+export type CustomBlockId = `custom:${string}`
+export const CUSTOM_PREFIX = 'custom:'
+export const isCustom = (id: string): id is CustomBlockId => /^custom:[a-z0-9][a-z0-9_-]{0,39}$/.test(id)
+/** The custom blocks the snapshot has, in the config's order. */
+export const customBlocks = (): { id: string; label: string }[] =>
+  ((live.snapshot?.blocks?.custom_blocks as { blocks?: { id: string; label: string }[] } | undefined)?.blocks ?? []).map((b) => ({ id: b.id, label: b.label }))
+/** The custom blocks as page blocks (`custom:<id>`). */
+export const customBlockIds = (): CustomBlockId[] => customBlocks().map((b) => `${CUSTOM_PREFIX}${b.id}` as CustomBlockId)
+/** A block that can be on a page: one of Prism's, or any `custom:<id>` (it may come with the config, read after the layout). */
+export const knownBlock = (id: string): id is BlockId => ALL_BLOCKS.includes(id as BlockId) || isCustom(id)
+/** A block's name, translated: a custom block's own label (its id until the snapshot has it). */
+export function blockLabel(id: string): string {
+  if (isCustom(id)) {
+    const own = id.slice(CUSTOM_PREFIX.length)
+    return customBlocks().find((b) => b.id === own)?.label ?? own
+  }
+  return id in BLOCK_LABELS ? t(BLOCK_LABELS[id as BlockId]) : id
+}
 
 /** Name of each block, for the "+ Block" menu. */
 export const BLOCK_LABELS: Record<BlockId, string> = {
@@ -22,7 +43,7 @@ export const BLOCK_LABELS: Record<BlockId, string> = {
 export const ALL_BLOCKS = Object.keys(BLOCK_LABELS) as BlockId[]
 
 /** The groups of the "+ Block" menu, in this order; a block of `blocks/` names its own (`BlockDef.category`). */
-export const BLOCK_CATEGORIES = ['Overview', 'Tickets', 'Code & agents', 'CI & delivery', 'Security', 'Infra', 'Data', 'Fun'] as const
+export const BLOCK_CATEGORIES = ['Overview', 'Tickets', 'Code & agents', 'CI & delivery', 'Security', 'Infra', 'Data', 'Custom', 'Fun'] as const
 const CORE_CATEGORY: Record<string, string> = {
   todo: 'Overview', notes: 'Overview', agenda: 'Overview', mail: 'Overview',
   sprint: 'Tickets', refinement: 'Tickets', pickup: 'Tickets', retro: 'Tickets', wip: 'Tickets',
@@ -32,7 +53,7 @@ const CORE_CATEGORY: Record<string, string> = {
   pods: 'Infra', envs: 'Infra', argocd: 'Infra',
 }
 /** A block's group in the "+ Block" menu: Prism's own, a block's declaration, else Other. */
-export const blockCategory = (id: string): string => CORE_CATEGORY[id] ?? BLOCK_DEFS.find((b) => b.id === id)?.category ?? 'Other'
+export const blockCategory = (id: string): string => (isCustom(id) ? 'Custom' : (CORE_CATEGORY[id] ?? BLOCK_DEFS.find((b) => b.id === id)?.category ?? 'Other'))
 /** Blocks by group: the known groups in their order, then the others by name, Other last. */
 export function byCategory(ids: BlockId[]): { category: string; ids: BlockId[] }[] {
   const groups = new Map<string, BlockId[]>()
@@ -212,7 +233,7 @@ function fromConfig(c: ViewConfig, taken: Set<string>): View {
       n = 0
       continue
     }
-    const col = s.split(/[\s,]+/).map((b) => (MERGED_BLOCKS[b] ?? b) as BlockId).filter((b) => ALL_BLOCKS.includes(b) && !seen.has(b) && !!seen.add(b))
+    const col = s.split(/[\s,]+/).map((b) => (MERGED_BLOCKS[b] ?? b) as BlockId).filter((b) => knownBlock(b) && !seen.has(b) && !!seen.add(b))
     if (!col.length || n >= MAX_COLUMNS || bands.length >= MAX_BANDS) continue
     columns.push(col)
     n++

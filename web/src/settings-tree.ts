@@ -42,6 +42,7 @@ export const TREE: TreeNode[] = [
       { id: 'appearance', label: t('Appearance'), sections: ['appearance'] },
       { id: 'palette', label: t('Palette'), sections: ['palette'], toggle: 'palette' },
       { id: 'views', label: t('Pages'), sections: ['views'] },
+      { id: 'custom-blocks', label: t('Custom blocks'), sections: ['custom-blocks'] },
       { id: 'alerts', label: t('Alerts & sound'), sections: ['alerts', 'digest', 'audio'] },
       { id: 'openwith', label: t('Open with'), sections: ['openwith'] },
     ],

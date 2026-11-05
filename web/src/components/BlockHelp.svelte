@@ -2,7 +2,7 @@
   import BlockHelpContent from './BlockHelpContent.svelte'
   import { anchored, dismissable, exclusive } from '../popup'
   import { BLOCK_HELP } from '../block-help'
-  import { BLOCK_LABELS, type BlockId } from '../views'
+  import { blockLabel, isCustom, type BlockId } from '../views'
   import { feedbackOn, openFeedback } from '../feedback.svelte'
   import { t } from '../i18n.svelte'
 
@@ -12,7 +12,7 @@
    * Escape, a click elsewhere or a second click closes it.
    */
   let { id }: { id: string } = $props()
-  const help = $derived(BLOCK_HELP[id as BlockId])
+  const help = $derived(BLOCK_HELP[(isCustom(id) ? 'custom_blocks' : id) as BlockId])
 
   let open = $state(false)
   let button: HTMLButtonElement | undefined = $state()
@@ -30,9 +30,9 @@
 {#if help}
   <button bind:this={button} class="help" class:on={open} onclick={toggle} aria-expanded={open} aria-label={t('About this block')} title={t('About this block')}>?</button>
   {#if open}
-    <div use:portal {@attach anchored(() => button, { gap: 6 })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, resize: true })} class="bubble" role="dialog" aria-label={t('About {name}', { name: t(BLOCK_LABELS[id as BlockId]) })}>
+    <div use:portal {@attach anchored(() => button, { gap: 6 })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, resize: true })} class="bubble" role="dialog" aria-label={t('About {name}', { name: blockLabel(id) })}>
       <BlockHelpContent id={id as BlockId} />
-      {#if feedbackOn()}<button class="suggest" onclick={() => ((open = false), openFeedback({ where: `block ${BLOCK_LABELS[id as BlockId] ?? id} (${id})` }))}>{t('Suggest something for this block…')}</button>{/if}
+      {#if feedbackOn()}<button class="suggest" onclick={() => ((open = false), openFeedback({ where: `block ${blockLabel(id)} (${id})` }))}>{t('Suggest something for this block…')}</button>{/if}
     </div>
   {/if}
 {/if}

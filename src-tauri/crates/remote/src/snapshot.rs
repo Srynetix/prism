@@ -4,12 +4,16 @@
 use serde_json::{Map, Value};
 
 /// The snapshot's JSON without what stays on the computer: the remote's own state (its pairing token),
-/// Prism's own warnings and errors (paths, hosts, a mail's error), and the mail unless `[remote]
-/// mail` lets it out.
+/// Prism's own warnings and errors (paths, hosts, a mail's error), the mail unless `[remote]
+/// mail` lets it out, and of the custom blocks those kept on the computer (`remote = false`),
+/// everyone's declaration, error output (it may hold a secret) and diff.
 pub fn filter(mut snap: Value, mail: bool) -> Value {
     if let Some(obj) = snap.as_object_mut() {
         obj.remove("remote");
         obj.remove("problems");
+        if let Some(custom) = obj.get_mut("blocks").and_then(|b| b.get_mut("custom_blocks")) {
+            custom_blocks(custom);
+        }
         if !mail {
             obj.insert("mail".into(), Value::Null);
             if let Some(errors) = obj.get_mut("errors").and_then(Value::as_object_mut) {
@@ -18,6 +22,18 @@ pub fn filter(mut snap: Value, mail: bool) -> Value {
         }
     }
     snap
+}
+
+fn custom_blocks(state: &mut Value) {
+    let Some(blocks) = state.get_mut("blocks").and_then(Value::as_array_mut) else { return };
+    blocks.retain(|b| b.get("remote").and_then(Value::as_bool) != Some(false));
+    for b in blocks.iter_mut().filter_map(Value::as_object_mut) {
+        b.remove("def");
+        b.remove("stderr");
+        if let Some(p) = b.get_mut("pending").and_then(Value::as_object_mut) {
+            p.remove("diff");
+        }
+    }
 }
 
 /// One change: the value now at `path`, or the key removed (`delete`).
@@ -131,5 +147,12 @@ mod tests {
         let out = filter(snap.clone(), false);
         assert_eq!(out, json!({ "mail": null, "errors": { "gitlab": "y" } }));
         assert_eq!(filter(snap, true)["mail"], json!({ "unread": [1] }));
+    }
+
+    #[test]
+    fn a_phone_gets_no_custom_block_kept_on_the_computer_nor_secrets() {
+        let snap = json!({ "blocks": { "custom_blocks": { "blocks": [{ "id": "a", "remote": true, "def": { "script": "x" }, "stderr": "token=x", "pending": { "diff": [], "reason": "new" } }, { "id": "b", "remote": false }], "errors": [] } } });
+        let out = filter(snap, false);
+        assert_eq!(out["blocks"]["custom_blocks"], json!({ "blocks": [{ "id": "a", "remote": true, "pending": { "reason": "new" } }], "errors": [] }));
     }
 }

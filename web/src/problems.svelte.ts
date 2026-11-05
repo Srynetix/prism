@@ -3,6 +3,7 @@ import { pref, setPref } from './layout.svelte'
 import { packUpdates, updates } from './updates.svelte'
 import { t } from './i18n.svelte'
 import type { Snapshot } from './types'
+import type { CustomBlocksState } from './bindings/CustomBlocksState'
 
 /**
  * Prism's problems, in one list behind the status bar (ProblemsItem.svelte): what fails now (a
@@ -49,6 +50,11 @@ export function current(snap: Snapshot | null): Problem[] {
   const out: Problem[] = Object.entries(snap?.errors ?? {})
     .filter(([source]) => !QUIET_SOURCES.has(source))
     .map(([source, message]) => ({ level: source === 'config' && message.startsWith('no config yet') ? 'warn' : 'ko', where: source, message, count: 1, settings: source === 'config' ? 'file' : undefined }))
+  // A custom block whose last read failed: its reason and the end of its error output (never in prism.log).
+  for (const b of (snap?.blocks?.custom_blocks as CustomBlocksState | undefined)?.blocks ?? []) {
+    if (b.error && !b.pending) out.push({ level: 'ko', where: `custom:${b.id}`, message: b.stderr ? `${b.error}\n${b.stderr}` : b.error, count: 1, settings: 'custom-blocks' })
+  }
+  for (const e of (snap?.blocks?.custom_blocks as CustomBlocksState | undefined)?.errors ?? []) out.push({ level: 'ko', where: 'custom_blocks', message: e, count: 1, settings: 'custom-blocks' })
   for (const p of packUpdates.list) {
     if (p.error) out.push({ level: 'ko', where: t('pack {name}', { name: p.name }), message: t('its source does not read: {error}', { error: p.error }), count: 1, settings: 'packs' })
     else if (p.too_new) out.push({ level: 'warn', where: t('pack {name}', { name: p.name }), message: t('its source needs Prism {version}: update Prism to get it', { version: p.requires ?? '?' }), count: 1, settings: 'updates-now' })
