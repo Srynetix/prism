@@ -8,7 +8,7 @@
 
   /**
    * The status bar's item. With `[sound] status_volume` (on by default): always there, the output
-   * volume and the microphone's beside it (coloured while too low); the wheel sets the output volume, a click opens
+   * volume and the microphone's beside it (coloured while too low); the wheel sets the volume it is over, a click opens
    * a panel — output and microphone, each with its mute, volume and device, "Raise" while too low.
    * Off: nothing, unless the microphone is too low; a click shows the block.
    */
@@ -51,7 +51,7 @@
     open = !open
   }
 
-  /** The wheel on the item: ±5 % of output volume a notch, a trackpad's flow taken a step at a time. */
+  /** The wheel on the item: ±5 % a notch — the microphone's volume over its part, else the output's —, a trackpad's flow taken a step at a time. */
   let lastWheel = 0
   let chip = $state<HTMLButtonElement>()
   // Not passive, so it does not scroll the status bar too.
@@ -62,14 +62,15 @@
     return () => el.removeEventListener('wheel', wheel)
   })
   function wheel(e: WheelEvent) {
-    const out = snd?.output
-    if (!always || !app || !out || out.volume === null || !out.volume_settable) return
+    const side: Side = (e.target as Element | null)?.closest('.mic') ? 'input' : 'output'
+    const s = snd?.[side]
+    if (!always || !app || !s || s.volume === null || !s.volume_settable) return
     e.preventDefault()
     if (e.timeStamp - lastWheel < 60 || e.deltaY === 0) return
     lastWheel = e.timeStamp
-    const value = Math.max(0, Math.min(100, shown('output', out) + (e.deltaY < 0 ? 5 : -5)))
-    pending = { side: 'output', value }
-    void setVolume('output', value)
+    const value = Math.max(0, Math.min(100, shown(side, s) + (e.deltaY < 0 ? 5 : -5)))
+    pending = { side, value }
+    void setVolume(side, value)
   }
 
   const level = (side: Side, s: SoundSide) => (s.muted ? t('muted') : s.volume === null ? '—' : `${shown(side, s)} %`)
