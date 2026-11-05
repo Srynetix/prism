@@ -7,10 +7,12 @@
   import { canPick, pickPath } from '../../pick'
   import Icon from '../Icon.svelte'
   import { t } from '../../i18n.svelte'
+  import { agentsSettings } from '../../agents.svelte'
 
   /**
    * An input according to the key's type: text, path (a folder, typed or chosen in the system's
-   * picker), number, switch, choice, checkboxes, list. Text with options: typed, those suggested
+   * picker), long text (a prompt: several lines, the box resized by its corner), number, switch,
+   * choice, checkboxes, list. Text with options: typed, those suggested
    * (an agent CLI's models).
    * `optional`: when empty, the key is removed (`onchange(null)`). Text is only saved when
    * leaving the field (or Enter), for a TOML preview that does not move with every letter.
@@ -36,6 +38,7 @@
     if (Array.isArray(options)) return options
     if (!options) return []
     if (options === 'envs') return stageEnvs()
+    if (options === 'kinds') return agentsSettings().kinds.map((k) => k.name)
     if (options.startsWith('models:')) return choices.models[options.slice(7) as AgentCli] ?? []
     if (options.startsWith('efforts:')) return choices.efforts[effortsKey(options.slice(8) as AgentCli)] ?? []
     return FIXED[options] ?? (options === 'kube' ? choices.kube : options === 'apps' ? choices.apps : options === 'calendars' ? choices.calendars : [])
@@ -77,6 +80,9 @@
   </span>
 {:else if kind === 'list'}
   <ListInput value={(value as string[] | null) ?? []} onchange={(v) => onchange(optional && !v.length ? null : v)} options={list} {placeholder} {compact} />
+{:else if kind === 'longtext'}
+  <!-- ⌘↵ leaves it, as Enter leaves a line. -->
+  <textarea class="t long" class:compact value={(value as string | null) ?? ''} {placeholder} rows="2" onchange={(e) => onchange(text(e.currentTarget.value))} onkeydown={(e) => e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.currentTarget.blur()}></textarea>
 {:else if kind === 'path' && canPick()}
   <span class="row nowrap">
     <input class="t mono" class:compact value={(value as string | null) ?? ''} {placeholder} spellcheck="false" onchange={(e) => onchange(text(e.currentTarget.value))} onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
@@ -97,6 +103,7 @@
   .t.mono { font-family: var(--mono); font-size: var(--fs-mono); }
   .t.compact { height: 26px; }
   .t.num { width: 90px; }
+  .t.long { display: block; height: auto; min-height: 28px; padding: 5px 9px; line-height: 1.4; resize: vertical; field-sizing: content; max-height: 320px; }
   select.t { max-width: 420px; }
   .unit { color: var(--text-muted); font-size: var(--fs-meta); }
   .check { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-body); cursor: pointer; }

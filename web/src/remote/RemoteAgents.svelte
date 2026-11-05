@@ -18,6 +18,7 @@
   import { agentEntry, type Group } from '../agents-list'
   import { projectsOf, type Project } from '../projects'
   import { implement, newAgentIn, nextOf, reopenLeft } from '../project-actions'
+  import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
   import { pref, setPref } from '../layout.svelte'
 
   /**
@@ -64,7 +65,7 @@
   const projects = $derived.by(() => {
     const groups: Group[] = repos.map((name) => ({ name, items: agents.filter((a) => agentRepo(a, snap) === name).map(agentEntry) })).filter((g) => g.items.length)
     groups.sort((x, y) => urgency(x) - urgency(y))
-    return projectsOf({ groups, repos, left: snap.left ?? [], next: nextOf, now: Date.now() })
+    return projectsOf({ groups, repos, left: snap.left ?? [], next: nextOf, now: Date.now(), kept: namedByQuickAction })
   })
   /** Agents outside every repository. */
   const elsewhere = $derived(agents.filter((a) => !agentRepo(a, snap)))
@@ -151,6 +152,10 @@
         {#if p.left.said}<q>{p.left.said}</q>{/if}
         {#if acts && p.left.resumable}<div class="chips"><button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => reopenLeft(p.name))}>↻ {t('Reopen')}</button></div>{/if}
       </div>
+    {/if}
+    {#if acts}
+      {@const quick = quickActionsHere(p.name)}
+      {#if quick.length}<div class="chips quick">{#each quick as a, i (i)}<button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => runQuickAction(a, p.name))} title={a.prompt}><Icon name="quick" /> {a.name}</button>{/each}</div>{/if}
     {/if}
     {#if p.next}
       <div class="next"><span class="muted">{tc('project', 'Next')}</span><code>{p.next.id}</code><span class="nm">{p.next.name}</span>{#if acts}<button class="btn" onclick={() => implement(p.next!)} aria-label={t('Implement {ticket}', { ticket: p.next.id })}>▶</button>{/if}</div>
@@ -302,6 +307,7 @@
   .proj .left p { margin: 0; }
   .proj .left code { font-family: var(--mono); }
   .proj .left q { display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; color: var(--text); quotes: '« ' ' »'; }
+  .proj .quick { margin: 0 12px 10px; }
   .proj .next { display: flex; align-items: center; gap: 7px; padding: 8px 12px 10px; border-top: 1px solid var(--border); font-size: 13px; }
   .proj .next code { color: var(--info); font-family: var(--mono); }
   .proj .next .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

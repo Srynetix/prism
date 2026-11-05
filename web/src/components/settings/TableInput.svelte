@@ -12,7 +12,8 @@
    * cell removes its key from the row. `fromPack`: a pack's entry ([[repos]], merged by name), whose
    * × only drops the file's changes and whose place is the pack's. Too narrow for its columns (a
    * wide table, the TOML panel open): one card per row instead, its first column as the title, its
-   * fields side by side, its toggles as chips.
+   * fields side by side, its toggles as chips. A long text column (a prompt) is the widest, its rows
+   * then aligned on their top, and a card's whole width.
    */
   type Row = Record<string, unknown>
   let { rows, columns, blank, onchange, fromPack }: { rows: Row[]; columns: Column[]; blank: Row; onchange: (rows: Row[]) => void; fromPack?: (r: Row) => boolean } = $props()
@@ -30,7 +31,8 @@
     ;[next[i - 1], next[i]] = [next[i], next[i - 1]]
     onchange(next)
   }
-  const grid = $derived(`${columns.map((c) => c.width ?? 'minmax(0, 1fr)').join(' ')} 52px`)
+  const grid = $derived(`${columns.map((c) => c.width ?? (c.kind === 'longtext' ? 'minmax(0, 3fr)' : 'minmax(0, 1fr)')).join(' ')} 52px`)
+  const tall = $derived(columns.some((c) => c.kind === 'longtext'))
 
   /** What the table needs: its fixed columns, and room for a path or a project in the flexible ones. */
   const needed = $derived(columns.reduce((sum, c) => sum + (c.width?.endsWith('px') ? parseInt(c.width) : 170) + 8, 52))
@@ -58,14 +60,14 @@
   <div class="cell"><Control kind={c.kind} value={cellValue(r, c)} onchange={(v) => set(i, c.key, v)} options={c.options} optional={c.optional} placeholder={c.placeholder} compact />{#if c.check}<CheckBadge req={requestOf(c.check, r[c.key], (k) => r[k])} compact />{/if}</div>
 {/snippet}
 
-<div class="table" class:cards style:--grid={grid} bind:clientWidth={width}>
+<div class="table" class:cards class:tall style:--grid={grid} bind:clientWidth={width}>
   {#if cards}
     {#each rows as r, i (i)}
       <div class="card">
         <div class="top">{@render cell(r, i, title)}{@render acts(r, i)}</div>
         {#if fields.length}
           <div class="fields">
-            {#each fields as c (c.key)}<label class="field"><span>{c.label}</span>{@render cell(r, i, c)}</label>{/each}
+            {#each fields as c (c.key)}<label class="field" class:long={c.kind === 'longtext'}><span>{c.label}</span>{@render cell(r, i, c)}</label>{/each}
           </div>
         {/if}
         {#if toggles.length}
@@ -98,6 +100,10 @@
   .head, .row { display: grid; grid-template-columns: var(--grid); gap: 8px; align-items: center; }
   .head span { font-size: 10px; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; color: var(--text-muted); }
   .cell { min-width: 0; display: flex; align-items: center; gap: 4px; }
+  .tall .row { align-items: start; }
+  .tall .row .cell { min-height: 26px; }
+  .tall .row :global(textarea) { flex: 1; }
+  .field.long { grid-column: 1 / -1; }
   .acts { display: flex; gap: 2px; }
   .acts button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; border-radius: var(--r6); background: none; color: var(--text-muted); cursor: pointer; }
   .acts button:hover:not(:disabled) { color: var(--text); background: var(--surface-muted); }

@@ -44,6 +44,7 @@
   import { t, tn, tc } from '../i18n.svelte'
   import { projectsOf, type Project } from '../projects'
   import { implement, newAgentIn, nextOf, reopenLeft } from '../project-actions'
+  import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
 
   /**
    * Agents view: the agents launched by Prism and the desktop
@@ -105,7 +106,7 @@
    * left and its next ticket, a + for a new agent in it; those resting folded. Not while the list
    * is narrowed (a tag, the archived, Desktop only, the header's filter): only what it finds then.
    */
-  const projects = $derived(groupBy === 'repo' && !tagOn && !showArchived && filter !== 'desktop' && !queried ? projectsOf({ groups: groups.filter((g) => repos.includes(g.name)), repos, left: live.snapshot?.left ?? [], next: nextOf, now: Date.now() }) : null)
+  const projects = $derived(groupBy === 'repo' && !tagOn && !showArchived && filter !== 'desktop' && !queried ? projectsOf({ groups: groups.filter((g) => repos.includes(g.name)), repos, left: live.snapshot?.left ?? [], next: nextOf, now: Date.now(), kept: namedByQuickAction }) : null)
   /** Beside the projects: agents outside every repository, Claude Desktop's. */
   const others = $derived(projects ? groups.filter((g) => !repos.includes(g.name)) : groups)
   let showResting = $state(false)
@@ -529,6 +530,10 @@
       {#if p.left.resumable}<button onclick={() => act(() => reopenLeft(p.name))} disabled={!agentsAvailable()} title={t('Back in the list, on its conversation ({cli})', { cli: cliOf(p.left.provider).name })}><Icon name="retry" size={11} />{t('Reopen')}</button>{/if}
     </div>
   {/if}
+  {@const quick = quickActionsHere(p.name)}
+  {#if quick.length}
+    <div class="quick">{#each quick as a, i (i)}<button onclick={(ev) => act(() => runQuickAction(a, p.name, ev.shiftKey))} disabled={!agentsAvailable()} title={`${a.prompt}\n${keys(t('⇧-click: change it before it goes'))}`}><Icon name="quick" size={10} />{a.name}</button>{/each}</div>
+  {/if}
   {#if p.next}
     <div class="next"><span class="muted">{tc('project', 'Next')}</span><button class="tk" onclick={() => openTicket(p.next!.id)} title={p.next.name}>{p.next.id}</button><span class="nm">{p.next.name}</span><button class="go" onclick={() => implement(p.next!)} title={t('Implement {ticket}', { ticket: p.next.id })} aria-label={t('Implement {ticket}', { ticket: p.next.id })}><Icon name="play" size={10} /></button></div>
   {/if}
@@ -873,6 +878,12 @@
   :global(html[lang='en']) .left q { quotes: '“' '”'; }
   .left button, .next button { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .left button:hover:not(:disabled), .next button:hover { border-color: var(--src-claude); }
+  /* Its quick actions: an agent each, in one click. */
+  .quick { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 8px 4px 20px; }
+  .quick button { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .quick button :global(svg) { flex: none; color: var(--src-claude); }
+  .quick button:hover:not(:disabled) { border-color: var(--src-claude); }
+  .quick button:disabled { opacity: 0.4; cursor: default; }
   /* Its next ticket: Implement at hand. */
   .next { display: flex; align-items: center; gap: 6px; margin: 0 8px 4px 20px; font-size: var(--fs-meta); min-width: 0; }
   .next .tk { padding: 0 5px; border-color: transparent; background: none; color: var(--info); font-family: var(--mono); }

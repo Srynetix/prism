@@ -193,6 +193,7 @@ export const ICONS = {
   kanban: Kanban, // tickets, boards
   queue: ListOrdered, // merge queue (⇶)
   automerge: Zap, // ⚡ ⇥
+  quick: Zap, // a quick action: an agent in one click
   security: ShieldAlert, // ⛨
   secure: ShieldCheck, // nothing to fix
   logs: ScrollText, // ≡

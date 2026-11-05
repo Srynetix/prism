@@ -3,6 +3,7 @@ import type { AgentKind } from "./AgentKind";
 import type { AgentProvider } from "./AgentProvider";
 import type { ClaudeConfig } from "./ClaudeConfig";
 import type { CliConfig } from "./CliConfig";
+import type { QuickAction } from "./QuickAction";
 import type { QuickAnswersConfig } from "./QuickAnswersConfig";
 
 /**
@@ -96,6 +97,11 @@ codex: CliConfig,
  * One-click answers to an agent at its prompt (`[agents.quick_answers]`).
  */
 quick_answers: QuickAnswersConfig, 
+/**
+ * Agents launched in one click on a repository (`[[agents.quick_actions]]`), the same job each
+ * time: from its project in the Agents view, the palette and the phone.
+ */
+quick_actions: Array<QuickAction>, 
 /**
  * Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
  * to Prism, as everywhere else.

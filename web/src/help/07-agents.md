@@ -178,6 +178,13 @@ Settings › Agents › Quick answers (`[agents.quick_answers]`) turns them off,
 
 [Open Settings › Agents › Quick answers](prism:settings/quick-answers)
 
+## Quick actions
+A job you ask of an agent again and again on the same repository — bring its main branch up to date from upstream, run a Trivy scan, refresh its lock file — is a quick action: a button with a ⚡ on its project in the Agents view (grouped by repository) and on the phone, and a line in the palette (⌘K, its name or its repository's). A click launches the agent at once, titled after it, a toast to open it; ⇧-click, or ⌘↵ on its line in the palette, opens the launcher prefilled, to change it before it goes.
+
+Settings › Agents › Quick actions (`[[agents.quick_actions]]`) lists them: a name, the prompt (`{repo}` and `{base}`, the repository's default branch, are replaced), the repositories it is offered on (empty: every one), **Worktree** (a new worktree where the repository makes them; off, its clone as it is — what bringing `main` up to date needs), the **Mode** (`acceptEdits` to let it work alone; empty, the CLI's) and its **Kind**. A pack can give a team's.
+
+[Open Settings › Agents › Quick actions](prism:settings/quick-actions)
+
 On the phone, the **Agents** tab lists Prism's agents (not Claude Desktop's sessions): those **waiting for you** first — the question they ask, the command they want to run, or their plan — with their quick answers, **Allow** and the keys at hand; then those working, then the idle ones; the stopped ones fold at the bottom. A tap opens the agent's terminal. At the top, the plan's usage as in the status bar (the 5 h session and the week, in %); a tap shows each window with its reset and the week day by day. Under it, **New agent** starts one on a prompt, in a new worktree.
 
 On the phone, the box under an agent's terminal sends a text of your own: **Send** asks your passkey (Face ID, fingerprint), then the agent gets the text at once, as typed on the computer — even while it works. The passkey is asked once per agent for the step-up window (**Typing to agents**, Settings › Remote), which also covers **Take**; Return adds a line, only **Send** sends. The quick answers, 1 2 3, **Interrupt** (Esc) and Allow need no passkey. In one of its shells, every key is typing (the same passkey), and **Again** runs the shell's last command once more (↑ then Enter, from its history, whoever typed it); the shell taken (**Take**), ↻ on the keys bar does the same.

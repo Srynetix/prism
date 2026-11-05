@@ -15,9 +15,9 @@ import { ALERT_RULES } from './alert-bands'
  * they read of it changed (bootstrap.rs); only a pack's block that does not reload waits for a
  * restart (`Snapshot.waiting_restart`).
  */
-export type Kind = 'text' | 'path' | 'number' | 'toggle' | 'list' | 'select' | 'checks' | 'table'
+export type Kind = 'text' | 'longtext' | 'path' | 'number' | 'toggle' | 'list' | 'select' | 'checks' | 'table'
 /** Choice lists read from the machine. */
-export type Source = 'kube' | 'apps' | 'envs' | 'stages' | 'calendars' | `models:${AgentCli}` | `efforts:${AgentCli}`
+export type Source = 'kube' | 'apps' | 'envs' | 'stages' | 'calendars' | 'kinds' | `models:${AgentCli}` | `efforts:${AgentCli}`
 /**
  * Live check of a value (checks.rs); `kube_namespace` takes its context from the
  * neighboring key `context`.
@@ -204,6 +204,24 @@ export const SCHEMA: SectionSpec[] = [
           { key: 'label', label: t('Label'), kind: 'text', width: '120px' },
           { key: 'text', label: t('Text sent'), kind: 'text', placeholder: t('Go ahead, do it.') },
           { key: 'submit', label: t('Submitted'), kind: 'toggle', width: '80px' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'agents-actions', label: t('Quick actions'), table: '[[agents.quick_actions]]', path: ['agents'],
+    intro: t('The same job asked again and again of an agent on a repository (bring its main branch up to date, run a scan…): one button each on its project in the Agents view (grouped by repository) and on the phone, and a line in the palette. A click launches the agent at once; ⇧-click, or ⌘↵ in the palette, opens the launcher prefilled, to change it first.'),
+    fields: [
+      {
+        key: 'quick_actions', label: t('Quick actions'), kind: 'table', blank: { name: '', prompt: '', repos: [], worktree: false },
+        hint: t('The prompt may name {repo} and {base} (the repository’s default branch). Repositories empty: offered on every one. Worktree: in a new worktree where the repository makes them; off, in its clone as it is. Mode empty: the one of the CLI’s settings.'),
+        columns: [
+          { key: 'name', label: t('Name'), kind: 'text', width: '130px' },
+          { key: 'prompt', label: t('Prompt'), kind: 'longtext', placeholder: t('Update {base} from upstream, then scan with Trivy.') },
+          { key: 'repos', label: t('Repositories'), kind: 'list', optional: true, width: '130px' },
+          { key: 'worktree', label: t('Worktree'), kind: 'toggle', width: '70px' },
+          { key: 'mode', label: t('Mode'), kind: 'select', options: ['default', 'acceptEdits', 'plan'], optional: true, width: '110px' },
+          { key: 'kind', label: t('Kind'), kind: 'select', options: 'kinds', optional: true, width: '110px' },
         ],
       },
     ],

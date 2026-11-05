@@ -123,6 +123,23 @@ export function toastLaunched(id: string, title: string, prepared = false) {
 }
 
 /**
+ * An agent launched at once, without the launcher. On a phone it opens; in the window, where it was
+ * launched from stays (a toast opens it), unless that is the Agents view: it is picked there. Its
+ * id, or `null` when it failed (said in a toast).
+ */
+export async function launchNow(launch: Launch): Promise<string | null> {
+  try {
+    const id = await spawnAgent(launch)
+    if (isDesktop() && !(agentsView.open && !settingsView.open && !helpView.open)) toastLaunched(id, launch.title)
+    else openAgents(id)
+    return id
+  } catch (e) {
+    toast(String(e))
+    return null
+  }
+}
+
+/**
  * The launcher, prefilled: in the Agents view while it is the one shown (its New, ⌘N, an agent's
  * Launch again…), otherwise as a drawer over what is open, which the launch leaves in place. On a
  * phone, always the drawer (the whole screen): its Agents view has no launcher of its own.
@@ -156,7 +173,7 @@ export async function afterLaunch(onLaunch: (() => Promise<void>) | null | undef
 /** Agents only run in the app: the browser preview has no tmux server. */
 export const agentsAvailable = hasCore
 
-const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true }
+const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, quick_actions: [], terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true }
 /** `[agents]` from config.toml, with its defaults until the snapshot has brought it. */
 export const agentsSettings = (): AgentsSettings => live.snapshot?.agents_settings ?? DEFAULTS
 /**
