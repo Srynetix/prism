@@ -349,6 +349,7 @@ pub struct QuickAction {
     pub worktree: bool,
     /// `default`, `acceptEdits` or `plan`; absent: the mode from the CLI's settings.
     #[cfg_attr(feature = "ts", ts(type = "'default' | 'acceptEdits' | 'plan' | null"))]
+    #[serde(deserialize_with = "quick_action_mode")]
     pub mode: Option<String>,
     /// One of the `[[agents.kinds]]`; absent: the one its prompt's command names.
     pub kind: Option<String>,
@@ -512,6 +513,18 @@ fn launcher_mode<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Er
         tracing::warn!("[agents] permission_mode {mode:?}: not one the launcher offers, default instead");
         "default".into()
     })
+}
+
+/// A quick action's `mode`: one the launcher offers, otherwise none (the CLI's own), said in the log.
+fn quick_action_mode<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+    let mode = Option::<String>::deserialize(d)?;
+    Ok(mode.filter(|m| {
+        let ok = matches!(m.as_str(), "default" | "acceptEdits" | "plan");
+        if !ok {
+            tracing::warn!("[[agents.quick_actions]] mode {m:?}: not one the launcher offers, the CLI's own instead");
+        }
+        ok
+    }))
 }
 
 impl Default for UpdatesConfig {
@@ -854,6 +867,8 @@ pub mod tests {
         let c = parsed("[[agents.quick_actions]]\nname = \"Upstream + Trivy\"\nprompt = \"Update {base}.\"\nrepos = [\"api\"]\nmode = \"acceptEdits\"\n");
         assert_eq!(c.agents.quick_actions, [QuickAction { name: "Upstream + Trivy".into(), prompt: "Update {base}.".into(), repos: vec!["api".into()], worktree: false, mode: Some("acceptEdits".into()), kind: None }]);
         assert!(AgentsConfig::default().quick_actions.is_empty());
+        let c = parsed("[[agents.quick_actions]]\nname = \"Scan\"\nmode = \"bypassPermissions\"\n");
+        assert_eq!(c.agents.quick_actions[0].mode, None, "a mode the launcher does not offer is dropped");
     }
 
     /// A phone's quick answer is checked against this list: the window's defaults must be the same.

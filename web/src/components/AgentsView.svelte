@@ -44,7 +44,7 @@
   import { t, tn, tc } from '../i18n.svelte'
   import { projectsOf, type Project } from '../projects'
   import { implement, newAgentIn, nextOf, reopenLeft } from '../project-actions'
-  import { quickActionsOn, runQuickAction } from '../quick-actions'
+  import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
 
   /**
    * Agents view: the agents launched by Prism and the desktop
@@ -106,7 +106,7 @@
    * left and its next ticket, a + for a new agent in it; those resting folded. Not while the list
    * is narrowed (a tag, the archived, Desktop only, the header's filter): only what it finds then.
    */
-  const projects = $derived(groupBy === 'repo' && !tagOn && !showArchived && filter !== 'desktop' && !queried ? projectsOf({ groups: groups.filter((g) => repos.includes(g.name)), repos, left: live.snapshot?.left ?? [], next: nextOf, now: Date.now(), kept: (r) => quickActionsOn(r).length > 0 }) : null)
+  const projects = $derived(groupBy === 'repo' && !tagOn && !showArchived && filter !== 'desktop' && !queried ? projectsOf({ groups: groups.filter((g) => repos.includes(g.name)), repos, left: live.snapshot?.left ?? [], next: nextOf, now: Date.now(), kept: namedByQuickAction }) : null)
   /** Beside the projects: agents outside every repository, Claude Desktop's. */
   const others = $derived(projects ? groups.filter((g) => !repos.includes(g.name)) : groups)
   let showResting = $state(false)
@@ -530,7 +530,7 @@
       {#if p.left.resumable}<button onclick={() => act(() => reopenLeft(p.name))} disabled={!agentsAvailable()} title={t('Back in the list, on its conversation ({cli})', { cli: cliOf(p.left.provider).name })}><Icon name="retry" size={11} />{t('Reopen')}</button>{/if}
     </div>
   {/if}
-  {@const quick = quickActionsOn(p.name)}
+  {@const quick = quickActionsHere(p.name)}
   {#if quick.length}
     <div class="quick">{#each quick as a, i (i)}<button onclick={(ev) => act(() => runQuickAction(a, p.name, ev.shiftKey))} disabled={!agentsAvailable()} title={`${a.prompt}\n${keys(t('⇧-click: change it before it goes'))}`}><Icon name="quick" size={10} />{a.name}</button>{/each}</div>
   {/if}

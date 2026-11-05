@@ -18,7 +18,7 @@
   import { agentEntry, type Group } from '../agents-list'
   import { projectsOf, type Project } from '../projects'
   import { implement, newAgentIn, nextOf, reopenLeft } from '../project-actions'
-  import { quickActionsOn, runQuickAction } from '../quick-actions'
+  import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
   import { pref, setPref } from '../layout.svelte'
 
   /**
@@ -65,7 +65,7 @@
   const projects = $derived.by(() => {
     const groups: Group[] = repos.map((name) => ({ name, items: agents.filter((a) => agentRepo(a, snap) === name).map(agentEntry) })).filter((g) => g.items.length)
     groups.sort((x, y) => urgency(x) - urgency(y))
-    return projectsOf({ groups, repos, left: snap.left ?? [], next: nextOf, now: Date.now(), kept: (r) => quickActionsOn(r).length > 0 })
+    return projectsOf({ groups, repos, left: snap.left ?? [], next: nextOf, now: Date.now(), kept: namedByQuickAction })
   })
   /** Agents outside every repository. */
   const elsewhere = $derived(agents.filter((a) => !agentRepo(a, snap)))
@@ -154,7 +154,7 @@
       </div>
     {/if}
     {#if acts}
-      {@const quick = quickActionsOn(p.name)}
+      {@const quick = quickActionsHere(p.name)}
       {#if quick.length}<div class="chips quick">{#each quick as a, i (i)}<button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => runQuickAction(a, p.name))} title={a.prompt}><Icon name="quick" /> {a.name}</button>{/each}</div>{/if}
     {/if}
     {#if p.next}

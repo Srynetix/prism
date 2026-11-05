@@ -400,8 +400,9 @@ function foundEntries(query: string, all: Entry[]): Entry[] {
 function quickEntries(s: Snapshot): Entry[] {
   if (!agentsEnabled()) return []
   return (s.repos ?? []).filter((r) => r.path && !r.error).flatMap((r) =>
-    quickActionsOn(r.name).map((a) => ({
-      id: `quick:${r.name}:${a.name}`,
+    quickActionsOn(r.name).map((a, i) => ({
+      // Its place too: two of the same name stay two lines.
+      id: `quick:${r.name}:${i}:${a.name}`,
       kind: 'command' as const,
       title: a.name,
       hint: `${r.name} · ${quickPrompt(a, r)}`,

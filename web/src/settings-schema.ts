@@ -17,7 +17,7 @@ import { ALERT_RULES } from './alert-bands'
  */
 export type Kind = 'text' | 'longtext' | 'path' | 'number' | 'toggle' | 'list' | 'select' | 'checks' | 'table'
 /** Choice lists read from the machine. */
-export type Source = 'kube' | 'apps' | 'envs' | 'stages' | 'calendars' | `models:${AgentCli}` | `efforts:${AgentCli}`
+export type Source = 'kube' | 'apps' | 'envs' | 'stages' | 'calendars' | 'kinds' | `models:${AgentCli}` | `efforts:${AgentCli}`
 /**
  * Live check of a value (checks.rs); `kube_namespace` takes its context from the
  * neighboring key `context`.
@@ -221,7 +221,7 @@ export const SCHEMA: SectionSpec[] = [
           { key: 'repos', label: t('Repositories'), kind: 'list', optional: true, width: '130px' },
           { key: 'worktree', label: t('Worktree'), kind: 'toggle', width: '70px' },
           { key: 'mode', label: t('Mode'), kind: 'select', options: ['default', 'acceptEdits', 'plan'], optional: true, width: '110px' },
-          { key: 'kind', label: t('Kind'), kind: 'text', optional: true, width: '90px' },
+          { key: 'kind', label: t('Kind'), kind: 'select', options: 'kinds', optional: true, width: '110px' },
         ],
       },
     ],

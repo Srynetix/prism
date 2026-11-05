@@ -7,6 +7,7 @@
   import { canPick, pickPath } from '../../pick'
   import Icon from '../Icon.svelte'
   import { t } from '../../i18n.svelte'
+  import { agentsSettings } from '../../agents.svelte'
 
   /**
    * An input according to the key's type: text, path (a folder, typed or chosen in the system's
@@ -37,6 +38,7 @@
     if (Array.isArray(options)) return options
     if (!options) return []
     if (options === 'envs') return stageEnvs()
+    if (options === 'kinds') return agentsSettings().kinds.map((k) => k.name)
     if (options.startsWith('models:')) return choices.models[options.slice(7) as AgentCli] ?? []
     if (options.startsWith('efforts:')) return choices.efforts[effortsKey(options.slice(8) as AgentCli)] ?? []
     return FIXED[options] ?? (options === 'kube' ? choices.kube : options === 'apps' ? choices.apps : options === 'calendars' ? choices.calendars : [])

@@ -123,6 +123,23 @@ export function toastLaunched(id: string, title: string, prepared = false) {
 }
 
 /**
+ * An agent launched at once, without the launcher. On a phone it opens; in the window, where it was
+ * launched from stays (a toast opens it), unless that is the Agents view: it is picked there. Its
+ * id, or `null` when it failed (said in a toast).
+ */
+export async function launchNow(launch: Launch): Promise<string | null> {
+  try {
+    const id = await spawnAgent(launch)
+    if (isDesktop() && !(agentsView.open && !settingsView.open && !helpView.open)) toastLaunched(id, launch.title)
+    else openAgents(id)
+    return id
+  } catch (e) {
+    toast(String(e))
+    return null
+  }
+}
+
+/**
  * The launcher, prefilled: in the Agents view while it is the one shown (its New, ⌘N, an agent's
  * Launch again…), otherwise as a drawer over what is open, which the launch leaves in place. On a
  * phone, always the drawer (the whole screen): its Agents view has no launcher of its own.

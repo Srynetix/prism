@@ -5,7 +5,7 @@ import type { LeftSession, Ticket } from './types'
  * The Agents view by project (grouped by repository): every repository of the config, its agents
  * or not, with where it was left (the last agent closed in it, `left`) and its next ticket. Those
  * with agents first, in the groups' order; then those left lately, most recent first; then those
- * with a quick action (`kept`: its buttons in sight); the others rest, folded. Pure: the views give it their groups and the snapshot's parts.
+ * a quick action names (`kept`: its buttons in sight); the others rest, folded. Pure: the views give it their groups and the snapshot's parts.
  */
 export interface Project {
   name: string
@@ -14,6 +14,9 @@ export interface Project {
   left: LeftSession | null
   next: Ticket | null
 }
+
+/** Where an agent starts on a repository: a new worktree of it, or its clone as it is. */
+export const placeIn = (repo: { name: string; path: string }, worktree: boolean) => (worktree ? { worktree: { repo: repo.name } } : { cwd: repo.path })
 
 /** Left this long ago at most, a project without agents stays in sight. */
 export const RECENT_DAYS = 14

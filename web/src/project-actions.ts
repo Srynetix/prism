@@ -4,7 +4,7 @@ import { openAgents, openLauncher } from './agents.svelte'
 import { hasWorktrees } from './repositories'
 import { isBlocked } from './tickets'
 import { runClaude, ticketActions } from './claude-actions'
-import { nextTicket } from './projects'
+import { nextTicket, placeIn } from './projects'
 import type { Ticket } from './types'
 
 /**
@@ -15,7 +15,7 @@ import type { Ticket } from './types'
 /** The short launcher on this repository: a new worktree where agents make them, the checkout otherwise. */
 export function newAgentIn(repo: string) {
   const path = live.snapshot?.repos?.find((r) => r.name === repo)?.path
-  openLauncher(hasWorktrees(repo) || !path ? { title: '', worktree: { repo } } : { title: '', cwd: path }, null, null, repo, true)
+  openLauncher({ title: '', ...placeIn({ name: repo, path: path ?? '' }, hasWorktrees(repo) || !path) }, null, null, repo, true)
 }
 
 /** The last agent closed in it back in the list, resumed, and shown. */

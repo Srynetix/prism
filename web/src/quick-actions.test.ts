@@ -14,7 +14,7 @@ describe('quickActionsOn', () => {
 
 describe('quickLaunch', () => {
   it('runs in the clone as it is, its prompt filled in', () => {
-    expect(quickLaunch(action(), api, true)).toEqual({ title: 'Upstream + Trivy', prompt: 'Update develop of api from upstream, then run Trivy.', from: 'Upstream + Trivy', cwd: '/code/api' })
+    expect(quickLaunch(action(), api, true)).toEqual({ title: 'Upstream + Trivy', prompt: 'Update develop of api from upstream, then run Trivy.', from: 'Upstream + Trivy', cwd: '/code/api', permission_mode: 'default' })
   })
 
   it('takes a new worktree only where the repository makes them', () => {
@@ -22,9 +22,10 @@ describe('quickLaunch', () => {
     expect(quickLaunch(action({ worktree: true }), api, false)).toMatchObject({ cwd: '/code/api' })
   })
 
-  it('passes its mode and kind, the CLI’s mode for default', () => {
+  it('passes its mode and kind, none the CLI’s own: default, not the launcher’s', () => {
     expect(quickLaunch(action({ mode: 'acceptEdits', kind: 'Ops' }), api, false)).toMatchObject({ permission_mode: 'acceptEdits', category: 'Ops' })
-    expect(quickLaunch(action({ mode: 'default' }), api, false)).not.toHaveProperty('permission_mode')
+    expect(quickLaunch(action({ mode: 'default' }), api, false)).toMatchObject({ permission_mode: 'default' })
+    expect(quickLaunch(action(), api, false)).toMatchObject({ permission_mode: 'default' })
   })
 
   it('needs a clone', () => {

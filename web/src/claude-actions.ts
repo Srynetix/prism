@@ -8,11 +8,10 @@ import type { JobInfo } from './logs.svelte'
 import type { EventDetails } from './agenda.svelte'
 import { failedJobsContext, tail } from './fix-context'
 import { oneLine, untrusted } from './untrusted'
-import { afterLaunch, agentsEnabled, agentsSettings, toastLaunched, openAgents, openLauncher, spawnAgent, type Launch } from './agents.svelte'
+import { afterLaunch, agentsEnabled, agentsSettings, launchNow, openLauncher, type Launch } from './agents.svelte'
 import { isDesktop } from './bridge'
 import { changeStatus, setMine } from './ticket-view.svelte'
 import { openLink } from './links'
-import { toast } from './toast.svelte'
 import type { MenuItem } from './components/ActionMenu.svelte'
 import { mrNumber, mrWord } from './forge'
 import { actorName, agentIcon } from './agent-cli'
@@ -435,15 +434,7 @@ export async function runClaude(a: ClaudeAction, direct = false) {
   const launch = extra ? { ...a.launch, prompt: `${a.launch.prompt ?? ''}${extra}` } : a.launch
   // Its ←: what the action is on (`SHOP-433` of `SHOP-433 · Implement`).
   if (!direct) return openLauncher(launch, a.href, a.onLaunch, launch.title.split(' · ')[0])
-  try {
-    const id = await spawnAgent(launch)
-    // In the window, where it was launched from stays; on a phone, the agent opens.
-    if (isDesktop()) toastLaunched(id, launch.title)
-    else openAgents(id)
-  } catch (e) {
-    toast(String(e))
-    return
-  }
+  if (!(await launchNow(launch))) return
   await afterLaunch(a.onLaunch, tr('Agent started'))
 }
 
