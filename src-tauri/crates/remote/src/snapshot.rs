@@ -6,13 +6,21 @@ use serde_json::{Map, Value};
 /// The snapshot's JSON without what stays on the computer: the remote's own state (its pairing token),
 /// Prism's own warnings and errors (paths, hosts, a mail's error), the mail unless `[remote]
 /// mail` lets it out, and of the custom blocks those kept on the computer (`remote = false`),
-/// everyone's declaration, error output (it may hold a secret) and diff.
+/// everyone's declaration, error output (it may hold a secret) and diff; a routine's diff waiting
+/// for trust.
 pub fn filter(mut snap: Value, mail: bool) -> Value {
     if let Some(obj) = snap.as_object_mut() {
         obj.remove("remote");
         obj.remove("problems");
         if let Some(custom) = obj.get_mut("blocks").and_then(|b| b.get_mut("custom_blocks")) {
             custom_blocks(custom);
+        }
+        // A routine waiting for trust: trusted on the computer only, where its diff is read.
+        for r in obj.get_mut("routines").and_then(|r| r.get_mut("routines")).and_then(Value::as_array_mut).into_iter().flatten() {
+            if let Some(p) = r.get_mut("pending").and_then(Value::as_object_mut) {
+                p.remove("diff");
+                p.remove("agents");
+            }
         }
         if !mail {
             obj.insert("mail".into(), Value::Null);
@@ -154,5 +162,7 @@ mod tests {
         let snap = json!({ "blocks": { "custom_blocks": { "blocks": [{ "id": "a", "remote": true, "def": { "script": "x" }, "stderr": "token=x", "pending": { "diff": [], "reason": "new" } }, { "id": "b", "remote": false }], "errors": [] } } });
         let out = filter(snap, false);
         assert_eq!(out["blocks"]["custom_blocks"], json!({ "blocks": [{ "id": "a", "remote": true, "pending": { "reason": "new" } }], "errors": [] }));
+        let snap = json!({ "routines": { "routines": [{ "name": "N", "pending": { "reason": "new", "hash": "h", "diff": ["+ x"], "agents": ["a"] } }], "runs": [] } });
+        assert_eq!(filter(snap, false)["routines"]["routines"][0]["pending"], json!({ "reason": "new", "hash": "h" }), "a routine is trusted on the computer");
     }
 }

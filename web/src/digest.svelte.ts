@@ -16,7 +16,7 @@ import { t } from './i18n.svelte'
  */
 
 /** What a notification is about, for `digest_urgent`. */
-export type EventKind = 'infra' | 'deploy' | 'agent' | 'pipeline' | 'review' | 'data' | 'block'
+export type EventKind = 'infra' | 'deploy' | 'agent' | 'pipeline' | 'review' | 'data' | 'block' | 'routine'
 export interface DeskEvent {
   key: string
   title: string

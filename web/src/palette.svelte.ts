@@ -300,6 +300,7 @@ const CUSTOM_KEYS: Record<string, string> = {
   'updates-now': 'updates install version release',
   'remote-devices': 'remote phone devices pair passkey',
   'custom-blocks': 'custom blocks script command json own block',
+  routines: 'routines cron schedule scheduled nightly every agent alone to review',
   'remote-away-checks': 'remote away leave sleep filevault restart power cut crash keep running awake',
   'feedback-requests': 'feedback requests issues',
   'cleanup-usage': 'cleanup usage unused never used most used default reset',

@@ -10,7 +10,7 @@ import { t } from './i18n.svelte'
  * (`EMPTY_VIEW`), and the pages wizard offers its templates. A new block of the core is declared
  * here; a block with a source of its own, in `blocks/`.
  */
-export type BlockId = 'todo' | 'sessions' | 'worktrees' | 'notes' | 'mrs' | 'sprint' | 'pods' | 'ci' | 'vulns' | 'envs' | 'renovate' | 'refinement' | 'agenda' | 'pickup' | 'mail' | 'retro' | 'argocd' | 'queue' | 'wip' | PluginBlockId | CustomBlockId
+export type BlockId = 'todo' | 'sessions' | 'worktrees' | 'notes' | 'mrs' | 'sprint' | 'pods' | 'ci' | 'vulns' | 'envs' | 'renovate' | 'refinement' | 'agenda' | 'pickup' | 'mail' | 'retro' | 'argocd' | 'queue' | 'wip' | 'routines' | PluginBlockId | CustomBlockId
 
 /** A custom block of `[[custom_blocks]]` (`blocks/custom/`): `custom:<id>`, declared in config.toml, not here. */
 export type CustomBlockId = `custom:${string}`
@@ -36,7 +36,7 @@ export function blockLabel(id: string): string {
 export const BLOCK_LABELS: Record<BlockId, string> = {
   todo: 'Alerts', sessions: 'Agents', worktrees: 'Worktrees', notes: 'Notes', mrs: 'Merge requests', queue: 'Merge queue', renovate: 'Renovate', sprint: 'Sprint',
   agenda: 'Today', refinement: 'Refinement', pickup: 'To pick', pods: 'Pods', ci: 'CI health', vulns: 'Vulnerabilities', envs: 'Environments', argocd: 'ArgoCD',
-  mail: 'Mail', retro: 'My sprint', wip: 'In progress',
+  mail: 'Mail', retro: 'My sprint', wip: 'In progress', routines: 'Routines',
   // The blocks of `blocks/`, those of another repository included (`BLOCK_DEFS`).
   ...(Object.fromEntries(BLOCK_DEFS.map((b) => [b.id, b.label])) as Record<PluginBlockId, string>),
 }
@@ -47,7 +47,7 @@ export const BLOCK_CATEGORIES = ['Overview', 'Tickets', 'Code & agents', 'CI & d
 const CORE_CATEGORY: Record<string, string> = {
   todo: 'Overview', notes: 'Overview', agenda: 'Overview', mail: 'Overview',
   sprint: 'Tickets', refinement: 'Tickets', pickup: 'Tickets', retro: 'Tickets', wip: 'Tickets',
-  mrs: 'Code & agents', queue: 'Code & agents', worktrees: 'Code & agents', sessions: 'Code & agents',
+  mrs: 'Code & agents', queue: 'Code & agents', worktrees: 'Code & agents', sessions: 'Code & agents', routines: 'Code & agents',
   ci: 'CI & delivery', renovate: 'CI & delivery',
   vulns: 'Security',
   pods: 'Infra', envs: 'Infra', argocd: 'Infra',

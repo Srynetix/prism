@@ -34,7 +34,7 @@ export default {
   'Digest at': 'Résumé à',
   'When the summary goes out, HH:MM in local time.': 'Quand le récapitulatif part, HH:MM en heure locale.',
   'Still at once': 'Toujours tout de suite',
-  'What notifies at once in digest mode: infra (pods, runners), deploy (ArgoCD), agent (a permission asked), pipeline (a protected branch failed), review (asked of you), data, block (Docker, dev servers, status pages…).': 'Ce qui notifie tout de suite en mode résumé : infra (pods, runners), deploy (ArgoCD), agent (une autorisation demandée), pipeline (une branche protégée en échec), review (une revue qui vous est demandée), data, block (Docker, serveurs de dev, pages de statut…).',
+  'What notifies at once in digest mode: infra (pods, runners), deploy (ArgoCD), agent (a permission asked), pipeline (a protected branch failed), review (asked of you), data, block (Docker, dev servers, status pages…), routine (a routine delivered to the Digest).': 'Ce qui notifie tout de suite en mode résumé : infra (pods, runners), deploy (ArgoCD), agent (une autorisation demandée), pipeline (une branche protégée en échec), review (une revue qui vous est demandée), data, block (Docker, serveurs de dev, pages de statut…), routine (une routine livrée au Digest).',
   'Quiet hours': 'Heures calmes',
   'No notification in this span, digest or not, urgent included: 19:00-08:00. Empty: none.': 'Aucune notification sur cette plage, résumé ou non, urgentes comprises : 19:00-08:00. Vide : aucune.',
   'Focus events': 'Événements de concentration',

@@ -136,3 +136,28 @@ id = "worktrees"
 icon = "worktrees"
 color = "orange"
 columns = ["worktrees", "tokens"]
+
+# One-click jobs on a repository, and routines that run them alone (none runs in the demo).
+[[agents.quick_actions]]
+name = "Bump deps"
+prompt = "Update the dependencies of {repo} changed since {since}, run the tests, open a draft MR."
+repos = ["shop", "helm"]
+worktree = true
+mode = "acceptEdits"
+
+[[agents.routines]]
+name = "Nightly deps"
+action = "Bump deps"
+cron = "0 3 * * 1-5"
+deliver = "review"
+
+[[agents.routines]]
+name = "Alerts triage"
+action = "builtin:alerts-triage"
+cron = "30 8 * * 1-5"
+
+[[agents.routines]]
+name = "Retro draft"
+action = "builtin:retro-draft"
+cron = "0 12 * * 5"
+deliver = "digest"

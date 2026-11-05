@@ -19,6 +19,8 @@
   import type { Snapshot } from '../types'
   import AudioControl from './AudioControl.svelte'
   import DigestItem from './DigestItem.svelte'
+  import { openAgents } from '../agents.svelte'
+  import { reviewPile } from '../routines.svelte'
   import StatusUsage from './StatusUsage.svelte'
   import RepoMenu from './RepoMenu.svelte'
   import RemoteItem from './RemoteItem.svelte'
@@ -269,6 +271,10 @@
     <ShellsItem />
   {:else if id === 'digest'}
     <DigestItem {now} />
+  {:else if id === 'routines' && reviewPile(snap).length}
+    {@const n = reviewPile(snap).length}
+    <!-- The routines' runs waiting in "To review", while the pile is not empty. -->
+    <button class="sbi" onclick={() => openAgents()} title={t('Routines: {n} to review · the Agents view', { n })}><span class="g"><Icon name="alarm" /></span><b>{n}</b> {t('to review')}</button>
   {:else if id === 'usage'}
     <StatusUsage sections={snap ? planSections(snap) : []} {now} working={snap ? countedSessions(snap).some((c) => c.status === 'running') : false} />
   {:else if id === 'sprint' && sprintDay}

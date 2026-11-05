@@ -21,6 +21,7 @@ pub mod plan;
 pub mod question;
 mod quick;
 mod reading;
+mod routines;
 mod suggestion;
 pub mod switch;
 
@@ -68,6 +69,7 @@ use crate::{
 };
 use provider::Provider;
 pub use chains::{defines_task, takes_prompt, Notice, Sent};
+pub use routines::Inputs as RoutineInputs;
 pub use lifecycle::LaunchPreview;
 pub use pod_shells::PodRef;
 pub use pty::Attachment;
@@ -221,6 +223,12 @@ struct Inner {
     book: Mutex<chains::Book>,
     /// Wakes the chains' loop: a prompt queued, a queued one sent.
     chains_wake: Notify,
+    /// The routines: their times, their runs, their trust (`routines`).
+    routines: Mutex<routines::Book>,
+    /// Wakes the routines' loop: the config changed.
+    routines_wake: Notify,
+    /// The routines' loop runs (not in the demo, whose snapshot shows sample ones).
+    routines_live: std::sync::atomic::AtomicBool,
 }
 
 /// The windows of OpenCode's models (its catalog), and when it was last read.
@@ -279,6 +287,9 @@ impl Agents {
                 opencode_windows: Mutex::default(),
                 book: Mutex::new(chains::Book::load(&dir)),
                 chains_wake: Notify::new(),
+                routines: Mutex::new(routines::Book::load(&dir)),
+                routines_wake: Notify::new(),
+                routines_live: std::sync::atomic::AtomicBool::new(false),
             }),
         };
         agents.publish_left();
@@ -300,6 +311,9 @@ impl Agents {
             s.agents_settings = cfg;
             changed
         });
+        // The routines' times computed again from it, without a restart.
+        self.publish_routines_now();
+        self.inner.routines_wake.notify_one();
     }
 
     fn enabled(&self) -> bool {

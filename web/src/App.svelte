@@ -56,6 +56,8 @@
   import Renovate from './components/Renovate.svelte'
   import MergeQueue from './components/MergeQueue.svelte'
   import InProgress from './components/InProgress.svelte'
+  import RoutinesBlock from './components/RoutinesBlock.svelte'
+  import { publishInputs, reviewPile } from './routines.svelte'
   import TicketPanel from './components/TicketPanel.svelte'
   import Refinement from './components/Refinement.svelte'
   import LogPanel from './components/LogPanel.svelte'
@@ -161,6 +163,10 @@
     // A put off alert comes back on the minute, not at each second's tick.
     const minute = clock(60_000).now
     syncDesktop(full, allAlerts.filter((a) => !isSeen(a) && !isSnoozed(a, minute) && ruleBand(a, settings) !== null))
+  })
+  // What the builtin routines read (the open alerts, the retro's figures), given to the core.
+  $effect(() => {
+    if (full) publishInputs(full, allAlerts)
   })
   // Since when each alert holds, for its age and its band (alert-snooze.svelte.ts).
   $effect(() => {
@@ -412,6 +418,8 @@
     return [...sources.values()]
   }
   const agentsWaiting = $derived(full?.agents?.filter((a) => waitsForYou(a.status)).length ?? 0)
+  /** The routines' runs waiting in "To review": a badge of their own on the Agents tab. */
+  const toReview = $derived(reviewPile(full).length)
   const syncs = $derived(alerts.filter((a) => a.kind === 'Sync' && !isSeen(a)))
   const ago = $derived(snap?.updated_at ? Math.max(0, Math.round((now - new Date(snap.updated_at).getTime()) / 1000)) : null)
   /** The live dot's tooltip: connected, and the age of the snapshot. */
@@ -493,7 +501,7 @@
     <button class="v" class:on={agentsView.open && !settingsView.open && !helpView.open} style:--tint="var(--src-claude)" onclick={() => openAgents()} title={keys(t('Agents (⌘{digit}) · new agent ⌘N', { digit: agentsDigit }))} aria-current={agentsView.open ? 'page' : undefined}>
       {@render icon('agents')}
       <span>{t('Agents')}</span>
-      {#if agentsWaiting}<span class="count" title={t('{n} waiting for you', { n: agentsWaiting })}>{agentsWaiting}</span>{/if}
+      {#if agentsWaiting}<span class="count" title={t('{n} waiting for you', { n: agentsWaiting })}>{agentsWaiting}</span>{:else if toReview}<span class="count rv" title={t('{n} to review', { n: toReview })}>{toReview}</span>{/if}
     </button>
     {/if}
     <span class="grow"></span>
@@ -539,6 +547,7 @@
     {:else if id === 'sprint'}<Sprint sprint={snap!.sprint} next={snap!.next_sprint} outside={snap!.outside_sprint} me={snap!.tracker_me} filtered={!!focus} full={full!} />
     {:else if id === 'retro'}<MySprint snap={full!} />
     {:else if id === 'wip'}<InProgress snap={full!} />
+    {:else if id === 'routines'}<RoutinesBlock />
     {:else if id === 'pickup'}<Pickup pickup={snap!.pickup} me={snap!.tracker_me} filtered={!!focus || filter.mine} />
     {:else if id === 'agenda'}<Agenda agenda={full!.agenda} />
     {:else if id === 'refinement'}<Refinement refinement={snap!.refinement} me={snap!.tracker_me} filtered={!!focus || filter.mine} />
@@ -695,6 +704,7 @@
   .agents-host[hidden] { display: none; }
   .rail .count { position: absolute; top: 2px; right: 9px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: var(--r8); background: var(--src-claude); color: #fff; font-size: 9px; font-weight: 700; line-height: 15px; text-align: center; }
   .rail .count.stale { background: var(--warn-bg); color: var(--warn); }
+  .rail .count.rv { background: var(--surface); color: var(--src-claude); box-shadow: inset 0 0 0 1px var(--src-claude); }
   .rail .count.ko { background: var(--ko-bg); color: var(--ko); }
   .alert-dot { position: absolute; top: 4px; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--ko); box-shadow: 0 0 0 2px var(--surface); }
   .tour { display: flex; align-items: center; gap: 10px; padding: 7px 12px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-bottom: 1px solid var(--border); color: var(--text); font-size: var(--fs-body); }

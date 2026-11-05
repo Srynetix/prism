@@ -24,7 +24,7 @@
   const shown = $derived(cfg.digest || !!off || waiting > 0 || unread > 0)
 
   let open = $state(false)
-  const KIND: Record<Held['kind'], string> = { infra: t('Infra'), deploy: t('Deploy'), agent: t('Agent'), pipeline: 'CI', review: t('Review'), data: t('Data'), block: t('Block') }
+  const KIND: Record<Held['kind'], string> = { infra: t('Infra'), deploy: t('Deploy'), agent: t('Agent'), pipeline: 'CI', review: t('Review'), data: t('Data'), block: t('Block'), routine: t('Routine') }
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (open = false)} onclick={() => (open = false)} />

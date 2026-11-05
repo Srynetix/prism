@@ -72,7 +72,13 @@ pub fn merged_config(text: String) -> Cmd<String> {
 #[prism_macros::command(async)]
 pub fn save_config(state: State<'_, AppState>, edits: Vec<crate::settings::Edit>) -> Cmd<crate::settings::FileView> {
     let path = crate::config_path();
+    let before = crate::config::load(&path).ok();
     crate::settings::save(&path, &edits)?;
+    // The routines this save changed (or their quick actions) trusted as saved, before they
+    // are read: changed anywhere else, they wait for trust.
+    if let Ok(after) = crate::config::load(&path) {
+        state.agents.routines_saved(before.as_ref().map(|c| &c.agents), &after.agents);
+    }
     apply_live(&state, &path);
     crate::settings::read(&path).map_err(Into::into)
 }
@@ -177,6 +183,7 @@ fn apply(state: &AppState, path: &std::path::Path, force: bool) {
     });
     state.live.write().expect("live").audio = cfg.audio.clone();
     state.agents.configure(cfg.agents.clone());
+    crate::app::routine_context(&state.agents, &cfg, path);
     if let Some(started) = state.collectors.reload(&cfg, force) {
         state.adopt(started);
     }

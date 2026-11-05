@@ -12,6 +12,7 @@ mod forge;
 mod tracker;
 mod agents;
 mod integrations;
+mod routines;
 
 pub use hub::*;
 pub use cluster::*;
@@ -19,6 +20,7 @@ pub use forge::*;
 pub use tracker::*;
 pub use agents::*;
 pub use integrations::*;
+pub use routines::*;
 
 /// Applications to open a repository in from the Repos menu (`open -a`).
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
@@ -217,6 +219,8 @@ pub struct Snapshot {
     pub chains: BTreeMap<String, Chain>,
     /// The prompts waiting for each agent (its menu open), by agent: how many.
     pub inbox: BTreeMap<String, u32>,
+    /// The routines and their runs (`prism_agents::routines`).
+    pub routines: Routines,
     /// Changes each time the book of what every agent cost changes (`agent-costs.json`): the
     /// book itself is read on demand (`agent_costs`), by the Actual sections that show it.
     pub agent_costs_rev: u64,

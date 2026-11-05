@@ -164,6 +164,37 @@ pub fn set_repo(path: &Path, name: &str, keys: &serde_json::Map<String, serde_js
     write(path, &old, &doc.to_string())
 }
 
+/// Sets `field` of the file's `[[table.array]]` entry whose `key` is `id` (a routine switched on
+/// or off: `agents`, `routines`, `name`), the rest of the file as it is. Saved as `save` does.
+pub fn set_nested_entry_key(path: &Path, table: &str, array: &str, key: &str, id: &str, field: &str, value: &serde_json::Value) -> Result<()> {
+    let old = std::fs::read_to_string(path).unwrap_or_default();
+    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+    let row = doc
+        .get_mut(table)
+        .and_then(Item::as_table_like_mut)
+        .and_then(|t| t.get_mut(array))
+        .and_then(Item::as_array_of_tables_mut)
+        .and_then(|rows| rows.iter_mut().find(|t| t.get(key).and_then(Item::as_str) == Some(id)))
+        .with_context(|| tr!("no [[{table}.{array}]] {id} in config.toml (a pack's?)", table = table, array = array, id = id))?;
+    row.insert(field, to_item(value)?);
+    write(path, &old, &doc.to_string())
+}
+
+/// Removes the file's `[[table.array]]` entry whose `key` is `id`, the rest as it is.
+pub fn remove_nested_entry(path: &Path, table: &str, array: &str, key: &str, id: &str) -> Result<()> {
+    let old = std::fs::read_to_string(path).unwrap_or_default();
+    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+    let rows = doc.get_mut(table).and_then(Item::as_table_like_mut).and_then(|t| t.get_mut(array)).and_then(Item::as_array_of_tables_mut);
+    let at = rows.as_ref().and_then(|rows| rows.iter().position(|t| t.get(key).and_then(Item::as_str) == Some(id)));
+    match (rows, at) {
+        (Some(rows), Some(i)) => {
+            rows.remove(i);
+        }
+        _ => bail!(tr!("no [[{table}.{array}]] {id} in config.toml (a pack's?)", table = table, array = array, id = id)),
+    }
+    write(path, &old, &doc.to_string())
+}
+
 /// Sets the file's `[[array]]` entry whose `key` is `id` (a custom block: `custom_blocks`, `id`):
 /// `entry` replaces it whole, keeping its place, or is added after the file's own when there is
 /// none; `None` removes it. The rest of the file as it is; a text on several lines written as a
@@ -405,6 +436,24 @@ mod tests {
 
     fn edit(path: &[&str], value: Option<serde_json::Value>) -> Edit {
         Edit { path: path.iter().map(|s| s.to_string()).collect(), value }
+    }
+
+    /// A routine switched on or off, then removed: its `[[agents.routines]]` entry alone, the
+    /// comments around it kept.
+    #[test]
+    fn a_nested_entry_key_set() {
+        let dir = std::env::temp_dir().join(format!("prism-nested-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        std::fs::write(&path, "# mine\n[[agents.routines]]\nname = \"A\"\ncron = \"0 3 * * *\" # night\n\n[[agents.routines]]\nname = \"B\"\n").unwrap();
+        set_nested_entry_key(&path, "agents", "routines", "name", "B", "enabled", &serde_json::json!(false)).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("# night") && text.contains("name = \"B\"\nenabled = false"), "{text}");
+        assert!(set_nested_entry_key(&path, "agents", "routines", "name", "C", "enabled", &serde_json::json!(true)).is_err());
+        remove_nested_entry(&path, "agents", "routines", "name", "A").unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(!text.contains("name = \"A\"") && text.contains("name = \"B\""), "{text}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A custom block saved from Settings: its script as a literal block, its actions as

@@ -42,6 +42,7 @@ import type { Renovate } from "./Renovate";
 import type { Repo } from "./Repo";
 import type { RepoBlock } from "./RepoBlock";
 import type { RepoInfo } from "./RepoInfo";
+import type { Routines } from "./Routines";
 import type { Sprint } from "./Sprint";
 import type { TemplateConfig } from "./TemplateConfig";
 import type { TimeTracking } from "./TimeTracking";
@@ -218,6 +219,10 @@ chains: { [key in string]: Chain },
  * The prompts waiting for each agent (its menu open), by agent: how many.
  */
 inbox: { [key in string]: number }, 
+/**
+ * The routines and their runs (`prism_agents::routines`).
+ */
+routines: Routines, 
 /**
  * Changes each time the book of what every agent cost changes (`agent-costs.json`): the
  * book itself is read on demand (`agent_costs`), by the Actual sections that show it.

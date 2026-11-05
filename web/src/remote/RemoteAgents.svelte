@@ -1,5 +1,6 @@
 <script lang="ts">
   import QuickAnswers from '../components/QuickAnswers.svelte'
+  import RoutineReview from '../components/RoutineReview.svelte'
   import { t, tn, tc } from '../i18n.svelte'
   import { allowAgent, interruptAgent, modelName, openAgents, openLauncher, resumeAgent, startPrepared } from '../agents.svelte'
   import { cliOf } from '../agent-cli'
@@ -164,6 +165,8 @@
 {/snippet}
 
 <div class="agents">
+  <!-- The routines' runs waiting for you ("To review"), at the head, as on the computer. -->
+  <RoutineReview next={false} />
   {#if lead}
     <div class="plan" class:stale={!!lead.error} style:--cli-fill={cliOf(lead.provider).color}>
       <button class="sum" onclick={() => (showUsage = !showUsage)} aria-expanded={showUsage}>

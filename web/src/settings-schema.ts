@@ -136,7 +136,7 @@ export const SCHEMA: SectionSpec[] = [
     fields: [
       { key: 'digest', label: t('Digest'), hint: t('Off: one notification per event (live). On: events held, then one summary at the digest times; the status bar shows what waits.'), kind: 'toggle' },
       { key: 'digest_times', label: t('Digest at'), hint: t('When the summary goes out, HH:MM in local time.'), kind: 'list' },
-      { key: 'digest_urgent', label: t('Still at once'), hint: t('What notifies at once in digest mode: infra (pods, runners), deploy (ArgoCD), agent (a permission asked), pipeline (a protected branch failed), review (asked of you), data, block (Docker, dev servers, status pages…).'), kind: 'checks', options: ['infra', 'deploy', 'agent', 'pipeline', 'review', 'data', 'block'] },
+      { key: 'digest_urgent', label: t('Still at once'), hint: t('What notifies at once in digest mode: infra (pods, runners), deploy (ArgoCD), agent (a permission asked), pipeline (a protected branch failed), review (asked of you), data, block (Docker, dev servers, status pages…), routine (a routine delivered to the Digest).'), kind: 'checks', options: ['infra', 'deploy', 'agent', 'pipeline', 'review', 'data', 'block', 'routine'] },
       { key: 'quiet_hours', label: t('Quiet hours'), hint: t('No notification in this span, digest or not, urgent included: 19:00-08:00. Empty: none.'), kind: 'text', optional: true, placeholder: '19:00-08:00' },
       { key: 'focus_events', label: t('Focus events'), hint: t('During a calendar event whose title holds this, nothing notifies, urgent included, and the digest waits for its end. Zen mode does the same. Empty: never.'), kind: 'text', optional: true, placeholder: 'Focus' },
     ],

@@ -380,7 +380,13 @@ pub async fn diff(dir: &Path, base: Option<&str>) -> Result<Diff> {
 /// what a task guard reads, which must not miss one past `diff`'s size cap.
 pub async fn changed_paths(dir: &Path, base: Option<&str>) -> Result<Vec<String>> {
     let (rev, _) = compared_to(dir, base).await?;
-    let tracked = git(dir, &["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", &rev]).await?;
+    changed_since(dir, &rev).await
+}
+
+/// The files changed since revision `rev` (committed since, changed, or new), relative to the
+/// repository's top, sorted.
+pub async fn changed_since(dir: &Path, rev: &str) -> Result<Vec<String>> {
+    let tracked = git(dir, &["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", rev]).await?;
     let untracked = git(dir, &["ls-files", "-z", "--others", "--exclude-standard"]).await?;
     let mut paths: Vec<String> = tracked.split('\0').chain(untracked.split('\0')).filter(|p| !p.is_empty()).map(String::from).collect();
     paths.sort();

@@ -6,6 +6,7 @@
   import { THEMES } from '../theme.svelte'
   import { LANGUAGES, t, tn, tc } from '../i18n.svelte'
   import Icon from '../components/Icon.svelte'
+  import RemoteRoutines from './RemoteRoutines.svelte'
 
   /**
    * More › Settings on a phone (`[remote] settings`): the computer's Settings tree, every value read,
@@ -161,7 +162,9 @@
       {:else}<Icon name="lock" /> {t('Read-only on the phone: change it in Prism on the computer.')}{/if}
     </p>
     {#each sectionsOf(page) as { id, spec } (id)}
-      {#if !spec}
+      {#if id === 'routines'}
+        <RemoteRoutines />
+      {:else if !spec}
         <p class="note">{id === 'file' ? t('config.toml is shown in Settings on the computer only.') : t('This part is shown in Settings on the computer only.')}</p>
       {:else}
         {#if sectionsOf(page).length > 1}<p class="sect">{spec.label}</p>{/if}
