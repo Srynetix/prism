@@ -4,7 +4,7 @@
   import BlockHelpContent from './BlockHelpContent.svelte'
   import { exclusive } from '../popup'
   import { addBand, addBlock, addColumn, bandsOf, columnsOf, currentView, editing, resetArrangement, toggleEditing } from '../layout.svelte'
-  import { ALL_BLOCKS, BLOCK_LABELS, MAX_BANDS, MAX_COLUMNS, byCategory, views, type BlockId } from '../views'
+  import { ALL_BLOCKS, MAX_BANDS, MAX_COLUMNS, blockLabel, byCategory, customBlockIds, views, type BlockId } from '../views'
   import { t, tc } from '../i18n.svelte'
 
   /**
@@ -24,7 +24,7 @@
   const columns = $derived(columnsOf(view))
   const bands = $derived(bandsOf(view))
   const present = $derived(new Set(columns.flat()))
-  const missing = $derived(ALL_BLOCKS.filter((id) => !present.has(id)))
+  const missing = $derived([...ALL_BLOCKS, ...customBlockIds()].filter((id) => !present.has(id)))
   const groups = $derived(byCategory(missing))
   const shown = $derived(hovered && missing.includes(hovered) ? hovered : groups[0]?.ids[0])
   /** Views that already contain a block absent from here, to locate it in the menu. */
@@ -48,7 +48,7 @@
               <div class="group" role="group" aria-label={t(g.category)}>
                 <span class="cat" aria-hidden="true">{t(g.category)}</span>
                 {#each g.ids as id (id)}
-                  <button role="menuitem" class:on={id === shown} onmouseenter={() => (hovered = id)} onfocus={() => (hovered = id)} onclick={() => { addBlock(id); open = false }}>{t(BLOCK_LABELS[id])}{#if elsewhere(id)}<small>{elsewhere(id)}</small>{/if}</button>
+                  <button role="menuitem" class:on={id === shown} onmouseenter={() => (hovered = id)} onfocus={() => (hovered = id)} onclick={() => { addBlock(id); open = false }}>{blockLabel(id)}{#if elsewhere(id)}<small>{elsewhere(id)}</small>{/if}</button>
                 {/each}
               </div>
             {/each}

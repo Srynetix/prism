@@ -27,7 +27,7 @@ You can also edit pages one by one in **Settings › Interface › Pages** (the 
 
 1. Click **Edit layout** in the header.
 2. Drag a block by its handle to another place or another column.
-3. Click **+ Block** to add a block. The menu groups them by what they are about (Overview, Tickets, Code & agents, CI & delivery, Security, Infra, Data, Fun); hovering one shows its help and a live preview; a block can appear on several pages.
+3. Click **+ Block** to add a block. The menu groups them by what they are about (Overview, Tickets, Code & agents, CI & delivery, Security, Infra, Data, Custom, Fun); hovering one shows its help and a live preview; a block can appear on several pages.
 4. Click **+ Column** to add a column (four at most), or **×** on a block to remove it from this page.
 5. Click **Done**, or press `Esc`. Empty columns are removed.
 
@@ -61,6 +61,16 @@ Its items are grouped by what they ask of you, between thin lines: on the left w
 
 > [!NOTE]
 > Right-click the status bar to choose which items it shows, or **Customize…** to arrange them: drag them along the bar, the orange line parting left from right, or into the tray above to hide them. The order is saved as `[appearance] statusbar` (Settings › Interface › Appearance); **Default order** goes back to the zones.
+
+## Custom blocks
+A block of your own, without Rust nor Svelte: a command, or a script written in `config.toml`, that prints JSON. Declare it in **Settings › Interface › Custom blocks** (or `[[custom_blocks]]`): **Command** runs a program with its arguments as given, never through a shell; **Script** holds the program itself, in the Files tab's editor, run by its shebang (bash, python3, node, `uv run --script` with its dependencies; `/bin/sh` without one), with starting templates that already print valid JSON. **Run now** runs what you are editing, saved or not, and shows its output; **Write with an agent** opens the launcher with the contract and your description, and **Load the agent’s script** brings what it wrote into the editor.
+
+Its output is one JSON object whose `kind` is `list` (title, sub, state `ok`/`warn`/`ko`, badge, link), `gauge` or `stats` (numbers with `warn`/`ko` thresholds, and a sparkline of their last values), `markdown`, or `table` (a click on a column sorts it); anything else shows as it is. Its `alerts` go to Alerts, one per `key`, and its `status` to the status bar; a failure, a timeout or JSON off the contract shows in **Problems** with the end of its error output. Each block is a page block of its own, `custom:<id>`, under **Custom** in **+ Block**; on the phone, they are all in the **Custom blocks** view (but those with `remote = false`).
+
+Actions (`[[custom_blocks.actions]]`) put buttons on the lines they apply to (`when = "state != 'ok'"`): a command or a script run with the line as `PRISM_ITEM`, the block read again after, or an agent opened in the launcher with the line given as data. They come from the config only: a script's output never says what to run.
+
+> [!WARNING]
+> A custom block runs with your rights, at intervals, while nobody watches. One saved from Settings is trusted as saved; one added or changed anywhere else (an editor, an agent, a pack's update) waits for your trust: the block shows what changed and where it came from, and **Trust and run** (two clicks, on the computer only) lets it run. A pack's block keeps its trusted version running meanwhile; a phone can remove a block waiting, never trust it. Secrets go by reference (`env = { TOKEN = "keychain:<service>" }`), never in clear.
 
 ## On the phone
 

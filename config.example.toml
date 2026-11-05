@@ -678,6 +678,56 @@ calendars = ["Calendar", "Work"]
 # delta = true                  # how much each folder grew since the scan before (the last scan of each folder is kept)
 # cleanup = true                # Reclaimable and the Trash from the block; false: the block only reads
 
+# Custom blocks: a command, or a script written here, that prints JSON, and Prism makes a block
+# of it (Settings › Interface › Custom blocks edits them). Each one is a page block of its own:
+# "custom:<id>" in [[views]] columns (+ Block lists them). A block added or changed outside
+# Settings (this file in an editor, an agent, a pack's update) waits for your trust, given on the
+# computer, before it runs; a pack's block keeps its trusted version running until then.
+#
+# The output, on stdout: one JSON object.
+#   {"kind": "list", "items": [{"id": "nas", "title": "NAS", "sub": "2 h ago", "state": "ok", "badge": "3 d", "url": "https://…"}]}
+#   {"kind": "gauge", "label": "Disk", "value": 42, "max": 100, "unit": "%", "warn": 80, "ko": 90}
+#   {"kind": "stats", "stats": [{"key": "cpu", "label": "CPU", "value": 42, "max": 100, "warn": 80, "ko": 90}]}  # a sparkline of the last values
+#   {"kind": "markdown", "text": "**On call:** Camille"}
+#   {"kind": "table", "columns": ["host", {"key": "ms", "label": "Latency"}], "rows": [["api", 38], {"host": "db", "ms": 4, "state": "ok"}]}
+# and at the top level, both optional:
+#   "alerts": [{"severity": "ko", "text": "Laptop not backed up for 3 days", "key": "laptop"}]   # to Alerts, one per key
+#   "status": {"text": "1 KO", "state": "ko"}                                                     # to the status bar
+# state: ok, warn or ko. Links: http(s) only. Anything that is not JSON shows as it is (monospace).
+# An exit code other than 0, a timeout or JSON off this contract shows in Problems with the end of
+# its error output.
+#
+# [[custom_blocks]]
+# id = "backups"                                  # block "custom:backups"
+# label = "Backups"
+# command = ["~/bin/check-backups.sh", "--json"]  # a list of arguments, run as is: never a shell in between
+# every_seconds = 300                             # 300 by default (5 at least); or on_demand = true (its ↻, and once at launch)
+# timeout_seconds = 20                            # then killed, with what it started
+# cwd = "~/infra"                                 # where it runs; the home folder by default
+# env = { TOKEN = "keychain:prism-backup" }       # a secret by reference to the system keychain, never in clear
+# remote = true                                   # false: kept on the computer, never sent to a phone
+#
+# [[custom_blocks.actions]]                       # a button on the lines it applies to: declared here only, never by the output
+# id = "fix"
+# label = "Fix"
+# when = "state != 'ok'"                          # comparisons of a line's fields, && and ||
+# agent = "Fix the backup of {item.title}"        # an agent opened in the launcher, the line given as data
+# # or command = ["~/bin/backup.sh", "{item.id}"]  ({item.x} only as a whole argument), or script = '''…'''
+# # It gets PRISM_ITEM (the line as JSON), PRISM_ACTION and PRISM_BLOCK; the block is read again after.
+# # critical = true                               # from a phone, biometrics each time
+#
+# Or the program itself, run by its shebang (bash, python3, node, uv run --script…; /bin/sh
+# without one), written by Prism in its data folder (private) and run from there:
+# [[custom_blocks]]
+# id = "quotas"
+# every_seconds = 3600
+# script = '''
+# #!/usr/bin/env python3
+# import json, shutil
+# total, used, free = shutil.disk_usage("/")
+# print(json.dumps({"kind": "gauge", "label": "Disk", "value": round(used / total * 100), "max": 100, "unit": "%"}))
+# '''
+
 # The Mail block: the unread messages of your Microsoft 365 inbox, and the flagged ones, read
 # every minute through Microsoft Graph with the delegated Mail.ReadBasic permission: your mailbox
 # only, sender, subject, date and states, never a body. You sign in once from Settings › Work ›

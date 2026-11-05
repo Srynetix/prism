@@ -110,7 +110,7 @@
   /** The blocks of `blocks/` have no icon of their own: theirs here, else their group's. */
   const BLOCK_ICONS: Record<string, IconName> = {
     trail: 'clock', pet: 'star', shipit: 'rocket', quotes: 'comment', system: 'cpu', docker: 'kube', dev_servers: 'web',
-    tokens: 'hash', status: 'activity', data: 'queue', bqcost: 'timer',
+    tokens: 'hash', status: 'activity', data: 'queue', bqcost: 'timer', custom_blocks: 'code',
   }
   const CATEGORY_ICONS: Record<string, IconName> = {
     Overview: 'activity', Tickets: 'kanban', 'Code & agents': 'code', 'CI & delivery': 'rocket', Security: 'security', Infra: 'kube', Data: 'queue', Fun: 'star',
@@ -127,7 +127,8 @@
   /** A block the computer has off (its `off` placeholder in the window) is not offered. */
   const blockOff = (id: string) => {
     const def = BLOCK_DEFS.find((b) => b.id === id)
-    return !!def?.off && stateOf(def, full) === undefined
+    // Custom blocks: offered once the computer has one.
+    return (!!def?.off || id === 'custom_blocks') && stateOf(def!, full) === undefined
   }
   const all = $derived(Object.keys(VIEWS).filter((v) => (v !== 'mail' || hello?.mail) && !blockOff(v)))
   const tabs = $derived((hello?.tabs ?? ['home', 'mrs', 'tickets', 'agents']).filter((tab) => all.includes(tab)).slice(0, 4))

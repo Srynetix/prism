@@ -167,7 +167,7 @@ pub fn satisfies(have: &str, need: &str) -> bool {
 }
 
 /// `[[tables]]` whose entries merge by a key rather than being replaced whole.
-const KEYED: [(&str, &str); 2] = [("repos", "name"), ("templates", "id")];
+const KEYED: [(&str, &str); 3] = [("repos", "name"), ("templates", "id"), ("custom_blocks", "id")];
 
 /// `over` on top of `base`: tables key by key, the `KEYED` arrays entry by entry, anything else replaced.
 fn merge(base: &mut Table, over: Table) {

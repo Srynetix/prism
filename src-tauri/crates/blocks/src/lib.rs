@@ -3,6 +3,7 @@
 
 pub use prism_core::blocks::*;
 
+pub mod custom;
 pub mod data;
 pub mod sdk;
 pub mod dev_servers;
@@ -21,8 +22,8 @@ use prism_collectors::{self as collectors, forge};
 use prism_agents as agents;
 
 /// Prism's own blocks.
-pub fn builtin() -> [&'static dyn Block; 10] {
-    [&docker::BLOCK, &disk_usage::BLOCK, &dev_servers::BLOCK, &data::BLOCK, &trail::BLOCK, &pet::BLOCK, &status::BLOCK, &tokens::BLOCK, &system::BLOCK, &sound::BLOCK]
+pub fn builtin() -> [&'static dyn Block; 11] {
+    [&docker::BLOCK, &custom::BLOCK, &disk_usage::BLOCK, &dev_servers::BLOCK, &data::BLOCK, &trail::BLOCK, &pet::BLOCK, &status::BLOCK, &tokens::BLOCK, &system::BLOCK, &sound::BLOCK]
 }
 
 #[cfg(test)]

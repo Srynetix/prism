@@ -20,6 +20,7 @@ const OWN: Record<string, () => Promise<{ default: unknown }>> = {
   system: () => import('./system/System.svelte'),
   sound: () => import('./sound/Sound.svelte'),
   disk_usage: () => import('./disk_usage/DiskUsage.svelte'),
+  custom_blocks: () => import('./custom/CustomBlocks.svelte'),
 }
 
 const loaded = new Map<string, Promise<BlockComponent<never> | undefined>>()

@@ -23,6 +23,19 @@ pub fn signal(pid: u32, signal: Signal) -> bool {
     pid > 0 && unsafe { libc::kill(pid as libc::pid_t, sig) } == 0
 }
 
+/// Kills process group `pgid` with SIGKILL: a program and every child it started in its group (a
+/// custom block's script past its timeout); false if it could not (gone already). Never the
+/// caller's own group nor every process (`pgid` 0 or 1 refused).
+pub fn kill_group(pgid: u32) -> bool {
+    // SAFETY: getpgrp never fails and reads no memory.
+    let own = unsafe { libc::getpgrp() } as u32;
+    if pgid <= 1 || pgid == own {
+        return false;
+    }
+    // SAFETY: killpg reads no memory; our own group and groups 0 and 1 are refused above.
+    unsafe { libc::killpg(pgid as libc::pid_t, libc::SIGKILL) == 0 }
+}
+
 /// Whether process `pid` exists (someone else's included).
 pub fn exists(pid: u32) -> bool {
     // SAFETY: signal 0 only checks that the process exists.
