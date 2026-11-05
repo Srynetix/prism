@@ -15,6 +15,12 @@ describe('projectsOf', () => {
     expect(active[1].left?.repo).toBe('things')
     expect(active[0].left).toBeNull()
   })
+
+  it('keeps in sight a resting one with a quick action', () => {
+    const { active, resting } = projectsOf({ groups: [group('synth')], repos: ['car', 'synth', 'gui', 'things'], left: [left('car', 6)], next: () => null, now, kept: (r) => r === 'things' })
+    expect(active.map((p) => p.name)).toEqual(['synth', 'car', 'things'])
+    expect(resting.map((p) => p.name)).toEqual(['gui'])
+  })
 })
 
 describe('nextTicket', () => {

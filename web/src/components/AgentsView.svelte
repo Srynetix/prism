@@ -106,7 +106,7 @@
    * left and its next ticket, a + for a new agent in it; those resting folded. Not while the list
    * is narrowed (a tag, the archived, Desktop only, the header's filter): only what it finds then.
    */
-  const projects = $derived(groupBy === 'repo' && !tagOn && !showArchived && filter !== 'desktop' && !queried ? projectsOf({ groups: groups.filter((g) => repos.includes(g.name)), repos, left: live.snapshot?.left ?? [], next: nextOf, now: Date.now() }) : null)
+  const projects = $derived(groupBy === 'repo' && !tagOn && !showArchived && filter !== 'desktop' && !queried ? projectsOf({ groups: groups.filter((g) => repos.includes(g.name)), repos, left: live.snapshot?.left ?? [], next: nextOf, now: Date.now(), kept: (r) => quickActionsOn(r).length > 0 }) : null)
   /** Beside the projects: agents outside every repository, Claude Desktop's. */
   const others = $derived(projects ? groups.filter((g) => !repos.includes(g.name)) : groups)
   let showResting = $state(false)

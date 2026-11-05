@@ -65,7 +65,7 @@
   const projects = $derived.by(() => {
     const groups: Group[] = repos.map((name) => ({ name, items: agents.filter((a) => agentRepo(a, snap) === name).map(agentEntry) })).filter((g) => g.items.length)
     groups.sort((x, y) => urgency(x) - urgency(y))
-    return projectsOf({ groups, repos, left: snap.left ?? [], next: nextOf, now: Date.now() })
+    return projectsOf({ groups, repos, left: snap.left ?? [], next: nextOf, now: Date.now(), kept: (r) => quickActionsOn(r).length > 0 })
   })
   /** Agents outside every repository. */
   const elsewhere = $derived(agents.filter((a) => !agentRepo(a, snap)))
