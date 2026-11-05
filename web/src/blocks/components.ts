@@ -3,6 +3,7 @@ import type { BlockComponent } from './block'
 import BigQueryCost from './data/BigQueryCost.svelte'
 import DataPipelines from './data/DataPipelines.svelte'
 import DevServers from './dev_servers/DevServers.svelte'
+import DiskUsage from './disk_usage/DiskUsage.svelte'
 import Docker from './docker/Docker.svelte'
 import Pet from './fun/Pet.svelte'
 import PetItem from './fun/PetItem.svelte'
@@ -31,6 +32,7 @@ export const BLOCK_COMPONENTS: Record<string, BlockComponent<never>> = {
   tokens: Tokens as BlockComponent<never>,
   system: System as BlockComponent<never>,
   sound: Sound as BlockComponent<never>,
+  disk_usage: DiskUsage as BlockComponent<never>,
   'status:status': StatusItem as unknown as BlockComponent<never>,
   'system:status': SystemItem as unknown as BlockComponent<never>,
   'sound:status': SoundItem as unknown as BlockComponent<never>,

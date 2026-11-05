@@ -213,6 +213,8 @@ fn export_bindings() {
     prism_blocks::dev_servers::DevServersState::export_all(&cfg).unwrap();
     prism_blocks::system::SystemState::export_all(&cfg).unwrap();
     prism_blocks::sound::SoundState::export_all(&cfg).unwrap();
+    prism_blocks::disk_usage::DiskUsageState::export_all(&cfg).unwrap();
+    prism_blocks::disk_usage::NodeView::export_all(&cfg).unwrap();
     prism_blocks::tokens::TokensState::export_all(&cfg).unwrap();
     prism_blocks::data::GcpData::export_all(&cfg).unwrap();
     prism_blocks::trail::TrailState::export_all(&cfg).unwrap();

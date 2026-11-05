@@ -1,7 +1,7 @@
 ---
 title: Environments, vulnerabilities and Docker
 group: Watch the system
-blocks: envs, argocd, vulns, docker
+blocks: envs, argocd, vulns, docker, disk_usage
 related: ci, agents, settings, todo
 ---
 Are the deployed applications healthy and running the version you expect, and which known vulnerabilities ship with what you build? From both blocks, a Claude session can take over the diagnosis or the fix.
@@ -117,7 +117,7 @@ Alerts flags a container unhealthy, restarting or exited with an error (a stop's
 The **System** block shows what the computer has under its feet while the agents, the dev servers and Docker run. It is on by default (Settings › Infra › System); add it to a page.
 
 - **CPU**, **Memory** and **Network**, each with its last 10 minutes. The memory's colour is macOS's memory pressure: green, orange when it compresses, red when it swaps; the bar splits what apps, the system (wired) and the compressor hold.
-- **Disk**: the free space of the disk your home folder is on — orange under 10 % or 25 GB, red under 5 % or 10 GB, limits set in Settings › Infra › System (`[system] disk_warn_gb`, `disk_warn_percent`, `disk_alert_gb`, `disk_alert_percent`; 0 turns one off) — and, under **Disks**, the external volumes plugged in. On macOS it is what a file can still take: the Finder adds the space the system could purge.
+- **Disk**: the free space of the disk your home folder is on — orange under 10 % or 25 GB, red under 5 % or 10 GB, limits set in Settings › Infra › System (`[system] disk_warn_gb`, `disk_warn_percent`, `disk_alert_gb`, `disk_alert_percent`; 0 turns one off) — and, under **Disks**, the external volumes plugged in. On macOS it is what a file can still take: the Finder adds the space the system could purge. To see where the space goes, the Disk usage block below scans a folder.
 - **Who consumes**, grouped by what Prism knows: its agents (their processes under tmux), Docker (its virtual machine), the shells and dev servers, Prism itself, then the three heaviest other applications, their helpers counted with them. CPU is in % of one core, summed.
 - **Network**: the latency of a TCP handshake to the services Prism calls (its forge, its tracker, its agents' API, and `[system] hosts`), every 15 s, with each host's last handshakes; the loss and jitter over 5 minutes, the default gateway, the traffic, and the Wi-Fi link's signal and rate (never the network's name).
 
@@ -127,3 +127,17 @@ On the phone, **System** is one of the remote's views (under **More**, or a bott
 
 [Open the System block](prism:block/system)
 [Open Settings › Infra › System](prism:settings/system)
+
+## Disk usage
+The **Disk usage** block shows where the space of a folder or of the whole disk goes, scanned on demand: nothing is read until you scan, nothing is watched between two scans. It is on by default (Settings › Infra › Disk usage); add it to a page.
+
+- **Scan**: pick a folder of `[disk_usage] roots` (the home folder `~`, the whole disk `/`…) or **Choose…** any other, then **Scan**; **Rescan** reads it again, **Stop** ends a scan at once. The block stays on the folder's disk (`[disk_usage] one_volume`): other disks and network shares mounted inside it are left out, and so are folders kept in the cloud only (iCloud Drive, OneDrive…), which take no space. On macOS the system may ask once whether Prism can read Documents, Desktop, Downloads or Photos: the scan waits for your answer (Full Disk Access avoids it).
+- **The list**, on the left: the folders by size, opened one level at a time with ▸, their share and **Δ**, how much each grew or shrank since the scan before (`[disk_usage] delta`). Git repositories and worktrees are marked.
+- **The treemap**, on the right: each folder a rectangle of its size, three levels deep, colored by type (build, cache, VMs, media, models, archives…) or by folder.
+- A click selects (its path and size below, with its actions), a double click opens a folder, the path above goes back up; a right click gives the actions: show it in the file manager, a terminal there, copy its path, scan it alone, move it to the Trash (two clicks).
+- **Reclaimable**: what can be rebuilt, found by its name — `node_modules`, Rust `target/`, `.venv`, `.next` and other JavaScript builds, `.terraform`, CocoaPods, Xcode's DerivedData, the caches, the iOS simulators no Xcode can run, Docker's disk image, the Trash. Each group shows how it is freed and goes in two clicks; **Show** finds its biggest one. Turn `[disk_usage] cleanup` off for a block that only reads.
+
+Sizes are what the files take on the disk (a sparse disk image counts what it holds, a hard link once). The last scan of each folder is kept in Prism's data folder: Δ compares with it, and the block shows it again after a restart, coarser (small folders summed into their parent) until the next scan.
+
+[Open the Disk usage block](prism:block/disk_usage)
+[Open Settings › Infra › Disk usage](prism:settings/disk_usage)
