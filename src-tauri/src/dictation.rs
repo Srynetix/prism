@@ -75,19 +75,29 @@ fn settings(state: &AppState) -> (prism_core::config::DictationConfig, String, S
 }
 
 /// Starts recording from the microphone of `[dictation] input_device`. One at a time: a recording
-/// still under way is dropped first.
+/// still under way is dropped first, before the device is opened again. Off the main thread: opening
+/// the device may wait on macOS's permission prompt or a Bluetooth headset.
 #[tauri::command]
-pub fn dictation_start(app: AppHandle, state: State<'_, Arc<AppState>>, dictation: State<'_, Dictation>) -> Cmd<Started> {
+pub async fn dictation_start(app: AppHandle, state: State<'_, Arc<AppState>>, dictation: State<'_, Dictation>) -> Cmd<Started> {
     let (cfg, _, _) = settings(&state);
     if !cfg.enabled {
         return Err(tr("Dictation is off: Settings › Agents › Dictation").into());
     }
     let max = cfg.max_seconds.clamp(5, 3600);
-    let demo = prism_demo::active();
-    let recording = if demo { None } else { Some(Recording::start(&cfg.input_device, max)?) };
+    let old = dictation.active.lock().unwrap_or_else(|e| e.into_inner()).take();
+    let device = cfg.input_device.clone();
+    let recording = tokio::task::spawn_blocking(move || {
+        // Its capture thread joined here, out of the lock, before the device opens again.
+        drop(old);
+        if prism_demo::active() { Ok(None) } else { Recording::start(&device, max).map(Some) }
+    })
+    .await??;
     let device = recording.as_ref().map(|r| r.device.clone()).unwrap_or_else(|| tr("Demo microphone").into());
     let id = dictation.next.fetch_add(1, Ordering::Relaxed);
-    *dictation.active.lock().unwrap_or_else(|e| e.into_inner()) = Some(Active { id, recording, started: std::time::Instant::now() });
+    let replaced = dictation.active.lock().unwrap_or_else(|e| e.into_inner()).replace(Active { id, recording, started: std::time::Instant::now() });
+    if replaced.is_some() {
+        tokio::task::spawn_blocking(move || drop(replaced));
+    }
     tauri::async_runtime::spawn(meter(app, id, max));
     Ok(Started { id, device, max_seconds: max })
 }
@@ -160,10 +170,16 @@ pub async fn dictation_stop(state: State<'_, Arc<AppState>>, dictation: State<'_
 /// How long whisper's model stays loaded after a dictation.
 const MODEL_IDLE: Duration = Duration::from_secs(300);
 
-/// Drops the recording under way, without transcribing it.
+/// Drops recording `id`, without transcribing it (another, newer one is left alone).
 #[tauri::command]
-pub fn dictation_cancel(dictation: State<'_, Dictation>) {
-    dictation.active.lock().unwrap_or_else(|e| e.into_inner()).take();
+pub async fn dictation_cancel(dictation: State<'_, Dictation>, id: u64) -> Cmd {
+    let taken = {
+        let mut a = dictation.active.lock().unwrap_or_else(|e| e.into_inner());
+        if a.as_ref().is_some_and(|a| a.id == id) { a.take() } else { None }
+    };
+    // Its capture thread joined off the main thread and out of the lock.
+    tokio::task::spawn_blocking(move || drop(taken)).await?;
+    Ok(())
 }
 
 /// What Settings › Agents › Dictation shows: the engine `auto` picks here, the system's
@@ -192,7 +208,7 @@ pub async fn dictation_status(state: State<'_, Arc<AppState>>, dictation: State<
     let downloading: Vec<String> = dictation.downloads.lock().unwrap_or_else(|e| e.into_inner()).keys().cloned().collect();
     let models_dir = dictation.models_dir.clone();
     let status = tokio::task::spawn_blocking(move || {
-        let lang = if options.language.trim().is_empty() || options.language == "auto" { options.fallback_language.split(['-', '_']).next().unwrap_or("en").to_string() } else { options.language.clone() };
+        let lang = prism_dictation::language_for(&options, prism_dictation::Engine::System);
         #[cfg(target_os = "macos")]
         let (auth, fn_usage) = (
             match prism_macos::speech::authorization() {
@@ -278,6 +294,10 @@ pub fn dictation_cancel_download(dictation: State<'_, Dictation>, model: String)
 /// Removes a downloaded model.
 #[tauri::command]
 pub fn dictation_remove(dictation: State<'_, Dictation>, model: String) -> Cmd {
+    // The models are the profiles' together: the demo profile leaves them alone.
+    if prism_demo::active() {
+        return Err(prism_demo::READ_ONLY.into());
+    }
     let m = models::model(&model).ok_or_else(|| tr!("Unknown whisper model {model}", model = model))?;
     models::remove(&dictation.models_dir, &m).map_err(Into::into)
 }

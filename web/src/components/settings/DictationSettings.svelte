@@ -43,6 +43,7 @@
   $effect(() => void load())
 
   let unlisten: (() => void) | undefined
+  let gone = false
   if (isDesktop()) {
     void localListen<Download>('dictation-download', (e) => {
       const d = e.payload
@@ -51,9 +52,12 @@
         if (d.error) error = t('{model}: {error}', { model: d.model, error: d.error })
         void load()
       } else progress[d.model] = d.total ? d.done / d.total : 0
-    }).then((u) => (unlisten = u))
+    }).then((u) => (gone ? u() : (unlisten = u)))
   }
-  onDestroy(() => unlisten?.())
+  onDestroy(() => {
+    gone = true
+    unlisten?.()
+  })
 
   async function download(model: string) {
     error = ''

@@ -67,14 +67,18 @@ pub fn locale_of(lang: &str) -> String {
 }
 
 /// The language a transcription asks for: `language`, or the fallback where it is `auto` and the
-/// engine cannot detect it.
-fn language_for(o: &Options, engine: Engine) -> String {
+/// engine cannot detect it; for whisper, its primary subtag (`fr-FR` → `fr`), the codes it knows.
+pub fn language_for(o: &Options, engine: Engine) -> String {
+    let primary = |l: &str| l.split(['-', '_']).next().unwrap_or(l).trim().to_ascii_lowercase();
     let l = o.language.trim();
-    if (l.is_empty() || l == "auto") && engine == Engine::System {
-        let f = o.fallback_language.trim();
-        return if f.is_empty() { "en".into() } else { f.split(['-', '_']).next().unwrap_or(f).to_string() };
+    if l.is_empty() || l == "auto" {
+        if engine == Engine::Whisper {
+            return "auto".into();
+        }
+        let f = primary(&o.fallback_language);
+        return if f.is_empty() { "en".into() } else { f };
     }
-    if l.is_empty() { "auto".into() } else { l.to_string() }
+    if engine == Engine::System { l.to_string() } else { primary(l) }
 }
 
 /// macOS's on-device recognition can take the language (and Prism has not been refused it).
@@ -168,6 +172,11 @@ mod tests {
         assert_eq!(language_for(&opts("auto", "auto"), Engine::Whisper), "auto");
         assert_eq!(language_for(&opts("auto", "en"), Engine::System), "en");
         assert_eq!(language_for(&opts("auto", ""), Engine::Whisper), "auto");
+        assert_eq!(language_for(&opts("auto", "fr-FR"), Engine::Whisper), "fr");
+        assert_eq!(language_for(&opts("auto", "fr-FR"), Engine::System), "fr-FR");
+        let mut o = opts("auto", "auto");
+        o.fallback_language = String::new();
+        assert_eq!(language_for(&o, Engine::System), "en");
     }
 
     #[test]

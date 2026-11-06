@@ -19,7 +19,7 @@ async fn downloads_tiny_and_transcribes_a_spoken_sentence() {
     let bytes = std::fs::read(&wav).unwrap();
     // The `data` chunk of the WAV: little-endian floats at 44.1 kHz, brought to 16 kHz.
     let at = bytes.windows(4).position(|w| w == b"data").unwrap() + 8;
-    let samples: Vec<f32> = bytes[at..].chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
+    let samples: Vec<f32> = bytes[at..].as_chunks::<4>().0.iter().map(|c| f32::from_le_bytes(*c)).collect();
     let samples = prism_dictation::resample::to_rate(&samples, 44_100, 16_000);
     let o = prism_dictation::Options { engine: "whisper".into(), model: "tiny".into(), language: "en".into(), fallback_language: "en".into(), hints: vec!["main".into()], models_dir: dir.clone() };
     let t = prism_dictation::transcribe(&o, &samples).unwrap();

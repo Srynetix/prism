@@ -126,9 +126,11 @@ pub fn transcribe(samples: &[f32], rate: f64, locale: &str, hints: &[String], wa
         // SAFETY: Speech passes a result or an error, either possibly nil: each checked before use.
         unsafe {
             if let Some(e) = error.as_ref() {
-                // 1110: no speech heard (kAFAssistantErrorDomain), 301: cancelled.
+                // Speech's own: 1110, no speech heard; 301, the request cancelled.
                 let code = e.code();
-                let _ = tx.send(if code == 1110 || code == 301 { Ok(String::new()) } else { Err(e.localizedDescription().to_string()) });
+                let domain = e.domain().to_string();
+                let quiet = matches!(domain.as_str(), "kAFAssistantErrorDomain" | "kLSRErrorDomain") && (code == 1110 || code == 301);
+                let _ = tx.send(if quiet { Ok(String::new()) } else { Err(e.localizedDescription().to_string()) });
             } else if let Some(r) = result.as_ref()
                 && r.isFinal()
             {

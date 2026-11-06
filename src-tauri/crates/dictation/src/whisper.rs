@@ -4,6 +4,7 @@
 //! its own statics are destroyed.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, Once};
 use std::time::{Duration, Instant};
 
@@ -14,6 +15,8 @@ use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextPar
 /// The model loaded, by its path, and when it was last used.
 static LOADED: Mutex<Option<(PathBuf, WhisperContext, Instant)>> = Mutex::new(None);
 static QUIET: Once = Once::new();
+/// Set while Prism exits: a transcription under way stops at once (`unload`).
+static ABORT: AtomicBool = AtomicBool::new(false);
 
 /// `samples` (mono, 16 kHz) as text, with the model at `model`. `language`: a code (`fr`, `en`),
 /// or `auto` to let whisper detect it; `hints`: words it should expect (the repository's,
@@ -42,6 +45,7 @@ pub fn transcribe(model: &Path, samples: &[f32], language: &str, hints: &[String
     params.set_print_special(false);
     params.set_print_timestamps(false);
     params.set_suppress_blank(true);
+    params.set_abort_callback_safe(|| ABORT.load(Ordering::Relaxed));
     let prompt = prompt_of(hints);
     if !prompt.is_empty() {
         params.set_initial_prompt(&prompt);
@@ -56,12 +60,19 @@ pub fn transcribe(model: &Path, samples: &[f32], language: &str, hints: &[String
     Ok(clean(&text.join(" ")))
 }
 
-/// Lets the model go when it has not been used for `idle` (`Duration::ZERO`: at once, as Prism
-/// exits). Waits for a transcription under way.
+/// Lets the model go when it has not been used for `idle`. `Duration::ZERO`, as Prism exits: a
+/// transcription under way is stopped first, rather than waited for.
 pub fn unload(idle: Duration) {
+    let now = idle.is_zero();
+    if now {
+        ABORT.store(true, Ordering::Relaxed);
+    }
     let mut loaded = LOADED.lock().unwrap_or_else(|e| e.into_inner());
     if loaded.as_ref().is_some_and(|(_, _, used)| used.elapsed() >= idle) {
         *loaded = None;
+    }
+    if now {
+        ABORT.store(false, Ordering::Relaxed);
     }
 }
 

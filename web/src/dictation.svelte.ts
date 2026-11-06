@@ -73,22 +73,30 @@ export function registerTarget(key: string, target: Target): () => void {
   }
 }
 
-/** Files an agent's conversation read or wrote, newest first: words its dictation expects. */
-const agentFiles = new Map<string, string[]>()
+/** Each agent's conversation as its Chat last read it: the files it read or wrote are words its dictation expects. */
+const conversations = new Map<string, AgentConversation>()
 export function noteAgentFiles(agent: string, convo: AgentConversation | null | undefined) {
-  if (!convo) return
+  if (convo) conversations.set(agent, convo)
+  else conversations.delete(agent)
+}
+export const forgetAgentFiles = (agent: string) => conversations.delete(agent)
+
+/** The files an agent's conversation read or wrote, newest first, 40 at most: worked out when a dictation needs them. */
+export function filesOfAgent(agent: string): string[] {
+  const convo = conversations.get(agent)
+  if (!convo) return []
   const seen = new Set<string>()
-  for (const turn of [...convo.turns].reverse()) {
-    for (const e of [...turn.entries].reverse()) {
+  for (let t = convo.turns.length - 1; t >= 0 && seen.size < 40; t--) {
+    const entries = convo.turns[t].entries
+    for (let i = entries.length - 1; i >= 0 && seen.size < 40; i--) {
+      const e = entries[i]
       if (e.type !== 'tool' || (e.kind !== 'read' && e.kind !== 'write') || !e.what) continue
       const name = e.what.trim().split(/[\\/]/).pop() ?? ''
       if (/^[\w.@-]+\.\w+$/.test(name)) seen.add(name)
-      if (seen.size >= 40) break
     }
   }
-  agentFiles.set(agent, [...seen])
+  return [...seen]
 }
-export const filesOfAgent = (agent: string) => agentFiles.get(agent) ?? []
 
 /** The microphone muted, turned off or too low (the Sound block, `[sound]`): nothing would be heard. */
 export function micWarning(): MicWarning | null {
@@ -145,7 +153,8 @@ export async function startDictation(key: string, mode: 'hold' | 'toggle', force
   try {
     const started = hasCore() ? await localInvoke<{ id: number; device: string; max_seconds: number }>('dictation_start') : pretendStart()
     if (gen !== generation) {
-      if (hasCore()) void localInvoke('dictation_cancel')
+      // Cancelled while it started: this one, not a newer one.
+      if (hasCore()) void localInvoke('dictation_cancel', { id: started.id })
       return
     }
     id = started.id
@@ -197,9 +206,8 @@ export async function stopDictation() {
 /** Drops the dictation under way: nothing goes in. */
 export function cancelDictation() {
   generation++
-  if (dictation.phase === 'recording' || dictation.phase === 'starting') {
-    if (hasCore()) void localInvoke('dictation_cancel')
-  }
+  // Still starting: its start drops it once it answers (it knows its id then).
+  if (dictation.phase === 'recording' && hasCore()) void localInvoke('dictation_cancel', { id })
   dictation.phase = 'idle'
   dictation.warn = null
 }
