@@ -16,6 +16,7 @@
   import { live } from '../live.svelte'
   import { hasCore, invoke } from '../bridge'
   import CommentBox from './CommentBox.svelte'
+  import { ticketMentions } from '../mentions.svelte'
   import PrioritySelect from './PrioritySelect.svelte'
   import { setQuery } from '../filter.svelte'
   import { ago, span } from '../time'
@@ -192,6 +193,15 @@
   /** Comment being edited (mine). */
   let editing = $state<string | null>(null)
   const mine = (c: { author: { id: number } | null }) => !!c.author && c.author.id === live.snapshot?.tracker_me?.id
+  /** Who a comment can mention (trackers that offer it): its assignees, creator and commenters first. */
+  const people = $derived.by(() => {
+    const task = ticketView.task
+    if (!task?.list_id || !offers('mentions')) return undefined
+    const first = [...task.assignees, ...(task.creator ? [task.creator] : []), ...task.comments.flatMap((c) => (c.author ? [c.author] : []))].map((p) => p.id)
+    return ticketMentions(task.list_id, [...new Set(first)], live.snapshot?.tracker_me?.id ?? null)
+  })
+  /** A comment's mentions as chips, mine lit. */
+  const marksOf = (c: { mentions: { id: number; text: string }[] }) => ({ known: c.mentions.map((m) => ({ text: m.text, mine: m.id === live.snapshot?.tracker_me?.id })) })
 
   function onKey(e: KeyboardEvent) {
     if (e.key !== 'Escape' || !ticketView.id) return
@@ -427,12 +437,12 @@
             <article class="comment">
               <p class="who">
                 {#if c.author || !onObsidian()}<b>{c.author?.name ?? tr('Someone')}</b>{/if}<span>{stamp(c.date)}</span>{#if c.replies}<span>· {tn(c.replies, '{n} reply in ClickUp', '{n} replies in ClickUp')}</span>{/if}
-                {#if hasCore() && offers('comment_edit') && mine(c) && c.id && editing !== c.id}<button class="edit" onclick={() => (editing = c.id)} title={tr('Edit your comment (rich formatting is replaced by plain text)')}>{tr('Edit')}</button>{/if}
+                {#if hasCore() && offers('comment_edit') && mine(c) && c.id && editing !== c.id}<button class="edit" onclick={() => (editing = c.id)} title={tr('Edit your comment (its mentions are kept, other rich formatting is replaced by plain text)')}>{tr('Edit')}</button>{/if}
               </p>
               {#if editing === c.id}
-                <CommentBox value={c.text} label={tr('Save')} accent="var(--src-clickup)" placeholder={keys(tr('Edit your comment… (⌘↵ to save, Esc to cancel)'))} autofocus onsend={(text) => editComment(t.task_id, c.id, text)} oncancel={() => (editing = null)} />
+                <CommentBox value={c.text} mentions={c.mentions} {people} label={tr('Save')} accent="var(--src-clickup)" placeholder={keys(tr('Edit your comment… (⌘↵ to save, Esc to cancel)'))} autofocus onsend={(text, mentions) => editComment(t.task_id, c.id, text, mentions)} oncancel={() => (editing = null)} />
               {:else}
-                <Markdown text={c.text} plain />
+                <Markdown text={c.text} plain mention={c.mentions.length ? marksOf(c) : undefined} />
               {/if}
             </article>
           {:else}
@@ -440,7 +450,7 @@
           {/each}
           {#if hasCore() && offers('comment')}
             {#key t.task_id}
-              <CommentBox label={tr('Comment')} accent="var(--src-clickup)" placeholder={keys(tr('Comment on {id}… (⌘↵ to send)', { id: t.id }))} onsend={(text) => addComment(t.task_id, text)} />
+              <CommentBox {people} label={tr('Comment')} accent="var(--src-clickup)" placeholder={keys(tr('Comment on {id}… (⌘↵ to send)', { id: t.id }))} onsend={(text, mentions) => addComment(t.task_id, text, mentions)} />
             {/key}
           {/if}
         </section>

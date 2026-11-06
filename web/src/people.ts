@@ -46,17 +46,25 @@ export function initialsOf(name: string, username: string): string {
 export const firstName = (name: string, username: string) => name.trim().split(/\s+/)[0] || username
 
 /**
- * A forge person's profile picture (MR author, member) as a `data:` URL, once loaded (the
- * window's CSP allows no external image): each read once per session by the Rust core, one that
- * fails is not asked again and the initials stay. `[forge] avatars` off: none.
+ * A person's profile picture as a `data:` URL, once loaded (the window's CSP allows no external
+ * image): each read once per session by the Rust core (`command`), one that fails is not asked
+ * again and the initials stay; `enabled` off: none.
  */
-const pictures = new SvelteMap<string, string>()
-const asked = new Set<string>()
-export function forgeAvatar(url: string | null | undefined): string | undefined {
-  if (!url || !hasCore() || !conventions().forge_avatars) return undefined
-  if (!asked.has(url)) {
-    asked.add(url)
-    invoke<string>('forge_avatar', { url }).then((src) => pictures.set(url, src)).catch(() => {})
+function pictureLoader(command: string, enabled: () => boolean) {
+  const pictures = new SvelteMap<string, string>()
+  const asked = new Set<string>()
+  return (url: string | null | undefined): string | undefined => {
+    if (!url || !hasCore() || !enabled()) return undefined
+    if (!asked.has(url)) {
+      asked.add(url)
+      invoke<string>(command, { url }).then((src) => pictures.set(url, src)).catch(() => {})
+    }
+    return pictures.get(url)
   }
-  return pictures.get(url)
 }
+
+/** A forge person's (MR author, member); `[forge] avatars` off: none. */
+export const forgeAvatar = pictureLoader('forge_avatar', () => conventions().forge_avatars)
+
+/** A tracker person's (ClickUp's `profilePicture`); `[clickup] avatars` off: none. */
+export const ticketAvatar = pictureLoader('ticket_image', () => conventions().avatars)

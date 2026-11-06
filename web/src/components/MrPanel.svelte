@@ -36,6 +36,7 @@
   import MrDiffView from './MrDiffView.svelte'
   import MrApprovals from './MrApprovals.svelte'
   import CommentBox from './CommentBox.svelte'
+  import { forgeMentions } from '../mentions.svelte'
   import Icon from './Icon.svelte'
   import PeoplePicker from './PeoplePicker.svelte'
   import LabelPicker from './LabelPicker.svelte'
@@ -133,6 +134,8 @@
   const reply = (discussion: string, body: string) => comment(m!, body, m!.updated_at, discussion)
   const resolve = (discussion: string, resolved: boolean) => resolveThread(m!, discussion, resolved, m!.updated_at)
   const web = $derived(m ? projectWeb(m.url) : undefined)
+  /** Who a comment can mention: the MR's author, reviewers, assignees and commenters first. */
+  const people = $derived(m ? forgeMentions(m.repo, [...new Set([m.author, ...m.reviewers, ...m.assignees, ...threads.flatMap((d) => d.notes.map((n) => n.author))])], me) : undefined)
   function locate(path: string, line: number | null) {
     focus = { path, line }
     tab = 'changes'
@@ -349,7 +352,7 @@
     </header>
     {#if m && asking && detail?.data}
       <div class="ask">
-        <CommentBox forge={web} label={t('Request changes')} accent="var(--warn)" autofocus placeholder={keys(t('What should change? (⌘↵ to request, Esc to cancel)'))} onsend={askChanges} oncancel={() => (asking = false)} />
+        <CommentBox forge={web} {people} label={t('Request changes')} accent="var(--warn)" autofocus placeholder={keys(t('What should change? (⌘↵ to request, Esc to cancel)'))} onsend={askChanges} oncancel={() => (asking = false)} />
       </div>
     {/if}
     {#if m}
@@ -365,7 +368,7 @@
         <p class="muted">{t('Changes, commits and discussions are read from {forge} by the app, not in the browser preview.', { forge: forgeName(m?.forge) })}</p>
       {:else if m && tab === 'changes'}
         {#if diff?.data && detail?.data}
-          <MrDiffView {phone} iid={mrKey(m)} diff={diff.data} discussions={threads} me={me} onreply={reply} onresolve={resolve} oncomment={(line, body) => commentLine(m, line, body, m.updated_at)} {focus} forge={web} source={(path) => mrFile(m, path)} image={(path, old) => mrImage(m, path, old)} />
+          <MrDiffView {phone} iid={mrKey(m)} diff={diff.data} discussions={threads} me={me} onreply={reply} onresolve={resolve} oncomment={(line, body) => commentLine(m, line, body, m.updated_at)} {focus} forge={web} {people} source={(path) => mrFile(m, path)} image={(path, old) => mrImage(m, path, old)} />
         {:else if diff?.error}<p class="error">{diff.error}</p>
         {:else}<p class="muted">{t('Loading the changes…')}</p>{/if}
       {:else if m && tab === 'commits'}
@@ -387,11 +390,11 @@
         {#if detail?.data}
           <div class="threads">
             {#each threads as d (d.id)}
-              <MrThread discussion={d} me={me} forge={web} onreply={(body) => reply(d.id, body)} onresolve={(r) => resolve(d.id, r)} onlocate={d.path ? () => locate(d.path!, d.line) : undefined} />
+              <MrThread discussion={d} me={me} forge={web} {people} onreply={(body) => reply(d.id, body)} onresolve={(r) => resolve(d.id, r)} onlocate={d.path ? () => locate(d.path!, d.line) : undefined} />
             {:else}
               <p class="muted">{t('No comment yet.')}</p>
             {/each}
-            <div class="compose" class:sticky={phone}><CommentBox forge={web} onsend={(body) => comment(m, body, m.updated_at)} /></div>
+            <div class="compose" class:sticky={phone}><CommentBox forge={web} {people} onsend={(body) => comment(m, body, m.updated_at)} /></div>
           </div>
         {:else if detail?.error}<p class="error">{detail.error}</p>
         {:else}<p class="muted">{t('Loading the discussion…')}</p>{/if}
@@ -459,7 +462,7 @@
           <section>
             <h3>{t('Description')}</h3>
             {#if detail?.data}
-              {#if detail.data.description.trim()}<div class="desc"><Markdown text={detail.data.description} forge={web} /></div>{:else}<p class="muted">{t('No description.')}</p>{/if}
+              {#if detail.data.description.trim()}<div class="desc"><Markdown text={detail.data.description} forge={web} mention={{ me }} /></div>{:else}<p class="muted">{t('No description.')}</p>{/if}
             {:else if detail?.error}<p class="error">{detail.error}</p>
             {:else}<p class="muted">{t('Loading…')}</p>{/if}
           </section>

@@ -554,4 +554,7 @@ export default {
   'Comment on lines {from}–{to}… (⌘↵ to send, Esc to cancel)': 'Commenter les lignes {from}–{to}… (⌘↵ pour envoyer, Échap pour annuler)',
   'Sorted by': 'Trié par',
   'Oldest first': 'Les plus anciennes d’abord',
+  'People to mention': 'Personnes à mentionner',
+  'in this thread': 'dans ce fil',
+  'Loading the members…': 'Chargement des membres…',
 } satisfies Dictionary

@@ -1,4 +1,5 @@
 import { hasCore, invoke } from './bridge'
+import type { Mention } from './bindings/Mention'
 import { trackerOn } from './live.svelte'
 import { rememberPanel } from './recent-panels.svelte'
 import { t } from './i18n.svelte'
@@ -140,15 +141,15 @@ export async function setEstimate(taskId: string, field: string | null, hours: n
   if (ticketView.task) ticketView.task = apply(ticketView.task)
 }
 
-/** Comment on the displayed ticket; the preview is re-read to show the comment. */
-export async function addComment(taskId: string, text: string) {
-  await invoke<void>('add_ticket_comment', { taskId, text })
+/** Comment on the displayed ticket (`mentions`: those it notifies); the preview is re-read to show the comment. */
+export async function addComment(taskId: string, text: string, mentions: Mention[] = []) {
+  await invoke<void>('add_ticket_comment', { taskId, text, mentions })
   if (ticketView.task?.task_id === taskId) await refreshTicket()
 }
 
 /** Edit one of my comments on the displayed ticket. */
-export async function editComment(taskId: string, comment: string, text: string) {
-  await invoke<void>('edit_ticket_comment', { taskId, comment, text })
+export async function editComment(taskId: string, comment: string, text: string, mentions: Mention[] = []) {
+  await invoke<void>('edit_ticket_comment', { taskId, comment, text, mentions })
   if (ticketView.task?.task_id === taskId) await refreshTicket()
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inline, parse, type Block } from './markdown'
+import { inline, parse, withMentions, type Block } from './markdown'
 
 const lists = (md: string) => parse(md).filter((b): b is Extract<Block, { kind: 'list' }> => b.kind === 'list')
 const numbers = (md: string) => lists(md).map((l) => l.items.map((i) => i.number ?? '•'))
@@ -101,5 +101,23 @@ describe('inline code', () => {
   it('leaves a run without its match as text', () => {
     expect(code('``a` b')).toEqual([])
     expect(inline('``a` b').map((s) => s.text).join('')).toBe('``a` b')
+  })
+})
+
+describe('mentions', () => {
+  const chips = (text: string, marks: Parameters<typeof withMentions>[1]) => withMentions(inline(text), marks).filter((s) => s.mention).map((s) => `${s.text}:${s.mention}`)
+
+  it('reads a forge username, mine lit, never an address nor the dot after it', () => {
+    expect(chips('@ann and @Bob.b, see a@b.com or @bob.', { me: 'bob' })).toEqual(['@ann:other', '@Bob.b:other', '@bob:me'])
+  })
+
+  it('leaves code and links alone', () => {
+    expect(chips('`@ann` [@bob](https://x.y) @carl', {})).toEqual(['@carl:other'])
+  })
+
+  it('reads only the known tokens of a tracker, the longest first', () => {
+    expect(chips('@Ann Two and @Ann, not @Bob', { known: [{ text: '@Ann', mine: true }, { text: '@Ann Two', mine: false }] })).toEqual(['@Ann Two:other', '@Ann:me'])
+    expect(chips('@Ann', { known: [] })).toEqual([])
+    expect(chips('@Annabelle, @Ann.', { known: [{ text: '@Ann', mine: false }] })).toEqual(['@Ann:other'])
   })
 })

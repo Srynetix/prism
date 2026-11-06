@@ -39,6 +39,47 @@ export interface Span {
   emoji?: string
   /** `prism:` link: what to do in the app (`block/mrs`, `help/agents`…), see help.svelte.ts. */
   action?: string
+  /** Someone mentioned (`@ann`, ClickUp's `@Ann Two`), drawn as a chip; `me`: I am. */
+  mention?: 'me' | 'other'
+}
+
+/**
+ * Who a comment's text mentions: a forge's `@username` (`me`: my username), or a tracker's known
+ * tokens (`known`: `@Ann Two`, each told whether it is me), the only ones read then.
+ */
+export interface MentionMarks {
+  me?: string | null
+  known?: { text: string; mine: boolean }[]
+}
+
+/** A forge's `@username`: after a space or a bracket (not an address's `a@b`), not ending on a dot. */
+const FORGE_MENTION = /(?<![\w@/.`-])@([A-Za-z0-9_](?:[\w.-]*[\w])?)/g
+export const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** The mentions of plain spans cut out as chips; code, links and images are left as they are. */
+export function withMentions(spans: Span[], marks: MentionMarks): Span[] {
+  const known = marks.known?.filter((k) => k.text.length > 1).sort((a, b) => b.text.length - a.text.length)
+  if (marks.known && !known?.length) return spans
+  // A known token as a whole: not the start of a longer word (`@Ann` is not in `@Annabelle`).
+  const re = known ? new RegExp(`(?:${known.map((k) => escapeRe(k.text)).join('|')})(?![\\p{L}\\p{N}_])`, 'gu') : FORGE_MENTION
+  const me = marks.me?.toLowerCase()
+  const out: Span[] = []
+  for (const s of spans) {
+    if (s.code || s.href || s.image || s.emoji || s.action || s.ticket || s.mr !== undefined || s.local) {
+      out.push(s)
+      continue
+    }
+    let last = 0
+    for (const m of s.text.matchAll(re)) {
+      if (m.index > last) out.push({ ...s, text: s.text.slice(last, m.index) })
+      const mine = known ? !!known.find((k) => k.text === m[0])?.mine : !!me && m[1].toLowerCase() === me
+      out.push({ ...s, text: m[0], mention: mine ? 'me' : 'other' })
+      last = m.index + m[0].length
+    }
+    if (last === 0) out.push(s)
+    else if (last < s.text.length) out.push({ ...s, text: s.text.slice(last) })
+  }
+  return out
 }
 
 export interface ListItem {

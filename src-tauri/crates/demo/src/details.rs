@@ -1037,6 +1037,11 @@ fn png(w: u32, h: u32, pixel: impl Fn(u32, u32) -> [u8; 3]) -> Vec<u8> {
     out
 }
 
+/// Who can be mentioned on a demo ticket: the team.
+pub fn ticket_members() -> Vec<crate::state::Person> {
+    Demo::team().into()
+}
+
 pub fn members() -> Vec<Member> {
     (0..5)
         .map(|i| {
@@ -1391,6 +1396,7 @@ fn view(s: &Snapshot, t: &Ticket, statuses: &[crate::state::StatusOption], c: Ti
         creator: Some(team[4].clone()),
         tags: c.tags.iter().map(|x| x.to_string()).collect(),
         list: Some(t.list.as_ref().map(|l| l.name.clone()).unwrap_or_else(|| "Shop".into())),
+        list_id: Some(t.list.as_ref().map(|l| l.id.clone()).unwrap_or_else(|| "demo".into())),
         parent: t.parent.clone(),
         url: t.url.clone(),
         description,
@@ -1409,7 +1415,7 @@ fn view(s: &Snapshot, t: &Ticket, statuses: &[crate::state::StatusOption], c: Ti
             .comments
             .iter()
             .enumerate()
-            .map(|(i, (who, text, hours))| Comment { id: format!("{}-c{i}", t.task_id), author: Some(team[*who].clone()), text: (*text).into(), date: Some(ago(hours * 60)), replies: 0 })
+            .map(|(i, (who, text, hours))| Comment { id: format!("{}-c{i}", t.task_id), author: Some(team[*who].clone()), text: (*text).into(), date: Some(ago(hours * 60)), replies: 0, mentions: Vec::new() })
             .collect(),
         attachments: Vec::new(),
     }

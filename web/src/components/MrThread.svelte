@@ -9,10 +9,11 @@
   import { keys } from '../platform'
   import { onGithubWeb } from '../forge'
   import { emojiText } from '../emoji.svelte'
+  import type { MentionSource } from '../mentions.svelte'
 
   /** An MR discussion thread: its notes, its state, and an optional reply. */
   let {
-    discussion: d, me, onreply, onresolve, onlocate, compact = false, forge,
+    discussion: d, me, onreply, onresolve, onlocate, compact = false, forge, people,
   }: {
     discussion: Discussion
     me: string | null
@@ -25,7 +26,11 @@
     onlocate?: () => void
     /** In the diff: without the file reminder. */
     compact?: boolean
+    /** Who a reply can mention: this thread's authors first. */
+    people?: MentionSource
   } = $props()
+
+  const replyPeople = $derived(people && { ...people, first: [...new Set([...d.notes.map((n) => n.author), ...people.first])] })
 
   let replying = $state(false)
   /** A folded thread's first note, its start, shortcodes as emoji (after the cut: no emoji cut in half). */
@@ -66,11 +71,11 @@
     {#each d.notes as n (n.id)}
       <div class="note">
         <div class="who"><b class:me={n.author === me}>{n.author === me ? t('you') : n.author_name || n.author}</b><span class="muted" title={new Date(n.created_at).toLocaleString(locale())}>{ago(n.created_at) === t('now') ? t('just now') : t('{ago} ago', { ago: ago(n.created_at) })}</span></div>
-        <Markdown text={n.body} {forge} />
+        <Markdown text={n.body} {forge} mention={{ me }} />
       </div>
     {/each}
     {#if replying}
-      <CommentBox {forge} label={t('Reply')} placeholder={keys(t('Reply… (⌘↵ to send)'))} autofocus onsend={onreply} oncancel={() => (replying = false)} />
+      <CommentBox {forge} people={replyPeople} label={t('Reply')} placeholder={keys(t('Reply… (⌘↵ to send)'))} autofocus onsend={onreply} oncancel={() => (replying = false)} />
     {:else}
       <div class="acts">
         <button class="reply" onclick={() => (replying = true)}>{t('Reply')}</button>

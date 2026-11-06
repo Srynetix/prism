@@ -25,6 +25,7 @@ pub mod task_view;
 pub mod ticket_commits;
 pub mod time;
 pub mod tracker;
+pub mod ttl_cache;
 pub mod usage;
 pub mod vulnerabilities;
 pub mod worktrees;

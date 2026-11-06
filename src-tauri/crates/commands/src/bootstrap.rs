@@ -370,10 +370,14 @@ fn start(hub: &state::Hub, time: &collectors::time::TimeService, team_id: collec
     let conventions = conventions_of(&cfg);
     if gens.contains_key(&Part::Code) {
         running.forges = Forges::default();
+        // Another account or instance, maybe: its members, labels and emoji read again.
+        collectors::gitlab::review::forget_cached();
+        collectors::github::review::forget_cached();
     }
     let forge = running.forges.of(&cfg);
     if gens.contains_key(&Part::Tracker) || running.tracker.is_none() {
         running.tracker = Some(tracker_of(&cfg, team_id.clone()));
+        collectors::clickup::forget_members();
     }
     let tracker = running.tracker.clone().expect("tracker");
     // The demo profile: its sample data, and no collector at all.

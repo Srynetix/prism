@@ -2,6 +2,7 @@
 //! demand when the panel displays them (never collected in the background nor kept in the
 //! snapshot); approve, revoke one's approval, comment and reply to a thread.
 
+use crate::ttl_cache::TtlCache;
 use prism_base::{i18n::tr, tr};
 use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
@@ -575,17 +576,14 @@ struct RawMember {
     state: String,
 }
 
-/// Members change little: re-read at most every hour.
-const MEMBERS_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
-static MEMBERS: std::sync::Mutex<Option<(std::time::Instant, Vec<Member>)>> = std::sync::Mutex::new(None);
+/// Members change little: re-read at most every hour, per project.
+static MEMBERS: TtlCache<Vec<Member>> = TtlCache::new(std::time::Duration::from_secs(3600));
 
 /// The project's active members, parent groups included (`members/all`), without project
 /// or group bots; sorted by name.
 pub async fn members(project: &str) -> Result<Vec<Member>> {
-    if let Some((at, list)) = MEMBERS.lock().unwrap().as_ref()
-        && at.elapsed() < MEMBERS_TTL
-    {
-        return Ok(list.clone());
+    if let Some(list) = MEMBERS.get(project) {
+        return Ok(list);
     }
     let p = encode(project);
     let mut all: Vec<RawMember> = Vec::new();
@@ -599,7 +597,7 @@ pub async fn members(project: &str) -> Result<Vec<Member>> {
     }
     let mut list = people_of(all);
     list.sort_by_key(|m| m.name.to_lowercase());
-    *MEMBERS.lock().unwrap() = Some((std::time::Instant::now(), list.clone()));
+    MEMBERS.put(project, list.clone());
     Ok(list)
 }
 
@@ -665,14 +663,12 @@ struct RawLabel {
 }
 
 /// Labels change little: re-read at most every ten minutes, per project (or at once after Prism created one).
-const LABELS_TTL: std::time::Duration = std::time::Duration::from_secs(600);
-type LabelCache = std::collections::HashMap<String, (std::time::Instant, Vec<ForgeLabel>)>;
-static LABELS: std::sync::Mutex<Option<LabelCache>> = std::sync::Mutex::new(None);
+static LABELS: TtlCache<Vec<ForgeLabel>> = TtlCache::new(std::time::Duration::from_secs(600));
 
 /// The project's labels, its groups' included (`include_ancestor_groups`), by name.
 pub async fn labels(project: &str) -> Result<Vec<ForgeLabel>> {
-    if let Some((_, list)) = LABELS.lock().unwrap().as_ref().and_then(|c| c.get(project)).filter(|(at, _)| at.elapsed() < LABELS_TTL) {
-        return Ok(list.clone());
+    if let Some(list) = LABELS.get(project) {
+        return Ok(list);
     }
     let p = encode(project);
     let mut list: Vec<ForgeLabel> = Vec::new();
@@ -686,23 +682,21 @@ pub async fn labels(project: &str) -> Result<Vec<ForgeLabel>> {
     }
     list.sort_by_key(|l| l.name.to_lowercase());
     list.dedup_by(|a, b| a.name == b.name);
-    LABELS.lock().unwrap().get_or_insert_with(Default::default).insert(project.to_string(), (std::time::Instant::now(), list.clone()));
+    LABELS.put(project, list.clone());
     Ok(list)
 }
 
 const CUSTOM_EMOJI: &str = "query($path: ID!, $after: String) { group(fullPath: $path) { customEmoji(includeAncestorGroups: true, first: 100, after: $after) { nodes { name url } pageInfo { hasNextPage endCursor } } } }";
 
 /// Custom emoji change rarely: re-read at most every hour, per group.
-const EMOJI_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
-type EmojiCache = std::collections::HashMap<String, (std::time::Instant, Vec<crate::forge::CustomEmoji>)>;
-static EMOJI: std::sync::Mutex<Option<EmojiCache>> = std::sync::Mutex::new(None);
+static EMOJI: TtlCache<Vec<crate::forge::CustomEmoji>> = TtlCache::new(std::time::Duration::from_secs(3600));
 
 /// The custom emoji of the project's group and of the groups above it (they are made on a group);
 /// none for a project of a user's namespace, which has no group.
 pub async fn custom_emoji(project: &str) -> Result<Vec<crate::forge::CustomEmoji>> {
     let Some((group, _)) = project.rsplit_once('/') else { return Ok(Vec::new()) };
-    if let Some((_, list)) = EMOJI.lock().unwrap().as_ref().and_then(|c| c.get(group)).filter(|(at, _)| at.elapsed() < EMOJI_TTL) {
-        return Ok(list.clone());
+    if let Some(list) = EMOJI.get(group) {
+        return Ok(list);
     }
     #[derive(Deserialize)]
     struct Data {
@@ -743,15 +737,20 @@ pub async fn custom_emoji(project: &str) -> Result<Vec<crate::forge::CustomEmoji
     }
     list.sort_by(|a, b| a.name.cmp(&b.name));
     list.dedup_by(|a, b| a.name == b.name);
-    EMOJI.lock().unwrap().get_or_insert_with(Default::default).insert(group.to_string(), (std::time::Instant::now(), list.clone()));
+    EMOJI.put(group, list.clone());
     Ok(list)
 }
 
 /// After a label was created by adding it to an MR: the next read sees it.
 pub fn forget_labels(project: &str) {
-    if let Some(c) = LABELS.lock().unwrap().as_mut() {
-        c.remove(project);
-    }
+    LABELS.forget(project);
+}
+
+/// Members, labels and custom emoji asked again: another account after a config reload.
+pub fn forget_cached() {
+    MEMBERS.clear();
+    LABELS.clear();
+    EMOJI.clear();
 }
 
 #[cfg(test)]

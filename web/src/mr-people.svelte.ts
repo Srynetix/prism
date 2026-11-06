@@ -1,4 +1,5 @@
-import { hasCore, invoke } from './bridge'
+import { invoke } from './bridge'
+import { keyedRead } from './keyed-read.svelte'
 import { mrArgs, type MrRef } from './mr-ref'
 import type { Member } from './bindings/Member'
 export type { Member }
@@ -10,22 +11,11 @@ export type { Member }
 
 export type PeopleKind = 'assignees' | 'reviewers'
 
-/** Per repository (`''`: the primary one): each GitLab project has its members. */
-export const members = $state({ byRepo: {} as Record<string, Member[]>, loading: false, error: '' })
-export const membersOf = (repo: string | null | undefined) => members.byRepo[repo ?? ''] ?? null
-
-export async function loadMembers(repo: string | null | undefined) {
-  if (!hasCore() || members.loading || membersOf(repo)) return
-  members.loading = true
-  members.error = ''
-  try {
-    members.byRepo[repo ?? ''] = await invoke<Member[]>('forge_members', { repo: repo ?? null })
-  } catch (e) {
-    members.error = String(e)
-  } finally {
-    members.loading = false
-  }
-}
+/** Per repository (`''`: the primary one): each project has its members, read again after an hour. */
+const members = keyedRead((repo) => invoke<Member[]>('forge_members', { repo: repo || null }))
+export const membersOf = (repo: string | null | undefined) => members.get(repo ?? '')
+export const membersError = (repo: string | null | undefined) => members.error(repo ?? '')
+export const loadMembers = (repo: string | null | undefined) => members.load(repo ?? '')
 
 /** The whole list of assignees (or reviewers); empty: nobody. The snapshot follows on the Rust side. */
 export const setMrPeople = (mr: MrRef, kind: PeopleKind, usernames: string[]) =>

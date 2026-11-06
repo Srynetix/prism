@@ -104,6 +104,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("nowhere to read {tag}", "nulle part où lire {tag}"),
     ("Obsidian boards have no assignees, comment authors nor sprint lists", "les tableaux Obsidian n’ont ni assignés, ni auteurs de commentaires, ni listes de sprint"),
     ("only on GitLab", "seulement sur GitLab"),
+    ("mentions are not offered on this tracker", "ce gestionnaire de tickets ne propose pas les mentions"),
     ("only your own comments can be edited", "seuls vos propres commentaires peuvent être modifiés"),
     ("OpenCode has no plan", "OpenCode n’a pas de forfait"),
     ("pipeline {id} is already {status}", "le pipeline {id} est déjà {status}"),

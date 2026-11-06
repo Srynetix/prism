@@ -176,6 +176,7 @@ commands! {
     forge::mr_file: Read [phone: state, repo: Option<String>, iid: u64, path: String],
     forge::mr_image: Read [phone: state, repo: Option<String>, iid: u64, path: String, old: bool],
     forge::forge_members: Read [phone: state, repo: Option<String>],
+    tracker::ticket_members: Read [phone: state, list: String],
     forge::forge_labels: Read [phone: state, repo: Option<String>],
     // An image of a forge text, fetched to be shown.
     forge::forge_upload: Read [phone: state, project: Option<String>, path: String],
@@ -227,8 +228,8 @@ commands! {
     tracker::set_ticket_mine: Act [phone: state, task_id: String, assign: bool],
     tracker::set_ticket_priority: Act [phone: state, task_id: String, priority: Option<crate::state::Priority>],
     tracker::set_ticket_estimate: Act [phone: state, task_id: String, field: Option<String>, hours: Option<f64>],
-    tracker::add_ticket_comment: Act [phone: state, task_id: String, text: String],
-    tracker::edit_ticket_comment: Act [phone: state, task_id: String, comment: String, text: String],
+    tracker::add_ticket_comment: Act [phone: state, task_id: String, text: String, mentions: Option<Vec<crate::collectors::task_view::Mention>>],
+    tracker::edit_ticket_comment: Act [phone: state, task_id: String, comment: String, text: String, mentions: Option<Vec<crate::collectors::task_view::Mention>>],
     tracker::add_to_sprint: Act [phone: state, task_id: String],
     tracker::create_ticket: Act [phone: state, board: String, status: String, title: String],
     tracker::log_time: Act [phone: state, entry: crate::collectors::time::NewEntry],

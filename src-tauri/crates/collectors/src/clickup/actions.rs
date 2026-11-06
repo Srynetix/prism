@@ -1,6 +1,7 @@
 //! ClickUp's actions on a ticket, behind the tracker: its content (`task_view::TaskView`), read
 //! when it is opened, and the changes made from the window.
 
+use crate::ttl_cache::TtlCache;
 use prism_base::{i18n::tr, tr};
 use std::sync::LazyLock;
 
@@ -10,7 +11,7 @@ use serde::Deserialize;
 
 use super::{list_statuses, ms, task_type, task_type_icon, Api, RawStatus, RawUser, TeamId};
 use crate::{
-    task_view::{all_tickets, update_ticket, Attachment, Checklist, ChecklistItem, Comment, Subtask, TaskView},
+    task_view::{all_tickets, update_ticket, Attachment, Checklist, ChecklistItem, Comment, Mention, Subtask, TaskView},
     state::{Hub, Person, Priority, StatusOption},
     ticket,
 };
@@ -74,13 +75,81 @@ impl Actions {
         add_to_sprint(hub, task_id).await
     }
 
-    pub async fn add_comment(&self, task_id: &str, text: &str) -> Result<()> {
-        add_comment(task_id, text).await
+    pub async fn add_comment(&self, task_id: &str, text: &str, mentions: &[Mention]) -> Result<()> {
+        add_comment(task_id, text, mentions).await
     }
 
-    pub async fn edit_comment(&self, hub: &Hub, task_id: &str, comment: &str, text: &str) -> Result<()> {
-        edit_comment(hub, task_id, comment, text).await
+    pub async fn edit_comment(&self, hub: &Hub, task_id: &str, comment: &str, text: &str, mentions: &[Mention]) -> Result<()> {
+        edit_comment(hub, task_id, comment, text, mentions).await
     }
+
+    /// Those who see a list, who can be mentioned on its tickets.
+    pub async fn members(&self, list: &str) -> Result<Vec<Person>> {
+        members(list).await
+    }
+}
+
+/// Members change little: re-read at most every hour, per list.
+static MEMBERS: TtlCache<Vec<Person>> = TtlCache::new(std::time::Duration::from_secs(3600));
+
+/// The lists' members asked again: another account or workspace after a config reload.
+pub fn forget_members() {
+    MEMBERS.clear();
+}
+
+/// The people who see a list (`/list/{id}/member`), so who can be notified on its tickets; by name.
+async fn members(list: &str) -> Result<Vec<Person>> {
+    if list.is_empty() || !list.chars().all(|c| c.is_ascii_alphanumeric()) {
+        bail!("\"{list}\" is not a ClickUp list id");
+    }
+    if let Some(people) = MEMBERS.get(list) {
+        return Ok(people);
+    }
+    #[derive(Deserialize)]
+    struct Members {
+        #[serde(default)]
+        members: Vec<RawUser>,
+    }
+    let all: Members = Api::new().await?.get(&format!("/list/{list}/member")).await?;
+    let mut people: Vec<Person> = all.members.into_iter().map(Person::from).filter(|p| !p.name.trim().is_empty()).collect();
+    let mut seen = std::collections::HashSet::new();
+    people.retain(|p| seen.insert(p.id));
+    people.sort_by_key(|p| p.name.to_lowercase());
+    MEMBERS.put(list, people.clone());
+    Ok(people)
+}
+
+/// A comment's body for ClickUp: plain `comment_text` without mentions; with some, a rich
+/// `comment`, the text cut at each mention's token into text segments and `tag` segments (which
+/// notify the person). A token no longer in the text (edited by hand) is not a mention.
+fn comment_body(text: &str, mentions: &[Mention]) -> serde_json::Value {
+    let mut tokens: Vec<&Mention> = mentions.iter().filter(|m| m.text.len() > 1 && find_token(text, &m.text).is_some()).collect();
+    if tokens.is_empty() {
+        return serde_json::json!({ "comment_text": text });
+    }
+    // The longest first: `@Ann Two` before `@Ann`, at the same place.
+    tokens.sort_by_key(|m| std::cmp::Reverse(m.text.len()));
+    let mut segments = Vec::new();
+    let mut rest = text;
+    while !rest.is_empty() {
+        let next = tokens.iter().filter_map(|m| find_token(rest, &m.text).map(|at| (at, *m))).min_by_key(|(at, m)| (*at, std::cmp::Reverse(m.text.len())));
+        let Some((at, m)) = next else {
+            segments.push(serde_json::json!({ "text": rest }));
+            break;
+        };
+        if at > 0 {
+            segments.push(serde_json::json!({ "text": &rest[..at] }));
+        }
+        segments.push(serde_json::json!({ "type": "tag", "user": { "id": m.id } }));
+        rest = &rest[at + m.text.len()..];
+    }
+    serde_json::json!({ "comment": segments })
+}
+
+/// Where a mention's token is in a text, as a whole: not the start of a longer word (`@Ann` is not
+/// in `@Annabelle`).
+fn find_token(text: &str, token: &str) -> Option<usize> {
+    text.match_indices(token).map(|(at, _)| at).find(|at| !text[at + token.len()..].chars().next().is_some_and(|c| c.is_alphanumeric() || c == '_'))
 }
 
 async fn fetch(team: &TeamId, id: &str) -> Result<TaskView> {
@@ -258,8 +327,8 @@ fn comment_id(id: &str) -> Result<()> {
     Ok(())
 }
 
-/// Comments on a ticket (plain text, without notifying everyone).
-async fn add_comment(task_id: &str, text: &str) -> Result<()> {
+/// Comments on a ticket (without notifying everyone: only those it mentions).
+async fn add_comment(task_id: &str, text: &str, mentions: &[Mention]) -> Result<()> {
     if !TASK_ID.is_match(task_id) {
         bail!("\"{task_id}\" is not a ClickUp task id");
     }
@@ -268,14 +337,17 @@ async fn add_comment(task_id: &str, text: &str) -> Result<()> {
         bail!("{}", tr("empty comment"));
     }
     tracing::info!("clickup: comment on {task_id}");
-    let _: serde_json::Value = Api::new().await?.post(&format!("/task/{task_id}/comment"), serde_json::json!({ "comment_text": text, "notify_all": false })).await?;
+    let mut body = comment_body(text, mentions);
+    body["notify_all"] = false.into();
+    let _: serde_json::Value = Api::new().await?.post(&format!("/task/{task_id}/comment"), body).await?;
     Ok(())
 }
 
 /// Edits one of my comments on this ticket. The ticket's comments are re-read first:
 /// only a comment that belongs to it, and that I authored, is accepted. ClickUp
-/// then replaces the text: the original rich formatting (mentions, bold) is lost.
-async fn edit_comment(hub: &Hub, task_id: &str, comment: &str, text: &str) -> Result<()> {
+/// then replaces the text: its mentions are sent again (the box keeps them as tokens), the rest of
+/// the original rich formatting (bold) is lost.
+async fn edit_comment(hub: &Hub, task_id: &str, comment: &str, text: &str, mentions: &[Mention]) -> Result<()> {
     if !TASK_ID.is_match(task_id) {
         bail!("\"{task_id}\" is not a ClickUp task id");
     }
@@ -292,7 +364,10 @@ async fn edit_comment(hub: &Hub, task_id: &str, comment: &str, text: &str) -> Re
         bail!("{}", tr("only your own comments can be edited"));
     }
     tracing::info!("clickup: edit comment {comment} on {task_id}");
-    let _: serde_json::Value = api.put(&format!("/comment/{comment}"), serde_json::json!({ "comment_text": text })).await?;
+    // `comment_text` along with the rich `comment`: the one ClickUp documents for an edit.
+    let mut body = comment_body(text, mentions);
+    body["comment_text"] = text.into();
+    let _: serde_json::Value = api.put(&format!("/comment/{comment}"), body).await?;
     Ok(())
 }
 
@@ -318,6 +393,7 @@ fn view(t: RawTask, comments: Vec<RawComment>, statuses: Vec<StatusOption>) -> T
         assignees: t.assignees.into_iter().map(Person::from).collect(),
         creator: t.creator.map(Person::from),
         tags: t.tags.into_iter().map(|t| t.name).collect(),
+        list_id: t.list.as_ref().map(|l| l.id.clone()),
         list: t.list.map(|l| l.name),
         parent: t.parent,
         url: t.url,
@@ -375,6 +451,7 @@ fn view(t: RawTask, comments: Vec<RawComment>, statuses: Vec<StatusOption>) -> T
                 text: c.comment_text.trim().to_string(),
                 date: ms(c.date.as_deref()),
                 replies: c.reply_count.unwrap_or(0),
+                mentions: mentions_of(&c.comment),
             })
             .filter(|c| !c.text.is_empty())
             .collect(),
@@ -559,6 +636,28 @@ struct RawComment {
     user: Option<RawUser>,
     date: Option<String>,
     reply_count: Option<u32>,
+    /// The rich comment's segments, its mentions among them: read loosely (`mentions_of`), a
+    /// segment of an unexpected shape must not cost the whole ticket.
+    #[serde(default)]
+    comment: serde_json::Value,
+}
+
+/// A comment's mentions (its `tag` segments with a user id), each once, by the text ClickUp shows
+/// them with; any other segment, or a tag of another shape (a group), is skipped.
+fn mentions_of(segments: &serde_json::Value) -> Vec<Mention> {
+    let mut out: Vec<Mention> = Vec::new();
+    for s in segments.as_array().into_iter().flatten().filter(|s| s["type"].as_str() == Some("tag")) {
+        let user = &s["user"];
+        let Some(id) = user["id"].as_u64().or_else(|| user["id"].as_str()?.parse().ok()) else { continue };
+        let shown = s["text"].as_str().map(str::trim).filter(|t| t.starts_with('@') && t.len() > 1);
+        let text = shown.map(str::to_string).or_else(|| user["username"].as_str().filter(|n| !n.trim().is_empty()).map(|n| format!("@{}", n.trim())));
+        if let Some(text) = text
+            && !out.iter().any(|m| m.id == id && m.text == text)
+        {
+            out.push(Mention { id, text });
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -588,6 +687,57 @@ mod tests {
         assert_eq!(v.subtasks[0].id, "86c2abcdf");
         assert!(v.subtasks[0].closed);
         assert_eq!(v.comments.iter().map(|c| (c.id.as_str(), c.text.as_str())).collect::<Vec<_>>(), [("1", "first"), ("2", "second")]);
+    }
+
+    #[test]
+    fn mentions_become_tag_segments() {
+        let ann = Mention { id: 7, text: "@Ann Two".into() };
+        let an = Mention { id: 8, text: "@Ann".into() };
+        assert_eq!(comment_body("hi", &[]), serde_json::json!({ "comment_text": "hi" }));
+        // A token edited by hand is plain text.
+        assert_eq!(comment_body("hi @Ann Tw", std::slice::from_ref(&ann)), serde_json::json!({ "comment_text": "hi @Ann Tw" }));
+        assert_eq!(
+            comment_body("@Ann Two look, @Ann too\nthanks @Ann Two", &[an.clone(), ann]),
+            serde_json::json!({ "comment": [
+                { "type": "tag", "user": { "id": 7 } }, { "text": " look, " }, { "type": "tag", "user": { "id": 8 } }, { "text": " too\nthanks " }, { "type": "tag", "user": { "id": 7 } }
+            ]})
+        );
+    }
+
+    #[test]
+    fn a_token_is_a_whole_word() {
+        let an = Mention { id: 8, text: "@Ann".into() };
+        assert_eq!(comment_body("cc @Annabelle", std::slice::from_ref(&an)), serde_json::json!({ "comment_text": "cc @Annabelle" }));
+        assert_eq!(
+            comment_body("@Annabelle and @Ann.", &[an]),
+            serde_json::json!({ "comment": [{ "text": "@Annabelle and " }, { "type": "tag", "user": { "id": 8 } }, { "text": "." }] })
+        );
+    }
+
+    #[test]
+    fn odd_segments_cost_nothing() {
+        let c: RawComment = serde_json::from_value(serde_json::json!({
+            "id": "1", "comment_text": "x", "comment": [
+                { "text": null }, { "type": "tag", "text": null, "user": { "id": "12", "username": "Cy" } },
+                { "type": "tag", "group": { "id": "abc" } }, { "user": { "id": "not a number" }, "text": "y" }
+            ]
+        }))
+        .unwrap();
+        assert_eq!(mentions_of(&c.comment), [Mention { id: 12, text: "@Cy".into() }]);
+        let none: RawComment = serde_json::from_value(serde_json::json!({ "id": "2", "comment_text": "x", "comment": null })).unwrap();
+        assert!(mentions_of(&none.comment).is_empty());
+    }
+
+    #[test]
+    fn reads_a_comment_s_mentions() {
+        let c: RawComment = serde_json::from_value(serde_json::json!({
+            "id": "1", "comment_text": "@Ann Two look", "comment": [
+                { "text": "@Ann Two", "type": "tag", "user": { "id": 7, "username": "Ann Two" } }, { "text": " look" },
+                { "text": "", "type": "tag", "user": { "id": 9, "username": "Bob" } }, { "text": "@Ann Two", "type": "tag", "user": { "id": 7 } }
+            ]
+        }))
+        .unwrap();
+        assert_eq!(mentions_of(&c.comment), [Mention { id: 7, text: "@Ann Two".into() }, Mention { id: 9, text: "@Bob".into() }]);
     }
 
     #[test]

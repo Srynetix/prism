@@ -3,7 +3,7 @@
 //! end's memory), and the snapshot's copy of a ticket updated after an action on it.
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::state::{Hub, Person, Snapshot, StatusOption, Ticket};
 
@@ -29,6 +29,8 @@ pub struct TaskView {
     pub creator: Option<Person>,
     pub tags: Vec<String>,
     pub list: Option<String>,
+    /// The list's id, whose members can be mentioned in a comment (ClickUp).
+    pub list_id: Option<String>,
     pub parent: Option<String>,
     pub url: String,
     /// Description in ClickUp's Markdown format, falling back to plain text.
@@ -100,6 +102,18 @@ pub struct Comment {
     pub text: String,
     pub date: Option<DateTime<Utc>>,
     pub replies: u32,
+    /// The people it mentions (ClickUp), each by the text it shows them with (`@Ann Two`).
+    pub mentions: Vec<Mention>,
+}
+
+/// Someone mentioned in a comment: the tracker's user id, and the token standing for them in the
+/// text (`@Ann Two`). Sent along with a comment, each token found in its text becomes a mention
+/// that notifies them; one edited by hand stays plain text.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct Mention {
+    pub id: u64,
+    pub text: String,
 }
 
 pub fn all_tickets(s: &Snapshot) -> impl Iterator<Item = &Ticket> {
