@@ -64,6 +64,7 @@
     PodLogPanel: once(() => import('../components/PodLogPanel.svelte')),
     ThreadPanel: once(() => import('../components/ThreadPanel.svelte')),
     ArgoPanel: once(() => import('../components/ArgoPanel.svelte')),
+    OverlapPanel: once(() => import('../components/OverlapPanel.svelte')),
     LauncherDrawer: once(() => import('../components/LauncherDrawer.svelte')),
     Feedback: once(() => import('../components/Feedback.svelte')),
     AgentSwitch: once(() => import('../components/AgentSwitch.svelte')),
@@ -79,6 +80,7 @@
   import { closePodLogs, podLogs } from '../pod-logs.svelte'
   import { closeThread, threadView } from '../thread.svelte'
   import { argoView, closeArgo } from '../argo-view.svelte'
+  import { overlapView, closeOverlap } from '../overlap-view.svelte'
 
   /**
    * Prism on a phone: one view at a time, the bottom tabs chosen in `[remote] tabs`, the others
@@ -294,6 +296,7 @@
     logs: { depth: () => (logs.open ? 1 : 0), back: closeLogs },
     podLogs: { depth: () => (podLogs.open ? 1 : 0), back: closePodLogs },
     argo: { depth: () => (argoView.open ? 1 : 0), back: closeArgo },
+    overlap: { depth: () => (overlapView.open ? 1 : 0), back: closeOverlap },
   }
   /** The views left, the last one first back. */
   const trail: ViewId[] = []
@@ -491,6 +494,7 @@
 {#if podLogs.open}{#await lazy.PodLogPanel() then { default: PodLogPanel }}<PodLogPanel />{/await}{/if}
 {#if threadView.ref}{#await lazy.ThreadPanel() then { default: ThreadPanel }}<ThreadPanel />{/await}{/if}
 {#if argoView.open}{#await lazy.ArgoPanel() then { default: ArgoPanel }}<ArgoPanel />{/await}{/if}
+{#if overlapView.open}{#await lazy.OverlapPanel() then { default: OverlapPanel }}<OverlapPanel phone />{/await}{/if}
 <!-- Last: an agent action's launcher, over the panel it came from. -->
 {#if launcherDrawer.open}{#await lazy.LauncherDrawer() then { default: LauncherDrawer }}<LauncherDrawer />{/await}{/if}
 <Toast />

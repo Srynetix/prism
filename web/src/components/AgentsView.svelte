@@ -46,6 +46,8 @@
   import { implement, newAgentIn, nextOf, reopenLeft } from '../project-actions'
   import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
   import RoutineReview from './RoutineReview.svelte'
+  import OverlapChip from './OverlapChip.svelte'
+  import { overlapsOfAgent } from '../overlaps'
 
   /**
    * Agents view: the agents launched by Prism and the desktop
@@ -100,6 +102,8 @@
   let error = $state('')
   /** The configured repositories, in their order: the groups by repository. */
   const repos = $derived((live.snapshot?.repositories ?? []).map((r) => r.name))
+  /** An agent's overlaps with the other agents and worktrees: its chip. */
+  const overlapsOf = (a: Agent) => (live.snapshot ? overlapsOfAgent(live.snapshot, a) : [])
   const repoOf = (e: Entry) => agentRepo(e.kind === 'agent' ? e.a : { cwd: e.c.folder, worktree: e.c.worktree }, live.snapshot)
   const groups = $derived(groupEntries(shown, { groupBy, sortBy, categories, tags: allTags(), repos, repoOf }))
   /**
@@ -452,6 +456,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions : ⌘↵ is the keyboard path -->
     <b class="title" ondblclick={() => { grid.focus(i); grid.zoomed = true }} title="{a.title} · {t('double-click: the whole view ({key})', { key: keys('⌘↵') })}">{a.title}</b>
     <span class="pill {waitsForYou(a.status) ? 'warn' : isWorking(a.status) ? 'info' : ''}" class:working={isWorking(a.status)} title={a.needs_action ?? undefined}>{#if isWorking(a.status)}<span class="spin-ascii" aria-hidden="true"></span>{/if}{agentStateLabel(a)}</span>
+    {#if overlapsOf(a).length}<OverlapChip seen={overlapsOf(a)} short />{/if}
     <QuickAnswers agent={a} compact />
     {#if a.status === 'waiting_tool'}
       <button class="allow" onclick={() => act(() => allowAgent(a.id))} title="{t('Answers {answer}', { answer: cliOf(a.provider).allow })}{a.needs_action ? `: ${a.needs_action}` : ''}"><Icon name="check" />{t('Allow')}</button>
@@ -499,6 +504,7 @@
               {#if e.kind === 'desktop'}<span class="pill dk">Desktop</span>{#if e.c.group}<span>{e.c.group}</span>{/if}{/if}
               {#if e.kind === 'agent' && e.a.category && groupBy !== 'category'}<KindBadge name={e.a.category} />{/if}
               {#if groupBy !== 'tag'}{#each tagsOf(e) as tag (tag)}<span class="pill tag">#{tag}</span>{/each}{/if}
+              {#if e.kind === 'agent' && overlapsOf(e.a).length}<OverlapChip seen={overlapsOf(e.a)} />{/if}
               {#if e.kind === 'agent' && e.a.looping}<span class="pill loop" title={t('{command} failed {n} times in a row: going in circles? (Activity tab)', { command: e.a.looping.command, n: e.a.looping.count })}>↻ ×{e.a.looping.count}</span>{/if}
               {#if e.kind === 'agent' && e.a.state !== 'running'}<span class="pill">{AGENT_STATE[e.a.state]}</span>{/if}
               {#if e.kind === 'agent' && e.a.worktree}<span class="pill wt">{t('worktree')}</span>{/if}
@@ -667,6 +673,8 @@
             <button class="primary" onclick={() => act(() => resumeAgent(a.id))} title={t('{command}, same folder', { command: cliOf(a.provider).resume })}><Icon name="retry" />{t('Resume')}</button>
           {/if}
           <AgentCliChip {a} />
+          {#if overlapsOf(a).length}<OverlapChip seen={overlapsOf(a)} />{/if}
+          {#if live.snapshot?.overlaps?.other_base.some((x) => x.path === (a.worktree ?? a.cwd))}<span class="chip" title={t('On another base than its repository’s: its changes are not compared with those of the other agents')}>{t('not compared: other base')}</span>{/if}
           {#if takesEffort(a)}
             {@const cli = cliEffort(a)}
             <label class="chip effort" title="{t('Its reasoning effort, kept on resume: higher thinks longer and uses your limits faster')}{a.provider === 'codex' ? t('. Codex takes it from its next resume') : ''}">

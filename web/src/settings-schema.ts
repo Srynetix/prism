@@ -209,6 +209,16 @@ export const SCHEMA: SectionSpec[] = [
     ],
   },
   {
+    id: 'agents-overlaps', label: t('Overlaps'), table: '[agents.overlaps]', path: ['agents', 'overlaps'],
+    intro: t('Two agents (or worktrees) of a repository changing the same lines, or the same file, told before the merge rather than at the rebase. Each one’s changes against the merge-base of its base (its commits, its uncommitted changes, its new files) are compared with the others’ on the same base; read again as files are written, on a commit, a pull, an agent’s turn over. A chip on both agents (and their MRs, a worktree without agent), a panel of both sides’ hunks, an alert per pair.'),
+    fields: [
+      { key: 'enabled', label: t('Overlaps'), kind: 'toggle' },
+      { key: 'level', label: t('Chip from'), hint: t('lines: only hunks on the same lines (a merge conflict all but certain); file: the same file too, other lines (a merge to check).'), kind: 'select', options: ['lines', 'file'] },
+      { key: 'alert', label: t('Alert from'), hint: t('One alert per pair, gone with the overlap; off: chips only.'), kind: 'select', options: ['lines', 'file', 'off'] },
+      { key: 'ignore', label: t('Files ignored'), hint: t('Never compared, one glob per line: a name without a folder (*.lock), or a path (**/bindings/**). Lockfiles and generated files are computed again, not merged.'), kind: 'list' },
+    ],
+  },
+  {
     id: 'agents-actions', label: t('Quick actions'), table: '[[agents.quick_actions]]', path: ['agents'],
     intro: t('The same job asked again and again of an agent on a repository (bring its main branch up to date, run a scan…): one button each on its project in the Agents view (grouped by repository) and on the phone, and a line in the palette. A click launches the agent at once; ⇧-click, or ⌘↵ in the palette, opens the launcher prefilled, to change it first.'),
     fields: [

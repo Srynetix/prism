@@ -376,6 +376,42 @@ pub async fn diff(dir: &Path, base: Option<&str>) -> Result<Diff> {
     Ok(Diff { files, truncated, against, head })
 }
 
+/// The two sides of an overlap (`state::Overlap`), each one's diff against its base cut down to
+/// the files they share.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct OverlapDiff {
+    pub a: Option<Diff>,
+    pub b: Option<Diff>,
+    /// Why a side present has no diff: git failed (its base not fetched, say), not its worktree gone.
+    #[cfg_attr(feature = "ts", ts(optional))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub a_error: Option<String>,
+    #[cfg_attr(feature = "ts", ts(optional))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub b_error: Option<String>,
+}
+
+/// `o`'s two sides, as the Diff tab shows a branch: the files they share only. A side gone (its
+/// worktree removed once merged) has none.
+pub async fn overlap_diff(o: &prism_core::state::Overlap) -> OverlapDiff {
+    let shared = |d: Diff| Diff { files: d.files.into_iter().filter(|f| o.files.iter().any(|s| s.path == f.old_path || s.path == f.new_path)).collect(), ..d };
+    let side = |path: &str| {
+        let dir = PathBuf::from(path);
+        async move {
+            if !dir.is_dir() {
+                return (None, None);
+            }
+            match diff(&dir, Some(&o.base)).await {
+                Ok(d) => (Some(shared(d)), None),
+                Err(e) => (None, Some(format!("{e:#}"))),
+            }
+        }
+    };
+    let ((a, a_error), (b, b_error)) = tokio::join!(side(&o.a), side(&o.b));
+    OverlapDiff { a, b, a_error, b_error }
+}
+
 /// Every path `diff` would show (old and new names, untracked files), however large the diff:
 /// what a task guard reads, which must not miss one past `diff`'s size cap.
 pub async fn changed_paths(dir: &Path, base: Option<&str>) -> Result<Vec<String>> {

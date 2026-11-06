@@ -1,4 +1,6 @@
 <script lang="ts">
+  import OverlapChip from '../components/OverlapChip.svelte'
+  import { overlapsOfAgent } from '../overlaps'
   import QuickAnswers from '../components/QuickAnswers.svelte'
   import RoutineReview from '../components/RoutineReview.svelte'
   import { t, tn, tc } from '../i18n.svelte'
@@ -119,6 +121,7 @@
       {#if a.ticket}<span class="tk">{a.ticket}</span>{/if}
       {#if a.mr}<span>{mrKey(a.mr)}</span>{:else if a.branch}<span class="br">{a.branch}</span>{/if}
       {#if ctx(a)}<span>{ctx(a)}</span>{/if}
+      {#if overlapsOfAgent(snap, a).length}<OverlapChip seen={overlapsOfAgent(snap, a)} />{/if}
     </div>
     {#if ports.length}
       <div class="ports">

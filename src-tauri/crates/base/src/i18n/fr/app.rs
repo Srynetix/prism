@@ -21,6 +21,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{context} / {namespace} is neither a followed pod nor an environment", "{context} / {namespace} n’est ni un pod suivi ni un environnement"),
     ("a pod's usage over time is off ([clusters] usage_history)", "l’usage d’un pod dans le temps est désactivé ([clusters] usage_history)"),
     ("{path} is not a worktree of the repository", "{path} n’est pas un worktree du dépôt"),
+    ("this overlap is gone", "ce chevauchement n’existe plus"),
     ("a repository's main checkout is not removed", "le checkout principal d’un dépôt ne se supprime pas"),
     ("this worktree is locked (git worktree unlock)", "ce worktree est verrouillé (git worktree unlock)"),
     ("the agent “{title}” is running in it: stop it first", "l’agent « {title} » tourne dedans : arrêtez-le d’abord"),

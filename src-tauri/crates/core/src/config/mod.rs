@@ -238,6 +238,9 @@ pub struct AgentsConfig {
     /// of Prism's, `builtin:`) run by a cron or at a pace, its result waiting in "To review" or
     /// going to the Digest.
     pub routines: Vec<Routine>,
+    /// Two agents (or worktrees) of a repository changing the same lines or the same files, told
+    /// before the merge (`[agents.overlaps]`).
+    pub overlaps: OverlapsConfig,
     /// Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
     /// to Prism, as everywhere else.
     pub terminal_keys: Vec<String>,
@@ -267,6 +270,54 @@ pub struct AgentsConfig {
     pub handoff_turns: u32,
     /// The relay shown, to edit, before it goes. Off: sent as written, in one click.
     pub handoff_review: bool,
+}
+
+/// Overlaps between the agents and worktrees of a repository (`[agents.overlaps]`): each one's
+/// changes against the merge-base of its base, the uncommitted ones included, compared two by two.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct OverlapsConfig {
+    pub enabled: bool,
+    /// From which level a chip shows: `lines` (the same lines only) or `file` (the same file too).
+    #[cfg_attr(feature = "ts", ts(type = "'lines' | 'file'"))]
+    pub level: String,
+    /// From which level an alert goes: `lines`, `file`, or `off`.
+    #[cfg_attr(feature = "ts", ts(type = "'lines' | 'file' | 'off'"))]
+    pub alert: String,
+    /// Files never compared, as globs (`*` within a folder, `**` across folders; without a `/`, the
+    /// file's name): lockfiles and generated files are computed again, not merged.
+    pub ignore: Vec<String>,
+}
+
+impl Default for OverlapsConfig {
+    fn default() -> Self {
+        let ignore = ["*.lock", "pnpm-lock.yaml", "package-lock.json", "yarn.lock", "go.sum", "**/bindings/**"];
+        Self { enabled: true, level: "file".into(), alert: "lines".into(), ignore: ignore.map(String::from).to_vec() }
+    }
+}
+
+impl OverlapsConfig {
+    /// `path` (relative to the repository's top) is left out of the comparison.
+    pub fn ignored(&self, path: &str) -> bool {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        self.ignore.iter().any(|g| if g.contains('/') { path_glob(g.trim_start_matches("./"), path) } else { path_glob(g, name) })
+    }
+}
+
+/// `*` and `?` within a path segment, `**` across segments (none included).
+fn path_glob(pattern: &str, text: &str) -> bool {
+    fn go(p: &[u8], t: &[u8]) -> bool {
+        match p {
+            [] => t.is_empty(),
+            [b'*', b'*', b'/', rest @ ..] => go(rest, t) || t.iter().enumerate().any(|(i, c)| *c == b'/' && go(rest, &t[i + 1..])),
+            [b'*', b'*'] => true,
+            [b'*', rest @ ..] => (0..=t.len()).take_while(|i| *i == 0 || t[i - 1] != b'/').any(|i| go(rest, &t[i..])),
+            [b'?', rest @ ..] => t.first().is_some_and(|c| *c != b'/') && go(rest, &t[1..]),
+            [c, rest @ ..] => t.first() == Some(c) && go(rest, &t[1..]),
+        }
+    }
+    go(pattern.as_bytes(), text.as_bytes())
 }
 
 /// Quick answers (`[agents.quick_answers]`): one click sends an agent at its prompt a text ("OK",
@@ -549,6 +600,7 @@ impl Default for AgentsConfig {
             quick_answers: QuickAnswersConfig::default(),
             quick_actions: Vec::new(),
             routines: Vec::new(),
+            overlaps: OverlapsConfig::default(),
             terminal_keys: vec!["Cmd+K".into()],
             view: "chat".into(),
             fold_steps: true,
@@ -944,6 +996,17 @@ pub mod tests {
         assert_eq!(c.agents.kinds, [AgentKind { name: "Refinement".into(), when: String::new() }, AgentKind { name: "Ops".into(), when: String::new() }]);
         let c = parsed("[agents]\nkinds = [\"A\"]\ncategories = [\"B\"]\n");
         assert_eq!(c.agents.kinds.iter().map(|k| k.name.as_str()).collect::<Vec<_>>(), ["A"], "the new key wins");
+    }
+
+    /// `[agents.overlaps] ignore`: a name without a folder, or a path with `**`.
+    #[test]
+    fn overlaps_ignore() {
+        let o = OverlapsConfig::default();
+        assert!(o.ignored("Cargo.lock") && o.ignored("src-tauri/Cargo.lock") && o.ignored("web/pnpm-lock.yaml"));
+        assert!(o.ignored("web/src/bindings/Agent.ts") && o.ignored("bindings/x.ts"));
+        assert!(!o.ignored("src/lock.rs") && !o.ignored("web/src/bind/x.ts"));
+        let o = OverlapsConfig { ignore: vec!["docs/*.md".into(), "gen/**".into()], ..o };
+        assert!(o.ignored("docs/a.md") && !o.ignored("docs/x/a.md") && o.ignored("gen/a/b.rs") && !o.ignored("src/gen/a.rs"));
     }
 
     /// `[[agents.routines]]`: a quick action at fixed times; what does not hold is said, not refused.

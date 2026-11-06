@@ -1181,4 +1181,11 @@ export default {
   'Mode': 'Mode',
   'Kind': 'Type',
   'Prompt': 'Prompt',
+  'Alert from': 'Alerte à partir de',
+  'Chip from': 'Puce à partir de',
+  'Files ignored': 'Fichiers ignorés',
+  'Never compared, one glob per line: a name without a folder (*.lock), or a path (**/bindings/**). Lockfiles and generated files are computed again, not merged.': 'Jamais comparés, un motif par ligne\xa0: un nom sans dossier (*.lock), ou un chemin (**/bindings/**). Les lockfiles et fichiers générés se recalculent, ils ne se fusionnent pas.',
+  'One alert per pair, gone with the overlap; off: chips only.': 'Une alerte par paire, retirée avec le chevauchement\xa0; off\xa0: les puces seulement.',
+  'lines: only hunks on the same lines (a merge conflict all but certain); file: the same file too, other lines (a merge to check).': 'lines\xa0: seulement des hunks sur les mêmes lignes (un conflit de merge quasi certain)\xa0; file\xa0: le même fichier aussi, d’autres lignes (un merge à vérifier).',
+  'Two agents (or worktrees) of a repository changing the same lines, or the same file, told before the merge rather than at the rebase. Each one’s changes against the merge-base of its base (its commits, its uncommitted changes, its new files) are compared with the others’ on the same base; read again as files are written, on a commit, a pull, an agent’s turn over. A chip on both agents (and their MRs, a worktree without agent), a panel of both sides’ hunks, an alert per pair.': 'Deux agents (ou worktrees) d’un dépôt qui modifient les mêmes lignes, ou le même fichier, signalés avant le merge plutôt qu’au rebase. Les changements de chacun par rapport à la merge-base de sa base (ses commits, ses changements non commités, ses nouveaux fichiers) sont comparés à ceux des autres sur la même base\xa0; relus quand des fichiers sont écrits, à un commit, un pull, la fin d’un tour d’agent. Une puce sur les deux agents (et leurs MR, un worktree sans agent), un panneau avec les hunks des deux côtés, une alerte par paire.',
 } satisfies Dictionary

@@ -95,11 +95,13 @@ enum Part {
     Calendar,
     /// Claude Desktop's sessions.
     Sessions,
+    /// The overlaps between agents and worktrees (`[agents.overlaps]`).
+    Overlaps,
     /// A block that reloads, alone.
     Block(&'static str),
 }
 
-const PARTS: [Part; 6] = [Part::Code, Part::Cluster, Part::Tracker, Part::Mail, Part::Calendar, Part::Sessions];
+const PARTS: [Part; 7] = [Part::Code, Part::Cluster, Part::Tracker, Part::Mail, Part::Calendar, Part::Sessions, Part::Overlaps];
 
 impl Part {
     /// The tables of the config only it reads (`reload_keys`).
@@ -111,6 +113,7 @@ impl Part {
             Part::Mail => &["mail"],
             Part::Calendar => &["calendar"],
             Part::Sessions => &["agents"],
+            Part::Overlaps => &[],
             Part::Block(_) => &[],
         }
     }
@@ -124,6 +127,7 @@ impl Part {
             Part::Mail => vec!["mail"],
             Part::Calendar => vec!["calendar"],
             Part::Sessions => vec!["sessions"],
+            Part::Overlaps => vec!["overlaps"],
             Part::Block(id) => std::iter::once(id).chain(blocks::find(id).map(|b| b.parts().to_vec()).unwrap_or_default()).collect(),
         }
     }
@@ -147,6 +151,7 @@ impl Part {
             Part::Mail => s.mail = None,
             Part::Calendar => s.agenda = None,
             Part::Sessions => {}
+            Part::Overlaps => s.overlaps = Default::default(),
             Part::Block(id) => drop(s.blocks.remove(id)),
         }
         let sources = self.sources();
@@ -273,6 +278,10 @@ fn reload_keys(cfg: &config::Config) -> Keys {
         parts.insert(part, serde_json::Value::Object(read));
     }
     // The stages (a block's, or `[[environments]]`') name ArgoCD's applications.
+    // `[agents]` applies live, but for its overlaps, read by their own collector.
+    // With the repositories it compares, as `start` gives them.
+    let compared: Vec<_> = if cfg.forge.enabled { cfg.worktree_repos().into_iter().map(|r| (r.name, r.path, r.main_branch, r.release_prefix, r.base_branch)).collect() } else { Vec::new() };
+    parts.insert(Part::Overlaps, serde_json::json!([cfg.agents.overlaps, compared]));
     parts.get_mut(&Part::Cluster).expect("cluster")["stages"] = serde_json::to_value(&stages::get().0).unwrap_or_default();
     common["conventions"] = serde_json::to_value(conventions::Conventions::of(cfg)).unwrap_or_default();
     // A block reads its table, and what the core resolved of the repositories it reads.
@@ -392,6 +401,8 @@ fn start(hub: &state::Hub, time: &collectors::time::TimeService, team_id: collec
     if code {
         within(gens, Part::Code, || start_code(&cfg, &primary, &worktree_repos, &running.forges, hub));
     }
+    // Overlaps compare the worktrees listed: none without the repositories.
+    within(gens, Part::Overlaps, || spawn(hub, "overlaps", collectors::overlaps::run(cfg.agents.overlaps.clone(), worktree_repos.clone(), hub.clone())));
     if cluster {
         within(gens, Part::Cluster, || start_cluster(&cfg, &primary, hub));
     }

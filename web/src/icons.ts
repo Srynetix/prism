@@ -51,6 +51,7 @@ import Trash from '@lucide/svelte/icons/trash'
 import HardDrive from '@lucide/svelte/icons/hard-drive'
 import GitCompareArrows from '@lucide/svelte/icons/git-compare-arrows'
 import GitMerge from '@lucide/svelte/icons/git-merge'
+import Blend from '@lucide/svelte/icons/blend'
 import Kanban from '@lucide/svelte/icons/kanban'
 import GitPullRequest from '@lucide/svelte/icons/git-pull-request'
 import GripVertical from '@lucide/svelte/icons/grip-vertical'
@@ -191,6 +192,7 @@ export const ICONS = {
   prune: BrushCleaning, // clean up, git worktree prune
   rebase: GitCompareArrows, // ⤴
   merge: GitMerge,
+  overlap: Blend, // two agents on the same lines
   kanban: Kanban, // tickets, boards
   queue: ListOrdered, // merge queue (⇶)
   automerge: Zap, // ⚡ ⇥
