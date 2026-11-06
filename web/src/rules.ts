@@ -64,7 +64,7 @@ const mrOpen = (m: MergeRequest): OpenTarget => ({ kind: 'mr', iid: m.iid, repo:
  * fixing a protected branch's pipeline; `investigate`: an agent diagnosing a workload;
  * `dev-server`: the server's own agent, told why it stopped; `switch`: another CLI to continue an
  * agent stopped at its plan's limit (Continue with…); `block`: a command of a block's Rust
- * side (`blocks/block.ts` `call`).
+ * side (`blocks/block.ts` `call`); `changes`: the Changes timeline around the application's crash.
  */
 export type Fix =
   | { kind: 'status'; task_id: string; ticket: string; status: string; statuses: StatusOption[] }
@@ -78,6 +78,7 @@ export type Fix =
   | { kind: 'dev-server'; agent: string; command: string; where: string; tail: string }
   | { kind: 'switch'; agent: string }
   | { kind: 'overlap'; id: string; side: 'a' | 'b' }
+  | { kind: 'changes'; env: string | null; app: string }
   | { kind: 'block'; block: string; command: string; args: Record<string, unknown>; label: string; title: string }
 
 /**
@@ -490,6 +491,8 @@ export function argoAlerts(s: Snapshot): Alert[] {
         env && a.deployments[0] ? [{ kind: 'podlogs', context: env.context, namespace: env.namespace, deployment: a.deployments[0], label: `${a.app ?? a.name} · ${env.env}` }] : []
       const why = a.message ? `: ${a.message}` : ''
       if (env && a.health === 'Degraded') fixes.push({ kind: 'investigate', workload: a.deployments[0] ?? a.app ?? a.name, namespace: env.namespace, context: env.context, env: env.env, issue: `ArgoCD application ${a.name} is Degraded${why}` })
+      // What changed just before: the Changes timeline around it (its block on).
+      if (s.blocks?.changes && (a.health === 'Degraded' || a.health === 'Missing' || a.operation === 'Failed' || a.operation === 'Error')) fixes.push({ kind: 'changes', env: a.env ?? null, app: a.app ?? a.deployments[0] ?? a.name })
       if (a.operation === 'Failed' || a.operation === 'Error') {
         out.push({ kind: 'ArgoCD', severity: 'ko', text: tr('{name}: last sync failed', { name: a.name }) + why, url, open, fixes })
       } else if (a.health === 'Degraded' || a.health === 'Missing') {

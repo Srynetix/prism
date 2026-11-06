@@ -455,6 +455,20 @@ env = "staging"
 context = "gke_example-staging_us-central1-a_staging"
 namespaces = ["analytics"]
 
+[changes]
+# Changes block: what touched an environment on one timeline (Argo CD syncs, MRs merged, pods
+# restarting, alerts, vulnerabilities), a crash linked to the change just before it. Its journal
+# stays in the profile's data folder (changes.jsonl). On by default.
+# enabled = true
+# retention_days = 14           # days of changes kept
+# correlate_minutes = 30        # a crash is linked to a sync or rollout of its app this long before
+# default_period = "since_yesterday"   # 1h | since_yesterday | 24h | 7d
+# sources = ["argocd", "mrs", "pods", "alerts", "vulnerabilities", "packs"]   # packs: their blocks' changes
+# kube_events = false           # also the Kubernetes events (BackOff, OOMKilling…): needs `list events`
+# The branch that feeds each environment: the MRs merged into it go on its timeline. None: every
+# merged MR, on every environment.
+branches = [{ env = "staging", branch = "main" }, { env = "prod", branch = "release/*" }]
+
 [renovate]
 # The Renovate block, off by default: the dashboard issue and what runs Renovate: a pipeline
 # schedule on GitLab; on GitHub, a GitHub Actions workflow, or the Renovate app (its dashboard's

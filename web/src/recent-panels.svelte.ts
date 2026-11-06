@@ -10,7 +10,7 @@ import { toast } from './toast.svelte'
 export interface RecentPanel {
   /** One entry per thing: closed again, it moves to the top. */
   key: string
-  kind: 'mr' | 'ticket' | 'logs' | 'pod-logs' | 'shell' | 'event' | 'argo' | 'thread'
+  kind: 'mr' | 'ticket' | 'logs' | 'pod-logs' | 'shell' | 'event' | 'argo' | 'thread' | 'changes'
   title: string
   hint: string
   /** When it was closed. */

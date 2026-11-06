@@ -4,6 +4,7 @@
 
 pub mod agents;
 pub mod blocks;
+pub mod changes;
 pub mod config;
 pub mod conventions;
 pub mod deps;

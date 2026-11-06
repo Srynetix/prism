@@ -7,6 +7,7 @@
   import { argoKey, argoView, closeArgo } from '../argo-view.svelte'
   import { argoLabel, argoTone, argoUrl, resourceOutcome, resourceTone } from '../argocd'
   import { openLink } from '../links'
+  import { changesOn, openWhatChanged } from '../changes-view.svelte'
   import { ago, span } from '../time'
   import Icon from './Icon.svelte'
   import type { ArgoApp, ArgoInstance, ArgoResource } from '../types'
@@ -82,6 +83,7 @@
           {@const link = url(a, chosen.instance)}
           <div class="head">
             <h3>{a.name}</h3>
+            {#if changesOn() && (a.health === 'Degraded' || a.health === 'Missing' || a.operation === 'Failed' || a.operation === 'Error')}<button class="txt" onclick={() => openWhatChanged(a.env ?? null, a.app ?? a.deployments[0] ?? a.name)} title={t('The timeline of {env} around the crash, the change just before it highlighted', { env: a.env ?? '' })}><Icon name="activity" /> {t('What changed')}</button>{/if}
             {#if link}<button class="txt" onclick={() => openLink(link)} title={t('Open it in ArgoCD')}>ArgoCD <Icon name="external" /></button>{/if}
           </div>
           <p class="meta">

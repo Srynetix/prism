@@ -1,5 +1,6 @@
 <script lang="ts">
   import { openOverlap } from '../overlap-view.svelte'
+  import { openWhatChanged } from '../changes-view.svelte'
   import { forgeName, mrWord } from '../forge'
   import Sprout from './Sprout.svelte'
   import BlockControls from './BlockControls.svelte'
@@ -128,6 +129,8 @@
         }
         case 'overlap':
           return [{ key: 'overlap', label: t('See the overlap'), title: t('Both sides’ hunks, side by side'), run: () => openOverlap(f.id, f.side) }]
+        case 'changes':
+          return [{ key: 'changes', label: t('What changed'), title: t('The timeline of {env} around the crash, the change just before it highlighted', { env: f.env ?? '' }), run: () => openWhatChanged(f.env, f.app) }]
         case 'block':
           return app ? [{ key: `block-${f.block}-${f.command}`, label: f.label, title: f.title, run: () => call(f.block, f.command, f.args) }] : []
       }
@@ -148,7 +151,7 @@
     try {
       await f.run()
       // Opening a drawer is not "fixing": the button stays as is.
-      progress[id] = f.key === 'logs' || f.key === 'mr' || f.key === 'podlogs' || f.key.startsWith('settings-') ? '' : 'done'
+      progress[id] = f.key === 'logs' || f.key === 'mr' || f.key === 'podlogs' || f.key === 'changes' || f.key.startsWith('settings-') ? '' : 'done'
     } catch (e) {
       progress[id] = String(e)
     }

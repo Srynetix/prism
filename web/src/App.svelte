@@ -78,6 +78,8 @@
   import ThreadPanel from './components/ThreadPanel.svelte'
   import ArgoPanel from './components/ArgoPanel.svelte'
   import OverlapPanel from './components/OverlapPanel.svelte'
+  import ChangesDrawer from './blocks/changes/ChangesDrawer.svelte'
+  import { feedChanges } from './changes-feed'
   import McpProposal from './components/McpProposal.svelte'
   import { watchProposals } from './mcp-view.svelte'
   import ShellDrawer from './components/ShellDrawer.svelte'
@@ -177,6 +179,10 @@
   // Since when each alert holds, for its age and its band (alert-snooze.svelte.ts).
   $effect(() => {
     if (full) noteAlerts(allAlerts)
+  })
+  // The Changes block notes the alerts of the environments appearing and going (changes-feed.ts).
+  $effect(() => {
+    if (full) feedChanges(full, allAlerts)
   })
 
   /** A collapsed block keeps only its title line; its neighbors share the space. */
@@ -657,6 +663,7 @@
   <ThreadPanel />
   <ArgoPanel />
   <OverlapPanel />
+  <ChangesDrawer />
   <McpProposal />
   <ShellDrawer />
   <KeyHelp />

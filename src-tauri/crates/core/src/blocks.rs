@@ -101,6 +101,14 @@ pub trait Block: Send + Sync {
         None
     }
 
+    /// What it adds to the Changes timeline (`[changes]`), from its state as it published it
+    /// (`Snapshot.blocks`): its events, each with an id that stays the same from one read to the
+    /// next, and the date its source gives (`seen` when there is none). Read when `[changes]
+    /// sources` names `packs` or its id.
+    fn changes(&self, _state: &Value, _now: DateTime<Utc>) -> Vec<crate::changes::ChangeEvent> {
+        Vec::new()
+    }
+
     /// A call in the demo profile, which reads nothing: its answer from sample data, or `None` to
     /// refuse it (read-only).
     fn demo_call(&self, _command: &str, _args: &Value) -> Option<Result<Value>> {

@@ -58,5 +58,8 @@ pub use crate::stages::{Hints, Provider as StagesProvider, Stage, Stages};
 /// local clone it may read them in.
 pub use crate::collectors::vulnerabilities::{ImageProvider, ImageRef, ImageTag, ImageTarget, LocalRepo};
 
+/// What a block adds to the Changes timeline (`Block::changes`).
+pub use prism_core::changes::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity};
+
 /// A clone's default branch (`origin/HEAD`, otherwise `main`).
 pub use crate::collectors::repos::default_branch;

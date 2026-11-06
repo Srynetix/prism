@@ -223,6 +223,7 @@ fn export_bindings() {
     prism_blocks::tokens::TokensState::export_all(&cfg).unwrap();
     prism_blocks::data::GcpData::export_all(&cfg).unwrap();
     prism_blocks::trail::TrailState::export_all(&cfg).unwrap();
+    prism_blocks::changes::ChangesState::export_all(&cfg).unwrap();
     // What each agent CLI can do: values, not only a type, for the window to read at once.
     use prism_core::agents::provider::{Provider, ProviderSpec};
     ProviderSpec::export_all(&cfg).unwrap();

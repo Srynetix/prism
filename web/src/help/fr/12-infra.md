@@ -1,7 +1,7 @@
 ---
 title: Environnements, vulnérabilités et Docker
 group: Watch the system
-blocks: envs, argocd, vulns, docker, disk_usage
+blocks: envs, argocd, changes, vulns, docker, disk_usage
 related: ci, agents, settings, todo
 ---
 Les applications déployées sont-elles en bonne santé et tournent-elles avec la version attendue, et quelles vulnérabilités connues partent avec ce que vous construisez ? Depuis ces deux blocs, une session Claude peut prendre en charge le diagnostic ou le correctif.
@@ -59,6 +59,16 @@ Un composant en difficulté a un bouton **Enquêter**. Il ouvre une session Clau
 
 > [!NOTE]
 > Prism n’écrit jamais dans un cluster. Il n’a besoin que d’un accès en lecture aux pods et aux deployments des namespaces listés.
+
+## Le bloc Changements
+Depuis hier, qu’est-ce qui a bougé sur staging ? Le bloc Changements met sur une seule frise ce qui a touché un environnement : les syncs Argo CD (leur révision, la MR qui l’a apportée, les images déployées), les MR mergées dans la branche qui l’alimente (`[changes] branches`), les pods qui se déploient, redémarrent, partent en CrashLoop ou en OOMKilled, les alertes qui apparaissent et disparaissent, les vulnérabilités nouvelles ou corrigées, et ce qu’ajoutent les blocs d’un pack.
+
+- La bande du haut : une ligne par source, une marque par changement ; les plages où Prism était fermé sont hachurées. Glisser dessus zoome sur une plage.
+- La liste en dessous, par heure, la plus récente en haut : les répétitions se replient (un pod qui redémarre 6 fois en 4 min tient sur une ligne). Une heure marquée *vu* est celle où Prism l’a vu : alertes et vulnérabilités n’ont pas de date à elles.
+- Un crash montre le sync ou le déploiement de la même application juste avant (`[changes] correlate_minutes`) comme *probablement lié* : une supposition sur l’heure et le nom, jamais une cause certaine. **Diagnostiquer** lance un agent en plan mode avec la frise de l’application, pour lire ses logs, ses events et le diff de ce changement.
+- **Ce qui a changé**, dans les logs d’un pod, sur une alerte de crash Argo CD et dans le panneau Argo CD d’une application Degraded, l’ouvre autour du premier crash. ⌘K : *Changements staging*. Copier donne la plage en Markdown, pour un post-mortem.
+
+Prism garde les transitions dans un journal (`changes.jsonl` dans le dossier de données du profil, `retention_days`). Les Events Kubernetes (`kube_events`) sont désactivés par défaut : le cluster les garde une heure, et il faut le droit de lister les events.
 
 ## Configurer les clusters
 Les environnements sont listés dans Réglages › Infra › Kubernetes › Environnements (`[[environments]]`) : une ligne par environnement et par cluster, avec **Env** (prod, demo, staging, ou un nom à vous comme `ops` : chaque nom est un onglet du bloc, ceux d’aucun stage en dernier), **Contexte kube** et **Namespaces** (`*` remplace n’importe quels caractères : `*` lit tous les namespaces du cluster, `app-*` ceux qui commencent par `app-` ; aucun : rien n’est lu). Les instances ArgoCD vont dans Réglages › Infra › Kubernetes › ArgoCD (`[[argocd]]`) : namespace, contexte kube, URL web, et les environnements dont chacune fait autorité. Sans aucune, Prism cherche dans les namespaces `argocd*` du cluster du contexte par défaut (Réglages › Infra › Kubernetes › Clusters).
