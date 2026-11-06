@@ -90,4 +90,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{program} not started", "{program} non lancé"),
     ("{path} changed since Prism wrote it: not run", "{path} a changé depuis que Prism l’a écrit : non lancé"),
     ("env {name}: no {service} in the keychain", "env {name} : pas de {service} dans le trousseau"),
+    ("more memory than allowed: stopped, its children with it", "plus de mémoire que permis : arrêté, ses enfants avec"),
+    ("no sandbox on this computer (sandbox-exec on macOS, bwrap on Linux): a block nobody trusted is not run outside one. It runs once added and trusted in Prism.", "pas de sandbox sur cet ordinateur (sandbox-exec sur macOS, bwrap sur Linux) : un bloc auquel personne n’a fait confiance ne tourne pas hors d’une sandbox. Il tournera une fois ajouté et confié dans Prism."),
 ];

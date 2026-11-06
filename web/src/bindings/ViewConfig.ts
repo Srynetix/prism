@@ -5,4 +5,26 @@
  * "Edit layout" writes them here. `id` keeps the proportions of a renamed page; absent, derived
  * from the name (Edit layout writes it).
  */
-export type ViewConfig = { name: string, id?: string | null, icon?: string | null, color?: string | null, columns: Array<string>, };
+export type ViewConfig = { 
+/**
+ * Its name in the rail.
+ */
+name: string, 
+/**
+ * Its id (links, shortcuts); from its name without one.
+ */
+id?: string | null, 
+/**
+ * Its icon in the rail (`star`, `rocket`…).
+ */
+icon?: string | null, 
+/**
+ * A color of the app (`coral`, `accent`, `gitlab`…) or a CSS color.
+ */
+color?: string | null, 
+/**
+ * Its columns, left to right, each the blocks' ids separated by spaces, top to bottom
+ * (`"todo sessions notes"`, `"custom:backups"` for a custom block). A `---` item starts a
+ * band below: the columns after it form the next row of columns, under the first.
+ */
+columns: Array<string>, };

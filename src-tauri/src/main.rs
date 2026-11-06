@@ -161,6 +161,8 @@ fn export_bindings() {
     // The pages wizard: what the machine has.
     detect::Detection::export_all(&cfg).unwrap();
     prism_core::deps::Dependency::export_all(&cfg).unwrap();
+    // Settings › Agents › Prism MCP: the agent CLIs outside Prism.
+    prism_commands::mcp::install::Installed::export_all(&cfg).unwrap();
     forge::MrDetail::export_all(&cfg).unwrap();
     forge::MrDiff::export_all(&cfg).unwrap();
     forge::MrCommit::export_all(&cfg).unwrap();

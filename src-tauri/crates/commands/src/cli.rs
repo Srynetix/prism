@@ -1,5 +1,5 @@
 //! The subcommands `prism` runs without opening the app, with a window or without
-//! (`prism-server`): `hook`, `pack`, `restart`, `watch`, `pair`, `peer`, and the tokens to the keyring.
+//! (`prism-server`): `hook`, `mcp`, `pack`, `restart`, `watch`, `pair`, `peer`, and the tokens to the keyring.
 
 /// Runs the subcommand of `args` (the profile already taken out), if any: its exit code.
 pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
@@ -8,6 +8,11 @@ pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
     if args.get(1).is_some_and(|a| a == "hook") {
         let code = args.get(2).map_or(std::process::ExitCode::FAILURE, |dir| crate::agents::hook::main(std::path::Path::new(dir)));
         return Some(if code == std::process::ExitCode::SUCCESS { 0 } else { 1 });
+    }
+    // `prism mcp`: Prism's MCP server for an agent CLI (stdio); `prism mcp install <cli>` adds it
+    // to that CLI's config, outside Prism.
+    if args.get(1).is_some_and(|a| a == "mcp") {
+        return Some(crate::mcp::cli(args));
     }
     // `prism pack import <file | glab:group/project:path@ref | gh:owner/repo:path@ref | prism:starter>`, `prism pack update <name> [ref]`
     // (a repository's pack from a branch, a tag or a commit), `prism pack remove <name>`: the packs of `config.toml`, as in Settings › General › Packs.

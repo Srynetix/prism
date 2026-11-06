@@ -29,10 +29,11 @@ mod demo;
 mod diff;
 mod output;
 mod run;
+pub mod sandbox;
 mod trust;
 mod when;
 
-pub use config::{Action, Def};
+pub use config::{read as read_defs, Action, Def};
 pub use output::{Alert, Body, Column, Item, Level, Output, Stat, Status};
 
 pub struct Custom;
@@ -189,6 +190,13 @@ impl Block for Custom {
     fn settings(&self, config: &toml::Table) -> Vec<(&'static str, Value)> {
         // Every entry as written, those that do not read included: one changed restarts the block.
         let list = config.get("custom_blocks").and_then(|v| serde_json::to_value(v).ok()).unwrap_or(Value::Array(Vec::new()));
+        vec![("custom_blocks", list)]
+    }
+
+    #[cfg(feature = "schema")]
+    fn schema(&self) -> Vec<(&'static str, Value)> {
+        let mut list = serde_json::to_value(schemars::schema_for!(Vec<Def>)).unwrap_or_default();
+        list["description"] = json!("Custom blocks: a command (or a script written here) that prints JSON, made the page block custom:<id>. Its output: {\"kind\": \"list\", \"items\": [{\"id\", \"title\", \"sub\", \"badge\",\"state\": \"ok|warn|ko\", \"url\", …}]}, or kind stats/gauge, table, markdown; \"alerts\" and \"status\" beside it. One added or changed outside Settings waits for trust in Prism.");
         vec![("custom_blocks", list)]
     }
 
@@ -349,6 +357,12 @@ impl Block for Custom {
                     let ran = read_once(&def, &data, true).await?;
                     Ok(serde_json::to_value(ran)?)
                 }
+                // An agent's test (`prism_run_custom_block`): run once in the sandbox, untrusted,
+                // nothing kept.
+                "sandbox_try" => {
+                    let def: Def = serde_json::from_value(args.get("def").cloned().context("def")?).context("def")?;
+                    Ok(serde_json::to_value(sandbox::test(&def).await?)?)
+                }
                 // Write with an agent: where the agent writes its draft, and what it wrote.
                 "draft" => {
                     let id = id()?;
@@ -462,6 +476,11 @@ fn entry_for(def: &Def, id: &str, layers: &Layers) -> Result<serde_json::Map<Str
 }
 
 /// config.toml's entry `id` set (or removed): the file watch reloads the blocks.
+/// The `[[custom_blocks]]` entry `save` writes for `def` (over a pack's, its own keys only).
+pub fn entry(def: &Def) -> Result<serde_json::Map<String, Value>> {
+    entry_for(def, &def.id, &layers())
+}
+
 fn write_entry(id: &str, entry: Option<&serde_json::Map<String, Value>>) -> Result<()> {
     prism_core::settings::set_entry(&config_path(), "custom_blocks", "id", id, entry)
 }
@@ -609,7 +628,7 @@ async fn read_once(def: &Def, data: &std::path::Path, scratch: bool) -> Result<R
     let (program, args, temp) = program((&def.command, &def.script, &def.args), &def.id, data, scratch)?;
     let mut env = run::env(&def.env).await?;
     env.push(("PRISM_BLOCK".into(), def.id.clone()));
-    let spec = run::Spec { program, args, cwd: cwd_of(def), env, timeout: def.timeout() };
+    let spec = run::Spec { program, args, cwd: cwd_of(def), env, timeout: def.timeout(), memory: None };
     let ran = run::run(&spec).await;
     if let Some(t) = temp {
         let _ = std::fs::remove_file(t);
@@ -770,7 +789,7 @@ impl Manager {
         env.extend([("PRISM_BLOCK".into(), def.id.clone()), ("PRISM_ACTION".into(), a.id.clone()), ("PRISM_ITEM".into(), item_json)]);
         let timeout = Duration::from_secs(a.timeout_seconds.unwrap_or(def.timeout_seconds).clamp(1, 600));
         tracing::info!("custom block {id}: action {action} on {key}");
-        let ran = run::run(&run::Spec { program, args, cwd: cwd_of(&def), env, timeout }).await?;
+        let ran = run::run(&run::Spec { program, args, cwd: cwd_of(&def), env, timeout, memory: None }).await?;
         // Read again right after, whatever it did.
         *lock(&slot.last) = None;
         slot.wake.notify_one();

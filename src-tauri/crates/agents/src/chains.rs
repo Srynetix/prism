@@ -415,6 +415,7 @@ impl Agents {
                     effort: None,
                     then: Vec::new(),
                     from: None,
+                    prism_mcp: false,
                 };
                 self.spawn(launch).await?;
                 self.chain(id, |c| c.runs[i] = StepRun::with(RunState::Done, title));

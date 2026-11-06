@@ -50,6 +50,11 @@ pub struct LaunchSpec {
     /// The action that opened the launcher (`Implement`, `Review`…); absent: a blank launch.
     #[serde(default)]
     pub from: Option<String>,
+    /// Prism's MCP server and skill given to it whatever `[agents] prism_mcp` says ("Configure
+    /// Prism"), kept on resume.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(optional, as = "Option<bool>"))]
+    pub prism_mcp: bool,
 }
 
 /// A new worktree as asked at launch: its repository, its folder name, the existing branch to

@@ -92,6 +92,8 @@
   }
   /** The action that opened the launcher, kept with the launch; the agent it repeats (Launch again). */
   let from = $state('')
+  /** Prism's MCP server given to it whatever `[agents] prism_mcp` says (Configure Prism). */
+  let prismMcp = $state(false)
   let sameAs = $state('')
   /** The prepared agent being edited, which the next launch (or Prepare) replaces. */
   let replacing = $state('')
@@ -175,6 +177,7 @@
     efforts = d.effort ? { [d.provider ?? providerOf(launchRepo)]: d.effort } : {}
     steps = d.then ? structuredClone(d.then) : []
     from = d.from ?? ''
+    prismMcp = d.prism_mcp ?? false
     sameAs = slot.sameAs ?? ''
     slot.sameAs = null
     replacing = slot.replacing ?? ''
@@ -223,6 +226,7 @@
     effort: launchEffort || undefined,
     then: steps.length ? $state.snapshot(steps) : undefined,
     from: from || undefined,
+    prism_mcp: prismMcp || undefined,
     ...(whereTo === 'new' ? { worktree: { name: name ? slug(name) : wtBranch ? undefined : autoName || undefined, branch: wtBranch || undefined, repo: wtRepo || undefined, base: (!wtBranch && wtBase.trim()) || undefined, also: also.length ? also : undefined } } : { cwd: whereTo === 'existing' ? wtPath : folder }),
   })
   /**
@@ -256,7 +260,7 @@
    */
   let command = $state('')
   $effect(() => {
-    const preview = { provider: launchProvider, title: autoTitle || 'Agent', permission_mode: mode, model: launchModel || null, effort: launchEffort || null, worktree: whereTo === 'new' ? planName : null, also, prompt: prompt.trim() || null }
+    const preview = { provider: launchProvider, title: autoTitle || 'Agent', permission_mode: mode, model: launchModel || null, effort: launchEffort || null, worktree: whereTo === 'new' ? planName : null, also, prompt: prompt.trim() || null, prism_mcp: prismMcp }
     let gone = false
     const timer = setTimeout(() => {
       invoke<string>('agent_command_line', { preview }).then(
@@ -366,6 +370,7 @@
       launchTags = []
       alsoRepos = []
       from = ''
+      prismMcp = false
       sameAs = ''
     } catch (e) {
       error = String(e)

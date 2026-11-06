@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// `[remote]`. Off by default; on, Prism answers on loopback only (`port`), behind a tunnel.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct RemoteConfig {
     pub enabled: bool,
@@ -81,6 +82,7 @@ pub struct RemoteConfig {
 /// `[remote.peers]`: what the other Prisms paired with this one (`prism peer pair`) may do from
 /// their window. It always reads, settings included (secrets never: they stay in the keychain).
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct PeerRights {
     /// Act: a ticket's status, a comment, a retry, an agent launched or answered.
@@ -100,6 +102,7 @@ impl Default for PeerRights {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum RemoteTunnel {
     #[default]
@@ -254,6 +257,7 @@ mod tests {
 /// as its own. Its Prism made a token for this one (`prism peer add <name>` there), kept in the
 /// keychain (Settings › Machines). Personal: a pack does not set it.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct MachineConfig {
     /// Its name here: the window's title, the keychain entry of its token.

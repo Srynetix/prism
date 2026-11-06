@@ -219,6 +219,20 @@ export const SCHEMA: SectionSpec[] = [
     ],
   },
   {
+    id: 'mcp', label: t('MCP server'), table: '[mcp]', path: ['mcp'],
+    intro: t('prism mcp: an MCP server an agent CLI starts. It reads Prism’s help, the commented reference, the schema of every table, your config merged with its packs (no secret: tokens live in the keychain) and Problems; it tests a custom block in a sandbox. A change it makes is a proposal: Prism shows its diff and you apply it, refuse it or edit it. It reaches this Prism through a local socket of the profile; Prism stopped, only the docs and the schema answer.'),
+    fields: [
+      { key: 'enabled', label: t('MCP server'), hint: t('Off: prism mcp answers nothing.'), kind: 'toggle' },
+      { key: 'proposals', label: t('Proposals'), hint: t('Agents may propose changes, applied only by you. Off: strictly read-only, the agent gives the TOML to copy.'), kind: 'toggle' },
+    ],
+  },
+  {
+    id: 'agents-mcp', label: t('For the agents Prism launches'), table: '[agents]', path: ['agents'],
+    fields: [
+      { key: 'prism_mcp', label: t('Prism MCP for every agent'), hint: t('Adds the MCP server and the “prism” skill to each agent Prism launches (Claude Code, Codex, OpenCode). Off: only the agents of “Configure Prism”.'), kind: 'toggle' },
+    ],
+  },
+  {
     id: 'agents-actions', label: t('Quick actions'), table: '[[agents.quick_actions]]', path: ['agents'],
     intro: t('The same job asked again and again of an agent on a repository (bring its main branch up to date, run a scan…): one button each on its project in the Agents view (grouped by repository) and on the phone, and a line in the palette. A click launches the agent at once; ⇧-click, or ⌘↵ in the palette, opens the launcher prefilled, to change it first.'),
     fields: [

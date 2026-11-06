@@ -205,7 +205,8 @@ pub fn set_entry(path: &Path, array: &str, key: &str, id: &str, entry: Option<&s
     write(path, &old, &new)
 }
 
-fn entry_text(old: &str, array: &str, key: &str, id: &str, entry: Option<&serde_json::Map<String, serde_json::Value>>) -> Result<String> {
+/// `set_entry`'s text, without writing it (an agent's proposal shows what it would write).
+pub fn entry_text(old: &str, array: &str, key: &str, id: &str, entry: Option<&serde_json::Map<String, serde_json::Value>>) -> Result<String> {
     let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
     match doc.get(array) {
         None if entry.is_none() => return Ok(old.to_string()),
@@ -295,7 +296,7 @@ fn entry_item(v: &serde_json::Value) -> Result<Item> {
 
 /// `new` in place of `old`: the old copied to `.bak`, the new reread by `config::load`, the old
 /// put back if it does not load.
-fn write(path: &Path, old: &str, new: &str) -> Result<()> {
+pub fn write(path: &Path, old: &str, new: &str) -> Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }

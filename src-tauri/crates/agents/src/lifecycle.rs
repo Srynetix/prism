@@ -22,6 +22,9 @@ pub struct LaunchPreview {
     pub also: Vec<String>,
     #[serde(default)]
     pub prompt: Option<String>,
+    /// Prism's MCP server given to it (Configure Prism), whatever `[agents] prism_mcp` says.
+    #[serde(default)]
+    pub prism_mcp: bool,
 }
 
 impl Agents {
@@ -32,7 +35,7 @@ impl Agents {
         let prompt = p.prompt.as_deref().map(str::trim).filter(|t| !t.is_empty());
         let worktree = p.worktree.as_deref().filter(|_| p.provider.delegates_worktree());
         let argv = p.provider.launch("…", &p.title, Path::new("…"), p.permission_mode.as_deref(), worktree, prompt)?;
-        let spec = state::LaunchSpec { model: p.model, effort: p.effort, ..Default::default() };
+        let spec = state::LaunchSpec { model: p.model, effort: p.effort, prism_mcp: p.prism_mcp, ..Default::default() };
         let name = p.worktree.as_deref().unwrap_or("…");
         let dirs: Vec<PathBuf> = p.also.iter().map(|r| PathBuf::from(format!("…/{r}.worktrees/{name}"))).collect();
         let argv = p.provider.with_dirs(p.provider.with_cli(argv, &self.cli(p.provider, Some(&spec))), &dirs);
@@ -169,7 +172,7 @@ impl Agents {
             self.drop_extra(&extra).await;
             bail!(tr!("{path} is not a directory", path = cwd.display()));
         }
-        if let Err(e) = self.inner.tmux.new_session(&id, &cwd, &self.env(&id, provider, launch.permission_mode.as_deref()), &argv).await {
+        if let Err(e) = self.inner.tmux.new_session(&id, &cwd, &self.env(&id, provider, launch.permission_mode.as_deref(), Some(&spec)), &argv).await {
             self.drop_extra(&extra).await;
             return Err(e);
         }
@@ -335,7 +338,7 @@ impl Agents {
         };
         let extra: Vec<PathBuf> = record.extra.iter().filter(|p| p.is_dir()).cloned().collect();
         let argv = provider.with_dirs(provider.with_cli(argv, &self.cli(provider, record.launch.as_ref())), &extra);
-        let env = self.env(id, provider, mode);
+        let env = self.env(id, provider, mode, record.launch.as_ref());
         match pane {
             Some(_) => self.inner.tmux.respawn(id, &cwd, &env, &argv).await?,
             None => self.inner.tmux.new_session(id, &cwd, &env, &argv).await?,
@@ -508,9 +511,10 @@ impl Agents {
 
     /// The agent's environment: where Command Code's mod and OpenCode's plugin write its log
     /// (Claude Code's hooks are told by their command line), and OpenCode's plugin itself.
-    pub(crate) fn env(&self, id: &str, provider: Provider, mode: Option<&str>) -> Vec<String> {
+    pub(crate) fn env(&self, id: &str, provider: Provider, mode: Option<&str>, launch: Option<&state::LaunchSpec>) -> Vec<String> {
         let mut env = vec![format!("PRISM_AGENT={id}"), format!("PRISM_EVENTS={}", self.inner.events.display())];
-        env.extend(provider.env(&self.wiring(provider), mode));
+        let mcp = self.prism_mcp(launch).then(prism_core::mcp::command);
+        env.extend(provider.env(&self.wiring(provider), mode, mcp.as_deref()));
         env
     }
 }

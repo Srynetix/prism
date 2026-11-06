@@ -9,6 +9,7 @@ pub mod app;
 pub mod bootstrap;
 pub mod cli;
 pub mod commands;
+pub mod mcp;
 mod presence;
 pub mod process;
 pub mod remote;

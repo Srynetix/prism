@@ -40,4 +40,9 @@ then: Array<LaunchStep>,
 /**
  * The action that opened the launcher (`Implement`, `Review`…); absent: a blank launch.
  */
-from: string | null, };
+from: string | null, 
+/**
+ * Prism's MCP server and skill given to it whatever `[agents] prism_mcp` says ("Configure
+ * Prism"), kept on resume.
+ */
+prism_mcp?: boolean, };

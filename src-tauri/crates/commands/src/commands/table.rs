@@ -54,6 +54,10 @@ commands! {
     }
     // Config, packs, tokens, updates: never from a phone.
     config::read_config: Never,
+    // An agent's proposal applied from the window only (a custom block is trusted at the desk).
+    config::mcp_proposal_answer: Never,
+    config::mcp_installs: Never,
+    config::mcp_install: Never [demo: refused],
     // A worktree's shell: typed in at the desk only.
     agents::worktree_shells: Never,
     agents::worktree_shell: Never,

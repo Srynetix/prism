@@ -119,6 +119,9 @@ pub struct Launch {
     /// The action that opened the launcher, kept with the launch.
     #[serde(default)]
     pub from: Option<String>,
+    /// Prism's MCP server and skill given to it whatever `[agents] prism_mcp` says ("Configure Prism").
+    #[serde(default)]
+    pub prism_mcp: bool,
 }
 
 impl From<state::LaunchSpec> for Launch {
@@ -136,6 +139,7 @@ impl From<state::LaunchSpec> for Launch {
             effort: s.effort,
             then: s.then,
             from: s.from,
+            prism_mcp: s.prism_mcp,
         }
     }
 }
@@ -162,6 +166,7 @@ impl Launch {
             effort: some(&self.effort),
             then: self.then.clone(),
             from: some(&self.from),
+            prism_mcp: self.prism_mcp,
         }
     }
 }
@@ -524,6 +529,12 @@ fn carried(legs: &[crate::state::AgentLeg], provider: Provider, session: &str) -
 /// (development, release) wherever it is; and what the file says runs in every agent of that CLI.
 fn write_wiring(work: &Path, provider: Provider) -> Result<()> {
     let exe = std::env::current_exe().context("locating the Prism executable")?;
+    // Prism's MCP plugin (`[agents] prism_mcp`, Configure Prism): its executable's path follows Prism's.
+    if provider == Provider::Claude
+        && let Err(e) = prism_core::mcp::write_claude_plugin(work, &prism_core::mcp::command())
+    {
+        tracing::warn!("agents: Prism's MCP plugin not written: {e:#}");
+    }
     let wiring: Vec<u8> = match provider {
         Provider::Claude => serde_json::to_vec_pretty(&hook::hooks_settings(&exe, work))?,
         Provider::CommandCode => provider::COMMAND_CODE_MOD.into(),

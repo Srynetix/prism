@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// The provider of the active profile's tracker, in the snapshot (absent: no tracker read).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "TrackerProvider"))]
 #[serde(rename_all = "lowercase")]

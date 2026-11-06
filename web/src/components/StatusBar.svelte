@@ -21,6 +21,7 @@
   import DigestItem from './DigestItem.svelte'
   import { openAgents } from '../agents.svelte'
   import { reviewPile } from '../routines.svelte'
+  import { openProposal, proposals } from '../mcp-view.svelte'
   import StatusUsage from './StatusUsage.svelte'
   import RepoMenu from './RepoMenu.svelte'
   import RemoteItem from './RemoteItem.svelte'
@@ -275,6 +276,15 @@
     {@const n = reviewPile(snap).length}
     <!-- The routines' runs waiting in "To review", while the pile is not empty. -->
     <button class="sbi" onclick={() => openAgents()} title={t('Routines: {n} to review · the Agents view', { n })}><span class="g"><Icon name="alarm" /></span><b>{n}</b> {t('to review')}</button>
+  {:else if id === 'mcp' && (proposals(snap).length || snap?.mcp?.clients.length)}
+    {@const ps = proposals(snap)}
+    <!-- Agents on Prism's MCP server (`prism mcp`), and their proposals waiting for an answer. -->
+    {#if ps.length}
+      <button class="sbi update" onclick={() => openProposal()} title={tn(ps.length, 'An agent proposes a change of Prism: see it, apply or refuse it', '{n} changes of Prism proposed by agents: see them', {})}><span class="g"><Icon name="settings" /></span>MCP · <b>{ps.length}</b> {tn(ps.length, 'proposal', 'proposals')}</button>
+    {:else}
+      {@const cs = snap!.mcp.clients}
+      <button class="sbi" onclick={() => openSettings('prism-mcp')} title={t('Connected to Prism MCP: {who} · Settings › Agents › Prism MCP', { who: cs.map((c) => c.name).join(', ') })}><span class="g"><Icon name="settings" /></span>MCP · {cs.length}</button>
+    {/if}
   {:else if id === 'usage'}
     <StatusUsage sections={snap ? planSections(snap) : []} {now} working={snap ? countedSessions(snap).some((c) => c.status === 'running') : false} />
   {:else if id === 'sprint' && sprintDay}

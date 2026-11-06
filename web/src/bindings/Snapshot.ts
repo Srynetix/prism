@@ -22,6 +22,7 @@ import type { ForgeProvider } from "./ForgeProvider";
 import type { LeftSession } from "./LeftSession";
 import type { MachinePresence } from "./MachinePresence";
 import type { MailState } from "./MailState";
+import type { McpState } from "./McpState";
 import type { MergeRequest } from "./MergeRequest";
 import type { NodeLoad } from "./NodeLoad";
 import type { NotesConfig } from "./NotesConfig";
@@ -317,6 +318,10 @@ problems: Array<Problem>,
  * apply once Prism restarts. Every other setting applies as it is saved.
  */
 waiting_restart: Array<string>, 
+/**
+ * Prism's MCP server: the agents connected, the proposals waiting for an answer (`mcp`).
+ */
+mcp: McpState, 
 /**
  * Sources that have responded at least once (success or error): the startup screen waits for them.
  */

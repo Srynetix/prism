@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 /// the only folders a phone creates projects in (`[remote] projects`). Personal: a pack does not
 /// set them.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct Workspace {
     /// What the pickers show (`Work`, `Personal`); empty: the folder's name.
     #[serde(default)]
@@ -25,6 +26,7 @@ pub struct Workspace {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct RepoConfig {
     pub name: String,
     /// Local clone: Repos menu and base images. Absent: the repository is only used for its MRs, read
@@ -166,6 +168,7 @@ impl RepoConfig {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct WorktreesConfig {
     /// Former way of naming the primary repository's clone (now `[[repos]] primary`), still read:
     /// see `Config::primary`.

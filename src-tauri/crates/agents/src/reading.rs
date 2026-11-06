@@ -43,7 +43,23 @@ impl Agents {
         if let Some(e) = picked(launch.and_then(|l| l.effort.as_ref())) {
             cli.effort = Some(e);
         }
+        // Prism's MCP server and skill: Claude Code's plugin, Codex's options (OpenCode's in its
+        // environment, `env`). Nothing written here: the launcher's preview builds this too.
+        if self.prism_mcp(launch) {
+            let command = prism_core::mcp::command();
+            match provider {
+                // Written with the rest of the wiring, as the agent launches (`write_wiring`).
+                Provider::Claude => cli.args.extend(["--plugin-dir".to_string(), prism_core::mcp::claude_plugin_dir(&self.inner.work).display().to_string()]),
+                Provider::Codex => cli.args.extend(prism_core::mcp::codex_args(&command)),
+                Provider::OpenCode | Provider::CommandCode => {}
+            }
+        }
         cli
+    }
+
+    /// The agent gets Prism's MCP server: `[agents] prism_mcp`, or its launch asked for it.
+    pub(crate) fn prism_mcp(&self, launch: Option<&state::LaunchSpec>) -> bool {
+        launch.is_some_and(|l| l.prism_mcp) || self.inner.settings.lock().unwrap().prism_mcp
     }
 
     /// The reasoning efforts `provider` takes (for `model`, Codex's levels being each model's), for

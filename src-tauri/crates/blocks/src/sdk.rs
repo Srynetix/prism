@@ -7,6 +7,12 @@
 
 pub use super::{section, Block, BlockCtx, BlockEnv, BlockRepo, RepoUse};
 
+/// A block's settings as a JSON schema (`Block::schema`: `schemars::schema_for!(MyConfig)`), its
+/// struct deriving `schemars::JsonSchema` (`#[cfg_attr(feature = "schema", …)]` is not needed: the
+/// app is always built with it).
+#[cfg(feature = "schema")]
+pub use schemars;
+
 /// The class of a block's command called from a phone (`Block::remote`).
 pub use prism_core::remote::Class as RemoteClass;
 

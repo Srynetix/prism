@@ -9,6 +9,7 @@ use super::*;
 /// Sources of the "Audio" block. Without an `[audio]` section, a default selection; a given
 /// list replaces its own (stations or feeds, independently).
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct AudioConfig {
     #[serde(default = "default_stations")]
     pub stations: Vec<AudioSource>,
@@ -27,6 +28,7 @@ impl Default for AudioConfig {
 
 /// A radio (live stream) or a podcast (RSS feed where each episode has its audio file).
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct AudioSource {
     pub label: String,
     pub url: String,
@@ -93,6 +95,7 @@ fn default_feeds() -> Vec<AudioSource> {
 
 /// Agenda of the day, read from the macOS Calendar or Google Calendar.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct CalendarConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -111,6 +114,7 @@ impl Default for CalendarConfig {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum CalendarProvider {
@@ -130,6 +134,7 @@ impl CalendarConfig {
 
 /// What the Claude Desktop sessions' collector reads: `[agents.claude]`'s keys (`ClaudeConfig::sessions`).
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct SessionsConfig {
     /// Metadata of the desktop's Claude Code sessions.
     #[serde(default = "default_sessions_dir")]
@@ -163,6 +168,7 @@ fn default_sessions_poll() -> u64 {
 /// Graph with the delegated `Mail.ReadBasic` permission (your mailbox only, no body), or of the
 /// Gmail inbox with `gmail.metadata` (headers and labels only).
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct MailConfig {
     /// Off by default: on, you sign in once from Settings.
     #[serde(default)]
@@ -186,6 +192,7 @@ pub struct MailConfig {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum MailProvider {
@@ -197,6 +204,7 @@ pub enum MailProvider {
 /// Your Google Cloud project's OAuth client, of the "Desktop app" type. Its secret goes into the
 /// system keychain, never here.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct GoogleConfig {
     #[serde(default)]
     pub client_id: String,

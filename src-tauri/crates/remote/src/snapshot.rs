@@ -7,7 +7,8 @@ use serde_json::{Map, Value};
 /// Prism's own warnings and errors (paths, hosts, a mail's error), the mail unless `[remote]
 /// mail` lets it out, and of the custom blocks those kept on the computer (`remote = false`),
 /// everyone's declaration, error output (it may hold a secret) and diff; a routine's diff waiting
-/// for trust.
+/// for trust; of an agent's proposal (`mcp`), the config it would write, its diff and its test's
+/// output: answered on the computer only.
 pub fn filter(mut snap: Value, mail: bool) -> Value {
     if let Some(obj) = snap.as_object_mut() {
         obj.remove("remote");
@@ -20,6 +21,11 @@ pub fn filter(mut snap: Value, mail: bool) -> Value {
             if let Some(p) = r.get_mut("pending").and_then(Value::as_object_mut) {
                 p.remove("diff");
                 p.remove("agents");
+            }
+        }
+        for p in obj.get_mut("mcp").and_then(|m| m.get_mut("proposals")).and_then(Value::as_array_mut).into_iter().flatten() {
+            if let Some(p) = p.as_object_mut() {
+                p.retain(|k, _| ["id", "kind", "client", "agent", "why", "at", "block"].contains(&k.as_str()));
             }
         }
         if !mail {
@@ -164,5 +170,11 @@ mod tests {
         assert_eq!(out["blocks"]["custom_blocks"], json!({ "blocks": [{ "id": "a", "remote": true, "pending": { "reason": "new" } }], "errors": [] }));
         let snap = json!({ "routines": { "routines": [{ "name": "N", "pending": { "reason": "new", "hash": "h", "diff": ["+ x"], "agents": ["a"] } }], "runs": [] } });
         assert_eq!(filter(snap, false)["routines"]["routines"][0]["pending"], json!({ "reason": "new", "hash": "h" }), "a routine is trusted on the computer");
+    }
+
+    #[test]
+    fn a_phone_gets_no_proposal_s_config() {
+        let snap = json!({ "mcp": { "clients": [], "proposals": [{ "id": 1, "kind": "config", "client": "codex", "why": "w", "at": "t", "text": "[x]\ntoken = 1", "diff": [], "test": { "stderr": "s" }, "warnings": [] }] } });
+        assert_eq!(filter(snap, false)["mcp"]["proposals"][0], json!({ "id": 1, "kind": "config", "client": "codex", "why": "w", "at": "t" }));
     }
 }

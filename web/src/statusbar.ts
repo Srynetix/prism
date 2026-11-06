@@ -10,7 +10,7 @@ import { BLOCK_DEFS } from './blocks'
  * consecutive items of a zone are drawn together, between thin separators. Squeezed, the bar moves
  * its least needed items (`rank`) into a ⋯ at its end, never those of `you`.
  */
-type CoreStatus = 'alerts' | 'live' | 'problems' | 'repos' | 'pipeline' | 'meeting' | 'reminder' | 'claude' | 'profiles' | 'machines' | 'shells' | 'digest' | 'routines' | 'usage' | 'sprint' | 'audio' | 'clock' | 'update' | 'packs' | 'feedback'
+type CoreStatus = 'alerts' | 'live' | 'problems' | 'repos' | 'pipeline' | 'meeting' | 'reminder' | 'claude' | 'profiles' | 'machines' | 'shells' | 'digest' | 'routines' | 'mcp' | 'usage' | 'sprint' | 'audio' | 'clock' | 'update' | 'packs' | 'feedback'
 /** A core item, or a block's (its id: `BlockDef.status`). */
 export type StatusId = CoreStatus | (string & {})
 export type Zone = 'you' | 'work' | 'machine'
@@ -28,6 +28,7 @@ const CORE: StatusItem[] = [
   { id: 'reminder', label: 'Reminders', zone: 'you', rank: Infinity },
   { id: 'digest', label: 'Notifications digest', zone: 'you', rank: Infinity },
   { id: 'routines', label: 'Routines to review', zone: 'you', rank: Infinity },
+  { id: 'mcp', label: 'Agents on Prism MCP', zone: 'you', rank: Infinity },
   { id: 'alerts', label: 'What waits for you', zone: 'you', rank: Infinity },
   { id: 'repos', label: 'Repositories', zone: 'work', rank: 5 },
   { id: 'sprint', label: 'Sprint day', zone: 'work', rank: 4 },

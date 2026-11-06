@@ -11,6 +11,8 @@ workspace = true
 [features]
 # The window's types (`web/src/bindings`), exported by the app's tests.
 ts = ["dep:ts-rs", "prism-core/ts", "prism-collectors/ts", "prism-agents/ts"]
+# The blocks' settings as JSON schemas (`Block::schema`), for `prism mcp`: in the binaries only.
+schema = ["dep:schemars", "prism-core/schema"]
 
 [dependencies]
 prism-base.workspace = true
@@ -31,6 +33,8 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 sysinfo.workspace = true
+uuid.workspace = true
+schemars = { workspace = true, optional = true }
 tokio.workspace = true
 toml.workspace = true
 tracing.workspace = true

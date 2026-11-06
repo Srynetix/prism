@@ -6,6 +6,7 @@ use super::*;
 
 /// "Vulnerabilities" block.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct VulnerabilitiesConfig {
     /// The Vulnerabilities block: Trivy scans of its repositories' dependencies, and of the images
     /// a block names. Off by default (it needs `trivy`).
@@ -54,6 +55,7 @@ fn default_branches() -> Vec<String> {
 /// Renovate (`[renovate]`): its Dependency Dashboard issue and the pipeline schedule running it,
 /// in its repository's project, found by their names.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct RenovateConfig {
     /// Off by default.
@@ -78,6 +80,7 @@ impl Default for RenovateConfig {
 /// "owner/repo"`); what only GitLab has (`[gitlab]`) stays off. The switch, branches, merged window,
 /// polling and CI health were `[gitlab]`'s: still read there (`migrate`).
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct ForgeConfig {
     #[serde(default)]
     pub provider: crate::forge::Provider,
@@ -138,6 +141,7 @@ impl Default for ForgeConfig {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct GitlabConfig {
     /// Former way of naming the primary repository's project (now `[[repos]] primary`), still read:
     /// see `Config::primary`. Authentication is that of `glab`.

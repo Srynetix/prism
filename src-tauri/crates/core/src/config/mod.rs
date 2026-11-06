@@ -26,6 +26,7 @@ pub use migrate::*;
 pub use remote::*;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct Config {
     /// The merged tables as read (packs, then `config.toml`): the blocks read theirs there (`blocks`).
     #[serde(skip)]
@@ -150,11 +151,35 @@ pub struct Config {
     /// Other computers' Prism, opened here (`[[machines]]`).
     #[serde(default)]
     pub machines: Vec<MachineConfig>,
+    /// Prism's MCP server for agents (`[mcp]`): `prism mcp`, its docs, schema and proposals.
+    #[serde(default)]
+    pub mcp: McpConfig,
+}
+
+/// `[mcp]`: what `prism mcp` lets an agent do. It reads Prism's docs, schema, config (no secret)
+/// and Problems; a change it makes is a proposal, applied only from Prism's window.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct McpConfig {
+    /// `prism mcp` answers; off, it refuses to start.
+    pub enabled: bool,
+    /// Agents may propose changes (`prism_propose_*`), applied only once accepted in Prism. Off:
+    /// strictly read-only, the agent gives the TOML to copy.
+    pub proposals: bool,
+}
+
+impl Default for McpConfig {
+    fn default() -> Self {
+        Self { enabled: true, proposals: true }
+    }
 }
 
 /// `[demo]`: on, Prism shows a fictitious team's work and reads nothing (no GitLab, ClickUp,
 /// cluster nor Claude session of the machine). Personal: a pack does not set it.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct DemoConfig {
     pub enabled: bool,
@@ -163,6 +188,7 @@ pub struct DemoConfig {
 /// A profile's name and color (`[profile]`), shown in the rail and the window title. Personal:
 /// a pack does not set it.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct ProfileConfig {
     pub name: String,
@@ -174,6 +200,7 @@ pub struct ProfileConfig {
 /// Agents (`[agents]`): the Agents view, where Claude actions go, and the agents' worktrees.
 /// Sent as is to the frontend, and applied on save.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct AgentsConfig {
@@ -270,11 +297,16 @@ pub struct AgentsConfig {
     pub handoff_turns: u32,
     /// The relay shown, to edit, before it goes. Off: sent as written, in one click.
     pub handoff_review: bool,
+    /// Prism's MCP server (`prism mcp`) and its "prism" skill given to every agent Prism launches:
+    /// they read Prism's docs, schema and config, and propose changes. Off: only the agents of
+    /// "Configure Prism" get them.
+    pub prism_mcp: bool,
 }
 
 /// Overlaps between the agents and worktrees of a repository (`[agents.overlaps]`): each one's
 /// changes against the merge-base of its base, the uncommitted ones included, compared two by two.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct OverlapsConfig {
@@ -323,6 +355,7 @@ fn path_glob(pattern: &str, text: &str) -> bool {
 /// Quick answers (`[agents.quick_answers]`): one click sends an agent at its prompt a text ("OK",
 /// "Do it"), from its view, the Agents block, its alert and the phone.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct QuickAnswersConfig {
@@ -367,6 +400,7 @@ impl QuickAnswersConfig {
 /// An answer: its button, and the text sent (`{ticket}`, `{branch}`, `{mr}`, `{title}`, `{folder}`:
 /// the agent's; an answer whose variable the agent lacks is not offered to it).
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct QuickAnswer {
     pub label: String,
@@ -391,6 +425,7 @@ impl AgentsConfig {
 
 /// An agent launched in one click (`[[agents.quick_actions]]`): its prompt, in a repository.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct QuickAction {
@@ -414,6 +449,7 @@ pub struct QuickAction {
 /// names or at a pace. Read as it is: what does not hold (both `cron` and `every`, a cron that
 /// does not read, an action unknown) shows in Problems, and that routine does not run.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct Routine {
@@ -492,6 +528,7 @@ impl Routine {
 
 /// How a coding agent CLI is launched (`[agents.<cli>]`): by default, its usual name from the PATH.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct CliConfig {
@@ -512,6 +549,7 @@ pub struct CliConfig {
 /// conversations' cost and the plan usage's token. Formerly `[agents]`', `[sessions]`' and
 /// `[usage]`'s: still read there (`migrate`).
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct ClaudeConfig {
@@ -553,6 +591,7 @@ impl ClaudeConfig {
 
 /// A kind of work of the agents (`[[agents.kinds]]`).
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct AgentKind {
@@ -610,12 +649,14 @@ impl Default for AgentsConfig {
             handoff: "prism".into(),
             handoff_turns: 8,
             handoff_review: true,
+            prism_mcp: false,
         }
     }
 }
 
 /// Prism's logs (`[logs]`): standard error and the profile's `prism.log`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct LogsConfig {
     /// `error`, `warn`, `info`, `debug` or `trace`; `RUST_LOG` takes precedence.
@@ -631,6 +672,7 @@ impl Default for LogsConfig {
 /// Prism's own updates (`[updates]`): the releases of a repository, read with glab or gh. A
 /// team's pack names its own, whose builds carry its blocks; the open-source Prism, its public one.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct UpdatesConfig {
     /// Checks at launch and every few hours, and says so in the status bar.
@@ -673,6 +715,7 @@ impl Default for UpdatesConfig {
 /// Feedback (`[feedback]`): issues opened from Prism on the repository it comes from (`repo`, or
 /// `[updates] source`) or on a pack's (its `[pack] source`), with glab or gh.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct FeedbackConfig {
     /// Send feedback in the console, the menus and the status bar.
@@ -714,7 +757,13 @@ pub fn defaults() -> serde_json::Value {
 pub fn load(path: &Path) -> Result<Config> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| tr!("reading {path}", path = path.display()))?;
-    let (table, _, _) = crate::packs::layered(path, &raw)?;
+    load_text(path, &raw)
+}
+
+/// `raw` read as the config at `path` would be (its packs beside it), without reading the file:
+/// what a proposed text gives before it is written.
+pub fn load_text(path: &Path, raw: &str) -> Result<Config> {
+    let (table, _, _) = crate::packs::layered(path, raw)?;
     let mut cfg: Config = toml::Value::Table(table.clone()).try_into().context(tr("invalid config.toml"))?;
     cfg.table = table;
     // Before the repositories: a clone in a working folder takes its forge.

@@ -9,6 +9,7 @@ use sha2::Digest;
 
 /// A custom block (`[[custom_blocks]]`).
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "CustomBlockDef"))]
@@ -61,6 +62,7 @@ pub struct Def {
 
 /// A button on its lines (`[[custom_blocks.actions]]`): a command, a script, or an agent.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "CustomAction"))]

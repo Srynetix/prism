@@ -15,6 +15,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "AgentProvider"))]
 #[serde(rename_all = "kebab-case")]
@@ -299,13 +300,17 @@ impl Provider {
     /// What the CLI's environment adds for Prism: OpenCode's plugin (`wiring`), merged into the
     /// user's own config, and, for `acceptEdits`, edits allowed whatever that config says (OpenCode
     /// allows them by default).
-    pub fn env(self, wiring: &Path, mode: Option<&str>) -> Vec<String> {
+    /// `mcp`: Prism's MCP server's command line, given to it too (`[agents] prism_mcp`).
+    pub fn env(self, wiring: &Path, mode: Option<&str>, mcp: Option<&[String]>) -> Vec<String> {
         if self != Self::OpenCode {
             return Vec::new();
         }
         let mut config = serde_json::json!({ "plugin": [format!("file://{}", wiring.display())] });
         if mode == Some("acceptEdits") {
             config["permission"] = serde_json::json!({ "edit": "allow" });
+        }
+        if let Some(command) = mcp {
+            config["mcp"] = serde_json::json!({ crate::mcp::SERVER: crate::mcp::opencode_server(command) });
         }
         vec![format!("OPENCODE_CONFIG_CONTENT={config}")]
     }
@@ -469,11 +474,11 @@ mod tests {
         assert_eq!(Provider::OpenCode.launch("ab-12", "Fix", plugin, Some("auto"), None, None).unwrap(), ["opencode", "--auto"]);
         assert_eq!(Provider::OpenCode.launch("ab-12", "Fix", plugin, Some("acceptEdits"), None, None).unwrap(), ["opencode"]);
         assert!(Provider::OpenCode.launch("ab-12", "Fix", plugin, Some("yolo"), None, None).is_err());
-        let env = Provider::OpenCode.env(plugin, Some("acceptEdits"));
+        let env = Provider::OpenCode.env(plugin, Some("acceptEdits"), None);
         let config: serde_json::Value = serde_json::from_str(env[0].strip_prefix("OPENCODE_CONFIG_CONTENT=").unwrap()).unwrap();
         assert_eq!(config, serde_json::json!({ "plugin": ["file:///data/agents/opencode-plugin.ts"], "permission": { "edit": "allow" } }));
-        assert_eq!(Provider::OpenCode.env(plugin, None).len(), 1);
-        assert!(Provider::Claude.env(plugin, None).is_empty());
+        assert_eq!(Provider::OpenCode.env(plugin, None, None).len(), 1);
+        assert!(Provider::Claude.env(plugin, None, None).is_empty());
     }
 
     #[test]
@@ -489,7 +494,7 @@ mod tests {
         assert_eq!(Provider::Codex.resume("ab-12", Some("01a13bc2-2a63"), &file, None), ["codex", "resume", "-c", "hooks.Stop=[]", "01a13bc2-2a63"]);
         assert_eq!(Provider::Codex.resume("ab-12", None, &file, None)[4], "--last");
         assert_eq!(Provider::Codex.launch("ab-12", "Fix", Path::new("/missing.json"), None, None, None).unwrap(), ["codex"], "unreadable: unfollowed");
-        assert!(Provider::Codex.env(&file, None).is_empty());
+        assert!(Provider::Codex.env(&file, None, None).is_empty());
         assert_eq!(serde_json::from_str::<Provider>(r#""codex""#).unwrap(), Provider::Codex);
         let _ = std::fs::remove_file(file);
     }

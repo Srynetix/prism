@@ -302,6 +302,7 @@ prompt_language = "en"      # language of the Claude actions' prompts (and so of
 terminal_keys = ["Cmd+K"]   # Prism's shortcuts an agent's terminal keeps (Cmd+K clears it); the others go up to Prism
 view = "chat"               # an agent read as its Chat (Claude Code, Codex) or its "terminal", until its Terminal | Chat says otherwise
 tasks_depth = 3             # Tasks panel: subfolder levels searched for justfile, Taskfile, package.json (0: the folder alone)
+prism_mcp = false           # every agent Prism launches gets Prism's MCP server and its "prism" skill ([mcp]); off: only "Configure Prism"
 
 # Quick answers: one click answers an agent at its prompt (its view, the panes, the Agents block,
 # its alert, the phone); ⇧-click types the text instead. Nothing while it works or asks for a
@@ -396,6 +397,16 @@ refresh_token = true        # plan usage: run `claude doctor` when the token has
 
 # [agents.codex]
 # args = ["--profile", "work"]
+
+# Prism's MCP server (`prism mcp`, stdio): an agent reads Prism's help, the reference, the schema
+# of every table, the config merged with its packs (no secret: tokens live in the keychain) and
+# Problems, and proposes changes, applied only from Prism's window (a diff, Apply in two clicks).
+# It talks to the running Prism of the profile through a local socket; Prism stopped, only the
+# docs and the schema answer. `prism mcp install claude|codex|opencode` adds it (and the skill)
+# to a CLI outside Prism; [agents] prism_mcp to the agents Prism launches.
+[mcp]
+enabled = true              # false: `prism mcp` refuses to start
+proposals = true            # false: strictly read-only, the agent gives the TOML to copy
 
 # Environments block: Deployments and pods, read-only (get/list pods and deployments).
 # One block per environment and per cluster.

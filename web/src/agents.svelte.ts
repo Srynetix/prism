@@ -173,7 +173,7 @@ export async function afterLaunch(onLaunch: (() => Promise<void>) | null | undef
 /** Agents only run in the app: the browser preview has no tmux server. */
 export const agentsAvailable = hasCore
 
-const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, quick_actions: [], routines: [], overlaps: { enabled: true, level: 'file', alert: 'lines', ignore: [] }, terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true }
+const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, quick_actions: [], routines: [], overlaps: { enabled: true, level: 'file', alert: 'lines', ignore: [] }, terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true, prism_mcp: false }
 /** `[agents]` from config.toml, with its defaults until the snapshot has brought it. */
 export const agentsSettings = (): AgentsSettings => live.snapshot?.agents_settings ?? DEFAULTS
 /**
@@ -246,6 +246,8 @@ export interface Launch {
   then?: LaunchStep[]
   /** The action that opened the launcher (`Implement`…), kept with the launch. */
   from?: string
+  /** Prism's MCP server and skill given to it whatever `[agents] prism_mcp` says (Configure Prism). */
+  prism_mcp?: boolean
 }
 
 /**

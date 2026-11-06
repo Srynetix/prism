@@ -7,6 +7,7 @@ use super::*;
 /// Appearance (`[appearance]`), sent as is to the frontend: the theme, then one switch per
 /// Alert thresholds, applied on save.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct AlertsConfig {
@@ -93,15 +94,23 @@ impl Default for AlertsConfig {
 /// "Edit layout" writes them here. `id` keeps the proportions of a renamed page; absent, derived
 /// from the name (Edit layout writes it).
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct ViewConfig {
+    /// Its name in the rail.
     pub name: String,
+    /// Its id (links, shortcuts); from its name without one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    /// Its icon in the rail (`star`, `rocket`…).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// A color of the app (`coral`, `accent`, `gitlab`…) or a CSS color.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// Its columns, left to right, each the blocks' ids separated by spaces, top to bottom
+    /// (`"todo sessions notes"`, `"custom:backups"` for a custom block). A `---` item starts a
+    /// band below: the columns after it form the next row of columns, under the first.
     #[serde(default)]
     pub columns: Vec<String>,
 }
@@ -109,6 +118,7 @@ pub struct ViewConfig {
 /// A template of the pages wizard (`[[templates]]`): its pages and the access it turns on.
 /// Applying it writes them into config.toml; the template itself is never a setting.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct TemplateConfig {
     pub id: String,
@@ -138,6 +148,7 @@ pub struct TemplateConfig {
 /// feature. macOS "Reduce motion" and "Reduce transparency" turn off movement and a theme's
 /// glass and overlays, unless `ignore_reduce`.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct AppearanceConfig {
@@ -239,6 +250,7 @@ impl Default for AppearanceConfig {
 
 /// Notes (`[notes]`): quick capture over any view, sent as is to the frontend.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct NotesConfig {
@@ -255,6 +267,7 @@ impl Default for NotesConfig {
 /// The command palette (`[palette]`), sent as is to the frontend: one field to go to anything Prism
 /// shows and to run its commands.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct PaletteConfig {
@@ -275,6 +288,7 @@ impl Default for PaletteConfig {
 /// Settings › Cleanup (`[cleanup]`): what each feature is used for, counted on this machine only
 /// (the profile's usage.json, never sent), read by the window alone.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct CleanupConfig {
     /// The features turned off leave the Settings tree (a search still finds them).
@@ -283,6 +297,7 @@ pub struct CleanupConfig {
 
 /// The editor of an agent's Files tab (`[files]`), sent as is to the frontend.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(default)]
 pub struct FilesConfig {
@@ -306,6 +321,7 @@ impl Default for FilesConfig {
 
 /// Prism console (`[console]`), sent as is to the frontend.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct ConsoleConfig {
     /// Shortcut that drops it down: a character (`` ` ``, `²`, `@`), a key name (`F1`,
@@ -335,6 +351,7 @@ fn default_console_key() -> String {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct OpenWithConfig {
     /// macOS: an application name (`Zed`, `Visual Studio Code`); Linux and Windows: a command
     /// (`zed`, `code`). Absent: no button.

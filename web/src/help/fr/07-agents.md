@@ -202,6 +202,23 @@ Le bloc **Tokens** additionne ce qu’ont consommé vos outils de code sur une *
 
 Avec plusieurs outils, **Tous** ou l’un d’eux seul (un clic sur sa ligne sous **Outil** aussi) : le total, les barres, le coût et la répartition sont ceux de cet outil seul, sur l’ordinateur comme sur le téléphone. Prism lit les chiffres d’usage des outils, jamais ce qui a été dit, et garde les totaux quotidiens pour l’**Historique** (`[tokens] keep_days`), après que les outils ont supprimé leurs sessions ; Réglages › Agents › Tokens choisit les outils (`[tokens] sources`).
 
+## Prism MCP : un agent qui connaît Prism
+
+`prism mcp` est un serveur MCP qu'un CLI d'agent démarre : il donne à l'agent l'aide de Prism, la référence commentée (`config.example.toml`), le schéma de chaque table (types, défauts, ce qui la lit, sa page de Réglages), votre config fusionnée avec ses packs (secrets masqués ; les jetons sont de toute façon dans le trousseau) et les Problèmes. Avec la skill « prism » livrée avec lui, l'agent connaît les mots de Prism (bloc, page, bande, pack…) et sait quel outil appeler.
+
+L'agent n'écrit jamais `config.toml` : il vérifie un changement (`prism_validate`), puis le **propose**. Prism montre la proposition dans un tiroir — la raison de l'agent, le diff, ce qu'elle touche, une clé d'un pack remplacée — et vous l'**appliquez** (deux clics), la **refusez** (votre raison revient à l'agent) ou la **modifiez avant d'appliquer** (l'agent reçoit ce que vous avez changé). Elle s'applique à chaud ; `MCP · n` dans la barre d'état signale les propositions en attente. Le fichier a changé entre-temps : la proposition est recalculée dessus, à appliquer de nouveau.
+
+Un bloc personnalisé est testé avant d'être proposé : `prism_run_custom_block` l'exécute une fois, sans confiance, dans une sandbox (`sandbox-exec` sur macOS, `bwrap` sur Linux) : ni dossier personnel, ni jeton, un dossier temporaire, le réseau sortant, 20 s et 256 Mo. Sans sandbox sur l'ordinateur, le test est refusé. Le bloc lui-même reçoit votre confiance quand vous l'ajoutez, comme tout bloc qui ne vient pas des Réglages.
+
+- **Configurer Prism** (Réglages › Agents › Prism MCP, ou ✦ **Demander à un agent** en haut de chaque page des Réglages) : un agent dans le dossier de la config, avec le serveur MCP et la skill, la page dans son prompt.
+- **Prism MCP pour chaque agent** (`[agents] prism_mcp`) : chaque agent lancé par Prism les reçoit (Claude Code par un plugin, Codex et OpenCode par leur config MCP).
+- **Agents hors de Prism** : `prism mcp install claude|codex|opencode` (ou **Ajouter** sur la page) écrit le serveur dans la config utilisateur du CLI et la skill dans son dossier de skills ; `uninstall` les retire.
+- `[mcp] enabled` coupe le serveur ; `[mcp] proposals = false` le met en lecture seule stricte (l'agent donne le TOML à coller).
+
+Il joint le Prism du profil qui tourne par un socket local, réservé à son propriétaire ; Prism arrêté, seules l'aide, la référence et le schéma répondent. Il ne lit rien de votre travail (tickets, MR, mails) ni aucun secret.
+
+[Ouvrir Réglages › Agents › Prism MCP](prism:settings/prism-mcp)
+
 ## Réglages et console
 Dans Réglages › Agents › Agent (`[agents]`) :
 

@@ -44,6 +44,19 @@ pub trait Block: Send + Sync {
         Vec::new()
     }
 
+    /// The JSON schema of its settings, by table (as `settings`): what `prism mcp` gives an agent
+    /// and validates against. By default inferred from its settings' defaults (`settings` of an
+    /// empty config: the types of the values); a block with a struct gives `schemars`'s
+    /// (`blocks::sdk::schemars`), its doc comments as descriptions.
+    fn schema(&self) -> Vec<(&'static str, Value)> {
+        let inferred = |v: &Value| {
+            let mut s = infer_schema(v);
+            s["x-prism-inferred"] = Value::Bool(true);
+            s
+        };
+        self.settings(&toml::Table::new()).into_iter().map(|(t, v)| (t, inferred(&v))).collect()
+    }
+
     /// The repositories it reads, chosen in its table: `One`, its `repo` key (`[shipping] repo =
     /// "app"`); `Many`, its `repos` list. Either way the primary repository when it names none;
     /// `BlockEnv` gives them. `None` (default): it reads none of its own, `BlockEnv` gives the
@@ -353,4 +366,22 @@ pub fn demo(hub: &Hub, now: DateTime<Utc>) {
 pub fn section<T: serde::de::DeserializeOwned>(config: &toml::Table, id: &str) -> Result<T> {
     let table = config.get(id).cloned().unwrap_or_else(|| toml::Value::Table(Default::default()));
     Ok(table.try_into()?)
+}
+
+/// A JSON schema guessed from a value: its type, the keys of an object, the items of a list
+/// (from its first), the value as its default.
+pub fn infer_schema(value: &Value) -> Value {
+    let mut schema = match value {
+        Value::Null => serde_json::json!({}),
+        Value::Bool(_) => serde_json::json!({ "type": "boolean" }),
+        Value::Number(n) if n.is_i64() || n.is_u64() => serde_json::json!({ "type": "integer" }),
+        Value::Number(_) => serde_json::json!({ "type": "number" }),
+        Value::String(_) => serde_json::json!({ "type": "string" }),
+        Value::Array(items) => serde_json::json!({ "type": "array", "items": items.first().map(infer_schema).unwrap_or_else(|| serde_json::json!({})) }),
+        Value::Object(keys) => serde_json::json!({ "type": "object", "properties": keys.iter().map(|(k, v)| (k.clone(), infer_schema(v))).collect::<serde_json::Map<_, _>>() }),
+    };
+    if !value.is_null() && !value.is_object() {
+        schema["default"] = value.clone();
+    }
+    schema
 }

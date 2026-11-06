@@ -11,6 +11,8 @@
   import { DEFAULT_NOTES_KEY } from '../quick-notes.svelte'
   import ShortcutRecorder from './settings/ShortcutRecorder.svelte'
   import TomlPreview from './settings/TomlPreview.svelte'
+  import McpSettings from './settings/McpSettings.svelte'
+  import { configurePrism } from '../prism-agent'
   import RemoteDevices from './settings/RemoteDevices.svelte'
   import RemoteAway from './settings/RemoteAway.svelte'
   import FeedbackRequests from './settings/FeedbackRequests.svelte'
@@ -60,6 +62,7 @@
     { id: 'dependencies', label: t('Dependencies'), table: 'PATH' },
     { id: 'custom-blocks', label: t('Custom blocks'), table: '[[custom_blocks]]' },
     { id: 'routines', label: t('Routines'), table: '[[agents.routines]]' },
+    { id: 'mcp-agents', label: t('Agents'), table: 'prism mcp' },
     { id: 'cleanup-usage', label: t('What you use'), table: 'usage.json' },
     ...SCHEMA.map((spec) => ({ id: spec.id, label: spec.label, table: spec.table, spec })),
     { id: 'file', label: t('Config file'), table: 'config.toml' },
@@ -381,6 +384,7 @@
         </span>
       {/if}
       {#if pageSections.some((s) => s.spec && sectionRequests(s.spec).length)}<button class="btn ghost" onclick={recheck} title={t('Run the checks of the settings again')}>{t('Check again')}</button>{/if}
+      {#if editable()}<button class="btn ghost" onclick={() => configurePrism({ page: chain.map((c) => c.label).join(' › '), table: tables.join(' ') })} title={t('Ask an agent about this page: it reads Prism’s docs and your config, and proposes the change')}>✦ {t('Ask an agent')}</button>{/if}
       <button class="btn ghost" onclick={toggleToml} aria-pressed={showToml} title={t('Show config.toml next to the settings')}>TOML</button>
     </div>
 
@@ -601,6 +605,8 @@
       <CustomBlocksSettings />
     {:else if s.id === 'routines'}
       <RoutinesSettings />
+    {:else if s.id === 'mcp-agents'}
+      <McpSettings />
     {:else if s.id === 'cleanup-usage'}
       <CleanupUsage onToml={() => !showToml && toggleToml()} />
     {:else if s.id === 'updates-now'}

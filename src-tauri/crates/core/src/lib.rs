@@ -11,15 +11,18 @@ pub mod detect;
 pub mod forge;
 pub mod images;
 pub mod logs;
+pub mod mcp;
 pub mod packs;
 pub mod problems;
 pub mod profile;
 pub mod remote;
 pub mod schedule;
+pub mod schema;
 pub mod settings;
 pub mod stages;
 pub mod state;
 pub mod ticket;
+pub mod textdiff;
 pub mod tracker;
 
 use prism_base::{git, http, platform};
