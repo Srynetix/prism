@@ -73,6 +73,9 @@ zip = { version = "9", default-features = false, features = ["deflate"] }
 # The System block: CPU, memory, processes and network counters, on every system.
 sysinfo = { version = "0.39", default-features = false, features = ["system", "network", "disk"] }
 libc = "0.2"
+# `prism` and `prism-server`'s subcommands: their help, version, errors; and the shells' completions.
+clap = { version = "4.5", features = ["derive", "string", "wrap_help"] }
+clap_complete = "4.5"
 block2 = "0.6"
 objc2 = "0.6"
 objc2-event-kit = { version = "0.3", features = ["EKEventStore", "EKEvent", "EKCalendarItem", "EKObject", "EKCalendar", "EKParticipant", "EKTypes", "block2"] }

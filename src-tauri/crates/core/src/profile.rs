@@ -25,13 +25,24 @@ static ACTIVE: OnceLock<String> = OnceLock::new();
 /// `prism --profile <id>`, taken from the arguments before anything else.
 static FROM_ARGS: OnceLock<String> = OnceLock::new();
 
-/// Takes `--profile <id>` out of the arguments (the subcommands come after it) and remembers it.
+/// Takes `--profile <id>` (or `--profile=<id>`) out of the arguments, without remembering it:
+/// what a relaunch passes on, its own profile named instead.
 pub fn take_arg(args: &mut Vec<std::ffi::OsString>) {
     if let Some(i) = args.iter().position(|a| a == "--profile") {
-        let id = args.get(i + 1).and_then(|a| a.to_str()).map(String::from).unwrap_or_default();
         args.drain(i..(i + 2).min(args.len()));
-        let _ = FROM_ARGS.set(id);
+    } else if let Some(i) = args.iter().position(|a| a.to_str().is_some_and(|a| a.starts_with("--profile="))) {
+        args.remove(i);
     }
+}
+
+/// The profile of `prism --profile <id>`, read from the arguments before anything else.
+pub fn set_from_args(id: &str) {
+    let _ = FROM_ARGS.set(id.to_string());
+}
+
+/// A profile of that id exists (`default`, or a folder of `profiles/` with its `config.toml`).
+pub fn exists(id: &str) -> bool {
+    id == DEFAULT || (!id.is_empty() && !id.contains(['/', '\\']) && id != "." && id != ".." && config_of(id).is_file())
 }
 
 /// `~/.config/prism`: the default profile's folder, and the parent of the others.
@@ -277,7 +288,7 @@ fn start_args() -> &'static [&'static str] {
 
 /// The Prism to start again: the running executable, or the AppImage it came from — an
 /// AppImage runs from a mount (`/tmp/.mount_…`) gone as soon as it quits.
-fn executable() -> Result<PathBuf> {
+pub fn executable() -> Result<PathBuf> {
     if let Some(image) = std::env::var_os("APPIMAGE").map(PathBuf::from).filter(|p| p.is_file()) {
         return Ok(image);
     }

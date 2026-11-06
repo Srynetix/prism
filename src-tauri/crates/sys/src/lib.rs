@@ -12,5 +12,7 @@ pub mod fd;
 pub mod process;
 #[cfg(target_os = "macos")]
 pub mod sysctl;
+#[cfg(unix)]
+pub mod term;
 #[cfg(target_os = "linux")]
 pub mod webkit;

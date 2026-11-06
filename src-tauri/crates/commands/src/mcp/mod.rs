@@ -15,30 +15,15 @@ pub fn schema() -> &'static serde_json::Value {
     SCHEMA.get_or_init(prism_core::schema::config)
 }
 
-/// `prism mcp [install <cli> | uninstall <cli> | status]`: its exit code.
-pub fn cli(args: &[std::ffi::OsString]) -> i32 {
-    let arg = |i: usize| args.get(i).and_then(|a| a.to_str()).unwrap_or_default().to_string();
-    let done: anyhow::Result<Option<String>> = match arg(2).as_str() {
-        "" | "aside" => {
-            let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().expect("a runtime");
-            rt.block_on(stdio::run(arg(2) == "aside")).map(|()| None)
-        }
-        "install" => install::install(&arg(3)).map(Some),
-        "uninstall" => install::uninstall(&arg(3)).map(Some),
-        "status" => Ok(Some(install::status().iter().map(|i| format!("{}\tserver {}\tskill {}{}", i.cli, yes(i.server), yes(i.skill), if i.present { "" } else { "\t(not installed)" })).collect::<Vec<_>>().join("\n"))),
-        _ => Err(anyhow::anyhow!("usage: prism mcp [aside] | install <claude|codex|opencode> | uninstall <cli> | status")),
-    };
-    match done {
-        Ok(Some(msg)) => {
-            println!("{msg}");
-            0
-        }
-        Ok(None) => 0,
-        Err(e) => {
-            eprintln!("prism: {e:#}");
-            1
-        }
-    }
+/// `prism mcp [aside]`: the server on standard input and output, until the agent closes them.
+pub fn serve_stdio(aside: bool) -> anyhow::Result<()> {
+    let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().expect("a runtime");
+    rt.block_on(stdio::run(aside))
+}
+
+/// `prism mcp status`: one line per agent CLI, tab-separated.
+pub fn status_text() -> String {
+    install::status().iter().map(|i| format!("{}\tserver {}\tskill {}{}", i.cli, yes(i.server), yes(i.skill), if i.present { "" } else { "\t(not installed)" })).collect::<Vec<_>>().join("\n")
 }
 
 fn yes(b: bool) -> &'static str {

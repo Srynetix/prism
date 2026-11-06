@@ -1,6 +1,6 @@
 //! `prism-server`: Prism without a window, for a server reached from a phone only. `serve` runs it
 //! (systemd), `pair` pairs a phone from the terminal; the app's other subcommands (`hook`, `pack`,
-//! `restart`, the tokens) are the same.
+//! `restart`, `token`…) are the same, from one table (`prism_commands::cli::args`).
 
 /// The blocks compiled into this Prism: Prism's own (`prism-blocks`), then a team's
 /// (`PRISM_EXTRA_BLOCKS`, see `build_shared.rs`), as in the app.
@@ -21,28 +21,16 @@ mod page {
     include!(concat!(env!("OUT_DIR"), "/page.rs"));
 }
 
-const USAGE: &str = "usage: prism-server [--profile <id>] serve | pair | peer … | restart | pack … | clickup-token | jira-token | google-secret";
-
 fn main() {
     blocks::register();
-    // `prism-server restart` and `watch` start it running Prism, not printing its usage.
+    // `prism-server restart` and `watch` start it running Prism, not printing its help.
     prism_core::profile::set_start_args(&["serve"]);
-    let mut args: Vec<std::ffi::OsString> = std::env::args_os().collect();
-    // `prism-server --profile <id> …`: the profile, before the subcommands.
-    prism_core::profile::take_arg(&mut args);
-    if let Some(code) = prism_commands::cli::run(&args) {
-        std::process::exit(code);
-    }
-    let code = match args.get(1).and_then(|a| a.to_str()) {
-        Some("serve") => prism_commands::serve::run(page::asset, env!("PRISM_BUILD").to_string()),
-        Some("help" | "-h" | "--help") => {
-            println!("{USAGE}");
-            0
-        }
-        _ => {
-            eprintln!("{USAGE}");
-            2
-        }
+    // The same subcommands as the app's (`prism_commands::cli`), `serve` its own.
+    let info = prism_commands::cli::Info { bin: prism_commands::cli::Bin::Server, version: env!("CARGO_PKG_VERSION"), build: env!("PRISM_BUILD") };
+    let code = match prism_commands::cli::run(&info, std::env::args_os().collect()) {
+        prism_commands::cli::Run::Exit(code) => code,
+        prism_commands::cli::Run::Serve => prism_commands::serve::run(page::asset, env!("PRISM_BUILD").to_string()),
+        prism_commands::cli::Run::Window => unreachable!("the server has no window"),
     };
     std::process::exit(code);
 }

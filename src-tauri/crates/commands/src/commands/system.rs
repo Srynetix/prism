@@ -121,6 +121,30 @@ pub async fn dependencies(fresh: bool) -> Cmd<Vec<crate::deps::Dependency>> {
     Ok(crate::deps::list(&crate::config::load(&crate::config_path())?, fresh).await)
 }
 
+/// `prism` on the PATH (Settings › General › Command line): where it stands.
+#[prism_macros::command]
+pub fn cli_command() -> Cmd<crate::cli::command::Status> {
+    crate::cli::command::status().map_err(Into::into)
+}
+
+/// Installs the `prism` command (a script running this Prism's binary).
+#[prism_macros::command]
+pub fn cli_command_install() -> Cmd<crate::cli::command::Status> {
+    if crate::demo::active() {
+        return Err(anyhow::anyhow!("not in the demo").into());
+    }
+    crate::cli::command::install().map_err(Into::into)
+}
+
+/// Removes the `prism` command Install wrote.
+#[prism_macros::command]
+pub fn cli_command_remove() -> Cmd<crate::cli::command::Status> {
+    if crate::demo::active() {
+        return Err(anyhow::anyhow!("not in the demo").into());
+    }
+    crate::cli::command::remove().map_err(Into::into)
+}
+
 /// The last `lines` lines of the log (300 at most when absent), to copy into a report.
 #[prism_macros::command]
 pub fn logs_tail(lines: Option<usize>) -> Cmd<String> {

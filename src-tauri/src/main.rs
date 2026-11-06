@@ -32,11 +32,13 @@ fn main() {
     // Prism's own blocks, then a team's (`PRISM_EXTRA_BLOCKS`).
     blocks::register();
 
-    let mut args: Vec<std::ffi::OsString> = std::env::args_os().collect();
-    // `prism --profile <id> …`: the profile, before the subcommands.
-    profile::take_arg(&mut args);
-    if let Some(code) = prism_commands::cli::run(&args) {
-        std::process::exit(code);
+    // `prism <subcommand>`, `--help`, `--version`: run, then quit; none opens the window. The
+    // profile (`--profile`) is set before anything reads it.
+    let info = prism_commands::cli::Info { bin: prism_commands::cli::Bin::App, version: env!("CARGO_PKG_VERSION"), build: env!("PRISM_BUILD") };
+    match prism_commands::cli::run(&info, std::env::args_os().collect()) {
+        prism_commands::cli::Run::Window => {}
+        prism_commands::cli::Run::Exit(code) => std::process::exit(code),
+        prism_commands::cli::Run::Serve => unreachable!("refused by the app's parser"),
     }
 
     // Before any thread (the runtime's workers start with `process::start`, below).
@@ -166,6 +168,8 @@ fn export_bindings() {
     prism_core::deps::Dependency::export_all(&cfg).unwrap();
     // Settings › Agents › Prism MCP: the agent CLIs outside Prism.
     prism_commands::mcp::install::Installed::export_all(&cfg).unwrap();
+    // Settings › General › Command line: `prism` on the PATH.
+    prism_commands::cli::command::Status::export_all(&cfg).unwrap();
     forge::MrDetail::export_all(&cfg).unwrap();
     forge::MrDiff::export_all(&cfg).unwrap();
     forge::MrCommit::export_all(&cfg).unwrap();

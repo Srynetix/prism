@@ -1,127 +1,181 @@
 //! The subcommands `prism` runs without opening the app, with a window or without
-//! (`prism-server`): `hook`, `mcp`, `pack`, `restart`, `watch`, `pair`, `peer`, and the tokens to the keyring.
+//! (`prism-server`): their table is `args`, shared by both binaries; what each does is here.
+//! `command` puts `prism` on the PATH (Settings › General › Command line).
 
-/// Runs the subcommand of `args` (the profile already taken out), if any: its exit code.
-pub fn run(args: &[std::ffi::OsString]) -> Option<i32> {
-    // Called by an agent's hooks (`prism hook <folder>`): log and return
-    // immediately, without starting anything of the app.
-    if args.get(1).is_some_and(|a| a == "hook") {
-        let code = args.get(2).map_or(std::process::ExitCode::FAILURE, |dir| crate::agents::hook::main(std::path::Path::new(dir)));
-        return Some(if code == std::process::ExitCode::SUCCESS { 0 } else { 1 });
-    }
-    // `prism mcp`: Prism's MCP server for an agent CLI (stdio); `prism mcp install <cli>` adds it
-    // to that CLI's config, outside Prism.
-    if args.get(1).is_some_and(|a| a == "mcp") {
-        return Some(crate::mcp::cli(args));
-    }
-    // `prism pack import <file | glab:group/project:path@ref | gh:owner/repo:path@ref | prism:starter>`, `prism pack update <name> [ref]`
-    // (a repository's pack from a branch, a tag or a commit), `prism pack remove <name>`: the packs of `config.toml`, as in Settings › General › Packs.
-    if args.get(1).is_some_and(|a| a == "pack") {
-        let arg = |i: usize| args.get(i).and_then(|a| a.to_str()).unwrap_or_default().to_string();
-        let path = crate::config_path();
-        let done = block_on(async {
-            match arg(2).as_str() {
-                "import" => crate::packs::import(&path, &arg(3)).await.map(|p| format!("pack {} imported", p.name)),
-                "update" => {
-                    let reference = args.get(4).and_then(|a| a.to_str());
-                    crate::packs::update(&path, &arg(3), reference).await.map(|p| format!("pack {} updated{}", p.name, p.commit.map(|c| format!(" at {}", &c[..c.len().min(8)])).unwrap_or_default()))
-                }
-                "remove" => crate::packs::remove(&path, &arg(3)).map(|()| format!("pack {} removed", arg(3))),
-                _ => Err(anyhow::anyhow!("usage: prism pack import <file | glab:group/project:path@ref | gh:owner/repo:path@ref | prism:starter> | update <name> [branch | tag | commit] | remove <name>")),
-            }
-        });
-        match &done {
-            Ok(msg) => println!("{msg}"),
-            Err(e) => eprintln!("prism: {e:#}"),
-        }
-        return Some(if done.is_ok() { 0 } else { 1 });
-    }
-    // `prism restart`: the Prism of the profile (`--profile`, otherwise the active one) restarts,
-    // rereading config.toml and its packs; not open, it starts.
-    if args.get(1).is_some_and(|a| a == "restart") {
-        let done = crate::profile::restart();
-        match &done {
-            Ok(msg) => println!("{msg}"),
-            Err(e) => eprintln!("prism: {e:#}"),
-        }
-        return Some(if done.is_ok() { 0 } else { 1 });
-    }
-    // `prism watch`: run every minute by the LaunchAgent of `[remote] keep_running`, starts the
-    // profile's Prism at login and after a crash.
-    if args.get(1).is_some_and(|a| a == "watch") {
-        let done = crate::profile::watch();
-        match &done {
-            Ok(Some(msg)) => println!("{msg}"),
-            Ok(None) => {}
-            Err(e) => eprintln!("prism: {e:#}"),
-        }
-        return Some(if done.is_ok() { 0 } else { 1 });
-    }
-    // `prism pair`: a phone paired from this terminal, with the running Prism of the profile (a
-    // server's, without a window to show the QR code).
-    if args.get(1).is_some_and(|a| a == "pair") {
-        let done = block_on(pair());
-        if let Err(e) = &done {
-            eprintln!("prism: {e:#}");
-        }
-        return Some(if done.is_ok() { 0 } else { 1 });
-    }
-    // `prism peer pair` (a code typed on the other computer, its name accepted here), `prism peer
-    // add <name>` (its token printed, once), `prism peer remove <name>`, `prism peer list`: the other
-    // Prisms that open this one in their window (`[[machines]]` there).
-    if args.get(1).is_some_and(|a| a == "peer") {
-        let done = if args.get(2).is_some_and(|a| a == "pair") { block_on(peer_pair()) } else { peer(args) };
-        if let Err(e) = &done {
-            eprintln!("prism: {e:#}");
-        }
-        return Some(if done.is_ok() { 0 } else { 1 });
-    }
-    // `prism clickup-token`, `prism jira-token`, `prism google-secret`: the token read on standard
-    // input goes to the system keyring (Linux, Windows; on macOS, `security add-generic-password`).
-    let keychain = match args.get(1).and_then(|a| a.to_str()) {
-        Some("clickup-token") => Some(crate::collectors::clickup::KEYCHAIN_SERVICE),
-        Some("jira-token") => Some(crate::collectors::jira::KEYCHAIN_SERVICE),
-        Some("google-secret") => Some(crate::collectors::google::SECRET_SERVICE),
-        _ => None,
-    };
-    if let Some(service) = keychain {
-        let mut token = String::new();
-        let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut token);
-        let stored = match token.trim() {
-            "" => Err(anyhow::anyhow!("no token on standard input")),
-            t => crate::platform::store_secret(&crate::profile::service(service), t),
-        };
-        if let Err(e) = &stored {
-            eprintln!("prism: {e:#}");
-        }
-        return Some(if stored.is_ok() { 0 } else { 1 });
-    }
-    None
+pub mod args;
+pub mod command;
+
+use std::ffi::OsString;
+
+pub use args::{Bin, Info};
+use args::{Cmd, McpAction, Pack, Parsed, Peer, Service};
+
+/// What the binary does after its arguments are read.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Run {
+    /// Done (a subcommand, its help, an error): exit with this code.
+    Exit(i32),
+    /// No subcommand: the app opens its window.
+    Window,
+    /// `prism-server serve`.
+    Serve,
 }
 
-/// `prism peer …`, on this profile's data folder.
-fn peer(args: &[std::ffi::OsString]) -> anyhow::Result<()> {
-    let arg = |i: usize| args.get(i).and_then(|a| a.to_str()).unwrap_or_default().to_string();
-    let dir = crate::profile::data_dir(&crate::profile::data_base());
-    match (arg(2).as_str(), arg(3)) {
-        ("add", name) if !name.is_empty() => {
-            let token = prism_remote::peers::add(&dir, &name)?;
+/// Reads `args` (the binary's name first) for `info.bin`: runs the subcommand, if any, after the
+/// profile is set (`--profile`, checked).
+pub fn run(info: &Info, args: Vec<OsString>) -> Run {
+    // An agent's hook (`<exe> hook <folder> …`), on every event of every agent: straight to it,
+    // without building the whole command line; nothing of the app started.
+    if args.get(1).is_some_and(|a| a == "hook")
+        && let Some(dir) = args.get(2).filter(|d| !d.to_string_lossy().starts_with('-'))
+    {
+        return Run::Exit(if crate::agents::hook::main(std::path::Path::new(dir)) == std::process::ExitCode::SUCCESS { 0 } else { 1 });
+    }
+    let cli = match args::parse(info, args) {
+        Parsed::Exit(code) => return Run::Exit(code),
+        Parsed::Run(cli) => cli,
+    };
+    if let Some(id) = &cli.profile {
+        if crate::profile::exists(id) {
+            crate::profile::set_from_args(id);
+        } else {
+            let known: Vec<String> = crate::profile::names().into_iter().map(|(id, _)| id).collect();
+            let said = format!("{}: unknown profile {id:?} (profiles: {})", info.bin.name(), known.join(", "));
+            // What Prism itself starts with a profile (the window, the MCP server written into
+            // the agent CLIs' configs, a hook, the keep-running job) goes on with the default one,
+            // as before; what is typed stops.
+            if !matches!(cli.command, None | Some(Cmd::Mcp(_) | Cmd::Hook { .. } | Cmd::Watch)) {
+                eprintln!("{said}");
+                return Run::Exit(2);
+            }
+            eprintln!("{said}: the default one");
+        }
+    }
+    match &cli.command {
+        None if info.bin == Bin::App => Run::Window,
+        None => {
+            let _ = args::command(info).print_help();
+            Run::Exit(2)
+        }
+        Some(Cmd::Serve) => Run::Serve,
+        Some(cmd) => Run::Exit(subcommand(info, cmd)),
+    }
+}
+
+/// A subcommand run: its exit code (1: it failed; the message already said).
+fn subcommand(info: &Info, cmd: &Cmd) -> i32 {
+    let bin = info.bin.name();
+    if let Cmd::Hook { dir, .. } = cmd {
+        return if crate::agents::hook::main(dir) == std::process::ExitCode::SUCCESS { 0 } else { 1 };
+    }
+    let done: anyhow::Result<Option<String>> = match cmd {
+        Cmd::Serve | Cmd::Hook { .. } => unreachable!("handled above"),
+        Cmd::Pair => block_on(pair()).map(|()| None),
+        Cmd::Peer(action) => peer(action).map(|()| None),
+        Cmd::Restart => crate::profile::restart().map(Some),
+        Cmd::Watch => crate::profile::watch(),
+        Cmd::Pack(action) => pack(action).map(Some),
+        Cmd::Mcp(mcp) => match &mcp.action {
+            None => crate::mcp::serve_stdio(false).map(|()| None),
+            Some(McpAction::Aside) => crate::mcp::serve_stdio(true).map(|()| None),
+            Some(McpAction::Install { cli }) => crate::mcp::install::install(cli.name()).map(Some),
+            Some(McpAction::Uninstall { cli }) => crate::mcp::install::uninstall(cli.name()).map(Some),
+            Some(McpAction::Status) => Ok(Some(crate::mcp::status_text())),
+        },
+        Cmd::Token { service } => token(*service).map(Some),
+        Cmd::ClickupToken => token(Service::Clickup).map(Some),
+        Cmd::JiraToken => token(Service::Jira).map(Some),
+        Cmd::GoogleSecret => token(Service::Google).map(Some),
+        Cmd::Completions { shell } => {
+            clap_complete::generate(*shell, &mut args::command(info), bin, &mut std::io::stdout());
+            Ok(None)
+        }
+    };
+    match done {
+        Ok(msg) => {
+            if let Some(msg) = msg.filter(|m| !m.is_empty()) {
+                println!("{msg}");
+            }
+            0
+        }
+        Err(e) => {
+            eprintln!("{bin}: {e:#}");
+            1
+        }
+    }
+}
+
+/// `prism pack import | update | remove`: config.toml's packs, as in Settings › General › Packs.
+fn pack(action: &Pack) -> anyhow::Result<String> {
+    let path = crate::config_path();
+    block_on(async {
+        match action {
+            Pack::Import { source } => crate::packs::import(&path, source).await.map(|p| format!("pack {} imported", p.name)),
+            Pack::Update { name, reference } => crate::packs::update(&path, name, reference.as_deref()).await.map(|p| format!("pack {} updated{}", p.name, p.commit.map(|c| format!(" at {}", &c[..c.len().min(8)])).unwrap_or_default())),
+            Pack::Remove { name } => crate::packs::remove(&path, name).map(|()| format!("pack {name} removed")),
+        }
+    })
+}
+
+/// `prism token <service>`: the token to the system keychain (on macOS, `security
+/// add-generic-password`), typed hidden on a terminal, read from standard input otherwise.
+fn token(service: Service) -> anyhow::Result<String> {
+    use std::io::IsTerminal;
+    let (key, label) = match service {
+        Service::Clickup => (crate::collectors::clickup::KEYCHAIN_SERVICE, "ClickUp token"),
+        Service::Jira => (crate::collectors::jira::KEYCHAIN_SERVICE, "Jira API token"),
+        Service::Google => (crate::collectors::google::SECRET_SERVICE, "Google client secret"),
+    };
+    let token = if std::io::stdin().is_terminal() {
+        read_hidden(&format!("{label} (not shown): "))?
+    } else {
+        let mut t = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut t)?;
+        t
+    };
+    match token.trim() {
+        "" => anyhow::bail!("no {label} given"),
+        t => crate::platform::store_secret(&crate::profile::service(key), t).map(|()| format!("{label} stored in the keychain (profile {})", crate::profile::active())),
+    }
+}
+
+#[cfg(unix)]
+fn read_hidden(prompt: &str) -> std::io::Result<String> {
+    prism_sys::term::read_hidden(prompt)
+}
+
+#[cfg(not(unix))]
+fn read_hidden(prompt: &str) -> std::io::Result<String> {
+    use std::io::Write;
+    eprint!("{prompt}");
+    std::io::stderr().flush()?;
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line)?;
+    Ok(line)
+}
+
+/// `prism peer add | remove | list`, on this profile's data folder.
+fn peer(action: &Peer) -> anyhow::Result<()> {
+    let dir = || crate::profile::data_dir(&crate::profile::data_base());
+    match action {
+        Peer::Pair => block_on(peer_pair()),
+        Peer::Add { name } => {
+            let token = prism_remote::peers::add(&dir(), name)?;
             println!("{token}");
             eprintln!("The token of {name}, shown once: paste it in its window there (profile menu › Other computers), or set it as PRISM_MACHINE_TOKEN_<NAME> where no keychain is unlocked. It opens this Prism as this account would: keep it as an SSH key.");
             Ok(())
         }
-        ("remove", name) if !name.is_empty() => {
-            anyhow::ensure!(prism_remote::peers::remove(&dir, &name)?, "no peer {name}");
+        Peer::Remove { name } => {
+            anyhow::ensure!(prism_remote::peers::remove(&dir(), name)?, "no peer {name}");
             println!("{name} removed: its windows close within ten seconds");
             Ok(())
         }
-        ("list", _) => {
-            for p in prism_remote::peers::list(&dir)? {
+        Peer::List => {
+            for p in prism_remote::peers::list(&dir())? {
                 println!("{}\t{}", p.name, p.created.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M"));
             }
             Ok(())
         }
-        _ => anyhow::bail!("usage: prism peer pair | add <name> | remove <name> | list"),
     }
 }
 
@@ -222,18 +276,3 @@ async fn pair() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    fn args(list: &[&str]) -> Vec<std::ffi::OsString> {
-        std::iter::once("prism").chain(list.iter().copied()).map(Into::into).collect()
-    }
-
-    /// No subcommand, or another binary's (`serve`): the binary goes on; a wrong use ends it.
-    #[test]
-    fn subcommands_and_the_rest() {
-        assert_eq!(super::run(&args(&[])), None);
-        assert_eq!(super::run(&args(&["serve"])), None);
-        assert_eq!(super::run(&args(&["pack", "nonsense"])), Some(1));
-        assert_eq!(super::run(&args(&["hook"])), Some(1), "no folder");
-    }
-}
