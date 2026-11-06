@@ -87,13 +87,9 @@ pub fn trash(path: &Path) -> Result<()> {
     fs::symlink_metadata(path).with_context(|| tr!("{path} is no longer there", path = path.display()))?;
     let home = dirs::home_dir().context("no home folder")?;
     let name = path.file_name().context("no name")?.to_os_string();
-    #[cfg(target_os = "macos")]
-    let (files, info) = (home.join(".Trash"), None::<PathBuf>);
-    #[cfg(not(target_os = "macos"))]
-    let (files, info) = {
-        let base = dirs::data_dir().unwrap_or_else(|| home.join(".local/share")).join("Trash");
-        (base.join("files"), Some(base.join("info")))
-    };
+    // The same Trash as the block's line measures and empties.
+    let bin = super::trash::home_trash(&home);
+    let (files, info) = if bin.freedesktop { (bin.dir.join("files"), Some(bin.dir.join("info"))) } else { (bin.dir.clone(), None::<PathBuf>) };
     fs::create_dir_all(&files)?;
     // A free name in the Trash: `x`, `x 2`, `x 3`…
     let mut target = files.join(&name);

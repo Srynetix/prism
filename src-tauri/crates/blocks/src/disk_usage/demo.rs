@@ -9,6 +9,7 @@ use super::{
     kinds::{Kind, Reclaim},
     scan::{Node, Tree, DIR, REPO, WORKTREE},
     DiskSpace, DiskUsageState, ScanInfo,
+    trash::{BinInfo, TrashState},
 };
 
 const GB: f64 = (1u64 << 30) as f64;
@@ -191,6 +192,16 @@ pub fn state(now: DateTime<Utc>) -> DiskUsageState {
         }),
         running: None,
         disk: Some(DiskSpace { name: "Macintosh HD".into(), mount: "/".into(), total, available: 41_000_000_000 }),
+        trash: Some(TrashState {
+            bytes: 4_510_000_000,
+            items: 1_318,
+            bins: vec![
+                BinInfo { disk: "Macintosh HD".into(), path: "~/.Trash".into(), bytes: 3_330_000_000, items: 1_204 },
+                BinInfo { disk: "Backup".into(), path: "/Volumes/Backup/.Trashes/501".into(), bytes: 1_180_000_000, items: 114 },
+            ],
+            denied: false,
+            emptying: false,
+        }),
     }
 }
 

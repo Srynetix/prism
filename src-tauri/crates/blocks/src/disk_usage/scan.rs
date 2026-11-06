@@ -575,6 +575,10 @@ pub struct Scanner {
     /// The running scan's own stop: a scan ending never stops the next one.
     stop: Mutex<Arc<AtomicBool>>,
     running: AtomicBool,
+    /// The Trash being emptied: one at a time.
+    emptying: AtomicBool,
+    /// Bumped by each emptying: a measure started before it is not published.
+    trash_gen: AtomicU64,
 }
 
 static SCANNER: prism_base::rt::Swap<Scanner> = prism_base::rt::Swap::new();
@@ -588,7 +592,10 @@ pub fn start(cfg: DiskUsageConfig, ctx: BlockCtx) {
     let state = DiskUsageState { roots: cfg.roots.clone(), cleanup: cfg.cleanup, delta: cfg.delta, ..Default::default() };
     ctx.publish(&state);
     ctx.set_error(None);
-    let s = SCANNER.set(Scanner { cfg, ctx, shown: Mutex::new(state), tree: RwLock::new(None), stop: Mutex::new(Arc::new(AtomicBool::new(false))), running: AtomicBool::new(false) });
+    let s = SCANNER.set(Scanner { cfg, ctx, shown: Mutex::new(state), tree: RwLock::new(None), stop: Mutex::new(Arc::new(AtomicBool::new(false))), running: AtomicBool::new(false), emptying: AtomicBool::new(false), trash_gen: AtomicU64::new(0) });
+    if s.cfg.cleanup {
+        s.measure_trash();
+    }
     prism_base::rt::spawn(async move {
         let dir = s.store_dir();
         let Ok(Some(tree)) = tokio::task::spawn_blocking(move || super::store::load_latest(&dir)).await.map_err(anyhow::Error::from).and_then(|r| r) else { return };
@@ -752,8 +759,108 @@ impl Scanner {
         Ok(())
     }
 
-    /// Frees a reclaim group: what it freed, in bytes.
+    /// The Trash measured again, in the background (a walk of the Trash only). Not published when
+    /// an emptying started meanwhile: its own figures are the newer ones.
+    pub fn measure_trash(&'static self) {
+        let generation = self.trash_gen.load(Ordering::SeqCst);
+        prism_base::rt::spawn(async move {
+            let Ok(m) = tokio::task::spawn_blocking(|| super::trash::measure(&super::trash::bins())).await else { return };
+            if self.emptying.load(Ordering::SeqCst) || self.trash_gen.load(Ordering::SeqCst) != generation {
+                return;
+            }
+            self.publish(|s| s.trash = Some(m));
+        });
+    }
+
+    /// The Trash emptied: every one, or (`only`) those of these folders (a scan's). The scan shown
+    /// follows (its Trash folders measured again), and the disk.
+    pub async fn empty_trash(&'static self, only: Option<Vec<PathBuf>>) -> Result<super::trash::Emptied> {
+        if self.emptying.swap(true, Ordering::SeqCst) {
+            bail!(tr!("the Trash is already being emptied"));
+        }
+        /// Never left set, whatever happens: another Empty must stay possible.
+        struct Done(&'static Scanner);
+        impl Drop for Done {
+            fn drop(&mut self) {
+                self.0.emptying.store(false, Ordering::SeqCst);
+                self.0.trash_gen.fetch_add(1, Ordering::SeqCst);
+                self.0.publish(|s| {
+                    if let Some(t) = &mut s.trash {
+                        t.emptying = false;
+                    }
+                });
+            }
+        }
+        let _done = Done(self);
+        self.trash_gen.fetch_add(1, Ordering::SeqCst);
+        self.publish(|s| {
+            if let Some(t) = &mut s.trash {
+                t.emptying = true;
+            }
+        });
+        tracing::info!("disk usage: emptying the Trash");
+        let done = tokio::task::spawn_blocking(move || {
+            let all = super::trash::bins();
+            let bins: Vec<_> = match &only {
+                Some(dirs) => all.into_iter().filter(|b| dirs.contains(&b.dir)).collect(),
+                None => all,
+            };
+            anyhow::ensure!(!bins.is_empty(), tr!("nothing left to free there"));
+            let mut done = super::trash::empty(&bins)?;
+            // What the line shows: every Trash, not only those emptied.
+            if only.is_some() {
+                done.after = super::trash::measure(&super::trash::bins());
+            }
+            Ok(done)
+        })
+        .await??;
+        let after = done.after.clone();
+        self.publish(|s| s.trash = Some(after));
+        // The scan's Trash folders, as they are now.
+        let (scan, targets): (u64, Vec<(u32, PathBuf)>) = {
+            let guard = self.tree.read().expect("tree");
+            match guard.as_ref() {
+                Some(tree) => (tree.info.id, tree.of_reclaim(Reclaim::Trash).into_iter().map(|id| (id, tree.path(id))).collect()),
+                None => (0, Vec::new()),
+            }
+        };
+        let path = self.tree.read().expect("tree").as_ref().map(|t| t.path.clone()).or_else(dirs::home_dir).unwrap_or_default();
+        let (sizes, disk): (Vec<(u32, (u64, u64))>, _) = tokio::task::spawn_blocking(move || (targets.into_iter().map(|(id, p)| (id, measure(&p))).collect(), super::disk_of(&path))).await?;
+        if !sizes.is_empty() {
+            let mut guard = self.tree.write().expect("tree");
+            if let Some(tree) = guard.as_mut().filter(|t| t.info.id == scan) {
+                for (id, (bytes, files)) in sizes {
+                    // Emptied: gone from the tree and the treemap, as a cleanup's folder.
+                    if bytes == 0 {
+                        tree.remove(id);
+                    } else {
+                        tree.shrink(id, bytes, files);
+                    }
+                }
+                tree.refresh();
+                let info = tree.info.clone();
+                self.publish(|s| s.scan = Some(info));
+            }
+        }
+        self.publish(|s| s.disk = disk);
+        if done.left > 0 {
+            tracing::info!("disk usage: {} items left in the Trash", done.left);
+        }
+        Ok(done)
+    }
+
+    /// Frees a reclaim group: what it freed, in bytes. The Trash: every one emptied, as from its line.
     pub async fn clean(&'static self, kind: Reclaim) -> Result<u64> {
+        // The Trash folders of the scan only (what the group shows and its button confirms),
+        // through the same path as the Trash's line.
+        if kind == Reclaim::Trash {
+            let dirs: Vec<PathBuf> = {
+                let guard = self.tree.read().expect("tree");
+                let tree = guard.as_ref().context(tr!("no scan yet"))?;
+                tree.of_reclaim(kind).into_iter().map(|id| tree.path(id)).collect()
+            };
+            return self.empty_trash(Some(dirs)).await.map(|d| d.freed);
+        }
         let (scan, root, targets): (u64, PathBuf, Vec<(u32, PathBuf, u64)>) = {
             let guard = self.tree.read().expect("tree");
             let tree = guard.as_ref().context(tr!("no scan yet"))?;
