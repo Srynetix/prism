@@ -8,7 +8,8 @@
  * - `isDesktop()`: this page is a desktop window: its menu, notifications, dialogs, settings. A
  *   phone has a core, never a desktop;
  * - `isLocal()`: that core is this computer's, not another machine's (`machine()`): its paths and
- *   apps are the ones here.
+ *   apps are the ones here. A window of another profile of this computer (`profileWindow()`) is;
+ * - `isMain()`: the app's main window, whose own profile it shows: the menu bar's count is its.
  */
 import { Channel, invoke as tauriInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core'
 import { listen as tauriListen, type EventCallback, type UnlistenFn } from '@tauri-apps/api/event'
@@ -44,10 +45,19 @@ export const machine = (): string | null => (globalThis as { __PRISM_MACHINE__?:
 export const machineProfile = (): string | null => (globalThis as { __PRISM_MACHINE_PROFILE__?: string | null }).__PRISM_MACHINE_PROFILE__ ?? null
 
 /**
+ * Another profile of this computer this window shows (`profile_windows.rs`): its Prism runs
+ * without a window, reached through the app (`machine.svelte.ts`, locally); `null`, the app's own.
+ */
+export const profileWindow = (): string | null => (globalThis as { __PRISM_PROFILE_WINDOW__?: string }).__PRISM_PROFILE_WINDOW__ ?? null
+
+/**
  * The core runs on this computer: the paths it answers are this computer's, its apps and its file
  * manager too (pickers, Reveal in Finder, Open in…). A desktop window, not a machine's.
  */
 export const isLocal = (): boolean => isDesktop() && machine() === null
+
+/** The app's main window: its own profile's, neither a machine's nor another profile's. */
+export const isMain = (): boolean => isLocal() && profileWindow() === null
 
 /** Told of each command the core refused or failed (`problems.svelte.ts`), the caller still told too. */
 let failed: ((command: string, error: unknown) => void) | null = null

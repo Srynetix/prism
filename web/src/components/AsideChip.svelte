@@ -23,7 +23,7 @@
 </script>
 
 {#if open.length}
-  <span class="chip" role="button" tabindex="0" title="{tn(open.length, '{n} task flagged in passing', '{n} tasks flagged in passing')}:\n{open.map((a) => `· ${a.title}`).join('\n')}\n{t('Click: the « In passing » list')}" onclick={go} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && go(e)}>
+  <span class="chip" role="button" tabindex="0" title={`${tn(open.length, '{n} task flagged in passing', '{n} tasks flagged in passing')}:\n${open.map((a) => `· ${a.title}`).join('\n')}\n${t('Click: the « In passing » list')}`} onclick={go} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && go(e)}>
     <Icon name="aside" size={11} />{open.length}
   </span>
 {/if}

@@ -40,8 +40,6 @@
   import PagesWizard from './components/PagesWizard.svelte'
   import ProfileMenu from './components/ProfileMenu.svelte'
   import BlockOff from './components/BlockOff.svelte'
-  import { markDock } from './dock'
-  import ProfileSwitch from './components/ProfileSwitch.svelte'
   import MachineBar from './components/MachineBar.svelte'
   import { GRACE, machineState } from './machine.svelte'
   import { wizard, wizardDue } from './wizard.svelte'
@@ -110,7 +108,7 @@
   import { agentsEnabled, agentsView, closeAgents, openAgents, terminalKeeps } from './agents.svelte'
   import { BLOCK_HELP } from './block-help'
   import { chord, chordKey, extraShift, inTerminal, isMac, keys, pageDigit } from './platform'
-  import { isDesktop, machine } from './bridge'
+  import { isDesktop, machine, profileWindow } from './bridge'
   import { consoleKey, toggleConsole } from './console.svelte'
   import { matches, worksWhileTyping } from './shortcut'
   import { watchCelebrations } from './celebrations.svelte'
@@ -146,7 +144,6 @@
 
   const full = $derived(live.snapshot)
   // Several profiles: the Dock icon carries this one's letter.
-  $effect(() => void markDock(live.snapshot?.profile))
   // An agent's proposal (`prism mcp`) arriving: a toast to open it.
   $effect(() => watchProposals(live.snapshot))
   const focus = $derived(full ? resolve(full, filter.query) : null)
@@ -492,7 +489,7 @@
   </header>
 {/snippet}
 
-<div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!machine() && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={view.color}>
+<div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!(machine() || profileWindow()) && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={view.color}>
   <div class="shell">
   <!-- Two fingers up or down on the rail: the next or previous page, while one is shown. -->
   <nav class="rail" aria-label={t('Views')} {@attach pageSwipe(stepView, () => appearance().page_swipe && !editing.on && !zoomed && !agentsView.open && !settingsView.open && !helpView.open)}>
@@ -523,7 +520,7 @@
     <ProfileMenu />
   </nav>
   <div class="content">
-    {#if machine()}<MachineBar />{/if}
+    {#if machine() || profileWindow()}<MachineBar />{/if}
     <!--
       The Agents view stays mounted once opened, hidden elsewhere: its terminals stay
       attached, and coming back does not re-attach (which added a line to the prompt).
@@ -652,7 +649,6 @@
   <FirstLaunch />
   {#if wizard.open}<PagesWizard />{/if}
   {#if clonesPrompt.open}<ClonesPrompt />{/if}
-  <ProfileSwitch />
   <!-- Before the other drawers: its Escape is heard first. -->
   <LauncherDrawer />
   <MrPanel />

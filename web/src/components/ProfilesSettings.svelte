@@ -5,16 +5,18 @@
   import ArmedLabel from './ArmedLabel.svelte'
   import ProfileForm, { type NewProfile } from './ProfileForm.svelte'
   import {
-    PROFILE_COLORS, profileColorName, createProfile, initial, loadProfiles, openProfile, profileColor, profiles, profilesView, removeProfile, renameProfile, slugOf, switchProfile, type ProfileInfo,
+    PROFILE_COLORS, profileColorName, createProfile, currentProfileId, initial, loadProfiles, openProfile, profileColor, profiles, profilesView, removeProfile, renameProfile, slugOf, stopProfile, type ProfileInfo,
   } from '../profiles.svelte'
   import { toast } from '../toast.svelte'
   import { t, tn } from '../i18n.svelte'
 
   /**
-   * Settings › General › Profiles: every profile with its folder, packs and running agents;
-   * switch, rename (and recolor), remove (two clicks: neither the default, nor the active one,
-   * nor one with running agents). A new profile starts empty (with Prism's starter pack, whose
-   * Developer template the pages wizard offers), or from a team's pack.
+   * Settings › General › Profiles: every profile with its folder, packs and running agents, and its
+   * state here: in a window of the app, in the background (its Prism runs, no window shown), or
+   * closed. Show or Open its window; Stop its Prism (two clicks, its agents go on in tmux); rename
+   * (and recolor); remove (two clicks: neither the default, nor the app's own, nor one running or
+   * with running agents). A new profile starts empty (with Prism's starter pack, whose Developer
+   * template the pages wizard offers), or from a team's pack.
    */
   onMount(() => void loadProfiles().catch((e) => (error = String(e))))
 
@@ -51,7 +53,18 @@
     })
   }
   const removable = (p: ProfileInfo) => p.id !== 'default' && !p.active && !p.open && !p.agents
-  const whyKept = (p: ProfileInfo) => (p.id === 'default' ? t('The default profile stays') : p.active ? t('The active profile: switch to another first') : p.open ? t('Open in another Prism: quit it first') : p.agents ? tn(p.agents, '{n} agent running: stop it first', '{n} agents running: stop them first') : t('Remove its config, packs, agents’ records and notes (click twice)'))
+  const whyKept = (p: ProfileInfo) => (p.id === 'default' ? t('The default profile stays') : p.active ? t('The app’s own profile: open the app on another first') : p.open ? t('Its Prism runs: stop it first') : p.agents ? tn(p.agents, '{n} agent running: stop it first', '{n} agents running: stop them first') : t('Remove its config, packs, agents’ records and notes (click twice)'))
+
+  /** Stop arms on the first click too. */
+  const stopping = armer(3500)
+  function askStop(p: ProfileInfo) {
+    if (!stopping.confirm(p.id)) return
+    void run(`stop:${p.id}`, async () => {
+      await stopProfile(p)
+      toast(t('{name}: its Prism stopped, its agents go on', { name: p.name }))
+    })
+  }
+  const STATE: Record<string, () => string> = { window: () => t('window'), background: () => t('background'), closed: () => t('closed') }
 
   /** New profile. */
   let form = $state<NewProfile>({ name: '', color: PROFILE_COLORS[1], start: 'empty', pack: '' })
@@ -65,16 +78,16 @@
     form.name = ''
     form.pack = ''
     toast(t('Profile {name} created', { name: p.name }))
-    if (thenSwitch) await switchProfile(p)
+    if (thenSwitch) await openProfile(p)
   })
 </script>
 
-<p class="intro">{t('Each profile has its own config.toml and packs, its agents, notes and layout, and its keychain entries. One is active at a time: switching relaunches Prism on another, and the agents of the one you leave keep running. Claude Desktop sessions show in the profile whose repositories they work in, and everywhere when they work in none.')}</p>
+<p class="intro">{t('Each profile has its own config.toml and packs, its agents, notes and layout, and its keychain entries. Each opens in a window of the app, its Prism running apart: closing the window leaves it in the background (agents, alerts, the phone), Quit stops the ones the app started. Claude Desktop sessions show in the profile whose repositories they work in, and everywhere when they work in none.')}</p>
 {#if error}<p class="err">{error}</p>{/if}
 
 <div class="list">
   {#each profiles.list as p (p.id)}
-    <div class="prof" class:cur={p.active} style:--c={profileColor(editing?.id === p.id ? editing.color : p.color)}>
+    <div class="prof" class:cur={p.id === currentProfileId()} style:--c={profileColor(editing?.id === p.id ? editing.color : p.color)}>
       <span class="pf">{initial(editing?.id === p.id ? editing.name : p.name)}</span>
       <div class="info">
         {#if editing?.id === p.id}
@@ -83,7 +96,7 @@
             <span class="colors">{#each PROFILE_COLORS as c (c)}<button class="sw" class:on={editing.color === c || (!editing.color && c === 'accent')} style:--c={profileColor(c)} onclick={() => (editing!.color = c)} aria-label={t('Color {name}', { name: c })}></button>{/each}</span>
           </div>
         {:else}
-          <div class="nm">{p.name}{#if p.active}<span class="pill ok">{t('active')}</span>{:else if p.open}<span class="pill ok">{t('open alongside')}</span>{/if}{#if p.agents}<span class="pill warn">{tn(p.agents, '{n} agent', '{n} agents')}</span>{/if}</div>
+          <div class="nm">{p.name}{#if p.active}<span class="pill ok">{t('the app’s')}</span>{/if}<span class="pill" class:ok={p.state === 'window'}>{(STATE[p.state] ?? STATE.closed)()}</span>{#if p.agents}<span class="pill warn">{tn(p.agents, '{n} agent', '{n} agents')}</span>{/if}</div>
         {/if}
         <div class="meta">
           <code>{tildePath(p.config)}</code>
@@ -96,9 +109,8 @@
           <button class="btn" onclick={() => (editing = null)}>{t('Cancel')}</button>
           <button class="btn primary" onclick={saveEdit} disabled={!editing.name.trim() || !!busy}>{t('Save')}</button>
         {:else}
-          {#if p.open}<button class="btn primary" onclick={() => run(`open:${p.id}`, () => openProfile(p))} disabled={!!busy} title={t('Bring its Prism to the front')}>{t('Show')}</button>
-          {:else if !p.active}<button class="btn primary" onclick={() => run(`switch:${p.id}`, () => switchProfile(p))} disabled={!!busy} title={t('Relaunch this Prism on {name}', { name: p.name })}>{t('Switch')}</button>
-            <button class="btn" onclick={() => run(`open:${p.id}`, () => openProfile(p))} disabled={!!busy} title={t('Open {name} in its own Prism, next to this one', { name: p.name })}>{t('Open alongside')}</button>{/if}
+          {#if p.id !== currentProfileId()}<button class="btn primary" onclick={() => run(`open:${p.id}`, () => openProfile(p))} disabled={!!busy} title={p.state === 'closed' ? t('Open {name} in a window', { name: p.name }) : t('Show {name}’s window', { name: p.name })}>{p.state === 'closed' ? t('Open') : t('Show')}</button>{/if}
+          {#if !p.active && p.state !== 'closed'}<button class="btn" class:armed={stopping.is(p.id)} onclick={() => askStop(p)} disabled={!!busy} title={t('Close its window and stop its Prism: its agents go on in tmux (click twice)')}><ArmedLabel label={t('Stop')} armedLabel={t('Click again to stop')} armed={stopping.is(p.id)} /></button>{/if}
           <button class="btn" onclick={() => edit(p)} disabled={!!busy} title={t('Rename it, or change its color')}>{t('Edit')}</button>
           <button class="btn" class:armed={armed.is(p.id)} onclick={() => askRemove(p)} disabled={!removable(p) || !!busy} title={whyKept(p)}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to remove')} armed={armed.is(p.id)} /></button>
         {/if}
@@ -139,7 +151,7 @@
   .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: var(--fs-meta); color: var(--text-muted); }
   .meta code { font: var(--fs-tag) var(--mono); }
   .meta .warn { color: var(--warn); }
-  .pill { padding: 0 7px; border-radius: var(--r8); font-size: var(--fs-tag); font-weight: 600; }
+  .pill { padding: 0 7px; border-radius: var(--r8); font-size: var(--fs-tag); font-weight: 600; background: var(--surface-muted); color: var(--text-muted); }
   .pill.ok { background: var(--ok-bg); color: var(--ok); }
   .pill.warn { background: var(--warn-bg); color: var(--warn); }
   .acts, .row { display: flex; align-items: center; gap: 6px; }

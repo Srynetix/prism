@@ -11,6 +11,8 @@ pub fn uid() -> u32 {
 pub enum Signal {
     Usr1,
     Usr2,
+    /// Stop (a profile's Prism without a window, when the app that started it quits).
+    Term,
 }
 
 /// Sends `signal` to process `pid`; false if it could not (gone, not ours).
@@ -18,6 +20,7 @@ pub fn signal(pid: u32, signal: Signal) -> bool {
     let sig = match signal {
         Signal::Usr1 => libc::SIGUSR1,
         Signal::Usr2 => libc::SIGUSR2,
+        Signal::Term => libc::SIGTERM,
     };
     // SAFETY: kill reads no memory; the signals sent are handled by Prism, never a group (pid > 0).
     pid > 0 && unsafe { libc::kill(pid as libc::pid_t, sig) } == 0

@@ -38,9 +38,30 @@ pub struct Target {
     pub token: String,
     /// One of its profiles reached through it (`/peer/p/<profile>/`); `None`, the one it answers at.
     pub profile: Option<String>,
+    /// A profile of this computer, through its local socket (`Remote::serve_local`): no token,
+    /// `url` unused.
+    pub socket: Option<std::path::PathBuf>,
 }
 
 impl Target {
+    /// A profile of this computer, its engine listening at `socket`.
+    pub fn local(socket: std::path::PathBuf) -> Self {
+        Self { url: "http://localhost".into(), token: String::new(), profile: None, socket: Some(socket) }
+    }
+
+    /// An HTTP client for it: through its socket when local.
+    fn client(&self, timeout: Option<Duration>) -> Result<reqwest::Client> {
+        let mut b = reqwest::Client::builder();
+        if let Some(t) = timeout {
+            b = b.timeout(t);
+        }
+        #[cfg(unix)]
+        if let Some(path) = &self.socket {
+            b = b.unix_socket(path.clone());
+        }
+        Ok(b.build()?)
+    }
+
     /// A peer route (`ws`, `tty?…`) of its profile.
     fn peer(&self, rest: &str) -> String {
         match &self.profile {
@@ -51,6 +72,9 @@ impl Target {
     /// Its address, checked: HTTPS, or HTTP to this computer only (a tunnel's end, `ssh -L`):
     /// the token never crosses a network unencrypted. Whether it is HTTPS, and the address.
     fn base(&self) -> Result<(bool, &str)> {
+        if self.socket.is_some() {
+            return Ok((false, "http://localhost"));
+        }
         let base = self.url.trim().trim_end_matches('/');
         let parsed = url::Url::parse(base).with_context(|| format!("{base}: not an address"))?;
         match parsed.scheme() {
@@ -71,6 +95,9 @@ impl Target {
         let rest = base.split_once("://").map_or(base, |(_, r)| r);
         let ws = format!("{}://{rest}{path}", if secure { "wss" } else { "ws" });
         let mut req = ws.into_client_request().with_context(|| format!("{base}: not an address"))?;
+        if self.socket.is_some() {
+            return Ok(req);
+        }
         req.headers_mut().insert("authorization", HeaderValue::from_str(&format!("Bearer {}", self.token.trim())).context("the token")?);
         Ok(req)
     }
@@ -79,7 +106,7 @@ impl Target {
 /// Pairs with the machine at `url` (`prism peer pair` there, its code given here as `code`), this
 /// computer named `name` there: its token once a person accepted it there, within five minutes.
 pub async fn pair(url: &str, code: &str, name: &str) -> Result<String> {
-    let target = Target { url: url.to_string(), token: String::new(), profile: None };
+    let target = Target { url: url.to_string(), token: String::new(), profile: None, socket: None };
     let http = reqwest::Client::builder().timeout(Duration::from_secs(15)).build()?;
     let claim = crate::webauthn::random();
     let res = http.post(target.http("/peer/pair")?).json(&json!({ "code": code, "name": name, "claim": claim })).send().await.context("the machine does not answer")?;
@@ -114,7 +141,14 @@ pub struct Summary {
 /// The machine's summary, within a few seconds.
 pub async fn summary(target: &Target) -> Result<Summary> {
     static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
-    let http = CLIENT.get_or_init(|| reqwest::Client::builder().timeout(Duration::from_secs(5)).build().expect("an HTTP client"));
+    let local;
+    let http = match target.socket {
+        Some(_) => {
+            local = target.client(Some(Duration::from_secs(5)))?;
+            &local
+        }
+        None => CLIENT.get_or_init(|| reqwest::Client::builder().timeout(Duration::from_secs(5)).build().expect("an HTTP client")),
+    };
     let res = http.get(target.http(&target.peer("summary"))?).bearer_auth(target.token.trim()).send().await.context("out of reach")?;
     if res.status() == 401 {
         bail!("the machine does not know this token");
@@ -198,7 +232,7 @@ impl Machine {
     pub async fn download(&self, token: &str, dest: &std::path::Path) -> Result<()> {
         anyhow::ensure!(!token.is_empty() && token.chars().all(|c| c.is_ascii_hexdigit()), "not a download");
         let url = self.target.http(&self.target.peer(&format!("download/{token}")))?;
-        let res = reqwest::Client::new().get(url).bearer_auth(self.target.token.trim()).send().await.context("the machine does not answer")?;
+        let res = self.target.client(None)?.get(url).bearer_auth(self.target.token.trim()).send().await.context("the machine does not answer")?;
         anyhow::ensure!(res.status().is_success(), "the machine refused the download ({})", res.status());
         let part = dest.with_extension(format!("{}.part", dest.extension().and_then(|e| e.to_str()).unwrap_or("")));
         let written = async {
@@ -226,10 +260,30 @@ impl Machine {
     pub async fn attach(&self, agent: &str, cols: u16, rows: u16, on_data: Box<dyn Fn(Vec<u8>) + Send>, on_end: Box<dyn FnOnce() + Send>) -> Result<Tty> {
         let agent_q: String = url::form_urlencoded::byte_serialize(agent.as_bytes()).collect();
         let req = self.target.request(&self.target.peer(&format!("tty?agent={agent_q}&cols={cols}&rows={rows}")))?;
-        let (socket, _) = tokio_tungstenite::connect_async(req).await.context("the machine's terminal")?;
+        let (keys, queue) = mpsc::unbounded_channel::<Message>();
+        let task = match &self.target.socket {
+            #[cfg(unix)]
+            Some(path) => {
+                let io = tokio::net::UnixStream::connect(path).await.context("the profile's terminal")?;
+                let (socket, _) = tokio_tungstenite::client_async(req, io).await.context("the profile's terminal")?;
+                tokio::spawn(pump(socket, queue, on_data, on_end))
+            }
+            _ => {
+                let (socket, _) = tokio_tungstenite::connect_async(req).await.context("the machine's terminal")?;
+                tokio::spawn(pump(socket, queue, on_data, on_end))
+            }
+        };
+        Ok(Tty { keys, task })
+    }
+}
+
+/// A terminal's socket: the keys queued sent to it, its output to `on_data`, until either side ends.
+async fn pump<S>(socket: tokio_tungstenite::WebSocketStream<S>, mut queue: mpsc::UnboundedReceiver<Message>, on_data: Box<dyn Fn(Vec<u8>) + Send>, on_end: Box<dyn FnOnce() + Send>)
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
         let (mut tx, mut rx) = socket.split();
-        let (keys, mut queue) = mpsc::unbounded_channel::<Message>();
-        let task = tokio::spawn(async move {
+        {
             loop {
                 tokio::select! {
                     m = queue.recv() => match m {
@@ -251,9 +305,7 @@ impl Machine {
             }
             let _ = tx.close().await;
             on_end();
-        });
-        Ok(Tty { keys, task })
-    }
+        }
 }
 
 /// An agent's terminal on a machine: keys and sizes go to it; dropped, it is detached.
@@ -324,10 +376,25 @@ async fn run(target: Target, mut out: mpsc::UnboundedReceiver<String>, pending: 
 }
 
 async fn connect(target: &Target, out: &mut mpsc::UnboundedReceiver<String>, pending: &Pending, connected: &tokio::sync::watch::Sender<bool>, on_message: &OnMessage) -> Result<()> {
-    let (socket, _) = tokio_tungstenite::connect_async(target.request(&target.peer("ws"))?).await.map_err(|e| match e {
+    let req = target.request(&target.peer("ws"))?;
+    #[cfg(unix)]
+    if let Some(path) = &target.socket {
+        let io = tokio::net::UnixStream::connect(path).await.with_context(|| format!("the profile's Prism ({})", path.display()))?;
+        let (socket, _) = tokio_tungstenite::client_async(req, io).await?;
+        return converse(socket, out, pending, connected, on_message).await;
+    }
+    let (socket, _) = tokio_tungstenite::connect_async(req).await.map_err(|e| match e {
         tokio_tungstenite::tungstenite::Error::Http(r) if r.status() == 401 => anyhow!("the machine does not know this token (prism peer add there)"),
         e => anyhow!(e),
     })?;
+    converse(socket, out, pending, connected, on_message).await
+}
+
+/// The socket open: calls sent, answers handed back, what the machine pushes to `on_message`.
+async fn converse<S>(socket: tokio_tungstenite::WebSocketStream<S>, out: &mut mpsc::UnboundedReceiver<String>, pending: &Pending, connected: &tokio::sync::watch::Sender<bool>, on_message: &OnMessage) -> Result<()>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
     let (mut tx, mut rx) = socket.split();
     // Calls queued for the socket that dropped: failed now (their pending entry may have come in
     // after the drop's), never sent to a new one that knows nothing of them.

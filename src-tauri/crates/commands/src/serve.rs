@@ -1,13 +1,14 @@
 //! Prism without a window (`prism-server serve`): on a server, run by systemd, reached from a phone
 //! only. The same Prism as the desk's (`AppState::start`: collectors, agents and their chains, the
-//! remote), the phone's page served from the files the binary carries.
+//! remote), the phone's page served from the files the binary carries. Also a profile's Prism shown
+//! in a window of the app (`prism engine`), which reaches it through its local socket.
 
 use std::sync::Arc;
 
 use crate::{app::AppState, config_path, profile, state, Shell};
 
 /// The phone's page as the binary carries it: a file's bytes, by its path in `web/dist`.
-pub type Assets = fn(&str) -> Option<&'static [u8]>;
+pub type Assets = Box<dyn Fn(&str) -> Option<Vec<u8>> + Send + Sync>;
 
 /// What a Prism without a window does for the commands.
 struct Headless {
@@ -35,7 +36,7 @@ impl Shell for Headless {
     }
 
     fn asset(&self, path: &str) -> Option<(Vec<u8>, String)> {
-        (self.assets)(path).map(|bytes| (bytes.to_vec(), mime(path).into()))
+        (self.assets)(path).map(|bytes| (bytes, mime(path).into()))
     }
 }
 
@@ -56,8 +57,8 @@ pub fn mime(path: &str) -> &'static str {
 }
 
 /// Runs Prism on the active profile until it is stopped (SIGTERM, SIGINT): its exit code. `build`
-/// says which build this is (feedback's context).
-pub fn run(assets: Assets, build: String) -> i32 {
+/// says which build this is (feedback's context); `engine`, for a window of the app.
+pub fn run(assets: Assets, build: String, engine: bool) -> i32 {
     crate::process::before_threads();
     let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
         Ok(r) => r,
@@ -70,17 +71,17 @@ pub fn run(assets: Assets, build: String) -> i32 {
         tracing::error!("profile {} already open (pid {pid})", profile::active());
         return 1;
     }
-    if assets("remote.html").is_none() {
+    if !engine && assets("remote.html").is_none() {
         tracing::warn!("this build carries no phone page (web/dist was not built before it): phones get nothing to open");
     }
-    let code = runtime.block_on(serve(assets, build));
+    let code = runtime.block_on(serve(assets, build, engine));
     profile::release();
     // Prism's tasks (collectors, agents' watch) are not waited for.
     runtime.shutdown_timeout(std::time::Duration::from_secs(1));
     code
 }
 
-async fn serve(assets: Assets, build: String) -> i32 {
+async fn serve(assets: Assets, build: String, engine: bool) -> i32 {
     let hub = state::Hub::new();
     // No window: collections slow down until a phone watches.
     hub.set_visible(false);
@@ -95,11 +96,18 @@ async fn serve(assets: Assets, build: String) -> i32 {
         }
     };
     tracing::info!("Prism without a window, profile {}, config {}", profile::active(), config_path().display());
-    if !crate::config::load(&config_path()).is_ok_and(|c| c.remote.enabled) {
+    // The app's window of this profile reaches it there.
+    let socket = profile::engine_socket(profile::active());
+    #[cfg(unix)]
+    if let Err(e) = state.remote.serve_local(&socket).await {
+        tracing::warn!("local socket: {e:#}");
+    }
+    if !engine && !crate::config::load(&config_path()).is_ok_and(|c| c.remote.enabled) {
         tracing::warn!("[remote] is off in {}: no phone reaches this Prism (enabled = true, then `prism-server pair`)", config_path().display());
     }
     stopped(&state).await;
     tracing::info!("stopping");
+    let _ = std::fs::remove_file(&socket);
     // `tailscale serve` must not keep sending phones to a Prism gone; bounded.
     let _ = tokio::time::timeout(std::time::Duration::from_secs(5), state.remote.apply(&Default::default())).await;
     0
@@ -138,14 +146,14 @@ async fn stopped(_state: &AppState) {
 mod tests {
     use super::*;
 
-    fn page(path: &str) -> Option<&'static [u8]> {
-        (path == "remote.html").then_some(b"<html>".as_slice())
+    fn page(path: &str) -> Option<Vec<u8>> {
+        (path == "remote.html").then(|| b"<html>".to_vec())
     }
 
     /// The page's files from what the binary carries, with their type; nothing else.
     #[test]
     fn serves_the_page_it_carries() {
-        let shell = Headless { assets: page };
+        let shell = Headless { assets: Box::new(page) };
         assert_eq!(shell.asset("remote.html"), Some((b"<html>".to_vec(), "text/html; charset=utf-8".into())));
         assert_eq!(shell.asset("assets/x.js"), None);
         assert_eq!((mime("assets/a.js"), mime("remote/icon.webp"), mime("x.woff2"), mime("dev-snapshot")), ("text/javascript", "image/webp", "font/woff2", "application/octet-stream"));

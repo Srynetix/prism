@@ -55,6 +55,8 @@ pub struct OtherProfile {
     pub waiting: u32,
     /// The title of the agent waiting longest there.
     pub first: Option<String>,
+    /// Those waiting there, longest first (notified by the app holding the windows).
+    pub waiting_agents: Vec<WaitingAgent>,
 }
 
 /// Another computer's Prism (`[[machines]]`), for the status bar and the notifications.

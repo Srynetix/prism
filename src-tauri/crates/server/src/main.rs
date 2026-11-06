@@ -29,7 +29,7 @@ fn main() {
     let info = prism_commands::cli::Info { bin: prism_commands::cli::Bin::Server, version: env!("CARGO_PKG_VERSION"), build: env!("PRISM_BUILD") };
     let code = match prism_commands::cli::run(&info, std::env::args_os().collect()) {
         prism_commands::cli::Run::Exit(code) => code,
-        prism_commands::cli::Run::Serve => prism_commands::serve::run(page::asset, env!("PRISM_BUILD").to_string()),
+        prism_commands::cli::Run::Serve => prism_commands::serve::run(Box::new(|p| page::asset(p).map(<[u8]>::to_vec)), env!("PRISM_BUILD").to_string(), false),
         prism_commands::cli::Run::Window => unreachable!("the server has no window"),
     };
     std::process::exit(code);

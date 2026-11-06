@@ -9,6 +9,8 @@ pub mod coreaudio;
 #[cfg(target_os = "macos")]
 pub mod corewlan;
 #[cfg(target_os = "macos")]
+pub mod dock;
+#[cfg(target_os = "macos")]
 pub mod eventkit;
 #[cfg(target_os = "macos")]
 pub mod localauth;

@@ -25,9 +25,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         profiles::remove_profile,
         profiles::switch_profile,
         profiles::open_profile,
+        profiles::stop_profile,
         set_help_guides,
-        app_icon,
-        set_dock_icon,
         set_tray,
         font_face,
         youtube_relay,
@@ -162,25 +161,6 @@ pub fn quit_app(app: AppHandle) {
 pub fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<(), String> {
     let on = window.is_fullscreen().map_err(|e| e.to_string())?;
     window.set_fullscreen(!on).map_err(|e| e.to_string())
-}
-
-/// The app's icon (PNG, 256 px): the window draws the profile's mark on it for the Dock.
-#[tauri::command]
-pub fn app_icon() -> tauri::ipc::Response {
-    tauri::ipc::Response::new(include_bytes!("../../icons/128x128@2x.png").to_vec())
-}
-
-/// macOS: this Prism's Dock icon, with its profile's mark (`png`, drawn by the window): two
-/// Prism open on two profiles are told apart in the Dock and ⌘-Tab.
-#[tauri::command]
-pub fn set_dock_icon(app: AppHandle, png: Vec<u8>) -> Cmd {
-    #[cfg(target_os = "macos")]
-    app.run_on_main_thread(move || {
-        prism_macos::appkit::set_app_icon(&png);
-    })?;
-    #[cfg(not(target_os = "macos"))]
-    let _ = (app, png);
-    Ok(())
 }
 
 /// The YouTube player's relay page (`http://127.0.0.1:<port>`): YouTube wants a referrer the

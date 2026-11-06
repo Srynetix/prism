@@ -319,7 +319,50 @@ async fn peer_dispatch(state: Arc<AppState>, command: String, a: Value) -> Resul
     commands::peer_call(&state, &command, a).await
 }
 
+/// What this computer's app never asks its window of a profile's Prism to do (`local_dispatch`):
+/// the snapshot comes over the socket, and the app updates itself.
+pub const LOCAL_NEVER: &[&str] = &["snapshot_sync", "update_install"];
+
+/// A call from this computer's app, its window of this profile (`Remote::serve_local`): as the
+/// window's own would be, what opens or writes on this computer included (the same disk, the
+/// same account); not the window's own (`DESK`), which the app answers.
+async fn local_dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Value> {
+    if commands::refused_in_demo(&command) {
+        bail!(crate::demo::READ_ONLY);
+    }
+    if commands::DESK.contains(&command.as_str()) || LOCAL_NEVER.contains(&command.as_str()) {
+        bail!(tr!("{command} is not answered from another Prism", command = command));
+    }
+    if command == "restart_app" {
+        prism_base::rt::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            state.shell.restart()
+        });
+        return Ok(Value::Null);
+    }
+    commands::peer_call(&state, &command, a).await
+}
+
 impl prism_remote::Host for Host {
+    fn local_call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
+        let host = self.clone();
+        Box::pin(async move { local_dispatch(host.state()?, command, args).await })
+    }
+
+    fn notices(&self) -> Option<futures::stream::BoxStream<'static, prism_remote::Notice>> {
+        let rx = self.state().ok()?.agents.notices();
+        let stream = futures::stream::unfold(rx, |mut rx| async move {
+            loop {
+                match rx.recv().await {
+                    Ok(n) => return Some((prism_remote::Notice { text: n.text, ms: n.ms as u64, system: n.system }, rx)),
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(_) => return None,
+                }
+            }
+        });
+        Some(Box::pin(stream))
+    }
+
     fn peer_call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
         let host = self.clone();
         Box::pin(async move { peer_dispatch(host.state()?, command, args).await })

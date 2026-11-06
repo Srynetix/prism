@@ -1,9 +1,9 @@
-//! AppKit: the running applications, the Dock icon, the accessibility settings.
+//! AppKit: the running applications, the accessibility settings.
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyClass, AnyObject};
 use objc2::{class, msg_send, MainThreadMarker};
-use objc2_foundation::{NSData, NSString};
+use objc2_foundation::NSString;
 
 #[link(name = "AppKit", kind = "framework")]
 unsafe extern "C" {}
@@ -27,26 +27,6 @@ pub fn running_app_name(bundle: &str, pid: i32) -> Option<String> {
             name.map(|n| n.to_string()).filter(|n| !n.is_empty())
         }
     })
-}
-
-/// The app's Dock icon from a PNG; false off the main thread or for an unreadable image.
-pub fn set_app_icon(png: &[u8]) -> bool {
-    if MainThreadMarker::new().is_none() {
-        return false;
-    }
-    let data = NSData::with_bytes(png);
-    // SAFETY: AppKit calls on the main thread (checked above); the image stays alive (the app
-    // keeps it, never released here).
-    unsafe {
-        let image: *mut AnyObject = msg_send![class!(NSImage), alloc];
-        let image: *mut AnyObject = msg_send![image, initWithData: &*data];
-        if image.is_null() {
-            return false;
-        }
-        let ns_app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-        let _: () = msg_send![ns_app, setApplicationIconImage: image];
-    }
-    true
 }
 
 /// Whether Accessibility › Display asks to reduce transparency.

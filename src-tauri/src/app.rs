@@ -55,8 +55,10 @@ impl prism_commands::Shell for Desk {
 
 /// Relaunches Prism (Restart Prism, the console's `restart`, `prism restart`).
 pub fn restart(app: &tauri::AppHandle) -> ! {
-    // The new Prism must find the profile free, not this one about to exit.
+    // The new Prism must find the profile free, and the app's place, not this one about to exit:
+    // the profiles' Prisms it started go on, the new one stops them when it quits.
     crate::profile::release();
+    crate::profile::release_host();
     prism_dictation::whisper::unload(std::time::Duration::ZERO);
     app.restart()
 }
@@ -160,15 +162,18 @@ pub fn serve_agent_file(ctx: tauri::UriSchemeContext<'_, tauri::Wry>, request: t
     });
 }
 
-/// The signals another launch sends: SIGUSR1 brings the window up (`prism --profile`, Open
-/// alongside), SIGUSR2 restarts (`prism restart`).
+/// The signals another launch sends: SIGUSR1 shows what it asked (`profile::ask_host`: a
+/// profile's window, `prism --profile perso`; otherwise the main window), SIGUSR2 restarts
+/// (`prism restart`).
 #[cfg(unix)]
 pub fn listen_signals(app: &AppHandle) {
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         let Ok(mut wake) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::user_defined1()) else { return };
         while wake.recv().await.is_some() {
-            show_main(&handle);
+            // Windows are the main thread's.
+            let app = handle.clone();
+            let _ = handle.run_on_main_thread(move || crate::profile_windows::asked(&app));
         }
     });
     // `prism restart` asks this Prism to restart.

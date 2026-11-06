@@ -84,8 +84,8 @@ pub(crate) async fn serve(State(inner): State<Shared>, headers: HeaderMap, Path(
 }
 
 /// `GET /peer/download/<token>`: the same, to the peer's window it was offered to.
-pub(crate) async fn serve_peer(State(inner): State<Shared>, headers: HeaderMap, Path(token): Path<String>) -> Response {
-    let Some((name, _)) = crate::server::peer_of(&inner, &headers) else { return (StatusCode::UNAUTHORIZED, "not a peer of this Prism").into_response() };
+pub(crate) async fn serve_peer(State(inner): State<Shared>, local: Option<axum::Extension<crate::server::Local>>, headers: HeaderMap, Path(token): Path<String>) -> Response {
+    let Some((name, _)) = crate::server::peer_of(&inner, &headers, local.is_some()) else { return (StatusCode::UNAUTHORIZED, "not a peer of this Prism").into_response() };
     send(&inner, &format!("{}{name}", crate::peers::CONNECTED), &token).await
 }
 

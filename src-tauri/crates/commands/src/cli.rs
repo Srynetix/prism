@@ -57,7 +57,8 @@ pub fn run(info: &Info, args: Vec<OsString>) -> Run {
             let _ = args::command(info).print_help();
             Run::Exit(2)
         }
-        Some(Cmd::Serve) => Run::Serve,
+        // The same Prism without a window: the server's, or a profile's for the app's window.
+        Some(Cmd::Serve | Cmd::Engine) => Run::Serve,
         Some(cmd) => Run::Exit(subcommand(info, cmd)),
     }
 }
@@ -69,7 +70,7 @@ fn subcommand(info: &Info, cmd: &Cmd) -> i32 {
         return if crate::agents::hook::main(dir) == std::process::ExitCode::SUCCESS { 0 } else { 1 };
     }
     let done: anyhow::Result<Option<String>> = match cmd {
-        Cmd::Serve | Cmd::Hook { .. } => unreachable!("handled above"),
+        Cmd::Serve | Cmd::Engine | Cmd::Hook { .. } => unreachable!("handled above"),
         Cmd::Pair => block_on(pair()).map(|()| None),
         Cmd::Peer(action) => peer(action).map(|()| None),
         Cmd::Restart => crate::profile::restart().map(Some),
