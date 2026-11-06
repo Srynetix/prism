@@ -335,7 +335,7 @@ impl Actions {
         let comments = found
             .into_iter()
             .enumerate()
-            .map(|(n, (stamp, text))| Comment { id: n.to_string(), author: None, text, date: stamp_date(&stamp), replies: 0 })
+            .map(|(n, (stamp, text))| Comment { id: n.to_string(), author: None, text, date: stamp_date(&stamp), replies: 0, mentions: Vec::new() })
             .collect();
         let mut all_tags: Vec<String> = tags.iter().map(|t| t.trim_start_matches('#').to_string()).collect();
         if let Some(kind) = front.get("type").filter(|k| !k.is_empty()) {
@@ -357,6 +357,7 @@ impl Actions {
             creator: None,
             tags: all_tags,
             list: t.list.map(|l| l.name),
+            list_id: None,
             parent: None,
             url: t.url,
             description: body,

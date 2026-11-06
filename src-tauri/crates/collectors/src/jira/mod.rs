@@ -614,6 +614,7 @@ impl RawIssue {
             creator: f.reporter.map(Person::from),
             tags: f.labels,
             list: None,
+            list_id: None,
             parent: f.parent.map(|p| p.key),
             description: f.description.as_ref().map(adf::markdown).unwrap_or_default(),
             created_at: f.created.as_deref().and_then(date),
@@ -638,7 +639,7 @@ impl RawIssue {
                 .map(|c| c.comments)
                 .unwrap_or_default()
                 .into_iter()
-                .map(|c| Comment { id: c.id, author: c.author.map(Person::from), text: c.body.as_ref().map(adf::markdown).unwrap_or_default(), date: c.created.as_deref().and_then(date), replies: 0 })
+                .map(|c| Comment { id: c.id, author: c.author.map(Person::from), text: c.body.as_ref().map(adf::markdown).unwrap_or_default(), date: c.created.as_deref().and_then(date), replies: 0, mentions: Vec::new() })
                 .collect(),
             attachments: Vec::new(),
         }

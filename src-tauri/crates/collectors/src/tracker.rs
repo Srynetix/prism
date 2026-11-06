@@ -9,7 +9,7 @@ pub use prism_core::tracker::*;
 use crate::{
     {
         jira, obsidian,
-        task_view::TaskView,
+        task_view::{Mention, TaskView},
     },
     state::Hub,
 };
@@ -107,19 +107,28 @@ impl Tracker {
         }
     }
 
-    pub async fn add_comment(&self, hub: &Hub, task_id: &str, text: &str) -> Result<()> {
+    /// `mentions`: the people to notify, by their token in `text` (the providers that offer it).
+    pub async fn add_comment(&self, hub: &Hub, task_id: &str, text: &str, mentions: &[Mention]) -> Result<()> {
         match self {
-            Self::Clickup(c) => c.add_comment(task_id, text).await,
+            Self::Clickup(c) => c.add_comment(task_id, text, mentions).await,
             Self::Obsidian(o) => o.add_comment(hub, task_id, text).await,
             Self::Jira(j) => j.add_comment(task_id, text).await,
         }
     }
 
-    pub async fn edit_comment(&self, hub: &Hub, task_id: &str, comment: &str, text: &str) -> Result<()> {
+    pub async fn edit_comment(&self, hub: &Hub, task_id: &str, comment: &str, text: &str, mentions: &[Mention]) -> Result<()> {
         match self {
-            Self::Clickup(c) => c.edit_comment(hub, task_id, comment, text).await,
+            Self::Clickup(c) => c.edit_comment(hub, task_id, comment, text, mentions).await,
             Self::Obsidian(_) => bail!("{}", tr(NOT_ON_OBSIDIAN)),
             Self::Jira(j) => j.edit_comment(task_id, comment, text).await,
+        }
+    }
+
+    /// Who can be mentioned on the tickets of a list (`Features::mentions`).
+    pub async fn members(&self, list: &str) -> Result<Vec<crate::state::Person>> {
+        match self {
+            Self::Clickup(c) => c.members(list).await,
+            Self::Obsidian(_) | Self::Jira(_) => bail!("{}", tr("mentions are not offered on this tracker")),
         }
     }
 

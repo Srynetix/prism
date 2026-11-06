@@ -21,7 +21,7 @@ mod actions;
 pub mod fields;
 mod search;
 
-pub use actions::Actions;
+pub use actions::{forget_members, Actions};
 
 const SOURCE: &str = "clickup";
 /// The slow queues (refinement, to pick, outside the sprint, next sprint): they answer after the sprint.

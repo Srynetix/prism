@@ -45,6 +45,10 @@ comment: boolean,
  */
 comment_edit: boolean, 
 /**
+ * Mentioning someone in a comment (`@`), who is then notified: the list's members, a rich comment.
+ */
+mentions: boolean, 
+/**
  * Adding a ticket to the current sprint, on top of its board.
  */
 add_to_sprint: boolean, 

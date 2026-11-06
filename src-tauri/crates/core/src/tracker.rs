@@ -33,6 +33,7 @@ impl Provider {
                 priority: true,
                 comment: true,
                 comment_edit: true,
+                mentions: true,
                 add_to_sprint: true,
                 create: false,
             },
@@ -40,7 +41,7 @@ impl Provider {
             // prioritized, commented.
             Self::Obsidian => Features { sprint: true, pickup: true, status: true, priority: true, comment: true, create: true, ..Default::default() },
             // The board's sprints and JQL queues, and nearly every change.
-            Self::Jira => Features { sprint: true, next_sprint: true, refinement: true, pickup: true, outside_sprint: true, time: true, status: true, assignees: true, priority: true, comment: true, comment_edit: true, add_to_sprint: true, create: true },
+            Self::Jira => Features { sprint: true, next_sprint: true, refinement: true, pickup: true, outside_sprint: true, time: true, status: true, assignees: true, priority: true, comment: true, comment_edit: true, mentions: false, add_to_sprint: true, create: true },
         }
     }
 }
@@ -71,6 +72,8 @@ pub struct Features {
     pub comment: bool,
     /// Editing one of my comments.
     pub comment_edit: bool,
+    /// Mentioning someone in a comment (`@`), who is then notified: the list's members, a rich comment.
+    pub mentions: bool,
     /// Adding a ticket to the current sprint, on top of its board.
     pub add_to_sprint: bool,
     /// Creating a ticket, on one of the sprint's boards.

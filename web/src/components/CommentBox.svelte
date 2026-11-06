@@ -4,15 +4,19 @@
   import { onGithubWeb } from '../forge'
   import { projectOf } from '../emoji.svelte'
   import EmojiMenu from './EmojiMenu.svelte'
+  import MentionMenu from './MentionMenu.svelte'
+  import { mentionsIn, type Mention, type MentionSource } from '../mentions.svelte'
 
   /**
    * Comment input (GitLab, ClickUp): ⌘↵ sends, Escape cancels. `value`: the initial
    * text (editing a comment); `accent`: the source's color. `starters`: sentence starts offered
    * as chips, inserted at the start of the text. `forge`: the project's web address, for a comment
-   * on its forge, whose emoji shortcodes are offered as `:thu` is typed (EmojiMenu).
+   * on its forge, whose emoji shortcodes are offered as `:thu` is typed (EmojiMenu). `people`: who
+   * can be mentioned, offered as `@ann` is typed (MentionMenu); `mentions`: those the text being
+   * edited already has (a tracker's), kept as long as their token is in it.
    */
   let {
-    placeholder = keys(t('Leave a comment… (⌘↵ to send, Markdown)')), label = tc('action', 'Comment'), autofocus = false, value = '', accent = 'var(--src-gitlab)', starters = [], forge, onsend, oncancel,
+    placeholder = keys(t('Leave a comment… (⌘↵ to send, Markdown)')), label = tc('action', 'Comment'), autofocus = false, value = '', accent = 'var(--src-gitlab)', starters = [], forge, people, mentions = [], onsend, oncancel,
   }: {
     placeholder?: string
     label?: string
@@ -21,7 +25,10 @@
     accent?: string
     starters?: string[]
     forge?: string
-    onsend: (body: string) => Promise<void>
+    people?: MentionSource
+    mentions?: Mention[]
+    /** `mentions`: a tracker's, those still in the text. */
+    onsend: (body: string, mentions: Mention[]) => Promise<void>
     oncancel?: () => void
   } = $props()
 
@@ -31,6 +38,10 @@
   let error = $state<string | null>(null)
   let field = $state<HTMLTextAreaElement>()
   let menu = $state<ReturnType<typeof EmojiMenu>>()
+  let mentionMenu = $state<ReturnType<typeof MentionMenu>>()
+  /** The people picked in the `@` list (a tracker's), and those of the text being edited. */
+  // svelte-ignore state_referenced_locally
+  let picked = $state<Mention[]>([...mentions])
   /** Where the caret is in `text`, for the emoji menu. */
   let caret = $state(0)
   const track = () => (caret = field?.selectionStart ?? text.length)
@@ -41,8 +52,9 @@
     busy = true
     error = null
     try {
-      await onsend(body)
+      await onsend(body, mentionsIn(body, picked))
       text = ''
+      picked = []
       oncancel?.()
     } catch (e) {
       error = String(e)
@@ -52,7 +64,7 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (menu?.keydown(e)) return
+    if (menu?.keydown(e) || mentionMenu?.keydown(e)) return
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
       send()
@@ -69,8 +81,9 @@
 
 <div class="box" style:--accent-c={accent}>
   <div class="field">
-    <textarea bind:this={field} bind:value={text} {onkeydown} oninput={track} onkeyup={track} onclick={track} {placeholder} rows="3" disabled={busy} use:focus></textarea>
+    <textarea bind:this={field} bind:value={text} {onkeydown} oninput={track} onkeyup={track} onclick={track} {placeholder} rows="3" disabled={busy} use:focus onfocus={() => people?.load()}></textarea>
     {#if forge}<EmojiMenu bind:this={menu} bind:text bind:caret {field} github={onGithubWeb(forge)} project={projectOf(forge)} />{/if}
+    {#if people}<MentionMenu bind:this={mentionMenu} bind:text bind:caret {field} source={people} onpick={(p, token) => { if (people.rich) picked = [...picked, { id: p.id, text: token }] }} />{/if}
   </div>
   <div class="bar">
     {#each starters as s (s)}<button class="starter" onclick={() => (text = text.trim() ? `${s} ${text}` : `${s} `)} disabled={busy} title={t('Start with “{s}”', { s })}>{s}</button>{/each}

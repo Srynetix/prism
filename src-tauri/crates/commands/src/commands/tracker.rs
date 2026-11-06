@@ -77,8 +77,17 @@ pub async fn set_ticket_estimate(state: State<'_, AppState>, task_id: String, fi
 
 /// Comment on a ticket, from its preview.
 #[prism_macros::command]
-pub async fn add_ticket_comment(state: State<'_, AppState>, task_id: String, text: String) -> Cmd {
-    state.tracker().add_comment(&state.hub, &task_id, &text).await.map_err(Into::into)
+pub async fn add_ticket_comment(state: State<'_, AppState>, task_id: String, text: String, mentions: Option<Vec<crate::collectors::task_view::Mention>>) -> Cmd {
+    state.tracker().add_comment(&state.hub, &task_id, &text, &mentions.unwrap_or_default()).await.map_err(Into::into)
+}
+
+/// Who can be mentioned in a comment on the tickets of a list (`@`).
+#[prism_macros::command]
+pub async fn ticket_members(state: State<'_, AppState>, list: String) -> Cmd<Vec<crate::state::Person>> {
+    if crate::demo::active() {
+        return Ok(crate::demo::details::ticket_members());
+    }
+    state.tracker().members(&list).await.map_err(Into::into)
 }
 
 /// A new ticket on one of the sprint's boards (Obsidian); returns its key, to open it.
@@ -89,8 +98,8 @@ pub async fn create_ticket(state: State<'_, AppState>, board: String, status: St
 
 /// Edit of one of my comments on a ticket.
 #[prism_macros::command]
-pub async fn edit_ticket_comment(state: State<'_, AppState>, task_id: String, comment: String, text: String) -> Cmd {
-    state.tracker().edit_comment(&state.hub, &task_id, &comment, &text).await.map_err(Into::into)
+pub async fn edit_ticket_comment(state: State<'_, AppState>, task_id: String, comment: String, text: String, mentions: Option<Vec<crate::collectors::task_view::Mention>>) -> Cmd {
+    state.tracker().edit_comment(&state.hub, &task_id, &comment, &text, &mentions.unwrap_or_default()).await.map_err(Into::into)
 }
 
 /// Immediate reread of the tracker (lists, sprint, slow queues), replying when it is done.

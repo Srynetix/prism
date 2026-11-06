@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../i18n.svelte'
   import { hasCore } from '../bridge'
-  import { conventions } from '../conventions'
+  import { ticketAvatar } from '../people'
   import { setMine } from '../ticket-view.svelte'
   import type { Person, Ticket } from '../types'
 
@@ -38,28 +38,10 @@
   )
 </script>
 
-<script module lang="ts">
-  import { SvelteMap } from 'svelte/reactivity'
-  import { invoke } from '../bridge'
-
-  /**
-   * Profile pictures as `data:` URLs (the window's CSP allows no external image), each read once
-   * per session by the Rust core; one that fails is not asked again, its initials stay.
-   */
-  const pictures = new SvelteMap<string, string>()
-  const asked = new Set<string>()
-  function picture(url: string): string | undefined {
-    if (!asked.has(url)) {
-      asked.add(url)
-      invoke<string>('ticket_image', { url }).then((src) => pictures.set(url, src)).catch(() => {})
-    }
-    return pictures.get(url)
-  }
-</script>
 
 {#snippet avatars()}
   {#each ticket.assignees.slice(0, max) as a (a.id)}
-    {@const src = a.avatar && hasCore() && conventions().avatars ? picture(a.avatar) : undefined}
+    {@const src = ticketAvatar(a.avatar)}
     <span class="av" class:me={me?.id === a.id} class:colored={!!a.color} class:pic={!!src} style:--av={a.color ?? null} title={a.name}>{#if src}<img {src} alt="" />{:else}{a.initials}{/if}</span>
   {:else}
     {#if !can}<span class="av none">—</span>{/if}

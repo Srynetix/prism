@@ -2,7 +2,7 @@
   import { forgeLink, onGithubWeb } from '../forge'
   import { projectOf, withEmoji } from '../emoji.svelte'
   import CustomEmoji from './CustomEmoji.svelte'
-  import { inline, parse, slug, type Block, type MdMarks, type Span } from '../markdown'
+  import { inline, parse, slug, withMentions, type Block, type MdMarks, type MentionMarks, type Span } from '../markdown'
   import { canPreview, openTicket } from '../ticket-view.svelte'
   import { openMr } from '../mr-view.svelte'
   import { hasCore } from '../bridge'
@@ -26,9 +26,10 @@
    * With `onimage`, a click on such an image calls it with its URL.
    * `mrs`: an agent's words — the MRs they name (`!1957`) open their panel, as in its Terminal;
    * their images are links, never fetched.
+   * `mention`: a comment's mentions drawn as chips, mine lit (see `MentionMarks`).
    */
   let {
-    text, plain = false, onimage, forge, parsed, marks, onaction, anchors = false, images, reading = false, mrs = false,
+    text, plain = false, onimage, forge, parsed, marks, onaction, anchors = false, images, reading = false, mrs = false, mention,
   }: {
     text: string
     plain?: boolean
@@ -42,6 +43,7 @@
     /** Long reading (Help, a page of an agent's folder): larger text, more room; otherwise the panels' size. */
     reading?: boolean
     mrs?: boolean
+    mention?: MentionMarks
   } = $props()
 
   /** Relative link (uploaded file): to the GitLab project, otherwise no link. */
@@ -70,8 +72,10 @@
 </script>
 
 {#snippet spans(list: Span[])}
-  {#each forge ? withEmoji(list, onGithubWeb(forge), projectOf(forge)) : mrs && hasCore() ? withMrs(list) : list as s, i (i)}
-    {#if s.emoji}<CustomEmoji url={s.emoji} name={s.text} />
+  {@const shown = forge ? withEmoji(list, onGithubWeb(forge), projectOf(forge)) : mrs && hasCore() ? withMrs(list) : list}
+  {#each mention ? withMentions(shown, mention) : shown as s, i (i)}
+    {#if s.mention}<span class="mention" class:me={s.mention === 'me'} class:b={s.bold} class:i={s.italic}>{s.text}</span>
+    {:else if s.emoji}<CustomEmoji url={s.emoji} name={s.text} />
     {:else if s.local}{#if images?.[s.image!] && onimage}<button class="local zoom" onclick={() => onimage(images[s.image!], s.text)} title={t('{text} · click to enlarge', { text: s.text })} style:max-width={s.width ? `min(${s.width}px, 100%)` : undefined}><img src={images[s.image!]} alt={s.text} /></button>{:else if images?.[s.image!]}<img class="local" src={images[s.image!]} alt={s.text} title={s.text} style:max-width={s.width ? `min(${s.width}px, 100%)` : undefined} />{:else}<span><Icon name="image" /> {s.text}</span>{/if}
     {:else if s.image}<span class="inline-img"><RemoteImage url={s.image} alt={s.text} width={s.width} {forge} fetched={!mrs} onopen={onimage ? () => onimage(s.image!, s.text) : undefined} /></span>
     {:else if s.action && onaction}<button class="action" onclick={() => onaction(s.action!)}>{s.text}</button>
@@ -171,6 +175,9 @@
   .zoom img { display: block; max-width: 100%; height: auto; }
   .ticket { border: none; background: none; padding: 0; font: inherit; color: var(--info); cursor: pointer; }
   .ticket:hover { text-decoration: underline; }
+  /* Someone mentioned: a chip; me, lit. */
+  .mention { padding: 0 4px; border-radius: var(--r4); background: color-mix(in srgb, var(--info) 12%, transparent); color: var(--info); font-weight: 500; white-space: nowrap; }
+  .mention.me { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--text); }
   .table { overflow-x: auto; margin: 4px 0 14px; }
   table { border-collapse: collapse; font-size: var(--fs-meta); }
   /* `break-word`, not the `anywhere` around it: a cell's narrowest is its longest word, so no column is squeezed to a letter (the table scrolls instead). */

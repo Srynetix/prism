@@ -28,7 +28,11 @@ status_color: string | null,
 /**
  * Statuses of the ticket's list, in board order: the choices of the status picker.
  */
-statuses: Array<StatusOption>, closed: boolean, priority: Priority | null, assignees: Array<Person>, creator: Person | null, tags: Array<string>, list: string | null, parent: string | null, url: string, 
+statuses: Array<StatusOption>, closed: boolean, priority: Priority | null, assignees: Array<Person>, creator: Person | null, tags: Array<string>, list: string | null, 
+/**
+ * The list's id, whose members can be mentioned in a comment (ClickUp).
+ */
+list_id: string | null, parent: string | null, url: string, 
 /**
  * Description in ClickUp's Markdown format, falling back to plain text.
  */

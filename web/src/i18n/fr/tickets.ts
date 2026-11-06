@@ -603,7 +603,7 @@ export default {
   'Someone': 'Quelqu’un',
   '{n} reply in ClickUp': '{n} réponse dans ClickUp',
   '{n} replies in ClickUp': '{n} réponses dans ClickUp',
-  'Edit your comment (rich formatting is replaced by plain text)': 'Modifier votre commentaire (la mise en forme riche est remplacée par du texte brut)',
+  'Edit your comment (its mentions are kept, other rich formatting is replaced by plain text)': 'Modifier votre commentaire (ses mentions sont gardées, le reste de la mise en forme riche est remplacé par du texte brut)',
   'Save': 'Enregistrer',
   'Edit your comment… (⌘↵ to save, Esc to cancel)': 'Modifier votre commentaire… (⌘↵ pour enregistrer, Échap pour annuler)',
   'No comment.': 'Aucun commentaire.',

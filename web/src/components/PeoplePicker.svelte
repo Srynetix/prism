@@ -4,7 +4,7 @@
   import { onDestroy, onMount, untrack } from 'svelte'
   import Icon from './Icon.svelte'
   import { anchored, exclusive } from '../popup'
-  import { loadMembers, members, membersOf, setMrPeople, type Member, type PeopleKind } from '../mr-people.svelte'
+  import { loadMembers, membersError, membersOf, setMrPeople, type Member, type PeopleKind } from '../mr-people.svelte'
   import { forgeAvatar } from '../people'
   import { mrKey, type MrRef } from '../mr-ref'
 
@@ -114,7 +114,7 @@
   </div>
   <label class="search"><Icon name="search" /><input bind:this={input} bind:value={query} placeholder={t('Search people…')} spellcheck="false" onkeydown={onkey} /></label>
   <div class="list">
-    {#if members.error}<p class="err">{members.error}</p>
+    {#if membersError(mr.repo) && !membersOf(mr.repo)}<p class="err">{membersError(mr.repo)}</p>
     {:else if !membersOf(mr.repo)}<p class="muted">{t('Loading the project members…')}</p>
     {:else}
       {#each strangers as u (u)}

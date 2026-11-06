@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t, tc, tn } from '../i18n.svelte'
   import { forgeName } from '../forge'
+  import type { MentionSource } from '../mentions.svelte'
   import MrThread from './MrThread.svelte'
   import Markdown from './Markdown.svelte'
   import type { MdMarks, MdTarget } from '../markdown'
@@ -45,7 +46,7 @@
    * go from one to the next, Viewed moves on to the next one not yet viewed.
    */
   let {
-    iid, diff, discussions, me, onreply, onresolve, oncomment, focus = null, forge, source, image, review, phone = false,
+    iid, diff, discussions, me, onreply, onresolve, oncomment, focus = null, forge, source, image, review, phone = false, people,
   }: {
     iid: number | string
     diff: MrDiff
@@ -56,6 +57,8 @@
     oncomment?: (line: LineRef, body: string) => Promise<void>
     focus?: { path: string; line: number | null } | null
     forge?: string
+    /** Who a comment on the forge can mention (`@`). */
+    people?: MentionSource
     /** A file of the diff, whole, in its new version: the Markdown preview. */
     source?: (path: string) => Promise<string>
     /** An image of the diff as a `data:` URL: its new version, or (`old`) the former one. */
@@ -648,7 +651,7 @@
   {@const here = ls.length === 1 ? threadsAt(path, ls[0]) : [...new Set(ls.flatMap((l) => threadsAt(path, l)))]}
   {#if here.length}
     <tr class="inline"><td colspan={span}>
-      {#each here as d (d.id)}<MrThread discussion={d} {me} {forge} compact onreply={(body) => onreply?.(d.id, body) ?? Promise.resolve()} onresolve={(r) => onresolve?.(d.id, r) ?? Promise.resolve()} />{/each}
+      {#each here as d (d.id)}<MrThread discussion={d} {me} {forge} {people} compact onreply={(body) => onreply?.(d.id, body) ?? Promise.resolve()} onresolve={(r) => onresolve?.(d.id, r) ?? Promise.resolve()} />{/each}
     </td></tr>
   {/if}
   {#if review}
@@ -668,7 +671,7 @@
     {@const lines = linesOf(path)}
     {#if ls.includes(lines[r[1]])}
       <tr class="inline"><td colspan={span}>
-        <CommentBox {forge} label={tc('action', 'Comment')} placeholder={keys(r[0] === r[1] ? t('Comment on line {n}… (⌘↵ to send, Esc to cancel; shift-click a line for several)', { n: labelOf(lines[r[0]]) }) : t('Comment on lines {from}–{to}… (⌘↵ to send, Esc to cancel)', { from: labelOf(lines[r[0]]), to: labelOf(lines[r[1]]) }))} autofocus onsend={(body) => oncomment?.(refOf(f, lines, r), body) ?? Promise.resolve()} oncancel={() => (composing = null)} />
+        <CommentBox {forge} {people} label={tc('action', 'Comment')} placeholder={keys(r[0] === r[1] ? t('Comment on line {n}… (⌘↵ to send, Esc to cancel; shift-click a line for several)', { n: labelOf(lines[r[0]]) }) : t('Comment on lines {from}–{to}… (⌘↵ to send, Esc to cancel)', { from: labelOf(lines[r[0]]), to: labelOf(lines[r[1]]) }))} autofocus onsend={(body) => oncomment?.(refOf(f, lines, r), body) ?? Promise.resolve()} oncancel={() => (composing = null)} />
       </td></tr>
     {/if}
   {/if}

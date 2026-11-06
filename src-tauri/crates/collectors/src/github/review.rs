@@ -3,8 +3,8 @@
 //! the snapshot). Conversation comments and review summaries are standalone notes; review
 //! threads, placed on the diff, are the resolvable discussions.
 
+use crate::ttl_cache::TtlCache;
 use prism_base::{i18n::tr, tr};
-use std::collections::HashMap;
 
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Utc};
@@ -354,15 +354,13 @@ struct RawUser {
 }
 
 /// Those who can be assigned change little: re-read at most every hour, per repository.
-const MEMBERS_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
-type Cache = HashMap<String, (std::time::Instant, Vec<Member>)>;
-static MEMBERS: std::sync::Mutex<Option<Cache>> = std::sync::Mutex::new(None);
+static MEMBERS: TtlCache<Vec<Member>> = TtlCache::new(std::time::Duration::from_secs(3600));
 
 /// Those who can be assigned in the repository (users only: GitHub leaves bots out), by name;
 /// one without a name goes by their login.
 pub async fn members(project: &str) -> Result<Vec<Member>> {
-    if let Some((_, list)) = MEMBERS.lock().unwrap().as_ref().and_then(|c| c.get(project)).filter(|(at, _)| at.elapsed() < MEMBERS_TTL) {
-        return Ok(list.clone());
+    if let Some(list) = MEMBERS.get(project) {
+        return Ok(list);
     }
     const QUERY: &str = "query($owner: String!, $name: String!, $after: String) { repository(owner: $owner, name: $name) { assignableUsers(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { databaseId login name avatarUrl } } } }";
     let (owner, name) = split(project)?;
@@ -386,7 +384,7 @@ pub async fn members(project: &str) -> Result<Vec<Member>> {
         }
     }
     list.sort_by_key(|m| m.name.to_lowercase());
-    MEMBERS.lock().unwrap().get_or_insert_with(HashMap::new).insert(project.to_string(), (std::time::Instant::now(), list.clone()));
+    MEMBERS.put(project, list.clone());
     Ok(list)
 }
 
@@ -402,14 +400,12 @@ pub(super) struct RawLabel {
 }
 
 /// Labels change little: re-read at most every ten minutes, per repository (or at once after Prism created one).
-const LABELS_TTL: std::time::Duration = std::time::Duration::from_secs(600);
-type LabelCache = HashMap<String, (std::time::Instant, Vec<ForgeLabel>)>;
-static LABELS: std::sync::Mutex<Option<LabelCache>> = std::sync::Mutex::new(None);
+static LABELS: TtlCache<Vec<ForgeLabel>> = TtlCache::new(std::time::Duration::from_secs(600));
 
 /// The repository's labels, by name; GitHub's colors come without `#`.
 pub async fn labels(project: &str) -> Result<Vec<ForgeLabel>> {
-    if let Some((_, list)) = LABELS.lock().unwrap().as_ref().and_then(|c| c.get(project)).filter(|(at, _)| at.elapsed() < LABELS_TTL) {
-        return Ok(list.clone());
+    if let Some(list) = LABELS.get(project) {
+        return Ok(list);
     }
     split(project)?;
     let mut list: Vec<ForgeLabel> = Vec::new();
@@ -426,15 +422,19 @@ pub async fn labels(project: &str) -> Result<Vec<ForgeLabel>> {
         }
     }
     list.sort_by_key(|l| l.name.to_lowercase());
-    LABELS.lock().unwrap().get_or_insert_with(HashMap::new).insert(project.to_string(), (std::time::Instant::now(), list.clone()));
+    LABELS.put(project, list.clone());
     Ok(list)
 }
 
 /// After a label was created by adding it to a pull request: the next read sees it.
 pub fn forget_labels(project: &str) {
-    if let Some(c) = LABELS.lock().unwrap().as_mut() {
-        c.remove(project);
-    }
+    LABELS.forget(project);
+}
+
+/// Members, labels and custom emoji asked again: another account after a config reload.
+pub fn forget_cached() {
+    MEMBERS.clear();
+    LABELS.clear();
 }
 
 /* ---------- Images ---------- */
