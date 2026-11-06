@@ -83,6 +83,8 @@ if $extra && [[ -n "${PRISM_EXTRA_BLOCKS:-}" ]]; then
   extra_label=$(extra_label "$blocks")
   mounts=(-v "$blocks:/extra:ro" -e PRISM_EXTRA_BLOCKS=/extra -e "PRISM_EXTRA_LABEL=$extra_label")
 fi
+# Without them, the checks on this machine build Prism alone too (cargo reads them from the environment).
+$extra || unset PRISM_EXTRA_BLOCKS PRISM_EXTRA_NAME PRISM_EXTRA_LABEL
 
 step "Prism $version ($commit), linux $arch, $bundles$($server && echo ', prism-server')${blocks:+, with the blocks of $blocks ($extra_label)}"
 
