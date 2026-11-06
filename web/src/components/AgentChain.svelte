@@ -12,7 +12,7 @@
   let { agent }: { agent: Agent } = $props()
   const chain = $derived(chainOf(agent.id))
   const ICON: Record<RunState, string> = { pending: '', held: '⏸', running: '◌', done: '✓', failed: '✕', skipped: '–' }
-  const short = (kind: string) => ({ task: t('Task'), prompt: t('Prompt'), mr: t('Draft MR'), agent: t('Review agent'), notify: t('Notify') })[kind] ?? kind
+  const short = (kind: string) => ({ task: t('Task'), prompt: t('Prompt'), mr: t('Draft MR'), agent: t('Review agent'), notify: t('Notify'), aside: t('In passing') })[kind] ?? kind
   const held = $derived(chain && chain.runs[chain.current]?.state === 'held')
 </script>
 

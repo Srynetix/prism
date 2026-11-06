@@ -219,6 +219,18 @@ export const SCHEMA: SectionSpec[] = [
     ],
   },
   {
+    id: 'agents-aside', label: t('In passing'), table: '[agents.aside]', path: ['agents', 'aside'],
+    intro: t('What an agent sees while it works but is out of its task (dead code, a stale doc, a missing test, the same bug elsewhere): it flags it with suggest_task, a tool of Prism’s MCP server given to the agents Prism launches (Claude Code, Codex, OpenCode), rather than in a sentence of its summary. A card in its Chat, a ↗ chip on the agent, the « In passing » list of the Agents view (and the aside block): launch it in another agent, after this one, as a ticket, later, or dismiss it — the agent is told at its next step.'),
+    fields: [
+      { key: 'enabled', label: t('In passing'), hint: t('The suggest_task and dismiss_task tools given to the agents Prism launches, from their next launch or resume.'), kind: 'toggle' },
+      { key: 'desktop', label: t('Claude Desktop sessions'), hint: t('Their spawn_task calls, read from their transcripts, fill the list too (read only: Desktop keeps its own chip).'), kind: 'toggle' },
+      { key: 'default_action', label: t('Main button'), hint: t('launch: the launcher, prefilled; then: after its agent, in its chain; ticket: a ticket of the tracker.'), kind: 'select', options: ['launch', 'then', 'ticket'] },
+      { key: 'worktree', label: t('Launch in a worktree'), hint: t('Off: in the folder of the agent that saw it.'), kind: 'toggle' },
+      { key: 'stale_days', label: t('Older after'), hint: t('Open lines older than this fold under Older; nothing is removed on its own. 0: never.'), kind: 'number', unit: 'days' },
+      { key: 'statusbar', label: t('Count in the status bar'), hint: t('The open ones; never an alert, never urgent.'), kind: 'toggle' },
+    ],
+  },
+  {
     id: 'mcp', label: t('MCP server'), table: '[mcp]', path: ['mcp'],
     intro: t('prism mcp: an MCP server an agent CLI starts. It reads Prism’s help, the commented reference, the schema of every table, your config merged with its packs (no secret: tokens live in the keychain) and Problems; it tests a custom block in a sandbox. A change it makes is a proposal: Prism shows its diff and you apply it, refuse it or edit it. It reaches this Prism through a local socket of the profile; Prism stopped, only the docs and the schema answer.'),
     fields: [

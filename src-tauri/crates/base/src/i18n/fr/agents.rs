@@ -137,4 +137,10 @@ pub const TABLE: &[(&str, &str)] = &[
     ("archived while it waited: its agent stopped", "archivée pendant qu’elle attendait : son agent est arrêté"),
     ("no such run", "exécution inconnue"),
     ("this routine changed since it was shown: look at it again", "cette routine a changé depuis son affichage : regardez-la de nouveau"),
+    ("this proposal is gone", "cette proposition n’existe plus"),
+    ("this proposal was dealt with already", "cette proposition a déjà été traitée"),
+    ("dealt with meanwhile", "traitée entre-temps"),
+    ("no agent of Prism's saw it: launch it instead", "aucun agent de Prism ne l’a vue : lancez-la plutôt"),
+    ("its agent is closed: launch it instead", "son agent est fermé : lancez-la plutôt"),
+    ("only a proposal dealt with leaves the list", "seule une proposition traitée quitte la liste"),
 ];

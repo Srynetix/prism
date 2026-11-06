@@ -19,14 +19,14 @@ pub fn schema() -> &'static serde_json::Value {
 pub fn cli(args: &[std::ffi::OsString]) -> i32 {
     let arg = |i: usize| args.get(i).and_then(|a| a.to_str()).unwrap_or_default().to_string();
     let done: anyhow::Result<Option<String>> = match arg(2).as_str() {
-        "" => {
+        "" | "aside" => {
             let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().expect("a runtime");
-            rt.block_on(stdio::run()).map(|()| None)
+            rt.block_on(stdio::run(arg(2) == "aside")).map(|()| None)
         }
         "install" => install::install(&arg(3)).map(Some),
         "uninstall" => install::uninstall(&arg(3)).map(Some),
         "status" => Ok(Some(install::status().iter().map(|i| format!("{}\tserver {}\tskill {}{}", i.cli, yes(i.server), yes(i.skill), if i.present { "" } else { "\t(not installed)" })).collect::<Vec<_>>().join("\n"))),
-        _ => Err(anyhow::anyhow!("usage: prism mcp | install <claude|codex|opencode> | uninstall <cli> | status")),
+        _ => Err(anyhow::anyhow!("usage: prism mcp [aside] | install <claude|codex|opencode> | uninstall <cli> | status")),
     };
     match done {
         Ok(Some(msg)) => {

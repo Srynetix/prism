@@ -377,6 +377,26 @@ level = "file"
 alert = "lines"
 ignore = ["*.lock", "pnpm-lock.yaml", "package-lock.json", "yarn.lock", "go.sum", "**/bindings/**"]
 
+# In passing: what an agent sees while it works but is out of its task (dead code, a stale doc, a
+# missing test, the same bug elsewhere). The agents Prism launches (Claude Code, Codex, OpenCode) get
+# the suggest_task and dismiss_task tools of Prism's MCP server (`prism mcp aside`, or the whole
+# server with prism_mcp): they flag such a task there rather than in a sentence of their summary. A
+# card in their Chat, a ↗ chip on the agent, the « In passing » list of the Agents view (and the
+# `aside` block): Launch… (the launcher, prefilled: a worktree from the base or the agent's branch,
+# its CLI and effort), After this agent (a step of its chain), Ticket, Later, Dismiss (the reason is
+# told to the agent). Same repository, files that meet and close titles make one line; a task dealt
+# with is not proposed again. desktop: the spawn_task calls of the Claude Desktop sessions fill the
+# list too. default_action: the card's main button (launch | then | ticket). worktree: Launch makes
+# a worktree (off: the agent's folder). stale_days: open lines older fold under Older (0: never).
+# statusbar: a count of the open ones in the status bar.
+[agents.aside]
+enabled = true
+desktop = true
+default_action = "launch"
+worktree = true
+stale_days = 14
+statusbar = false
+
 # Each CLI's own keys, wherever it runs (by default or for a repository): [agents.claude],
 # [agents.command-code], [agents.opencode], [agents.codex]. bin: the executable (a name in the
 # PATH or a path; absent, its usual name); args: added to every launch and resume.

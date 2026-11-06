@@ -286,6 +286,12 @@ commands! {
     agents::agent_git_sync: Act [phone: state, id: String],
     // A chain's held step skipped, a chain stopped or hidden.
     agents::chain_order: Act [phone: state, id: String, action: String; sync],
+    // A task flagged in passing: kept, dismissed, said launched, made a ticket; chained after its
+    // agent, it launches one on the computer later (the passkey, as launching one).
+    agents::aside_launch: Read [phone: state, id: u64, from_branch: bool],
+    agents::aside_action: Act [phone: state, id: u64, action: String, why: Option<String>, target: Option<String>; sync],
+    agents::aside_then: Critical [phone: state, id: u64, from_branch: bool; sync],
+    agents::aside_ticket: Act [phone: state, id: u64],
     // Routines: a row out of "To review"; a run again, or a routine switched, launches an agent
     // on the computer (the passkey); trusting one, removing one, and the builtins' inputs: never.
     agents::routine_archive: Act [phone: state, runs: Vec<String>; sync],

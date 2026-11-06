@@ -3,6 +3,7 @@
 //! Agents view attaches to it through a pseudo-terminal to display it.
 
 pub mod activity;
+pub mod asides;
 mod attach;
 pub mod breakdown;
 pub mod chain;
@@ -151,7 +152,7 @@ fn home_path<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Opti
 
 impl Launch {
     /// The launch as asked, kept on the agent.
-    fn spec(&self) -> state::LaunchSpec {
+    pub(crate) fn spec(&self) -> state::LaunchSpec {
         let some = |s: &Option<String>| s.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(String::from);
         state::LaunchSpec {
             title: self.title.trim().to_string(),
@@ -234,6 +235,8 @@ struct Inner {
     routines_wake: Notify,
     /// The routines' loop runs (not in the demo, whose snapshot shows sample ones).
     routines_live: std::sync::atomic::AtomicBool,
+    /// What the agents flagged in passing (`asides`).
+    asides: Mutex<asides::Book>,
 }
 
 /// The windows of OpenCode's models (its catalog), and when it was last read.
@@ -295,6 +298,7 @@ impl Agents {
                 routines: Mutex::new(routines::Book::load(&dir)),
                 routines_wake: Notify::new(),
                 routines_live: std::sync::atomic::AtomicBool::new(false),
+                asides: Mutex::new(asides::Book::load(&dir)),
             }),
         };
         agents.publish_left();
@@ -535,6 +539,12 @@ fn write_wiring(work: &Path, provider: Provider) -> Result<()> {
     {
         tracing::warn!("agents: Prism's MCP plugin not written: {e:#}");
     }
+    // Its « in passing » mode alone (`[agents.aside]`), as `--mcp-config`.
+    if provider == Provider::Claude
+        && let Err(e) = prism_core::mcp::write_claude_aside(work, &prism_core::mcp::aside_command())
+    {
+        tracing::warn!("agents: Prism's MCP config not written: {e:#}");
+    }
     let wiring: Vec<u8> = match provider {
         Provider::Claude => serde_json::to_vec_pretty(&hook::hooks_settings(&exe, work))?,
         Provider::CommandCode => provider::COMMAND_CODE_MOD.into(),
@@ -598,6 +608,8 @@ fn as_session(a: &Agent) -> ClaudeSession {
         group_order: None,
         order_in_group: None,
         origin: SessionOrigin::Agent,
+        transcript: None,
+        path: None,
     }
 }
 

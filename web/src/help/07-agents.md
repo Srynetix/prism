@@ -219,6 +219,20 @@ It reaches the running Prism of the profile through a local socket, the owner's 
 
 [Open Settings › Agents › Prism MCP](prism:settings/prism-mcp)
 
+## In passing: what an agent sees out of its task
+
+While it works, an agent often sees something worth doing that is not what you asked: dead code, a stale doc, a missing test, a TODO it confirmed, the same bug elsewhere. Rather than a sentence of its summary you may never read, it flags it with `suggest_task`, a tool Prism gives the agents it launches (Claude Code, Codex, OpenCode), and carries on with its task. The Claude Desktop sessions' `spawn_task` calls come in too.
+
+- **In its Chat**: a card where it saw it — the title, what and why, the files — in place of the tool call. It never blocks: it is not a question.
+- **On the agent**: a chip **↗ n**, its open ones; a click opens the list on it.
+- **The « In passing » list**: the **↗** button above the Agents list (and the **In passing** block of a page, More › In passing on the phone), by repository; Open, Launched, Tickets, Dismissed. Two agents seeing the same thing (same repository, files that meet, close titles) make one line, seen by both.
+
+Each line: **Launch…** opens the launcher prefilled — its prompt headed by where it comes from, a new worktree from the base or from the agent's branch (chosen on the card; the agent's branch first when the task depends on its changes), its agent's CLI and effort, its kind — and Enter launches it. **After this agent** adds it to that agent's chain: launched once it is done. **Ticket** creates it in the tracker, its tldr and prompt in a comment. **Later** keeps it without a badge; **✕** dismisses it, the reason going back to the agent.
+
+The agent learns what became of it at its next step (launched elsewhere: it leaves those files alone; dismissed: it does not propose it again), and can withdraw one itself (`dismiss_task`): struck out in its Chat. A line whose files a commit of another branch changed since says so. Open lines older than `stale_days` fold under Older; nothing is removed on its own.
+
+[Open Settings › Agents › In passing](prism:settings/aside)
+
 ## Settings and console
 In Settings › Agents › Agent (`[agents]`):
 

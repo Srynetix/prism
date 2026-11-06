@@ -249,6 +249,27 @@ impl Agents {
         self.publish(&book);
     }
 
+    /// A step added after agent `a`'s work: at the end of its chain while that runs; otherwise
+    /// a chain of its own, which goes as soon as the agent is (or once it is) at rest.
+    pub(crate) fn add_step(&self, a: &Agent, step: LaunchStep) {
+        let mut book = self.book();
+        match book.chains.get_mut(&a.id).filter(|c| c.active()) {
+            Some(c) => {
+                c.steps.push(step);
+                c.runs.push(StepRun::of(RunState::Pending));
+            }
+            None => {
+                let mut c = Chain::new(vec![step]);
+                // Its work counts as seen: at rest already, the step goes at the next tick.
+                c.saw_running = true;
+                book.chains.insert(a.id.clone(), c);
+            }
+        }
+        self.publish(&book);
+        drop(book);
+        self.inner.chains_wake.notify_one();
+    }
+
     /// An answer to a chain: `go` (a held step runs), `skip` (it does not, and counts as failed
     /// for an `ok` step after), `stop`, `forget`.
     pub fn chain_order(&self, id: &str, action: &str) -> Result<()> {
@@ -419,6 +440,13 @@ impl Agents {
                 };
                 self.spawn(launch).await?;
                 self.chain(id, |c| c.runs[i] = StepRun::with(RunState::Done, title));
+                Ok(Then::Next(true))
+            }
+            StepKind::Aside => {
+                match self.run_aside_step(step.text.as_deref().unwrap_or_default()).await? {
+                    Some(title) => self.chain(id, |c| c.runs[i] = StepRun::with(RunState::Done, title)),
+                    None => self.chain(id, |c| c.runs[i] = StepRun::with(RunState::Skipped, tr("dealt with meanwhile"))),
+                };
                 Ok(Then::Next(true))
             }
             StepKind::Notify => {

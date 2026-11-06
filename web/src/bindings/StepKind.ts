@@ -2,6 +2,6 @@
 
 /**
  * What a "Then" step does: run a task, prompt the agent, push and open a draft MR, launch a
- * review agent, notify.
+ * review agent, notify, launch what it saw in passing (`text`: the proposal's id).
  */
-export type StepKind = "task" | "prompt" | "mr" | "agent" | "notify";
+export type StepKind = "task" | "prompt" | "mr" | "agent" | "notify" | "aside";

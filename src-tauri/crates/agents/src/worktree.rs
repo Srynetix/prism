@@ -145,6 +145,10 @@ pub struct Plan {
     /// others it could: the repository's base and main branch first, then its releases, then the rest.
     pub base: Option<String>,
     pub bases: Vec<String>,
+    /// `base` is a local branch, not on `origin` (an agent's, for what it saw in passing).
+    #[serde(skip)]
+    #[cfg_attr(feature = "ts", ts(skip))]
+    pub local_base: bool,
 }
 
 /// The `Plan` of a worktree named after `wanted` in `root`, from the repository's `branches`.
@@ -163,13 +167,13 @@ pub fn plan(wanted: &str, root: &Path, prefix: &str, branch: Option<&str>, Branc
     let taken = why(wanted).map(|w| tr!("{name} is taken: {why}", name = wanted, why = w));
     let name = (0..100).map(|i| if i == 0 { wanted.to_string() } else { format!("{wanted}-{}", i + 1) }).find(|n| why(n).is_none());
     let Some(name) = name else {
-        return Plan { name: wanted.into(), dir: root.join(wanted), branch: branch.map_or_else(|| format!("{prefix}{wanted}"), String::from), taken, error: Some(tr!("no free worktree name after {name}", name = wanted)), base: None, bases: Vec::new() };
+        return Plan { name: wanted.into(), dir: root.join(wanted), branch: branch.map_or_else(|| format!("{prefix}{wanted}"), String::from), taken, error: Some(tr!("no free worktree name after {name}", name = wanted)), base: None, bases: Vec::new(), local_base: false };
     };
     let error = branch.and_then(|b| {
         let (_, dir) = checked_out.iter().find(|(c, _)| c == b)?;
         Some(tr!("{branch} is already checked out in {path}: choose it under Existing worktree", branch = b, path = dir.display()))
     });
-    Plan { dir: root.join(&name), branch: branch.map_or_else(|| format!("{prefix}{name}"), String::from), name, taken, error, base: None, bases: Vec::new() }
+    Plan { dir: root.join(&name), branch: branch.map_or_else(|| format!("{prefix}{name}"), String::from), name, taken, error, base: None, bases: Vec::new(), local_base: false }
 }
 
 /// The branches on `origin` (as last fetched), the first ones first, then the release ones

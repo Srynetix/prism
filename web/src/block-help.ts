@@ -131,6 +131,17 @@ export const BLOCK_HELP: Record<BlockId, BlockHelp> = {
       return t('What the Sprint, Merge requests and Agents blocks read: no request of its own.')
     },
   },
+  aside: {
+    purpose: t('What the agents saw in passing, out of their task — dead code, a stale doc, a missing test — flagged with suggest_task rather than in a sentence of their summary: one line per subject, until you deal with it.'),
+    points: [
+      t('Launch… opens the launcher prefilled: its prompt headed by where it comes from, a new worktree from the base or from its agent’s branch, its agent’s CLI and effort, its kind; Enter launches it. After this agent runs it once that agent is done (a step of its chain); Ticket makes it a ticket of the tracker.'),
+      t('Later keeps it without its badge; Dismiss takes it out, and the reason is told to the agent, which will not propose it again. Two agents seeing the same thing (same repository, files that meet, close titles) make one line, seen by both.'),
+      t('“files changed since”: a commit of another branch touched its files, maybe it was done already. Open lines older than stale_days fold under Older; nothing is removed on its own.'),
+    ],
+    get source() {
+      return t('Prism’s MCP server, given to the agents it launches ([agents.aside]), and the spawn_task calls of the Claude Desktop sessions: no request of its own.')
+    },
+  },
   routines: {
     purpose: t('What the agents launched on their own at fixed times (the routines) left for you to look at, and when they run next.'),
     points: [

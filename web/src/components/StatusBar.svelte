@@ -19,8 +19,9 @@
   import type { Snapshot } from '../types'
   import AudioControl from './AudioControl.svelte'
   import DigestItem from './DigestItem.svelte'
-  import { openAgents } from '../agents.svelte'
+  import { agentsSettings, openAgents } from '../agents.svelte'
   import { reviewPile } from '../routines.svelte'
+  import { asidesOf, badged, showAsides } from '../asides.svelte'
   import { openProposal, proposals } from '../mcp-view.svelte'
   import StatusUsage from './StatusUsage.svelte'
   import RepoMenu from './RepoMenu.svelte'
@@ -285,6 +286,10 @@
       {@const cs = snap!.mcp.clients}
       <button class="sbi" onclick={() => openSettings('prism-mcp')} title={t('Connected to Prism MCP: {who} · Settings › Agents › Prism MCP', { who: cs.map((c) => c.name).join(', ') })}><span class="g"><Icon name="settings" /></span>MCP · {cs.length}</button>
     {/if}
+  {:else if id === 'aside' && agentsSettings().aside?.statusbar && asidesOf(snap).some(badged)}
+    {@const n = asidesOf(snap).filter(badged).length}
+    <!-- The tasks flagged in passing still open ([agents.aside] statusbar): never an alert, never urgent. -->
+    <button class="sbi" onclick={() => { openAgents(); showAsides() }} title={t('In passing: {n} open · the Agents view', { n })}><span class="g"><Icon name="aside" /></span><b>{n}</b> {t('in passing')}</button>
   {:else if id === 'usage'}
     <StatusUsage sections={snap ? planSections(snap) : []} {now} working={snap ? countedSessions(snap).some((c) => c.status === 'running') : false} />
   {:else if id === 'sprint' && sprintDay}

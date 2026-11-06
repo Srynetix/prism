@@ -645,6 +645,68 @@ pub async fn launch_tasks(state: State<'_, AppState>, cwd: Option<String>, repo:
     })
 }
 
+/// The user's answer to a task an agent flagged in passing: `later`, `reopen`, `dismiss` (`why`
+/// told to its agents), `launched` (`target`: the new agent), `forget` (a line dealt with).
+#[prism_macros::command]
+pub fn aside_action(state: State<'_, AppState>, id: u64, action: String, why: Option<String>, target: Option<String>) -> Cmd {
+    if !matches!(action.as_str(), "later" | "reopen" | "dismiss" | "launched" | "forget") {
+        return Err(format!("no action {action}").into());
+    }
+    state.agents.aside_action(id, &action, why, target).map_err(Into::into)
+}
+
+/// The launch of a task flagged in passing, for the launcher: its prompt headed by where it comes
+/// from, a new worktree (from its agent's branch, or the base) or its agent's folder, its agent's
+/// CLI, model and effort, its kind.
+#[prism_macros::command]
+pub fn aside_launch(state: State<'_, AppState>, id: u64, from_branch: bool) -> Cmd<crate::state::LaunchSpec> {
+    state.agents.aside_launch_spec(id, from_branch).map_err(Into::into)
+}
+
+/// "After this agent": the task flagged in passing launched once its agent is done (a step of its
+/// chain), from its branch as it is then, or from the repository's base.
+#[prism_macros::command]
+pub fn aside_then(state: State<'_, AppState>, id: u64, from_branch: bool) -> Cmd {
+    state.agents.aside_then(id, from_branch).map_err(Into::into)
+}
+
+/// A task flagged in passing made a ticket of the tracker: on the board of its repository (failing
+/// that, the first of the sprint's), in its first status to pick; its tldr and prompt in a comment.
+/// Its key.
+#[prism_macros::command]
+pub async fn aside_ticket(state: State<'_, AppState>, id: u64) -> Cmd<String> {
+    // Claimed first: a second click (here or on a phone) meanwhile makes no second ticket.
+    let a = state.agents.begin_ticket(id)?;
+    let made = make_ticket(&state, &a).await;
+    state.agents.end_ticket(id);
+    let key = made?;
+    state.agents.aside_ticket(id, &key)?;
+    Ok(key)
+}
+
+async fn make_ticket(state: &AppState, a: &crate::state::Aside) -> anyhow::Result<String> {
+    let (board, status) = {
+        let snap = state.hub.subscribe().borrow().clone();
+        let sprint = snap.sprint.ok_or_else(|| anyhow::anyhow!(tr("no sprint read from the tracker: no board to create the ticket on")))?;
+        let repo = a.repo.as_deref().unwrap_or_default().to_lowercase();
+        let board = sprint.boards.iter().find(|b| !repo.is_empty() && b.name.to_lowercase().contains(&repo)).or(sprint.boards.first()).cloned();
+        let board = board.ok_or_else(|| anyhow::anyhow!(tr("the tracker offers no board to create the ticket on")))?;
+        let pick = crate::config::load(&crate::config_path()).map(|c| c.tracker.pick_statuses).unwrap_or_default();
+        let open: Vec<_> = board.statuses.iter().filter(|s| !s.closed).collect();
+        let status = open.iter().find(|s| pick.contains(&s.status)).or(open.first()).map(|s| s.status.clone()).unwrap_or_default();
+        (board.id, status)
+    };
+    let tracker = state.tracker();
+    let key = tracker.create(&state.hub, &board, &status, &a.title).await?;
+    let by = a.seen.iter().map(|s| s.name.as_str()).collect::<Vec<_>>().join(", ");
+    let files = if a.files.is_empty() { String::new() } else { format!("\n\n{}: {}", tr("Files"), a.files.join(", ")) };
+    let text = format!("{}\n\n{}\n\n{}{files}", a.tldr, tr!("Spotted in passing by {agents}. The prompt for the agent that does it:", agents = by), a.prompt);
+    if let Err(e) = tracker.add_comment(&state.hub, &key, &text, &[]).await {
+        tracing::warn!("aside: the ticket {key} has no description: {e:#}");
+    }
+    Ok(key)
+}
+
 /// An answer to an agent's chain: `skip` its held step, `stop` it, `forget` it.
 #[prism_macros::command]
 pub fn chain_order(state: State<'_, AppState>, id: String, action: String) -> Cmd {

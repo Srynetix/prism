@@ -78,7 +78,7 @@ pub struct WorktreeRequest {
 }
 
 /// What a "Then" step does: run a task, prompt the agent, push and open a draft MR, launch a
-/// review agent, notify.
+/// review agent, notify, launch what it saw in passing (`text`: the proposal's id).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
@@ -88,6 +88,7 @@ pub enum StepKind {
     Mr,
     Agent,
     Notify,
+    Aside,
 }
 
 /// When a "Then" step runs: once the one before finished, only if it succeeded, after your go.
@@ -366,6 +367,14 @@ pub struct ClaudeSession {
     pub group_order: Option<u32>,
     pub order_in_group: Option<u32>,
     pub origin: SessionOrigin,
+    /// A Desktop session's transcript and whole folder, kept for Prism (« in passing » reads its
+    /// `spawn_task` calls), never sent.
+    #[serde(skip)]
+    #[cfg_attr(feature = "ts", ts(skip))]
+    pub transcript: Option<String>,
+    #[serde(skip)]
+    #[cfg_attr(feature = "ts", ts(skip))]
+    pub path: Option<String>,
 }
 
 /// Archived desktop session that had a worktree: enough to tell what it was used for, and

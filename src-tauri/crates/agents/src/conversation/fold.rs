@@ -204,6 +204,19 @@ impl Fold {
         true
     }
 
+    /// A call of Prism's « in passing » tools: what it is about (its title, or the task withdrawn).
+    pub(super) fn aside_call(tool: &mut Tool, input: &Value) {
+        if !aside_tool(&tool.tool) {
+            return;
+        }
+        // Codex gives its arguments as a JSON string.
+        let parsed = input.as_str().and_then(|s| serde_json::from_str::<Value>(s).ok());
+        let input = parsed.as_ref().unwrap_or(input);
+        tool.kind = "other";
+        tool.aside = true;
+        tool.what = input.get("title").and_then(Value::as_str).map(String::from).or_else(|| input.get("task_id").map(|v| format!("#{}", v.as_str().map(String::from).unwrap_or_else(|| v.to_string()))));
+    }
+
     /// A call's outcome: its state, and a command's output (or a failure's message).
     pub(super) fn result(&mut self, id: Option<&str>, at: Option<&str>, failed: bool, output: Option<String>) {
         let Some((t, e)) = id.and_then(|id| self.calls.remove(id)) else { return };
@@ -215,7 +228,8 @@ impl Fold {
         if let Some(Entry::Tool(tool)) = self.turns.get_mut(t).and_then(|turn| turn.entries.get_mut(e)) {
             tool.state = if failed { "failed" } else { "ok" };
             tool.ms = tool.at.as_deref().zip(at).and_then(|(from, to)| millis(from, to));
-            if failed || tool.kind == "command" {
+            // A task flagged in passing: its answer gives its id, which its Chat card follows.
+            if failed || tool.kind == "command" || tool.aside {
                 tool.output = output.map(|o| tail(&o)).filter(|o| !o.is_empty());
             }
         }
@@ -407,4 +421,10 @@ impl Fold {
         b.ended = b.ended.take().filter(|_| b.state == "stopped").or(at.map(String::from));
         b.summary = tag("summary").map(|s| cut(&s, 300)).or(b.summary.take());
     }
+}
+
+/// Prism's « in passing » tools, as each CLI names them (`mcp__prism__suggest_task`,
+/// `prism__suggest_task`, `prism.suggest_task`…).
+pub(super) fn aside_tool(name: &str) -> bool {
+    name.contains("prism") && (name.ends_with("suggest_task") || name.ends_with("dismiss_task"))
 }

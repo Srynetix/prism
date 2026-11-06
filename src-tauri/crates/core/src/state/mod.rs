@@ -14,6 +14,7 @@ mod agents;
 mod integrations;
 mod routines;
 mod overlaps;
+mod asides;
 
 pub use hub::*;
 pub use cluster::*;
@@ -23,6 +24,7 @@ pub use agents::*;
 pub use integrations::*;
 pub use routines::*;
 pub use overlaps::*;
+pub use asides::*;
 
 /// Applications to open a repository in from the Repos menu (`open -a`).
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
@@ -225,6 +227,8 @@ pub struct Snapshot {
     pub routines: Routines,
     /// Agents and worktrees changing the same lines or files (`prism_collectors::overlaps`).
     pub overlaps: Overlaps,
+    /// What the agents flagged in passing, out of their task (`prism_agents::asides`), the newest first.
+    pub asides: Vec<Aside>,
     /// Changes each time the book of what every agent cost changes (`agent-costs.json`): the
     /// book itself is read on demand (`agent_costs`), by the Actual sections that show it.
     pub agent_costs_rev: u64,

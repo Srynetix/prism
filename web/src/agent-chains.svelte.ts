@@ -26,7 +26,7 @@ export type { LaunchStep as Step } from './bindings/LaunchStep'
 export type { Chain }
 export type { RunState } from './bindings/RunState'
 
-export const STEP_LABEL: Record<StepKind, string> = { task: t('Run a task'), prompt: t('Prompt this agent'), mr: t('Push and open a draft MR'), agent: t('Launch a review agent'), notify: t('Notify me') }
+export const STEP_LABEL: Record<StepKind, string> = { task: t('Run a task'), prompt: t('Prompt this agent'), mr: t('Push and open a draft MR'), agent: t('Launch a review agent'), notify: t('Notify me'), aside: t('Launch what it saw in passing') }
 export const WHEN_LABEL: Record<When, string> = { done: t('once it finished'), ok: t('if it succeeded'), ask: t('ask me first') }
 
 /** Ready-made chains, for the launcher. */

@@ -145,6 +145,7 @@ fn summarize(m: RawSession, transcript: Option<&Path>) -> ClaudeSession {
     let worktree = m.worktree_path.clone().filter(|p| !p.is_empty());
     let folder = worktree.as_deref().or(m.cwd.as_deref()).unwrap_or_default();
     let title = m.title.unwrap_or_else(|| "Untitled".into());
+    let path = Some(folder.to_string()).filter(|f| !f.is_empty());
     ClaudeSession {
         id: m.session_id,
         ticket: ticket::find_in_session(&title, m.branch.as_deref()),
@@ -159,6 +160,8 @@ fn summarize(m: RawSession, transcript: Option<&Path>) -> ClaudeSession {
         group_order: None,
         order_in_group: None,
         origin: SessionOrigin::Desktop,
+        transcript: transcript.map(|t| t.display().to_string()),
+        path,
     }
 }
 

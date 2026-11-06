@@ -46,7 +46,7 @@
     <div class="sec">
       <span class="cap">{t('Launched')} <span class="when" title={new Date(agent.created_at).toLocaleString()}>{t('{when} ago', { when: ago(agent.created_at) })}</span></span>
       <div class="kv">
-        {#if l.from}<span>{t('From')}</span><span>{t('Action')} <b>{l.from}</b>{#if agent.ticket}{' '}· {agent.ticket}{/if}</span>{/if}
+        {#if l.from?.startsWith('aside:')}<span>{t('From')}</span><span>{t('In passing')} <b>#{l.from.slice('aside:'.length)}</b>{#if agent.ticket}{' '}· {agent.ticket}{/if}</span>{:else if l.from}<span>{t('From')}</span><span>{t('Action')} <b>{l.from}</b>{#if agent.ticket}{' '}· {agent.ticket}{/if}</span>{/if}
         <span>{t('Title')}</span><span>{l.title || t('Agent')}{#if l.title !== agent.title}<i class="changed"> · {t('renamed since')}</i>{/if}</span>
         <span>{t('Agent')}</span><span>{cliOf(l.provider ?? agent.provider).cli}<i class="muted"> · {l.provider ? t('picked') : t('the default then')}</i></span>
         <span>{t('Where')}</span>

@@ -74,6 +74,8 @@ impl AppState {
             spawn(agents.clone().run_chains());
             // The routines, at their times: here too, the window open or not.
             spawn(agents.clone().run_routines());
+            // What they flag in passing: the Desktop sessions' calls, the files changed since.
+            spawn(agents.clone().run_asides());
         }
         if let Ok(cfg) = crate::config::load(&crate::config_path()) {
             routine_context(&agents, &cfg, &crate::config_path());

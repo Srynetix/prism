@@ -8,6 +8,7 @@ import ArrowLeft from '@lucide/svelte/icons/arrow-left'
 import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right'
 import ArrowUp from '@lucide/svelte/icons/arrow-up'
 import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right'
+import CornerUpRight from '@lucide/svelte/icons/corner-up-right'
 import Asterisk from '@lucide/svelte/icons/asterisk'
 import Ban from '@lucide/svelte/icons/ban'
 import Flag from '@lucide/svelte/icons/flag'
@@ -138,6 +139,7 @@ export const ICONS = {
   plus: Plus, // create (+ New)
   validate: CheckCheck, // an agent validating (agents rail)
   external: ArrowUpRight, // open elsewhere (↗)
+  aside: CornerUpRight, // a task an agent flagged in passing
   expand: Maximize2, // full screen, zoom (⤢)
   shrink: Minimize2, // exit full screen (⤡)
   more: Ellipsis, // menu ⋯
