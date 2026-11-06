@@ -27,4 +27,12 @@ mode: 'default' | 'acceptEdits' | 'plan' | null,
 /**
  * One of the `[[agents.kinds]]`; absent: the one its prompt's command names.
  */
-kind: string | null, };
+kind: string | null, 
+/**
+ * The model it runs (`opus`, in the CLI's own names); absent: the CLI's (`[agents.<cli>] model`).
+ */
+model?: string | null, 
+/**
+ * The reasoning effort (`low`… `xhigh`); absent: the CLI's.
+ */
+effort?: string | null, };

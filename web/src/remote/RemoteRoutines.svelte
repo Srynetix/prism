@@ -11,6 +11,9 @@
   const rs = $derived(routinesOf(live.snapshot))
   const list = $derived(live.snapshot?.agents_settings?.routines ?? [])
   let busy = $state('')
+  /** The routines whose prompt is shown whole. */
+  let open = $state<string[]>([])
+  const flip = (name: string) => (open = open.includes(name) ? open.filter((n) => n !== name) : [...open, name])
   async function toggle(name: string, on: boolean) {
     busy = name
     try {
@@ -29,7 +32,10 @@
     <div class="row">
       <div class="txt">
         <b>{r.name}</b>
-        <small>{r.action.startsWith('builtin:') ? builtinLabel(r.action) : r.action}{v?.repos.length ? ` · ${v.repos.join(', ')}` : ''} · {r.deliver === 'digest' ? t('Digest') : t('To review')}</small>
+        {#if r.prompt?.trim()}
+          <button class="prompt" class:open={open.includes(r.name)} onclick={() => flip(r.name)} aria-expanded={open.includes(r.name)} title={t('The routine’s own prompt: tap to read it whole')}>{r.prompt.trim()}</button>
+        {/if}
+        <small>{r.prompt?.trim() ? t('Prompt') : r.action.startsWith('builtin:') ? builtinLabel(r.action) : r.action}{r.prompt?.trim() && r.mode ? ` · ${r.mode}` : ''}{v?.repos.length ? ` · ${v.repos.join(', ')}` : ''} · {r.deliver === 'digest' ? t('Digest') : t('To review')}</small>
         <small>{whenWords(r)}{v?.next[0] ? ` · ${t('next: {time}', { time: nextTime(v.next[0]) })}` : ''}</small>
         {#if v?.error}<small class="ko">{v.error}</small>{:else if v?.pending}<small class="warn">{t('waits for your trust, given on the computer')}</small>{:else if last}<small>{t('last: {state}', { state: STATE_LABEL[last.state] })}</small>{/if}
       </div>
@@ -47,6 +53,8 @@
   .row:first-child { border-top: none; }
   .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .txt small { color: var(--text-muted); font-size: 12px; }
+  .prompt { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 2px 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-muted); color: var(--text); font: 12px/1.4 var(--mono, ui-monospace, monospace); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .prompt.open { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
   .ko { color: var(--ko) !important; }
   .warn { color: var(--warn) !important; }
   .note { margin: 12px 4px; color: var(--text-muted); font-size: 13px; text-align: center; }

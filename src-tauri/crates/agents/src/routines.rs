@@ -202,7 +202,19 @@ impl Book {
 fn routine_text(r: &Routine) -> String {
     let q = |s: &str| serde_json::to_string(s).unwrap_or_default();
     let list = |l: &[String]| serde_json::to_string(l).unwrap_or_default();
-    let mut lines = vec![format!("action = {}", q(&r.action))];
+    let mut lines = match r.own_prompt() {
+        // Its prompt line by line: a change shows as the lines it touched.
+        Some(p) => vec!["prompt = \"\"\"".to_string(), p.trim_end().to_string(), "\"\"\"".to_string()],
+        None => vec![format!("action = {}", q(&r.action))],
+    };
+    if let Some(w) = r.worktree {
+        lines.push(format!("worktree = {w}"));
+    }
+    for (k, v) in [("mode", &r.mode), ("kind", &r.kind), ("model", &r.model), ("effort", &r.effort)] {
+        if let Some(v) = v.as_deref() {
+            lines.push(format!("{k} = {}", q(v)));
+        }
+    }
     if !r.repos.is_empty() {
         lines.push(format!("repos = {}", list(&r.repos)));
     }
@@ -230,8 +242,10 @@ fn action_text(action: &str, qa: Option<&QuickAction>) -> String {
             if let Some(m) = &a.mode {
                 lines.push(format!("mode = {}", q(m)));
             }
-            if let Some(k) = &a.kind {
-                lines.push(format!("kind = {}", q(k)));
+            for (k, v) in [("kind", &a.kind), ("model", &a.model), ("effort", &a.effort)] {
+                if let Some(v) = v {
+                    lines.push(format!("{k} = {}", q(v)));
+                }
             }
             lines.join("\n")
         }
@@ -244,6 +258,11 @@ fn sha(text: &str) -> String {
 
 /// The hashes of a routine and of what it runs: an action unknown counts as its name alone.
 fn hashes(r: &Routine, actions: &[QuickAction]) -> (String, String, String) {
+    // A prompt of its own: all of it in the routine's text, no action of its own to trust apart.
+    if r.own_prompt().is_some() {
+        let rt = routine_text(r);
+        return (sha(&rt), String::new(), rt);
+    }
     let qa = actions.iter().find(|a| a.name == r.action.trim());
     let (rt, at) = (routine_text(r), action_text(r.action.trim(), qa));
     (sha(&rt), sha(&at), format!("{rt}\n{at}"))
@@ -411,8 +430,8 @@ impl Agents {
                                 }
                             }
                         }
-                        let action = qa.map(|a| RoutineAction { prompt: a.prompt.clone(), mode: a.mode.clone(), worktree: a.worktree });
-                        (None, next, r.targets(*qa), action)
+                        let action = qa.as_ref().map(|a| RoutineAction { prompt: a.prompt.clone(), mode: a.mode.clone(), worktree: a.worktree, own: r.own_prompt().is_some(), kind: a.kind.clone(), model: a.model.clone(), effort: a.effort.clone() });
+                        (None, next, r.targets(qa.as_ref()), action)
                     }
                 };
                 RoutineView { name: r.name.clone(), enabled: r.enabled, next, repos, error, pending, action }
@@ -481,7 +500,7 @@ impl Agents {
             changed = true;
             let late = now - due;
             let missed = late > chrono::Duration::minutes(SLACK_MINUTES);
-            let targets: Vec<Option<String>> = if qa.is_none() { vec![None] } else { r.targets(qa).into_iter().map(Some).collect() };
+            let targets = r.runs(qa.as_ref());
             for repo in targets {
                 let mut run = RoutineRun { caught_up: missed, ..RoutineRun::new(&r.name, repo.clone(), &r.deliver, due, now, true) };
                 if missed && r.missed == "skip" {
@@ -580,6 +599,8 @@ impl Agents {
 
     async fn start_run(&self, r: &Routine, actions: &[QuickAction], repo: Option<&str>, run_id: &str, fr: bool) -> Result<()> {
         let action = r.action.trim();
+        // What it launches: its quick action, or the one its own prompt makes; none for a builtin.
+        let (_, qa) = r.check(actions).map_err(|e| anyhow::anyhow!(e))?;
         let (since, inputs, workspace) = {
             let b = self.routines_book();
             (b.kept.slots.get(&r.name).and_then(|s| s.ok), b.inputs.clone(), b.workspace.clone())
@@ -602,7 +623,11 @@ impl Agents {
             prism_mcp: false,
         };
         let mut dirty = BTreeMap::new();
-        let (dir, head) = match (actions.iter().find(|a| a.name == action), repo) {
+        if let Some(qa) = &qa {
+            launch.model = qa.model.clone();
+            launch.effort = qa.effort.clone();
+        }
+        let (dir, head) = match (qa.as_ref(), repo) {
             (None, _) => {
                 // A builtin: read-only, in the working folder.
                 launch.prompt = Some(builtin_prompt(action, &inputs, fr)?);
@@ -647,6 +672,19 @@ impl Agents {
                     };
                     (Some(path), head)
                 }
+            }
+            // A prompt of its own, no repository: once, in the working folder.
+            (Some(qa), None) if r.own_prompt().is_some() => {
+                let mut prompt = qa.prompt.replace("{since}", &since);
+                if prompt.contains("{alerts}") {
+                    prompt = prompt.replace("{alerts}", &alerts());
+                }
+                launch.prompt = Some(prompt);
+                launch.permission_mode = qa.mode.clone();
+                launch.category = qa.kind.clone();
+                let dir = workspace.filter(|w| w.is_dir()).or_else(dirs::home_dir).context(tr("no folder to start the agent in"))?;
+                launch.cwd = Some(dir.clone());
+                (Some(dir), None)
             }
             (Some(_), None) => bail!(tr("this quick action names no repository: give the routine its repos")),
         };
@@ -862,10 +900,10 @@ impl Agents {
         if pending_of(&book.trust, &r, &cfg.quick_actions).is_some() {
             bail!(tr!("routine {name} waits for your trust", name = name));
         }
-        let targets: Vec<Option<String>> = match (qa, repo) {
+        let targets: Vec<Option<String>> = match (&qa, repo) {
             (None, _) => vec![None],
             (Some(_), Some(repo)) => vec![Some(repo.to_string())],
-            (Some(_), None) => r.targets(qa).into_iter().map(Some).collect(),
+            (Some(_), None) => r.runs(qa.as_ref()),
         };
         if targets.is_empty() {
             bail!(tr("this quick action names no repository: give the routine its repos"));
@@ -1018,6 +1056,28 @@ mod tests {
         let d = diff(before, after);
         assert!(d.contains(&"- prompt = \"Bump {repo}.\"".to_string()) && d.contains(&"+ prompt = \"Bump {repo}, then merge.\"".to_string()), "{d:?}");
         assert!(d.iter().any(|l| l.starts_with("  action")));
+    }
+
+    /// A prompt of its own: one hash, its prompt's lines in the diff.
+    #[test]
+    fn trust_covers_an_own_prompt() {
+        let r = routine("name = \"W\"\nprompt = \"\"\"\nSum up {repo}.\nBy ticket.\n\"\"\"\nrepos = [\"api\"]\nmodel = \"opus\"\nevery = \"1d\"\n");
+        let (rh, ah, text) = hashes(&r, &[]);
+        assert!(ah.is_empty() && text.contains("Sum up {repo}.\nBy ticket.") && text.contains("model = \"opus\""), "{text}");
+        let mut trust = Trust::default();
+        trust.trusted.insert("W".into(), Trusted { routine: rh, action: ah, text, at: Utc::now() });
+        assert!(pending_of(&trust, &r, &[]).is_none());
+        // A quick action of the same name changing is not its business.
+        let other = vec![QuickAction { name: "W".into(), prompt: "x".into(), ..Default::default() }];
+        assert!(pending_of(&trust, &r, &other).is_none());
+        let edited = Routine { prompt: Some("Sum up {repo}.\nBy author.\n".into()), ..r.clone() };
+        let (reason, _, text) = pending_of(&trust, &edited, &[]).unwrap();
+        assert_eq!(reason, RoutinePendingReason::Modified);
+        let (before, after) = text.split_once('\u{0}').unwrap();
+        let d = diff(before, after);
+        assert!(d.contains(&"- By ticket.".to_string()) && d.contains(&"+ By author.".to_string()) && d.contains(&"  Sum up {repo}.".to_string()), "{d:?}");
+        let faster = Routine { effort: Some("low".into()), ..r.clone() };
+        assert!(pending_of(&trust, &faster, &[]).is_some(), "its effort is trusted too");
     }
 
     #[test]

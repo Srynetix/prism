@@ -17,6 +17,11 @@ describe('quickLaunch', () => {
     expect(quickLaunch(action(), api, true)).toEqual({ title: 'Upstream + Trivy', prompt: 'Update develop of api from upstream, then run Trivy.', from: 'Upstream + Trivy', cwd: '/code/api', permission_mode: 'default' })
   })
 
+  it('passes its model and effort when it names them', () => {
+    expect(quickLaunch(action({ model: 'opus', effort: 'high' }), api, true)).toMatchObject({ model: 'opus', effort: 'high' })
+    expect(quickLaunch(action(), api, true)).not.toHaveProperty('model')
+  })
+
   it('takes a new worktree only where the repository makes them', () => {
     expect(quickLaunch(action({ worktree: true }), api, true)).toMatchObject({ worktree: { repo: 'api' } })
     expect(quickLaunch(action({ worktree: true }), api, false)).toMatchObject({ cwd: '/code/api' })

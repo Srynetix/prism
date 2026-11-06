@@ -161,3 +161,14 @@ name = "Retro draft"
 action = "builtin:retro-draft"
 cron = "0 12 * * 5"
 deliver = "digest"
+
+[[agents.routines]]
+name = "Merged this week"
+prompt = """
+Sum up the merge requests merged on {repo} since {since}: one line each,
+grouped by ticket, and flag those without one.
+"""
+repos = ["shop"]
+mode = "plan"
+cron = "0 17 * * 5"
+deliver = "digest"

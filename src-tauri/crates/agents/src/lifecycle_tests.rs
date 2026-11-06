@@ -611,6 +611,29 @@ async fn a_routine_runs_at_its_time_and_nothing_to_do_is_archived() {
     assert!(kept["slots"]["Nightly"]["ok"].is_string());
 }
 
+/// A routine with its own prompt: launched with it, its model and effort, its mode.
+#[tokio::test]
+async fn a_routine_runs_its_own_prompt() {
+    let b = routine_bench();
+    b.agents.inner.routines_live.store(true, std::sync::atomic::Ordering::Relaxed);
+    let cfg = AgentsConfig {
+        routines: vec![toml::from_str("name = \"Week\"\nprompt = \"Sum up {repo} ({base}) since {since}.\"\nrepos = [\"api\"]\nmode = \"plan\"\nmodel = \"opus\"\neffort = \"high\"\nevery = \"30m\"\nmax_minutes = 600\n").unwrap()],
+        ..Default::default()
+    };
+    b.agents.routines_saved(None, &cfg);
+    b.agents.configure(cfg);
+    b.agents.publish_routines_now();
+    let view = b.hub.subscribe().borrow().routines.routines[0].clone();
+    assert!(view.error.is_none() && view.action.as_ref().is_some_and(|a| a.own), "{view:?}");
+    b.agents.run_routine_now("Week", None).unwrap();
+    until("its agent launched", || runs(&b).first().is_some_and(|r| r.agent.is_some())).await;
+    let id = runs(&b)[0].agent.clone().unwrap();
+    let argv = b.tmux.argv(&id).unwrap();
+    assert_eq!(argv.last().map(String::as_str), Some("Sum up api (main) since never: this is its first run."));
+    let joined = argv.join(" ");
+    assert!(joined.contains("--model opus") && joined.contains("--effort high") && joined.contains("--permission-mode plan"), "{joined}");
+}
+
 #[tokio::test]
 async fn a_routine_changed_elsewhere_waits_and_a_late_one_is_caught_up_once() {
     let b = routine_bench();

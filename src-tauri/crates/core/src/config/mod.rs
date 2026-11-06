@@ -479,10 +479,18 @@ pub struct QuickAction {
     pub mode: Option<String>,
     /// One of the `[[agents.kinds]]`; absent: the one its prompt's command names.
     pub kind: Option<String>,
+    /// The model it runs (`opus`, in the CLI's own names); absent: the CLI's (`[agents.<cli>] model`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub model: Option<String>,
+    /// The reasoning effort (`low`… `xhigh`); absent: the CLI's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub effort: Option<String>,
 }
 
-/// An agent launched on its own (`[[agents.routines]]`): a quick action, at the times a cron
-/// names or at a pace. Read as it is: what does not hold (both `cron` and `every`, a cron that
+/// An agent launched on its own (`[[agents.routines]]`): a quick action, or a prompt of its own,
+/// at the times a cron names or at a pace. Read as it is: what does not hold (both `cron` and `every`, a cron that
 /// does not read, an action unknown) shows in Problems, and that routine does not run.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -492,9 +500,37 @@ pub struct Routine {
     /// Its name, unique: what it is known by (its trust, its runs).
     pub name: String,
     /// A `[[agents.quick_actions]]` by its name, or one of Prism's: `builtin:alerts-triage`,
-    /// `builtin:retro-draft`.
+    /// `builtin:retro-draft`. Or `prompt`, not both.
     pub action: String,
-    /// The repositories it runs on, one run each; empty: its quick action's.
+    /// What the agent is asked, written for this routine only (`{repo}`, `{base}`, `{since}`,
+    /// `{alerts}` replaced); or `action`, not both. With it, the routine says itself what a quick
+    /// action would: `worktree`, `mode`, `kind`, `model`, `effort`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub prompt: Option<String>,
+    /// With `prompt`: in a new worktree of each repository (`repos` needed).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub worktree: Option<bool>,
+    /// With `prompt`: `default`, `acceptEdits` or `plan`; absent: the CLI's.
+    #[cfg_attr(feature = "ts", ts(type = "'default' | 'acceptEdits' | 'plan' | null"))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub mode: Option<String>,
+    /// With `prompt`: one of the `[[agents.kinds]]`; absent: the default one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub kind: Option<String>,
+    /// With `prompt`: the model; absent: the CLI's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub model: Option<String>,
+    /// With `prompt`: the reasoning effort; absent: the CLI's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub effort: Option<String>,
+    /// The repositories it runs on, one run each; empty: its quick action's (with `prompt`: the
+    /// working folder, `[workspace] dir`, once).
     pub repos: Vec<String>,
     /// Five fields (`0 3 * * 1-5`); or `every`, not both.
     pub cron: Option<String>,
@@ -517,7 +553,7 @@ pub struct Routine {
 
 impl Default for Routine {
     fn default() -> Self {
-        Self { name: String::new(), action: String::new(), repos: Vec::new(), cron: None, every: None, time_zone: None, deliver: "review".into(), missed: "once".into(), max_minutes: 60, enabled: true }
+        Self { name: String::new(), action: String::new(), prompt: None, worktree: None, mode: None, kind: None, model: None, effort: None, repos: Vec::new(), cron: None, every: None, time_zone: None, deliver: "review".into(), missed: "once".into(), max_minutes: 60, enabled: true }
     }
 }
 
@@ -525,9 +561,14 @@ impl Default for Routine {
 pub const ROUTINE_BUILTINS: [&str; 2] = ["builtin:alerts-triage", "builtin:retro-draft"];
 
 impl Routine {
-    /// When it runs, and what it runs: the quick action named, none for a builtin. What does not
-    /// hold, in a few words.
-    pub fn check<'a>(&self, actions: &'a [QuickAction]) -> std::result::Result<(crate::schedule::When, Option<&'a QuickAction>), String> {
+    /// Its own prompt, when it has one (not blank).
+    pub fn own_prompt(&self) -> Option<&str> {
+        self.prompt.as_deref().filter(|p| !p.trim().is_empty())
+    }
+
+    /// When it runs, and what it runs: the quick action named, or the one its own prompt makes;
+    /// none for a builtin. What does not hold, in a few words.
+    pub fn check(&self, actions: &[QuickAction]) -> std::result::Result<(crate::schedule::When, Option<QuickAction>), String> {
         if self.name.trim().is_empty() {
             return Err(tr("a routine has no name").into());
         }
@@ -542,6 +583,37 @@ impl Routine {
             return Err(tr("max_minutes: a minute at least").into());
         }
         let action = self.action.trim();
+        if let Some(prompt) = self.own_prompt() {
+            if !action.is_empty() {
+                return Err(tr("action and prompt: one of the two, not both").into());
+            }
+            if let Some(m) = self.mode.as_deref().filter(|m| !matches!(*m, "default" | "acceptEdits" | "plan")) {
+                return Err(tr!("mode {value}: default, acceptEdits or plan", value = m));
+            }
+            let worktree = self.worktree.unwrap_or(false);
+            if worktree && self.repos.is_empty() {
+                return Err(tr("worktree = true needs its repos").into());
+            }
+            let own = QuickAction {
+                name: self.name.trim().to_string(),
+                prompt: prompt.to_string(),
+                repos: self.repos.clone(),
+                worktree,
+                mode: self.mode.clone(),
+                kind: self.kind.clone().filter(|k| !k.trim().is_empty()),
+                model: self.model.clone().filter(|m| !m.trim().is_empty()),
+                effort: self.effort.clone().filter(|e| !e.trim().is_empty()),
+            };
+            return Ok((when, Some(own)));
+        }
+        if action.is_empty() {
+            return Err(tr("an action or a prompt: one of the two").into());
+        }
+        // Beside an action, what is launched is read in one place only: its quick action.
+        let beside = [("worktree", self.worktree.is_some()), ("mode", self.mode.is_some()), ("kind", self.kind.is_some()), ("model", self.model.is_some()), ("effort", self.effort.is_some())];
+        if let Some((key, _)) = beside.iter().find(|(_, set)| *set) {
+            return Err(tr!("{key}: with prompt only, its quick action says it beside action", key = *key));
+        }
         if ROUTINE_BUILTINS.contains(&action) {
             return Ok((when, None));
         }
@@ -549,7 +621,7 @@ impl Routine {
         if qa.prompt.trim().is_empty() {
             return Err(tr!("quick action {name} has no prompt", name = action));
         }
-        Ok((when, Some(qa)))
+        Ok((when, Some(qa.clone())))
     }
 
     /// The repositories it runs on: its own, otherwise its quick action's; none for a builtin.
@@ -559,6 +631,15 @@ impl Routine {
             Some(_) if !self.repos.is_empty() => self.repos.clone(),
             Some(qa) => qa.repos.clone(),
         }
+    }
+
+    /// Its runs at each time: one per repository, or one without (a builtin, a prompt of its own
+    /// with no repos: in the working folder).
+    pub fn runs(&self, qa: Option<&QuickAction>) -> Vec<Option<String>> {
+        if qa.is_none() || (self.own_prompt().is_some() && self.repos.is_empty()) {
+            return vec![None];
+        }
+        self.targets(qa).into_iter().map(Some).collect()
     }
 }
 
@@ -1095,6 +1176,33 @@ pub mod tests {
         assert!(o.ignored("docs/a.md") && !o.ignored("docs/x/a.md") && o.ignored("gen/a/b.rs") && !o.ignored("src/gen/a.rs"));
     }
 
+    /// `[[agents.routines]] prompt`: the routine's own action; with `action`, or its keys beside
+    /// an action, it does not run.
+    #[test]
+    fn routines_with_a_prompt() {
+        let c = parsed(concat!(
+            "[[agents.quick_actions]]\nname = \"Bump\"\nprompt = \"Bump.\"\nrepos = [\"api\"]\n",
+            "[[agents.routines]]\nname = \"Week\"\nprompt = \"\"\"\nSum up {repo} since {since}.\n\"\"\"\nrepos = [\"api\", \"web\"]\nworktree = true\nmode = \"plan\"\nmodel = \"opus\"\neffort = \"high\"\ncron = \"0 17 * * 5\"\n",
+            "[[agents.routines]]\nname = \"Here\"\nprompt = \"Look around.\"\nevery = \"1d\"\n",
+            "[[agents.routines]]\nname = \"Both\"\naction = \"Bump\"\nprompt = \"x\"\nevery = \"1d\"\n",
+            "[[agents.routines]]\nname = \"None\"\nevery = \"1d\"\n",
+            "[[agents.routines]]\nname = \"Beside\"\naction = \"Bump\"\nmodel = \"opus\"\nevery = \"1d\"\n",
+            "[[agents.routines]]\nname = \"Lost\"\nprompt = \"x\"\nworktree = true\nevery = \"1d\"\n",
+        ));
+        let qas = &c.agents.quick_actions;
+        let [week, here, both, none, beside, lost] = &c.agents.routines[..] else { panic!("six routines") };
+        let (_, qa) = week.check(qas).unwrap();
+        let qa = qa.unwrap();
+        assert_eq!((qa.prompt.trim(), qa.worktree, qa.mode.as_deref(), qa.model.as_deref(), qa.effort.as_deref()), ("Sum up {repo} since {since}.", true, Some("plan"), Some("opus"), Some("high")));
+        assert_eq!(week.runs(Some(&qa)), [Some("api".to_string()), Some("web".to_string())]);
+        let (_, qa) = here.check(qas).unwrap();
+        assert_eq!(here.runs(qa.as_ref()), [None], "no repos: once, in the working folder");
+        assert!(both.check(qas).unwrap_err().contains("not both"));
+        assert!(none.check(qas).unwrap_err().contains("one of the two"));
+        assert!(beside.check(qas).unwrap_err().starts_with("model"));
+        assert!(lost.check(qas).unwrap_err().contains("repos"));
+    }
+
     /// `[[agents.routines]]`: a quick action at fixed times; what does not hold is said, not refused.
     #[test]
     fn routines_read() {
@@ -1102,7 +1210,8 @@ pub mod tests {
         let [nightly, both, nowhere] = &c.agents.routines[..] else { panic!("three routines") };
         assert_eq!((nightly.deliver.as_str(), nightly.missed.as_str(), nightly.max_minutes, nightly.enabled), ("review", "once", 60, true));
         let (_, qa) = nightly.check(&c.agents.quick_actions).unwrap();
-        assert_eq!(nightly.targets(qa), ["api"], "the quick action's repositories");
+        assert_eq!(nightly.targets(qa.as_ref()), ["api"], "the quick action's repositories");
+        assert_eq!(nightly.runs(qa.as_ref()), [Some("api".to_string())]);
         assert!(both.check(&c.agents.quick_actions).unwrap_err().contains("exclude"));
         assert!(nowhere.check(&c.agents.quick_actions).unwrap_err().contains("Scan"));
         // A routine launches an agent without me: never set from a phone, whole or in part.
@@ -1116,7 +1225,7 @@ pub mod tests {
     #[test]
     fn quick_actions_read() {
         let c = parsed("[[agents.quick_actions]]\nname = \"Upstream + Trivy\"\nprompt = \"Update {base}.\"\nrepos = [\"api\"]\nmode = \"acceptEdits\"\n");
-        assert_eq!(c.agents.quick_actions, [QuickAction { name: "Upstream + Trivy".into(), prompt: "Update {base}.".into(), repos: vec!["api".into()], worktree: false, mode: Some("acceptEdits".into()), kind: None }]);
+        assert_eq!(c.agents.quick_actions, [QuickAction { name: "Upstream + Trivy".into(), prompt: "Update {base}.".into(), repos: vec!["api".into()], worktree: false, mode: Some("acceptEdits".into()), kind: None, model: None, effort: None }]);
         assert!(AgentsConfig::default().quick_actions.is_empty());
         let c = parsed("[[agents.quick_actions]]\nname = \"Scan\"\nmode = \"bypassPermissions\"\n");
         assert_eq!(c.agents.quick_actions[0].mode, None, "a mode the launcher does not offer is dropped");

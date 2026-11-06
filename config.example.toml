@@ -347,14 +347,15 @@ enabled = true
 # ⇧-click opens the launcher prefilled. prompt: {repo} and {base} (its default branch) replaced;
 # repos: where it is offered (empty: every repository); worktree: a new worktree (where the
 # repository makes them) instead of its clone as it is; mode: default | acceptEdits | plan; kind:
-# one of [[agents.kinds]].
+# one of [[agents.kinds]]; model, effort: in the CLI's own names (empty: [agents.<cli>]'s), at a
+# click and in a routine alike.
 # [[agents.quick_actions]]
 # name = "Upstream + Trivy"
 # prompt = "Update {base} from upstream and push it, then run a Trivy scan of the repository and sum up what it finds."
 # repos = ["api"]
 # mode = "acceptEdits"
 
-# Routines: a quick action launched on its own, by a cron or at a pace, while Prism runs (its
+# Routines: a quick action, or a prompt of their own, launched on their own, by a cron or at a pace, while Prism runs (its
 # window open or not; [remote] keep_running keeps it running). Its result waits in "To review"
 # (head of the Agents view, the routines block, the phone's Home) or goes to the Digest; blocked
 # (a permission, a question) or failed, it always waits in "To review". A run that changed no file
@@ -364,6 +365,10 @@ enabled = true
 # sorted) / builtin:retro-draft (My sprint's Draft my points), which run without a repository, in
 # the first [[workspaces]] dir, in plan mode. A quick action's prompt may also name {since} (the
 # routine's last successful run) and {alerts} (the open alerts, quoted as data).
+# prompt: instead of action (one of the two), a prompt written for the routine alone, with the
+# same {repo} {base} {since} {alerts}; the routine then says itself worktree (repos needed), mode,
+# kind, model and effort, keys refused beside action (its quick action says them). Without repos,
+# it runs once, in the working folder ([workspace] dir).
 # repos: one run each (empty: its quick action's); cron (five fields) or every ("30m", "6h",
 # "1d"), not both; time_zone: the cron's (empty: the computer's); deliver: review | digest;
 # missed: once (its time passed while the computer slept or Prism was closed: run once on waking,
@@ -385,6 +390,19 @@ enabled = true
 # name = "Alerts triage"
 # action = "builtin:alerts-triage"
 # cron = "30 8 * * 1-5"
+#
+# [[agents.routines]]
+# name = "Merged this week"
+# prompt = """
+# Sum up the merge requests merged on {repo} since {since}: one line each, grouped by ticket,
+# and flag those without one.
+# """
+# repos = ["api", "web"]
+# mode = "plan"
+# model = "opus"
+# effort = "high"
+# cron = "0 17 * * 5"
+# deliver = "digest"
 
 # Overlaps: two agents (or worktrees) of a repository changing the same lines, or the same file,
 # told before the merge. Each worktree's changes against the merge-base of its base (its commits,
