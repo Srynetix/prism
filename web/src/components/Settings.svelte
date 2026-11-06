@@ -18,6 +18,7 @@
   import RemoteAway from './settings/RemoteAway.svelte'
   import FeedbackRequests from './settings/FeedbackRequests.svelte'
   import DependenciesPanel from './settings/DependenciesPanel.svelte'
+  import CliCommandPanel from './settings/CliCommandPanel.svelte'
   import CustomBlocksSettings from './settings/CustomBlocksSettings.svelte'
   import RoutinesSettings from './settings/RoutinesSettings.svelte'
   import CleanupUsage from './settings/CleanupUsage.svelte'
@@ -61,6 +62,7 @@
     { id: 'remote-away-checks', label: t('Before leaving'), table: '[remote]' },
     { id: 'feedback-requests', label: t('My requests'), table: 'feedback.json' },
     { id: 'dependencies', label: t('Dependencies'), table: 'PATH' },
+    { id: 'cli-command', label: t('Command line'), table: 'prism --help' },
     { id: 'custom-blocks', label: t('Custom blocks'), table: '[[custom_blocks]]' },
     { id: 'routines', label: t('Routines'), table: '[[agents.routines]]' },
     { id: 'mcp-agents', label: t('Agents'), table: 'prism mcp' },
@@ -603,6 +605,8 @@
       <FeedbackRequests />
     {:else if s.id === 'dependencies'}
       <DependenciesPanel />
+    {:else if s.id === 'cli-command'}
+      <CliCommandPanel />
     {:else if s.id === 'custom-blocks'}
       <CustomBlocksSettings />
     {:else if s.id === 'routines'}

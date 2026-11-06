@@ -286,6 +286,43 @@ name (`[forge] bare_mr_repo`); `ctx.env()` gives them (`repos`, the first one's 
 and `gitlab`), and Settings › Code › Repositories lists the block under *Blocks that read a
 repository*. A block that declares none gets the bare references' repository in `ctx.env()`.
 
+## Command line
+
+`prism` and `prism-server` share their subcommands (one table, `prism_commands::cli::args`):
+`--help` on each, `help <command>`, `--version` (the version and the build, as About says it),
+`--profile <id>` before or after the subcommand. `prism` alone opens the window (or brings it to
+the front); an unknown argument is an error (exit 2) rather than a window. A failure exits with 1.
+
+On the PATH: Linux packages install `prism` in `/usr/bin`; on macOS, **Settings › General ›
+Command line › Install** writes a short script in `~/.local/bin` (or `/usr/local/bin`) that runs
+the app's binary. `prism completions <zsh|bash|fish>` prints the shell's completions.
+
+Tokens go to the keychain with `prism token clickup|jira|google`: typed hidden on a terminal,
+read from standard input otherwise (`pbpaste | prism token jira`). `clickup-token`, `jira-token`
+and `google-secret` still work. `hook` and `watch` are Prism's own (an agent's hooks, the
+keep-running job): not in the help.
+
+<!-- cli:start (generated: PRISM_WRITE_GUIDE=1 cargo test -p prism-commands guide) -->
+| Command | What it does | `prism` | `prism-server` |
+|---|---|:-:|:-:|
+| `pair` | Pair a phone from this terminal: its QR code here, the code it shows confirmed here | ✓ | ✓ |
+| `peer pair` | Accept a computer by the code it is given here | ✓ | ✓ |
+| `peer add <name>` | Add a computer by name: its token printed, once | ✓ | ✓ |
+| `peer remove <name>` | Revoke a computer: its windows close within ten seconds | ✓ | ✓ |
+| `peer list` | The computers added, with their date | ✓ | ✓ |
+| `restart` | Restart the profile's Prism, rereading config.toml and its packs (started if not running) | ✓ | ✓ |
+| `pack import <source>` | Add a pack: a file, a repository's file at a ref, or a starter | ✓ | ✓ |
+| `pack update <name> [ref]` | Update a repository's pack, from its ref or the one given | ✓ | ✓ |
+| `pack remove <name>` | Remove a pack | ✓ | ✓ |
+| `mcp` | Prism's MCP server for an agent CLI (on stdin/stdout), or its installation into one | ✓ | ✓ |
+| `mcp install <claude\|codex\|opencode>` | Add Prism's MCP server and skill to an agent CLI's user config | ✓ | ✓ |
+| `mcp uninstall <claude\|codex\|opencode>` | Take them out | ✓ | ✓ |
+| `mcp status` | Where they are installed | ✓ | ✓ |
+| `token <clickup\|jira\|google>` | Store a token in the keychain: typed hidden on a terminal, read from stdin otherwise | ✓ | ✓ |
+| `serve` | Run Prism without a window, until stopped (a systemd service) |  | ✓ |
+| `completions <bash\|elvish\|fish\|powershell\|zsh>` | Print the completion script of a shell | ✓ | ✓ |
+<!-- cli:end -->
+
 ## Runtime files
 
 | What | Where |

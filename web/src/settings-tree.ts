@@ -33,6 +33,7 @@ export const TREE: TreeNode[] = [
       { id: 'file', label: t('Config file'), sections: ['file'] },
       { id: 'logs', label: t('Logs'), sections: ['logs'] },
       { id: 'dependencies', label: t('Dependencies'), sections: ['dependencies'] },
+      { id: 'cli', label: t('Command line'), sections: ['cli-command'] },
       { id: 'updates', label: t('Updates'), sections: ['updates-now', 'updates'], toggle: 'updates' },
       { id: 'feedback', label: t('Feedback'), sections: ['feedback-requests', 'feedback', 'feedback-labels'], toggle: 'feedback' },
     ],
