@@ -13,6 +13,7 @@ pub mod cli;
 
 /// The provider of the active profile's forge, in the snapshot: the window's vocabulary and links follow it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "ForgeProvider"))]
 #[serde(rename_all = "lowercase")]
@@ -190,6 +191,7 @@ pub struct MrCommit {
 /// file, the new one, or both for an unchanged line. On several lines, `start` is the first
 /// one and this one the last, where the thread hangs.
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct LineRef {
     pub old_path: String,
     pub new_path: String,
@@ -204,6 +206,7 @@ pub struct LineRef {
 
 /// The first line of a range, in the same hunk as the last.
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct LineAt {
     pub old_line: Option<u64>,
     pub new_line: Option<u64>,
@@ -232,6 +235,7 @@ pub struct ForgeLabel {
 
 /// An emoji a GitLab group made its own (`:party-parrot:`), drawn and offered with GitLab's.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct CustomEmoji {
     pub name: String,
     /// Its picture: an https address, on the instance unless the group linked one from elsewhere.

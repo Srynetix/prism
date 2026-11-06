@@ -158,4 +158,10 @@ handoff_turns: number,
 /**
  * The relay shown, to edit, before it goes. Off: sent as written, in one click.
  */
-handoff_review: boolean, };
+handoff_review: boolean, 
+/**
+ * Prism's MCP server (`prism mcp`) and its "prism" skill given to every agent Prism launches:
+ * they read Prism's docs, schema and config, and propose changes. Off: only the agents of
+ * "Configure Prism" get them.
+ */
+prism_mcp: boolean, };

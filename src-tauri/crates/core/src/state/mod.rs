@@ -278,6 +278,8 @@ pub struct Snapshot {
     /// The blocks of a pack whose settings changed since launch while they do not reload: they
     /// apply once Prism restarts. Every other setting applies as it is saved.
     pub waiting_restart: Vec<String>,
+    /// Prism's MCP server: the agents connected, the proposals waiting for an answer (`mcp`).
+    pub mcp: crate::mcp::McpState,
     /// Sources that have responded at least once (success or error): the startup screen waits for them.
     pub answered: std::collections::BTreeSet<&'static str>,
     pub updated_at: Option<DateTime<Utc>>,

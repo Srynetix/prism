@@ -214,7 +214,7 @@ impl Agents {
         // The log says it first: what the new CLI reports comes after, the former one's session forgotten.
         let line = hook::Line { t: Utc::now().timestamp_millis(), event: status::SWITCH.into(), what: Some(s.to.program().into()), ..Default::default() };
         hook::append(&self.inner.events, id, &line)?;
-        let env = self.env(id, s.to, mode.as_deref());
+        let env = self.env(id, s.to, mode.as_deref(), Some(&spec));
         match self.inner.tmux.panes().await?.get(id) {
             Some(_) => self.inner.tmux.respawn(id, &cwd, &env, &argv).await?,
             None => self.inner.tmux.new_session(id, &cwd, &env, &argv).await?,

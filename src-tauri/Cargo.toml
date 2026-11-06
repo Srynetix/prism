@@ -62,6 +62,8 @@ toml = { version = "1.1.6", features = ["preserve_order"] }
 toml_edit = "0.25.15"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+# The config's JSON schema (`prism mcp`, `prism://config/schema`): its types, defaults and doc comments.
+schemars = "1.2"
 # Without its notes on serde attributes it ignores: they shape reading (deserialize_with), not the type.
 ts-rs = { version = "12.0.1", features = ["chrono-impl", "serde-json-impl", "no-serde-warnings"] }
 uuid = { version = "1", features = ["v4"] }

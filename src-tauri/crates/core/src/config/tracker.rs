@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::*;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct ClickupConfig {
     /// Off: no ClickUp at all (no token needed): sprint, refinement, tickets, time entries.
     #[serde(default = "default_true")]
@@ -58,6 +59,7 @@ pub struct ClickupConfig {
 /// shares — identifiers, and the flow its statuses follow. Several keys were `[clickup]`'s: see
 /// [`FORMER_CLICKUP_KEYS`].
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct TrackerConfig {
     /// `clickup` (the default), `obsidian` or `jira`; each is read only when its own section is on.
     #[serde(default)]
@@ -156,6 +158,7 @@ pub const FORMER_CLICKUP_KEYS: [&str; 12] = [
 
 /// Obsidian Kanban as the tracker (`[obsidian]`): boards of a vault, each a repository's.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct ObsidianConfig {
     /// The vault's folder; its name opens the links (`obsidian://open?vault=…`).
     #[serde(default)]
@@ -168,6 +171,7 @@ pub struct ObsidianConfig {
 /// Jira Cloud as the tracker (`[jira]`): the active sprint of a Scrum board, or the open issues of
 /// a Kanban one. The token comes from JIRA_TOKEN or the system keychain, never this file.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct JiraConfig {
     /// The Jira Cloud site: `team.atlassian.net`.
     #[serde(default)]
@@ -205,6 +209,7 @@ fn default_jira_issue_type() -> String {
 
 /// Issues followed beyond the sprint (`[[jira.queues]]`): those a JQL query finds.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct JiraQueue {
     /// Its name in Prism.
     pub name: String,
@@ -258,6 +263,7 @@ fn default_jira_poll() -> u64 {
 
 /// An Obsidian Kanban board: a Markdown file of the vault, and the repository its tickets belong to.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct ObsidianBoard {
     /// Path of the board's file, relative to the vault (`Projets/Things/Board.md`).
     pub path: String,
@@ -289,6 +295,7 @@ pub fn check_prefix(pattern: &str) -> Result<()> {
 /// A ClickUp board followed beyond the sprint (`[[clickup.boards]]`): a list, or the lists of a
 /// folder, found by name, and what Prism uses it for.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct BoardConfig {
     /// Its name in Prism; also the list looked for, without `list` nor `folder`.
     pub name: String,

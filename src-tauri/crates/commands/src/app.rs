@@ -93,6 +93,8 @@ impl AppState {
         notices(&state);
         // `config.toml` and its packs changed by hand (or by an agent) apply as they are saved.
         crate::commands::config::watch(state.clone());
+        // Prism's MCP server for agents (`prism mcp`) reaches this Prism on the profile's socket.
+        crate::mcp::host::serve(state.clone());
         Ok(state)
     }
 

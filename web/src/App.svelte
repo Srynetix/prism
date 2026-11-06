@@ -77,6 +77,8 @@
   import ThreadPanel from './components/ThreadPanel.svelte'
   import ArgoPanel from './components/ArgoPanel.svelte'
   import OverlapPanel from './components/OverlapPanel.svelte'
+  import McpProposal from './components/McpProposal.svelte'
+  import { watchProposals } from './mcp-view.svelte'
   import ShellDrawer from './components/ShellDrawer.svelte'
   import MrPanel from './components/MrPanel.svelte'
   import LauncherDrawer from './components/LauncherDrawer.svelte'
@@ -142,6 +144,8 @@
   const full = $derived(live.snapshot)
   // Several profiles: the Dock icon carries this one's letter.
   $effect(() => void markDock(live.snapshot?.profile))
+  // An agent's proposal (`prism mcp`) arriving: a toast to open it.
+  $effect(() => watchProposals(live.snapshot))
   const focus = $derived(full ? resolve(full, filter.query) : null)
   /** All blocks read the filtered view; alerts are computed on the full state then filtered. */
   const snap = $derived(full ? apply(filter.mine ? applyMine(full) : full, focus) : null)
@@ -651,6 +655,7 @@
   <ThreadPanel />
   <ArgoPanel />
   <OverlapPanel />
+  <McpProposal />
   <ShellDrawer />
   <KeyHelp />
 </div>

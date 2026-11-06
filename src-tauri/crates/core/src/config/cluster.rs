@@ -9,6 +9,7 @@ use super::*;
 /// `apps_segment`; its group, the segment before the environment. A group of `customer_groups`
 /// (`customers/<customer>/…`) is a customer's instance: production, outside Environments.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
 pub struct ArgoLayoutConfig {
     /// Namespaces discovered on the default context's cluster when no `[[argocd]]` is declared.
@@ -28,6 +29,7 @@ impl Default for ArgoLayoutConfig {
 /// An ArgoCD instance: its namespace, the kube context of the cluster hosting it (the
 /// the default context by default) and the URL of its UI, for links.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct ArgoConfig {
     pub namespace: String,
     pub context: Option<String>,
@@ -41,6 +43,7 @@ pub struct ArgoConfig {
 /// An environment in a cluster: its name (`prod`, `preprod`, `staging`, or any other such as `ops`),
 /// the kube context and the namespaces where its applications run.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct EnvironmentConfig {
     pub env: String,
     pub context: String,
@@ -76,6 +79,7 @@ impl EnvironmentConfig {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct ClustersConfig {
     /// Access to the Kubernetes clusters. Off (profile without rights on the clusters), neither pods,
     /// nor environments, nor ArgoCD are read: no access error in Alerts.
@@ -114,6 +118,7 @@ impl Default for ClustersConfig {
 
 /// Pods followed (`[[pods]]`): a cluster's namespaces, all of them or those matching a pattern.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct PodsTarget {
     /// Its name in the Pods block. Absent: its context's.
     #[serde(default, skip_serializing_if = "String::is_empty")]

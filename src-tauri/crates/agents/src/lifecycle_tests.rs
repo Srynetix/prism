@@ -40,6 +40,7 @@ impl Bench {
             effort: None,
             then: Vec::new(),
             from: None,
+            prism_mcp: false,
         }
     }
 
@@ -304,6 +305,7 @@ async fn the_launchers_command_line_is_the_launchs() {
         worktree: Some("fix-it".into()),
         also: vec!["api".into()],
         prompt: Some(prompt.into()),
+        prism_mcp: false,
     };
     assert_eq!(
         b.agents.command_line(preview(Provider::Claude, "plan", "Why's it slow?")).unwrap(),

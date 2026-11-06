@@ -28,6 +28,8 @@ pub struct Spec {
     pub cwd: PathBuf,
     pub env: Vec<(String, String)>,
     pub timeout: Duration,
+    /// The memory it may take, its children with it (a test in the sandbox): beyond, stopped.
+    pub memory: Option<u64>,
 }
 
 /// How it went.
@@ -41,6 +43,8 @@ pub struct Ran {
     pub stdout_cut: bool,
     pub stderr_cut: bool,
     pub took: Duration,
+    /// Stopped for taking more memory than `Spec::memory`.
+    pub memory_exceeded: bool,
 }
 
 impl Ran {
@@ -52,7 +56,9 @@ impl Ran {
     /// Why it failed, in a few words (its error output apart: `stderr_tail`, which may hold a
     /// secret); `None` when it did not.
     pub fn failure(&self) -> Option<String> {
-        Some(if self.timed_out {
+        Some(if self.memory_exceeded {
+            tr("more memory than allowed: stopped, its children with it").to_string()
+        } else if self.timed_out {
             tr!("no answer after {s} s: stopped, its children with it", s = self.took.as_secs())
         } else if self.stdout_cut {
             tr!("more than {mb} MB printed: cut", mb = MAX_STDOUT / (1024 * 1024))
@@ -100,8 +106,20 @@ const AFTER_EXIT: Duration = Duration::from_secs(2);
 /// is waited for, not the end of its output: a child left running with the pipes (a daemon, `cmd &`)
 /// neither holds the read up nor turns it into a timeout; it is stopped with the group.
 pub async fn run(spec: &Spec) -> Result<Ran> {
+    run_with(spec, false).await
+}
+
+/// `run` with Prism's environment left out: only `spec.env` (a test in the sandbox).
+pub async fn run_clean(spec: &Spec) -> Result<Ran> {
+    run_with(spec, true).await
+}
+
+async fn run_with(spec: &Spec, clean: bool) -> Result<Ran> {
     let started = Instant::now();
     let mut cmd = prism_base::platform::command(&spec.program);
+    if clean {
+        cmd.env_clear();
+    }
     cmd.args(&spec.args).current_dir(&spec.cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
     for (k, v) in &spec.env {
         cmd.env(k, v);
@@ -113,7 +131,13 @@ pub async fn run(spec: &Spec) -> Result<Ran> {
     let (out, err) = (child.stdout.take().context("stdout")?, child.stderr.take().context("stderr")?);
     let (out_buf, err_buf) = (Captured::default(), Captured::default());
     let readers = [tokio::spawn(capped(out, MAX_STDOUT, false, out_buf.clone())), tokio::spawn(capped(err, MAX_STDERR, true, err_buf.clone()))];
+    let exceeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let watch = spec.memory.zip(pid).map(|(bytes, pid)| tokio::spawn(watch_memory(pid, bytes, exceeded.clone())));
     let status = tokio::time::timeout(spec.timeout, child.wait()).await;
+    if let Some(w) = watch {
+        w.abort();
+    }
+    let memory_exceeded = exceeded.load(std::sync::atomic::Ordering::SeqCst);
     let timed_out = status.is_err();
     if timed_out {
         kill_group(pid);
@@ -138,8 +162,38 @@ pub async fn run(spec: &Spec) -> Result<Ran> {
     let ((stdout, stdout_cut), (stderr, stderr_cut)) = (out_buf.take(), err_buf.take());
     let took = started.elapsed();
     match status {
-        Ok(status) => Ok(Ran { code: status?.code(), stdout, stderr, timed_out: false, stdout_cut, stderr_cut, took }),
-        Err(_) => Ok(Ran { code: None, timed_out: true, stderr, stderr_cut, took, ..Default::default() }),
+        Ok(status) => Ok(Ran { code: status?.code(), stdout, stderr, timed_out: false, stdout_cut, stderr_cut, took, memory_exceeded }),
+        Err(_) => Ok(Ran { code: None, timed_out: true, stderr, stderr_cut, took, memory_exceeded, ..Default::default() }),
+    }
+}
+
+/// Its tree's resident memory (not its address space: a runtime that reserves gigabytes uses
+/// little), read every 200 ms, its group stopped beyond `bytes`, and said so (`memory_exceeded`).
+async fn watch_memory(pid: u32, bytes: u64, exceeded: std::sync::Arc<std::sync::atomic::AtomicBool>) {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut sys = System::new();
+    loop {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_memory());
+        let root = Pid::from_u32(pid);
+        let in_tree = |mut p: Pid| {
+            for _ in 0..64 {
+                if p == root {
+                    return true;
+                }
+                match sys.process(p).and_then(|x| x.parent()) {
+                    Some(parent) => p = parent,
+                    None => return false,
+                }
+            }
+            false
+        };
+        let used: u64 = sys.processes().iter().filter(|(p, _)| in_tree(**p)).map(|(_, x)| x.memory()).sum();
+        if used > bytes {
+            exceeded.store(true, std::sync::atomic::Ordering::SeqCst);
+            kill_group(Some(pid));
+            return;
+        }
     }
 }
 
@@ -273,7 +327,7 @@ mod tests {
     use super::*;
 
     fn spec(program: &str, args: &[&str], timeout: u64) -> Spec {
-        Spec { program: program.into(), args: args.iter().map(|s| s.to_string()).collect(), cwd: std::env::temp_dir(), env: vec![("PRISM_X".into(), "1".into())], timeout: Duration::from_secs(timeout) }
+        Spec { program: program.into(), args: args.iter().map(|s| s.to_string()).collect(), cwd: std::env::temp_dir(), env: vec![("PRISM_X".into(), "1".into())], timeout: Duration::from_secs(timeout), memory: None }
     }
 
     #[tokio::test]

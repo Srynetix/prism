@@ -599,6 +599,7 @@ impl Agents {
             effort: None,
             then: Vec::new(),
             from: Some(format!("routine:{}", r.name.trim())),
+            prism_mcp: false,
         };
         let mut dirty = BTreeMap::new();
         let (dir, head) = match (actions.iter().find(|a| a.name == action), repo) {

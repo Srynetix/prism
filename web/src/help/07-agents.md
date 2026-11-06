@@ -202,6 +202,23 @@ The **Tokens** block adds up what your coding tools consumed over a **Week** (Mo
 
 With several tools, **All** or one of them alone (a click on its row under **Tool** too): the total, the bars, the cost and the split are that tool's only, on the computer and on the phone alike. Prism reads the tools' usage figures, never what was said, and keeps the daily totals for **History** (`[tokens] keep_days`), after the tools have deleted their sessions; Settings › Agents › Tokens chooses the tools (`[tokens] sources`).
 
+## Prism MCP: an agent that knows Prism
+
+`prism mcp` is an MCP server an agent CLI starts: it gives the agent Prism's help, the commented reference (`config.example.toml`), the schema of every table (types, defaults, what reads it, its Settings page), your config merged with its packs (secrets hidden; tokens live in the keychain anyway) and Problems. With the "prism" skill that comes with it, the agent knows Prism's words (block, page, band, pack…) and which tool to call.
+
+The agent never writes `config.toml`: it checks a change (`prism_validate`), then **proposes** it. Prism shows the proposal in a drawer — the agent's reason, the diff, what it touches, a key a pack sets overridden — and you **Apply** it (two clicks), **Refuse** it (your reason goes back to the agent) or **Edit before applying** (the agent gets what you changed). It applies live; `MCP · n` in the status bar tells the proposals waiting. The file changed meanwhile: the proposal is computed again on it, to apply again.
+
+A custom block is tested before it is proposed: `prism_run_custom_block` runs it once, untrusted, in a sandbox (macOS `sandbox-exec`, Linux `bwrap`): no home folder, no token, a temporary folder, outbound network, 20 s and 256 MB. Without a sandbox on the computer, the test is refused. The block itself is trusted as you add it, as any block that does not come from Settings.
+
+- **Configure Prism** (Settings › Agents › Prism MCP, or ✦ **Ask an agent** at the top of any Settings page): an agent in the config's folder, with the MCP server and the skill, the page in its prompt.
+- **Prism MCP for every agent** (`[agents] prism_mcp`): every agent Prism launches gets them (Claude Code through a plugin, Codex and OpenCode through their MCP config).
+- **Agents outside Prism**: `prism mcp install claude|codex|opencode` (or the page's **Add**) writes the server into that CLI's user config and the skill into its skills' folder; `uninstall` takes them out.
+- `[mcp] enabled` turns the server off; `[mcp] proposals = false` makes it strictly read-only (the agent gives the TOML to paste).
+
+It reaches the running Prism of the profile through a local socket, the owner's only; Prism stopped, only the docs, the reference and the schema answer. It reads nothing of your work (tickets, MRs, mail) and no secret.
+
+[Open Settings › Agents › Prism MCP](prism:settings/prism-mcp)
+
 ## Settings and console
 In Settings › Agents › Agent (`[agents]`):
 

@@ -187,6 +187,8 @@ fn apply(state: &AppState, path: &std::path::Path, force: bool) {
     if let Some(started) = state.collectors.reload(&cfg, force) {
         state.adopt(started);
     }
+    // The agents' proposals made on the former file say so.
+    crate::mcp::host::refresh();
 }
 
 /// Reload collectors (console, palette): they stop and start again from the config, even
@@ -415,4 +417,26 @@ pub async fn store_token(state: State<'_, AppState>, tracker: String, token: Str
     // Read with the new token at once: the collectors start again.
     apply(&state, &crate::config_path(), true);
     Ok(length)
+}
+
+/// A proposal of an agent (`prism mcp`) answered in the window: `apply` (two clicks), `refuse`
+/// (`reason`, given back to the agent), `modified` (`text`, saved from the TOML panel). Applied, it
+/// applies live as a save from Settings does.
+#[prism_macros::command]
+pub async fn mcp_proposal_answer(id: u64, action: String, reason: Option<String>, text: Option<String>) -> Cmd {
+    crate::mcp::host::answer(id, &action, reason, text).await.map_err(Into::into)
+}
+
+/// Settings › Agents › Prism MCP: where each agent CLI outside Prism stands (its server, its skill).
+#[prism_macros::command]
+pub fn mcp_installs() -> Vec<crate::mcp::install::Installed> {
+    crate::mcp::install::status()
+}
+
+/// Settings › Agents › Prism MCP: Prism's MCP server and skill added to an agent CLI's config
+/// (`on`), or taken out (`prism mcp install|uninstall <cli>`).
+#[prism_macros::command]
+pub async fn mcp_install(cli: String, on: bool) -> Cmd<String> {
+    let done = tokio::task::spawn_blocking(move || if on { crate::mcp::install::install(&cli) } else { crate::mcp::install::uninstall(&cli) }).await?;
+    done.map_err(Into::into)
 }

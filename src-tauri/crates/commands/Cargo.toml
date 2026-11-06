@@ -16,10 +16,10 @@ ts = ["dep:ts-rs", "prism-core/ts", "prism-collectors/ts", "prism-agents/ts", "p
 
 [dependencies]
 prism-base.workspace = true
-prism-core.workspace = true
+prism-core = { workspace = true, features = ["schema"] }
 prism-collectors.workspace = true
 prism-agents.workspace = true
-prism-blocks.workspace = true
+prism-blocks = { workspace = true, features = ["schema"] }
 prism-ops.workspace = true
 prism-demo.workspace = true
 prism-remote.workspace = true
@@ -29,6 +29,7 @@ prism-macros.workspace = true
 anyhow.workspace = true
 base64.workspace = true
 chrono.workspace = true
+dirs.workspace = true
 futures.workspace = true
 notify.workspace = true
 regex.workspace = true
@@ -37,6 +38,7 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 toml.workspace = true
+toml_edit.workspace = true
 tracing.workspace = true
 tauri = { version = "2", default-features = false, optional = true }
 ts-rs = { workspace = true, optional = true }
