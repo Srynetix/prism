@@ -42,6 +42,7 @@ export type ClaudeActionId =
   | 'fix-pipeline'
   | 'fix-branch'
   | 'diagnose'
+  | 'diagnose-crash'
   | 'dev-server'
   | 'retro'
   | 'meeting'
@@ -92,6 +93,7 @@ interface Prompts {
   fixBranch: (branch: string, url: string) => string
   failedJobs: string
   diagnoseJob: (job: string, url: string) => string
+  diagnoseCrash: (app: string, env: string, where: string, linked: string) => string
   jobLog: string
   devServer: (command: string, where: string, tail: string) => string
   retro: (figures: string) => string
@@ -121,6 +123,8 @@ const PROMPTS: Record<'fr' | 'en', Prompts> = {
     failedJobs: 'Jobs en échec et fin de leurs logs (lus par Prism) :',
     diagnoseJob: (job: string, url: string) => `Diagnostique l'échec du job CI « ${job} » (${url}) : trouve la cause et propose un correctif, sans rien modifier.`,
     jobLog: 'Fin de son log (lue par Prism) :',
+    diagnoseCrash: (app: string, env: string, where: string, linked: string) =>
+      `Diagnostique le crash de « ${app} » sur ${env} (${where}) : lis ses logs (le conteneur d'avant son redémarrage aussi) et ses Events, et dis si le changement juste avant en est la cause${linked ? ` (${linked}, son diff à lire)` : ''}. Propose un correctif sans rien modifier, lecture seule sur le cluster. Ce qui a bougé sur l'environnement (frise de Prism) :`,
     meeting: (when: string, details: string) =>
       `Prépare-moi pour la réunion ci-dessous (${when}) : de quoi elle va parler, ce que je dois savoir sur les participants et leur lien avec mon travail en cours (tickets, MR, notes), les points à soulever et les questions à poser. Une page courte. Ne modifie aucun fichier.\n\n${details}`,
     retro: (figures: string) => `Prépare mes points pour la rétro d'équipe à partir de ces chiffres de mon sprint : 2 ou 3 choses à garder, 2 ou 3 à changer, concrètes, sans juger personne. Ne modifie aucun fichier.\n\n${figures}`,
@@ -149,6 +153,8 @@ const PROMPTS: Record<'fr' | 'en', Prompts> = {
     failedJobs: 'Failed jobs and the end of their logs (read by Prism):',
     diagnoseJob: (job: string, url: string) => `Diagnose the failure of CI job "${job}" (${url}): find the cause and propose a fix, changing nothing.`,
     jobLog: 'End of its log (read by Prism):',
+    diagnoseCrash: (app: string, env: string, where: string, linked: string) =>
+      `Diagnose the crash of "${app}" on ${env} (${where}): read its logs (the container before its restart too) and its Events, and tell whether the change just before caused it${linked ? ` (${linked}, its diff to read)` : ''}. Propose a fix changing nothing, read-only on the cluster. What changed on the environment (Prism's timeline):`,
     meeting: (when: string, details: string) =>
       `Prepare me for the meeting below (${when}): what it will be about, what I should know about the attendees and how they relate to my current work (tickets, MRs, notes), the points to raise and the questions to ask. One short page. Change no file.\n\n${details}`,
     retro: (figures: string) => `Draft my points for the team retro from these figures of my sprint: 2 or 3 things to keep, 2 or 3 to change, concrete, judging no one. Change no file.\n\n${figures}`,
@@ -309,6 +315,16 @@ export const repoAction = (name: string, path: string): ClaudeAction => action('
  */
 export const investigateAction = (workload: string, namespace: string, context: string, env: string, issue: string): ClaudeAction =>
   planOnly(action('investigate', tr('Investigate'), `Investigate ${workload} (${env})`, prompts().investigate(workload, namespace, context, env, issue), inRepo()))
+
+/**
+ * A crash on the Changes timeline: the agent reads the pod's logs and events and the diff of the
+ * change linked to it, in plan mode; the timeline of its application joins the prompt at launch
+ * (`timeline`, built then).
+ */
+export const diagnoseCrashAction = (app: string, env: string, where: string, linked: string, timeline: () => string): ClaudeAction => ({
+  ...planOnly(action('diagnose-crash', tr('Diagnose'), `Crash ${app} (${env})`, prompts().diagnoseCrash(app, env, where, linked), inRepo())),
+  context: async () => untrusted('Changes timeline', timeline()),
+})
 
 /** Flaky job: Claude reads the logs of its last failures (glab or gh) and proposes a fix, in the repo. */
 export const flakyAction = (job: string, urls: string[]): ClaudeAction =>

@@ -26,6 +26,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("gcloud not logged in (gcloud auth login)", "gcloud n’est pas connecté (gcloud auth login)"),
     ("{url}: not a status page", "{url} : pas une page de statut"),
     ("writing {path}", "écriture de {path}"),
+    ("kubectl not found in PATH", "kubectl introuvable dans le PATH"),
     // Disk usage
     ("a scan is already running", "un scan est déjà en cours"),
     ("could not move {path} to the Trash", "impossible de mettre {path} à la corbeille"),

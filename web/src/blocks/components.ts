@@ -1,5 +1,6 @@
 import { EXTRA_COMPONENTS } from '$extra-components'
 import type { BlockComponent } from './block'
+import Changes from './changes/Changes.svelte'
 import BigQueryCost from './data/BigQueryCost.svelte'
 import CustomBlocks from './custom/CustomBlocks.svelte'
 import CustomItem from './custom/CustomItem.svelte'
@@ -23,6 +24,7 @@ import Trail from './trail/Trail.svelte'
 /** The component of each block of `BLOCK_DEFS`, for the window's grid. */
 export const BLOCK_COMPONENTS: Record<string, BlockComponent<never>> = {
   trail: Trail as BlockComponent<never>,
+  changes: Changes as BlockComponent<never>,
   dev_servers: DevServers as BlockComponent<never>,
   docker: Docker as BlockComponent<never>,
   data: DataPipelines as BlockComponent<never>,

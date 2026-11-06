@@ -14,6 +14,7 @@
   import { isDesktop } from '../bridge'
   import { openPodShell } from '../shell-drawer.svelte'
   import PodUsage from './PodUsage.svelte'
+  import { changesOn, openWhatChanged } from '../changes-view.svelte'
 
   /**
    * A workload's log drawer (Environments block): its pods on the left, on the right the log of the
@@ -116,6 +117,13 @@
 
   /** The pod's CPU and memory over time above its log (`[clusters] usage_history`), remembered under `logs.usage`. */
   const canUsage = $derived(!!live.snapshot?.pod_history && !podLogs.target?.read && !!pod)
+  /** A workload of an environment (not a block's items): its timeline, around its crash. */
+  const changed = $derived.by(() => {
+    const tg = podLogs.target
+    if (!tg || tg.read || !changesOn()) return null
+    const env = live.snapshot?.environments?.envs.find((e) => e.context === tg.context && e.namespace === tg.namespace)
+    return env ? { env: env.env, app: tg.deployment } : null
+  })
   let usage = $state(pref<boolean>('logs.usage', true))
   function toggleUsage() {
     usage = !usage
@@ -156,6 +164,7 @@
       <input class="filter" bind:value={query} placeholder={t('Filter lines…')} spellcheck="false" />
       {#if firstError !== -1}<button class="txt" onclick={() => toLine(firstError)} title={t('Scroll to the first error line')}>{t('First error')}</button>{/if}
       <button class="txt" onclick={() => toLine(lines.length - 1)} title={t('Scroll to the end and follow')}>{t('End')} <Icon name="down" /></button>
+      {#if changed}<button class="txt" onclick={() => openWhatChanged(changed.env, changed.app)} title={t('The timeline of {env} around the crash, the change just before it highlighted', { env: changed.env ?? '' })}><Icon name="activity" /> {t('What changed')}</button>{/if}
       {#if canUsage}<button class="txt" class:on={usage} onclick={toggleUsage} aria-pressed={usage} title={t('CPU and memory of this pod over time')}><Icon name="chart" /> {t('Usage')}</button>{/if}
       {#if canShell}<button class="txt" onclick={shell} title={t('A shell in this container (kubectl exec): tmux keeps it after closing')}><Icon name="terminal" /> {t('Shell')}</button>{/if}
       <button class="icon" onclick={() => reload(true)} disabled={podLogs.loading || !podLogs.pod} title={t('Reload the log')} aria-label={t('Reload')}><Icon name="refresh" /></button>

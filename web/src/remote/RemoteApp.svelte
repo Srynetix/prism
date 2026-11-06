@@ -66,6 +66,7 @@
     ThreadPanel: once(() => import('../components/ThreadPanel.svelte')),
     ArgoPanel: once(() => import('../components/ArgoPanel.svelte')),
     OverlapPanel: once(() => import('../components/OverlapPanel.svelte')),
+    ChangesDrawer: once(() => import('../blocks/changes/ChangesDrawer.svelte')),
     LauncherDrawer: once(() => import('../components/LauncherDrawer.svelte')),
     Feedback: once(() => import('../components/Feedback.svelte')),
     AgentSwitch: once(() => import('../components/AgentSwitch.svelte')),
@@ -82,6 +83,7 @@
   import { closeThread, threadView } from '../thread.svelte'
   import { argoView, closeArgo } from '../argo-view.svelte'
   import { overlapView, closeOverlap } from '../overlap-view.svelte'
+  import { changesView, closeChanges } from '../changes-view.svelte'
   import { asideView } from '../asides.svelte'
 
   /**
@@ -308,6 +310,7 @@
     podLogs: { depth: () => (podLogs.open ? 1 : 0), back: closePodLogs },
     argo: { depth: () => (argoView.open ? 1 : 0), back: closeArgo },
     overlap: { depth: () => (overlapView.open ? 1 : 0), back: closeOverlap },
+    changes: { depth: () => (changesView.open ? 1 : 0), back: closeChanges },
   }
   /** The views left, the last one first back. */
   const trail: ViewId[] = []
@@ -507,6 +510,7 @@
 {#if threadView.ref}{#await lazy.ThreadPanel() then { default: ThreadPanel }}<ThreadPanel />{/await}{/if}
 {#if argoView.open}{#await lazy.ArgoPanel() then { default: ArgoPanel }}<ArgoPanel />{/await}{/if}
 {#if overlapView.open}{#await lazy.OverlapPanel() then { default: OverlapPanel }}<OverlapPanel phone />{/await}{/if}
+{#if changesView.open}{#await lazy.ChangesDrawer() then { default: ChangesDrawer }}<ChangesDrawer phone />{/await}{/if}
 <!-- Last: an agent action's launcher, over the panel it came from. -->
 {#if launcherDrawer.open}{#await lazy.LauncherDrawer() then { default: LauncherDrawer }}<LauncherDrawer />{/await}{/if}
 <Toast />

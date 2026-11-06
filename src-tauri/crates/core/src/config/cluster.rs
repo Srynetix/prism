@@ -156,7 +156,7 @@ impl PodsTarget {
 }
 
 /// `pattern` matches the whole of `text`, `*` standing for any characters.
-fn glob(pattern: &str, text: &str) -> bool {
+pub fn glob(pattern: &str, text: &str) -> bool {
     let parts: Vec<&str> = pattern.split('*').collect();
     if parts.len() == 1 {
         return pattern == text;

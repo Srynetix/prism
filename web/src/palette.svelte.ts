@@ -34,6 +34,8 @@ import { toast } from './toast.svelte'
 import { goToShells, refreshShells, shellGroups } from './open-shells.svelte'
 import { recentPanels, reopenLastPanel, reopenPanel } from './recent-panels.svelte'
 import type { Agent, MergeRequest, Snapshot, StatusOption, Ticket } from './types'
+import type { ChangesState } from './blocks/changes/changes'
+import { openChanges } from './changes-view.svelte'
 import { t, tc } from './i18n.svelte'
 
 export { KIND_LABEL, KIND_ONE, type Entry, type Group, type Kind, type PaletteAction, type Row }
@@ -208,7 +210,13 @@ function infraEntries(s: Snapshot): Entry[] {
     pill: p.healthy ? undefined : { label: p.status, tone: 'ko' },
     run: () => showBlock('pods'),
   }))
-  return [...envs, ...pods]
+  // The Changes timeline of each environment, in a drawer (its block on).
+  const journal = s.blocks?.changes as ChangesState | undefined
+  const changes = (journal?.envs ?? []).flatMap((env) => [
+    { id: `changes:${env}`, kind: 'env' as const, title: t('Changes {env}', { env }), hint: t('What changed, since yesterday'), words: 'changes changed what timeline deploy', run: () => openChanges({ env, period: 'since_yesterday' }) },
+    { id: `changes-1h:${env}`, kind: 'env' as const, title: t('Changes {env} in the last hour', { env }), hint: t('What changed'), words: 'changes changed what timeline deploy 1h hour', run: () => openChanges({ env, period: '1h' }) },
+  ])
+  return [...envs, ...changes, ...pods]
 }
 
 /** The shells still open (open-shells.svelte.ts) and the panels closed lately (recent-panels.svelte.ts), to go back to them. */

@@ -1,7 +1,7 @@
 ---
 title: Environments, vulnerabilities and Docker
 group: Watch the system
-blocks: envs, argocd, vulns, docker, disk_usage
+blocks: envs, argocd, changes, vulns, docker, disk_usage
 related: ci, agents, settings, todo
 ---
 Are the deployed applications healthy and running the version you expect, and which known vulnerabilities ship with what you build? From both blocks, a Claude session can take over the diagnosis or the fix.
@@ -59,6 +59,16 @@ A component in trouble gets an **Investigate** button. It opens a Claude session
 
 > [!NOTE]
 > Prism never writes to a cluster. It only needs read access to pods and deployments in the listed namespaces.
+
+## The Changes block
+Since yesterday, what changed on staging? The Changes block puts on one timeline what touched an environment: Argo CD syncs (their revision, the MR that brought it, the images deployed), MRs merged into the branch that feeds it (`[changes] branches`), pods rolling out, restarting, in CrashLoop or OOMKilled, alerts appearing and going, vulnerabilities new or gone, and what the blocks of a pack add.
+
+- The band at the top: a lane per source, a mark per change; the ranges Prism was closed are hatched. Drag on it to zoom on a range.
+- The list below, by hour, newest first: repeats fold (a pod restarting 6 times in 4 min is one line). A time marked *seen* is when Prism saw it: alerts and vulnerabilities give no date of their own.
+- A crash shows the sync or rollout of the same application just before it (`[changes] correlate_minutes`) as *probably linked*: a guess on time and name, never a certain cause. **Diagnose** sends an agent in plan mode with the application's timeline, to read its logs, its events and the diff of that change.
+- **What changed**, in a pod's logs, on an Argo CD crash alert and in the Argo CD panel of a Degraded application, opens it around the first crash. ⌘K: *Changes staging*. Copy gives the range as Markdown, for a post-mortem.
+
+Prism keeps the transitions in a journal (`changes.jsonl` in the profile's data folder, `retention_days`). The Kubernetes events (`kube_events`) are off by default: the cluster keeps them an hour, and they need the right to list events.
 
 ## Setting up the clusters
 Environments are listed in Settings › Infra › Kubernetes › Environments (`[[environments]]`): one row per environment and cluster, with **Env** (prod, demo, staging, or a name of your own such as `ops`: each name is a tab of the block, those of no stage last), **Kube context** and **Namespaces** (`*` matches any characters: `*` reads every namespace of the cluster, `app-*` those starting with `app-`; none: nothing is read). ArgoCD instances go in Settings › Infra › Kubernetes › ArgoCD (`[[argocd]]`): namespace, kube context, web URL, and the environments each is authoritative for. Without any, Prism looks in the `argocd*` namespaces of the default context's cluster (Settings › Infra › Kubernetes › Clusters).

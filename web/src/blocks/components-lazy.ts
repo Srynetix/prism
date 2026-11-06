@@ -8,6 +8,7 @@ import type { BlockComponent } from './block'
  */
 const OWN: Record<string, () => Promise<{ default: unknown }>> = {
   trail: () => import('./trail/Trail.svelte'),
+  changes: () => import('./changes/Changes.svelte'),
   dev_servers: () => import('./dev_servers/DevServers.svelte'),
   docker: () => import('./docker/Docker.svelte'),
   data: () => import('./data/DataPipelines.svelte'),
