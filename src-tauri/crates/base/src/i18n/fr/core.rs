@@ -57,6 +57,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("an action or a prompt: one of the two", "une action ou un prompt : l’un des deux"),
     ("mode {value}: default, acceptEdits or plan", "mode {value} : default, acceptEdits ou plan"),
     ("worktree = true needs its repos", "worktree = true demande ses repos"),
+    ("{slot} needs repos: without them the routine runs in a working folder", "{slot} demande des repos : sans eux, la routine tourne dans un dossier de travail"),
     ("{key}: with prompt only, its quick action says it beside action", "{key} : avec prompt seulement, sa quick action le dit à côté d’action"),
     ("quick action {name} has no prompt", "la quick action {name} n’a pas de prompt"),
     ("a cron has five fields: minute hour day month weekday", "un cron a cinq champs : minute heure jour mois jour-de-semaine"),

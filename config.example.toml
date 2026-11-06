@@ -368,7 +368,8 @@ enabled = true
 # prompt: instead of action (one of the two), a prompt written for the routine alone, with the
 # same {repo} {base} {since} {alerts}; the routine then says itself worktree (repos needed), mode,
 # kind, model and effort, keys refused beside action (its quick action says them). Without repos,
-# it runs once, in the working folder ([workspace] dir).
+# it runs once, in the first [[workspaces]] dir (otherwise the home folder), and its prompt cannot
+# name {repo} nor {base}.
 # repos: one run each (empty: its quick action's); cron (five fields) or every ("30m", "6h",
 # "1d"), not both; time_zone: the cron's (empty: the computer's); deliver: review | digest;
 # missed: once (its time passed while the computer slept or Prism was closed: run once on waking,

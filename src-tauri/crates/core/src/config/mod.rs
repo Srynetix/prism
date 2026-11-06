@@ -529,8 +529,8 @@ pub struct Routine {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional = nullable))]
     pub effort: Option<String>,
-    /// The repositories it runs on, one run each; empty: its quick action's (with `prompt`: the
-    /// working folder, `[workspace] dir`, once).
+    /// The repositories it runs on, one run each; empty: its quick action's (with `prompt`: once,
+    /// in the first `[[workspaces]]` dir, otherwise the home folder).
     pub repos: Vec<String>,
     /// Five fields (`0 3 * * 1-5`); or `every`, not both.
     pub cron: Option<String>,
@@ -560,6 +560,11 @@ impl Default for Routine {
 /// Prism's own actions a routine may run, without a repository.
 pub const ROUTINE_BUILTINS: [&str; 2] = ["builtin:alerts-triage", "builtin:retro-draft"];
 
+/// A text key set: not absent, not blank.
+fn set(v: &Option<String>) -> Option<String> {
+    v.as_deref().map(str::trim).filter(|v| !v.is_empty()).map(String::from)
+}
+
 impl Routine {
     /// Its own prompt, when it has one (not blank).
     pub fn own_prompt(&self) -> Option<&str> {
@@ -568,7 +573,7 @@ impl Routine {
 
     /// When it runs, and what it runs: the quick action named, or the one its own prompt makes;
     /// none for a builtin. What does not hold, in a few words.
-    pub fn check(&self, actions: &[QuickAction]) -> std::result::Result<(crate::schedule::When, Option<QuickAction>), String> {
+    pub fn check<'a>(&self, actions: &'a [QuickAction]) -> std::result::Result<(crate::schedule::When, Option<std::borrow::Cow<'a, QuickAction>>), String> {
         if self.name.trim().is_empty() {
             return Err(tr("a routine has no name").into());
         }
@@ -587,30 +592,39 @@ impl Routine {
             if !action.is_empty() {
                 return Err(tr("action and prompt: one of the two, not both").into());
             }
-            if let Some(m) = self.mode.as_deref().filter(|m| !matches!(*m, "default" | "acceptEdits" | "plan")) {
+            // Blank: the CLI's, as for a quick action.
+            let mode = set(&self.mode);
+            if let Some(m) = mode.as_deref().filter(|m| !matches!(*m, "default" | "acceptEdits" | "plan")) {
                 return Err(tr!("mode {value}: default, acceptEdits or plan", value = m));
             }
             let worktree = self.worktree.unwrap_or(false);
             if worktree && self.repos.is_empty() {
                 return Err(tr("worktree = true needs its repos").into());
             }
+            // Without a repository, nothing to put in their place.
+            if self.repos.is_empty()
+                && let Some(slot) = ["{repo}", "{base}"].into_iter().find(|s| prompt.contains(s))
+            {
+                return Err(tr!("{slot} needs repos: without them the routine runs in a working folder", slot = slot));
+            }
             let own = QuickAction {
                 name: self.name.trim().to_string(),
                 prompt: prompt.to_string(),
                 repos: self.repos.clone(),
                 worktree,
-                mode: self.mode.clone(),
-                kind: self.kind.clone().filter(|k| !k.trim().is_empty()),
-                model: self.model.clone().filter(|m| !m.trim().is_empty()),
-                effort: self.effort.clone().filter(|e| !e.trim().is_empty()),
+                mode,
+                kind: set(&self.kind),
+                model: set(&self.model),
+                effort: set(&self.effort),
             };
-            return Ok((when, Some(own)));
+            return Ok((when, Some(std::borrow::Cow::Owned(own))));
         }
         if action.is_empty() {
             return Err(tr("an action or a prompt: one of the two").into());
         }
         // Beside an action, what is launched is read in one place only: its quick action.
-        let beside = [("worktree", self.worktree.is_some()), ("mode", self.mode.is_some()), ("kind", self.kind.is_some()), ("model", self.model.is_some()), ("effort", self.effort.is_some())];
+        // Blank (`model = ""`): the CLI's, said nowhere: not a second place.
+        let beside = [("worktree", self.worktree == Some(true)), ("mode", set(&self.mode).is_some()), ("kind", set(&self.kind).is_some()), ("model", set(&self.model).is_some()), ("effort", set(&self.effort).is_some())];
         if let Some((key, _)) = beside.iter().find(|(_, set)| *set) {
             return Err(tr!("{key}: with prompt only, its quick action says it beside action", key = *key));
         }
@@ -621,7 +635,7 @@ impl Routine {
         if qa.prompt.trim().is_empty() {
             return Err(tr!("quick action {name} has no prompt", name = action));
         }
-        Ok((when, Some(qa.clone())))
+        Ok((when, Some(std::borrow::Cow::Borrowed(qa))))
     }
 
     /// The repositories it runs on: its own, otherwise its quick action's; none for a builtin.
@@ -1196,7 +1210,14 @@ pub mod tests {
         assert_eq!((qa.prompt.trim(), qa.worktree, qa.mode.as_deref(), qa.model.as_deref(), qa.effort.as_deref()), ("Sum up {repo} since {since}.", true, Some("plan"), Some("opus"), Some("high")));
         assert_eq!(week.runs(Some(&qa)), [Some("api".to_string()), Some("web".to_string())]);
         let (_, qa) = here.check(qas).unwrap();
-        assert_eq!(here.runs(qa.as_ref()), [None], "no repos: once, in the working folder");
+        assert_eq!(here.runs(qa.as_deref()), [None], "no repos: once, in the working folder");
+        // Blank keys: the CLI's, beside a prompt or an action alike.
+        let blank = Routine { mode: Some(String::new()), model: Some(" ".into()), ..here.clone() };
+        assert_eq!(blank.check(qas).unwrap().1.unwrap().mode, None);
+        let quiet = Routine { model: Some(String::new()), ..beside.clone() };
+        assert!(quiet.check(qas).is_ok(), "model = \"\" beside an action");
+        let slot = Routine { prompt: Some("Look at {repo}.".into()), ..here.clone() };
+        assert!(slot.check(qas).unwrap_err().contains("{repo}"), "no repository to put there");
         assert!(both.check(qas).unwrap_err().contains("not both"));
         assert!(none.check(qas).unwrap_err().contains("one of the two"));
         assert!(beside.check(qas).unwrap_err().starts_with("model"));
@@ -1210,8 +1231,8 @@ pub mod tests {
         let [nightly, both, nowhere] = &c.agents.routines[..] else { panic!("three routines") };
         assert_eq!((nightly.deliver.as_str(), nightly.missed.as_str(), nightly.max_minutes, nightly.enabled), ("review", "once", 60, true));
         let (_, qa) = nightly.check(&c.agents.quick_actions).unwrap();
-        assert_eq!(nightly.targets(qa.as_ref()), ["api"], "the quick action's repositories");
-        assert_eq!(nightly.runs(qa.as_ref()), [Some("api".to_string())]);
+        assert_eq!(nightly.targets(qa.as_deref()), ["api"], "the quick action's repositories");
+        assert_eq!(nightly.runs(qa.as_deref()), [Some("api".to_string())]);
         assert!(both.check(&c.agents.quick_actions).unwrap_err().contains("exclude"));
         assert!(nowhere.check(&c.agents.quick_actions).unwrap_err().contains("Scan"));
         // A routine launches an agent without me: never set from a phone, whole or in part.

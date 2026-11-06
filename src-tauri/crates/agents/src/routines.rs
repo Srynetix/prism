@@ -430,8 +430,8 @@ impl Agents {
                                 }
                             }
                         }
-                        let action = qa.as_ref().map(|a| RoutineAction { prompt: a.prompt.clone(), mode: a.mode.clone(), worktree: a.worktree, own: r.own_prompt().is_some(), kind: a.kind.clone(), model: a.model.clone(), effort: a.effort.clone() });
-                        (None, next, r.targets(qa.as_ref()), action)
+                        let action = qa.as_deref().map(RoutineAction::of);
+                        (None, next, r.targets(qa.as_deref()), action)
                     }
                 };
                 RoutineView { name: r.name.clone(), enabled: r.enabled, next, repos, error, pending, action }
@@ -500,7 +500,7 @@ impl Agents {
             changed = true;
             let late = now - due;
             let missed = late > chrono::Duration::minutes(SLACK_MINUTES);
-            let targets = r.runs(qa.as_ref());
+            let targets = r.runs(qa.as_deref());
             for repo in targets {
                 let mut run = RoutineRun { caught_up: missed, ..RoutineRun::new(&r.name, repo.clone(), &r.deliver, due, now, true) };
                 if missed && r.missed == "skip" {
@@ -627,7 +627,7 @@ impl Agents {
             launch.model = qa.model.clone();
             launch.effort = qa.effort.clone();
         }
-        let (dir, head) = match (qa.as_ref(), repo) {
+        let (dir, head) = match (qa.as_deref(), repo) {
             (None, _) => {
                 // A builtin: read-only, in the working folder.
                 launch.prompt = Some(builtin_prompt(action, &inputs, fr)?);
@@ -657,7 +657,11 @@ impl Agents {
                 launch.category = qa.kind.clone();
                 let worktrees = self.inner.worktrees.lock().unwrap().iter().any(|w| w.name == repo);
                 // Unattended, never in my clone in place of the worktree it asks for.
-                ensure!(!qa.worktree || worktrees, "{}", tr!("{repo} makes no worktrees ([[repos]] worktrees): its quick action asks for one", repo = repo));
+                ensure!(
+                    !qa.worktree || worktrees,
+                    "{}",
+                    if r.own_prompt().is_some() { tr!("{repo} makes no worktrees ([[repos]] worktrees): the routine asks for one", repo = repo) } else { tr!("{repo} makes no worktrees ([[repos]] worktrees): its quick action asks for one", repo = repo) }
+                );
                 if qa.worktree {
                     // To the second: a Rerun in the same minute gets a worktree of its own.
                     let name = format!("{}-{}", slug(&r.name), Utc::now().with_timezone(&chrono::Local).format("%Y%m%d-%H%M%S"));
@@ -903,7 +907,7 @@ impl Agents {
         let targets: Vec<Option<String>> = match (&qa, repo) {
             (None, _) => vec![None],
             (Some(_), Some(repo)) => vec![Some(repo.to_string())],
-            (Some(_), None) => r.runs(qa.as_ref()),
+            (Some(_), None) => r.runs(qa.as_deref()),
         };
         if targets.is_empty() {
             bail!(tr("this quick action names no repository: give the routine its repos"));

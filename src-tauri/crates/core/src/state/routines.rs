@@ -46,17 +46,13 @@ pub struct RoutineAction {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<String>,
     pub worktree: bool,
-    /// The routine's own prompt (`prompt = …`), not a quick action's.
-    pub own: bool,
-    #[cfg_attr(feature = "ts", ts(optional))]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kind: Option<String>,
-    #[cfg_attr(feature = "ts", ts(optional))]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    #[cfg_attr(feature = "ts", ts(optional))]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub effort: Option<String>,
+}
+
+impl RoutineAction {
+    /// What a routine's view says of what it launches.
+    pub fn of(qa: &crate::config::QuickAction) -> Self {
+        Self { prompt: qa.prompt.clone(), mode: qa.mode.clone(), worktree: qa.worktree }
+    }
 }
 
 /// Why a routine waits for trust.

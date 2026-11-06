@@ -42,8 +42,8 @@ model?: string | null,
  */
 effort?: string | null, 
 /**
- * The repositories it runs on, one run each; empty: its quick action's (with `prompt`: the
- * working folder, `[workspace] dir`, once).
+ * The repositories it runs on, one run each; empty: its quick action's (with `prompt`: once,
+ * in the first `[[workspaces]]` dir, otherwise the home folder).
  */
 repos: Array<string>, 
 /**

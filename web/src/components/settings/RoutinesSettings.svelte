@@ -1,11 +1,12 @@
 <script lang="ts">
   import { live } from '../../live.svelte'
   import { agentsSettings } from '../../agents.svelte'
-  import { openSettings, saveEdits } from '../../settings.svelte'
+  import { openSettings, saveEdits, valueOf } from '../../settings.svelte'
   import { toast } from '../../toast.svelte'
   import { ago } from '../../time'
   import { t, tn } from '../../i18n.svelte'
   import { BUILTINS, builtinLabel, cronWords, enableRoutine, everyWords, nextTime, removeRoutine, routinesOf, runRoutine, runTime, STATE_ICON, STATE_LABEL, trustRoutine, whenWords } from '../../routines.svelte'
+  import type { QuickAction } from '../../bindings/QuickAction'
   import type { Routine } from '../../bindings/Routine'
   import type { RoutineView } from '../../bindings/RoutineView'
 
@@ -120,18 +121,21 @@
   }
   /** The prompt and its settings moved into a quick action of the routine's name, the routine pointing to it. */
   async function toQuickAction() {
-    if (!draft || draft.source !== 'prompt' || !draft.prompt.trim() || !draft.name.trim()) return
+    // Without repositories it would run nowhere: a quick action runs on a repository.
+    if (!draft || draft.source !== 'prompt' || !draft.prompt.trim() || !draft.name.trim() || !draft.repos.length) return
     const name = draft.name.trim()
     if (actions.some((a) => a.name === name)) return toast(t('A quick action is already named {name}: rename the routine first', { name }), 6000)
     const d = draft
     const action = { name, prompt: d.prompt, repos: d.repos, worktree: d.worktree, ...(d.mode ? { mode: d.mode } : {}), ...(d.kind ? { kind: d.kind } : {}), ...(d.model.trim() ? { model: d.model.trim() } : {}), ...(d.effort.trim() ? { effort: d.effort.trim() } : {}) }
+    // The list as Settings › Quick actions shows and writes it: its unsaved edits kept.
+    const current = valueOf<QuickAction[]>(['agents', 'quick_actions'], [])
     const next: Draft = { ...d, source: 'action', action: name, prompt: '', worktree: false, mode: '', kind: '', model: '', effort: '', repos: [] }
     const row = toRow(next)
     const rows = d.former ? list.map((r) => (r.name === d.former ? row : asRow(r))) : [...list.map(asRow), row]
     saving = true
     try {
       await saveEdits([
-        { path: ['agents', 'quick_actions'], value: [...actions, action] },
+        { path: ['agents', 'quick_actions'], value: [...current, action] },
         { path: ['agents', 'routines'], value: rows },
       ])
       draft = { ...next, former: name }
@@ -281,10 +285,14 @@
         <textarea class="prompt mono" rows="5" bind:this={promptBox} bind:value={d.prompt} oninput={promptInput} onkeydown={(e) => e.key === 'Escape' && slotting && (e.stopPropagation(), (slotting = false))} placeholder={t('Sum up the merge requests merged on {repo} since {since}: one line each, grouped by ticket.')} spellcheck="false"></textarea>
       </label>
       <div class="slots" class:hot={slotting}>
-        {#each SLOTS as s (s.slot)}<button type="button" class="slot" onmousedown={(e) => e.preventDefault()} onclick={() => putSlot(s.slot)} title={s.what}><code>{s.slot}</code> <span>{s.what}</span></button>{/each}
+        {#each SLOTS as s (s.slot)}
+          {@const needsRepo = (s.slot === '{repo}' || s.slot === '{base}') && !d.repos.length}
+          <button type="button" class="slot" disabled={needsRepo} onmousedown={(e) => e.preventDefault()} onclick={() => putSlot(s.slot)} title={needsRepo ? t('Tick a repository first') : s.what}><code>{s.slot}</code> <span>{s.what}</span></button>
+        {/each}
       </div>
+      {#if !d.repos.length && /\{(repo|base)\}/.test(d.prompt)}<small class="ko">{t('{repo} and {base} need a repository: tick one, or take them out.')}</small>{/if}
       <div class="repos">
-        <span class="lbl">{t('Repositories')}<small>{t('One run each. None ticked: once, in the working folder ([workspace] dir).')}</small></span>
+        <span class="lbl">{t('Repositories')}<small>{t('One run each. None ticked: once, in your first working folder (Settings › Code › Repositories), without {repo} nor {base}.')}</small></span>
         {#each repos as name (name)}
           <label class="chk"><input type="checkbox" checked={d.repos.includes(name)} onchange={(e) => (d.repos = e.currentTarget.checked ? [...d.repos, name] : d.repos.filter((x) => x !== name))} />{name}</label>
         {/each}
@@ -304,7 +312,7 @@
         <label>{t('Effort')}<input bind:value={d.effort} placeholder={t('the CLI’s')} list="routine-efforts" spellcheck="false" /></label>
         <datalist id="routine-efforts"><option value="low"></option><option value="medium"></option><option value="high"></option><option value="xhigh"></option><option value="max"></option></datalist>
       </div>
-      <p class="qa"><button class="lnk" disabled={saving || !d.prompt.trim() || !d.name.trim() || taken} onclick={toQuickAction}>{t('Turn into a quick action')}</button> {t('to try it in a click, from a repository.')}</p>
+      <p class="qa"><button class="lnk" disabled={saving || !d.prompt.trim() || !d.name.trim() || taken || !d.repos.length} title={d.repos.length ? '' : t('A quick action runs on a repository: tick one first')} onclick={toQuickAction}>{t('Turn into a quick action')}</button> {t('to try it in a click, from a repository.')}</p>
     {/if}
     <div class="seg" role="radiogroup" aria-label={t('When')}>
       <button role="radio" aria-checked={d.pace === 'cron'} class:on={d.pace === 'cron'} onclick={() => (d.pace = 'cron')}>{t('Cron')}</button>
@@ -331,7 +339,7 @@
     </div>
     <label class="chk"><input type="checkbox" bind:checked={d.enabled} />{t('On')}</label>
     <div class="btns">
-      <button class="btn primary" onclick={save} disabled={saving || !d.name.trim() || taken || (d.source === 'prompt' && (!d.prompt.trim() || (d.worktree && !d.repos.length)))}>{t('Save')}</button>
+      <button class="btn primary" onclick={save} disabled={saving || !d.name.trim() || taken || (d.source === 'prompt' && (!d.prompt.trim() || (d.worktree && !d.repos.length) || (!d.repos.length && /\{(repo|base)\}/.test(d.prompt))))}>{t('Save')}</button>
       {#if d.former}<button class="btn" disabled={!unchanged || !!savedView?.pending} onclick={() => runRoutine(d.former)} title={unchanged ? t('The routine as saved, now') : t('Save it first')}>{t('Run now')}</button>{/if}
       {#if d.former}<button class="btn danger" class:armed={armed === 'delete'} onclick={remove}>{armed === 'delete' ? t('Click again to remove') : t('Remove')}</button>{/if}
       <button class="btn ghost" onclick={() => (draft = null)}>{t('Close')}</button>
@@ -394,7 +402,8 @@
   .slot { display: inline-flex; gap: 4px; align-items: baseline; padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
   .slot code { color: var(--info); font-family: var(--mono); }
   .slots.hot .slot { border-color: var(--info); color: var(--text); }
-  .slot:hover { border-color: var(--accent); }
+  .slot:hover:not(:disabled) { border-color: var(--accent); }
+  .slot:disabled { opacity: 0.45; cursor: default; }
   label.chk { flex-direction: row; align-items: center; gap: 5px; color: var(--text); }
   .qa { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .repos { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }

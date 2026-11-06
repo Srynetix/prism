@@ -624,7 +624,7 @@ async fn a_routine_runs_its_own_prompt() {
     b.agents.configure(cfg);
     b.agents.publish_routines_now();
     let view = b.hub.subscribe().borrow().routines.routines[0].clone();
-    assert!(view.error.is_none() && view.action.as_ref().is_some_and(|a| a.own), "{view:?}");
+    assert!(view.error.is_none() && view.action.as_ref().is_some_and(|a| a.prompt.starts_with("Sum up")), "{view:?}");
     b.agents.run_routine_now("Week", None).unwrap();
     until("its agent launched", || runs(&b).first().is_some_and(|r| r.agent.is_some())).await;
     let id = runs(&b)[0].agent.clone().unwrap();
