@@ -57,6 +57,7 @@ impl prism_commands::Shell for Desk {
 pub fn restart(app: &tauri::AppHandle) -> ! {
     // The new Prism must find the profile free, not this one about to exit.
     crate::profile::release();
+    prism_dictation::whisper::unload(std::time::Duration::ZERO);
     app.restart()
 }
 

@@ -16,4 +16,6 @@ undocumented_unsafe_blocks = "deny"
 block2.workspace = true
 objc2.workspace = true
 objc2-event-kit.workspace = true
-objc2-foundation.workspace = true
+objc2-foundation = { workspace = true, features = ["NSLocale", "NSOperation"] }
+objc2-speech = { version = "0.3", features = ["SFSpeechRecognizer", "SFSpeechRecognitionRequest", "SFSpeechRecognitionResult", "SFSpeechRecognitionTask", "SFTranscription", "block2", "objc2-avf-audio"] }
+objc2-avf-audio = { version = "0.3", features = ["AVAudioBuffer", "AVAudioFormat", "AVAudioTypes"] }

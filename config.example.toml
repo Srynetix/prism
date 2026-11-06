@@ -284,6 +284,31 @@ key = "`"
 [notes]
 key = "Cmd+Shift+N"
 
+# Dictation: a prompt spoken rather than typed, at the computer. The microphone beside an agent's
+# Chat box, a plan's comments, a question's own words and the launcher's prompt: held, it records
+# while held; clicked (toggle_on_click), it starts and the next click stops. The text goes in at
+# the cursor, never sent on its own; Esc cancels. Transcribed on this computer only, never online:
+# engine "system" (macOS's speech recognition, forced on the device), "whisper" (whisper.cpp built
+# into Prism, macOS and Linux) or "auto" (the system's where it recognizes the language on this Mac,
+# whisper otherwise). whisper_model: tiny, base, small or medium, downloaded on demand from Settings ›
+# Agents › Dictation (checked, kept for every profile). language: "auto" (whisper detects it; the
+# system's takes [agents] prompt_language) or a code ("fr", "en"). shortcut: held while a field that
+# takes dictation has the focus: "Fn" (macOS) or a combination ("Ctrl+Shift+Space"); empty: the
+# button only. The audio stays in memory, dropped once read; max_seconds stops a forgotten one.
+# hints: the repository's, branch's, ticket's and the agent's files' names given as words to expect.
+# input_device: a microphone by name (empty: the system's). The Sound block's [sound] muted_under and
+# min_input_gain warn before recording into a microphone muted or too low.
+[dictation]
+enabled = true
+engine = "auto"
+whisper_model = "base"
+language = "auto"
+shortcut = "Fn"             # Linux: "Ctrl+Shift+Space"
+toggle_on_click = true
+max_seconds = 300
+hints = true
+input_device = ""
+
 # Agents: Claude Code, Command Code, OpenCode or Codex in Prism terminals (Agents view, ⌘5), kept alive by tmux
 # (`brew install tmux`) when Prism quits. Applied on save in Settings.
 [agents]

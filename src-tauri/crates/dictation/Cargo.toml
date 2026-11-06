@@ -1,0 +1,30 @@
+[package]
+name = "prism-dictation"
+description = "A prompt dictated at the computer: the microphone captured in memory (16 kHz mono, never written), transcribed on this computer only, by macOS's on-device speech recognition or whisper.cpp, its models downloaded on demand and checked."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+prism-base.workspace = true
+prism-macos.workspace = true
+
+anyhow.workspace = true
+dirs.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+# The microphone, on every system (CoreAudio, ALSA).
+cpal = "0.18"
+
+# whisper.cpp, built with the app (cmake); Metal on Apple Silicon.
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.16", features = ["metal"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+whisper-rs = "0.16"

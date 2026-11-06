@@ -7,5 +7,10 @@
   <string>Prism shows your agenda for the day (meetings, Teams links), read locally from Calendar.</string>
   <key>NSCalendarsUsageDescription</key>
   <string>Prism shows your agenda for the day (meetings, Teams links), read locally from Calendar.</string>
+  <!-- Dictation (`[dictation]`): the microphone, and macOS's speech recognition on this Mac. -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Prism records your voice while you hold the dictation button, to write a prompt to an agent. The audio stays in memory on this Mac.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Prism turns what you dictate into a prompt with macOS's speech recognition, on this Mac only.</string>
 </dict>
 </plist>

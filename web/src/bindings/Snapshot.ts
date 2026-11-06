@@ -15,6 +15,7 @@ import type { ClaudeSession } from "./ClaudeSession";
 import type { ClaudeUsage } from "./ClaudeUsage";
 import type { ConsoleConfig } from "./ConsoleConfig";
 import type { Conventions } from "./Conventions";
+import type { DictationConfig } from "./DictationConfig";
 import type { EnvironmentStage } from "./EnvironmentStage";
 import type { Environments } from "./Environments";
 import type { Features } from "./Features";
@@ -120,6 +121,10 @@ files: FilesConfig,
  * Quick note entry (`[notes]`).
  */
 notes: NotesConfig, 
+/**
+ * A prompt dictated at the computer (`[dictation]`).
+ */
+dictation: DictationConfig, 
 /**
  * Theme and playful touches (`[appearance]`).
  */

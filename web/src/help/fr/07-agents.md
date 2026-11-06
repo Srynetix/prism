@@ -127,6 +127,19 @@ Déposez des images, des PDF ou n’importe quel fichier sur le prompt du lanceu
 
 Dans son **Chat**, le bouton image à gauche de la zone de saisie (sur un téléphone aussi : vos photos ou l’appareil photo) joint des images, comme en coller une dans la zone (`⌘V`). Chacune est enregistrée dans `.prism/attach/` et s’affiche en vignette au-dessus de la zone (× la retire) ; son `@path` va dans votre message et part avec lui. Une image lourde (plus de 1,5 Mo) ou que l’agent ne lit pas (le HEIC d’un téléphone) part en JPEG de 2048 pixels au plus. Depuis un téléphone, elle part avec votre message, donc seulement quand la saisie est activée (`[remote] typing`).
 
+## Dicter un prompt
+
+Sur l’ordinateur, le prompt d’un agent peut se dicter plutôt que se taper : le **micro** à côté du bouton image de la zone de son Chat, et à côté des commentaires d’un plan, des mots libres d’une question et du prompt du lanceur.
+
+- **Maintenez-le** (ou maintenez **Fn** sur macOS, **Ctrl ⇧ Espace** sur Linux, quand la zone a le focus) et parlez ; relâchez : le texte arrive au curseur. **Cliquez** pour une longue dictée : un clic démarre, le suivant insère le texte.
+- Pendant l’enregistrement, une barre sous la zone montre la durée, le niveau du micro et son nom ; **Échap** annule, rien n’est inséré.
+- Le texte n’est jamais envoyé seul : relisez-le, puis envoyez comme d’habitude (le brouillon est gardé comme du texte tapé).
+- Un micro coupé, éteint ou trop bas (les seuils `[sound]` du bloc Son) est signalé avant d’enregistrer, avec **Remonter** en un clic.
+
+Rien ne quitte l’ordinateur : la reconnaissance vocale de macOS, forcée sur ce Mac, ou **whisper** intégré à Prism (macOS et Linux), dont le modèle se télécharge une fois depuis les Réglages (`base`, 142 Mo, par défaut ; `small` reconnaît mieux le jargon). Les noms du dépôt, de la branche et des fichiers sont passés comme vocabulaire. L’audio reste en mémoire et est jeté une fois transcrit.
+
+[Ouvrir Réglages › Agents › Dictée](prism:settings/dictation)
+
 ## Command Code
 Avec **CLI d’agent** sur `command-code`, les nouveaux agents lancent [Command Code](https://commandcode.ai) (`cmd`) au lieu de Claude Code, et les libellés, le logo et l’usage du forfait suivent. Un agent garde la CLI avec laquelle il a été lancé. Un dépôt peut nommer la sienne (**Réglages › Code › Dépôts › Agent**, `[[repos]] agent`) : les agents lancés dans son clone ou ses worktrees utilisent celle-là, et la commande du lanceur l’affiche — Command Code partout sauf Claude Code sur un dépôt, par exemple. Les différences :
 

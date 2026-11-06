@@ -12,3 +12,5 @@ pub mod corewlan;
 pub mod eventkit;
 #[cfg(target_os = "macos")]
 pub mod localauth;
+#[cfg(target_os = "macos")]
+pub mod speech;

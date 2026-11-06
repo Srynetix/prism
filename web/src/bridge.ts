@@ -73,6 +73,11 @@ export function localInvoke<T>(command: string, args?: InvokeArgs): Promise<T> {
   return tauriInvoke<T>(command, args)
 }
 
+/** An event of this computer's app, whatever core the page talks to (as `localInvoke`). */
+export function localListen<T>(event: string, handler: EventCallback<T>): Promise<UnlistenFn> {
+  return tauriListen<T>(event, handler)
+}
+
 /** An event the core pushes (`snapshot`, `menu`…); the returned function stops listening. */
 export function listen<T>(event: string, handler: EventCallback<T>): Promise<UnlistenFn> {
   return transport ? transport.listen<T>(event, handler) : tauriListen<T>(event, handler)

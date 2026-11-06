@@ -7,6 +7,9 @@
   import AgentUsageChip from './AgentUsage.svelte'
   import AttachButton from './chat/AttachButton.svelte'
   import AttachStrip from './chat/AttachStrip.svelte'
+  import DictateButton from './chat/DictateButton.svelte'
+  import DictationBar from './chat/DictationBar.svelte'
+  import { filesOfAgent } from '../dictation.svelte'
   import { sendPrompt } from '../agent-inbox.svelte'
   import { allowAgent, attachToDraft, filesOf, stopAgent } from '../agents.svelte'
   import { cliOf, nameOf } from '../agent-cli'
@@ -40,6 +43,8 @@
   const running = $derived(agent.state === 'running')
   const suggested = $derived(suggestionOf(agent))
   let error = $state<string | null>(null)
+  /** Words its dictation expects: its folder's, branch's, ticket's, and the files it read or wrote. */
+  const hints = () => [agent.cwd.split('/').filter(Boolean).pop() ?? '', agent.branch ?? '', agent.ticket ?? '', ...filesOfAgent(agent.id)]
   /** The box grows with its lines, up to its max-height (WebKit without `field-sizing` too). */
   $effect(() => {
     void text
@@ -115,8 +120,10 @@
         <SlashMenu bind:this={slash} id={agent.id} bind:text={() => text, write} {field} />
         <textarea bind:this={field} bind:value={() => text, write} rows="2" {onkeydown} {onpaste} oninput={() => (note = null)} disabled={!running} placeholder={!running ? t('It is not running: Resume it first') : suggested ? `${suggested}   ⇥ Tab` : t('Write to {name}…', { name: agent.title })} spellcheck="true" writingsuggestions="false"></textarea>
       </div>
+      <DictationBar key="chat:{agent.id}" />
       <div class="foot">
         <AttachButton id={agent.id} {text} {write} disabled={!running} onerror={(e) => (error = e)} />
+        <DictateButton key="chat:{agent.id}" field={() => field} text={() => text} {write} {hints} disabled={!running} />
         <QuickAnswers {agent} />
         <span class="grow"></span>
         <span class="hint">{t('⇧↵ a line · / its commands')}</span>

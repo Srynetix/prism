@@ -51,6 +51,14 @@ commands! {
         machine_resize: Never,
         machine_detach: Never,
         machine_export: Never,
+        // Dictation (`[dictation]`): the computer's microphone, transcribed on it; its models.
+        dictation_start: Never,
+        dictation_stop: Never,
+        dictation_cancel: Never,
+        dictation_status: Never,
+        dictation_download: Never,
+        dictation_cancel_download: Never,
+        dictation_remove: Never,
     }
     // Config, packs, tokens, updates: never from a phone.
     config::read_config: Never,

@@ -127,6 +127,19 @@ Drop images, PDFs or any file on the launcher's prompt, paste a screenshot there
 
 In its **Chat**, the image button left of the box (on a phone too: your photos or the camera) attaches images, as does pasting one in the box (`⌘V`). Each is saved in `.prism/attach/` and shown as a thumbnail over the box (× takes it out); its `@path` goes in your words and is sent with them. A heavy image (over 1.5 MB) or one the agent does not read (a phone's HEIC) is sent as a JPEG of 2048 pixels at most. From a phone, it goes with your words, so only while typing is on (`[remote] typing`).
 
+## Dictating a prompt
+
+At the computer, an agent's prompt can be spoken rather than typed: the **microphone** beside the image button of its Chat box, and beside a plan's comments, a question's own words and the launcher's prompt.
+
+- **Hold** it (or hold **Fn** on macOS, **Ctrl ⇧ Space** on Linux, while the box has the focus) and speak; release: the text goes in at the cursor. **Click** it for a long dictation: a click starts, the next one puts the text in.
+- While it records, a bar under the box shows the time, the microphone's level and its name; **Esc** cancels, nothing goes in.
+- The text is never sent on its own: read it over, then send as usual (the draft is kept like typed text).
+- A microphone muted, turned off or too low (the Sound block's `[sound]` thresholds) is said before recording, with **Raise** in one click.
+
+Nothing leaves the computer: macOS's own speech recognition, forced on this Mac, or **whisper** built into Prism (macOS and Linux), whose model is downloaded once from Settings (`base`, 142 MB, by default; `small` is better on technical words). The repository's, branch's and files' names are given as words to expect. The audio stays in memory and is dropped once transcribed.
+
+[Open Settings › Agents › Dictation](prism:settings/dictation)
+
 ## Command Code
 With **Agent CLI** on `command-code`, new agents run [Command Code](https://commandcode.ai) (`cmd`) instead of Claude Code, and the labels, logo and plan usage follow. An agent keeps the CLI it was launched with. A repository can name its own (**Settings › Code › Repositories › Agent**, `[[repos]] agent`): the agents launched in its clone or its worktrees run that one, and the launcher's command shows it — Command Code everywhere but Claude Code on one repository, say. The differences:
 

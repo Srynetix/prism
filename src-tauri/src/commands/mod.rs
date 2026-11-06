@@ -53,6 +53,13 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         crate::machines::machine_resize,
         crate::machines::machine_detach,
         crate::machines::machine_export,
+        crate::dictation::dictation_start,
+        crate::dictation::dictation_stop,
+        crate::dictation::dictation_cancel,
+        crate::dictation::dictation_status,
+        crate::dictation::dictation_download,
+        crate::dictation::dictation_cancel_download,
+        crate::dictation::dictation_remove,
     ];
     move |invoke: tauri::ipc::Invoke| {
         let command = invoke.message.command();
@@ -237,7 +244,7 @@ mod tests {
     /// module's, registered by `handler()`.
     #[test]
     fn the_desk_commands_are_here() {
-        let sources = [include_str!("mod.rs"), include_str!("profiles.rs"), include_str!("../machines.rs")].concat();
+        let sources = [include_str!("mod.rs"), include_str!("profiles.rs"), include_str!("../machines.rs"), include_str!("../dictation.rs")].concat();
         let handler = &sources[sources.find("generate_handler![").unwrap()..];
         let handler = &handler[..handler.find("];").unwrap()];
         for name in prism_commands::commands::DESK {

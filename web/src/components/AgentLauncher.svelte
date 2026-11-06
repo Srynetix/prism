@@ -14,6 +14,8 @@
   import { RECIPES, STEP_LABEL, WHEN_LABEL, type Step, type StepKind } from '../agent-chains.svelte'
   import { t } from '../i18n.svelte'
   import { pref, setPref } from '../layout.svelte'
+  import DictateButton from './chat/DictateButton.svelte'
+  import DictationBar from './chat/DictationBar.svelte'
 
   /**
    * The New agent form of the Agents view. Mounted once and hidden when an agent shows: what is
@@ -62,6 +64,7 @@
 
   let title = $state('')
   let prompt = $state('')
+  let promptField = $state<HTMLTextAreaElement>()
   let whereTo = $state<Where>('new')
   let name = $state('')
   /** Existing branch to check out in the new worktree (an MR's); empty: `<prefix><name>`. */
@@ -397,12 +400,14 @@
     {#if sameAs}<div class="same"><Icon name="retry" /><span>{#if replacing}{t('Editing the prepared')} <b>{sameAs}</b>{t(': Launch or Prepare replaces it')}{:else}{t('Same as')} <b>{sameAs}</b>{/if}</span><span class="grow"></span><button type="button" onclick={startBlank}>{t('Start blank')}</button></div>{/if}
     {#if !quick}<label><span>{t('Title')}</span><input bind:value={title} placeholder={autoTitle || t('Agent')} spellcheck="false" /></label>{/if}
     <label><span>{t('Prompt')}</span>
-      <textarea bind:value={prompt} {@attach (el: HTMLTextAreaElement) => { if (quick) el.focus() }} rows="3" spellcheck="false" writingsuggestions="false" placeholder={t('Optional. Sent as is: a prompt or a /plugin:skill command. Drop or paste images and files here.')} onkeydown={(e) => { if (e.key === 'Enter' && (isMac ? e.metaKey : e.ctrlKey)) { e.preventDefault(); void launch() } }}
+      <textarea bind:this={promptField} bind:value={prompt} {@attach (el: HTMLTextAreaElement) => { if (quick) el.focus() }} rows="3" spellcheck="false" writingsuggestions="false" placeholder={t('Optional. Sent as is: a prompt or a /plugin:skill command. Drop or paste images and files here.')} onkeydown={(e) => { if (e.key === 'Enter' && (isMac ? e.metaKey : e.ctrlKey)) { e.preventDefault(); void launch() } }}
         ondragover={(e) => { if (draggedFiles(e)) e.preventDefault() }}
         ondrop={(e) => { const files = filesOf(e.dataTransfer?.files); if (files.length) { e.preventDefault(); void attachToLaunch(files) } }}
         onpaste={(e) => { const files = filesOf(e.clipboardData?.files); if (files.length) { e.preventDefault(); void attachToLaunch(files) } }}></textarea>
     </label>
+    <DictationBar key="launcher" />
     <div class="attach">
+      <DictateButton key="launcher" field={() => promptField} text={() => prompt} write={(v) => (prompt = v)} hints={() => [launchRepo ?? '', title]} />
       {#each attached as a, i (a.path)}
         <span class="thumb" title={a.path}>
           {#if a.url}<img src={a.url} alt={a.name} />{:else}<span class="file"><Icon name="files" /></span>{/if}

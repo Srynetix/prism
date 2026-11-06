@@ -23,6 +23,7 @@
   import { isDesktop } from '../../bridge'
   import { openInPrism } from '../../ref-links'
   import { pendingAfter, setPendingAfter } from '../../chat-drafts.svelte'
+  import { forgetAgentFiles, noteAgentFiles } from '../../dictation.svelte'
   import { t as tr, tc, tn } from '../../i18n.svelte'
 
   /**
@@ -82,6 +83,12 @@
    * again; while it works, only the last turn travels and moves.
    */
   let convo = $state.raw<AgentConversation | null | undefined>(undefined)
+  // The files it read or wrote: words a dictation into its box expects.
+  $effect(() => {
+    const agent = id
+    noteAgentFiles(agent, convo)
+    return () => forgetAgentFiles(agent)
+  })
   /** The last answer as read, to tell a change without walking `convo`. */
   let lastJson = ''
   let error = $state<string | null>(null)

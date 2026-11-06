@@ -264,6 +264,53 @@ impl Default for NotesConfig {
     }
 }
 
+/// A prompt dictated at the computer (`[dictation]`): a microphone button in an agent's Chat (and the
+/// plan's comments, a long answer, the launcher), held to speak or clicked to start and stop, the
+/// text inserted at the cursor and never sent on its own. Transcribed on this computer only.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct DictationConfig {
+    pub enabled: bool,
+    /// `auto` (macOS's on-device recognition where it takes the language, whisper otherwise),
+    /// `system` (macOS only) or `whisper`.
+    #[cfg_attr(feature = "ts", ts(type = "'auto' | 'system' | 'whisper'"))]
+    pub engine: String,
+    /// whisper's model: `tiny`, `base`, `small` or `medium`, downloaded on demand from Settings.
+    pub whisper_model: String,
+    /// `auto` (whisper detects it; the system's recognition takes `[agents] prompt_language`) or a
+    /// language code (`fr`, `en`).
+    pub language: String,
+    /// Held to dictate while a prompt has the focus: `Fn` (macOS), or a combination
+    /// (`Ctrl+Shift+Space`). Empty: the button only.
+    pub shortcut: String,
+    /// A click on the button starts, another stops (held, it records while held).
+    pub toggle_on_click: bool,
+    /// A recording stops by itself after this long.
+    pub max_seconds: u32,
+    /// The repository's, branches' and files' names given to the engine as words to expect.
+    pub hints: bool,
+    /// The microphone, by name; empty: the system's.
+    pub input_device: String,
+}
+
+impl Default for DictationConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            engine: "auto".into(),
+            whisper_model: "base".into(),
+            language: "auto".into(),
+            shortcut: if cfg!(target_os = "macos") { "Fn" } else { "Ctrl+Shift+Space" }.into(),
+            toggle_on_click: true,
+            max_seconds: 300,
+            hints: true,
+            input_device: String::new(),
+        }
+    }
+}
+
 /// The command palette (`[palette]`), sent as is to the frontend: one field to go to anything Prism
 /// shows and to run its commands.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

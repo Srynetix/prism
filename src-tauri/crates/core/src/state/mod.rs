@@ -170,6 +170,8 @@ pub struct Snapshot {
     pub files: crate::config::FilesConfig,
     /// Quick note entry (`[notes]`).
     pub notes: crate::config::NotesConfig,
+    /// A prompt dictated at the computer (`[dictation]`).
+    pub dictation: crate::config::DictationConfig,
     /// Theme and playful touches (`[appearance]`).
     pub appearance: crate::config::AppearanceConfig,
     /// Rail pages (`[[views]]`); empty: the app's own.

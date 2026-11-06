@@ -28,6 +28,8 @@ pub fn run(app: &mut App, hub: state::Hub, time: collectors::time::TimeService, 
         app.manage(now_playing);
     }
     app.manage(state);
+    // Dictation: its recordings, its models, the Fn key.
+    crate::dictation::setup(app)?;
 
     // The other computers' Prism, for the status bar and the notifications.
     crate::machines::watch(hub.clone());

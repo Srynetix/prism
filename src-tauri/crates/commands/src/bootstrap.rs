@@ -262,7 +262,7 @@ struct Keys {
 fn reload_keys(cfg: &config::Config) -> Keys {
     let mut common = serde_json::to_value(cfg).unwrap_or_default();
     if let Some(table) = common.as_object_mut() {
-        for live in ["profile", "open_with", "console", "palette", "files", "notes", "appearance", "views", "templates", "alerts", "remote", "updates", "feedback", "logs", "audio"] {
+        for live in ["profile", "open_with", "console", "palette", "files", "notes", "dictation", "appearance", "views", "templates", "alerts", "remote", "updates", "feedback", "logs", "audio"] {
             table.remove(live);
         }
     }
@@ -318,6 +318,7 @@ fn forget_collected(s: &mut state::Snapshot) {
         palette: old.palette,
         files: old.files,
         notes: old.notes,
+        dictation: old.dictation,
         appearance: old.appearance,
         views: old.views,
         templates: old.templates,
@@ -722,6 +723,7 @@ pub fn show_settings(hub: &state::Hub, cfg: &config::Config, conventions: conven
         s.palette = cfg.palette.clone();
         s.files = cfg.files.clone();
         s.notes = cfg.notes.clone();
+        s.dictation = cfg.dictation.clone();
         s.appearance = cfg.appearance.clone();
         s.views = cfg.views.clone();
         s.templates = cfg.templates.clone();
