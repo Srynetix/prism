@@ -231,6 +231,21 @@ export const SCHEMA: SectionSpec[] = [
     ],
   },
   {
+    id: 'agents-dictation', label: t('Dictation'), table: '[dictation]', path: ['dictation'],
+    intro: t('A prompt spoken rather than typed, at the computer: the microphone beside an agent’s Chat box, a plan’s comments, a question’s own words and the launcher’s prompt. Held, it records while held; clicked, it starts and the next click stops. The text goes in at the cursor, never sent on its own: you read it over and send it. Esc cancels. Transcribed on this computer only, never online: macOS’s speech recognition on the Mac, or whisper.cpp built into Prism (its model downloaded below). The audio stays in memory and is dropped once read.'),
+    fields: [
+      { key: 'enabled', label: t('Dictation'), hint: t('The microphone button and the shortcut.'), kind: 'toggle' },
+      { key: 'engine', label: t('Engine'), hint: t('auto: macOS’s speech recognition where it recognizes the language on this Mac, whisper otherwise (Linux: whisper). system: macOS’s, forced on the device. whisper: whisper.cpp, the same everywhere, better on technical words.'), kind: 'select', options: ['auto', 'system', 'whisper'] },
+      { key: 'whisper_model', label: t('whisper model'), hint: t('base (142 MB) by default; small is better on technical words, three times slower. Downloaded below, when needed.'), kind: 'select', options: ['tiny', 'base', 'small', 'medium'] },
+      { key: 'language', label: t('Language'), hint: t('auto: whisper detects it, macOS’s recognition takes the prompts’ language ([agents] prompt_language). Otherwise a code: fr, en…'), kind: 'text', options: ['auto', 'fr', 'en', 'de', 'es', 'it'] },
+      { key: 'shortcut', label: t('Shortcut'), hint: isMac ? t('Held to dictate while a field that takes dictation has the focus: Fn (🌐), or a combination (Ctrl+Shift+Space). Fn pressed with another key (Fn+←) is not a dictation. Empty: the button only.') : t('Held to dictate while a field that takes dictation has the focus (Ctrl+Shift+Space). Empty: the button only.'), kind: 'text', optional: true, placeholder: isMac ? 'Fn' : 'Ctrl+Shift+Space' },
+      { key: 'toggle_on_click', label: t('Click to start and stop'), hint: t('A click on the microphone starts, another stops: for long dictations. Off: it records only while held.'), kind: 'toggle' },
+      { key: 'max_seconds', label: t('Longest recording'), hint: t('A recording forgotten stops by itself and is transcribed.'), kind: 'number', unit: 'seconds' },
+      { key: 'hints', label: t('Words to expect'), hint: t('The repository’s, branch’s, ticket’s and the agent’s files’ names, given to the engine to recognize them.'), kind: 'toggle' },
+      { key: 'input_device', label: t('Microphone'), hint: t('By name, as listed below. Empty: the system’s.'), kind: 'text', optional: true, placeholder: t('the system’s') },
+    ],
+  },
+  {
     id: 'mcp', label: t('MCP server'), table: '[mcp]', path: ['mcp'],
     intro: t('prism mcp: an MCP server an agent CLI starts. It reads Prism’s help, the commented reference, the schema of every table, your config merged with its packs (no secret: tokens live in the keychain) and Problems; it tests a custom block in a sandbox. A change it makes is a proposal: Prism shows its diff and you apply it, refuse it or edit it. It reaches this Prism through a local socket of the profile; Prism stopped, only the docs and the schema answer.'),
     fields: [

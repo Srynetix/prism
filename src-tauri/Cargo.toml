@@ -36,6 +36,7 @@ prism-demo = { path = "crates/demo" }
 prism-remote = { path = "crates/remote" }
 prism-commands = { path = "crates/commands" }
 prism-macros = { path = "crates/macros" }
+prism-dictation = { path = "crates/dictation" }
 
 anyhow = "1.0.104"
 base64 = "0.23"
@@ -93,6 +94,7 @@ prism-remote.workspace = true
 prism-commands = { workspace = true, features = ["tauri"] }
 prism-sys.workspace = true
 prism-macos.workspace = true
+prism-dictation.workspace = true
 
 anyhow.workspace = true
 chrono.workspace = true
@@ -179,6 +181,10 @@ incremental = true
 codegen-units = 256
 
 [profile.release.package.prism-server]
+incremental = true
+codegen-units = 256
+
+[profile.release.package.prism-dictation]
 incremental = true
 codegen-units = 256
 

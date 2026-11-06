@@ -2,6 +2,9 @@
   import Icon from '../Icon.svelte'
   import { t } from '../../i18n.svelte'
   import { answerAgent, type AgentQuestion } from '../../agents.svelte'
+  import DictateButton from './DictateButton.svelte'
+  import DictationBar from './DictationBar.svelte'
+  import { filesOfAgent } from '../../dictation.svelte'
 
   /**
    * A question the agent asks (its `AskUserQuestion`), in its Chat: each question and its
@@ -24,6 +27,7 @@
   const asked = $derived(status === 'running')
   let picks = $state<number[][]>([])
   let words = $state<string[]>([])
+  let inputs = $state<HTMLInputElement[]>([])
   let busy = $state(false)
   let error = $state<string | null>(null)
   let sent = $state(false)
@@ -67,7 +71,11 @@
           {/each}
         </div>
         {#if typing}
-          <input type="text" bind:value={words[i]} disabled={!acts || busy} placeholder={`${picks[i]?.length ? t('And your own words') : t('Or your own words')}${passkey ? ` (${t('passkey')})` : ''}`} enterkeyhint="done" />
+          <div class="words">
+            <input type="text" bind:this={inputs[i]} bind:value={words[i]} disabled={!acts || busy} placeholder={`${picks[i]?.length ? t('And your own words') : t('Or your own words')}${passkey ? ` (${t('passkey')})` : ''}`} enterkeyhint="done" />
+            <DictateButton key="question:{id}:{i}" field={() => inputs[i]} text={() => words[i] ?? ''} write={(v) => (words[i] = v)} hints={() => filesOfAgent(id)} disabled={!acts || busy} />
+          </div>
+          <DictationBar key="question:{id}:{i}" />
         {/if}
       {:else if ask.answers[i]}
         <p class="ans">→ {ask.answers[i]}</p>
@@ -101,6 +109,8 @@
   .on .mark { border-color: var(--info); }
   .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .txt b { font-weight: 600; }
+  .words { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .words input { margin-top: 0; }
   input { margin-top: 6px; width: 100%; box-sizing: border-box; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 15px; }
   .send { align-self: stretch; border: none; border-radius: 10px; padding: 10px; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; }
   .send:disabled, .opt:disabled { opacity: 0.5; }

@@ -8,6 +8,9 @@
   import { carryTo, commentsOf, draftsOf, forget, generalOf, markSent, setGeneral } from '../../comments.svelte'
   import { armer } from '../../armed.svelte'
   import { onPhone } from '../../quick-answers'
+  import DictateButton from './DictateButton.svelte'
+  import DictationBar from './DictationBar.svelte'
+  import { filesOfAgent } from '../../dictation.svelte'
 
   /**
    * A plan the agent proposes (plan mode's `ExitPlanMode`), in its Chat or its Plan tab: the plan,
@@ -46,6 +49,7 @@
   const ps = $derived(passages(plan.text))
   const drafts = $derived(latest ? draftsOf(id, 'plan') : [])
   const general = $derived(latest ? generalOf(id, 'plan') : '')
+  let generalField = $state<HTMLTextAreaElement>()
   const addressed = $derived(latest ? commentsOf(id, 'plan').filter((c) => c.status === 'addressed') : [])
   const worded = $derived(drafts.length > 0 || !!general.trim())
   const editable = $derived(waiting && acts && typing)
@@ -129,7 +133,11 @@
             </div>
             {#if preview}<pre class="pv">{compose('plan', drafts, general, ps, true)}</pre>{/if}
           {/if}
-          <textarea value={general} oninput={(e) => setGeneral(id, 'plan', e.currentTarget.value)} rows="1" writingsuggestions="false" placeholder={t('A general comment (optional)…')}></textarea>
+          <div class="gen">
+            <textarea bind:this={generalField} value={general} oninput={(e) => setGeneral(id, 'plan', e.currentTarget.value)} rows="1" writingsuggestions="false" placeholder={t('A general comment (optional)…')}></textarea>
+            <DictateButton key="plan:{id}" field={() => generalField} text={() => general} write={(v) => setGeneral(id, 'plan', v)} hints={() => filesOfAgent(id)} />
+          </div>
+          <DictationBar key="plan:{id}" />
         {/if}
         <div class="row">
           {#if typing}
@@ -181,6 +189,7 @@
   .tray { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 7px; background: color-mix(in srgb, var(--warn) 14%, transparent); font-size: 12px; }
   .tray span { color: var(--text-muted); }
   .pv { margin: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow-y: auto; }
+  .gen { display: flex; align-items: flex-start; gap: 4px; }
   textarea { width: 100%; resize: vertical; min-height: 30px; border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
   .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .b { height: 26px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; }

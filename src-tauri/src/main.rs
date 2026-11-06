@@ -8,6 +8,7 @@ mod menu;
 mod feedback;
 mod youtube_relay;
 mod machines;
+mod dictation;
 mod setup;
 
 mod blocks;
@@ -110,6 +111,8 @@ fn main() {
             // ⌘Q, Quit from the menu, system shutdown: nothing must outlive Prism.
             tauri::RunEvent::Exit => {
                 profile::release();
+                // whisper's model let go before ggml's statics are (it aborts otherwise).
+                prism_dictation::whisper::unload(std::time::Duration::ZERO);
                 // `tailscale serve` must not keep sending phones to a Prism gone.
                 let remote = app.state::<std::sync::Arc<app::AppState>>().remote.clone();
                 // Bounded: quitting never waits on Tailscale for long.

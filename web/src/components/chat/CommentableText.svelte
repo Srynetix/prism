@@ -4,6 +4,9 @@
   import Markdown from '../Markdown.svelte'
   import { passages, quoteOf, spanOf } from '../../comments'
   import { addComment, commentsOf, editComment, removeComment } from '../../comments.svelte'
+  import DictateButton from './DictateButton.svelte'
+  import DictationBar from './DictationBar.svelte'
+  import { filesOfAgent } from '../../dictation.svelte'
 
   /**
    * An agent's text (its plan, a long answer) cut into passages (comments.ts), each commented on:
@@ -38,6 +41,7 @@
   let writing = $state<{ a: number; b: number } | null>(null)
   let editing = $state<string | null>(null)
   let body = $state('')
+  let bodyField = $state<HTMLTextAreaElement>()
   const range = $derived(writing ? ([Math.min(writing.a, writing.b), Math.max(writing.a, writing.b)] as const) : null)
 
   /** Its box under a passage; `extend`, while one is open: up to this passage. */
@@ -102,8 +106,9 @@
 {#snippet box()}
   {@const several = !editing && !!range && range[1] > range[0]}
   <div class="box">
-    <textarea bind:value={body} use:focus onkeydown={onkeydown} rows="2" writingsuggestions="false" placeholder={several ? t('Your comment on these {n} passages…', { n: range![1] - range![0] + 1 }) : t('Your comment on this passage…')}></textarea>
-    <div class="row"><small>{editing ? t('Enter adds · ⇧Enter a line · Esc cancels') : t('Enter adds · ⇧Enter a line · Esc cancels · ⇧-click another + for several passages')}</small><span class="grow"></span><button class="b" onclick={cancel}>{t('Cancel')}</button><button class="b primary" onclick={save} disabled={!body.trim()}>{editing ? t('Save') : t('Add')}</button></div>
+    <textarea bind:this={bodyField} bind:value={body} use:focus onkeydown={onkeydown} rows="2" writingsuggestions="false" placeholder={several ? t('Your comment on these {n} passages…', { n: range![1] - range![0] + 1 }) : t('Your comment on this passage…')}></textarea>
+    <DictationBar key="comment:{id}:{target}" />
+    <div class="row"><DictateButton key="comment:{id}:{target}" field={() => bodyField} text={() => body} write={(v) => (body = v)} hints={() => filesOfAgent(id)} size={13} /><small>{editing ? t('Enter adds · ⇧Enter a line · Esc cancels') : t('Enter adds · ⇧Enter a line · Esc cancels · ⇧-click another + for several passages')}</small><span class="grow"></span><button class="b" onclick={cancel}>{t('Cancel')}</button><button class="b primary" onclick={save} disabled={!body.trim()}>{editing ? t('Save') : t('Add')}</button></div>
   </div>
 {/snippet}
 

@@ -119,6 +119,9 @@ pub struct Config {
     /// Quick capture of notes, by shortcut.
     #[serde(default)]
     pub notes: NotesConfig,
+    /// A prompt dictated at the computer (`[dictation]`).
+    #[serde(default)]
+    pub dictation: DictationConfig,
     /// Theme and playful touches, one per feature.
     #[serde(default)]
     pub appearance: AppearanceConfig,

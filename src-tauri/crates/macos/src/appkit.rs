@@ -60,3 +60,48 @@ pub fn reduce_transparency() -> bool {
         msg_send![workspace, accessibilityDisplayShouldReduceTransparency]
     }
 }
+
+/// `NSEventMaskFlagsChanged`: a modifier key pressed or released.
+const FLAGS_CHANGED: u64 = 1 << 12;
+/// `NSEventModifierFlagFunction`.
+const FUNCTION: u64 = 1 << 23;
+/// `kVK_Function`, and the Globe key of recent keyboards.
+const FN_KEYS: [u16; 2] = [63, 179];
+
+/// Calls `on` with `true` when the Fn (🌐) key goes down and `false` when it comes up, while Prism
+/// is the active application (a local monitor: other apps' keys are never seen). The event goes
+/// on as it came. On the main thread only (`false` elsewhere); the monitor lasts as long as the app.
+pub fn watch_fn_key(on: impl Fn(bool) + 'static) -> bool {
+    if MainThreadMarker::new().is_none() {
+        return false;
+    }
+    let handler = block2::RcBlock::new(move |event: *mut AnyObject| -> *mut AnyObject {
+        if !event.is_null() {
+            // SAFETY: AppKit hands a live NSEvent of the mask asked (flags changed), whose
+            // `keyCode` and `modifierFlags` are readable.
+            let (code, flags): (u16, u64) = unsafe { (msg_send![event, keyCode], msg_send![event, modifierFlags]) };
+            if FN_KEYS.contains(&code) {
+                on(flags & FUNCTION != 0);
+            }
+        }
+        event
+    });
+    // SAFETY: NSEvent's documented class method, on the main thread (checked above), with a block of
+    // the signature it calls (copied by AppKit). The monitor it returns is kept for the app's life.
+    unsafe {
+        let monitor: *mut AnyObject = msg_send![class!(NSEvent), addLocalMonitorForEventsMatchingMask: FLAGS_CHANGED, handler: &*handler];
+        if monitor.is_null() {
+            return false;
+        }
+        let _: *mut AnyObject = msg_send![monitor, retain];
+    }
+    true
+}
+
+/// What the Fn (🌐) key does by itself, in System Settings › Keyboard (`AppleFnUsageType`): 0
+/// nothing, 1 change the input source, 2 show emoji, 3 start dictation. macOS acts on it too while
+/// Prism listens: anything but 0 is worth telling.
+pub fn fn_key_usage() -> Option<u32> {
+    let out = std::process::Command::new("/usr/bin/defaults").args(["read", "com.apple.HIToolbox", "AppleFnUsageType"]).output().ok()?;
+    String::from_utf8_lossy(&out.stdout).trim().parse().ok()
+}

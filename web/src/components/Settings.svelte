@@ -11,6 +11,7 @@
   import { DEFAULT_NOTES_KEY } from '../quick-notes.svelte'
   import ShortcutRecorder from './settings/ShortcutRecorder.svelte'
   import TomlPreview from './settings/TomlPreview.svelte'
+  import DictationSettings from './settings/DictationSettings.svelte'
   import McpSettings from './settings/McpSettings.svelte'
   import { configurePrism } from '../prism-agent'
   import RemoteDevices from './settings/RemoteDevices.svelte'
@@ -63,6 +64,7 @@
     { id: 'custom-blocks', label: t('Custom blocks'), table: '[[custom_blocks]]' },
     { id: 'routines', label: t('Routines'), table: '[[agents.routines]]' },
     { id: 'mcp-agents', label: t('Agents'), table: 'prism mcp' },
+    { id: 'dictation-panel', label: t('Engine and models'), table: '[dictation]' },
     { id: 'cleanup-usage', label: t('What you use'), table: 'usage.json' },
     ...SCHEMA.map((spec) => ({ id: spec.id, label: spec.label, table: spec.table, spec })),
     { id: 'file', label: t('Config file'), table: 'config.toml' },
@@ -607,6 +609,8 @@
       <RoutinesSettings />
     {:else if s.id === 'mcp-agents'}
       <McpSettings />
+    {:else if s.id === 'dictation-panel'}
+      <DictationSettings />
     {:else if s.id === 'cleanup-usage'}
       <CleanupUsage onToml={() => !showToml && toggleToml()} />
     {:else if s.id === 'updates-now'}
