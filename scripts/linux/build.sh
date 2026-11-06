@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs in scripts/linux/Dockerfile's image, started by scripts/linux.sh: /src the sources (read
-# only), /extra a team's blocks (optional), /cache what is kept between builds, /out the bundles.
+# only), /extra a team's blocks (optional), /cache what is kept between builds, /out the bundles
+# (SERVER=1: and prism-server).
 set -euo pipefail
 
 # A copy of the sources, updated in place, so that cargo and pnpm rebuild only what changed.
@@ -22,6 +23,11 @@ web/node_modules/.bin/tauri build --bundles "$BUNDLES"
 
 shopt -s nullglob
 files=("$bundle"/deb/*.deb "$bundle"/appimage/*.AppImage "$bundle"/rpm/*.rpm)
+if [[ -n "${SERVER:-}" ]]; then
+  # The phone's page tauri build just made (web/dist), carried in the binary.
+  cargo build --release -p prism-server --manifest-path src-tauri/Cargo.toml
+  files+=("$CARGO_TARGET_DIR/release/prism-server")
+fi
 [[ ${#files[@]} -gt 0 ]] || { echo "no bundle in $bundle" >&2; exit 1; }
 for f in "${files[@]}"; do
   cp "$f" /out/
