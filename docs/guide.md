@@ -102,15 +102,17 @@ config, packs and tokens stay in `~/.config/prism` and the keychain of each mach
 
 `prism-server` is Prism without its window, for a machine reached from a phone only (a Linux
 server, typically): the same collectors, agents, chains and remote, no WebKit, the phone's page
-carried in the binary. Build the page first, then the binary, on the server itself:
+carried in the binary. Prism's releases carry it (`prism-server_<version>_amd64.tar.gz`, `_macos-universal.tar.gz`,
+each with its `.sha256` and `.minisig`), or build it on the server itself, the page first, then the binary:
 
 ```bash
-pnpm --dir web install && pnpm --dir web build
-cargo build --release -p prism-server --manifest-path src-tauri/Cargo.toml
+just install && just server   # scripts/server.sh: pnpm --dir web build, then cargo build -p prism-server
 install src-tauri/target/release/prism-server ~/.local/bin/
 ```
 
-A team's blocks (`PRISM_EXTRA_BLOCKS`) are built in as in the app. The config is the same file
+A team's blocks (`PRISM_EXTRA_BLOCKS`) are built in as in the app (`NO_EXTRA=1 just server`:
+without). A release carries the server of Prism alone only (`scripts/release.sh --no-extra --server`).
+The Linux one is built on Ubuntu 22.04: glibc 2.35 or newer, and `libdbus-1-3`. The config is the same file
 (`~/.config/prism/config.toml`, profiles, packs), written by hand: no wizard. The remote must be
 on, behind Tailscale (`tailscale serve` needs `sudo tailscale set --operator=$USER` once):
 

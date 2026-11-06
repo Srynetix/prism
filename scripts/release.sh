@@ -2,7 +2,7 @@
 # Publishes this Prism as a release that installed Prisms update from (Settings › General › Updates,
 # `[updates] source`): the macOS app, and with --linux the Linux packages.
 #
-#   scripts/release.sh --to glab:group/project|gh:owner/repo [--linux] [--no-extra] [--skip-checks]
+#   scripts/release.sh --to glab:group/project|gh:owner/repo [--linux] [--no-extra] [--server] [--skip-checks]
 #                      [--rebuild] [--notes "text" | --notes-file file] [--no-tag] [--dry-run]
 #
 # - --to: where it is published, as [updates] source names it; PRISM_RELEASE_TO (environment or
@@ -16,6 +16,9 @@
 #   and its .minisig: signed with minisign (brew install minisign), with the key PRISM_SIGN_KEY
 #   names (environment or .env; ~/.minisign/prism.key by default), whose public half is
 #   src-tauri/update-key.pub. An installed Prism installs only a file signed with it.
+#   With --server (Prism alone only: --no-extra), prism-server too, Prism without a window:
+#   prism-server_<version>_macos-universal.tar.gz, and with --linux prism-server_<version>_amd64.tar.gz.
+#   Installed Prisms never pick them (the updater reads Prism_<version>_… only).
 #   On GitLab they go to the project's generic packages (prism/<version>), the release links to
 #   them; on GitHub they are the release's assets.
 # - Notes: the changelog since the previous release (scripts/changelog.sh, from the Conventional
@@ -34,6 +37,7 @@ cd "$(dirname "$0")/.."
 
 to=""
 linux=false
+server=false
 extra=true
 checks=true
 dry=false
@@ -46,13 +50,14 @@ while [[ $# -gt 0 ]]; do
     --to) to=${2:-}; shift ;;
     --linux) linux=true ;;
     --no-extra) extra=false ;;
+    --server) server=true ;;
     --skip-checks) checks=false ;;
     --notes) notes=${2:-}; shift ;;
     --notes-file) notes_file=${2:-}; shift ;;
     --no-tag) tag_it=false ;;
     --dry-run) dry=true ;;
     --rebuild) rebuild=true ;;
-    -h | --help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
   shift
@@ -62,6 +67,8 @@ step() { printf '\n\033[1m▸ %s\033[0m\n' "$*"; }
 fail() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
 [[ "$(uname -s)" == Darwin ]] || fail "a release is built on macOS (the app; Linux in Docker)"
+# A team's blocks are the team's: a server built with them goes nowhere public, nor through here.
+! $server || ! $extra || fail "--server: Prism alone only (--no-extra); a team's server: just server, kept within the team"
 if [[ -z "$to" && -z "${PRISM_RELEASE_TO+x}" && -f .env ]]; then
   to=$(sed -n 's/^PRISM_RELEASE_TO=//p' .env | tail -1 | tr -d '"'"'")
 fi
@@ -138,32 +145,58 @@ hdiutil attach -quiet -nobrowse -readonly -mountpoint "$mnt" "$dmg"
 COPYFILE_DISABLE=1 tar -czf "$out/Prism_${version}_macos-universal.app.tar.gz" -C "$mnt" Prism.app
 hdiutil detach -quiet "$mnt"
 
+# A server's binary, in a .tar.gz: its mode (executable) goes with it.
+pack_server() {
+  local bin=$1 name=$2 stage
+  stage=$(mktemp -d "${TMPDIR:-/tmp}/prism-server.XXXXXX")
+  cp "$bin" "$stage/prism-server"
+  chmod 755 "$stage/prism-server"
+  COPYFILE_DISABLE=1 tar -czf "$out/$name" -C "$stage" prism-server
+  rm -rf "$stage"
+}
+if $server; then
+  step "prism-server, macOS"
+  # Built every time: a few crates on top of the app's, the page of this commit (web/dist).
+  scripts/server.sh --universal --no-extra
+  pack_server src-tauri/target/universal-apple-darwin/release/prism-server "prism-server_${version}_macos-universal.tar.gz"
+fi
+
 if $linux; then
   step "Linux"
   # linux.sh notes which commit and blocks its packages are of.
   stamp=dist/Prism_${version}_amd64.build
-  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit|$label" && -f dist/Prism_${version}_amd64.deb && -f dist/Prism_${version}_amd64.AppImage && -f dist/Prism_${version}_amd64.pkg.tar.zst ]] && ! $rebuild; then
-    echo "dist/Prism_${version}_amd64.{deb,AppImage,pkg.tar.zst} already built: reused (--rebuild to build again)"
+  server_bin=dist/prism-server_${version}_amd64
+  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit|$label" && -f dist/Prism_${version}_amd64.deb && -f dist/Prism_${version}_amd64.AppImage && -f dist/Prism_${version}_amd64.pkg.tar.zst ]] && { ! $server || [[ -f "$server_bin" ]]; } && ! $rebuild; then
+    echo "dist/Prism_${version}_amd64.{deb,AppImage,pkg.tar.zst}$($server && echo " and $server_bin") already built: reused (--rebuild to build again)"
   else
-    scripts/linux.sh --skip-checks --bundles deb,appimage,pacman ${opts[@]+"${opts[@]}"}
+    lopts=()
+    $server && lopts+=(--server)
+    scripts/linux.sh --skip-checks --bundles deb,appimage,pacman ${lopts[@]+"${lopts[@]}"} ${opts[@]+"${opts[@]}"}
   fi
   for ext in deb AppImage pkg.tar.zst; do
     f=dist/Prism_${version}_amd64.$ext
     [[ -f "$f" ]] || fail "no $f"
     cp "$f" "$out/"
   done
+  if $server; then
+    [[ -f "$server_bin" ]] || fail "no $server_bin"
+    pack_server "$server_bin" "prism-server_${version}_amd64.tar.gz"
+  fi
 fi
 
-(cd "$out" && for f in Prism_*; do [[ $f == *.sha256 ]] || shasum -a 256 "$f" > "$f.sha256"; done)
+(cd "$out" && shopt -s nullglob && for f in Prism_* prism-server_*; do [[ $f == *.sha256 ]] || shasum -a 256 "$f" > "$f.sha256"; done)
 step "Signing (the key's password, once per file)"
 # The file's name goes along, signed (the trusted comment): a signed file cannot pass for another.
-for f in "$out"/Prism_*; do
+for f in "$out"/Prism_* "$out"/prism-server_*; do
+  [[ -e $f ]] || continue
   [[ $f == *.sha256 || $f == *.minisig ]] && continue
   minisign -S -s "$sign_key" -m "$f" -t "file:$(basename "$f")" >/dev/null || fail "signing $(basename "$f")"
   # With the key the app checks: a signature it would refuse fails here, not on every machine.
   minisign -V -q -p src-tauri/update-key.pub -m "$f" >/dev/null || fail "$(basename "$f") does not verify with src-tauri/update-key.pub: PRISM_SIGN_KEY is another key"
 done
-files=("$out"/Prism_*)
+shopt -s nullglob
+files=("$out"/Prism_* "$out"/prism-server_*)
+shopt -u nullglob
 
 if [[ -n "$notes_file" ]]; then
   notes=$(cat "$notes_file")

@@ -50,6 +50,10 @@ test:
 build:
     {{no_extra}}pnpm build
 
+# Builds prism-server, Prism without a window, for this system (scripts/server.sh --help); NO_EXTRA=1 without the .env's blocks
+server *args:
+    scripts/server.sh {{no_extra_flag}}{{args}}
+
 # Runs Prism as on a new machine (empty home, no config) to try the first-launch screen; your own setup is untouched
 first-launch:
     #!/usr/bin/env bash
