@@ -1,5 +1,6 @@
 <script lang="ts">
   import OverlapChip from '../components/OverlapChip.svelte'
+  import AsideChip from '../components/AsideChip.svelte'
   import { overlapsOfAgent } from '../overlaps'
   import { onMount } from 'svelte'
   import { t, tc } from '../i18n.svelte'
@@ -512,6 +513,7 @@
     {:else}
       <b>{title}</b>
     {/if}
+    {#if !shell && quickAgent}<AsideChip agent={quickAgent} />{/if}
     {#if !shell && quickAgent && live.snapshot && overlapsOfAgent(live.snapshot, quickAgent).length}<OverlapChip seen={overlapsOfAgent(live.snapshot, quickAgent)} short />{/if}
     {#if !shell && quickAgent && takesEffort(quickAgent)}
       {@const level = effortOf(quickAgent) ?? cliEffort(quickAgent)}

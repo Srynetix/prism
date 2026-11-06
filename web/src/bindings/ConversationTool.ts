@@ -33,6 +33,11 @@ ask?: AgentQuestion,
  */
 proposal?: ProposedPlan, 
 /**
+ * A call of Prism's « in passing » tools (`suggest_task`, `dismiss_task`): its Chat shows the
+ * task's card, its id in `output`.
+ */
+aside?: boolean, 
+/**
  * When it was called (ISO 8601), and once done, how long it took.
  */
 at: string | null, ms: number | null, 

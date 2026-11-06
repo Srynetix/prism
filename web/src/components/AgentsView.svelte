@@ -47,6 +47,9 @@
   import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
   import RoutineReview from './RoutineReview.svelte'
   import OverlapChip from './OverlapChip.svelte'
+  import AsideChip from './AsideChip.svelte'
+  import AsideList from './AsideList.svelte'
+  import { asideView, asidesOf, badged } from '../asides.svelte'
   import { overlapsOfAgent } from '../overlaps'
 
   /**
@@ -456,6 +459,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions : ⌘↵ is the keyboard path -->
     <b class="title" ondblclick={() => { grid.focus(i); grid.zoomed = true }} title="{a.title} · {t('double-click: the whole view ({key})', { key: keys('⌘↵') })}">{a.title}</b>
     <span class="pill {waitsForYou(a.status) ? 'warn' : isWorking(a.status) ? 'info' : ''}" class:working={isWorking(a.status)} title={a.needs_action ?? undefined}>{#if isWorking(a.status)}<span class="spin-ascii" aria-hidden="true"></span>{/if}{agentStateLabel(a)}</span>
+    <AsideChip agent={a} />
     {#if overlapsOf(a).length}<OverlapChip seen={overlapsOf(a)} short />{/if}
     <QuickAnswers agent={a} compact />
     {#if a.status === 'waiting_tool'}
@@ -504,6 +508,7 @@
               {#if e.kind === 'desktop'}<span class="pill dk">Desktop</span>{#if e.c.group}<span>{e.c.group}</span>{/if}{/if}
               {#if e.kind === 'agent' && e.a.category && groupBy !== 'category'}<KindBadge name={e.a.category} />{/if}
               {#if groupBy !== 'tag'}{#each tagsOf(e) as tag (tag)}<span class="pill tag">#{tag}</span>{/each}{/if}
+              {#if e.kind === 'agent'}<AsideChip agent={e.a} />{/if}
               {#if e.kind === 'agent' && overlapsOf(e.a).length}<OverlapChip seen={overlapsOf(e.a)} />{/if}
               {#if e.kind === 'agent' && e.a.looping}<span class="pill loop" title={t('{command} failed {n} times in a row: going in circles? (Activity tab)', { command: e.a.looping.command, n: e.a.looping.count })}>↻ ×{e.a.looping.count}</span>{/if}
               {#if e.kind === 'agent' && e.a.state !== 'running'}<span class="pill">{AGENT_STATE[e.a.state]}</span>{/if}
@@ -586,6 +591,10 @@
         {/each}
       {/if}
       <span class="grow"></span>
+      {#if asidesOf(live.snapshot).length || asideView.open}
+        {@const n = asidesOf(live.snapshot).filter(badged).length}
+        <button class="by aside" class:on={asideView.open} onclick={() => { asideView.open = !asideView.open; asideView.agent = '' }} aria-pressed={asideView.open} title={asideView.open ? t('Back to the list') : t('In passing: what the agents flagged out of their task')}><Icon name="aside" />{n}</button>
+      {/if}
       {#if archivedCount || showArchived}<button class="by" class:on={showArchived} onclick={() => (showArchived = !showArchived)} aria-pressed={showArchived} title={showArchived ? t('Back to the list') : t('The agents and sessions archived: out of the list until they wait for you')}><Icon name="hide" />{archivedCount}</button>{/if}
       {#if allTags().length}
         <select class="sort" class:on={!!tagOn} value={tagOn} onchange={(e) => setTagFilter(e.currentTarget.value)} title={t('Only the agents with this tag')} aria-label={t('Filter by tag')}>
@@ -603,6 +612,8 @@
     </div>
     {#if managing}
       <AgentLabels onclose={() => (managing = false)} />
+    {:else if asideView.open}
+      <div class="scroll"><AsideList /></div>
     {:else}
     <div class="scroll">
       <!-- The routines' runs that wait for you ("To review"), at the head of the list. -->
@@ -673,6 +684,7 @@
             <button class="primary" onclick={() => act(() => resumeAgent(a.id))} title={t('{command}, same folder', { command: cliOf(a.provider).resume })}><Icon name="retry" />{t('Resume')}</button>
           {/if}
           <AgentCliChip {a} />
+          <AsideChip agent={a} />
           {#if overlapsOf(a).length}<OverlapChip seen={overlapsOf(a)} />{/if}
           {#if live.snapshot?.overlaps?.other_base.some((x) => x.path === (a.worktree ?? a.cwd))}<span class="chip" title={t('On another base than its repository’s: its changes are not compared with those of the other agents')}>{t('not compared: other base')}</span>{/if}
           {#if takesEffort(a)}

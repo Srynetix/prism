@@ -83,6 +83,28 @@ pub fn command() -> Vec<String> {
     vec![exe, "--profile".into(), crate::profile::active().into(), "mcp".into()]
 }
 
+/// `command` in its « in passing » mode (`prism mcp aside`): `suggest_task` and `dismiss_task`
+/// only, for the agents Prism launches without the whole server (`[agents.aside]`).
+pub fn aside_command() -> Vec<String> {
+    let mut c = command();
+    c.push("aside".into());
+    c
+}
+
+/// Claude Code's `--mcp-config` file of the « in passing » server, in `dir` (written again each
+/// time, as the plugin). Its path.
+pub fn write_claude_aside(dir: &Path, command: &[String]) -> Result<PathBuf> {
+    let file = claude_aside_file(dir);
+    std::fs::write(&file, serde_json::to_string_pretty(&claude_servers(command))?)?;
+    owner_only(&file)?;
+    Ok(file)
+}
+
+/// Where `write_claude_aside` writes it in `dir`.
+pub fn claude_aside_file(dir: &Path) -> PathBuf {
+    dir.join("prism-aside-mcp.json")
+}
+
 /// The name an agent CLI knows the server by.
 pub const SERVER: &str = "prism";
 

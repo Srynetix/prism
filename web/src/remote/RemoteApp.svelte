@@ -55,6 +55,7 @@
     Vulnerabilities: once(() => import('../components/Vulnerabilities.svelte')),
     Mail: once(() => import('../components/Mail.svelte')),
     Worktrees: once(() => import('../components/Worktrees.svelte')),
+    AsideList: once(() => import('../components/AsideList.svelte')),
     Refinement: once(() => import('../components/Refinement.svelte')),
     Agenda: once(() => import('../components/Agenda.svelte')),
     Renovate: once(() => import('../components/Renovate.svelte')),
@@ -81,6 +82,7 @@
   import { closeThread, threadView } from '../thread.svelte'
   import { argoView, closeArgo } from '../argo-view.svelte'
   import { overlapView, closeOverlap } from '../overlap-view.svelte'
+  import { asideView } from '../asides.svelte'
 
   /**
    * Prism on a phone: one view at a time, the bottom tabs chosen in `[remote] tabs`, the others
@@ -104,6 +106,7 @@
     mrs: { label: t('MRs'), icon: 'mr', category: 'Code & agents' },
     agents: { label: t('Agents'), icon: 'claude', category: 'Code & agents' },
     worktrees: { label: t('Worktrees'), icon: 'worktree', category: 'Code & agents' },
+    aside: { label: t('In passing'), icon: 'aside', category: 'Code & agents' },
     ci: { label: t('CI · Delivery'), icon: 'rocket', category: 'CI & delivery' },
     renovate: { label: 'Renovate', icon: 'automerge', category: 'CI & delivery' },
     infra: { label: t('Infra'), icon: 'kube', category: 'Infra' },
@@ -261,6 +264,14 @@
       // The new Prism: its sources answering, line by line, as the window shows them.
       replayBoot()
     }
+  })
+
+  // An agent's ↗ chip: its tasks flagged in passing, in More › In passing.
+  $effect(() => {
+    if (!asideView.open) return
+    asideView.open = false
+    if (agentsView.open && agentsView.selected) closeAgents()
+    go('aside')
   })
 
   function go(v: ViewId, back = false) {
@@ -450,6 +461,7 @@
     {:else if view === 'sprint'}{#await lazy.MySprint() then { default: MySprint }}<MySprint snap={full} />{/await}
     {:else if view === 'wip'}{#await lazy.InProgress() then { default: InProgress }}<InProgress snap={full} />{/await}
     {:else if view === 'refinement'}{#await lazy.Refinement() then { default: Refinement }}<Refinement refinement={full.refinement} me={full.tracker_me} />{/await}
+    {:else if view === 'aside'}{#await lazy.AsideList() then { default: AsideList }}<AsideList />{/await}
     {:else if view === 'worktrees'}{#await lazy.Worktrees() then { default: Worktrees }}<Worktrees snap={full} />{/await}
     {:else if view === 'today'}{#await lazy.Agenda() then { default: Agenda }}<Agenda agenda={full.agenda} />{/await}
     {:else if view === 'renovate' && full.features?.renovate === false}<p class="empty">{t('{name} is off on the computer.', { name: 'Renovate' })}</p>

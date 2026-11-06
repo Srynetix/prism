@@ -57,6 +57,7 @@
   import MergeQueue from './components/MergeQueue.svelte'
   import InProgress from './components/InProgress.svelte'
   import RoutinesBlock from './components/RoutinesBlock.svelte'
+  import AsidesBlock from './components/AsidesBlock.svelte'
   import { publishInputs, reviewPile } from './routines.svelte'
   import TicketPanel from './components/TicketPanel.svelte'
   import Refinement from './components/Refinement.svelte'
@@ -553,6 +554,7 @@
     {:else if id === 'retro'}<MySprint snap={full!} />
     {:else if id === 'wip'}<InProgress snap={full!} />
     {:else if id === 'routines'}<RoutinesBlock />
+    {:else if id === 'aside'}<AsidesBlock />
     {:else if id === 'pickup'}<Pickup pickup={snap!.pickup} me={snap!.tracker_me} filtered={!!focus || filter.mine} />
     {:else if id === 'agenda'}<Agenda agenda={full!.agenda} />
     {:else if id === 'refinement'}<Refinement refinement={snap!.refinement} me={snap!.tracker_me} filtered={!!focus || filter.mine} />

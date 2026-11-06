@@ -10,7 +10,7 @@ import { BLOCK_DEFS } from './blocks'
  * consecutive items of a zone are drawn together, between thin separators. Squeezed, the bar moves
  * its least needed items (`rank`) into a ⋯ at its end, never those of `you`.
  */
-type CoreStatus = 'alerts' | 'live' | 'problems' | 'repos' | 'pipeline' | 'meeting' | 'reminder' | 'claude' | 'profiles' | 'machines' | 'shells' | 'digest' | 'routines' | 'mcp' | 'usage' | 'sprint' | 'audio' | 'clock' | 'update' | 'packs' | 'feedback'
+type CoreStatus = 'alerts' | 'live' | 'problems' | 'repos' | 'pipeline' | 'meeting' | 'reminder' | 'claude' | 'profiles' | 'machines' | 'shells' | 'digest' | 'routines' | 'mcp' | 'aside' | 'usage' | 'sprint' | 'audio' | 'clock' | 'update' | 'packs' | 'feedback'
 /** A core item, or a block's (its id: `BlockDef.status`). */
 export type StatusId = CoreStatus | (string & {})
 export type Zone = 'you' | 'work' | 'machine'
@@ -35,6 +35,7 @@ const CORE: StatusItem[] = [
   { id: 'profiles', label: 'Other profiles', zone: 'work', rank: 5 },
   { id: 'machines', label: 'Other computers', zone: 'work', rank: 5 },
   { id: 'shells', label: 'Open shells', zone: 'work', rank: 3 },
+  { id: 'aside', label: 'In passing', zone: 'work', rank: 3 },
   { id: 'problems', label: 'Problems', zone: 'machine', rank: 7 },
   { id: 'update', label: 'Prism update', zone: 'machine', rank: 6 },
   { id: 'packs', label: 'Pack update', zone: 'machine', rank: 6 },

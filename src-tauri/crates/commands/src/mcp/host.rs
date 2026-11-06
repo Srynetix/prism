@@ -166,7 +166,9 @@ impl Host {
         // Read once per request: its switches, and what the handlers need of it.
         let cfg = crate::config::load(&crate::config_path()).ok();
         let str_param = |k: &str| params.get(k).and_then(Value::as_str).map(str::to_string);
-        if method != "hello" {
+        // « In passing » answers by its own switch, whatever `[mcp] enabled` says.
+        let aside = matches!(method, "suggest_task" | "dismiss_task");
+        if method != "hello" && !aside {
             anyhow::ensure!(cfg.as_ref().is_none_or(|c| c.mcp.enabled), "[mcp] enabled is off in this Prism");
         }
         let proposal = method.starts_with("propose") || method == "create_custom_block";
@@ -185,7 +187,7 @@ impl Host {
                     "demo": crate::demo::active(),
                     "version": crate::packs::PRISM,
                     "language": c.as_ref().map(|c| c.appearance.language.clone()).unwrap_or_default(),
-                    "enabled": c.as_ref().is_none_or(|c| c.mcp.enabled),
+                    "enabled": if str_param("mode").as_deref() == Some("aside") { c.as_ref().is_none_or(|c| c.agents.aside.enabled) } else { c.as_ref().is_none_or(|c| c.mcp.enabled) },
                     "proposals": c.as_ref().is_none_or(|c| c.mcp.proposals),
                 }))
             }
@@ -221,6 +223,23 @@ impl Host {
                 self.propose(cfg.as_ref(), client, ProposalKind::CustomBlock, Change::Block(def), str_param("why").unwrap_or_default(), test).await
             }
             "wait_proposal" => self.wait(params.get("id").and_then(Value::as_u64).context("id")?).await,
+            "suggest_task" | "dismiss_task" => {
+                let (name, agent) = self.clients.lock().unwrap().iter().find(|c| c.id == client).map(|c| (c.name.clone(), c.agent.clone())).unwrap_or_else(|| ("agent".into(), None));
+                let agents = &self.state.agents;
+                let mut answer = if method == "suggest_task" {
+                    let s: prism_agents::asides::Suggest = serde_json::from_value(params).context("title, tldr and prompt (strings), files (a list of paths)")?;
+                    agents.suggest(agent.as_deref(), &name, s)?
+                } else {
+                    let id = params.get("task_id").and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.trim_start_matches('#').parse().ok()))).context("task_id")?;
+                    agents.dismiss_by_agent(agent.as_deref(), id, str_param("why"))?
+                };
+                // What became of its earlier ones, if its hook has not told it yet.
+                let news = agent.as_deref().map(|a| agents.take_news(a)).unwrap_or_default();
+                if !news.is_empty() {
+                    answer["news"] = json!(news);
+                }
+                Ok(answer)
+            }
             other => bail!("no method {other}"),
         }
     }

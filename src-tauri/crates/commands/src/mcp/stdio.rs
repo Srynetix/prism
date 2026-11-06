@@ -31,7 +31,7 @@ struct Link {
 }
 
 impl Link {
-    async fn open(client: &str) -> Result<Self> {
+    async fn open(client: &str, aside: bool) -> Result<Self> {
         let path = prism_core::mcp::socket_path();
         if path.exists() {
             prism_core::mcp::owned_socket(&path)?;
@@ -55,7 +55,7 @@ impl Link {
             waiting.lock().unwrap().clear();
         });
         let mut link = Self { write: Mutex::new(write), pending, next: AtomicU64::new(1), hello: Value::Null, closed };
-        link.hello = link.call("hello", json!({ "client": client, "agent": std::env::var("PRISM_AGENT").unwrap_or_default() })).await?;
+        link.hello = link.call("hello", json!({ "client": client, "agent": std::env::var("PRISM_AGENT").unwrap_or_default(), "mode": if aside { "aside" } else { "" } })).await?;
         Ok(link)
     }
 
@@ -80,6 +80,8 @@ impl Link {
 /// The server's state across requests.
 struct Server {
     client: std::sync::Mutex<String>,
+    /// `prism mcp aside`: the « in passing » tools only (`suggest_task`, `dismiss_task`).
+    aside: bool,
     link: Mutex<Option<Arc<Link>>>,
     out: Mutex<tokio::io::Stdout>,
 }
@@ -92,9 +94,9 @@ impl Server {
             return Ok(l.clone());
         }
         let client = self.client.lock().unwrap().clone();
-        let l = Arc::new(Link::open(&client).await?);
+        let l = Arc::new(Link::open(&client, self.aside).await?);
         if l.hello.get("enabled") == Some(&Value::Bool(false)) {
-            bail!("[mcp] enabled is off in this Prism: prism mcp answers nothing");
+            bail!("{}", if self.aside { "[agents.aside] enabled is off in this Prism" } else { "[mcp] enabled is off in this Prism: prism mcp answers nothing" });
         }
         *link = Some(l.clone());
         Ok(l)
@@ -118,9 +120,10 @@ impl Server {
     }
 }
 
-/// Serves MCP on standard input and output until the CLI closes it.
-pub async fn run() -> Result<()> {
-    let server = Arc::new(Server { client: std::sync::Mutex::new("agent".into()), link: Mutex::new(None), out: Mutex::new(tokio::io::stdout()) });
+/// Serves MCP on standard input and output until the CLI closes it; `aside`: the « in passing »
+/// tools only.
+pub async fn run(aside: bool) -> Result<()> {
+    let server = Arc::new(Server { client: std::sync::Mutex::new("agent".into()), aside, link: Mutex::new(None), out: Mutex::new(tokio::io::stdout()) });
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     while let Some(line) = lines.next_line().await? {
         let Ok(msg) = serde_json::from_str::<Value>(&line) else {
@@ -155,16 +158,24 @@ impl Server {
                 }
                 let asked = params.get("protocolVersion").and_then(Value::as_str).unwrap_or(VERSIONS[0]);
                 let version = VERSIONS.iter().find(|v| **v == asked).copied().unwrap_or(VERSIONS[0]);
+                if self.aside {
+                    return Ok(json!({
+                        "protocolVersion": version,
+                        "capabilities": { "tools": {} },
+                        "serverInfo": { "name": "prism", "title": "Prism", "version": prism_core::packs::PRISM },
+                        "instructions": ASIDE_INSTRUCTIONS,
+                    }));
+                }
                 Ok(json!({
                     "protocolVersion": version,
                     "capabilities": { "tools": {}, "resources": {} },
                     "serverInfo": { "name": "prism", "title": "Prism", "version": prism_core::packs::PRISM },
-                    "instructions": prism_core::mcp::skill_body(),
+                    "instructions": format!("{}{}", prism_core::mcp::skill_body(), if in_agent() { format!("\n\n{ASIDE_INSTRUCTIONS}") } else { String::new() }),
                 }))
             }
             "ping" => Ok(json!({})),
-            "tools/list" => Ok(json!({ "tools": tools() })),
-            "resources/list" => Ok(json!({ "resources": resources() })),
+            "tools/list" => Ok(json!({ "tools": if self.aside { aside_tools() } else { let mut t = tools(); if in_agent() && let (Value::Array(t), Value::Array(a)) = (&mut t, aside_tools()) { t.extend(a); } t } })),
+            "resources/list" => Ok(json!({ "resources": if self.aside { json!([]) } else { resources() } })),
             "resources/templates/list" => Ok(json!({ "resourceTemplates": [{ "uriTemplate": "prism://help/{page}", "name": "help", "description": "A page of Prism's help (prism://help/05-mrs), in Prism's language", "mimeType": "text/markdown" }] })),
             "resources/read" => {
                 let uri = params.get("uri").and_then(Value::as_str).unwrap_or_default().to_string();
@@ -219,7 +230,15 @@ impl Server {
 
     async fn call(&self, name: &str, args: Value) -> Result<Value> {
         let s = |k: &str| args.get(k).and_then(Value::as_str).map(str::to_string);
+        if self.aside && !matches!(name, "suggest_task" | "dismiss_task") {
+            bail!("no tool {name}");
+        }
+        // « In passing » is for the agents Prism launches: not listed, not answered elsewhere.
+        if !self.aside && !in_agent() && matches!(name, "suggest_task" | "dismiss_task") {
+            bail!("no tool {name}");
+        }
         match name {
+            "suggest_task" | "dismiss_task" => self.live(name, args).await,
             "prism_search_docs" => {
                 let query = s("query").context("query")?;
                 let found = docs::search(&query, &self.language().await, super::schema(), 8);
@@ -266,6 +285,42 @@ fn text_of(v: &Value) -> String {
         Value::String(s) => s.clone(),
         v => serde_json::to_string_pretty(v).unwrap_or_default(),
     }
+}
+
+/// Launched by Prism: an agent of its own (`PRISM_AGENT`), which may flag tasks in passing.
+fn in_agent() -> bool {
+    std::env::var("PRISM_AGENT").is_ok_and(|a| !a.is_empty())
+}
+
+/// What the « in passing » tools are for, as the server's instructions.
+const ASIDE_INSTRUCTIONS: &str = "Prism shows the user what you flag with suggest_task: a task worth doing that is OUT of what you were asked (dead code, a stale doc, a missing test, a TODO you confirmed, the same bug elsewhere, a flaw seen in passing). The user launches it in another agent, chains it after you, makes it a ticket or dismisses it; you are told at your next tool call. Do not do such a task yourself, and do not mention it in your final summary instead: call suggest_task, then carry on with your own task.";
+
+/// `suggest_task` and `dismiss_task`, as Claude Desktop's `spawn_task` and `dismiss_task`.
+fn aside_tools() -> Value {
+    let obj = |props: Value, required: &[&str]| json!({ "type": "object", "properties": props, "required": required });
+    json!([
+        {
+            "name": "suggest_task",
+            "title": "Flag a task in passing",
+            "description": "Flag a task you noticed that is out of the scope of what you were asked: Prism shows it to the user, who can launch it in another agent, run it after you, make it a ticket, or dismiss it. Returns at once with a task_id: carry on with your own task. Use it for real, concrete work: dead code, a stale doc, a missing test, a confirmed TODO, the same bug elsewhere, a security flaw seen in passing. Do NOT use it for vague remarks, for trivial fixes you can make right now within your task, for unsure hunches, nor for what your task already covers. Use this tool rather than a sentence of your final summary for such a task. The prompt must stand on its own: another agent, without your context, does it from that prompt alone (paths, what is wrong, what done means). If an answer says already: launched, ticket or dismissed, it was dealt with: do not propose it again.",
+            "inputSchema": obj(json!({
+                "title": { "type": "string", "description": "Imperative, under 60 characters (\"Remove the unused VAT helper\")" },
+                "tldr": { "type": "string", "description": "One or two sentences for the user: what and why" },
+                "prompt": { "type": "string", "description": "A self-contained prompt for the agent that will do it: files, what is wrong, what done means" },
+                "files": { "type": "array", "items": { "type": "string" }, "description": "The paths concerned, relative to the repository" },
+                "kind": { "type": "string", "description": "The kind of work, if one of Prism's kinds fits (Development, Review…)" },
+                "needs_current_branch": { "type": "boolean", "description": "True if it depends on your changes not merged yet: it then starts from your branch" }
+            }), &["title", "tldr", "prompt"]),
+            "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": false }
+        },
+        {
+            "name": "dismiss_task",
+            "title": "Withdraw a task flagged in passing",
+            "description": "Withdraw a task you flagged with suggest_task that is no longer worth doing: you did it after all within your task, or you were wrong.",
+            "inputSchema": obj(json!({ "task_id": { "type": "integer" }, "why": { "type": "string", "description": "A few words for the user" } }), &["task_id"]),
+            "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": false }
+        }
+    ])
 }
 
 fn tools() -> Value {
@@ -317,7 +372,7 @@ mod tests {
     use super::*;
 
     fn server() -> Server {
-        Server { client: std::sync::Mutex::new("test".into()), link: Mutex::new(None), out: Mutex::new(tokio::io::stdout()) }
+        Server { client: std::sync::Mutex::new("test".into()), aside: false, link: Mutex::new(None), out: Mutex::new(tokio::io::stdout()) }
     }
 
     #[tokio::test]
@@ -335,5 +390,17 @@ mod tests {
         let block = s.request("resources/read", json!({ "uri": "prism://guide/example-block/mod.rs" })).await.ok().unwrap();
         assert!(block["contents"][0]["text"].as_str().unwrap().contains("impl Block"));
         assert!(s.request("nope", json!({})).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn the_aside_mode_offers_its_two_tools_only() {
+        let s = Server { client: std::sync::Mutex::new("test".into()), aside: true, link: Mutex::new(None), out: Mutex::new(tokio::io::stdout()) };
+        let init = s.request("initialize", json!({ "protocolVersion": "2025-06-18" })).await.ok().unwrap();
+        assert!(init["instructions"].as_str().unwrap().contains("suggest_task"));
+        let tools = s.request("tools/list", json!({})).await.ok().unwrap();
+        let names: Vec<&str> = tools["tools"].as_array().unwrap().iter().filter_map(|t| t["name"].as_str()).collect();
+        assert_eq!(names, ["suggest_task", "dismiss_task"]);
+        let refused = s.request("tools/call", json!({ "name": "prism_problems" })).await.ok().unwrap();
+        assert_eq!(refused["isError"], true);
     }
 }

@@ -75,7 +75,8 @@ export const base = (path: string) => path.split('/').pop() || path
  */
 export type Segment = { type: 'steps'; from: number; entries: ConversationEntry[] } | { type: 'one'; at: number; entry: ConversationEntry }
 
-const isStep = (e: ConversationEntry) => e.type === 'thinking' || (e.type === 'tool' && !e.ask && !e.proposal && e.kind !== 'agent')
+/** Prism's « in passing » tools (`aside`) have a card of their own: never folded. */
+const isStep = (e: ConversationEntry) => e.type === 'thinking' || (e.type === 'tool' && !e.ask && !e.proposal && !e.aside && e.kind !== 'agent')
 
 export function segments(entries: ConversationEntry[]): Segment[] {
   const out: Segment[] = []

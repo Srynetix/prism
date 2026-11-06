@@ -120,6 +120,7 @@ impl Fold {
                             let input = b.get("input").unwrap_or(&Value::Null);
                             let mut tool = Tool { tool: name.into(), kind: kind_of(name), what: self.names.what(name, input), state: "running", ..Tool::default() };
                             claude_diff(&mut tool, input);
+                            Self::aside_call(&mut tool, input);
                             let id = b.get("id").and_then(Value::as_str);
                             if name == "AskUserQuestion" {
                                 tool.ask = crate::question::parse(id.unwrap_or_default(), input);
@@ -275,6 +276,7 @@ impl Fold {
                 } else {
                     tool.what = codex_what(input).or_else(|| input.get("command").map(|c| c.to_string()));
                 }
+                Self::aside_call(&mut tool, input);
                 self.call(p.get("call_id").and_then(Value::as_str), at, tool);
             }
             (Some("response_item"), Some("function_call_output" | "custom_tool_call_output")) => {

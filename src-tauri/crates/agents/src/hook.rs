@@ -137,6 +137,9 @@ pub fn main(work: &Path) -> ExitCode {
         _ => {
             let adopted = adopted_worktrees(work, &input);
             let session = input.session_id.clone();
+            let event = input.hook_event_name.clone();
+            // A subagent's tool call: its context is not the agent's, the news waits for the agent's own.
+            let sub = input.agent_id.is_some();
             if let Some((session, mut line)) = parse(input, t) {
                 if line.event == "SessionStart" {
                     line.session = conversation;
@@ -147,9 +150,27 @@ pub fn main(work: &Path) -> ExitCode {
                 let line = Line { t, event: "WorktreeAdopted".into(), what: Some(path), ..Default::default() };
                 let _ = append(&events, &session, &line);
             }
+            // What became of the tasks it proposed in passing: told now, in its context.
+            if let Some(out) = std::env::var("PRISM_AGENT").ok().filter(|_| !sub && takes_news(&event)).and_then(|agent| news_output(&event, crate::asides::take_news(&events, &agent))) {
+                let _ = writeln!(std::io::stdout(), "{out}");
+            }
             ExitCode::SUCCESS
         }
     }
+}
+
+fn takes_news(event: &str) -> bool {
+    matches!(event, "PostToolUse" | "UserPromptSubmit")
+}
+
+/// The hook's answer that adds `news` to the agent's context (Claude Code's `additionalContext`,
+/// which Codex's hooks take too): after a tool call or as a prompt is sent only.
+fn news_output(event: &str, news: Vec<String>) -> Option<String> {
+    if news.is_empty() || !takes_news(event) {
+        return None;
+    }
+    let text = format!("Prism, about the tasks you proposed in passing (suggest_task):\n- {}", news.join("\n- "));
+    Some(serde_json::json!({ "hookSpecificOutput": { "hookEventName": event, "additionalContext": text } }).to_string())
 }
 
 /// Creates the worktree Prism described for this name (otherwise, the one Claude would have created), and

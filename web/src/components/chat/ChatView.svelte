@@ -14,6 +14,8 @@
   import { base, matches, promptImages, segments, summarize, sumSteps } from './turns'
   import QuestionCard from './QuestionCard.svelte'
   import PlanCard from './PlanCard.svelte'
+  import AsideCard from '../AsideCard.svelte'
+  import { asideOfCall, isSuggest } from '../../asides.svelte'
   import CommentedAnswer from './CommentedAnswer.svelte'
   import PromptImages, { type PromptImage } from './PromptImages.svelte'
   import type { PastedImages } from '../../bindings/PastedImages'
@@ -387,6 +389,13 @@
     <PlanCard {id} plan={p} previous={before(p.call)} latest={p.call === lastPlan} {acts} {typing} onwide={onplan} />
   {:else if row.entry.ask}
     <QuestionCard {id} ask={row.entry.ask} status={row.entry.state} {acts} {typing} {passkey} />
+  {:else if row.entry.aside}
+    <!-- A task flagged in passing (suggest_task): its card, where the agent saw it; withdrawn (dismiss_task): struck out. -->
+    {@const call = row.entry}
+    {@const line = asideOfCall(call)}
+    {#if line && isSuggest(call)}<AsideCard a={line} chat />
+    {:else if line}<AsideCard a={line} chat withdrawn />
+    {:else}<div class="note">↗ {isSuggest(call) ? tr('In passing') : tr('Withdrawn')}: {call.what ?? ''}{call.state === 'failed' && call.output ? ` — ${call.output}` : ''}</div>{/if}
   {:else if row.entry.kind === 'agent'}
     {@const t = row.entry}
     {@const b = busy(t)}

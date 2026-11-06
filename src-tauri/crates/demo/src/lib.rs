@@ -813,6 +813,49 @@ impl Demo {
         }
     }
 
+    /// Three tasks flagged in passing: two open (one seen by two agents), one launched.
+    fn asides(&self) -> Vec<Aside> {
+        let seen = |agent: &str, name: &str, branch: &str, tldr: &str, minutes: i64| AsideSeen {
+            agent: Some(agent.into()),
+            session: None,
+            call: None,
+            name: name.into(),
+            cli: "claude".into(),
+            branch: Some(branch.into()),
+            cwd: None,
+            effort: None,
+            tldr: tldr.into(),
+            at: self.ago(minutes),
+        };
+        let aside = |id: u64, title: &str, tldr: &str, files: &[&str], kind: Option<&str>, seen: Vec<AsideSeen>, state: AsideState| Aside {
+            id,
+            repo: Some("shop".into()),
+            title: title.into(),
+            tldr: tldr.into(),
+            prompt: format!("{tldr}\n\nDo it in its own change, with a test; nothing else."),
+            files: files.iter().map(|f| f.to_string()).collect(),
+            kind: kind.map(String::from),
+            needs_current_branch: false,
+            at: seen[0].at,
+            seen,
+            state,
+            changed_at: None,
+            agent: (state == AsideState::Launched).then(|| "demo-a2".into()),
+            agent_title: (state == AsideState::Launched).then(|| "SHOP-412 · Review-fix".into()),
+            from_branch: None,
+            ticket: None,
+            dismissed_by: None,
+            why: None,
+            files_changed: false,
+        };
+        let vat = "SHOP-433 · Fix VAT rounding on invoices";
+        vec![
+            aside(3, "Remove the unused round_half_even helper", "src/pricing/round.rs keeps a helper nothing calls since the VAT fix; it misleads whoever reads the rounding.", &["src/pricing/round.rs"], Some("Development"), vec![seen("demo-a1", vat, "fix/SHOP-433-vat-rounding", "Dead helper next to the one I fixed.", 3)], AsideState::Open),
+            aside(2, "Add a test for credit notes' VAT", "Credit notes go through the same rounding and have no test: the fix of SHOP-433 is not checked for them.", &["src/invoices/credit_note.rs", "tests/invoices.rs"], Some("Development"), vec![seen("demo-a1", vat, "fix/SHOP-433-vat-rounding", "Credit notes round VAT too, untested.", 9), seen("demo-a2", "SHOP-412 · Review-fix", "feat/SHOP-412-saved-cart", "No test covers credit notes' totals.", 5)], AsideState::Open),
+            aside(1, "Update the README's checkout setup", "The README still says to run the checkout with STRIPE_KEY, renamed PAYMENT_KEY last month.", &["README.md"], None, vec![seen("demo-a3", "SHOP-441 · Refine multi-currency prices", "feat/SHOP-441-multi-currency", "Stale env var in the README.", 95)], AsideState::Launched),
+        ]
+    }
+
     /// Two targets: the GitLab runners and their jobs, and the shop's pods in production.
     fn pods(&self) -> (Vec<PodView>, BTreeMap<String, Usage>, Vec<NodeLoad>) {
         let pod = |target: &str, namespace: &str, name: &str, role: PodRole, job: Option<(&str, &str)>, status: &str, minutes: i64| PodView {
@@ -896,6 +939,8 @@ impl Demo {
             group_order: None,
             order_in_group: None,
             origin: SessionOrigin::Desktop,
+            transcript: None,
+            path: None,
         };
         vec![
             session("demo-s1", "Why does e2e-checkout flake?", Some("release/2026.10"), SessionStatus::NeedsYou, Some("Should I quarantine the test or raise the timeout?"), 6),
@@ -1113,6 +1158,7 @@ impl Demo {
         s.agents = self.agents();
         s.routines = self.routines();
         s.overlaps = self.overlaps();
+        s.asides = self.asides();
         // Agents count as sessions too (header, rail, Alerts), as the real ones do.
         s.sessions = self.sessions();
         s.sessions.extend(s.agents.iter().map(|a| ClaudeSession {
@@ -1129,6 +1175,8 @@ impl Demo {
             group_order: None,
             order_in_group: None,
             origin: SessionOrigin::Agent,
+            transcript: None,
+            path: None,
         }));
         s.usage = Some(ClaudeUsage {
             five_hour: Some(UsageWindow { utilization: 42.0, resets_at: Some(self.in_(130)) }),

@@ -7,6 +7,7 @@ import type { AlertsConfig } from "./AlertsConfig";
 import type { AppearanceConfig } from "./AppearanceConfig";
 import type { ArchivedSession } from "./ArchivedSession";
 import type { ArgoCd } from "./ArgoCd";
+import type { Aside } from "./Aside";
 import type { Board } from "./Board";
 import type { Chain } from "./Chain";
 import type { CiHealth } from "./CiHealth";
@@ -229,6 +230,10 @@ routines: Routines,
  * Agents and worktrees changing the same lines or files (`prism_collectors::overlaps`).
  */
 overlaps: Overlaps, 
+/**
+ * What the agents flagged in passing, out of their task (`prism_agents::asides`), the newest first.
+ */
+asides: Array<Aside>, 
 /**
  * Changes each time the book of what every agent cost changes (`agent-costs.json`): the
  * book itself is read on demand (`agent_costs`), by the Actual sections that show it.

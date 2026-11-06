@@ -44,7 +44,8 @@ impl Agents {
             cli.effort = Some(e);
         }
         // Prism's MCP server and skill: Claude Code's plugin, Codex's options (OpenCode's in its
-        // environment, `env`). Nothing written here: the launcher's preview builds this too.
+        // environment, `env`); or its « in passing » mode alone (`suggest_task`, `dismiss_task`).
+        // Nothing written here: the launcher's preview builds this too.
         if self.prism_mcp(launch) {
             let command = prism_core::mcp::command();
             match provider {
@@ -53,6 +54,18 @@ impl Agents {
                 Provider::Codex => cli.args.extend(prism_core::mcp::codex_args(&command)),
                 Provider::OpenCode | Provider::CommandCode => {}
             }
+        } else if self.aside_mcp() {
+            match provider {
+                Provider::Claude => cli.args.extend(["--mcp-config".to_string(), prism_core::mcp::claude_aside_file(&self.inner.work).display().to_string()]),
+                Provider::Codex => cli.args.extend(prism_core::mcp::codex_args(&prism_core::mcp::aside_command())),
+                Provider::OpenCode | Provider::CommandCode => {}
+            }
+        }
+        // `suggest_task` only records a proposal: never a permission prompt that would stop the agent.
+        if provider == Provider::Claude && self.aside_mcp() {
+            // Its tools as named by `--mcp-config`, and by the plugin of the whole server (`plugin_<plugin>_<server>`).
+            let s = prism_core::mcp::SERVER;
+            cli.args.push(format!("--allowedTools=mcp__{s}__suggest_task,mcp__{s}__dismiss_task,mcp__plugin_{s}_{s}__suggest_task,mcp__plugin_{s}_{s}__dismiss_task"));
         }
         cli
     }
@@ -60,6 +73,22 @@ impl Agents {
     /// The agent gets Prism's MCP server: `[agents] prism_mcp`, or its launch asked for it.
     pub(crate) fn prism_mcp(&self, launch: Option<&state::LaunchSpec>) -> bool {
         launch.is_some_and(|l| l.prism_mcp) || self.inner.settings.lock().unwrap().prism_mcp
+    }
+
+    /// The agent gets the « in passing » tools (`[agents.aside] enabled`): with the whole server,
+    /// or alone.
+    pub(crate) fn aside_mcp(&self) -> bool {
+        self.inner.settings.lock().unwrap().aside.enabled
+    }
+
+    /// The command line of Prism's MCP server the agent gets, if any: the whole one, or its
+    /// « in passing » mode alone.
+    pub(crate) fn mcp_command(&self, launch: Option<&state::LaunchSpec>) -> Option<Vec<String>> {
+        if self.prism_mcp(launch) {
+            Some(prism_core::mcp::command())
+        } else {
+            self.aside_mcp().then(prism_core::mcp::aside_command)
+        }
     }
 
     /// The reasoning efforts `provider` takes (for `model`, Codex's levels being each model's), for

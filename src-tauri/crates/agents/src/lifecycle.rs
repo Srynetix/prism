@@ -49,8 +49,10 @@ impl Agents {
     /// Its "Then" steps, if any, run once it has done its work (`chains`).
     pub async fn spawn(&self, launch: Launch) -> Result<String> {
         let then = launch.then.clone();
+        let from = launch.from.clone();
         let id = self.spawn_as(uuid::Uuid::new_v4().to_string(), launch, None).await?;
         self.start_chain(&id, then);
+        self.launched_aside(from.as_deref(), &id);
         Ok(id)
     }
 
@@ -108,9 +110,20 @@ impl Agents {
             launch.cwd = Some(record.cwd.clone());
         }
         let then = launch.then.clone();
+        let from = launch.from.clone();
         self.spawn_as(id.to_string(), launch, Some(record)).await?;
         self.start_chain(id, then);
+        self.launched_aside(from.as_deref(), id);
         Ok(())
+    }
+
+    /// Launched from a task flagged in passing (`from`: `aside:<id>`): that line says so, its agents
+    /// are told.
+    fn launched_aside(&self, from: Option<&str>, agent: &str) {
+        let Some(n) = from.and_then(|f| f.strip_prefix("aside:")).and_then(|n| n.parse::<u64>().ok()) else { return };
+        if let Err(e) = self.aside_action(n, "launched", None, Some(agent.to_string())) {
+            tracing::warn!("agents: in passing #{n}: {e:#}");
+        }
     }
 
     /// Where the agent starts (its folder, or the repository of its new worktree) and the CLI it runs there.
@@ -221,7 +234,8 @@ impl Agents {
             Some(branch) => worktree::Intent { dir: plan.dir, branch: worktree::branch_name(&branch)?, base: None },
             None => {
                 let base = plan.base.context(tr("no branch to start the worktree from"))?;
-                worktree::Intent { dir: plan.dir, branch: plan.branch, base: Some(format!("origin/{}", worktree::branch_name(&base)?)) }
+                let base = if plan.local_base { worktree::branch_name(&base)? } else { format!("origin/{}", worktree::branch_name(&base)?) };
+                worktree::Intent { dir: plan.dir, branch: plan.branch, base: Some(base) }
             }
         };
         Ok((repo, plan.name, intent))
@@ -260,11 +274,22 @@ impl Agents {
                 let (repo, first, release) = (repo.clone(), [default.clone(), main], cfg.release_prefix.clone());
                 tokio::task::spawn_blocking(move || worktree::origin_branches(&repo, &first.iter().map(String::as_str).collect::<Vec<_>>(), &release)).await?
             };
-            if let Some(b) = asked
-                && plan.error.is_none()
-                && !bases.iter().any(|x| x == b)
-            {
-                plan.error = Some(format!("no branch {b} on origin to start from (as last fetched)"));
+            let mut bases = bases;
+            if let Some(b) = asked {
+                // A branch someone works on in another worktree (an agent's, for what it saw in
+                // passing): started from as it is here, its commits not pushed yet included.
+                let canon = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+                let top = canon(&repo);
+                let worked_on = branches.checked_out.iter().any(|(x, dir)| x == b && canon(dir) != top);
+                let local = branches.local.iter().any(|x| x == b);
+                if local && (worked_on || !bases.iter().any(|x| x == b)) {
+                    plan.local_base = true;
+                    if !bases.iter().any(|x| x == b) {
+                        bases.insert(0, b.to_string());
+                    }
+                } else if !bases.iter().any(|x| x == b) && plan.error.is_none() {
+                    plan.error = Some(format!("no branch {b} on origin to start from (as last fetched)"));
+                }
             }
             plan.base = Some(asked.map_or(default, String::from));
             plan.bases = bases;
@@ -513,7 +538,7 @@ impl Agents {
     /// (Claude Code's hooks are told by their command line), and OpenCode's plugin itself.
     pub(crate) fn env(&self, id: &str, provider: Provider, mode: Option<&str>, launch: Option<&state::LaunchSpec>) -> Vec<String> {
         let mut env = vec![format!("PRISM_AGENT={id}"), format!("PRISM_EVENTS={}", self.inner.events.display())];
-        let mcp = self.prism_mcp(launch).then(prism_core::mcp::command);
+        let mcp = self.mcp_command(launch);
         env.extend(provider.env(&self.wiring(provider), mode, mcp.as_deref()));
         env
     }

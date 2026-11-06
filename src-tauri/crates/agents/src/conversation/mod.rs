@@ -281,6 +281,11 @@ pub struct Tool {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub proposal: Option<crate::plan::Proposal>,
+    /// A call of Prism's « in passing » tools (`suggest_task`, `dismiss_task`): its Chat shows the
+    /// task's card, its id in `output`.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<bool>", optional))]
+    pub aside: bool,
     /// When it was called (ISO 8601), and once done, how long it took.
     pub at: Option<String>,
     pub ms: Option<u64>,

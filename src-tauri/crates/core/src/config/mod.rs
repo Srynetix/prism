@@ -268,6 +268,9 @@ pub struct AgentsConfig {
     /// Two agents (or worktrees) of a repository changing the same lines or the same files, told
     /// before the merge (`[agents.overlaps]`).
     pub overlaps: OverlapsConfig,
+    /// What an agent sees in passing, out of its task: proposed with `suggest_task`, kept in a
+    /// list, launched, chained or made a ticket in a click (`[agents.aside]`).
+    pub aside: AsideConfig,
     /// Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
     /// to Prism, as everywhere else.
     pub terminal_keys: Vec<String>,
@@ -301,6 +304,36 @@ pub struct AgentsConfig {
     /// they read Prism's docs, schema and config, and propose changes. Off: only the agents of
     /// "Configure Prism" get them.
     pub prism_mcp: bool,
+}
+
+/// « In passing » (`[agents.aside]`): the tasks an agent flags out of its own (`suggest_task` of
+/// Prism's MCP server), as Claude Desktop's `spawn_task`, kept in a list until dealt with.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct AsideConfig {
+    /// The `suggest_task` / `dismiss_task` tools given to the agents Prism launches (Claude Code,
+    /// Codex, OpenCode).
+    pub enabled: bool,
+    /// The `spawn_task` calls of the Claude Desktop sessions fill the list too.
+    pub desktop: bool,
+    /// The main button of a proposal: `launch` (the launcher, prefilled), `then` (after its agent,
+    /// in its chain) or `ticket`.
+    #[cfg_attr(feature = "ts", ts(type = "'launch' | 'then' | 'ticket'"))]
+    pub default_action: String,
+    /// Launch creates a worktree (off: the same folder as the agent that saw it).
+    pub worktree: bool,
+    /// Open proposals older than this many days fold under « Older » (never removed on their own).
+    pub stale_days: u32,
+    /// A count of the open proposals in the status bar.
+    pub statusbar: bool,
+}
+
+impl Default for AsideConfig {
+    fn default() -> Self {
+        Self { enabled: true, desktop: true, default_action: "launch".into(), worktree: true, stale_days: 14, statusbar: false }
+    }
 }
 
 /// Overlaps between the agents and worktrees of a repository (`[agents.overlaps]`): each one's
@@ -640,6 +673,7 @@ impl Default for AgentsConfig {
             quick_actions: Vec::new(),
             routines: Vec::new(),
             overlaps: OverlapsConfig::default(),
+            aside: AsideConfig::default(),
             terminal_keys: vec!["Cmd+K".into()],
             view: "chat".into(),
             fold_steps: true,

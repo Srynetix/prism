@@ -23,6 +23,8 @@ impl Bench {
         let hub = Hub::new();
         let data = root.join("data");
         let agents = Agents::with_tmux(data.clone(), hub.clone(), Vec::new(), Vec::new(), Tmux::fake(&data.join("agents"), tmux.clone()).unwrap()).unwrap();
+        // The command lines compared below without Prism's « in passing » server (its own test).
+        agents.inner.settings.lock().unwrap().aside.enabled = false;
         Self { agents, tmux, hub, root, project }
     }
 
@@ -239,6 +241,7 @@ impl Bench {
             Some(p.display().to_string())
         };
         let mut cfg = AgentsConfig::default();
+        cfg.aside.enabled = false;
         cfg.codex.bin = bin("codex");
         cfg.claude.cli.bin = bin("claude");
         self.agents.configure(cfg);
@@ -314,6 +317,59 @@ async fn the_launchers_command_line_is_the_launchs() {
     assert_eq!(b.agents.command_line(preview(Provider::Codex, "auto", "go")).unwrap(), "codex --add-dir …/api.worktrees/fix-it --model opus --approve-for-me -- go");
     assert_eq!(b.agents.command_line(preview(Provider::OpenCode, "default", "")).unwrap(), "opencode --model opus");
     assert!(b.agents.command_line(preview(Provider::CommandCode, "auto", "go")).is_err(), "no auto mode");
+}
+
+/// `[agents.aside]`: Claude Code gets the « in passing » server by `--mcp-config` (its two tools
+/// allowed), Codex by its options, the whole server taking its place when asked for.
+#[tokio::test]
+async fn the_agents_get_the_aside_tools() {
+    let b = Bench::new();
+    b.agents.inner.settings.lock().unwrap().aside.enabled = true;
+    let preview = |provider, prism_mcp| LaunchPreview { provider, title: "Fix it".into(), permission_mode: None, model: None, effort: None, worktree: None, also: Vec::new(), prompt: Some("go".into()), prism_mcp };
+    let claude = b.agents.command_line(preview(Provider::Claude, false)).unwrap();
+    assert!(claude.contains("--mcp-config") && claude.contains("--allowedTools=mcp__prism__suggest_task,mcp__prism__dismiss_task,mcp__plugin_prism_prism__suggest_task"), "{claude}");
+    let codex = b.agents.command_line(preview(Provider::Codex, false)).unwrap();
+    assert!(codex.contains("mcp_servers.prism.args=") && codex.contains(r#""mcp", "aside"]"#), "{codex}");
+    let whole = b.agents.command_line(preview(Provider::Claude, true)).unwrap();
+    assert!(whole.contains("--plugin-dir") && !whole.contains("--mcp-config") && whole.contains("--allowedTools="), "{whole}");
+}
+
+/// « In passing »: one line per subject; only its agent withdraws it; an answer to a line dealt
+/// with already, or a second ticket meanwhile, is refused.
+#[tokio::test]
+async fn an_aside_is_answered_once() {
+    let b = Bench::new();
+    b.agents.inner.settings.lock().unwrap().aside.enabled = true;
+    let s = |title: &str| crate::asides::Suggest { title: title.into(), tldr: "t".into(), prompt: "p".into(), files: vec!["src/a.rs".into()], ..Default::default() };
+    let first = b.agents.suggest(Some("a1"), "claude", s("Remove the dead helper")).unwrap();
+    let again = b.agents.suggest(Some("a2"), "codex", s("Remove dead helper")).unwrap();
+    assert_eq!(first["task_id"], again["task_id"]);
+    let id = first["task_id"].as_u64().unwrap();
+    assert_eq!(b.agents.aside(id).unwrap().seen.len(), 2);
+    assert!(b.agents.dismiss_by_agent(None, id, None).is_err(), "no agent: not its proposal");
+    b.agents.aside_action(id, "later", None, None).unwrap();
+    assert!(b.agents.aside_action(id, "later", None, None).is_err());
+    b.agents.begin_ticket(id).unwrap();
+    assert!(b.agents.begin_ticket(id).is_err(), "a ticket under way");
+    b.agents.end_ticket(id);
+    b.agents.aside_ticket(id, "T-9").unwrap();
+    assert!(b.agents.aside_action(id, "dismiss", None, None).is_err(), "dealt with already");
+    let told = b.agents.take_news("a1");
+    assert!(told.len() == 1 && told[0].contains("T-9"), "{told:?}");
+    assert_eq!(b.agents.suggest(Some("a1"), "claude", s("Remove the dead helper")).unwrap()["already"], "ticket");
+}
+
+/// The launch of a proposal, as the launcher is given it: its prompt headed by where it comes from
+/// and its files, `from` naming it.
+#[tokio::test]
+async fn an_aside_launches_with_where_it_comes_from() {
+    let b = Bench::new();
+    b.agents.inner.settings.lock().unwrap().aside.enabled = true;
+    let s = crate::asides::Suggest { title: "Add a test".into(), tldr: "t".into(), prompt: "Test credit notes.".into(), files: vec!["tests/a.rs".into()], kind: Some("Development".into()), ..Default::default() };
+    let id = b.agents.suggest(None, "claude", s).unwrap()["task_id"].as_u64().unwrap();
+    let l = b.agents.aside_launch_spec(id, false).unwrap();
+    assert_eq!((l.title.as_str(), l.category.as_deref(), l.from), ("Add a test", Some("Development"), Some(format!("aside:{id}"))));
+    assert_eq!(l.prompt.as_deref(), Some("Spotted in passing by the agent \"claude\", while it worked on something else.\n\nTest credit notes.\n\nFiles concerned: tests/a.rs"));
 }
 
 /// The prompts pasted into agents' terminals (their text goes on tmux's stdin, which the fake keeps not).

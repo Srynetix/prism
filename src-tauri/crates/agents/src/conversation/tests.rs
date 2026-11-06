@@ -604,3 +604,18 @@ fn a_subagent_woken_by_a_message_works_again_until_its_task_ends() {
     assert_eq!(c.background.iter().map(|b| b.state).collect::<Vec<_>>(), ["completed", "completed"]);
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// Prism's « in passing » tools, however the CLI names them, flagged for their Chat card; Desktop's
+/// own `spawn_task` is not one of them.
+#[test]
+fn the_aside_tools_are_flagged() {
+    let mut s = Tool { tool: "mcp__plugin_prism_prism__suggest_task".into(), ..Tool::default() };
+    Fold::aside_call(&mut s, &serde_json::json!({ "title": "Remove the dead helper" }));
+    assert!(s.aside && s.what.as_deref() == Some("Remove the dead helper"));
+    let mut d = Tool { tool: "prism__dismiss_task".into(), ..Tool::default() };
+    Fold::aside_call(&mut d, &Value::String(r#"{"task_id": 3}"#.into()));
+    assert!(d.aside && d.what.as_deref() == Some("#3"));
+    let mut desktop = Tool { tool: "mcp__ccd_session__spawn_task".into(), ..Tool::default() };
+    Fold::aside_call(&mut desktop, &serde_json::json!({ "title": "x" }));
+    assert!(!desktop.aside);
+}
