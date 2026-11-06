@@ -2,6 +2,7 @@
 import type { DiskScan } from "./DiskScan";
 import type { DiskScanProgress } from "./DiskScanProgress";
 import type { DiskSpace } from "./DiskSpace";
+import type { DiskTrash } from "./DiskTrash";
 
 /**
  * What the block shows: the last scan, the one running, the disk it is on.
@@ -22,4 +23,8 @@ running: DiskScanProgress | null,
 /**
  * The volume of the scan shown.
  */
-disk: DiskSpace | null, };
+disk: DiskSpace | null, 
+/**
+ * The Trash, measured apart from the scans; absent before it is, or with `cleanup` off.
+ */
+trash: DiskTrash | null, };

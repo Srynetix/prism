@@ -5,9 +5,10 @@ import type { DiskReclaim } from '../../bindings/DiskReclaim'
 import type { DiskReclaimGroup } from '../../bindings/DiskReclaimGroup'
 import type { DiskScan } from '../../bindings/DiskScan'
 import type { DiskUsageState } from '../../bindings/DiskUsageState'
+import type { DiskTrash } from '../../bindings/DiskTrash'
 
 /** The Disk usage block's state: Rust's types (`crates/blocks/src/disk_usage`), generated in `bindings/`. */
-export type { DiskKind, DiskNode, DiskReclaim, DiskReclaimGroup, DiskScan, DiskUsageState }
+export type { DiskKind, DiskNode, DiskReclaim, DiskReclaimGroup, DiskScan, DiskTrash, DiskUsageState }
 
 /** `29.4 GB`, `840 MB`, `12 kB`: binary units, as the file managers count. */
 export function size(n: number): string {

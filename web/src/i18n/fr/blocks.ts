@@ -1025,4 +1025,18 @@ export default {
   'Later keeps it without its badge; Dismiss takes it out, and the reason is told to the agent, which will not propose it again. Two agents seeing the same thing (same repository, files that meet, close titles) make one line, seen by both.': 'Plus tard la garde sans son badge\xa0; Écarter la retire, et la raison est dite à l’agent, qui ne la reproposera pas. Deux agents qui voient la même chose (même dépôt, fichiers qui se recouvrent, titres proches) font une seule ligne, vue par les deux.',
   '“files changed since”: a commit of another branch touched its files, maybe it was done already. Open lines older than stale_days fold under Older; nothing is removed on its own.': '«\xa0fichiers modifiés depuis\xa0»\xa0: un commit d’une autre branche a touché ses fichiers, c’est peut-être déjà fait. Les lignes ouvertes plus vieilles que stale_days se replient sous Anciennes\xa0; rien n’est supprimé tout seul.',
   'Prism’s MCP server, given to the agents it launches ([agents.aside]), and the spawn_task calls of the Claude Desktop sessions: no request of its own.': 'Le serveur MCP de Prism, donné aux agents qu’il lance ([agents.aside]), et les appels spawn_task des sessions Claude Desktop\xa0: aucune requête propre.',
+  // Disk usage › Trash
+  'trash|Empty': 'Vider',
+  'trash|empty': 'vide',
+  'trash|left': 'restants',
+  'Emptying…': 'Vidage…',
+  'Empty the Trash': 'Vider la Corbeille',
+  'Sure? {size} deleted': 'Sûr\xa0? {size} supprimés',
+  '{n} disk': '{n} disque',
+  '{n} disks': '{n} disques',
+  '{n} item left (locked or in use)': '{n} élément laissé (verrouillé ou en cours d’utilisation)',
+  '{n} items left (locked or in use)': '{n} éléments laissés (verrouillés ou en cours d’utilisation)',
+  'the home folder’s is not readable': 'celle du dossier personnel est illisible',
+  'not readable: Full Disk Access needed (System Settings › Privacy & Security)': 'illisible\xa0: accès complet au disque requis (Réglages Système › Confidentialité et sécurité)',
+  'Measure the Trash again': 'Mesurer à nouveau la Corbeille',
 } satisfies Dictionary

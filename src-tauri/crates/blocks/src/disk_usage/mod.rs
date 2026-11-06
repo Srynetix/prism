@@ -22,8 +22,10 @@ mod demo;
 mod kinds;
 mod scan;
 mod store;
+mod trash;
 
 pub use kinds::{Kind, Reclaim};
+pub use trash::{BinInfo, TrashState};
 
 pub struct DiskUsage;
 
@@ -38,7 +40,8 @@ impl Block for DiskUsage {
         match command {
             "tree" | "ancestors" => RemoteClass::Read,
             "scan" | "stop" => RemoteClass::Act,
-            "trash" | "clean" => RemoteClass::Critical,
+            "trash_measure" => RemoteClass::Read,
+            "trash" | "clean" | "empty_trash" => RemoteClass::Critical,
             _ => RemoteClass::Never,
         }
     }
@@ -99,6 +102,18 @@ impl Block for DiskUsage {
                     tracing::info!("disk usage: {} to the Trash", path.display());
                     tokio::task::spawn_blocking(move || clean::trash(&path)).await??;
                     s.removed(&args)?;
+                    s.measure_trash();
+                    Ok(Value::Null)
+                }
+                // Every Trash emptied: `{freed, left}`, the bytes freed and the items left in place.
+                "empty_trash" => {
+                    s.cleanup_allowed()?;
+                    Ok(serde_json::to_value(s.empty_trash().await?)?)
+                }
+                // The Trash measured again.
+                "trash_measure" => {
+                    s.cleanup_allowed()?;
+                    s.measure_trash();
                     Ok(Value::Null)
                 }
                 // Frees a group of Reclaimable (`reclaim`): what it freed, in bytes.
@@ -203,6 +218,8 @@ pub struct DiskUsageState {
     pub running: Option<Progress>,
     /// The volume of the scan shown.
     pub disk: Option<DiskSpace>,
+    /// The Trash, measured apart from the scans; absent before it is, or with `cleanup` off.
+    pub trash: Option<TrashState>,
 }
 
 /// A scan done: its root, its totals, and what can be freed.
@@ -311,7 +328,7 @@ pub struct NodeView {
 }
 
 /// The volume `path` is on: the disk mounted at the longest prefix of it.
-fn disk_of(path: &Path) -> Option<DiskSpace> {
+pub(crate) fn disk_of(path: &Path) -> Option<DiskSpace> {
     let disks = sysinfo::Disks::new_with_refreshed_list();
     disks.list().iter().filter(|d| path.starts_with(d.mount_point())).max_by_key(|d| d.mount_point().as_os_str().len()).map(|d| DiskSpace {
         name: d.name().to_string_lossy().into_owned(),

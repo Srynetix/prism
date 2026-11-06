@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
   import { armer } from '../../armed.svelte'
   import { hasCore } from '../../bridge'
@@ -11,10 +11,10 @@
   import { FILE_MANAGER, isMac } from '../../platform'
   import { ago } from '../../time'
   import { copy } from '../../toast.svelte'
-  import { t, tn } from '../../i18n.svelte'
+  import { t, tc, tn } from '../../i18n.svelte'
   import { call, type BlockProps } from '../block'
   import Treemap from './Treemap.svelte'
-  import { chain, count, deltaText, folderColor, kindColor, KINDS, RECLAIM, share, size, type DiskNode, type DiskReclaim, type DiskUsageState } from './types'
+  import { chain, count, deltaText, folderColor, kindColor, KINDS, RECLAIM, share, size, type DiskNode, type DiskReclaim, type DiskTrash, type DiskUsageState } from './types'
 
   /**
    * Disk usage: a folder scanned on demand, then where its space goes — the list of its folders
@@ -39,6 +39,8 @@
   let busy = $state<string | null>(null)
   let failed = $state<string | null>(null)
   let done = $state<string | null>(null)
+  /** The message after a move to the Trash: it offers to empty it. */
+  let offerEmpty = $state(false)
   let root = $state('')
   const arming = armer()
 
@@ -97,6 +99,7 @@
     busy = key
     failed = null
     done = null
+    offerEmpty = false
     try {
       const out = await call<unknown>('disk_usage', command, extra)
       after?.(out)
@@ -219,12 +222,29 @@
     menu = null
     void act(`trash:${n.id}`, 'trash', args(n.id), () => {
       done = t('{name} is in the Trash: emptying it frees {size}', { name: n.name, size: size(n.bytes) })
+      offerEmpty = true
       if (selected?.id === n.id) selected = null
     })
   }
   function clean(kind: DiskReclaim, bytes: number) {
     if (!arming.confirm(`clean:${kind}`)) return
     void act(`clean:${kind}`, 'clean', { reclaim: kind }, (freed) => (done = t('{size} freed', { size: size(typeof freed === 'number' ? freed : bytes) })))
+  }
+  /** The Trash, measured apart from the scans (`[disk_usage] cleanup` on). */
+  const bin = $derived<DiskTrash | null>(du?.cleanup ? (du.trash ?? null) : null)
+  const binDetail = $derived(bin?.bins.map((b) => `${b.disk} — ${b.path}: ${size(b.bytes)}`).join('\n') ?? '')
+  /** The Trash measured again when the block appears (it changes outside Prism too), and on a click. */
+  const measureTrash = () => void call('disk_usage', 'trash_measure', {}).catch(() => {})
+  onMount(() => {
+    if (hasCore() && du?.cleanup) measureTrash()
+  })
+  function emptyTrash() {
+    if (!bin || !arming.confirm('empty-trash')) return
+    void act('empty-trash', 'empty_trash', {}, (out) => {
+      const r = (out ?? {}) as { freed?: number; left?: number }
+      const freed = t('{size} freed', { size: size(r.freed ?? 0) })
+      done = r.left ? `${freed} · ${tn(r.left, '{n} item left (locked or in use)', '{n} items left (locked or in use)')}` : freed
+    })
   }
   function openMenu(e: MouseEvent, n: DiskNode) {
     e.preventDefault()
@@ -277,6 +297,28 @@
   </h2>
 
   <div class="du">
+  {#if bin}
+    {@const unreadable = bin.denied && !bin.bins.length}
+    <div class="trash" class:short>
+      <Icon name="trash" /><button class="tlabel" onclick={measureTrash} disabled={!hasCore()} title={t('Measure the Trash again')}>{t('Trash')}</button>
+      {#if unreadable}
+        <span class="warn">{t('not readable: Full Disk Access needed (System Settings › Privacy & Security)')}</span>
+      {:else if bin.items === 0 && !bin.emptying}
+        <span class="muted">{tc('trash', 'empty')}</span>
+      {:else}
+        <span class="mono">{size(bin.bytes)}</span>
+        <span class="muted">· {tn(bin.items, '{n} item', '{n} items')}{#if bin.emptying}{' '}{tc('trash', 'left')}{/if}</span>
+        {#if bin.bins.length > 1 && !short}<span class="muted disks" title={binDetail}>· {tn(bin.bins.length, '{n} disk', '{n} disks')}</span>{/if}
+        {#if bin.denied}<span class="warn" title={t('Full Disk Access, in System Settings › Privacy & Security')}>· {t('the home folder’s is not readable')}</span>{/if}
+      {/if}
+      <span class="sp"></span>
+      {#if hasCore()}
+        <button class="act" class:armed={arming.is('empty-trash')} disabled={busy !== null || bin.emptying || unreadable || bin.items === 0} onclick={emptyTrash} title={binDetail}>
+          {bin.emptying || busy === 'empty-trash' ? t('Emptying…') : arming.is('empty-trash') ? t('Sure? {size} deleted', { size: size(bin.bytes) }) : tc('trash', 'Empty')}
+        </button>
+      {/if}
+    </div>
+  {/if}
   {#if !du}
     <div class="empty">{t('Disk usage is off. Turn on Settings › Infra › Disk usage.')}</div>
   {:else}
@@ -293,7 +335,14 @@
       </div>
     {/if}
     {#if failed || error}<p class="err" title={failed ?? error}>{failed ?? error}</p>{/if}
-    {#if done}<p class="ok-msg">{done}</p>{/if}
+    {#if done}
+      <p class="ok-msg">
+        {done}
+        {#if offerEmpty && bin && hasCore()}
+          <button class="act" class:armed={arming.is('empty-trash')} disabled={busy !== null || bin.emptying} onclick={emptyTrash}>{arming.is('empty-trash') ? t('Sure? {size} deleted', { size: size(bin.bytes) }) : t('Empty the Trash')}</button>
+        {/if}
+      </p>
+    {/if}
 
     {#if !scan}
       {#if !running}
@@ -460,7 +509,14 @@
   .act.armed, .icon.armed { border-color: var(--ko); color: var(--ko); }
   .act:disabled, .icon:disabled { opacity: 0.5; cursor: default; }
   .err { margin: 0; padding: 4px 12px; color: var(--ko); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ok-msg { margin: 0; padding: 4px 12px; color: var(--ok); font-size: var(--fs-meta); }
+  .ok-msg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 4px 12px; color: var(--ok); font-size: var(--fs-meta); }
+  .trash { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 5px 12px; border-bottom: 1px solid var(--border); font-size: var(--fs-meta); }
+  .trash :global(svg) { width: 13px; height: 13px; color: var(--text-muted); flex: none; }
+  .tlabel { padding: 0; border: none; background: none; color: var(--text); font: inherit; font-weight: 550; cursor: pointer; }
+  .tlabel:disabled { cursor: default; }
+  .trash .disks { cursor: help; text-decoration: underline dotted; text-underline-offset: 2px; }
+  .trash > span { white-space: nowrap; }
+  .trash .warn { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .warn { color: var(--warn); }
   .muted { color: var(--text-muted); }
 
