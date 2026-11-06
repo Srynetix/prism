@@ -109,6 +109,10 @@ pub struct ChangesConfig {
     /// merged MR, on every environment.
     #[serde(default, deserialize_with = "branches")]
     pub branches: Vec<EnvBranch>,
+    /// The pair Compare opens on (`["staging", "prod"]`, the one deployed first first). None: the
+    /// environment shown and the next one in the roles' order (dev → staging → preprod → prod).
+    #[serde(default)]
+    pub compare: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -191,6 +195,8 @@ pub struct ChangesState {
     pub correlate_minutes: u32,
     pub default_period: String,
     pub retention_days: u32,
+    /// `[changes] compare`: the pair Compare opens on; empty: chosen by the environments' roles.
+    pub compare: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -216,5 +222,7 @@ mod tests {
         assert_eq!(some.branches[0], EnvBranch { env: "prod".into(), branch: "release/*".into() });
         let rows = read("[changes]\nbranches = [{ env = \"staging\", branch = \"main\" }]\n");
         assert_eq!(rows.branches, [EnvBranch { env: "staging".into(), branch: "main".into() }]);
+        assert!(none.compare.is_empty());
+        assert_eq!(read("[changes]\ncompare = [\"staging\", \"prod\"]\n").compare, ["staging", "prod"]);
     }
 }

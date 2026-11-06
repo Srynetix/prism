@@ -21,4 +21,8 @@ closed: Array<ChangesClosed>,
 /**
  * `[changes] correlate_minutes`, `default_period`, `retention_days`.
  */
-correlate_minutes: number, default_period: string, retention_days: number, };
+correlate_minutes: number, default_period: string, retention_days: number, 
+/**
+ * `[changes] compare`: the pair Compare opens on; empty: chosen by the environments' roles.
+ */
+compare: Array<string>, };

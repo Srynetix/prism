@@ -141,6 +141,21 @@ export function byHour(list: Row[]): { key: string; label: string; rows: Row[] }
   return [...groups.values()]
 }
 
+/** The axis' ticks of a range: at most about 8, on round steps. */
+export function ticksOf(range: Range): number[] {
+  const span = range.to - range.from
+  const step = [15, 30, 60, 120, 180, 360, 720, 1440, 2880].map((m) => m * MIN).find((s) => span / s <= 8) ?? 2880 * MIN
+  const out: number[] = []
+  for (let ms = Math.ceil(range.from / step) * step; ms <= range.to; ms += step) out.push(ms)
+  return out
+}
+
+/** A tick's label: the day at midnight, the time otherwise. */
+export const tickLabel = (ms: number) => {
+  const d = new Date(ms)
+  return d.getHours() === 0 && d.getMinutes() === 0 ? d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' }) : clock(ms)
+}
+
 /** The ranges Prism was closed within `range`. */
 export const closedIn = (closed: ChangesClosed[], range: Range): Range[] =>
   closed.map((c) => ({ from: Math.max(Date.parse(c.from), range.from), to: Math.min(Date.parse(c.to), range.to) })).filter((c) => c.to > c.from)
@@ -209,7 +224,15 @@ export function around(events: ChangeEvent[], env: string | null, app: string, n
   return { range: { from: at(first) - 2 * HOUR, to: Math.min(now, at(crashes[0]) + 15 * MIN) }, highlight: linked?.related ?? null, crash: first.id }
 }
 
-const clock = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
+/** A time: `09:41`. */
+export const hm = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
+const clock = hm
+
+/** A time, its day before it when not today: `09:41`, `Sat 1 16:05`. */
+export const when = (ms: number) => {
+  const d = new Date(ms)
+  return d.toDateString() === new Date().toDateString() ? hm(ms) : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' })} ${hm(ms)}`
+}
 
 /** The rows as Markdown, oldest first: for a post-mortem or a message. */
 export function markdown(list: Row[], env: string | null, range: Range): string {

@@ -170,6 +170,7 @@ fn publish(ctx: &BlockCtx, cfg: &ChangesConfig, events: &[ChangeEvent], kept: &K
         correlate_minutes: cfg.correlate_minutes,
         default_period: cfg.default_period.clone(),
         retention_days: cfg.retention_days,
+        compare: cfg.compare.clone(),
     });
 }
 

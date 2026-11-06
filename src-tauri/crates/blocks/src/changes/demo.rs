@@ -1,5 +1,8 @@
 //! The Changes block in the demo profile: a morning on staging (an MR merged, its sync, a
 //! CrashLoop right after, the fix, an alert, a CVE), and what the demo's prod and preprod show.
+//! Staging runs ahead of prod for Compare: catalog reached prod by its revision, payments by its
+//! image (prod's own GitOps revision), billing crashed on staging then on prod, orders and
+//! catalog's last syncs wait on staging.
 
 use chrono::{DateTime, Duration as Span, Utc};
 
@@ -43,6 +46,33 @@ pub fn state(now: DateTime<Utc>) -> ChangesState {
         e
     };
     let mut events = vec![
+        // Yesterday's orders on prod: what staging went beyond since.
+        sync("sync:prod:orders", 60 * 20, "prod", "orders-api-prod", "orders-api", "2c71e9b0", "release-2026-10-2c71e9b0", None),
+        // Yesterday, staging first: what prod got after it.
+        sync("sync:staging:catalog:0", 60 * 23 + 30, "staging", "catalog-api-staging", "catalog-api", "51b0a7c2", "2.13.2", Some(mr(1281, "Catalog: cache the price lists"))),
+        sync("sync:staging:billing", 60 * 19, "staging", "billing-api-staging", "billing-api", "5d20aa13", "4.2.0", Some(mr(1284, "Billing: stream the invoice export"))),
+        {
+            let mut e = ev("oom:staging:billing", 60 * 19 - 6, "staging", "pods", K::OomKilled, S::Ko, "billing-api");
+            pod(&mut e, "staging", "billing-api");
+            e.detail = Some("4 restarts · exit 137".into());
+            e.related = Some("sync:staging:billing".into());
+            e
+        },
+        sync("sync:staging:payments", 60 * 16, "staging", "payments-api-staging", "payments-api", "c3d9e0a1", "3.4.1", None),
+        sync("sync:prod:billing", 60 * 7, "prod", "billing-api-prod", "billing-api", "5d20aa13", "4.2.0", Some(mr(1284, "Billing: stream the invoice export"))),
+        {
+            let mut e = ev("crash:prod:billing", 60 * 7 - 4, "prod", "pods", K::CrashLoop, S::Ko, "billing-api");
+            pod(&mut e, "prod", "billing-api");
+            e.detail = Some("CrashLoopBackOff · exit 137".into());
+            e.related = Some("sync:prod:billing".into());
+            e
+        },
+        {
+            let mut e = sync("sync:prod:billing:rollback", 60 * 6, "prod", "billing-api-prod", "billing-api", "4b11f02e", "4.1.3", None);
+            e.detail = Some("manual".into());
+            e
+        },
+        sync("sync:prod:payments", 60 * 4, "prod", "payments-api-prod", "payments-api", "77aa0b12", "3.4.1", None),
         // Yesterday, prod.
         merged("mr:shop:1281:prod", 60 * 22, 1281, "Catalog: cache the price lists", "release/2.13", "prod"),
         sync("sync:prod:catalog", 60 * 21, "prod", "catalog-api-prod", "catalog-api", "51b0a7c2", "2.13.2", Some(mr(1281, "Catalog: cache the price lists"))),
@@ -157,5 +187,8 @@ pub fn state(now: DateTime<Utc>) -> ChangesState {
         correlate_minutes: 30,
         default_period: "since_yesterday".into(),
         retention_days: 14,
+        compare: vec!["staging".into(), "prod".into()],
     }
 }
+
+
