@@ -8,7 +8,7 @@ pub mod command;
 use std::ffi::OsString;
 
 pub use args::{Bin, Info};
-use args::{Cli, Cmd, McpAction, Pack, Parsed, Peer, Service};
+use args::{Cmd, McpAction, Pack, Parsed, Peer, Service};
 
 /// What the binary does after its arguments are read.
 #[derive(Debug, PartialEq, Eq)]
@@ -24,17 +24,32 @@ pub enum Run {
 /// Reads `args` (the binary's name first) for `info.bin`: runs the subcommand, if any, after the
 /// profile is set (`--profile`, checked).
 pub fn run(info: &Info, args: Vec<OsString>) -> Run {
+    // An agent's hook (`<exe> hook <folder> …`), on every event of every agent: straight to it,
+    // without building the whole command line; nothing of the app started.
+    if args.get(1).is_some_and(|a| a == "hook")
+        && let Some(dir) = args.get(2).filter(|d| !d.to_string_lossy().starts_with('-'))
+    {
+        return Run::Exit(if crate::agents::hook::main(std::path::Path::new(dir)) == std::process::ExitCode::SUCCESS { 0 } else { 1 });
+    }
     let cli = match args::parse(info, args) {
         Parsed::Exit(code) => return Run::Exit(code),
         Parsed::Run(cli) => cli,
     };
     if let Some(id) = &cli.profile {
-        if !crate::profile::exists(id) {
+        if crate::profile::exists(id) {
+            crate::profile::set_from_args(id);
+        } else {
             let known: Vec<String> = crate::profile::names().into_iter().map(|(id, _)| id).collect();
-            eprintln!("{}: unknown profile {id:?} (profiles: {})", info.bin.name(), known.join(", "));
-            return Run::Exit(2);
+            let said = format!("{}: unknown profile {id:?} (profiles: {})", info.bin.name(), known.join(", "));
+            // What Prism itself starts with a profile (the window, the MCP server written into
+            // the agent CLIs' configs, a hook, the keep-running job) goes on with the default one,
+            // as before; what is typed stops.
+            if !matches!(cli.command, None | Some(Cmd::Mcp(_) | Cmd::Hook { .. } | Cmd::Watch)) {
+                eprintln!("{said}");
+                return Run::Exit(2);
+            }
+            eprintln!("{said}: the default one");
         }
-        crate::profile::set_from_args(id);
     }
     match &cli.command {
         None if info.bin == Bin::App => Run::Window,
@@ -43,14 +58,13 @@ pub fn run(info: &Info, args: Vec<OsString>) -> Run {
             Run::Exit(2)
         }
         Some(Cmd::Serve) => Run::Serve,
-        Some(cmd) => Run::Exit(subcommand(info, &cli, cmd)),
+        Some(cmd) => Run::Exit(subcommand(info, cmd)),
     }
 }
 
 /// A subcommand run: its exit code (1: it failed; the message already said).
-fn subcommand(info: &Info, _cli: &Cli, cmd: &Cmd) -> i32 {
+fn subcommand(info: &Info, cmd: &Cmd) -> i32 {
     let bin = info.bin.name();
-    // Called by an agent's hooks: log and return at once, nothing of the app started.
     if let Cmd::Hook { dir, .. } = cmd {
         return if crate::agents::hook::main(dir) == std::process::ExitCode::SUCCESS { 0 } else { 1 };
     }
@@ -142,22 +156,22 @@ fn read_hidden(prompt: &str) -> std::io::Result<String> {
 
 /// `prism peer add | remove | list`, on this profile's data folder.
 fn peer(action: &Peer) -> anyhow::Result<()> {
-    let dir = crate::profile::data_dir(&crate::profile::data_base());
+    let dir = || crate::profile::data_dir(&crate::profile::data_base());
     match action {
         Peer::Pair => block_on(peer_pair()),
         Peer::Add { name } => {
-            let token = prism_remote::peers::add(&dir, name)?;
+            let token = prism_remote::peers::add(&dir(), name)?;
             println!("{token}");
             eprintln!("The token of {name}, shown once: paste it in its window there (profile menu › Other computers), or set it as PRISM_MACHINE_TOKEN_<NAME> where no keychain is unlocked. It opens this Prism as this account would: keep it as an SSH key.");
             Ok(())
         }
         Peer::Remove { name } => {
-            anyhow::ensure!(prism_remote::peers::remove(&dir, name)?, "no peer {name}");
+            anyhow::ensure!(prism_remote::peers::remove(&dir(), name)?, "no peer {name}");
             println!("{name} removed: its windows close within ten seconds");
             Ok(())
         }
         Peer::List => {
-            for p in prism_remote::peers::list(&dir)? {
+            for p in prism_remote::peers::list(&dir())? {
                 println!("{}\t{}", p.name, p.created.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M"));
             }
             Ok(())

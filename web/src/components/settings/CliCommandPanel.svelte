@@ -41,7 +41,7 @@
     {:else if status}<span class="pill">{t('Not installed')}</span>{/if}
     <span class="grow"></span>
     {#if status?.ours}<button class="btn" onclick={() => call('cli_command_remove')} disabled={busy}>{t('Remove')}</button>{/if}
-    {#if status && status.state !== 'installed'}
+    {#if status && status.state !== 'installed' && !(status.ours && status.found !== status.install_at && status.state === 'elsewhere' && status.dir_in_path)}
       <button class="btn primary" onclick={() => call('cli_command_install')} disabled={busy}>{status.ours ? t('Point it to this Prism') : t('Install')}</button>
     {/if}
   </div>
@@ -58,6 +58,9 @@
         <span class="k">{t('Runs')}</span><code title={status.binary}>{status.binary}</code>
       {/if}
     </div>
+    {#if status.state === 'elsewhere' && status.ours && status.found !== status.install_at}
+      <p class="warn pad"><Icon name="warning" /> {t('Your PATH finds {found} before {at}: remove it, or put {dir} before it in your PATH.', { found: status.found ?? '', at: status.install_at, dir })}</p>
+    {/if}
     {#if !status.dir_in_path && status.state !== 'installed'}
       <p class="warn pad">
         <Icon name="warning" /> {t('{dir} is not in your PATH: add it to your shell’s profile.', { dir })}

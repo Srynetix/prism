@@ -48,6 +48,15 @@ fn runs_of(text: &str) -> Option<String> {
     Some(line[..end].replace(r"'\''", "'"))
 }
 
+/// The script of ours at `path`: what it runs. Only its start is read (the PATH's `prism` may be
+/// a binary of tens of megabytes).
+fn ours_at(path: &Path) -> Option<String> {
+    use std::io::Read;
+    let mut head = Vec::with_capacity(1024);
+    std::fs::File::open(path).ok()?.take(1024).read_to_end(&mut head).ok()?;
+    runs_of(&String::from_utf8_lossy(&head))
+}
+
 fn in_path(dir: &Path) -> bool {
     std::env::var_os("PATH").is_some_and(|p| std::env::split_paths(&p).any(|d| d == dir))
 }
@@ -64,15 +73,25 @@ fn tempfile_in(dir: &Path) -> bool {
     ok
 }
 
-/// Where Install writes: `~/.local/bin` when in the PATH; otherwise `/usr/local/bin` when in the
-/// PATH and writable; otherwise `~/.local/bin` all the same (the PATH to complete).
-fn install_dir(home: &Path) -> PathBuf {
-    let local = home.join(".local/bin");
+/// The folders Install may write in, by preference.
+fn candidates(home: &Path) -> [PathBuf; 2] {
+    [home.join(".local/bin"), PathBuf::from("/usr/local/bin")]
+}
+
+/// Where Install writes: where a script of ours already is; otherwise `~/.local/bin` when in the
+/// PATH; otherwise `/usr/local/bin` when in the PATH and writable (`probe`: a file tried there,
+/// only when installing; otherwise its permissions); otherwise `~/.local/bin` all the same (the
+/// PATH to complete).
+fn install_dir(home: &Path, probe: bool) -> PathBuf {
+    let [local, usr] = candidates(home);
+    if let Some(dir) = [&local, &usr].into_iter().find(|d| ours_at(&d.join("prism")).is_some()) {
+        return dir.clone();
+    }
     if in_path(&local) {
         return local;
     }
-    let usr = PathBuf::from("/usr/local/bin");
-    if in_path(&usr) && writable(&usr) {
+    let usable = if probe { writable(&usr) } else { std::fs::metadata(&usr).is_ok_and(|m| !m.permissions().readonly()) };
+    if in_path(&usr) && usable {
         return usr;
     }
     local
@@ -89,11 +108,11 @@ fn same(a: &Path, b: &Path) -> bool {
 pub fn status() -> Result<Status> {
     let home = dirs::home_dir().context("no home folder")?;
     let binary = crate::profile::executable()?;
-    let dir = install_dir(&home);
+    let dir = install_dir(&home, false);
     let at = dir.join("prism");
-    let ours = std::fs::read_to_string(&at).ok().and_then(|t| runs_of(&t)).is_some();
+    let ours = ours_at(&at).is_some();
     let found = crate::detect::which("prism");
-    let runs = found.as_deref().and_then(|f| std::fs::read_to_string(f).ok()).and_then(|t| runs_of(&t));
+    let runs = found.as_deref().and_then(ours_at);
     let state = match (&found, &runs) {
         (None, _) => "absent",
         (Some(_), Some(r)) if same(Path::new(r), &binary) => "installed",
@@ -115,7 +134,7 @@ pub fn status() -> Result<Status> {
 pub fn install() -> Result<Status> {
     let home = dirs::home_dir().context("no home folder")?;
     let binary = crate::profile::executable()?;
-    let dir = install_dir(&home);
+    let dir = install_dir(&home, true);
     let at = dir.join("prism");
     write(&dir, &at, &binary)?;
     status()
@@ -125,11 +144,10 @@ fn write(dir: &Path, at: &Path, binary: &Path) -> Result<()> {
     if cfg!(windows) {
         bail!("not on Windows yet");
     }
-    if let Ok(meta) = std::fs::symlink_metadata(at) {
-        let ours = std::fs::read_to_string(at).ok().and_then(|t| runs_of(&t)).is_some();
-        if !ours || meta.file_type().is_symlink() {
-            bail!("{} exists and is not Prism's script: remove it first", at.display());
-        }
+    if let Ok(meta) = std::fs::symlink_metadata(at)
+        && (ours_at(at).is_none() || meta.file_type().is_symlink())
+    {
+        bail!("{} exists and is not Prism's script: remove it first", at.display());
     }
     std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
     let part = at.with_extension("part");
@@ -143,12 +161,14 @@ fn write(dir: &Path, at: &Path, binary: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Removes the script of ours, if there.
+/// Removes the scripts of ours, wherever Install may have written them.
 pub fn remove() -> Result<Status> {
     let home = dirs::home_dir().context("no home folder")?;
-    let at = install_dir(&home).join("prism");
-    if std::fs::read_to_string(&at).ok().and_then(|t| runs_of(&t)).is_some() {
-        std::fs::remove_file(&at).with_context(|| format!("removing {}", at.display()))?;
+    for dir in candidates(&home) {
+        let at = dir.join("prism");
+        if ours_at(&at).is_some() && !std::fs::symlink_metadata(&at).is_ok_and(|m| m.file_type().is_symlink()) {
+            std::fs::remove_file(&at).with_context(|| format!("removing {}", at.display()))?;
+        }
     }
     status()
 }

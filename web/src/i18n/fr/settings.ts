@@ -1326,5 +1326,6 @@ export default {
   'Installed in': 'Installée dans',
   '{dir} is not in your PATH: add it to your shell’s profile.': '{dir} n’est pas dans votre PATH\xa0: ajoutez-le au profil de votre shell.',
   'Line copied': 'Ligne copiée',
+  'Your PATH finds {found} before {at}: remove it, or put {dir} before it in your PATH.': 'Votre PATH trouve {found} avant {at}\xa0: supprimez-le, ou placez {dir} avant lui dans votre PATH.',
   'A short script that runs this Prism’s binary, as VS Code installs code. In a terminal: prism --help, prism token clickup, prism restart, prism completions zsh. Linux packages install it themselves.': 'Un court script qui lance le binaire de ce Prism, comme VS Code installe code. Dans un terminal\xa0: prism --help, prism token clickup, prism restart, prism completions zsh. Les paquets Linux l’installent eux-mêmes.',
 } satisfies Dictionary

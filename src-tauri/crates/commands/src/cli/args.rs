@@ -239,6 +239,23 @@ fn from_the_system(a: &OsString) -> bool {
 pub fn parse(info: &Info, args: Vec<OsString>) -> Parsed {
     let args: Vec<OsString> = args.into_iter().enumerate().filter(|(i, a)| *i == 0 || !from_the_system(a)).map(|(_, a)| a).collect();
     let mut cmd = command(info);
+    // Another binary's subcommand, even only its help asked (`prism help serve`, `prism serve -h`):
+    // said to be the other's, never shown as this one's.
+    let mut words: Vec<&str> = Vec::new();
+    let mut rest = args.iter().skip(1).filter_map(|a| a.to_str());
+    while let Some(a) = rest.next() {
+        if a == "--profile" {
+            rest.next();
+        } else if !a.starts_with('-') {
+            words.push(a);
+        }
+    }
+    let named = match words.as_slice() {
+        ["help", w, ..] => Some(*w),
+        [w, ..] => Some(*w),
+        [] => None,
+    };
+    let other_s = named.filter(|w| absent(info.bin).contains(w));
     let fail = |e: clap::Error| {
         use clap::error::ErrorKind::*;
         match e.kind() {
@@ -256,6 +273,10 @@ pub fn parse(info: &Info, args: Vec<OsString>) -> Parsed {
             }
         }
     };
+    if let Some(name) = other_s {
+        let other = if info.bin == Bin::App { "prism-server" } else { "prism" };
+        return fail(cmd.error(clap::error::ErrorKind::InvalidSubcommand, format!("`{name}` is {other}'s, not {}'s: run `{other} {name}`", info.bin.name())));
+    }
     let matches = match cmd.try_get_matches_from_mut(args) {
         Ok(m) => m,
         Err(e) => return fail(e),
@@ -357,7 +378,7 @@ mod tests {
 
     #[test]
     fn a_wrong_use_ends_with_two() {
-        for a in [&["nonsense"][..], &["--nope"], &["restart", "foo"], &["pack", "nonsense"], &["hook"], &["token", "slack"], &["--profile"], &["serve"]] {
+        for a in [&["nonsense"][..], &["--nope"], &["restart", "foo"], &["pack", "nonsense"], &["hook"], &["token", "slack"], &["--profile"], &["serve"], &["help", "serve"], &["serve", "--help"]] {
             assert_eq!(exit_of(&APP, a), Some(2), "{a:?}");
         }
         assert_eq!(exit_of(&SERVER, &["restart", "foo"]), Some(2));
@@ -368,6 +389,7 @@ mod tests {
     #[test]
     fn no_subcommand_opens_the_window() {
         assert!(cmd_of(&APP, &[]).is_none());
+        assert_eq!(exit_of(&APP, &["--profile", "serve", "restart", "--help"]), Some(0), "a profile named serve");
         assert!(cmd_of(&APP, &["-psn_0_12345"]).is_none(), "macOS's own argument");
         match parse_of(&APP, &["--profile", "perso"]) {
             Parsed::Run(c) => assert_eq!((c.profile.as_deref(), c.command.is_none()), (Some("perso"), true)),
