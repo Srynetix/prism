@@ -1036,7 +1036,8 @@ export default {
   '{n} disks': '{n} disques',
   '{n} item left (locked or in use)': '{n} élément laissé (verrouillé ou en cours d’utilisation)',
   '{n} items left (locked or in use)': '{n} éléments laissés (verrouillés ou en cours d’utilisation)',
-  'the home folder’s is not readable': 'celle du dossier personnel est illisible',
-  'not readable: Full Disk Access needed (System Settings › Privacy & Security)': 'illisible\xa0: accès complet au disque requis (Réglages Système › Confidentialité et sécurité)',
+  'the home folder’s is not readable: Full Disk Access needed (System Settings › Privacy & Security)': 'celle du dossier personnel est illisible\xa0: accès complet au disque requis (Réglages Système › Confidentialité et sécurité)',
+  'the home folder’s is not readable: check its permissions': 'celle du dossier personnel est illisible\xa0: vérifiez ses permissions',
+  'Sure? Everything in the Trash deleted': 'Sûr\xa0? Tout ce qui est dans la Corbeille sera supprimé',
   'Measure the Trash again': 'Mesurer à nouveau la Corbeille',
 } satisfies Dictionary

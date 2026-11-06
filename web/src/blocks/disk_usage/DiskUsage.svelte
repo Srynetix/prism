@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte'
+  import { untrack } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
   import { armer } from '../../armed.svelte'
   import { hasCore } from '../../bridge'
@@ -232,11 +232,15 @@
   }
   /** The Trash, measured apart from the scans (`[disk_usage] cleanup` on). */
   const bin = $derived<DiskTrash | null>(du?.cleanup ? (du.trash ?? null) : null)
+  const binDenied = $derived(isMac ? t('Full Disk Access, in System Settings › Privacy & Security') : '')
   const binDetail = $derived(bin?.bins.map((b) => `${b.disk} — ${b.path}: ${size(b.bytes)}`).join('\n') ?? '')
   /** The Trash measured again when the block appears (it changes outside Prism too), and on a click. */
   const measureTrash = () => void call('disk_usage', 'trash_measure', {}).catch(() => {})
-  onMount(() => {
-    if (hasCore() && du?.cleanup) measureTrash()
+  let trashMeasured = false
+  $effect(() => {
+    if (trashMeasured || !hasCore() || !du?.cleanup) return
+    trashMeasured = true
+    measureTrash()
   })
   function emptyTrash() {
     if (!bin || !arming.confirm('empty-trash')) return
@@ -298,18 +302,20 @@
 
   <div class="du">
   {#if bin}
-    {@const unreadable = bin.denied && !bin.bins.length}
+    {@const unreadable = bin.denied && !bin.bins.some((b) => b.items > 0)}
     <div class="trash" class:short>
       <Icon name="trash" /><button class="tlabel" onclick={measureTrash} disabled={!hasCore()} title={t('Measure the Trash again')}>{t('Trash')}</button>
-      {#if unreadable}
-        <span class="warn">{t('not readable: Full Disk Access needed (System Settings › Privacy & Security)')}</span>
-      {:else if bin.items === 0 && !bin.emptying}
-        <span class="muted">{tc('trash', 'empty')}</span>
-      {:else}
-        <span class="mono">{size(bin.bytes)}</span>
-        <span class="muted">· {tn(bin.items, '{n} item', '{n} items')}{#if bin.emptying}{' '}{tc('trash', 'left')}{/if}</span>
+      {#if !unreadable}
+        {#if bin.items === 0 && !bin.emptying}
+          <span class="muted">{tc('trash', 'empty')}</span>
+        {:else}
+          <span class="mono">{size(bin.bytes)}</span>
+          <span class="muted">· {tn(bin.items, '{n} item', '{n} items')}{#if bin.emptying}{' '}{tc('trash', 'left')}{/if}</span>
+        {/if}
         {#if bin.bins.length > 1 && !short}<span class="muted disks" title={binDetail}>· {tn(bin.bins.length, '{n} disk', '{n} disks')}</span>{/if}
-        {#if bin.denied}<span class="warn" title={t('Full Disk Access, in System Settings › Privacy & Security')}>· {t('the home folder’s is not readable')}</span>{/if}
+      {/if}
+      {#if bin.denied}
+        <span class="warn" title={binDenied}>{unreadable ? '' : '· '}{isMac ? t('the home folder’s is not readable: Full Disk Access needed (System Settings › Privacy & Security)') : t('the home folder’s is not readable: check its permissions')}</span>
       {/if}
       <span class="sp"></span>
       {#if hasCore()}
@@ -339,7 +345,7 @@
       <p class="ok-msg">
         {done}
         {#if offerEmpty && bin && hasCore()}
-          <button class="act" class:armed={arming.is('empty-trash')} disabled={busy !== null || bin.emptying} onclick={emptyTrash}>{arming.is('empty-trash') ? t('Sure? {size} deleted', { size: size(bin.bytes) }) : t('Empty the Trash')}</button>
+          <button class="act" class:armed={arming.is('empty-trash')} disabled={busy !== null || bin.emptying || (bin.denied && !bin.bins.some((b) => b.items > 0))} onclick={emptyTrash}>{arming.is('empty-trash') ? t('Sure? Everything in the Trash deleted') : t('Empty the Trash')}</button>
         {/if}
       </p>
     {/if}

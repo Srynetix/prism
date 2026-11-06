@@ -34,6 +34,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no scan yet", "pas encore de scan"),
     ("no such file or folder in the scan", "aucun fichier ni dossier de ce nom dans le scan"),
     ("nothing left to free there", "plus rien à libérer ici"),
+    ("The Trash cannot be read: check its folder's permissions", "La Corbeille est illisible : vérifiez les permissions de son dossier"),
     ("the Trash is already being emptied", "la Corbeille est déjà en train d’être vidée"),
     ("The Trash cannot be read: give Prism Full Disk Access (System Settings › Privacy & Security)", "La Corbeille est illisible : donnez à Prism l’accès complet au disque (Réglages Système › Confidentialité et sécurité)"),
     ("the Disk usage block is off ([disk_usage] enabled)", "le bloc Espace disque est désactivé ([disk_usage] enabled)"),

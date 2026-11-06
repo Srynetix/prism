@@ -66,47 +66,88 @@ pub struct Emptied {
     pub freed: u64,
     /// Items left in place: locked, in use, not ours to remove.
     pub left: u64,
+    /// The Trash after (measured once more).
+    #[serde(skip)]
+    pub after: TrashState,
 }
 
-/// The account's Trash folders that exist: the home folder's first.
+/// The home folder's Trash: where a move to the Trash goes (`clean::trash`), and the first one
+/// emptied. macOS: `~/.Trash`; elsewhere the freedesktop one, `$XDG_DATA_HOME/Trash`.
+pub fn home_trash(home: &Path) -> Bin {
+    #[cfg(target_os = "macos")]
+    {
+        let disk = super::disk_of(home).map(|d| d.name).filter(|n| !n.is_empty()).unwrap_or_else(|| "~".into());
+        Bin { disk, dir: home.join(".Trash"), freedesktop: false }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Bin { disk: "~".into(), dir: dirs::data_dir().unwrap_or_else(|| home.join(".local/share")).join("Trash"), freedesktop: true }
+    }
+}
+
+/// A folder itself, not a symbolic link to one (a disk's Trash could point anywhere: emptying it
+/// would delete what it points to).
+fn real_dir(p: &Path) -> bool {
+    fs::symlink_metadata(p).is_ok_and(|m| m.is_dir())
+}
+
+/// The account's Trash folders: the home folder's first (even absent: it is where moves go), then
+/// each other disk's that exists, none through a symbolic link. Blocks (the disks listed): call it
+/// off the runtime.
 pub fn bins() -> Vec<Bin> {
     let Some(home) = dirs::home_dir() else { return Vec::new() };
     let uid = owner(&home);
-    let mut out = Vec::new();
+    let mut out = vec![home_trash(&home)];
+    if out[0].dir.exists() && !real_dir(&out[0].dir) {
+        tracing::warn!("disk usage: {} is not a folder: left alone", out[0].dir.display());
+        out.clear();
+    }
+    let Some(uid) = uid else { return out };
     #[cfg(target_os = "macos")]
-    {
-        let disk = super::disk_of(&home).map(|d| d.name).filter(|n| !n.is_empty()).unwrap_or_else(|| "~".into());
-        out.push(Bin { disk, dir: home.join(".Trash"), freedesktop: false });
-        if let (Some(uid), Ok(volumes)) = (uid, fs::read_dir("/Volumes")) {
-            for v in volumes.flatten() {
-                // The startup disk is there too, as a link to `/`.
-                if v.file_type().is_ok_and(|t| t.is_symlink()) {
-                    continue;
-                }
-                let dir = v.path().join(".Trashes").join(uid.to_string());
-                if dir.is_dir() {
-                    out.push(Bin { disk: v.file_name().to_string_lossy().into_owned(), dir, freedesktop: false });
-                }
+    if let Ok(volumes) = fs::read_dir("/Volumes") {
+        for v in volumes.flatten() {
+            // The startup disk is there too, as a link to `/`.
+            if !real_dir(&v.path()) {
+                continue;
+            }
+            let trashes = v.path().join(".Trashes");
+            let dir = trashes.join(uid.to_string());
+            if real_dir(&trashes) && real_dir(&dir) {
+                out.push(Bin { disk: v.file_name().to_string_lossy().into_owned(), dir, freedesktop: false });
             }
         }
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let base = dirs::data_dir().unwrap_or_else(|| home.join(".local/share")).join("Trash");
-        out.push(Bin { disk: "~".into(), dir: base, freedesktop: true });
-        if let Some(uid) = uid {
-            let disks = sysinfo::Disks::new_with_refreshed_list();
-            for d in disks.list() {
-                let mount = d.mount_point();
-                for dir in [mount.join(format!(".Trash-{uid}")), mount.join(".Trash").join(uid.to_string())] {
-                    if dir.join("files").is_dir() && !out.iter().any(|b: &Bin| b.dir == dir) {
-                        out.push(Bin { disk: mount.display().to_string(), dir, freedesktop: true });
-                    }
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        for d in disks.list() {
+            let mount = d.mount_point();
+            // The spec's two: `$topdir/.Trash/<uid>` when `.Trash` is a real folder with the sticky
+            // bit (an administrator's), and `$topdir/.Trash-<uid>`.
+            let shared = mount.join(".Trash");
+            let candidates = [(sticky(&shared)).then(|| shared.join(uid.to_string())), Some(mount.join(format!(".Trash-{uid}")))];
+            for dir in candidates.into_iter().flatten() {
+                if real_dir(&dir) && real_dir(&dir.join("files")) && !out.iter().any(|b: &Bin| b.dir == dir) {
+                    out.push(Bin { disk: mount.display().to_string(), dir, freedesktop: true });
                 }
             }
         }
     }
     out
+}
+
+#[cfg(not(target_os = "macos"))]
+fn sticky(p: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::symlink_metadata(p).is_ok_and(|m| m.is_dir() && m.permissions().mode() & 0o1000 != 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = p;
+        false
+    }
 }
 
 /// The account's uid, as its home folder's owner.
@@ -159,7 +200,7 @@ pub fn measure(bins: &[Bin]) -> TrashState {
 /// left in place and counted. Blocks: call it off the runtime.
 pub fn empty(bins: &[Bin]) -> Result<Emptied> {
     let before = measure(bins);
-    anyhow::ensure!(!(before.denied && before.bins.is_empty()), prism_base::i18n::tr("The Trash cannot be read: give Prism Full Disk Access (System Settings › Privacy & Security)"));
+    anyhow::ensure!(!(before.denied && before.bins.is_empty()), unreadable());
     let mut left = 0;
     for b in bins {
         let Ok(found) = items(&b.files()) else { continue };
@@ -196,7 +237,16 @@ pub fn empty(bins: &[Bin]) -> Result<Emptied> {
         }
     }
     let after = measure(bins);
-    Ok(Emptied { freed: before.bytes.saturating_sub(after.bytes), left })
+    Ok(Emptied { freed: before.bytes.saturating_sub(after.bytes), left, after })
+}
+
+/// Why the home folder's Trash could not be read, and what to do.
+fn unreadable() -> &'static str {
+    if cfg!(target_os = "macos") {
+        prism_base::i18n::tr("The Trash cannot be read: give Prism Full Disk Access (System Settings › Privacy & Security)")
+    } else {
+        prism_base::i18n::tr("The Trash cannot be read: check its folder's permissions")
+    }
 }
 
 #[cfg(test)]
@@ -233,6 +283,17 @@ mod tests {
         assert_eq!(fs::read_dir(dir.join("info")).unwrap().count(), 0, "every record gone");
         assert!(!dir.join("expunged").exists() && !dir.join("directorysizes").exists());
         assert_eq!(measure(&bins).items, 0);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_is_never_a_trash() {
+        let dir = temp("link");
+        fs::create_dir_all(dir.join("precious")).unwrap();
+        std::os::unix::fs::symlink(dir.join("precious"), dir.join(".Trash-1000")).unwrap();
+        assert!(real_dir(&dir.join("precious")));
+        assert!(!real_dir(&dir.join(".Trash-1000")), "a link to a folder");
         fs::remove_dir_all(&dir).unwrap();
     }
 

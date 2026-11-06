@@ -108,7 +108,7 @@ impl Block for DiskUsage {
                 // Every Trash emptied: `{freed, left}`, the bytes freed and the items left in place.
                 "empty_trash" => {
                     s.cleanup_allowed()?;
-                    Ok(serde_json::to_value(s.empty_trash().await?)?)
+                    Ok(serde_json::to_value(s.empty_trash(None).await?)?)
                 }
                 // The Trash measured again.
                 "trash_measure" => {
