@@ -224,7 +224,15 @@ export function around(events: ChangeEvent[], env: string | null, app: string, n
   return { range: { from: at(first) - 2 * HOUR, to: Math.min(now, at(crashes[0]) + 15 * MIN) }, highlight: linked?.related ?? null, crash: first.id }
 }
 
-const clock = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
+/** A time: `09:41`. */
+export const hm = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
+const clock = hm
+
+/** A time, its day before it when not today: `09:41`, `Sat 1 16:05`. */
+export const when = (ms: number) => {
+  const d = new Date(ms)
+  return d.toDateString() === new Date().toDateString() ? hm(ms) : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' })} ${hm(ms)}`
+}
 
 /** The rows as Markdown, oldest first: for a post-mortem or a message. */
 export function markdown(list: Row[], env: string | null, range: Range): string {

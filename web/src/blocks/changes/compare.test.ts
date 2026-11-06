@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChangeEvent } from './changes'
-import { compare, crashAfter, defaultPair, rank, sameApp, span } from './compare'
+import { appOf, compare, crashAfter, defaultPair, rank, sameApp, span } from './compare'
 
 const T0 = Date.parse('2026-11-05T10:00:00Z')
 const H = 3600_000
@@ -14,6 +14,7 @@ describe('compare', () => {
     expect(sameApp(ev('a', 1, { app: 'orders-api-staging' }), ev('b', 1, { env: 'prod', app: 'orders-api-prod' }))).toBe(true)
     expect(sameApp(ev('a', 1, { app: 'x', workloads: ['orders-api'] }), ev('b', 1, { env: 'prod', app: 'y', workloads: ['orders-api'] }))).toBe(true)
     expect(sameApp(ev('a', 1, { app: 'orders' }), ev('b', 1, { env: 'prod', app: 'billing' }))).toBe(false)
+    expect(appOf(ev('a', 1, { env: 'prod', app: 'orders-api-prod' }))).toBe('orders-api')
   })
 
   it('links by revision, else by the same app’s image, each arrival once', () => {
@@ -52,7 +53,7 @@ describe('compare', () => {
     expect(compare(events, 'staging', 'prod').matches[0].crash?.id).toBe('c')
   })
 
-  it('waits: what A deployed after the last change B got, per application', () => {
+  it('waits: per application B runs, what A deployed after the last change B got', () => {
     const events = [
       ev('old', 40, { revision: 'aaaaaaa1' }),
       ev('got', 30, { revision: 'aaaaaaa2' }),
@@ -62,8 +63,34 @@ describe('compare', () => {
       ev('roll', 6, { app: 'web', source: 'pods', kind: 'rollout', images: ['web:1'] }),
       ev('p', 20, { env: 'prod', revision: 'aaaaaaa2' }),
     ]
-    expect(compare(events, 'staging', 'prod').waiting.map((w) => w.e.id)).toEqual(['new2', 'web', 'new1'])
+    const { waiting } = compare(events, 'staging', 'prod')
+    // web never ran on prod: not waiting for it.
+    expect(waiting.map((w) => [w.e.id, w.earlier.map((e) => e.id)])).toEqual([['new2', ['new1']]])
     expect(compare(events, 'prod', 'staging').waiting).toEqual([])
+  })
+
+  it('links by the application’s own image only, its tag', () => {
+    const s = ev('s', 10, { revision: '11111111', images: ['api:2.0', 'istio-proxy:1.20'] })
+    const p = ev('p', 5, { env: 'prod', revision: '22222222', images: ['api:1.9', 'istio-proxy:1.20'] })
+    expect(compare([s, p], 'staging', 'prod').matches).toEqual([])
+    expect(compare([s, p], 'staging', 'prod').waiting.map((w) => w.e.id)).toEqual(['s'])
+    const r = ev('r', 10, { revision: '33333333', images: ['registry:5000/team/api:2.1'] })
+    const q = ev('q', 5, { env: 'prod', revision: '44444444', images: ['registry:5000/team/api-prod:2.1'] })
+    expect(compare([r, q], 'staging', 'prod').matches.map((m) => m.label)).toEqual(['registry:5000/team/api-prod:2.1'])
+    const u = ev('u', 10, { revision: '55555555', images: ['registry:5000/api'] })
+    const v = ev('v', 5, { env: 'prod', revision: '66666666', images: ['registry:5000/api'] })
+    expect(compare([u, v], 'staging', 'prod').matches).toEqual([])
+  })
+
+  it('a crash a day after, or after another image rolled out, is not the change’s', () => {
+    const sync = ev('s', 100, { revision: '5d20aa13', images: ['api:1'] })
+    const old = ev('c', 70, { source: 'pods', kind: 'crash_loop', severity: 'ko' })
+    expect(crashAfter(sync, [sync, old])).toBeNull()
+    const roll = ev('r', 99, { source: 'pods', kind: 'rollout', images: ['api:2'] })
+    const crash = ev('c2', 98, { source: 'pods', kind: 'oom_killed', severity: 'ko' })
+    expect(crashAfter(sync, [sync, roll, crash])).toBeNull()
+    const own = ev('r1', 99.95, { source: 'pods', kind: 'rollout', images: ['api:1'] })
+    expect(crashAfter(sync, [sync, own, crash])?.id).toBe('c2')
   })
 
   it('orders the pair by the roles', () => {
@@ -73,6 +100,7 @@ describe('compare', () => {
     expect(defaultPair(['prod', 'preprod', 'staging'], [], 'prod')).toEqual(['preprod', 'prod'])
     expect(defaultPair(['prod', 'staging'], ['staging', 'prod'], 'prod')).toEqual(['staging', 'prod'])
     expect(defaultPair(['prod'], [], null)).toBeNull()
+    expect(defaultPair(['prod', 'staging'], ['staging', 'production'], null)).toEqual(['staging', 'prod'])
   })
 
   it('says a delay shortly', () => {

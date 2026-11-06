@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { locale } from '../../locale'
+  import { clock } from '../../clock.svelte'
   import { t } from '../../i18n.svelte'
   import Icon from '../../components/Icon.svelte'
-  import { isCrash, sentence, sourceLabel, tickLabel, ticksOf, type ChangeEvent, type Range } from './changes'
+  import { hm, isCrash, sentence, tickLabel, ticksOf, when, type ChangeEvent, type Range } from './changes'
   import { appOf, span, type Match, type Waiting } from './compare'
   import type { IconName } from '../../icons'
 
@@ -42,15 +42,13 @@
     }
     return out
   })
-  const firstWaiting = $derived(waiting.filter((w) => inRange(w.e)).at(-1)?.e ?? null)
+  /** The oldest change waiting, in the range: where the dashed line goes. */
+  const firstWaiting = $derived(waiting.flatMap((w) => [w.e, ...w.earlier]).filter(inRange).sort((p, q) => at(p) - at(q))[0] ?? null)
+  const waitingCount = $derived(waiting.reduce((n, w) => n + 1 + w.earlier.length, 0))
   let all = $state(false)
   const WAIT_ROWS = 5
 
-  const hm = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
-  const when = (ms: number) => {
-    const d = new Date(ms)
-    return d.toDateString() === new Date().toDateString() ? hm(ms) : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' })} ${hm(ms)}`
-  }
+  const now = $derived(clock(60_000).now)
   const what = (e: ChangeEvent) => sentence({ key: e.id, first: e, items: [e], t: at(e) }).what
   const ICON: Record<string, IconName> = { argocd: 'argocd', mrs: 'mr', pods: 'kube', alerts: 'warning', vulnerabilities: 'security' }
 
@@ -82,7 +80,7 @@
       </button>
     {/each}
     {#if firstWaiting}
-      <span class="pend" style:left="{pos(at(firstWaiting))}%"><span>{t('waiting on {env} · {n}', { env: b, n: waiting.length })}</span></span>
+      <span class="pend" style:left="{pos(at(firstWaiting))}%"><span>{t('waiting on {env} · {n}', { env: b, n: waitingCount })}</span></span>
     {/if}
     <div class="lane lb">
       {#each eventsB as e (e.id)}
@@ -97,13 +95,13 @@
 
 {#if waiting.length}
   <div class="wait">
-    <div class="wh"><Icon name="pending" />{t('Waiting on {env} · {n}', { env: b, n: waiting.length })}<span class="grow"></span><small>{t('on {a}, not yet on {b}', { a, b })}</small></div>
+    <div class="wh"><Icon name="pending" />{t('Waiting on {env} · {n}', { env: b, n: waitingCount })}<span class="grow"></span><small>{t('on {a}, not yet on {b}', { a, b })}</small></div>
     {#each all ? waiting : waiting.slice(0, WAIT_ROWS) as w (w.e.id)}
       {@const e = w.e}
       <button class="wr" onclick={() => onshow(e.id)}>
         <span class="src {e.source}" aria-hidden="true"><Icon name={ICON[e.source] ?? 'category'} /></span>
         <span class="app">{appOf(e)}</span>
-        <span class="wt"><b class="mono">{e.revision ?? e.images[0] ?? ''}</b>{#if e.mr}{' '}· !{e.mr.iid} {e.mr.title}{/if} <small>— {t('on {env} for {time}', { env: a, time: span(Date.now() - at(e)) })}</small></span>
+        <span class="wt"><b class="mono">{e.revision ?? e.images[0] ?? ''}</b>{#if e.mr}{' '}· !{e.mr.iid} {e.mr.title}{/if}{#if w.earlier.length}{' '}<small class="earlier" title={w.earlier.map((x) => `${when(at(x))} · ${x.revision ?? x.images[0] ?? ''}`).join('\n')}>{t('+{n} before', { n: w.earlier.length })}</small>{/if} <small>— {t('on {env} for {time}', { env: a, time: span(now - at(e)) })}</small></span>
         {#if w.crash}<span class="chip ko">↯ {t('crashed on {env} at {time}', { env: a, time: when(at(w.crash)) })}</span>{:else}<span class="chip ok">{t('no crash on {env}', { env: a })}</span>{/if}
       </button>
     {/each}
@@ -159,6 +157,7 @@
   .app { overflow: hidden; font-family: var(--mono); font-size: var(--fs-meta); text-overflow: ellipsis; white-space: nowrap; }
   .wt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wt small { color: var(--text-muted); font-size: var(--fs-meta); }
+  .wt .earlier { padding: 0 5px; border-radius: 8px; background: var(--surface-muted); }
   .mono { font-family: var(--mono); font-size: var(--fs-mono); }
   .chip { padding: 0 6px; border-radius: 8px; font-size: var(--fs-tag); font-weight: 600; white-space: nowrap; }
   .chip.ko { background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); }

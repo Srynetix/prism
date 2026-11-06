@@ -20,39 +20,58 @@ export interface Match {
   label: string
   /** `b` after `a`, in ms (negative: B had it first). */
   delay: number
-  /** A crash of the same application on A after `a`, before its next deployment there. */
+  /** A crash of the same application on A after `a` (`crashAfter`). */
   crash: ChangeEvent | null
 }
 
 export interface Waiting {
-  /** On A, not on B. */
+  /** An application's newest change on A that B has not got. */
   e: ChangeEvent
   crash: ChangeEvent | null
+  /** Its older changes on A, B has not got either, newest first. */
+  earlier: ChangeEvent[]
 }
 
 export interface Comparison {
   matches: Match[]
-  /** Newest first. */
+  /** One per application, newest first. */
   waiting: Waiting[]
 }
 
 const at = (e: ChangeEvent) => Date.parse(e.at)
 const DEPLOYS: ReadonlySet<ChangeKind> = new Set(['sync', 'rollout', 'merged'])
+const MIN = 60_000
+/** A crash is put on a change at most this long after it. */
+const CRASH_WINDOW = 24 * 60 * MIN
 
-/** An application's names, the environment taken off (`orders-api-prod` → `orders-api`), and its Deployments. */
-function names(e: ChangeEvent): Set<string> {
-  const out = new Set(e.workloads.map((w) => w.toLowerCase()))
-  const app = e.app?.toLowerCase()
-  if (app) {
-    out.add(app)
-    const env = e.env?.toLowerCase()
-    if (env) for (const sep of ['-', '_', '.']) {
-      if (app.endsWith(sep + env)) out.add(app.slice(0, -(env.length + 1)))
-      if (app.startsWith(env + sep)) out.add(app.slice(env.length + 1))
-    }
+/** A name without its environment (`orders-api-prod` → `orders-api`). */
+function strip(name: string, env: string | undefined): string {
+  const e = env?.toLowerCase()
+  if (!e) return name
+  const n = name.toLowerCase()
+  for (const sep of ['-', '_', '.']) {
+    if (n.endsWith(sep + e)) return name.slice(0, -(e.length + 1))
+    if (n.startsWith(e + sep)) return name.slice(e.length + 1)
   }
+  return name
+}
+
+/** An application's names, the environment taken off, and its Deployments; lowercase. */
+const namesCache = new WeakMap<ChangeEvent, Set<string>>()
+function names(e: ChangeEvent): Set<string> {
+  let out = namesCache.get(e)
+  if (out) return out
+  out = new Set(e.workloads.map((w) => w.toLowerCase()))
+  if (e.app) {
+    out.add(e.app.toLowerCase())
+    out.add(strip(e.app, e.env).toLowerCase())
+  }
+  namesCache.set(e, out)
   return out
 }
+
+/** An application's name without its environment (`orders-api-prod` → `orders-api`). */
+export const appOf = (e: ChangeEvent): string => strip(e.app ?? e.workloads[0] ?? e.title, e.env)
 
 /** The same application on two environments. */
 export function sameApp(x: ChangeEvent, y: ChangeEvent): boolean {
@@ -68,11 +87,28 @@ const sameRevision = (x?: string, y?: string) => {
   return Math.min(a.length, b.length) >= 7 && (a.startsWith(b) || b.startsWith(a))
 }
 
-/** An image's tag (`api:2.15.0` → `2.15.0`); `latest` tells nothing. */
-const tags = (e: ChangeEvent) => e.images.map((i) => i.slice(i.lastIndexOf(':') + 1)).filter((tg) => tg && tg !== 'latest')
-const sharedTag = (x: ChangeEvent, y: ChangeEvent) => {
-  const ys = tags(y)
-  return tags(x).find((tg) => ys.includes(tg)) ?? null
+/**
+ * The application's own images, as `name` and `tag`: `registry:5000/team/api:2.15.0` → `api`,
+ * `2.15.0`. An image without a tag, `latest`, or another one (a sidecar) tells nothing.
+ */
+function ownImages(e: ChangeEvent): { name: string; tag: string; image: string }[] {
+  const mine = names(e)
+  return e.images.flatMap((image) => {
+    const colon = image.lastIndexOf(':')
+    if (colon < 0 || image.slice(colon + 1).includes('/')) return []
+    const tag = image.slice(colon + 1)
+    const repo = image.slice(0, colon)
+    const name = strip(repo.slice(repo.lastIndexOf('/') + 1), e.env).toLowerCase()
+    return tag && tag !== 'latest' && mine.has(name) ? [{ name, tag, image }] : []
+  })
+}
+const sharedImage = (x: ChangeEvent, y: ChangeEvent) => {
+  const ys = ownImages(y)
+  for (const i of ownImages(x)) {
+    const j = ys.find((j) => j.name === i.name && j.tag === i.tag)
+    if (j) return j.image
+  }
+  return null
 }
 
 /** How `x` (on A) and `y` (on B) are the same change: revision or MR first, the image otherwise. */
@@ -82,40 +118,76 @@ function link(x: ChangeEvent, y: ChangeEvent, images: boolean): { basis: Basis; 
   if (!sameApp(x, y)) return null
   if (sameRevision(x.revision, y.revision)) return { basis: 'revision', label: x.revision! }
   if (!images) return null
-  const tag = sharedTag(x, y)
-  const image = tag && (y.images.find((i) => i.endsWith(`:${tag}`)) ?? x.images.find((i) => i.endsWith(`:${tag}`)))
+  const image = sharedImage(x, y)
   return image ? { basis: 'image', label: image } : null
 }
 
-/** A crash of `e`'s application on its environment after it, until the next deployment of the same kind there. */
+/** Events by each of their names (an MR by its key), to look only at the same application's. */
+function index(events: ChangeEvent[]): Map<string, ChangeEvent[]> {
+  const out = new Map<string, ChangeEvent[]>()
+  const add = (k: string, e: ChangeEvent) => {
+    const l = out.get(k)
+    if (l) {
+      if (l[l.length - 1] !== e) l.push(e)
+    } else out.set(k, [e])
+  }
+  for (const e of events) {
+    if (e.kind === 'merged' && e.mr) add(`mr:${e.mr.repo ?? ''}!${e.mr.iid}`, e)
+    else for (const n of names(e)) add(n, e)
+  }
+  return out
+}
+
+/** The events of `idx` that may be `e`'s application (or MR), oldest first. */
+function near(idx: Map<string, ChangeEvent[]>, e: ChangeEvent): ChangeEvent[] {
+  if (e.kind === 'merged') return e.mr ? (idx.get(`mr:${e.mr.repo ?? ''}!${e.mr.iid}`) ?? []) : []
+  const lists = [...names(e)].map((n) => idx.get(n) ?? []).filter((l) => l.length)
+  if (lists.length <= 1) return lists[0] ?? []
+  return [...new Set(lists.flat())].sort((p, q) => at(p) - at(q))
+}
+
+/**
+ * A crash of `e`'s application on its environment after it: within 24 h, and before anything
+ * else deployed it there (its next change of the same kind, or a rollout of another image).
+ */
 export function crashAfter(e: ChangeEvent, events: ChangeEvent[]): ChangeEvent | null {
-  const mine = events.filter((x) => x.env === e.env && at(x) > at(e) && sameApp(x, e))
-  const next = mine.filter((x) => x.kind === e.kind && x.id !== e.id).reduce((m, x) => Math.min(m, at(x)), Infinity)
-  return mine.filter((x) => isCrash(x) && at(x) < next).sort((p, q) => at(p) - at(q))[0] ?? null
+  const end = at(e) + CRASH_WINDOW
+  const mine = events.filter((x) => x.env === e.env && at(x) > at(e) && at(x) <= end && sameApp(x, e)).sort((p, q) => at(p) - at(q))
+  for (const x of mine) {
+    if (isCrash(x)) return x
+    const redeploy = (x.kind === e.kind && x.id !== e.id) || (x.kind === 'rollout' && at(x) - at(e) > 10 * MIN && !sharedImage(x, e))
+    if (redeploy) return null
+  }
+  return null
 }
 
 /**
  * `a` against `b`, over the whole journal: each change's first arrival on each side linked
- * (oldest first), and, per application, what A deployed after the last of its changes B got.
+ * (oldest first), and, per application B runs, what A deployed after the last change B got.
  */
 export function compare(events: ChangeEvent[], a: string, b: string): Comparison {
   const sorted = [...events].sort((p, q) => at(p) - at(q))
-  const onA = sorted.filter((e) => e.env === a && DEPLOYS.has(e.kind))
+  const envA = sorted.filter((e) => e.env === a)
+  const onA = envA.filter((e) => DEPLOYS.has(e.kind))
   const onB = sorted.filter((e) => e.env === b && DEPLOYS.has(e.kind))
+  const idxA = index(onA)
+  const idxB = index(onB)
+  const idxCrashA = index(envA.filter(isCrash).concat(onA.filter((e) => e.kind !== 'merged')))
+  const crashOf = (x: ChangeEvent) => crashAfter(x, near(idxCrashA, x))
   const matches: Match[] = []
   const used = new Set<string>()
   const known = (y: ChangeEvent, l: { basis: Basis; label: string }) =>
-    matches.some((m) => (l.basis === 'image' ? sameApp(m.b, y) && sharedTag(m.b, y) !== null : m.basis === l.basis && link(m.b, y, false) !== null))
+    matches.some((m) => (l.basis === 'image' ? sameApp(m.b, y) && sharedImage(m.b, y) !== null : m.basis === l.basis && link(m.b, y, false) !== null))
   // Revisions and MRs first, then the images of what is left: a sync and its rollout carry the same image.
   for (const images of [false, true]) {
     for (const y of onB) {
       if (used.has(y.id)) continue
-      for (const x of onA) {
+      for (const x of near(idxA, y)) {
         if (used.has(x.id)) continue
         const l = link(x, y, images)
         if (!l || (images && l.basis !== 'image')) continue
         if (!known(y, l)) {
-          matches.push({ a: x, b: y, ...l, delay: at(y) - at(x), crash: crashAfter(x, sorted) })
+          matches.push({ a: x, b: y, ...l, delay: at(y) - at(x), crash: crashOf(x) })
           used.add(x.id)
         }
         used.add(y.id)
@@ -123,14 +195,26 @@ export function compare(events: ChangeEvent[], a: string, b: string): Comparison
       }
     }
   }
-  // Waiting: syncs (rollouts for an application Argo CD does not deploy) after the last one B got.
-  const synced = (x: ChangeEvent) => onA.some((s) => s.kind === 'sync' && sameApp(s, x))
-  const candidates = onA.filter((x) => x.kind === 'sync' || (x.kind === 'rollout' && !synced(x)))
-  const reached = (x: ChangeEvent) => onB.some((y) => link(x, y, true))
+  // Waiting: per application B runs, A's syncs (rollouts for an application Argo CD does not
+  // deploy) after the last one B got; an application B never ran is not waiting for it.
+  const synced = (x: ChangeEvent) => near(idxA, x).some((s) => s.kind === 'sync')
+  const apps = new Map<string, ChangeEvent[]>()
+  for (const x of onA) {
+    if (!(x.kind === 'sync' || (x.kind === 'rollout' && !synced(x)))) continue
+    const k = appOf(x).toLowerCase()
+    apps.set(k, [...(apps.get(k) ?? []), x])
+  }
   const waiting: Waiting[] = []
-  for (const x of candidates) {
-    const later = candidates.filter((z) => z.kind === x.kind && sameApp(z, x) && at(z) >= at(x))
-    if (!later.some(reached)) waiting.push({ e: x, crash: crashAfter(x, sorted) })
+  for (const list of apps.values()) {
+    const theirs = near(idxB, list[0])
+    if (!theirs.some((y) => y.kind !== 'merged')) continue
+    const reached = (x: ChangeEvent) => theirs.some((y) => link(x, y, true))
+    const out: ChangeEvent[] = []
+    for (const x of [...list].reverse()) {
+      if (reached(x)) break
+      out.push(x)
+    }
+    if (out.length) waiting.push({ e: out[0], crash: crashOf(out[0]), earlier: out.slice(1) })
   }
   return { matches: matches.sort((p, q) => at(p.a) - at(q.a)), waiting: waiting.sort((p, q) => at(q.e) - at(p.e)) }
 }
@@ -145,9 +229,9 @@ export function rank(env: string): number {
   return 1.5
 }
 
-/** The pair Compare opens on: `[changes] compare`, else the environment shown and the next one in the roles' order. */
+/** The pair Compare opens on: `[changes] compare` when both are known, else the environment shown and the next one in the roles' order. */
 export function defaultPair(envs: string[], setting: string[], current: string | null): [string, string] | null {
-  if (setting.length >= 2 && setting[0] !== setting[1]) return [setting[0], setting[1]]
+  if (setting.length >= 2 && setting[0] !== setting[1] && envs.includes(setting[0]) && envs.includes(setting[1])) return [setting[0], setting[1]]
   if (envs.length < 2) return null
   const order = envs.map((e, i) => ({ e, i })).sort((x, y) => rank(x.e) - rank(y.e) || x.i - y.i).map((x) => x.e)
   const i = current ? order.indexOf(current) : -1
@@ -163,16 +247,4 @@ export function span(ms: number): string {
   if (h < 24) return t('{h} h', { h })
   const d = Math.floor(h / 24)
   return h % 24 ? t('{d} d {h} h', { d, h: h % 24 }) : t('{d} d', { d })
-}
-
-/** An application's name without its environment (`orders-api-prod` → `orders-api`). */
-export function appOf(e: ChangeEvent): string {
-  const app = e.app ?? e.workloads[0] ?? e.title
-  const env = e.env?.toLowerCase()
-  if (!env) return app
-  for (const sep of ['-', '_', '.']) {
-    if (app.toLowerCase().endsWith(sep + env)) return app.slice(0, -(env.length + 1))
-    if (app.toLowerCase().startsWith(env + sep)) return app.slice(env.length + 1)
-  }
-  return app
 }

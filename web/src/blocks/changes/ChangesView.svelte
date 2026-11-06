@@ -1,6 +1,5 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte'
-  import { locale } from '../../locale'
   import type { IconName } from '../../icons'
   import { t, tn } from '../../i18n.svelte'
   import { clock } from '../../clock.svelte'
@@ -16,8 +15,8 @@
   import { keys } from '../../platform'
   import { claudeClick, diagnoseCrashAction } from '../../claude-actions'
   import type { ChangesFocus } from '../../changes-view.svelte'
-  import { CORE_SOURCES, PERIODS, byHour, closedIn, counts, isCrash, markdown, periodLabel, rangeOf, rows, sentence, sourceLabel, tickLabel, ticksOf, visible, type ChangeEvent, type ChangeLink, type ChangesState, type Period, type Range, type Row } from './changes'
-  import { compare, defaultPair, span, type Match } from './compare'
+  import { CORE_SOURCES, PERIODS, byHour, closedIn, counts, isCrash, markdown, periodLabel, rangeOf, rows, sentence, sourceLabel, tickLabel, ticksOf, visible, hm, when, type ChangeEvent, type ChangeLink, type ChangesState, type Period, type Range, type Row } from './changes'
+  import { compare, defaultPair, sameApp, span, type Match } from './compare'
   import ChangesCompare from './ChangesCompare.svelte'
 
   /**
@@ -52,6 +51,8 @@
     if (!f) return
     untrack(() => {
       env = f.env
+      // Comparing two others: back to the focus' environment alone.
+      if (pair && !(f.env && pair.includes(f.env))) pair = null
       app = f.app ?? null
       highlight = f.highlight ?? null
       custom = f.range ?? null
@@ -66,7 +67,7 @@
     pair = p
     if (!focus) setPref('changes.compare', p)
   }
-  const toggleCompare = () => setPair(pair ? null : defaultPair(envs, journal?.compare ?? [], env))
+  const toggleCompare = () => setPair(cmp ? null : defaultPair(envs, journal?.compare ?? [], env))
   /** Compare: an environment picked becomes B; B picked again swaps the two. */
   const pickSecond = (e: string) => {
     if (!pair) return
@@ -90,7 +91,12 @@
   const filter = $derived({ env, range, hidden, query, app })
   const events = $derived(visible(journal?.events ?? [], filter))
   const list = $derived(rows(events))
-  const sources = $derived(counts(journal?.events ?? [], filter, journal?.sources ?? [...CORE_SOURCES]))
+  // Comparing: the counts of the two environments.
+  const sources = $derived.by(() => {
+    const all = journal?.events ?? []
+    const c = cmp
+    return counts(c ? all.filter((e) => !e.env || c.includes(e.env)) : all, c ? { ...filter, env: null } : filter, journal?.sources ?? [...CORE_SOURCES])
+  })
   const closed = $derived(closedIn(journal?.closed ?? [], range))
   const byId = $derived(new Map((journal?.events ?? []).map((e) => [e.id, e])))
 
@@ -102,20 +108,26 @@
   const eventsB = $derived(cmp ? visible(journal?.events ?? [], { ...filter, env: cmp[1] }) : [])
   /** Each change's match, by its id on either side. */
   const matchOf = $derived(new Map((comparison?.matches ?? []).flatMap((m) => [[m.a.id, m] as const, [m.b.id, m] as const])))
-  const waitingIds = $derived(new Set((comparison?.waiting ?? []).map((w) => w.e.id)))
-  /** A crash on B after a change that had crashed on A too: that match. */
-  function crashedBefore(r: Row): Match | null {
-    if (!cmp || !comparison || r.first.env !== cmp[1] || !isCrash(r.first)) return null
+  const waitingIds = $derived(new Set((comparison?.waiting ?? []).flatMap((w) => [w.e.id, ...w.earlier.map((e) => e.id)])))
+  /** B's crashes after a change that had crashed on A too (`related`, or the same app within correlate_minutes): their match, by the crash's id. */
+  const seenBefore = $derived.by(() => {
+    const out = new Map<string, Match>()
+    const crashed = (comparison?.matches ?? []).filter((m) => m.crash)
+    if (!crashed.length) return out
     const minutes = (journal?.correlate_minutes ?? 30) * 60_000
+    for (const e of eventsB.filter(isCrash)) {
+      const t0 = Date.parse(e.at)
+      const m = crashed.find((m) => e.related === m.b.id || (t0 >= Date.parse(m.b.at) && t0 - Date.parse(m.b.at) <= minutes && sameApp(m.b, e)))
+      if (m) out.set(e.id, m)
+    }
+    return out
+  })
+  const crashedBefore = (r: Row): Match | null => {
     for (const e of r.items) {
-      const m = comparison.matches.find((m) => m.crash && (e.related === m.b.id || (m.b.env === e.env && Date.parse(e.at) >= Date.parse(m.b.at) && Date.parse(e.at) - Date.parse(m.b.at) <= minutes && (m.b.app === e.app || m.b.workloads.some((w) => e.workloads.includes(w))))))
+      const m = seenBefore.get(e.id)
       if (m) return m
     }
     return null
-  }
-  const when = (ms: number) => {
-    const d = new Date(ms)
-    return d.toDateString() === new Date().toDateString() ? hm(ms) : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' })} ${hm(ms)}`
   }
 
   /** The list with the ranges Prism was closed, newest first, by hour. */
@@ -146,7 +158,6 @@
     return out
   }
 
-  const hm = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
   const ago = (ms: number) => {
     const m = Math.round(ms / 60_000)
     return m < 60 ? t('{n} min', { n: m }) : t('{h} h {m}', { h: Math.floor(m / 60), m: String(m % 60).padStart(2, '0') })

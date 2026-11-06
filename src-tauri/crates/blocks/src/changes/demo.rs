@@ -46,6 +46,8 @@ pub fn state(now: DateTime<Utc>) -> ChangesState {
         e
     };
     let mut events = vec![
+        // Yesterday's orders on prod: what staging went beyond since.
+        sync("sync:prod:orders", 60 * 20, "prod", "orders-api-prod", "orders-api", "2c71e9b0", "release-2026-10-2c71e9b0", None),
         // Yesterday, staging first: what prod got after it.
         sync("sync:staging:catalog:0", 60 * 23 + 30, "staging", "catalog-api-staging", "catalog-api", "51b0a7c2", "2.13.2", Some(mr(1281, "Catalog: cache the price lists"))),
         sync("sync:staging:billing", 60 * 19, "staging", "billing-api-staging", "billing-api", "5d20aa13", "4.2.0", Some(mr(1284, "Billing: stream the invoice export"))),
@@ -188,4 +190,5 @@ pub fn state(now: DateTime<Utc>) -> ChangesState {
         compare: vec!["staging".into(), "prod".into()],
     }
 }
+
 
