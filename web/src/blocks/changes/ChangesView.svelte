@@ -16,13 +16,16 @@
   import { keys } from '../../platform'
   import { claudeClick, diagnoseCrashAction } from '../../claude-actions'
   import type { ChangesFocus } from '../../changes-view.svelte'
-  import { CORE_SOURCES, PERIODS, byHour, closedIn, counts, isCrash, markdown, periodLabel, rangeOf, rows, sentence, sourceLabel, visible, type ChangeEvent, type ChangeLink, type ChangesState, type Period, type Range, type Row } from './changes'
+  import { CORE_SOURCES, PERIODS, byHour, closedIn, counts, isCrash, markdown, periodLabel, rangeOf, rows, sentence, sourceLabel, tickLabel, ticksOf, visible, type ChangeEvent, type ChangeLink, type ChangesState, type Period, type Range, type Row } from './changes'
+  import { compare, defaultPair, span, type Match } from './compare'
+  import ChangesCompare from './ChangesCompare.svelte'
 
   /**
    * The Changes timeline of an environment: the compact band (a lane per source, a mark per
    * change, the ranges Prism was closed hatched; drag to zoom), then the list by hour, newest
    * first, repeats folded. A crash shows the change just before it on its application, "probably
    * linked"; Diagnose sends an agent on it in plan mode. `focus`: opened around a crash (drawer).
+   * Compare: two environments on the same axis, their lists side by side (`ChangesCompare`).
    */
   let { state: journal, error, focus = null, compact = false }: { state: ChangesState | undefined; error?: string; focus?: ChangesFocus | null; compact?: boolean } = $props()
 
@@ -37,6 +40,12 @@
   let query = $state('')
   let app = $state<string | null>(null)
   let highlight = $state<string | null>(null)
+  // Compare: [A, B], A deployed first; null: one environment.
+  let pair = $state<[string, string] | null>(first.focus ? null : pref<[string, string] | null>('changes.compare', null))
+  let width = $state(1000)
+  const narrow = $derived(width < 640)
+  // Narrow: one list, the side picked.
+  let side = $state<'a' | 'b'>('b')
   // A new focus (the drawer opened again elsewhere) resets the choices; the user's own stay until then.
   $effect(() => {
     const f = focus
@@ -52,6 +61,17 @@
   const pickEnv = (e: string | null) => {
     env = e
     if (!focus) setPref('changes.env', e)
+  }
+  const setPair = (p: [string, string] | null) => {
+    pair = p
+    if (!focus) setPref('changes.compare', p)
+  }
+  const toggleCompare = () => setPair(pair ? null : defaultPair(envs, journal?.compare ?? [], env))
+  /** Compare: an environment picked becomes B; B picked again swaps the two. */
+  const pickSecond = (e: string) => {
+    if (!pair) return
+    if (e === pair[1] || e === pair[0]) setPair([pair[1], pair[0]])
+    else setPair([pair[0], e])
   }
   const pickPeriod = (p: Period) => {
     period = p
@@ -74,9 +94,37 @@
   const closed = $derived(closedIn(journal?.closed ?? [], range))
   const byId = $derived(new Map((journal?.events ?? []).map((e) => [e.id, e])))
 
+  /* ---------- Compare ---------- */
+
+  const cmp = $derived(pair && envs.includes(pair[0]) && envs.includes(pair[1]) ? pair : null)
+  const comparison = $derived(cmp ? compare(journal?.events ?? [], cmp[0], cmp[1]) : null)
+  const eventsA = $derived(cmp ? visible(journal?.events ?? [], { ...filter, env: cmp[0] }) : [])
+  const eventsB = $derived(cmp ? visible(journal?.events ?? [], { ...filter, env: cmp[1] }) : [])
+  /** Each change's match, by its id on either side. */
+  const matchOf = $derived(new Map((comparison?.matches ?? []).flatMap((m) => [[m.a.id, m] as const, [m.b.id, m] as const])))
+  const waitingIds = $derived(new Set((comparison?.waiting ?? []).map((w) => w.e.id)))
+  /** A crash on B after a change that had crashed on A too: that match. */
+  function crashedBefore(r: Row): Match | null {
+    if (!cmp || !comparison || r.first.env !== cmp[1] || !isCrash(r.first)) return null
+    const minutes = (journal?.correlate_minutes ?? 30) * 60_000
+    for (const e of r.items) {
+      const m = comparison.matches.find((m) => m.crash && (e.related === m.b.id || (m.b.env === e.env && Date.parse(e.at) >= Date.parse(m.b.at) && Date.parse(e.at) - Date.parse(m.b.at) <= minutes && (m.b.app === e.app || m.b.workloads.some((w) => e.workloads.includes(w))))))
+      if (m) return m
+    }
+    return null
+  }
+  const when = (ms: number) => {
+    const d = new Date(ms)
+    return d.toDateString() === new Date().toDateString() ? hm(ms) : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' })} ${hm(ms)}`
+  }
+
   /** The list with the ranges Prism was closed, newest first, by hour. */
   type Item = { row: Row } | { closed: Range }
-  const groups = $derived.by(() => {
+  type Group = { key: string; label: string; items: Item[] }
+  const groups = $derived(groupsOf(list))
+  const listA = $derived(rows(eventsA))
+  const listB = $derived(rows(eventsB))
+  function groupsOf(list: Row[]): Group[] {
     const items: (Item & { t: number })[] = [...list.map((row) => ({ row, t: row.t })), ...closed.map((c) => ({ closed: c, t: c.to }))]
     items.sort((a, b) => b.t - a.t)
     const hours = byHour(list)
@@ -85,7 +133,7 @@
       d.setMinutes(0, 0, 0)
       return String(d.getTime())
     }
-    const out: { key: string; label: string; items: Item[] }[] = []
+    const out: Group[] = []
     for (const it of items) {
       const key = hourOf(it.t)
       let g = out[out.length - 1]
@@ -96,7 +144,7 @@
       g.items.push(it)
     }
     return out
-  })
+  }
 
   const hm = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
   const ago = (ms: number) => {
@@ -108,18 +156,7 @@
 
   const lanes = $derived(sources.map((s) => s.source).filter((s) => !hidden.has(s)))
   const x = (ms: number) => `${Math.min(100, Math.max(0, ((ms - range.from) / Math.max(1, range.to - range.from)) * 100))}%`
-  const ticks = $derived.by(() => {
-    const span = range.to - range.from
-    const step = [15, 30, 60, 120, 180, 360, 720, 1440, 2880].map((m) => m * 60_000).find((s) => span / s <= 8) ?? 2880 * 60_000
-    const first = Math.ceil(range.from / step) * step
-    const out: number[] = []
-    for (let ms = first; ms <= range.to; ms += step) out.push(ms)
-    return out
-  })
-  const tickLabel = (ms: number) => {
-    const d = new Date(ms)
-    return d.getHours() === 0 && d.getMinutes() === 0 ? d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' }) : hm(ms)
-  }
+  const ticks = $derived(ticksOf(range))
   const tone = (e: ChangeEvent) => (e.severity === 'ko' ? 'ko' : e.severity === 'warn' ? 'warn' : e.severity === 'ok' ? 'ok' : 'info')
 
   // Drag on the band: the range picked, zoomed on.
@@ -168,7 +205,7 @@
   const linkable = (l: ChangeLink | undefined) => !!l && (l.kind !== 'pod' || canShowPodLogs())
 
   /** The row each change is shown in (a folded row holds several), by the change's id. */
-  const rowOf = $derived(new Map(list.flatMap((r) => r.items.map((i) => [i.id, r.key] as const))))
+  const rowOf = $derived(new Map((cmp ? [...listA, ...listB] : list).flatMap((r) => r.items.map((i) => [i.id, r.key] as const))))
 
   /** Scrolls to a change; one off the list (out of the range, its source hidden, another app) is brought in first. */
   async function show(id: string) {
@@ -182,11 +219,16 @@
         period = 'custom'
       }
       if (hidden.has(e.source)) hidden = new Set([...hidden].filter((x) => x !== e.source))
-      if (env && e.env && e.env !== env) env = e.env
+      if (!cmp && env && e.env && e.env !== env) env = e.env
       app = null
       query = ''
       await tick()
       key = rowOf.get(id)
+    }
+    // Narrow, comparing: the list of its side.
+    if (cmp && narrow && e?.env && cmp.includes(e.env)) {
+      side = e.env === cmp[0] ? 'a' : 'b'
+      await tick()
     }
     if (key) document.querySelector(`[data-change="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }
@@ -225,14 +267,23 @@
   })
 </script>
 
-<div class="changes" class:compact>
+<div class="changes" class:compact bind:clientWidth={width}>
   <div class="bar">
-    <span class="pills" role="radiogroup" aria-label={t('Environment')}>
-      <button role="radio" aria-checked={env === null} class="pill" class:on={env === null} onclick={() => pickEnv(null)}>{t('All')}</button>
-      {#each envs as e (e)}
-        <button role="radio" aria-checked={env === e} class="pill" class:on={env === e} onclick={() => pickEnv(e)}>{e}</button>
-      {/each}
-    </span>
+    {#if cmp}
+      <span class="pills" role="group" aria-label={t('Environments compared')}>
+        {#each envs as e (e)}
+          <button class="pill" class:on={e === cmp[0]} class:b={e === cmp[1]} aria-pressed={cmp.includes(e)} onclick={() => pickSecond(e)} title={cmp.includes(e) ? t('Swap the two') : t('Compare {a} with {b}', { a: cmp[0], b: e })}>{e}</button>
+        {/each}
+        <button class="swap" onclick={() => setPair([cmp[1], cmp[0]])} title={t('Swap the two')} aria-label={t('Swap the two')}>⇄</button>
+      </span>
+    {:else}
+      <span class="pills" role="radiogroup" aria-label={t('Environment')}>
+        <button role="radio" aria-checked={env === null} class="pill" class:on={env === null} onclick={() => pickEnv(null)}>{t('All')}</button>
+        {#each envs as e (e)}
+          <button role="radio" aria-checked={env === e} class="pill" class:on={env === e} onclick={() => pickEnv(e)}>{e}</button>
+        {/each}
+      </span>
+    {/if}
     <select class="sel" value={period} onchange={(e) => pickPeriod(e.currentTarget.value as Period)} aria-label={t('Period')}>
       {#each PERIODS as p (p)}<option value={p}>{periodLabel(p)}</option>{/each}
       {#if period === 'custom'}<option value="custom">{hm(range.from)} → {hm(range.to)}</option>{/if}
@@ -240,7 +291,8 @@
     {#if app}<button class="pill on" onclick={() => (app = null)} title={t('Every application')}>{app} ✕</button>{/if}
     <span class="grow"></span>
     <input class="search" type="search" placeholder={t('App, author, revision…')} bind:value={query} aria-label={t('Search')} />
-    <button class="icon" onclick={() => copy(markdown(list, env, range), t('Changes copied'))} title={t('Copy as Markdown (post-mortem, message)')} aria-label={t('Copy')} disabled={!list.length}><Icon name="copy" /></button>
+    {#if envs.length > 1}<button class="cbtn" class:on={!!cmp} aria-pressed={!!cmp} onclick={toggleCompare} title={t('Two environments on the same axis: what went on one and not yet on the other')}><Icon name="split" />{t('Compare')}</button>{/if}
+    <button class="icon" onclick={() => copy(cmp ? `${markdown(listA, cmp[0], range)}\n\n${markdown(listB, cmp[1], range)}` : markdown(list, env, range), t('Changes copied'))} title={t('Copy as Markdown (post-mortem, message)')} aria-label={t('Copy')} disabled={cmp ? !listA.length && !listB.length : !list.length}><Icon name="copy" /></button>
     <button class="icon" class:spin={refreshing} onclick={refresh} title={t('Read the sources again now')} aria-label={t('Refresh')}><Icon name="refresh" /></button>
   </div>
 
@@ -252,6 +304,9 @@
     {/each}
   </div>
 
+  {#if cmp && comparison}
+    <ChangesCompare a={cmp[0]} b={cmp[1]} {eventsA} {eventsB} {range} matches={comparison.matches} waiting={comparison.waiting} {highlight} onshow={show} />
+  {:else}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="band" title={t('Drag to zoom on a range')}>
     <div class="track" bind:this={band} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}>
@@ -273,8 +328,29 @@
       {#if drag}<div class="brush" style:left={x(Math.min(drag.from, drag.to))} style:width={`calc(${x(Math.max(drag.from, drag.to))} - ${x(Math.min(drag.from, drag.to))})`}></div>{/if}
     </div>
   </div>
+  {/if}
 
-  <div class="list">
+  {#if cmp}
+    {#if narrow}
+      <div class="sides" role="radiogroup" aria-label={t('List')}>
+        <button role="radio" aria-checked={side === 'a'} class="pill" class:on={side === 'a'} onclick={() => (side = 'a')}>{cmp[0]}</button>
+        <button role="radio" aria-checked={side === 'b'} class="pill b" class:on={side === 'b'} onclick={() => (side = 'b')}>{cmp[1]}</button>
+      </div>
+      <div class="list">{@render listOf(groupsOf(side === 'a' ? listA : listB), cmp[side === 'a' ? 0 : 1])}</div>
+    {:else}
+      <div class="cols">
+        <div class="list"><div class="colh"><span class="pill on">{cmp[0]}</span></div>{@render listOf(groupsOf(listA), cmp[0])}</div>
+        <div class="list"><div class="colh"><span class="pill b">{cmp[1]}</span></div>{@render listOf(groupsOf(listB), cmp[1])}</div>
+      </div>
+    {/if}
+  {:else}
+    <div class="list">{@render listOf(groups, env)}</div>
+  {/if}
+  {#if !cmp && list.length}<p class="note">{tn(events.length, '{n} change recorded', '{n} changes recorded')} · {t('Times are the source’s; “seen”: when Prism saw it.')}</p>{/if}
+  {#if cmp && comparison}<p class="note">{t('Linked: the same revision or MR on both; otherwise the same application with the same image (dashed).')}</p>{/if}
+</div>
+
+{#snippet listOf(groups: Group[], env: string | null)}
     {#each groups as g (g.key)}
       <div class="hour">{g.label}</div>
       {#each g.items as it ('row' in it ? it.row.key : `closed-${it.closed.from}`)}
@@ -291,6 +367,19 @@
             <span class="what">
               <span class="line">{#if !env && e.env}<span class="env">{e.env}</span>{/if}{s.what}{#if e.mr && e.kind !== 'merged'}{' '}<button class="mr" onclick={() => openMr({ iid: e.mr!.iid, repo: e.mr!.repo })} title={e.mr.title}>!{e.mr.iid}</button>{/if}</span>
               {#if s.detail}<small>{s.detail}</small>{/if}
+              {#if cmp}
+                {@const m = matchOf.get(e.id)}
+                {@const seen = crashedBefore(r)}
+                {#if m && m.a.id === e.id}
+                  <button class="cmpnote" onclick={() => show(m.b.id)} title={m.basis === 'image' ? t('same image {image}', { image: m.label }) : undefined}>→ {m.delay >= 0 ? t('on {env} {time} after', { env: cmp[1], time: span(m.delay) }) : t('on {env} {time} before', { env: cmp[1], time: span(m.delay) })}{#if m.basis === 'image'} · {t('image')}{/if}</button>
+                {:else if m && m.b.id === e.id}
+                  <button class="cmpnote" onclick={() => show(m.a.id)} title={m.basis === 'image' ? t('same image {image}', { image: m.label }) : undefined}>← {cmp[0]} {when(Date.parse(m.a.at))}{#if m.basis === 'image'} · {t('image')}{/if}</button>
+                  {#if m.crash}<button class="warnchip" onclick={() => show(m.crash!.id)}>↯ {t('had crashed on {env} at {time}', { env: cmp[0], time: when(Date.parse(m.crash.at)) })}</button>{/if}
+                {:else if waitingIds.has(e.id)}
+                  <span class="cmpnote wait">{t('not on {env} yet', { env: cmp[1] })}</span>
+                {/if}
+                {#if seen?.crash}<button class="warnchip" onclick={() => show(seen.crash!.id)}>↯ {t('already seen on {env} at {time}', { env: cmp[0], time: when(Date.parse(seen.crash.at)) })}</button>{/if}
+              {/if}
               {#if linked}
                 <button class="linked" onclick={() => show(linked.id)} title={t('Same application, {time} before: a guess on time and name, not a certain cause', { time: ago(Date.parse(e.at) - Date.parse(linked.at)) })}>
                   ↖ {t('probably linked: {what}', { what: sentence({ key: linked.id, first: linked, items: [linked], t: Date.parse(linked.at) }).what })} · {t('{time} before', { time: ago(Date.parse(e.at) - Date.parse(linked.at)) })}
@@ -313,18 +402,30 @@
         {#if error}<br /><small>{error}</small>{/if}
       </div>
     {/each}
-  </div>
-  {#if list.length}<p class="note">{tn(events.length, '{n} change recorded', '{n} changes recorded')} · {t('Times are the source’s; “seen”: when Prism saw it.')}</p>{/if}
-</div>
+{/snippet}
 
 <style>
-  .changes { flex: 1; min-height: 0; display: flex; flex-direction: column; font-size: var(--fs-body); --c-argocd: #e96d36; --c-mrs: var(--violet); --c-pods: var(--src-k8s); --c-alerts: var(--ko); --c-vulnerabilities: var(--warn); }
+  .changes { flex: 1; min-height: 0; display: flex; flex-direction: column; container: changes / inline-size; font-size: var(--fs-body); --c-argocd: #e96d36; --c-mrs: var(--violet); --c-pods: var(--src-k8s); --c-alerts: var(--ko); --c-vulnerabilities: var(--warn); }
   .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--border); }
   .pills { display: inline-flex; flex-wrap: wrap; gap: 4px; }
   .pill { padding: 1px 9px; border: 1px solid var(--border); border-radius: 10px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .pill.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
   .sel { padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .grow { flex: 1; }
+  .pill.b { border-color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); font-weight: 600; }
+  .swap { padding: 0 2px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .swap:hover { color: var(--text); }
+  .cbtn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .cbtn :global(svg) { width: 11px; height: 11px; }
+  .cbtn.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .cols > .list + .list { border-left: 1px solid var(--border); }
+  .colh { position: sticky; top: 0; z-index: 2; padding: 4px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .cols .hour { top: 27px; }
+  .sides { display: flex; gap: 4px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
+  .cmpnote { display: inline-block; margin-top: 2px; padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
+  .cmpnote.wait { color: var(--warn); cursor: default; }
+  .warnchip { display: inline-block; margin: 2px 0 0 6px; padding: 0 6px; border: none; border-radius: 8px; background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); font: inherit; font-size: var(--fs-tag); font-weight: 600; cursor: pointer; }
   .search { width: 170px; max-width: 40%; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .icon { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
   .icon:hover:not(:disabled) { background: var(--surface-muted); color: var(--text); }

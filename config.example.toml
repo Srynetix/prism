@@ -468,6 +468,7 @@ namespaces = ["analytics"]
 # The branch that feeds each environment: the MRs merged into it go on its timeline. None: every
 # merged MR, on every environment.
 branches = [{ env = "staging", branch = "main" }, { env = "prod", branch = "release/*" }]
+# compare = ["staging", "prod"]   # the pair Compare opens on; default: the roles' order dev → staging → preprod → prod
 
 [renovate]
 # The Renovate block, off by default: the dashboard issue and what runs Renovate: a pipeline

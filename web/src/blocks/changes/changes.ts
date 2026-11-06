@@ -141,6 +141,21 @@ export function byHour(list: Row[]): { key: string; label: string; rows: Row[] }
   return [...groups.values()]
 }
 
+/** The axis' ticks of a range: at most about 8, on round steps. */
+export function ticksOf(range: Range): number[] {
+  const span = range.to - range.from
+  const step = [15, 30, 60, 120, 180, 360, 720, 1440, 2880].map((m) => m * MIN).find((s) => span / s <= 8) ?? 2880 * MIN
+  const out: number[] = []
+  for (let ms = Math.ceil(range.from / step) * step; ms <= range.to; ms += step) out.push(ms)
+  return out
+}
+
+/** A tick's label: the day at midnight, the time otherwise. */
+export const tickLabel = (ms: number) => {
+  const d = new Date(ms)
+  return d.getHours() === 0 && d.getMinutes() === 0 ? d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' }) : clock(ms)
+}
+
 /** The ranges Prism was closed within `range`. */
 export const closedIn = (closed: ChangesClosed[], range: Range): Range[] =>
   closed.map((c) => ({ from: Math.max(Date.parse(c.from), range.from), to: Math.min(Date.parse(c.to), range.to) })).filter((c) => c.to > c.from)
