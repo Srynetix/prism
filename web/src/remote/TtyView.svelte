@@ -1,4 +1,6 @@
 <script lang="ts">
+  import OverlapChip from '../components/OverlapChip.svelte'
+  import { overlapsOfAgent } from '../overlaps'
   import { onMount } from 'svelte'
   import { t, tc } from '../i18n.svelte'
   import { Terminal } from '@xterm/xterm'
@@ -510,6 +512,7 @@
     {:else}
       <b>{title}</b>
     {/if}
+    {#if !shell && quickAgent && live.snapshot && overlapsOfAgent(live.snapshot, quickAgent).length}<OverlapChip seen={overlapsOfAgent(live.snapshot, quickAgent)} short />{/if}
     {#if !shell && quickAgent && takesEffort(quickAgent)}
       {@const level = effortOf(quickAgent) ?? cliEffort(quickAgent)}
       <button class="effchip" class:on={effortOpen} onclick={() => { effortOpen = !effortOpen; menu = false }} aria-expanded={effortOpen} aria-label={t('Effort')}><small>{t('Effort')}</small>{level ?? t('Default')}<Icon name="down" size={10} /></button>

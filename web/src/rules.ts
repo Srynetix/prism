@@ -15,6 +15,7 @@ import { argoKey } from './argo-view.svelte'
 import { isHidden } from './worktree-archive.svelte'
 import { USED_UP, planUseOf } from './usage'
 import { t as tr, tn } from './i18n.svelte'
+import { alertedOverlaps, overlapId, sideName } from './overlaps'
 
 export { isDone, isProtected }
 
@@ -76,6 +77,7 @@ export type Fix =
   | { kind: 'investigate'; workload: string; namespace: string; context: string; env: string; issue: string }
   | { kind: 'dev-server'; agent: string; command: string; where: string; tail: string }
   | { kind: 'switch'; agent: string }
+  | { kind: 'overlap'; id: string; side: 'a' | 'b' }
   | { kind: 'block'; block: string; command: string; args: Record<string, unknown>; label: string; title: string }
 
 /**
@@ -321,7 +323,7 @@ export function mrForSession(s: Snapshot, c: Pick<ClaudeSession, 'worktree' | 'b
 }
 
 export function alerts(s: Snapshot): Alert[] {
-  return [...ruled('source', sourceAlerts(s)), ...ruled('infra', infraAlerts(s)), ...ruled('block', blockAlerts(s)), ...ruled('argo', argoAlerts(s)), ...ruled('branch-ci', ciAlerts(s)), ...ruled('sync', [...syncAlerts(s), ...draftAlerts(s), ...inReviewAlerts(s), ...approvedAlerts(s)]), ...ruled('queue', queueAlerts(s)), ...sessionAlerts(s), ...ruled('worktree', worktreeAlerts(s)), ...ruled('review', reviewAlerts(s)), ...myMrAlerts(s)]
+  return [...ruled('source', sourceAlerts(s)), ...ruled('infra', infraAlerts(s)), ...ruled('block', blockAlerts(s)), ...ruled('argo', argoAlerts(s)), ...ruled('branch-ci', ciAlerts(s)), ...ruled('sync', [...syncAlerts(s), ...draftAlerts(s), ...inReviewAlerts(s), ...approvedAlerts(s)]), ...ruled('queue', queueAlerts(s)), ...sessionAlerts(s), ...ruled('overlap', overlapAlerts(s)), ...ruled('worktree', worktreeAlerts(s)), ...ruled('review', reviewAlerts(s)), ...myMrAlerts(s)]
 }
 
 /** A producer's rule, on those of its alerts that name none of their own. */
@@ -362,6 +364,24 @@ function sessionAlerts(s: Snapshot): Alert[] {
     out.push({ kind: 'Claude', rule: 'agent-loop', severity: 'warn', text: tr('“{title}” is going in circles: {command} failed {count} times in a row', { title: a.title, command: a.looping!.command, count: a.looping!.count }) })
   }
   return out
+}
+
+/**
+ * Two agents (or worktrees) on the same lines (or the same file, `[agents.overlaps] alert`): one
+ * alert per pair, updated, gone with the overlap. After a merge, the one left has to rebase.
+ */
+function overlapAlerts(s: Snapshot): Alert[] {
+  return alertedOverlaps(s).map((o) => {
+    const [a, b] = [sideName(s, o, 'a'), sideName(s, o, 'b')]
+    const files = o.files.filter((f) => f.level === o.level)
+    const file = files.length === 1 ? files[0].path : tn(files.length, '{n} file', '{n} files')
+    const text = o.merged
+      ? tr('“{b}” has to rebase on “{a}” (merged): they change the same lines of {file}', { a, b, file })
+      : o.level === 'lines'
+        ? tr('“{a}” and “{b}” change the same lines of {file}', { a, b, file })
+        : tr('“{a}” and “{b}” change the same file: {file}', { a, b, file })
+    return { kind: 'Claude', rule: 'overlap', short: tr('overlap'), severity: o.level === 'lines' ? 'ko' : 'warn', text, fixes: [{ kind: 'overlap', id: overlapId(o), side: 'b' }] } satisfies Alert
+  })
 }
 
 /** Claude usage has its own display, under the sessions: no duplicate alert. */

@@ -781,6 +781,38 @@ impl Demo {
         ]
     }
 
+    /// Two agents on the same lines of the VAT rounding, and the wishlist (no agent) in one of
+    /// their files, elsewhere in it.
+    fn overlaps(&self) -> Overlaps {
+        let wt = |name: &str| format!("/demo/shop.worktrees/{name}");
+        let r = |start: u32, len: u32| LineRange { start, len };
+        let pair = |a: &str, ab: &str, b: &str, bb: &str, files: Vec<OverlapFile>, key: &str| Overlap {
+            repo: "shop".into(),
+            base: "release/2026.10".into(),
+            a: wt(a),
+            b: wt(b),
+            a_branch: Some(ab.into()),
+            b_branch: Some(bb.into()),
+            level: files.iter().map(|f| f.level).max().unwrap_or(OverlapLevel::File),
+            files,
+            merged: false,
+            key: key.into(),
+        };
+        let file = |path: &str, level, a, b| OverlapFile { path: path.into(), level, a, b };
+        Overlaps {
+            pairs: vec![
+                pair("shop-412-saved-cart", "feat/SHOP-412-saved-cart", "shop-433-vat-rounding", "fix/SHOP-433-vat-rounding", vec![
+                    file("src/pricing/vat.rs", OverlapLevel::Lines, vec![r(92, 6)], vec![r(95, 3)]),
+                    file("src/cart/total.rs", OverlapLevel::File, vec![r(14, 2)], vec![r(60, 1)]),
+                ], "d3m0a"),
+                pair("shop-433-vat-rounding", "fix/SHOP-433-vat-rounding", "shop-401-wishlist", "feat/SHOP-401-wishlist", vec![
+                    file("src/cart/total.rs", OverlapLevel::File, vec![r(60, 1)], vec![r(120, 8)]),
+                ], "d3m0b"),
+            ],
+            other_base: Vec::new(),
+        }
+    }
+
     /// Two targets: the GitLab runners and their jobs, and the shop's pods in production.
     fn pods(&self) -> (Vec<PodView>, BTreeMap<String, Usage>, Vec<NodeLoad>) {
         let pod = |target: &str, namespace: &str, name: &str, role: PodRole, job: Option<(&str, &str)>, status: &str, minutes: i64| PodView {
@@ -1080,6 +1112,7 @@ impl Demo {
         s.tracker_features = crate::tracker::Provider::Clickup.features();
         s.agents = self.agents();
         s.routines = self.routines();
+        s.overlaps = self.overlaps();
         // Agents count as sessions too (header, rail, Alerts), as the real ones do.
         s.sessions = self.sessions();
         s.sessions.extend(s.agents.iter().map(|a| ClaudeSession {

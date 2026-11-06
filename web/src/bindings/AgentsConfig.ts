@@ -3,6 +3,7 @@ import type { AgentKind } from "./AgentKind";
 import type { AgentProvider } from "./AgentProvider";
 import type { ClaudeConfig } from "./ClaudeConfig";
 import type { CliConfig } from "./CliConfig";
+import type { OverlapsConfig } from "./OverlapsConfig";
 import type { QuickAction } from "./QuickAction";
 import type { QuickAnswersConfig } from "./QuickAnswersConfig";
 import type { Routine } from "./Routine";
@@ -109,6 +110,11 @@ quick_actions: Array<QuickAction>,
  * going to the Digest.
  */
 routines: Array<Routine>, 
+/**
+ * Two agents (or worktrees) of a repository changing the same lines or the same files, told
+ * before the merge (`[agents.overlaps]`).
+ */
+overlaps: OverlapsConfig, 
 /**
  * Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
  * to Prism, as everywhere else.

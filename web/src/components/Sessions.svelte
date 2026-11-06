@@ -3,6 +3,8 @@
   import { mrNumber } from '../forge'
   import BlockControls from './BlockControls.svelte'
   import QuickAnswers from './QuickAnswers.svelte'
+  import OverlapChip from './OverlapChip.svelte'
+  import { overlapsOfAgent } from '../overlaps'
   import { isCollapsed, isShort } from '../layout.svelte'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
@@ -66,6 +68,7 @@
         {#if isWaiting(a) || a.status === 'review_ready'}<span class="qa"><QuickAnswers agent={a} compact /></span>{/if}
         {#if isWaiting(a)}<span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'} asks" title={a.needs_action ?? SESSION_LABEL[a.status]}>{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span>{/if}
         {#if a.state !== 'running'}<span class="pill">{STOPPED[a.state]}</span>{/if}
+        {#if overlapsOfAgent(snap, a).length}<OverlapChip seen={overlapsOfAgent(snap, a)} short />{/if}
         {#if a.ticket}<button class="pill info" onclick={() => setQuery(a.ticket!)} title={t('Filter on {ticket}', { ticket: a.ticket })}>{a.ticket}</button>{/if}
         {#if mr}<a class="mono mr" href={mr.url} target="_blank" rel="noreferrer" title="{mr.title}{mr.state === 'merged' ? ` ${t('(merged)')}` : mr.draft ? ` ${t('(draft)')}` : ''}">{mrNumber(mr.iid)}</a>{/if}
         {#if mr?.state === 'opened' && mr.pipeline === 'failed'}<span class="pill ko">CI</span>{/if}

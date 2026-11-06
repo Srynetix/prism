@@ -105,6 +105,7 @@ export const TREE: TreeNode[] = [
       { id: 'quick-answers', label: t('Quick answers'), sections: ['agents-quick'], toggle: 'agents-quick' },
       { id: 'quick-actions', label: t('Quick actions'), sections: ['agents-actions'] },
       { id: 'routines', label: t('Routines'), sections: ['routines'] },
+      { id: 'overlaps', label: t('Overlaps'), sections: ['agents-overlaps'], toggle: 'agents-overlaps' },
       { id: 'files', label: t('Files'), sections: ['files'] },
       { id: 'console', label: t('Console'), sections: ['console'] },
     ],

@@ -15,7 +15,7 @@ export const BANDS: Band[] = ['now', 'today', 'later']
 export type AlertRule =
   | 'question' | 'permission' | 'your-turn' | 'agent-cost' | 'agent-loop' | 'agent-limit'
   | 'review' | 'open-threads' | 'mr-ci' | 'conflicts' | 'rebase-failed' | 'need-rebase' | 'only-ci' | 'no-reviewer' | 'no-ticket'
-  | 'sync' | 'queue' | 'branch-ci' | 'infra' | 'argo' | 'source' | 'block' | 'worktree'
+  | 'sync' | 'queue' | 'branch-ci' | 'infra' | 'argo' | 'source' | 'block' | 'worktree' | 'overlap'
 
 /** Every rule, in Settings' order, with its name there. */
 export const ALERT_RULES: { id: AlertRule; label: string }[] = [
@@ -25,6 +25,7 @@ export const ALERT_RULES: { id: AlertRule; label: string }[] = [
   { id: 'agent-loop', label: t('Agent in circles') },
   { id: 'agent-cost', label: t('Agent past its cost limit') },
   { id: 'agent-limit', label: t('Agent at its plan’s limit') },
+  { id: 'overlap', label: t('Agents on the same lines') },
   { id: 'review', label: t('Review asked of you') },
   { id: 'open-threads', label: t('Unresolved threads') },
   { id: 'mr-ci', label: t('My MR’s CI failed') },

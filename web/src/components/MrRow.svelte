@@ -12,6 +12,8 @@
   import { changesRequested, nextStep, rebaseHint, securityLabel } from '../rules'
   import { cleanTitle, primaryAction } from '../mr-actions'
   import MrTitle from './MrTitle.svelte'
+  import OverlapChip from './OverlapChip.svelte'
+  import { overlapsOfMr } from '../overlaps'
   import { previewClick } from '../ticket-view.svelte'
   import { ticketLink } from '../linkify'
   import { live } from '../live.svelte'
@@ -92,6 +94,7 @@
     {#if auto}<span class="chip am" title={step.tone === 'blocked' ? t('Auto-merge is set, but blocked: {why}', { why: step.label.toLowerCase() }) : t('Auto-merge is set: {forge} merges as soon as everything is green', { forge: forgeName(mr.forge) })}><Icon name="automerge" /> {t('auto-merge')}</span>{/if}
     <!-- Behind its target: flagged even when another step shows (merge queue, auto-merge, review). -->
     {#if rebaseHint(mr) && step.label !== t('Rebase needed')}<span class="rb" title={queued ? t('Behind {branch}: to rebase (the merge queue’s job rebases it when its turn comes)', { branch: mr.target_branch }) : t('Behind {branch}: to rebase', { branch: mr.target_branch })} role="img" aria-label={t('To rebase')}><Icon name="rebase" /></span>{/if}
+    {#if live.snapshot && overlapsOfMr(live.snapshot, mr).length}<OverlapChip seen={overlapsOfMr(live.snapshot, mr)} short />{/if}
     {#if queued && step.label !== t('In merge queue')}<span class="chip q" title={t('Label “{label}”: the CI job rebases, then auto-merges', { label: queueLabel ?? '' })}>{t('queue')}</span>{/if}
   </div>
   <div class="l2">

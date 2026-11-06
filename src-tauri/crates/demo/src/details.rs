@@ -7,7 +7,7 @@ use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 
 use super::{job_id, Demo, HELM, HOST, PROJECT, STAGE_JOBS};
 use crate::{
-    agents::files::{Diff, FileEntry, Found, Listing, Match, Preview, Query},
+    agents::files::{Diff, FileEntry, Found, Listing, Match, OverlapDiff, Preview, Query},
     collectors::{
         calendar::{Attendee, EventDetails},
         environments::{PodInfo, PodLog},
@@ -1735,6 +1735,37 @@ pub fn agent_diff(s: &Snapshot, id: &str, branch: bool) -> Result<Diff> {
         files.extend(changes.iter().map(|(p, _)| added(p)));
     }
     Ok(Diff { files, truncated: false, against: if branch { "origin/release/2026.10".into() } else { "HEAD".into() }, head: "demo".into() })
+}
+
+/// An overlap's two sides: for each shared file, a hunk per range, the lines changed.
+pub fn overlap_diff(o: &crate::state::Overlap) -> OverlapDiff {
+    let side = |pick: fn(&crate::state::OverlapFile) -> &Vec<crate::state::LineRange>, who: &str| Diff {
+        files: o
+            .files
+            .iter()
+            .map(|f| {
+                let hunks: Vec<String> = pick(f)
+                    .iter()
+                    .map(|r| {
+                        let lines = r.len.max(1);
+                        let mut h = format!("@@ -{0},{1} +{0},{1} @@\n", r.start, lines);
+                        for n in r.start..r.start + lines {
+                            h.push_str(&format!("-    let line_{n} = round(amount, 2);\n"));
+                        }
+                        for n in r.start..r.start + lines {
+                            h.push_str(&format!("+    let line_{n} = round_half_even(amount, 2); // {who}\n"));
+                        }
+                        h
+                    })
+                    .collect();
+                changed(&f.path, &hunks)
+            })
+            .collect(),
+        truncated: false,
+        against: format!("origin/{}", o.base),
+        head: "demo".into(),
+    };
+    OverlapDiff { a: Some(side(|f| &f.a, "a")), b: Some(side(|f| &f.b, "b")), a_error: None, b_error: None }
 }
 
 /// A file of an agent's folder: the demo's own text, or a stand-in.

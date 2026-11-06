@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOverlap } from '../overlap-view.svelte'
   import { forgeName, mrWord } from '../forge'
   import Sprout from './Sprout.svelte'
   import BlockControls from './BlockControls.svelte'
@@ -125,6 +126,8 @@
           const to = agent ? suggestedFor(agent) : null
           return app && agent ? [{ key: 'switch', label: to ? t('Continue with {cli}…', { cli: CLIS[to].name }) : t('Continue with…'), title: t('Another CLI takes {title} on, from a relay', { title: agent.title }), run: () => openSwitch(agent, to, 'limit') }] : []
         }
+        case 'overlap':
+          return [{ key: 'overlap', label: t('See the overlap'), title: t('Both sides’ hunks, side by side'), run: () => openOverlap(f.id, f.side) }]
         case 'block':
           return app ? [{ key: `block-${f.block}-${f.command}`, label: f.label, title: f.title, run: () => call(f.block, f.command, f.args) }] : []
       }

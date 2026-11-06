@@ -15,6 +15,7 @@ pub mod google;
 pub mod jira;
 pub mod oauth;
 pub mod obsidian;
+pub mod overlaps;
 pub mod passes;
 pub mod repos;
 pub mod pod_history;

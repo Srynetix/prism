@@ -204,6 +204,7 @@ commands! {
     agents::agent_pages: Read [phone: state, id: String, ignored: bool],
     agents::agent_artifacts: Read [phone: state, id: String; sync],
     agents::agent_diff: Read [phone: state, id: String, branch: bool],
+    agents::overlap_diff: Read [phone: state, a: String, b: String],
     agents::agent_task_files_changed: Read [phone: state, id: String],
     agents::agent_file_text: Read [phone: state, id: String, path: String],
     agents::agent_diff_image: Read [phone: state, id: String, path: String, branch: bool, old: bool],

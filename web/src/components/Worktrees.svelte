@@ -23,6 +23,8 @@
   import { hasCore } from '../bridge'
   import { openWorktreeShell } from '../shell-drawer.svelte'
   import { canArchive, isHidden, setHidden } from '../worktree-archive.svelte'
+  import OverlapChip from './OverlapChip.svelte'
+  import { overlapsAt } from '../overlaps'
 
   /**
    * Primary repository worktrees: what each one is linked to, who
@@ -34,6 +36,9 @@
 
   type Filter = 'all' | WorktreeState | WorktreeOrigin
   const all = $derived(describeWorktrees(snap))
+  /** A worktree's overlaps, shown there when no agent works in it (the agent's card has them otherwise). */
+  const overlapsOf = (path: string) => overlapsAt(snap, [path])
+  const otherBase = (path: string) => snap.overlaps?.other_base.find((x) => x.path === path)
   /** Archived (`worktree-archive.svelte.ts`): out of the list and its counts, unless it shows only them (not remembered). */
   let showArchived = $state(false)
   const archivedCount = $derived(all.filter(isHidden).length)
@@ -204,6 +209,7 @@
           {#if i.w.ticket}<span class="pill tk">{i.w.ticket}</span>{/if}
           {#if i.mr}<a class="mono" href={i.mr.url} target="_blank" rel="noreferrer" title={i.mr.title}>{mrNumber(i.mr.iid)}</a>{/if}
           {#if i.w.behind > behindLimit()}<span class="pill warn">↓{i.w.behind}</span>{/if}
+          {#if i.agents.length === 0 && overlapsOf(i.w.path).length}<OverlapChip seen={overlapsOf(i.w.path)} />{/if}
           <span class="grow"></span>
           <span class="muted mono">{ago(i.activity)}</span>
         </div>
@@ -307,6 +313,8 @@
                           {#if g.st === 'stale'}{#if i.removable}<span class="pill ok">{t('safe')}</span>{:else if i.keep}<span class="pill ko" title={t('Would lose {what}', { what: i.keep })}>{t('keep')}</span>{/if}{/if}
                         {/if}
                         {#if i.w.behind > behindLimit() && g.st !== 'stale' && g.st !== 'gone' && !i.w.is_main}<span class="pill warn">{t('behind {n}', { n: i.w.behind })}</span>{/if}
+                        {#if i.agents.length === 0 && overlapsOf(i.w.path).length}<OverlapChip seen={overlapsOf(i.w.path)} />{/if}
+                        {#if otherBase(i.w.path)}<span class="pill" title={t('On {base}: its changes are not compared with those of the worktrees on the repository’s base', { base: i.w.base })}>{t('not compared: other base')}</span>{/if}
                       </span>
                     </td>
                   </tr>

@@ -451,6 +451,8 @@ const SHARED_PREFS = new Set([
   'worktrees.archived',
   // Alerts put off (⏾): off on both.
   'todo.snoozed',
+  // Overlaps ignored from their panel, until their hunks change.
+  'overlaps.ignored',
 ])
 /** And each ticket list's (`<block>.show`, `.priorities`, `.person`, `.group`, `.sort`, `.desc`), notes' and refinement's sort and grouping. */
 const SHARED_SUFFIX = /\.(show|priorities|person|group|sort|desc)$/

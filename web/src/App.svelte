@@ -76,6 +76,7 @@
   import EventPanel from './components/EventPanel.svelte'
   import ThreadPanel from './components/ThreadPanel.svelte'
   import ArgoPanel from './components/ArgoPanel.svelte'
+  import OverlapPanel from './components/OverlapPanel.svelte'
   import ShellDrawer from './components/ShellDrawer.svelte'
   import MrPanel from './components/MrPanel.svelte'
   import LauncherDrawer from './components/LauncherDrawer.svelte'
@@ -649,6 +650,7 @@
   <EventPanel />
   <ThreadPanel />
   <ArgoPanel />
+  <OverlapPanel />
   <ShellDrawer />
   <KeyHelp />
 </div>

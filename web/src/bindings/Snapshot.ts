@@ -28,6 +28,7 @@ import type { NotesConfig } from "./NotesConfig";
 import type { OpenWith } from "./OpenWith";
 import type { OtherProfile } from "./OtherProfile";
 import type { OutsideSprint } from "./OutsideSprint";
+import type { Overlaps } from "./Overlaps";
 import type { PaletteConfig } from "./PaletteConfig";
 import type { PendingJob } from "./PendingJob";
 import type { Person } from "./Person";
@@ -223,6 +224,10 @@ inbox: { [key in string]: number },
  * The routines and their runs (`prism_agents::routines`).
  */
 routines: Routines, 
+/**
+ * Agents and worktrees changing the same lines or files (`prism_collectors::overlaps`).
+ */
+overlaps: Overlaps, 
 /**
  * Changes each time the book of what every agent cost changes (`agent-costs.json`): the
  * book itself is read on demand (`agent_costs`), by the Actual sections that show it.

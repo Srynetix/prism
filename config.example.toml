@@ -360,6 +360,22 @@ enabled = true
 # action = "builtin:alerts-triage"
 # cron = "30 8 * * 1-5"
 
+# Overlaps: two agents (or worktrees) of a repository changing the same lines, or the same file,
+# told before the merge. Each worktree's changes against the merge-base of its base (its commits,
+# its uncommitted changes, its new files) are compared with those of the others on the same base;
+# a worktree on another base is shown "not compared: other base". The main checkout counts on a
+# work branch only. Read again when files are written (macOS), on a commit, a pull, an agent's turn
+# over; not by polling. A chip on both agents (their MRs, a worktree without agent), a panel of the
+# two sides' hunks, an alert per pair. level: from which level a chip shows (lines | file); alert:
+# from which level an alert goes (lines | file | off); ignore: files never compared (globs; without
+# a "/", the file's name; "**" across folders): lockfiles and generated files are computed again,
+# not merged. An overlap ignored from its panel stays so until its hunks change.
+[agents.overlaps]
+enabled = true
+level = "file"
+alert = "lines"
+ignore = ["*.lock", "pnpm-lock.yaml", "package-lock.json", "yarn.lock", "go.sum", "**/bindings/**"]
+
 # Each CLI's own keys, wherever it runs (by default or for a repository): [agents.claude],
 # [agents.command-code], [agents.opencode], [agents.codex]. bin: the executable (a name in the
 # PATH or a path; absent, its usual name); args: added to every launch and resume.

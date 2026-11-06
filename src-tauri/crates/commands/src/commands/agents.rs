@@ -735,6 +735,18 @@ pub async fn agent_diff(state: State<'_, AppState>, id: String, branch: bool) ->
     state.agents.diff(&id, branch).await.map_err(Into::into)
 }
 
+/// The two sides of an overlap (`Snapshot.overlaps`, by its folders): their diffs against their
+/// base, the files they share only. Only an overlap Prism found: no other folder is read.
+#[prism_macros::command]
+pub async fn overlap_diff(state: State<'_, AppState>, a: String, b: String) -> Cmd<crate::agents::files::OverlapDiff> {
+    let found = state.hub.subscribe().borrow().overlaps.pairs.iter().find(|o| o.a == a && o.b == b).cloned();
+    let o = found.ok_or_else(|| anyhow::anyhow!(tr!("this overlap is gone")))?;
+    if crate::demo::active() {
+        return Ok(crate::demo::details::overlap_diff(&o));
+    }
+    Ok(crate::agents::files::overlap_diff(&o).await)
+}
+
 /// A file of an agent's diff, whole, from its working tree: the Markdown preview of the diff.
 #[prism_macros::command]
 pub async fn agent_file_text(state: State<'_, AppState>, id: String, path: String) -> Cmd<String> {

@@ -172,6 +172,7 @@ fn export_bindings() {
     state::AgentCost::export_all(&cfg).unwrap();
     agents::files::Listing::export_all(&cfg).unwrap();
     agents::files::Diff::export_all(&cfg).unwrap();
+    agents::files::OverlapDiff::export_all(&cfg).unwrap();
     agents::files::Preview::export_all(&cfg).unwrap();
     agents::files::Found::export_all(&cfg).unwrap();
     agents::files::Query::export_all(&cfg).unwrap();
