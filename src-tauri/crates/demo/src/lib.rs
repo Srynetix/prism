@@ -966,8 +966,8 @@ impl Demo {
                     next.push(n);
                     at = n;
                 }
-                let action = qa.map(|a| RoutineAction { prompt: a.prompt.clone(), mode: a.mode.clone(), worktree: a.worktree });
-                RoutineView { name: r.name.clone(), enabled: r.enabled, next, repos: r.targets(qa), error: None, pending: None, action }
+                let action = qa.as_deref().map(RoutineAction::of);
+                RoutineView { name: r.name.clone(), enabled: r.enabled, next, repos: r.targets(qa.as_deref()), error: None, pending: None, action }
             })
             .collect();
         let run = |id: &str, routine: &str, repo: Option<&str>, hours: i64, minutes: i64, state: RoutineRunState, deliver: &str| RoutineRun {

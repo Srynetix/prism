@@ -48,6 +48,13 @@ pub struct RoutineAction {
     pub worktree: bool,
 }
 
+impl RoutineAction {
+    /// What a routine's view says of what it launches.
+    pub fn of(qa: &crate::config::QuickAction) -> Self {
+        Self { prompt: qa.prompt.clone(), mode: qa.mode.clone(), worktree: qa.worktree }
+    }
+}
+
 /// Why a routine waits for trust.
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]

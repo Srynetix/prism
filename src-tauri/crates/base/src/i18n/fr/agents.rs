@@ -134,6 +134,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("routine {name} waits for your trust", "la routine {name} attend votre confiance"),
     ("its run before still goes on ({repo})", "son exécution précédente tourne encore ({repo})"),
     ("{repo} makes no worktrees ([[repos]] worktrees): its quick action asks for one", "{repo} ne fait pas de worktrees ([[repos]] worktrees) : sa quick action en demande un"),
+    ("{repo} makes no worktrees ([[repos]] worktrees): the routine asks for one", "{repo} ne fait pas de worktrees ([[repos]] worktrees) : la routine en demande un"),
     ("archived while it waited: its agent stopped", "archivée pendant qu’elle attendait : son agent est arrêté"),
     ("no such run", "exécution inconnue"),
     ("this routine changed since it was shown: look at it again", "cette routine a changé depuis son affichage : regardez-la de nouveau"),

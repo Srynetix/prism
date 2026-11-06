@@ -33,7 +33,7 @@ export const quickPrompt = (a: QuickAction, repo: { name: string; base: string }
 
 /**
  * Its launch on that repository: a new worktree when it asks for one and the repository makes
- * them, otherwise the clone as it is. Its mode always said (none: `default`, the CLI's own), so the
+ * them, otherwise the clone as it is; its model and effort when it names them. Its mode always said (none: `default`, the CLI's own), so the
  * launcher of a ⇧-click proposes the one a click launches with. `null` without a clone.
  */
 export function quickLaunch(a: QuickAction, repo: { name: string; path: string; base: string } | undefined, worktrees: boolean): Launch | null {
@@ -45,6 +45,8 @@ export function quickLaunch(a: QuickAction, repo: { name: string; path: string; 
     ...placeIn(repo, a.worktree && worktrees),
     permission_mode: a.mode || 'default',
     ...(a.kind ? { category: a.kind } : {}),
+    ...(a.model ? { model: a.model } : {}),
+    ...(a.effort ? { effort: a.effort } : {}),
   }
 }
 
