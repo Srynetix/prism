@@ -52,7 +52,7 @@ pub fn file(family: &str, index: usize) -> anyhow::Result<Vec<u8>> {
 }
 
 fn folders() -> Vec<PathBuf> {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let home = dirs::home_dir();
     let mut out = Vec::new();
     if cfg!(target_os = "macos") {
         out.extend(home.map(|h| h.join("Library/Fonts")));

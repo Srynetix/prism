@@ -140,6 +140,10 @@ pub fn private_dirs() {
                 eprintln!("prism: {} not made private: {e}", dir.display());
             }
         }
+        #[cfg(not(unix))]
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            eprintln!("prism: {} not made: {e}", dir.display());
+        }
     }
 }
 
@@ -286,6 +290,7 @@ pub fn set_start_args(args: &'static [&'static str]) {
     let _ = START_ARGS.set(args);
 }
 
+#[cfg_attr(not(unix), allow(dead_code))]
 fn start_args() -> &'static [&'static str] {
     START_ARGS.get().copied().unwrap_or_default()
 }
@@ -795,6 +800,7 @@ pub fn relaunch(id: &str) -> Result<()> {
 
 /// `[remote] keep_running`: the user's LaunchAgent that keeps profile `id`'s Prism running,
 /// `app.prism.desktop.watch` (`….watch-perso` for another profile).
+#[cfg_attr(not(unix), allow(dead_code))]
 fn watch_label(id: &str) -> String {
     format!("{IDENTIFIER}.{}", service_of("watch", id))
 }
@@ -948,6 +954,7 @@ pub fn keep_running(_on: bool) -> Result<()> {
 
 /// Whether `prism watch` starts Prism: none running, and either the first watch since the computer
 /// started (the login), or a lock left behind (a crash: a Prism that quits removes its lock).
+#[cfg_attr(not(unix), allow(dead_code))]
 fn watch_starts(running: bool, new_boot: bool, lock_left: bool) -> bool {
     !running && (new_boot || lock_left)
 }

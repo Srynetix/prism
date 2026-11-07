@@ -212,6 +212,7 @@ pub fn reopen(app: &AppHandle) {
 
 /// What other launches asked (`prism --profile perso`, the Dock): each profile shown; none named,
 /// the main window.
+#[cfg_attr(not(unix), allow(dead_code))]
 pub fn asked(app: &AppHandle) {
     let ids = profile::take_requests();
     if ids.is_empty() {

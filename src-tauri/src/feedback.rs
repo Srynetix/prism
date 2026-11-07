@@ -84,12 +84,13 @@ pub async fn capture(window: &tauri::WebviewWindow, path: &std::path::Path) -> R
         }
         (thumb, "image/png")
     };
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    let (bytes, mime) = {
-        let _ = (window, path);
-        bail!(tr("the capture of the window is made on macOS and Linux only"))
-    };
     Ok(uri(bytes, mime))
+}
+
+/// Elsewhere (Windows): no capture, the composer says so.
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub async fn capture(_window: &tauri::WebviewWindow, _path: &std::path::Path) -> Result<String> {
+    bail!(tr("the capture of the window is made on macOS and Linux only"))
 }
 
 /// A capture's thumbnail for the composer (640 px at most, PNG), and the picture decoded for the

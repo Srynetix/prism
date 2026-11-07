@@ -34,7 +34,7 @@ pub async fn run(cfg: SystemConfig, agent: String, ctx: BlockCtx) {
     let mut sys = System::new();
     let mut nets = Networks::new_with_refreshed_list();
     let mut disks = Disks::new_with_refreshed_list();
-    let home = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default();
+    let home = dirs::home_dir().unwrap_or_default();
     let mut last_net = Instant::now();
     let machine = machine(&mut sys);
     let mut history = Points::default();
@@ -411,7 +411,7 @@ mod tests {
     fn this_machines_disks() {
         let disks = Disks::new_with_refreshed_list();
         let all: Vec<Disk> = disks.list().iter().map(|d| Disk { name: d.name().to_string_lossy().into_owned(), mount: d.mount_point().display().to_string(), total: d.total_space(), available: d.available_space(), removable: d.is_removable() }).collect();
-        let home = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default();
+        let home = dirs::home_dir().unwrap_or_default();
         for d in shown(all, &home) {
             println!("{} {} {} GB free of {} GB", d.name, d.mount, d.available >> 30, d.total >> 30);
         }

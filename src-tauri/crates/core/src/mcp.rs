@@ -25,12 +25,22 @@ pub fn socket_path() -> PathBuf {
     socket_for(&crate::profile::data_dir(&crate::profile::data_base()).join("mcp.sock"))
 }
 
+/// On Windows, the named pipe in its place: named after the profile's data folder, as a long
+/// socket path is (`socket_for`), so that each profile has its own.
+pub fn pipe_name() -> String {
+    format!(r"\\.\pipe\prism-mcp-{:016x}", fnv(&crate::profile::data_dir(&crate::profile::data_base()).join("mcp.sock")))
+}
+
+/// FNV-1a: the same short name for the same path, in both processes.
+fn fnv(path: &Path) -> u64 {
+    path.as_os_str().as_encoded_bytes().iter().fold(0xcbf29ce484222325u64, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x100000001b3))
+}
+
 fn socket_for(preferred: &Path) -> PathBuf {
     if preferred.as_os_str().len() < 100 {
         return preferred.to_path_buf();
     }
-    // FNV-1a: the same short name for the same folder, in both processes.
-    let hash = preferred.as_os_str().as_encoded_bytes().iter().fold(0xcbf29ce484222325u64, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x100000001b3));
+    let hash = fnv(preferred);
     let base = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).filter(|d| d.is_dir()).unwrap_or_else(std::env::temp_dir);
     // A folder of this account's in it (`/tmp` is everyone's): checked as it is used (`private_dir`).
     base.join(format!("prism-{}", uid())).join(format!("mcp-{hash:016x}.sock"))
@@ -50,6 +60,8 @@ fn uid() -> u32 {
 /// account's that no one else may enter: another account cannot have put it there first.
 pub fn private_dir(socket: &Path) -> Result<()> {
     let dir = socket.parent().context("the socket's folder")?;
+    #[cfg(not(unix))]
+    let _ = dir;
     #[cfg(unix)]
     {
         use std::os::unix::fs::{DirBuilderExt, MetadataExt};
@@ -65,14 +77,12 @@ pub fn private_dir(socket: &Path) -> Result<()> {
 }
 
 /// The socket at `path` is this account's: `prism mcp` never talks to another's.
+#[cfg(unix)]
 pub fn owned_socket(path: &Path) -> Result<()> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        private_dir(path)?;
-        let meta = std::fs::symlink_metadata(path).with_context(|| format!("no {}", path.display()))?;
-        anyhow::ensure!(meta.uid() == uid(), "{}: another account's socket", path.display());
-    }
+    use std::os::unix::fs::MetadataExt;
+    private_dir(path)?;
+    let meta = std::fs::symlink_metadata(path).with_context(|| format!("no {}", path.display()))?;
+    anyhow::ensure!(meta.uid() == uid(), "{}: another account's socket", path.display());
     Ok(())
 }
 
@@ -226,6 +236,8 @@ pub struct Proposal {
 
 /// `path` names a file that may be written by the owner only.
 pub fn owner_only(path: &Path) -> Result<()> {
+    #[cfg(not(unix))]
+    let _ = path;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

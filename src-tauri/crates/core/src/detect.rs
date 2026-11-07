@@ -321,15 +321,38 @@ async fn kube_contexts() -> Option<Vec<String>> {
     Some(out.filter(|o| o.status.success()).map(|o| String::from_utf8_lossy(&o.stdout).lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect()).unwrap_or_default())
 }
 
-/// A program in the PATH (the login shell's, as Prism reads it at launch).
+/// A program in the PATH (the login shell's, as Prism reads it at launch). On Windows, with the
+/// extensions of `PATHEXT` (`git` is `git.exe`).
 pub fn which(program: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path).map(|d| d.join(program)).find(|p| p.is_file())
+    let names = names(program, cfg!(windows).then(|| std::env::var("PATHEXT").ok()).flatten().as_deref(), cfg!(windows));
+    std::env::split_paths(&path).find_map(|d| names.iter().map(|n| d.join(n)).find(|p| p.is_file()))
+}
+
+/// The file names `program` goes by in a folder of the PATH: itself; on Windows, itself with each
+/// extension of `PATHEXT` first (by default `.COM;.EXE;.BAT;.CMD`), and itself alone only when it
+/// has one already (`git.exe`).
+fn names(program: &str, pathext: Option<&str>, windows: bool) -> Vec<String> {
+    if !windows {
+        return vec![program.to_string()];
+    }
+    let mut names: Vec<String> = pathext.unwrap_or(".COM;.EXE;.BAT;.CMD").split(';').map(str::trim).filter(|e| e.starts_with('.')).map(|e| format!("{program}{}", e.to_ascii_lowercase())).collect();
+    if Path::new(program).extension().is_some() {
+        names.insert(0, program.to_string());
+    }
+    names
 }
 
 /// Obsidian's vaults, from its own settings (`obsidian.json`), the most recently opened first.
 fn obsidian_vaults(home: &Path) -> Vec<String> {
-    let file = if cfg!(target_os = "macos") { home.join("Library/Application Support/obsidian/obsidian.json") } else { home.join(".config/obsidian/obsidian.json") };
+    let file = if cfg!(target_os = "macos") {
+        home.join("Library/Application Support/obsidian/obsidian.json")
+    } else if cfg!(windows) {
+        // `%APPDATA%\obsidian`.
+        dirs::config_dir().unwrap_or_default().join("obsidian/obsidian.json")
+    } else {
+        home.join(".config/obsidian/obsidian.json")
+    };
     std::fs::read_to_string(file).map(|text| vaults_of(&text, home)).unwrap_or_default()
 }
 
@@ -344,6 +367,8 @@ pub fn vaults_of(text: &str, home: &Path) -> Vec<String> {
 /// `~/…` under the home folder, as config.toml writes it.
 pub fn tilde(home: &Path, p: &Path) -> String {
     match p.strip_prefix(home) {
+        // `/` on Windows too: config.toml is the same file everywhere.
+        Ok(rest) if !home.as_os_str().is_empty() && cfg!(windows) => format!("~/{}", rest.display()).replace('\\', "/"),
         Ok(rest) if !home.as_os_str().is_empty() => format!("~/{}", rest.display()),
         _ => p.display().to_string(),
     }
@@ -351,6 +376,15 @@ pub fn tilde(home: &Path, p: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
+    /// A program in the PATH: as is, or on Windows with `PATHEXT`'s extensions.
+    #[test]
+    fn a_program_has_its_windows_names() {
+        assert_eq!(super::names("git", Some(".COM;.EXE"), false), ["git"]);
+        assert_eq!(super::names("git", Some(".COM;.EXE;;.CMD"), true), ["git.com", "git.exe", "git.cmd"]);
+        assert_eq!(super::names("claude", None, true), ["claude.com", "claude.exe", "claude.bat", "claude.cmd"]);
+        assert_eq!(super::names("git.exe", Some(".EXE"), true), ["git.exe", "git.exe.exe"]);
+    }
+
     use super::*;
 
     #[test]

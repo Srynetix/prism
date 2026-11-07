@@ -48,7 +48,7 @@ pub struct Ran {
 }
 
 impl Ran {
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub fn ok(&self) -> bool {
         self.code == Some(0) && !self.timed_out
     }

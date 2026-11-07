@@ -2,7 +2,8 @@
 //! YouTube, Music…), and its commands. macOS: MediaRemote through osascript (`macos.rs`, a JXA
 //! script — MediaRemote no longer answers third-party apps since macOS 15.4); Linux: MPRIS
 //! through `playerctl` (`linux.rs`). Either writes a line on each change; the loop below
-//! relaunches it, and the window is told through the `now-playing` event.
+//! relaunches it, and the window is told through the `now-playing` event. Not elsewhere (Windows).
+#![cfg_attr(not(any(target_os = "macos", target_os = "linux")), allow(dead_code))]
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -67,6 +68,8 @@ async fn watch(app: &AppHandle, latest: &Latest) -> Result<()> {
     return macos::watch(app, latest).await;
     #[cfg(target_os = "linux")]
     return linux::watch(app, latest).await;
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    let _ = (app, latest);
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     return Err(anyhow::anyhow!("Now Playing reads macOS and Linux's players only"));
 }

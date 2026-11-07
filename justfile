@@ -84,6 +84,10 @@ linux *args:
 linux-desktop *args:
     scripts/linux-desktop.sh {{args}}
 
+# Checks that Prism compiles for Windows, from this computer (cargo xwin; scripts/windows-check.sh --help)
+windows-check *args:
+    {{no_extra}}scripts/windows-check.sh {{args}}
+
 # Prints the changelog since the previous release, the notes `just release` publishes
 changelog *args:
     scripts/changelog.sh {{args}}

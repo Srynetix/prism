@@ -72,7 +72,7 @@ impl Agents {
         };
         let key = shell_key(&id, n);
         if tmux.pane(&key).await?.is_none() {
-            let home = std::env::var_os("HOME").map_or_else(|| PathBuf::from("/"), PathBuf::from);
+            let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
             tmux.new_session(&key, &home, &[], &argv).await?;
             tmux.end_with_program(&key).await?;
             // Its fingerprint does not say which pod: `open_shells` reads it here.

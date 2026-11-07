@@ -104,6 +104,7 @@ of your system.
 just install   # frontend dependencies and the Tauri CLI
 just dev       # the app, with hot reload
 just build     # a release bundle: Prism.app, .deb + AppImage, or the Windows installer
+just windows-check  # that it compiles for Windows, from macOS or Linux (cargo-xwin)
 ```
 
 At first launch, Prism greets you and asks where to start: an empty profile, your team's pack, or
