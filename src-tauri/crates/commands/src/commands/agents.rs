@@ -671,8 +671,8 @@ pub fn aside_then(state: State<'_, AppState>, id: u64, from_branch: bool) -> Cmd
 }
 
 /// A task flagged in passing made a ticket of the tracker: on the board of its repository (failing
-/// that, the first of the sprint's), in its first status to pick; its tldr and prompt in a comment.
-/// Its key.
+/// that, the first of the sprint's), in its first status to pick; its tldr, prompt and origin as
+/// its description. Its key.
 #[prism_macros::command]
 pub async fn aside_ticket(state: State<'_, AppState>, id: u64) -> Cmd<String> {
     // Claimed first: a second click (here or on a phone) meanwhile makes no second ticket.
@@ -696,15 +696,17 @@ async fn make_ticket(state: &AppState, a: &crate::state::Aside) -> anyhow::Resul
         let status = open.iter().find(|s| pick.contains(&s.status)).or(open.first()).map(|s| s.status.clone()).unwrap_or_default();
         (board.id, status)
     };
-    let tracker = state.tracker();
-    let key = tracker.create(&state.hub, &board, &status, &a.title).await?;
+    let new = crate::collectors::tracker::NewTicket { board, status, title: a.title.clone(), description: aside_description(a), assign_me: false };
+    let key = state.tracker().create(&state.hub, &new).await?;
+    Ok(key)
+}
+
+/// What a task flagged in passing says as a ticket: its tldr, who spotted it, the prompt for the
+/// agent that does it, the files it touches.
+fn aside_description(a: &crate::state::Aside) -> String {
     let by = a.seen.iter().map(|s| s.name.as_str()).collect::<Vec<_>>().join(", ");
     let files = if a.files.is_empty() { String::new() } else { format!("\n\n{}: {}", tr("Files"), a.files.join(", ")) };
-    let text = format!("{}\n\n{}\n\n{}{files}", a.tldr, tr!("Spotted in passing by {agents}. The prompt for the agent that does it:", agents = by), a.prompt);
-    if let Err(e) = tracker.add_comment(&state.hub, &key, &text, &[]).await {
-        tracing::warn!("aside: the ticket {key} has no description: {e:#}");
-    }
-    Ok(key)
+    format!("{}\n\n{}\n\n{}{files}", a.tldr, tr!("Spotted in passing by {agents}. The prompt for the agent that does it:", agents = by), a.prompt)
 }
 
 /// An answer to an agent's chain: `skip` its held step, `stop` it, `forget` it.

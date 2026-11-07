@@ -36,7 +36,7 @@ impl Provider {
                 comment_edit: true,
                 mentions: true,
                 add_to_sprint: true,
-                create: false,
+                create: true,
             },
             // The open cards of its boards, as the sprint and To pick: moved between lanes,
             // prioritized, commented.

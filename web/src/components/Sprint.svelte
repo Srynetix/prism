@@ -1,8 +1,6 @@
 <script lang="ts">
   import { t as tr, tc, tn } from '../i18n.svelte'
   import { dateFormat } from '../locale'
-  import { hasCore, invoke } from '../bridge'
-  import { conventions } from '../conventions'
   import { offers, onObsidian, ticketKey, trackerLogo } from '../tracker'
   import BlockControls from './BlockControls.svelte'
   import RefreshTickets from './RefreshTickets.svelte'
@@ -10,7 +8,7 @@
   import { trackerOn } from '../live.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import TaskType from './TaskType.svelte'
-  import { openTicket, previewClick } from '../ticket-view.svelte'
+  import { previewClick } from '../ticket-view.svelte'
   import Logo from './Logo.svelte'
   import type { OutsideSprint, Person, Snapshot, Sprint, StatusOption, Ticket } from '../types'
   import { isDone, statusColor, statusRank } from '../rules'
@@ -18,6 +16,8 @@
   import TicketList from './TicketList.svelte'
   import ActionMenu, { type MenuSection } from './ActionMenu.svelte'
   import Icon from './Icon.svelte'
+  import NewTicketForm from './NewTicketForm.svelte'
+  import { ticketBoards } from '../new-ticket.svelte'
   import { ticketStep } from '../ticket-step'
   let {
     sprint, next = null, outside, me, filtered = false, full,
@@ -102,39 +102,9 @@
       ],
     },
   ])
-  /**
-   * A new card (Obsidian), from the header's +: on one of the boards, in one of its open lanes
-   * (the first Ready one by default), then opened.
-   */
-  const boardList = $derived(sprint?.boards ?? [])
-  const canCreate = $derived(hasCore() && offers('create') && boardList.length > 0)
+  /** A new ticket, from the header's +: the form under it (`NewTicketForm`). */
+  const canCreate = $derived(ticketBoards().length > 0)
   let creating = $state(false)
-  let newBoard = $state('')
-  let newStatus = $state('')
-  let newTitle = $state('')
-  let saving = $state(false)
-  let createError = $state('')
-  const newLanes = $derived((boardList.find((b) => b.id === newBoard) ?? boardList[0])?.statuses.filter((s) => !s.closed) ?? [])
-  $effect(() => {
-    if (!newBoard && boardList.length) newBoard = boardList[0].id
-  })
-  $effect(() => {
-    if (!newLanes.some((s) => s.status === newStatus)) newStatus = (newLanes.find((s) => conventions().pick_statuses?.includes(s.status)) ?? newLanes[0])?.status ?? ''
-  })
-  async function create() {
-    saving = true
-    createError = ''
-    try {
-      const key = await invoke<string>('create_ticket', { board: newBoard || boardList[0].id, status: newStatus, title: newTitle })
-      newTitle = ''
-      creating = false
-      if (key) openTicket(key)
-    } catch (e) {
-      createError = String(e)
-    } finally {
-      saving = false
-    }
-  }
 
   /** Obsidian: the sprint is the open cards of several boards, one per repository. */
   const boards = $derived(new Set((sprint?.tickets ?? []).map((t) => t.list?.id ?? '')).size)
@@ -173,21 +143,12 @@
       {/if}
       {#if sprint.url}<a class="wide" href={sprint.url} target="_blank" rel="noreferrer">{tr('Board')} <Icon name="external" /></a>{/if}
     {/if}
-    {#if canCreate && !onNext}<button class="new" class:on={creating} onclick={() => (creating = !creating)} title={tr('New card')} aria-label={tr('New card')} aria-expanded={creating}><Icon name="plus" /></button>{/if}
+    {#if canCreate && !onNext}<button class="new" class:on={creating} onclick={() => (creating = !creating)} title={tr('New ticket')} aria-label={tr('New ticket')} aria-expanded={creating}><Icon name="plus" /></button>{/if}
     <RefreshTickets />
     {#if (onNext ? next?.url : sprint)}<span class="narrow"><ActionMenu sections={more} label={onNext ? tr('More on the next sprint') : tr('More on this sprint')} /></span>{/if}
     <BlockControls id="sprint" />
   </h2>
-  {#if creating && canCreate && !onNext}
-    <form class="create" onsubmit={(e) => { e.preventDefault(); void create() }}>
-      {#if boardList.length > 1}<select bind:value={newBoard} aria-label={tr('Board')}>{#each boardList as b (b.id)}<option value={b.id}>{b.name}</option>{/each}</select>{/if}
-      <select bind:value={newStatus} aria-label={tr('Lane')}>{#each newLanes as s (s.status)}<option value={s.status}>{s.status}</option>{/each}</select>
-      <!-- svelte-ignore a11y_autofocus -->
-      <input bind:value={newTitle} placeholder={tr('Title of the new card')} aria-label={tr('Title')} autofocus onkeydown={(e) => e.key === 'Escape' && (creating = false)} />
-      <button type="submit" disabled={saving || !newTitle.trim()}>{saving ? '…' : tr('Create')}</button>
-      {#if createError}<span class="err" title={createError}>{createError}</span>{/if}
-    </form>
-  {/if}
+  {#if creating && canCreate && !onNext}<NewTicketForm onclose={() => (creating = false)} />{/if}
   {#if onNext && next}
     <!-- Next tab: the next sprint, its dates and all its tickets. -->
     <div class="sub narrow">
@@ -242,9 +203,6 @@
   .blocked-pill { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 0 7px; border-radius: var(--r9); background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); font-size: var(--fs-tag); font-weight: 500; line-height: 17px; white-space: nowrap; }
   .new { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: 14px; cursor: pointer; }
   .new:hover, .new.on { background: var(--surface-muted); color: var(--text); }
-  .create { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border); }
-  .create input { flex: 1 1 160px; min-width: 0; }
-  .create .err { flex-basis: 100%; color: var(--ko); font-size: var(--fs-tag); }
   section { container-type: inline-size; }
   .grow { flex: 1; }
   .tabs { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }

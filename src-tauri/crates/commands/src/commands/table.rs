@@ -245,7 +245,7 @@ commands! {
     tracker::add_ticket_comment: Act [phone: state, task_id: String, text: String, mentions: Option<Vec<crate::collectors::task_view::Mention>>],
     tracker::edit_ticket_comment: Act [phone: state, task_id: String, comment: String, text: String, mentions: Option<Vec<crate::collectors::task_view::Mention>>],
     tracker::add_to_sprint: Act [phone: state, task_id: String],
-    tracker::create_ticket: Act [phone: state, board: String, status: String, title: String],
+    tracker::create_ticket: Act [phone: state, board: String, status: String, title: String, description: Option<String>, assign_me: Option<bool>],
     tracker::log_time: Act [phone: state, entry: crate::collectors::time::NewEntry],
     tracker::update_time: Act [phone: state, id: String, entry: crate::collectors::time::NewEntry],
     tracker::delete_time: Act [phone: state, id: String],

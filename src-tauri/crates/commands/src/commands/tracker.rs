@@ -90,10 +90,12 @@ pub async fn ticket_members(state: State<'_, AppState>, list: String) -> Cmd<Vec
     state.tracker().members(&list).await.map_err(Into::into)
 }
 
-/// A new ticket on one of the sprint's boards (Obsidian); returns its key, to open it.
+/// A new ticket on one of the sprint's boards, its description in Markdown, assigned to me if
+/// asked; returns its key, to open it.
 #[prism_macros::command]
-pub async fn create_ticket(state: State<'_, AppState>, board: String, status: String, title: String) -> Cmd<String> {
-    state.tracker().create(&state.hub, &board, &status, &title).await.map_err(Into::into)
+pub async fn create_ticket(state: State<'_, AppState>, board: String, status: String, title: String, description: Option<String>, assign_me: Option<bool>) -> Cmd<String> {
+    let new = crate::collectors::tracker::NewTicket { board, status, title, description: description.unwrap_or_default(), assign_me: assign_me.unwrap_or(false) };
+    state.tracker().create(&state.hub, &new).await.map_err(Into::into)
 }
 
 /// Edit of one of my comments on a ticket.

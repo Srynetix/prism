@@ -14,7 +14,7 @@ use serde::{de::DeserializeOwned, Deserialize};
 use crate::{
     http::encode,
     config::ClickupConfig,
-    state::{Board, Dependency, Hub, ListRef, OutsideSprint, Person, PickBoard, Pickup, QuarterBoard, Refinement, Sprint, StatusOption, Ticket},
+    state::{Board, Dependency, Hub, ListRef, OutsideSprint, Person, PickBoard, Pickup, QuarterBoard, Refinement, Sprint, SprintBoard, StatusOption, Ticket},
 };
 
 mod actions;
@@ -615,7 +615,7 @@ async fn collect(api: &Api, lists: &Lists) -> Result<Collected> {
             url: l.url.clone(),
             tickets: tasks(api, &l.id, true, true).await?,
             statuses: lists.statuses.get(&l.id).cloned().unwrap_or_default(),
-            boards: Vec::new(),
+            boards: sprint_boards(lists),
         }))
     };
     // Tasks to log time on (`time` boards), with their subtasks: time-tracking entries in their own
@@ -661,6 +661,22 @@ async fn next_sprint(api: &Api, lists: &Lists) -> Result<Option<Sprint>> {
         statuses: lists.statuses.get(&l.id).cloned().unwrap_or_default(),
         boards: Vec::new(),
     }))
+}
+
+/// Where a ticket can be created: the current sprint's list first, then the lists of the
+/// `[[clickup.boards]]` (a folder's each named after it), those whose statuses are known.
+fn sprint_boards(lists: &Lists) -> Vec<SprintBoard> {
+    let sprint = lists.sprint.iter().map(|l| (l.id.as_str(), l.name.clone()));
+    let boards = lists.boards.iter().flat_map(|b| {
+        let several = b.lists.len() > 1;
+        b.lists.iter().map(move |l| (l.id.as_str(), if several { format!("{} · {}", b.cfg.name, l.name) } else { b.cfg.name.clone() }))
+    });
+    let mut seen = std::collections::HashSet::new();
+    sprint
+        .chain(boards)
+        .filter(|(id, _)| seen.insert(*id))
+        .filter_map(|(id, name)| lists.statuses.get(id).filter(|s| !s.is_empty()).map(|statuses| SprintBoard { id: id.to_string(), name, statuses: statuses.clone() }))
+        .collect()
 }
 
 /// The boards read for To pick and Sync, and the next sprint, subtasks included. A `sync` board
@@ -1058,6 +1074,26 @@ impl From<RawTask> for Ticket {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Where to create: the sprint's list, then each board's lists (a folder's named after it),
+    /// once each, only those whose statuses are known.
+    #[test]
+    fn the_sprint_offers_its_list_and_the_boards() {
+        let st = |name: &str| vec![StatusOption { status: name.into(), color: None, closed: false }];
+        let list = |id: &str, name: &str| BoardList { id: id.into(), name: name.into(), url: String::new(), key: None };
+        let board = |name: &str, lists: Vec<BoardList>| FoundBoard { cfg: toml::from_str(&format!("name = {name:?}")).unwrap(), lists };
+        let lists = Lists {
+            sprint: Some(SprintList { id: "s1".into(), name: "Sprint 42".into(), url: String::new(), start: None, end: None }),
+            next: None,
+            boards: vec![board("Bugs", vec![list("b1", "Bugs")]), board("Roadmap", vec![list("q4", "Q4 2026"), list("q1", "Q1 2027")]), board("Gone", vec![list("x", "X")]), board("Sprint again", vec![list("s1", "Sprint 42")])],
+            statuses: [("s1", "to do"), ("b1", "open"), ("q4", "idea"), ("q1", "idea")].into_iter().map(|(id, s)| (id.to_string(), st(s))).collect(),
+            team: None,
+            spaces: Vec::new(),
+        };
+        let got: Vec<(String, String)> = sprint_boards(&lists).into_iter().map(|b| (b.id, b.name)).collect();
+        let want = [("s1", "Sprint 42"), ("b1", "Bugs"), ("q4", "Roadmap · Q4 2026"), ("q1", "Roadmap · Q1 2027")];
+        assert_eq!(got, want.map(|(a, b)| (a.to_string(), b.to_string())));
+    }
 
     #[test]
     fn an_assignee_keeps_their_https_profile_picture() {

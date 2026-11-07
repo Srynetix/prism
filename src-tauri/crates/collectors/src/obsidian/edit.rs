@@ -174,8 +174,8 @@ pub(super) fn next_id<'a>(names: impl IntoIterator<Item = &'a str>) -> Option<St
 
 /// A new note shaped as `template` (another note of the board): its frontmatter keys in its order,
 /// `fields` filled and the others empty (`[]` for a list), then its title and its `##` sections,
-/// empty. Without a template, the fields and the title.
-pub(super) fn new_note(template: Option<&str>, fields: &[(&str, String)], title: &str) -> String {
+/// empty. Without a template, the fields and the title. `description`, if any, right under the title.
+pub(super) fn new_note(template: Option<&str>, fields: &[(&str, String)], title: &str, description: &str) -> String {
     let (keys, sections): (Vec<String>, Vec<String>) = match template {
         Some(t) => {
             let (front, body) = super::frontmatter(t);
@@ -201,6 +201,10 @@ pub(super) fn new_note(template: Option<&str>, fields: &[(&str, String)], title:
     lines.extend(fields.iter().filter(|(f, _)| !written.contains(f)).map(|(f, v)| format!("{f}: {v}")));
     lines.push("---".into());
     lines.push(format!("# {title}"));
+    let description = description.trim();
+    if !description.is_empty() {
+        lines.extend([String::new(), description.to_string()]);
+    }
     for s in sections {
         lines.extend([String::new(), s]);
     }
@@ -392,8 +396,9 @@ mod tests {
     fn new_notes_follow_a_template() {
         let template = "---\nid: T-1\ntitle: Old\ntype: bug\ncreated: 2026-01-01\nstatus: done\ntags: [a, b]\n---\n# Old\n\n## Context\n\ntext\n\n## Comments\n\n- **x** y\n";
         let fields = [("id", "T-2".to_string()), ("title", "New".to_string()), ("created", "2026-10-11".to_string()), ("status", "todo".to_string())];
-        assert_eq!(new_note(Some(template), &fields, "New"), "---\nid: T-2\ntitle: New\ntype:\ncreated: 2026-10-11\nstatus: todo\ntags: []\n---\n# New\n\n## Context\n");
-        assert_eq!(new_note(None, &fields[..2], "New"), "---\nid: T-2\ntitle: New\n---\n# New\n");
+        assert_eq!(new_note(Some(template), &fields, "New", ""), "---\nid: T-2\ntitle: New\ntype:\ncreated: 2026-10-11\nstatus: todo\ntags: []\n---\n# New\n\n## Context\n");
+        assert_eq!(new_note(None, &fields[..2], "New", ""), "---\nid: T-2\ntitle: New\n---\n# New\n");
+        assert_eq!(new_note(Some(template), &fields[..2], "New", "Why.\n\n- a\n"), "---\nid: T-2\ntitle: New\ntype:\ncreated:\nstatus:\ntags: []\n---\n# New\n\nWhy.\n\n- a\n\n## Context\n");
     }
 
     #[test]

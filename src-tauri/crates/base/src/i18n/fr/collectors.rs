@@ -29,7 +29,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("ClickUp workspace not resolved yet", "espace de travail ClickUp pas encore résolu"),
     ("Command Code API key rejected: run cmd login", "clé d’API Command Code refusée : lancez cmd login"),
     ("comment not found on this ticket", "commentaire introuvable sur ce ticket"),
-    ("creating ClickUp tickets is not offered yet", "la création de tickets ClickUp n’est pas encore proposée"),
     ("duration must be between 1 minute and 24 hours", "la durée doit être comprise entre 1 minute et 24 heures"),
     ("empty comment", "commentaire vide"),
     ("event not found (moved or deleted?)", "événement introuvable (déplacé ou supprimé ?)"),
