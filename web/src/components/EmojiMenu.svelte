@@ -80,6 +80,6 @@
   button { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 3px 8px; border: none; border-radius: 6px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
   button.on { background: var(--surface-muted); }
   .e { width: 1.4em; text-align: center; font-size: 15px; }
-  .name { font-family: var(--font-mono, monospace); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name { font-family: var(--mono); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   button.on .name { color: var(--text); }
 </style>

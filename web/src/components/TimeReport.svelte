@@ -161,7 +161,7 @@
   .link { padding: 0; border: none; background: none; color: inherit; font: inherit; text-decoration: underline dotted; cursor: pointer; }
   .link:hover { color: var(--text); }
   .muted { color: var(--text-muted); }
-  .mono { font-family: var(--font-mono); }
+  .mono { font-family: var(--mono); }
   a.mono { color: var(--info); text-decoration: none; }
   td.name a.mono { margin-right: 6px; }
   a.mono:hover { text-decoration: underline; }
@@ -174,7 +174,7 @@
   th.name, td.name { text-align: left; padding-left: 12px; }
   td.name { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
   th:last-child, td:last-child { padding-right: 12px; }
-  .num { text-align: right; font-family: var(--font-mono); }
+  .num { text-align: right; font-family: var(--mono); }
   .strong { color: var(--text); font-weight: 500; }
   .off { background: color-mix(in srgb, var(--surface-muted) 60%, transparent); }
   .day { padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; }

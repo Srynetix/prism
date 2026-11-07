@@ -98,7 +98,7 @@
   .wait { padding: 7px 12px; color: var(--text-muted); font-size: var(--fs-meta, 12px); }
   button { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto; align-items: baseline; gap: 10px; width: 100%; padding: 5px 8px; border: none; border-radius: 6px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
   button.on { background: var(--surface-muted); }
-  .name { font-family: var(--font-mono, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name { font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hint { color: var(--text-muted); }
   .desc { color: var(--text-muted); font-size: var(--fs-meta, 12px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .src { color: var(--info); font-size: var(--fs-tag, 11px); white-space: nowrap; }

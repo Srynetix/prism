@@ -185,19 +185,19 @@
   .what { color: var(--text); font-weight: 600; }
   .grow { flex: 1; }
   .muted { color: var(--text-muted); }
-  .mono { font-family: var(--font-mono); }
+  .mono { font-family: var(--mono); }
   .icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
   .icon:hover:not(:disabled) { background: var(--surface-muted); color: var(--text); }
   .icon:disabled { opacity: 0.4; cursor: default; }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; font-size: var(--fs-body); }
   blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--surface-muted); border-radius: var(--r6); font-style: italic; }
   .file { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; font-size: var(--fs-meta); }
-  .code { margin: 0; padding: 6px 0; overflow: auto; max-height: 52vh; font-family: var(--font-mono); font-size: var(--fs-code, 12px); line-height: 1.45; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); }
+  .code { margin: 0; padding: 6px 0; overflow: auto; max-height: 52vh; font-family: var(--mono); font-size: var(--fs-mono); line-height: 1.45; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); }
   .code span { display: inline-block; min-width: 100%; padding: 0 10px; box-sizing: border-box; white-space: pre; }
   .code .add { background: var(--ok-bg); }
   .code .del { background: var(--ko-bg); }
   .code .gap { color: var(--text-muted); }
-  .edit { width: 100%; box-sizing: border-box; font: inherit; font-family: var(--font-mono); font-size: var(--fs-code, 12px); line-height: 1.45; background: var(--surface-muted); color: var(--text); border: 1px solid var(--border); border-radius: var(--r6); padding: 8px 10px; resize: vertical; }
+  .edit { width: 100%; box-sizing: border-box; font: inherit; font-family: var(--mono); font-size: var(--fs-mono); line-height: 1.45; background: var(--surface-muted); color: var(--text); border: 1px solid var(--border); border-radius: var(--r6); padding: 8px 10px; resize: vertical; }
   .checks { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 4px; }
   .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--r9); background: var(--surface-muted); font-size: var(--fs-tag); }
   .chip.ok { color: var(--ok); background: var(--ok-bg); }

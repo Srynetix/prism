@@ -64,7 +64,7 @@ const theme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 6px 0 8px', minWidth: '32px', opacity: '0.7' },
   '.cm-foldGutter .cm-gutterElement': { padding: '0 2px', opacity: '0.6', cursor: 'pointer' },
   '.cm-foldPlaceholder': { backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '4px', padding: '0 4px' },
-  '.cm-matchingBracket': { backgroundColor: 'transparent', outline: '1px solid var(--border-strong, var(--border))', borderRadius: '2px' },
+  '.cm-matchingBracket': { backgroundColor: 'transparent', outline: '1px solid var(--border)', borderRadius: '2px' },
   '.cm-nonmatchingBracket': { color: 'var(--ko)' },
   '.cm-searchMatch': { backgroundColor: 'color-mix(in srgb, var(--warn) 30%, transparent)', borderRadius: '2px' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'color-mix(in srgb, var(--warn) 60%, transparent)' },
@@ -123,7 +123,8 @@ const PHRASES: Record<string, Record<string, string>> = {
   },
 }
 
-const sizeTheme = (px: number) => EditorView.theme({ '.cm-scroller': { fontSize: `${px}px` } })
+/** The text's size, in px (`[files] font_size`). */
+export const sizeTheme =(px: number) => EditorView.theme({ '.cm-scroller': { fontSize: `${px}px` } })
 
 let vimExt: Extension | null = null
 /** Vim's keys, loaded the first time they are asked for. */

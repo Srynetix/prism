@@ -82,6 +82,8 @@ const inputs = (mode: string): Record<string, string> =>
 // Vite serves the frontend during `tauri dev`; in a build, Tauri bundles `dist/`.
 export default defineConfig(({ mode }) => ({
   plugins: [svelte(), noDevSnapshot],
+  // Tests read the stylesheets as written (`?raw`): vitest otherwise gives it empty.
+  test: { css: { include: [/\.css\b/] } },
   resolve: {
     alias: {
       '$extra-blocks': extra ?? fileURLToPath(new URL('src/blocks/extra-none.ts', import.meta.url)),

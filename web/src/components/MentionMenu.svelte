@@ -99,7 +99,7 @@
   .av.pic { background: none; }
   .av img { width: 100%; height: 100%; object-fit: cover; }
   .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .handle { font-family: var(--font-mono, monospace); font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .handle { font-family: var(--mono); font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .here { margin-left: auto; flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
   hr { margin: 3px 4px; border: none; border-top: 1px solid var(--border); }
   .muted { margin: 0; padding: 3px 8px; color: var(--text-muted); font-size: 12px; }

@@ -81,9 +81,11 @@ export const bufferOf = (agent: string, path: string) => buffers.get(keyOf(agent
 /* ---------- Settings ---------- */
 
 export const filesSettings = () => live.snapshot?.files ?? { vim: false, wrap: false, font_size: 11.5, live_reload: true, search_max: 2000 }
+/** The editor's text size (`[files] font_size`): the Files tab's, and a custom block's script. */
+export const filesFontSize = () => filesSettings().font_size || 11.5
 function prefsFor(key: string): EditorPrefs {
   const s = filesSettings()
-  return { vim: s.vim, wrap: s.wrap, fontSize: s.font_size || 11.5, readOnly: !isDesktop() && !metas[key]?.editing }
+  return { vim: s.vim, wrap: s.wrap, fontSize: filesFontSize(), readOnly: !isDesktop() && !metas[key]?.editing }
 }
 
 /** Every editor shown brought to the settings as they are now (a setting changed). */

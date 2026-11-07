@@ -375,7 +375,7 @@
   .ko { color: var(--ko); }
   .trust { border-color: var(--warn); }
   .th { display: flex; gap: 6px; align-items: baseline; }
-  .diff { margin: 6px 0; padding: 6px 8px; border-radius: var(--r6); background: var(--surface-2, rgba(127, 127, 127, 0.08)); font-family: var(--mono); font-size: var(--fs-mono); white-space: pre-wrap; }
+  .diff { margin: 6px 0; padding: 6px 8px; border-radius: var(--r6); background: rgba(127, 127, 127, 0.08); font-family: var(--mono); font-size: var(--fs-mono); white-space: pre-wrap; }
   .diff .add { color: var(--ok); }
   .diff .del { color: var(--ko); }
   .list .head, .list .line { display: grid; grid-template-columns: 28px minmax(110px, 1fr) minmax(110px, 1.2fr) minmax(150px, 1.6fr) 80px minmax(90px, 0.8fr) auto; gap: 8px; align-items: center; padding: 4px 0; }

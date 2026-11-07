@@ -1,13 +1,15 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import { EditorState } from '@codemirror/state'
   import { EditorView } from '@codemirror/view'
-  import { baseExtensions, compartments } from '../../editor/setup'
+  import { baseExtensions, compartments, sizeTheme } from '../../editor/setup'
+  import { filesFontSize } from '../../files-editor.svelte'
   import { languageOf } from '../../editor/languages'
 
   /**
    * A custom block's script, in the Files tab's editor (CodeMirror): colored by its shebang
-   * (python, node, deno, bash…; sh without one). `value` follows what is typed; set from outside
+   * (python, node, deno, bash…; sh without one), in its font and size (`[appearance] font_mono`,
+   * `[files] font_size`). `value` follows what is typed; set from outside
    * (a template, an agent's draft), the editor takes it.
    */
   let { value = $bindable(''), label }: { value: string; label: string } = $props()
@@ -15,6 +17,10 @@
   let host: HTMLDivElement | undefined = $state()
   let view: EditorView | undefined
   let lang = ''
+  /** The size the editor has. */
+  let made = 0
+  /** The Files tab's text size. */
+  const size = $derived(filesFontSize())
 
   /** The file name whose language the shebang gives. */
   function pathOf(text: string): string {
@@ -40,7 +46,7 @@
       parent: host,
       state: EditorState.create({
         doc: value,
-        extensions: baseExtensions({ vim: false, wrap: false, fontSize: 12.5, readOnly: false }, [
+        extensions: baseExtensions({ vim: false, wrap: false, fontSize: (made = untrack(() => size)), readOnly: false }, [
           EditorView.updateListener.of((u) => {
             if (!u.docChanged) return
             value = u.state.doc.toString()
@@ -51,6 +57,14 @@
       }),
     })
     void setLanguage(value)
+  })
+
+  // The Files tab's size changed: the editor follows.
+  $effect(() => {
+    const px = size
+    if (!view || px === made) return
+    made = px
+    view.dispatch({ effects: compartments.size.reconfigure(sizeTheme(px)) })
   })
 
   // Set from outside: the editor follows.
@@ -70,5 +84,4 @@
 <style>
   .editor { height: 300px; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; background: var(--surface); }
   .editor :global(.cm-editor) { height: 100%; }
-  .editor :global(.cm-scroller) { font-family: var(--font-mono); }
 </style>
