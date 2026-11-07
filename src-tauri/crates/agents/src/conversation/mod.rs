@@ -286,6 +286,12 @@ pub struct Tool {
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     #[cfg_attr(feature = "ts", ts(as = "Option<bool>", optional))]
     pub aside: bool,
+    /// A call proposing a change of Prism (`prism_propose_config`, `prism_propose_layout`,
+    /// `prism_create_custom_block`, `prism_wait_proposal`): its Chat shows the proposal's card while
+    /// it waits, then its answer (`output`: `{"status", "reason"?, "errors"?}`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<bool>", optional))]
+    pub propose: bool,
     /// When it was called (ISO 8601), and once done, how long it took.
     pub at: Option<String>,
     pub ms: Option<u64>,

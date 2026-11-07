@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProposalChip from './ProposalChip.svelte'
   import { threadAttr } from '../thread.svelte'
   import { mrNumber } from '../forge'
   import BlockControls from './BlockControls.svelte'
@@ -67,6 +68,7 @@
         <button class="t" onclick={() => openAgents(a.id)} title={tooltip(a)}><Icon name="terminal" />{a.title}</button>
         {#if isWaiting(a) || a.status === 'review_ready'}<span class="qa"><QuickAnswers agent={a} compact /></span>{/if}
         {#if isWaiting(a)}<span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'} asks" title={a.needs_action ?? SESSION_LABEL[a.status]}>{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span>{/if}
+        <ProposalChip agent={a} />
         {#if a.state !== 'running'}<span class="pill">{STOPPED[a.state]}</span>{/if}
         {#if overlapsOfAgent(snap, a).length}<OverlapChip seen={overlapsOfAgent(snap, a)} short />{/if}
         {#if a.ticket}<button class="pill info" onclick={() => setQuery(a.ticket!)} title={t('Filter on {ticket}', { ticket: a.ticket })}>{a.ticket}</button>{/if}

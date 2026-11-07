@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConversationTool, ConversationTurn } from '../../agents.svelte'
-import { matches, promptImages, segments, summarize, sumSteps } from './turns'
+import { matches, promptImages, proposalCard, segments, summarize, sumSteps } from './turns'
 
 const tool = (t: Partial<ConversationTool>) => ({ type: 'tool' as const, tool: 'Edit', kind: 'write' as const, what: null, state: 'ok' as const, output: null, diff: [], added: 0, removed: 0, at: null, ms: null, ...t })
 
@@ -63,5 +63,22 @@ describe('promptImages', () => {
   })
   it('keeps punctuation after a bare path out of it', () => {
     expect(promptImages('(see @a.png) then @b.png.')).toEqual({ text: '(see ) then .', images: ['a.png', 'b.png'] })
+  })
+})
+
+describe('a proposal of a change of Prism', () => {
+  const propose = (t: Partial<ConversationTool>) => tool({ tool: 'mcp__prism__prism_propose_config', kind: 'other', propose: true, ...t })
+
+  it('is a card while it waits and once answered, a step when invalid or handed on', () => {
+    const waiting = propose({ state: 'running' })
+    const applied = propose({ output: '{"status":"applied"}' })
+    const refused = propose({ output: '{"status":"refused","reason":"not that repo"}' })
+    const invalid = propose({ output: '{"status":"invalid","errors":["x"]}' })
+    const handed = propose({ output: '{"status":"waiting"}' })
+    for (const e of [waiting, applied, refused]) expect(proposalCard(e)).toBe(true)
+    for (const e of [invalid, handed, tool({})]) expect(proposalCard(e)).toBe(false)
+    // Never folded with the steps around it.
+    const segs = segments([tool({}), waiting, tool({}), invalid])
+    expect(segs.map((s) => s.type)).toEqual(['steps', 'one', 'steps'])
   })
 })

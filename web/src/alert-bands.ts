@@ -13,7 +13,7 @@ export const BANDS: Band[] = ['now', 'today', 'later']
 
 /** What raised an alert (`Alert.rule`), as `[alerts] band_*` names them. */
 export type AlertRule =
-  | 'question' | 'permission' | 'your-turn' | 'agent-cost' | 'agent-loop' | 'agent-limit'
+  | 'question' | 'permission' | 'proposal' | 'your-turn' | 'agent-cost' | 'agent-loop' | 'agent-limit'
   | 'review' | 'open-threads' | 'mr-ci' | 'conflicts' | 'rebase-failed' | 'need-rebase' | 'only-ci' | 'no-reviewer' | 'no-ticket'
   | 'sync' | 'queue' | 'branch-ci' | 'infra' | 'argo' | 'source' | 'block' | 'worktree' | 'overlap'
 
@@ -21,6 +21,7 @@ export type AlertRule =
 export const ALERT_RULES: { id: AlertRule; label: string }[] = [
   { id: 'question', label: t('Agent question or plan') },
   { id: 'permission', label: t('Agent permission') },
+  { id: 'proposal', label: t('Agent’s proposal for Prism') },
   { id: 'your-turn', label: t('Agent turn over') },
   { id: 'agent-loop', label: t('Agent in circles') },
   { id: 'agent-cost', label: t('Agent past its cost limit') },
@@ -89,7 +90,7 @@ export const alertId = (a: Pick<Alert, 'rule' | 'kind' | 'open' | 'text'>) => `$
  * anything (the branch must be redone), the threads before the CI (fixing them pushes, the CI
  * runs again), then the rest by severity.
  */
-const LEAD: AlertRule[] = ['conflicts', 'rebase-failed', 'question', 'permission', 'review', 'open-threads', 'mr-ci', 'no-reviewer', 'queue', 'need-rebase', 'only-ci', 'sync', 'no-ticket']
+const LEAD: AlertRule[] = ['conflicts', 'rebase-failed', 'question', 'permission', 'proposal', 'review', 'open-threads', 'mr-ci', 'no-reviewer', 'queue', 'need-rebase', 'only-ci', 'sync', 'no-ticket']
 const SEVERITY: Record<Severity, number> = { ko: 0, warn: 1, info: 2 }
 const leadRank = (a: Alert) => {
   const i = LEAD.indexOf(a.rule as AlertRule)

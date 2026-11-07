@@ -80,6 +80,7 @@ export type Fix =
   | { kind: 'overlap'; id: string; side: 'a' | 'b' }
   | { kind: 'changes'; env: string | null; app: string }
   | { kind: 'block'; block: string; command: string; args: Record<string, unknown>; label: string; title: string }
+  | { kind: 'proposal'; id: number }
 
 /**
  * Tickets Prism knows, with the statuses of their list (to offer a change), by `ticketRef`: an MR
@@ -324,7 +325,7 @@ export function mrForSession(s: Snapshot, c: Pick<ClaudeSession, 'worktree' | 'b
 }
 
 export function alerts(s: Snapshot): Alert[] {
-  return [...ruled('source', sourceAlerts(s)), ...ruled('infra', infraAlerts(s)), ...ruled('block', blockAlerts(s)), ...ruled('argo', argoAlerts(s)), ...ruled('branch-ci', ciAlerts(s)), ...ruled('sync', [...syncAlerts(s), ...draftAlerts(s), ...inReviewAlerts(s), ...approvedAlerts(s)]), ...ruled('queue', queueAlerts(s)), ...sessionAlerts(s), ...ruled('overlap', overlapAlerts(s)), ...ruled('worktree', worktreeAlerts(s)), ...ruled('review', reviewAlerts(s)), ...myMrAlerts(s)]
+  return [...ruled('source', sourceAlerts(s)), ...ruled('infra', infraAlerts(s)), ...ruled('block', blockAlerts(s)), ...ruled('argo', argoAlerts(s)), ...ruled('branch-ci', ciAlerts(s)), ...ruled('sync', [...syncAlerts(s), ...draftAlerts(s), ...inReviewAlerts(s), ...approvedAlerts(s)]), ...ruled('queue', queueAlerts(s)), ...sessionAlerts(s), ...ruled('proposal', proposalAlerts(s)), ...ruled('overlap', overlapAlerts(s)), ...ruled('worktree', worktreeAlerts(s)), ...ruled('review', reviewAlerts(s)), ...myMrAlerts(s)]
 }
 
 /** A producer's rule, on those of its alerts that name none of their own. */
@@ -365,6 +366,21 @@ function sessionAlerts(s: Snapshot): Alert[] {
     out.push({ kind: 'Claude', rule: 'agent-loop', severity: 'warn', text: tr('“{title}” is going in circles: {command} failed {count} times in a row', { title: a.title, command: a.looping!.command, count: a.looping!.count }) })
   }
   return out
+}
+
+/**
+ * A change of Prism an agent proposed (`prism mcp`), waiting for your answer: one line each, from
+ * when it came, gone once answered (or its agent gone). Its fix opens it.
+ */
+function proposalAlerts(s: Snapshot): Alert[] {
+  return (s.mcp?.proposals ?? []).map((p) => {
+    const who = (p.agent && s.agents?.find((a) => a.id === p.agent)?.title) || p.client
+    // What stays the same while it waits (its id, its reason), not its diff, computed again when
+    // config.toml changes: the alert keeps its identity, seen stays seen.
+    const why = p.why.trim() || `#${p.id}`
+    const text = p.kind === 'custom_block' ? tr('“{who}” proposes a new custom block: {what}', { who, what: why }) : tr('“{who}” proposes a change of Prism: {what}', { who, what: why })
+    return { kind: 'Claude', severity: 'warn', since: p.at, text, notify: false, fixes: [{ kind: 'proposal', id: p.id }] }
+  })
 }
 
 /**
