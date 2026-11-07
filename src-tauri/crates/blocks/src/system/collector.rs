@@ -211,6 +211,10 @@ fn parse_vm_stat(text: &str) -> Option<(u64, u64, u64)> {
 /// Prism's tmux panes, by session: an agent's (`prism-…`) or a shell's (`prismsh-…`), and the pid
 /// of what runs in it.
 async fn panes() -> Vec<(String, u32)> {
+    if crate::agents::tmux::local_sessions() {
+        let list = tokio::task::spawn_blocking(|| crate::agents::tmux::local::server().processes()).await.unwrap_or_default();
+        return list.into_iter().filter_map(|(name, pid, _, _)| Some((name, pid?))).collect();
+    }
     let out = crate::platform::command("tmux").args(["-L", &crate::profile::tmux_socket(), "list-panes", "-a", "-F", "#{session_name} #{pane_pid}"]).output().await;
     let Ok(out) = out else { return Vec::new() };
     String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| {

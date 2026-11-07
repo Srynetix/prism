@@ -447,7 +447,21 @@ fn timeout(event: &str) -> u64 {
 const WORKTREE_TIMEOUT: u64 = 600;
 
 fn command(exe: &Path, dir: &Path) -> String {
-    format!("{} hook {}", quote(&exe.display().to_string()), quote(&dir.display().to_string()))
+    command_for(exe, dir, cfg!(windows))
+}
+
+/// `command`, for Windows or not. On Windows the CLIs may run it through Git Bash, cmd or
+/// PowerShell: its paths with `/` (all three read them; Bash would eat a bare `\`), in double quotes
+/// only when they hold a space (PowerShell takes a quoted first word for a string, not a command).
+fn command_for(exe: &Path, dir: &Path, windows: bool) -> String {
+    if !windows {
+        return format!("{} hook {}", quote(&exe.display().to_string()), quote(&dir.display().to_string()));
+    }
+    let word = |p: &Path| {
+        let s = p.display().to_string().replace('\\', "/");
+        if s.contains(' ') { crate::platform::quote_for(&s, true) } else { s }
+    };
+    format!("{} hook {}", word(exe), word(dir))
 }
 
 pub use crate::platform::quote;
@@ -582,6 +596,7 @@ mod tests {
 
     /// The pairs parse as TOML, the command quoted for both TOML and the shell.
     #[test]
+    #[cfg(unix)]
     fn gives_codex_its_hooks_as_toml() {
         let pairs = codex_overrides(Path::new("/Applications/Prism.app/Contents/MacOS/prism"), Path::new("/Users/me/Library/Application Support/x"));
         assert_eq!(pairs.len(), CODEX_EVENTS.len());
@@ -591,7 +606,16 @@ mod tests {
         assert_eq!(hook["timeout"].as_integer(), Some(10));
     }
 
+    /// On Windows: `/`, quoted only with a space.
     #[test]
+    fn a_windows_hook_reads_in_every_shell() {
+        let cmd = command_for(Path::new(r"C:\Users\me\AppData\Local\Prism\prism.exe"), Path::new(r"C:\Users\Jo Doe\AppData\Roaming\x"), true);
+        assert_eq!(cmd, r#"C:/Users/me/AppData/Local/Prism/prism.exe hook "C:/Users/Jo Doe/AppData/Roaming/x""#);
+        assert_eq!(crate::platform::quote_for(r#"a "b""#, true), r#""a \"b\"""#);
+    }
+
+    #[test]
+    #[cfg(unix)]
     fn quotes_paths_for_the_shell() {
         let v = hooks_settings(Path::new("/Applications/Prism.app/Contents/MacOS/prism"), Path::new("/Users/me/Library/Application Support/x"));
         let cmd = v["hooks"]["Stop"][0]["hooks"][0]["command"].as_str().unwrap();

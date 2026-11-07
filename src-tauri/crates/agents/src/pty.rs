@@ -7,15 +7,24 @@ use std::{
 use anyhow::{Context, Result};
 use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, PtySize};
 
-/// A terminal attached to an agent's tmux session: what the Agents view displays. Closing it
-/// only detaches this tmux client; the agent carries on.
+/// A terminal attached to an agent's tmux session (or Prism's own, `tmux::local`): what the Agents
+/// view displays. Closing it only detaches this client; the agent carries on.
 pub struct Attachment {
-    master: Box<dyn MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
-    killer: Box<dyn ChildKiller + Send + Sync>,
+    client: Client,
     /// Tells apart two successive attachments of the same agent (see `Agents::attach`).
     pub token: u64,
     label: String,
+}
+
+enum Client {
+    /// A tmux client in a pseudo-terminal of its own.
+    Tmux {
+        master: Box<dyn MasterPty + Send>,
+        writer: Box<dyn Write + Send>,
+        killer: Box<dyn ChildKiller + Send + Sync>,
+    },
+    /// A client of one of Prism's own sessions.
+    Local(crate::tmux::local::LocalClient),
 }
 
 /// Diagnostics, with `PRISM_TRACE_AGENTS=1` only: everything the terminal sends to an agent
@@ -97,26 +106,44 @@ impl Attachment {
             }
             on_end();
         });
-        Ok(Self { master: pair.master, writer, killer, token, label })
+        Ok(Self { client: Client::Tmux { master: pair.master, writer, killer }, token, label })
+    }
+
+    /// A client of one of Prism's own sessions (`tmux::local`).
+    pub fn local(label: &str, client: crate::tmux::local::LocalClient, token: u64) -> Self {
+        Self { client: Client::Local(client), token, label: format!("{label}#{token}") }
     }
 
     pub fn write(&mut self, data: &[u8]) -> Result<()> {
         if tracing_on() {
             tracing::info!("agent {} ← {}", self.label, escape(data));
         }
-        self.writer.write_all(data)?;
-        self.writer.flush()?;
-        Ok(())
+        match &mut self.client {
+            Client::Tmux { writer, .. } => {
+                writer.write_all(data)?;
+                writer.flush()?;
+                Ok(())
+            }
+            Client::Local(c) => c.write(data),
+        }
     }
 
     pub fn resize(&self, cols: u16, rows: u16) -> Result<()> {
-        self.master.resize(size(cols, rows))
+        match &self.client {
+            Client::Tmux { master, .. } => master.resize(size(cols, rows)),
+            Client::Local(c) => {
+                c.resize(cols, rows);
+                Ok(())
+            }
+        }
     }
 }
 
 impl Drop for Attachment {
     fn drop(&mut self) {
-        let _ = self.killer.kill();
+        if let Client::Tmux { killer, .. } = &mut self.client {
+            let _ = killer.kill();
+        }
     }
 }
 

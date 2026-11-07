@@ -136,6 +136,17 @@ fn key_bytes(keys: &[&str]) -> Option<String> {
 
 #[cfg(test)]
 pub mod fake;
+pub mod local;
+
+pub use prism_core::agents::local_sessions;
+
+/// Who attaches to a session: the window (or a phone typing), or a phone watching (`sized`: at
+/// its size).
+#[derive(Clone, Copy)]
+pub enum Client {
+    Desk,
+    Watch { sized: bool },
+}
 
 /// A text as it may be pasted: its lines and tabs, no other control character. Text from
 /// elsewhere (a task's output, a quoted file, a phone) could carry the end of the bracketed paste
@@ -147,6 +158,8 @@ pub fn pasteable(text: &str) -> String {
 pub struct Tmux {
     conf: PathBuf,
     socket: String,
+    /// The sessions are Prism's own (`local`), not a tmux server's.
+    local: bool,
     /// The tests' server in memory, in place of the binary.
     #[cfg(test)]
     fake: Option<std::sync::Arc<fake::Server>>,
@@ -160,15 +173,22 @@ impl Tmux {
         Ok(Self {
             conf,
             socket: crate::profile::tmux_socket(),
+            local: local_sessions(),
             #[cfg(test)]
             fake: None,
         })
     }
 
+    /// Prism's own sessions (`local`), wherever the tests run.
+    #[cfg(test)]
+    pub fn local(dir: &Path) -> Result<Self> {
+        Ok(Self { local: true, ..Self::new(dir)? })
+    }
+
     /// A tmux whose commands go to `server`.
     #[cfg(test)]
     pub fn fake(dir: &Path, server: std::sync::Arc<fake::Server>) -> Result<Self> {
-        Ok(Self { fake: Some(server), ..Self::new(dir)? })
+        Ok(Self { fake: Some(server), local: false, ..Self::new(dir)? })
     }
 
     /// The tmux session of an agent, or of one of its shells (`shell:<agent>:<n>`).
@@ -181,6 +201,10 @@ impl Tmux {
 
     /// The agent's shells still open, by number, with the program in their foreground.
     pub async fn shells(&self, id: &str) -> Result<Vec<(u32, String)>> {
+        if self.local {
+            let id = id.to_string();
+            return Ok(tokio::task::spawn_blocking(move || local::server().shells()).await?.into_iter().filter(|s| s.owner == id).map(|s| (s.n, s.command)).collect());
+        }
         let out = match self.run(&["list-panes", "-a", "-F", "#{session_name}\t#{pane_current_command}"]).await {
             Ok(out) => out,
             Err(e) if is_no_server(&e) => return Ok(Vec::new()),
@@ -201,6 +225,9 @@ impl Tmux {
     /// Every shell of the server with its owner (`prismsh-<owner>-<n>`), whoever owns it: the folder
     /// it started in, when (Unix seconds), the program in its foreground, its `@prism-pod`.
     pub async fn all_shells(&self) -> Result<Vec<ShellSession>> {
+        if self.local {
+            return Ok(tokio::task::spawn_blocking(|| local::server().shells()).await?);
+        }
         let out = match self.run(&["list-panes", "-a", "-F", "#{session_name}\t#{session_path}\t#{session_created}\t#{pane_current_command}\t#{@prism-pod}"]).await {
             Ok(out) => out,
             Err(e) if is_no_server(&e) => return Ok(Vec::new()),
@@ -211,6 +238,9 @@ impl Tmux {
 
     /// Sets a user option (`@<name>`) on a session: what Prism notes about it, read back by `all_shells`.
     pub async fn set_note(&self, key: &str, name: &str, value: &str) -> Result<()> {
+        if self.local {
+            return local::server().set_note(&Self::session(key), name, value);
+        }
         self.run(&["set-option", "-t", &Self::session(key), &format!("@{name}"), value]).await.map(drop)
     }
 
@@ -271,6 +301,9 @@ impl Tmux {
     /// started by a Prism that had inherited another profile's got wrong): its next panes get
     /// them; those already open keep theirs until restarted.
     pub async fn reload_conf(&self) -> Result<()> {
+        if self.local {
+            return Ok(());
+        }
         let conf = self.conf.display().to_string();
         match self.run(&["source-file", &conf]).await {
             Err(e) if !is_no_server(&e) => return Err(e),
@@ -291,6 +324,9 @@ impl Tmux {
     /// to escape in the prompt), in `cwd`, with `env` on top of the server's environment.
     pub async fn new_session(&self, id: &str, cwd: &Path, env: &[String], argv: &[String]) -> Result<()> {
         let name = Self::session(id);
+        if self.local {
+            return local::server().new_session(&name, cwd, env, argv);
+        }
         let cwd = cwd.display().to_string();
         let mut args = vec!["new-session", "-d", "-s", &name, "-x", "120", "-y", "40", "-c", &cwd, "-e", "COLORTERM=truecolor"];
         args.extend(env.iter().flat_map(|e| ["-e", e.as_str()]));
@@ -319,6 +355,9 @@ impl Tmux {
     /// The session and the terminals attached to it stay: they see Claude start again.
     pub async fn respawn(&self, id: &str, cwd: &Path, env: &[String], argv: &[String]) -> Result<()> {
         let name = Self::session(id);
+        if self.local {
+            return local::server().respawn(&name, cwd, env, argv);
+        }
         let cwd = cwd.display().to_string();
         let mut args = vec!["respawn-pane", "-k", "-t", &name, "-c", &cwd, "-e", "COLORTERM=truecolor"];
         args.extend(env.iter().flat_map(|e| ["-e", e.as_str()]));
@@ -329,6 +368,9 @@ impl Tmux {
 
     /// Agent sessions of the server, by identifier. With no server (no agent), nothing.
     pub async fn panes(&self) -> Result<HashMap<String, Pane>> {
+        if self.local {
+            return Ok(local::agent_panes(local::server().panes()));
+        }
         let out = match self.run(&["list-panes", "-a", "-F", "#{session_name}\t#{pane_dead}\t#{pane_dead_status}"]).await {
             Ok(out) => out,
             Err(e) if is_no_server(&e) => return Ok(HashMap::new()),
@@ -339,6 +381,10 @@ impl Tmux {
 
     /// The state of one session's pane and the program in the foreground there; `None`: no such session.
     pub async fn pane(&self, key: &str) -> Result<Option<(Pane, String)>> {
+        if self.local {
+            let name = Self::session(key);
+            return Ok(tokio::task::spawn_blocking(move || local::server().pane(&name)).await?);
+        }
         let out = match self.run(&["list-panes", "-t", &Self::session(key), "-F", "#{pane_dead}\t#{pane_dead_status}\t#{pane_current_command}"]).await {
             Ok(out) => out,
             // `no current target`: its session gone while the server exits.
@@ -354,11 +400,17 @@ impl Tmux {
 
     /// Unlike an agent's, a shell's session ends with its shell (`exit`): no last screen to keep.
     pub async fn end_with_program(&self, key: &str) -> Result<()> {
+        if self.local {
+            return local::server().end_with_program(&Self::session(key));
+        }
         self.run(&["set-option", "-t", &Self::session(key), "remain-on-exit", "off"]).await.map(drop)
     }
 
     pub async fn send_keys(&self, id: &str, keys: &[&str]) -> Result<()> {
         let name = Self::session(id);
+        if self.local {
+            return local::server().send_keys(&name, keys);
+        }
         let mut args = vec!["send-keys", "-t", &name];
         args.extend(keys);
         match self.run(&args).await {
@@ -378,6 +430,9 @@ impl Tmux {
     /// multi-line prompt arrives whole instead of being sent at its first line break.
     pub async fn paste(&self, id: &str, text: &str) -> Result<()> {
         let name = Self::session(id);
+        if self.local {
+            return local::server().paste(&name, text);
+        }
         let buffer = format!("prism-{id}");
         // On its stdin, not in its arguments: a long prompt too.
         self.run_input(&["load-buffer", "-b", &buffer, "-"], &pasteable(text)).await?;
@@ -387,6 +442,9 @@ impl Tmux {
     /// Takes the pane out of copy mode (a selection kept in sight, the history scrolled), if it is
     /// in it: the next key goes to the program, not to the selection.
     pub async fn leave_copy_mode(&self, id: &str) -> Result<()> {
+        if self.local {
+            return Ok(());
+        }
         let name = Self::session(id);
         let cancel = format!("send-keys -t {} -X cancel", crate::hook::quote(&name));
         self.run(&["if-shell", "-F", "-t", &name, "#{pane_in_mode}", &cancel]).await.map(drop)
@@ -394,18 +452,29 @@ impl Tmux {
 
     /// The pane is in copy mode: its view stays still until it leaves it.
     pub async fn in_copy_mode(&self, id: &str) -> Result<bool> {
+        if self.local {
+            return Ok(false);
+        }
         Ok(self.run(&["display-message", "-p", "-t", &Self::session(id), "#{pane_in_mode}"]).await?.trim() == "1")
     }
 
     pub async fn kill(&self, id: &str) -> Result<()> {
+        if self.local {
+            let name = Self::session(id);
+            tokio::task::spawn_blocking(move || local::server().kill(&name)).await?;
+            return Ok(());
+        }
         match self.run(&["kill-session", "-t", &Self::session(id)]).await {
             Err(e) if !is_no_server(&e) && !e.to_string().contains("can't find session") => Err(e),
             _ => Ok(()),
         }
     }
 
-    /// Is tmux in the PATH?
+    /// Is tmux in the PATH? Prism's own sessions need none.
     pub async fn installed() -> bool {
+        if local_sessions() {
+            return true;
+        }
         crate::platform::command("tmux").arg("-V").output().await.is_ok_and(|o| o.status.success())
     }
 
@@ -426,6 +495,9 @@ impl Tmux {
     /// The pane's history and screen as text, with its colours (`-e`), wrapped lines joined: the
     /// last `lines` of it. Without `screen`, the history only: what scrolled off the screen.
     pub async fn history(&self, id: &str, lines: u32, screen: bool) -> Result<String> {
+        if self.local {
+            return local::server().history(&Self::session(id), lines, screen);
+        }
         let start = format!("-{lines}");
         let session = Self::session(id);
         let mut args = vec!["capture-pane", "-p", "-e", "-J", "-t", &session, "-S", &start];
@@ -437,6 +509,9 @@ impl Tmux {
 
     /// The pane's visible screen as text, with its colours (`-e`).
     pub async fn screen(&self, id: &str) -> Result<String> {
+        if self.local {
+            return local::server().screen(&Self::session(id));
+        }
         self.run(&["capture-pane", "-p", "-e", "-t", &Self::session(id)]).await
     }
 
@@ -448,6 +523,9 @@ impl Tmux {
         let mut out = HashMap::new();
         if ids.is_empty() {
             return out;
+        }
+        if self.local {
+            return ids.iter().filter_map(|id| Some((id.clone(), local::server().screen(&Self::session(id)).ok()?))).collect();
         }
         let sessions: Vec<String> = ids.iter().map(|id| Self::session(id)).collect();
         let marks: Vec<String> = ids.iter().map(|id| format!("{SCREEN_MARK}{id}")).collect();
@@ -479,9 +557,37 @@ impl Tmux {
 
     /// The agent's window, in columns and rows.
     pub async fn window_size(&self, id: &str) -> Result<(u16, u16)> {
+        if self.local {
+            return local::server().window_size(&Self::session(id));
+        }
         let out = self.run(&["display-message", "-p", "-t", &Self::session(id), "#{window_width} #{window_height}"]).await?;
         let mut it = out.split_whitespace().map(|n| n.parse::<u16>().unwrap_or(0));
         Ok((it.next().unwrap_or(80).max(20), it.next().unwrap_or(24).max(5)))
+    }
+
+    /// A terminal attached to the session `id` (an agent's, or a shell's), at `cols`×`rows`: a
+    /// tmux client in a pseudo-terminal, or a client of Prism's own session. `on_data` gets what it
+    /// shows, `on_end` is called when it detaches.
+    #[allow(clippy::too_many_arguments)]
+    pub fn attach(&self, label: &str, id: &str, client: Client, cols: u16, rows: u16, token: u64, on_data: impl Fn(Vec<u8>) + Send + 'static, on_end: impl FnOnce() + Send + 'static) -> Result<crate::pty::Attachment> {
+        if self.local {
+            let (size, read_only) = match client {
+                Client::Desk => (Some((cols, rows)), false),
+                Client::Watch { sized } => (sized.then_some((cols, rows)), true),
+            };
+            let attached = local::server().attach(&Self::session(id), size, read_only, Box::new(on_data), Box::new(on_end))?;
+            return Ok(crate::pty::Attachment::local(label, attached, token));
+        }
+        let argv = match client {
+            Client::Desk => self.attach_argv(id),
+            Client::Watch { sized } => self.watch_argv(id, sized),
+        };
+        crate::pty::Attachment::spawn(label, &argv, cols, rows, token, on_data, on_end)
+    }
+
+    /// Prism holds the sessions itself: no tmux client can reach them (an external terminal).
+    pub fn is_local(&self) -> bool {
+        self.local
     }
 
     /// Command that attaches a terminal to the agent's session.

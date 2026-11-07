@@ -13,6 +13,13 @@ pub mod usage;
 /// Claude session identifier.
 pub const PREFIX: &str = "prism-";
 
+/// Prism holds the agents' sessions itself (`prism_agents::tmux::local`) instead of a tmux server:
+/// on Windows, which has no tmux, or with `PRISM_SESSIONS=local` (to try it elsewhere). No tmux
+/// is needed then.
+pub fn local_sessions() -> bool {
+    cfg!(windows) || std::env::var("PRISM_SESSIONS").is_ok_and(|v| v == "local")
+}
+
 /// `ABC-4661 · Export CSV des mesures` → `abc-4661-export-csv-des-mesures` (40 characters at most).
 pub fn slug(text: &str) -> String {
     let mut out = String::new();

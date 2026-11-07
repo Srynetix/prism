@@ -85,12 +85,14 @@ pub async fn stop(key: &str) -> Result<()> {
         bail!(tr!("no such server: {key}", key = key));
     }
     r.memory.lock().unwrap().stopping.insert(key.to_string());
-    if key.starts_with(crate::agents::tmux::SHELL) {
+    if key.starts_with(crate::agents::tmux::SHELL) && crate::agents::tmux::local_sessions() {
+        crate::agents::tmux::local::server().send_keys(&crate::agents::tmux::Tmux::session(key), &["C-c"])?;
+    } else if key.starts_with(crate::agents::tmux::SHELL) {
         tmux(&["send-keys", "-t", &crate::agents::tmux::Tmux::session(key), "C-c"]).await?;
     } else if let Some(name) = key.strip_prefix("docker:") {
         output("docker", &["stop", name]).await?;
     } else if let Some(pid) = key.strip_prefix("pid:") {
-        output("kill", &[pid]).await?;
+        terminate(pid).await?;
     }
     refresh_soon();
     Ok(())
@@ -102,11 +104,21 @@ pub async fn kill(pid: u32) -> Result<()> {
     let found = r.memory.lock().unwrap().shown.outside.iter().find(|l| l.pid == pid && pid != 0).cloned();
     match found {
         Some(l) if l.docker => output("docker", &["stop", &l.program]).await.map(drop)?,
-        Some(_) => output("kill", &[&pid.to_string()]).await.map(drop)?,
+        Some(_) => terminate(&pid.to_string()).await?,
         None => bail!(tr!("pid {pid} is not one the block shows", pid = pid)),
     }
     refresh_soon();
     Ok(())
+}
+
+/// Asks a process to stop: SIGTERM; on Windows, `taskkill` of its tree (a console program has no
+/// gentler request).
+async fn terminate(pid: &str) -> Result<()> {
+    if cfg!(windows) {
+        output("taskkill", &["/PID", pid, "/T", "/F"]).await.map(drop)
+    } else {
+        output("kill", &[pid]).await.map(drop)
+    }
 }
 
 pub fn dismiss(key: &str) {
@@ -312,6 +324,11 @@ async fn tmux(args: &[&str]) -> Result<String> {
 }
 
 async fn panes() -> Result<Vec<PaneInfo>> {
+    if crate::agents::tmux::local_sessions() {
+        let list = tokio::task::spawn_blocking(|| crate::agents::tmux::local::server().processes()).await?;
+        let lines: Vec<String> = list.into_iter().filter_map(|(name, pid, command, dead)| Some(format!("{name}\t{}\t{command}\t{}", pid?, if dead { 1 } else { 0 }))).collect();
+        return Ok(parse_panes(&lines.join("\n")));
+    }
     let out = match tmux(&["list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{pane_dead}"]).await {
         Ok(out) => out,
         // No server: no agent.
@@ -343,7 +360,8 @@ fn parse_panes(out: &str) -> Vec<PaneInfo> {
 
 /// A shell's last non-empty lines.
 async fn tail(key: &str) -> Result<String> {
-    let out = tmux(&["capture-pane", "-p", "-J", "-t", &crate::agents::tmux::Tmux::session(key), "-S", "-60"]).await?;
+    let session = crate::agents::tmux::Tmux::session(key);
+    let out = if crate::agents::tmux::local_sessions() { crate::agents::tmux::local::server().text(&session, 60)? } else { tmux(&["capture-pane", "-p", "-J", "-t", &session, "-S", "-60"]).await? };
     let lines: Vec<&str> = out.lines().map(str::trim_end).collect();
     let end = lines.iter().rposition(|l| !l.is_empty()).map_or(0, |i| i + 1);
     // The prompt the shell is back at is not part of why it stopped.
@@ -368,7 +386,7 @@ fn reads_as_failure(tail: &str) -> bool {
 
 /// A shell at its prompt rather than a program it runs (`pane_current_command`).
 fn is_shell(command: &str) -> bool {
-    matches!(command.trim_start_matches('-'), "sh" | "bash" | "zsh" | "fish" | "dash" | "ksh" | "mksh" | "tcsh" | "csh" | "nu" | "xonsh" | "elvish" | "pwsh")
+    matches!(command.trim_start_matches('-').to_ascii_lowercase().trim_end_matches(".exe"), "sh" | "bash" | "zsh" | "fish" | "dash" | "ksh" | "mksh" | "tcsh" | "csh" | "nu" | "xonsh" | "elvish" | "pwsh" | "powershell" | "cmd")
 }
 
 /// A command line that starts a server, by its words: `dev`, `serve`, `start`, `watch`, `up`, `run`server…
@@ -411,10 +429,11 @@ impl Procs {
         self.args.get(&pid).map(String::as_str).unwrap_or_default()
     }
 
-    /// Its program's name: `node`, `postgres`.
+    /// Its program's name: `node`, `postgres` (`node.exe` on Windows: `node`).
     fn program(&self, pid: u32) -> String {
-        let first = self.args(pid).split_whitespace().next().unwrap_or_default();
-        first.rsplit('/').next().unwrap_or(first).to_string()
+        let first = self.args(pid).split_whitespace().next().unwrap_or_default().trim_matches('"');
+        let name = first.rsplit(['/', '\\']).next().unwrap_or(first);
+        name.strip_suffix(".exe").or_else(|| name.strip_suffix(".EXE")).unwrap_or(name).to_string()
     }
 
     /// Started by a command line of the CLI `top`, not by the CLI itself (its MCP servers): a shell
@@ -435,7 +454,11 @@ impl Procs {
 
     /// A system or application program (macOS's services, an app's helper): never a dev server.
     fn is_system(&self, pid: u32) -> bool {
-        let exe = self.args(pid).split_whitespace().next().unwrap_or_default();
+        let exe = self.args(pid).split_whitespace().next().unwrap_or_default().trim_matches('"');
+        if cfg!(windows) {
+            let exe = exe.to_ascii_lowercase().replace('/', "\\");
+            return exe.contains(r"\windows\") || exe.contains(r"\program files") || exe.contains(r"\windowsapps\");
+        }
         ["/System/", "/usr/libexec/", "/usr/sbin/", "/sbin/", "/Applications/", "/Library/", "/snap/", "/usr/lib/"].iter().any(|p| exe.starts_with(p))
             || exe.contains("/Library/")
             || exe.contains(".app/")
@@ -443,8 +466,30 @@ impl Procs {
 }
 
 async fn processes() -> Result<Procs> {
+    if cfg!(windows) {
+        return Ok(tokio::task::spawn_blocking(system_processes).await?);
+    }
     let out = output("ps", &["-eo", "pid=,ppid=,args="]).await?;
     Ok(parse_ps(&out))
+}
+
+/// The process tree from the system (Windows, which has no `ps`): each one's command line, its
+/// executable's path first.
+fn system_processes() -> Procs {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always).with_exe(UpdateKind::Always));
+    let mut p = Procs::default();
+    for (pid, proc_) in sys.processes() {
+        let pid = pid.as_u32();
+        let ppid = proc_.parent().map_or(0, |pp| pp.as_u32());
+        let exe = proc_.exe().map(|e| e.display().to_string()).unwrap_or_else(|| proc_.name().to_string_lossy().into_owned());
+        let rest: Vec<String> = proc_.cmd().iter().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
+        p.parent.insert(pid, ppid);
+        p.children.entry(ppid).or_default().push(pid);
+        p.args.insert(pid, std::iter::once(exe).chain(rest).collect::<Vec<_>>().join(" "));
+    }
+    p
 }
 
 fn parse_ps(out: &str) -> Procs {
@@ -466,6 +511,9 @@ fn parse_ps(out: &str) -> Procs {
 
 /// The TCP ports listened on, by pid: `lsof`, otherwise `ss` (Linux without lsof).
 async fn listeners() -> Result<HashMap<u32, Vec<u16>>> {
+    if cfg!(windows) {
+        return Ok(parse_netstat(&output("netstat", &["-ano"]).await?));
+    }
     match output("lsof", &["-nP", "-iTCP", "-sTCP:LISTEN", "-Fpn"]).await {
         Ok(out) => Ok(parse_lsof(&out)),
         // lsof exits 1 when nothing listens.
@@ -490,6 +538,25 @@ fn parse_lsof(out: &str) -> HashMap<u32, Vec<u16>> {
             if !ports.contains(&port) {
                 ports.push(port);
             }
+        }
+    }
+    map
+}
+
+/// Windows' `netstat -ano`: the TCP lines listening, told by their foreign address (`0.0.0.0:0`,
+/// `[::]:0`) rather than their state, which Windows translates.
+fn parse_netstat(out: &str) -> HashMap<u32, Vec<u16>> {
+    let mut map: HashMap<u32, Vec<u16>> = HashMap::new();
+    for line in out.lines() {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        let [proto, local, foreign, _, pid] = cols[..] else { continue };
+        if !proto.eq_ignore_ascii_case("TCP") || !foreign.ends_with(":0") {
+            continue;
+        }
+        let (Some(port), Ok(pid)) = (local.rsplit(':').next().and_then(|p| p.parse::<u16>().ok()), pid.parse::<u32>()) else { continue };
+        let ports = map.entry(pid).or_default();
+        if !ports.contains(&port) {
+            ports.push(port);
         }
     }
     map
@@ -582,6 +649,14 @@ mod tests {
         let panes = parse_panes("prism-a1-b2\t100\tclaude\t0\nprismsh-a1-b2-3\t200\tnode\t0\nprismsh-a1-b2-4\t300\tzsh\t1\nother\t1\tzsh\t0\n");
         let keys: Vec<(&str, &str, Option<u32>)> = panes.iter().map(|p| (p.key.as_str(), p.agent.as_str(), p.shell)).collect();
         assert_eq!(keys, [("a1-b2", "a1-b2", None), ("shell:a1-b2:3", "a1-b2", Some(3))]);
+    }
+
+    #[test]
+    fn reads_ports_from_netstat() {
+        let out = "\nActive Connections\n\n  Proto  Local Address          Foreign Address        State           PID\n  TCP    0.0.0.0:5173           0.0.0.0:0              LISTENING       812\n  TCP    [::]:5173              [::]:0                 LISTENING       812\n  TCP    127.0.0.1:5432         127.0.0.1:61000        ESTABLISHED     900\n  UDP    0.0.0.0:5353           *:*                                    77\n";
+        let ports = parse_netstat(out);
+        assert_eq!(ports[&812], [5173]);
+        assert!(!ports.contains_key(&900) && !ports.contains_key(&77));
     }
 
     #[test]

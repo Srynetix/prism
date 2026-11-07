@@ -24,13 +24,44 @@ pub const DEFAULT_TERMINAL: &str = "x-terminal-emulator";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// A program run in the background (`git`, `glab`, `kubectl`…): on Windows, without a console
-/// window flashing for each call.
+/// window flashing for each call, and found with `PATHEXT` (`claude` installed by npm is
+/// `claude.cmd`, which Windows' own search, `.exe` only, misses).
 pub fn command(program: impl AsRef<OsStr>) -> tokio::process::Command {
+    #[cfg(windows)]
+    let program = {
+        let p = std::path::Path::new(program.as_ref());
+        let bare = p.components().count() == 1 && p.extension().is_none();
+        match p.to_str().filter(|_| bare).and_then(which) {
+            Some(found) => found.into_os_string(),
+            None => program.as_ref().to_os_string(),
+        }
+    };
     #[allow(unused_mut)]
     let mut cmd = tokio::process::Command::new(program);
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
     cmd
+}
+
+/// A program in the PATH. On Windows, with the extensions of `PATHEXT` (`git` is `git.exe`).
+pub fn which(program: &str) -> Option<std::path::PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    let names = names(program, cfg!(windows).then(|| std::env::var("PATHEXT").ok()).flatten().as_deref(), cfg!(windows));
+    std::env::split_paths(&path).find_map(|d| names.iter().map(|n| d.join(n)).find(|p| p.is_file()))
+}
+
+/// The file names `program` goes by in a folder of the PATH: itself; on Windows, itself with each
+/// extension of `PATHEXT` first (by default `.COM;.EXE;.BAT;.CMD`), and itself alone only when it
+/// has one already (`git.exe`).
+fn names(program: &str, pathext: Option<&str>, windows: bool) -> Vec<String> {
+    if !windows {
+        return vec![program.to_string()];
+    }
+    let mut names: Vec<String> = pathext.unwrap_or(".COM;.EXE;.BAT;.CMD").split(';').map(str::trim).filter(|e| e.starts_with('.')).map(|e| format!("{program}{}", e.to_ascii_lowercase())).collect();
+    if std::path::Path::new(program).extension().is_some() {
+        names.insert(0, program.to_string());
+    }
+    names
 }
 
 /// macOS: runs `program` (found in the PATH) as a process responsible for itself rather than
@@ -406,6 +437,15 @@ pub fn remove_dirs_detached(paths: &[PathBuf]) {
 
 #[cfg(test)]
 mod tests {
+    /// A program in the PATH: as is, or on Windows with `PATHEXT`'s extensions.
+    #[test]
+    fn a_program_has_its_windows_names() {
+        assert_eq!(super::names("git", Some(".COM;.EXE"), false), ["git"]);
+        assert_eq!(super::names("git", Some(".COM;.EXE;;.CMD"), true), ["git.com", "git.exe", "git.cmd"]);
+        assert_eq!(super::names("claude", None, true), ["claude.com", "claude.exe", "claude.bat", "claude.cmd"]);
+        assert_eq!(super::names("git.exe", Some(".EXE"), true), ["git.exe", "git.exe.exe"]);
+    }
+
     use super::*;
 
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -443,9 +483,19 @@ mod keychain_tests {
     }
 }
 
-/// Quotes a value for the shell.
+/// Quotes a value for the shell: in single quotes for a POSIX shell; on Windows in double quotes,
+/// which cmd, PowerShell (as an argument) and Git Bash all read.
 pub fn quote(s: &str) -> String {
-    format!("'{}'", s.replace('\'', r"'\''"))
+    quote_for(s, cfg!(windows))
+}
+
+/// `quote`, for Windows' shells or not.
+pub fn quote_for(s: &str, windows: bool) -> String {
+    if windows {
+        format!("\"{}\"", s.replace('"', "\\\""))
+    } else {
+        format!("'{}'", s.replace('\'', r"'\''"))
+    }
 }
 
 /// Restarts (`restart`) or shuts down (`shutdown`) the computer as its menu would: the
