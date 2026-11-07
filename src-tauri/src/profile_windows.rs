@@ -245,3 +245,22 @@ pub fn quit(app: &AppHandle) {
     }
     Engines::save(&started);
 }
+
+#[cfg(test)]
+mod tests {
+    /// Every window the app opens is one of the capability's: otherwise its page may call the
+    /// app's commands but hears none of its events (a profile's window waited forever for its
+    /// snapshot).
+    #[test]
+    fn its_windows_have_the_capability() {
+        let cap: serde_json::Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let windows: Vec<&str> = cap["windows"].as_array().unwrap().iter().filter_map(|w| w.as_str()).collect();
+        let covered = |label: &str| windows.iter().any(|w| match w.strip_suffix('*') {
+            Some(prefix) => label.starts_with(prefix),
+            None => *w == label,
+        });
+        for label in ["main".to_string(), super::label("perso"), "machine-build_srv-0a1b2c3d".to_string()] {
+            assert!(covered(&label), "{label} has no capability");
+        }
+    }
+}

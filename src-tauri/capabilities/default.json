@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Prism's windows (the main one, and each machine's): their own commands, external links, notifications, the open and save dialogs.",
-  "windows": ["main", "machine-*"],
+  "description": "Prism's windows (the main one, each other profile's, and each machine's): their own commands, external links, notifications, the open and save dialogs.",
+  "windows": ["main", "profile-*", "machine-*"],
   "permissions": [
     "core:default",
     {
