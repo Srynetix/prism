@@ -105,6 +105,19 @@ pub struct WaitingAgent {
     pub profile: Option<String>,
 }
 
+/// This Prism's agents running, and those waiting for you (a permission, a question, its turn, a
+/// review ready), longest first: what a phone, another computer and the other profiles are told.
+pub fn waiting_agents(snap: &Snapshot) -> (usize, Vec<WaitingAgent>) {
+    let running: Vec<_> = snap.agents.iter().filter(|a| a.state == AgentState::Running).collect();
+    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, SessionStatus::WaitingTool | SessionStatus::NeedsYou | SessionStatus::ReviewReady)).collect();
+    waiting.sort_by_key(|a| a.last_activity);
+    let waiting = waiting
+        .iter()
+        .map(|a| WaitingAgent { id: a.id.clone(), title: a.title.clone(), status: serde_json::to_value(a.status).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default(), profile: None })
+        .collect();
+    (running.len(), waiting)
+}
+
 /// The active profile, for the rail and the window title.
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]

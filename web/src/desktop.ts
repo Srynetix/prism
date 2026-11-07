@@ -19,7 +19,8 @@ type Event = DeskEvent
 /**
  * What deserves an interruption: broken infra, CI, deployments (ArgoCD) and data pipelines, Claude waiting, review requested.
  * `main`: the app's main window, which also tells of the agents waiting in the other profiles and on the other computers;
- * another profile's window leaves its agents to it (no notification twice).
+ * another profile's window leaves its Prism agents to it (no notification twice), and tells of its other sessions
+ * (Claude Desktop's), which only it sees.
  */
 function events(s: Snapshot, alerts: Alert[], main: boolean): Event[] {
   const out: Event[] = []
@@ -31,7 +32,7 @@ function events(s: Snapshot, alerts: Alert[], main: boolean): Event[] {
     if (a.kind === 'Data' && a.severity === 'ko') out.push({ key: `data:${a.text.split(/\u00a0?: /)[0]}`, title: t('Data pipeline'), body: a.text, kind: 'data' })
     if (a.kind === 'Review') out.push({ key: `review:${a.text}`, title: t('Review requested'), body: a.text, kind: 'review' })
   }
-  for (const c of main ? countedSessions(s).filter(waitingAlert) : []) {
+  for (const c of countedSessions(s).filter(waitingAlert).filter((c) => main || c.origin !== 'agent')) {
     // A Prism agent finishing its turn does not notify: only its permissions interrupt.
     if (c.status === 'needs_you' && c.origin !== 'agent') out.push({ key: `session:${c.id}:needs_you`, title: t('Claude is waiting for you'), body: c.needs_action ? `${c.title} — ${c.needs_action}` : c.title, kind: 'agent' })
     // A Prism agent runs its own CLI; a desktop session is Claude's.
@@ -45,8 +46,8 @@ function events(s: Snapshot, alerts: Alert[], main: boolean): Event[] {
   for (const p of s.other_profiles ?? []) {
     for (const w of p.waiting_agents ?? []) {
       const at = `profile:${p.id}:${w.id}`
+      // Its Prism agents, as this profile's: a permission interrupts, a turn ended does not.
       if (w.status === 'waiting_tool') out.push({ key: `${at}:tool`, title: t('{profile}: an agent needs a permission', { profile: p.name }), body: w.title, kind: 'agent' })
-      else if (w.status === 'needs_you') out.push({ key: `${at}:needs_you`, title: t('{profile}: an agent waits for you', { profile: p.name }), body: w.title, kind: 'agent' })
     }
   }
   // Another computer's agents waiting for you (`[[machines]]`), whether its window is open or not.

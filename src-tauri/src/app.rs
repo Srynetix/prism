@@ -54,7 +54,15 @@ impl prism_commands::Shell for Desk {
 }
 
 /// Relaunches Prism (Restart Prism, the console's `restart`, `prism restart`).
+/// Prism is relaunching (its `RunEvent::Exit` runs on the way, from another thread than the main).
+static RESTARTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn restarting() -> bool {
+    RESTARTING.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 pub fn restart(app: &tauri::AppHandle) -> ! {
+    RESTARTING.store(true, std::sync::atomic::Ordering::Relaxed);
     // The new Prism must find the profile free, and the app's place, not this one about to exit:
     // the profiles' Prisms it started go on, the new one stops them when it quits.
     crate::profile::release();
@@ -162,14 +170,51 @@ pub fn serve_agent_file(ctx: tauri::UriSchemeContext<'_, tauri::Wry>, request: t
     });
 }
 
+/// SIGUSR1, caught from launch on (`catch_wake`), heard once the windows are up.
+#[cfg(unix)]
+static WAKE: std::sync::Mutex<Option<tokio::signal::unix::Signal>> = std::sync::Mutex::new(None);
+
+/// Catches SIGUSR1 at once, before the app's place is claimed: a launch asking for a window
+/// meanwhile must not end this Prism (the signal's default); its request waits in `host-open`.
+#[cfg(unix)]
+pub fn catch_wake() {
+    let _guard = tauri::async_runtime::handle().inner().enter();
+    match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::user_defined1()) {
+        Ok(w) => *WAKE.lock().unwrap() = Some(w),
+        Err(e) => tracing::warn!("SIGUSR1: {e}"),
+    }
+}
+
+/// No files: what the engine leaves in the context it does not run (it keeps the real ones).
+pub struct NoAssets;
+
+impl tauri::Assets<tauri::Wry> for NoAssets {
+    fn get(&self, _key: &tauri::utils::assets::AssetKey) -> Option<std::borrow::Cow<'_, [u8]>> {
+        None
+    }
+    fn iter(&self) -> Box<tauri::utils::assets::AssetsIter<'_>> {
+        Box::new(std::iter::empty())
+    }
+    fn csp_hashes(&self, _html_path: &tauri::utils::assets::AssetKey) -> Box<dyn Iterator<Item = tauri::utils::assets::CspHash<'_>> + '_> {
+        Box::new(std::iter::empty())
+    }
+}
+
 /// The signals another launch sends: SIGUSR1 shows what it asked (`profile::ask_host`: a
 /// profile's window, `prism --profile perso`; otherwise the main window), SIGUSR2 restarts
 /// (`prism restart`).
 #[cfg(unix)]
 pub fn listen_signals(app: &AppHandle) {
     let handle = app.clone();
+    let caught = WAKE.lock().unwrap().take();
     tauri::async_runtime::spawn(async move {
-        let Ok(mut wake) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::user_defined1()) else { return };
+        let mut wake = match caught {
+            Some(w) => w,
+            None => match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::user_defined1()) {
+                Ok(w) => w,
+                Err(_) => return,
+            },
+        };
         while wake.recv().await.is_some() {
             // Windows are the main thread's.
             let app = handle.clone();

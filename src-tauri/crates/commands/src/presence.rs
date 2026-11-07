@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use prism_core::{
     profile::{self, Presence},
-    state::{AgentState, Hub, OtherProfile, SessionStatus},
+    state::{Hub, OtherProfile},
 };
 
 /// Often enough for an agent waiting elsewhere to show within seconds; a file read per profile.
@@ -17,16 +17,8 @@ const LIST_EVERY: Duration = Duration::from_secs(30);
 
 /// This Prism's agents, as the others see them.
 fn mine(hub: &Hub) -> Presence {
-    let snap = hub.subscribe();
-    let snap = snap.borrow();
-    let running: Vec<_> = snap.agents.iter().filter(|a| a.state == AgentState::Running).collect();
-    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, SessionStatus::WaitingTool | SessionStatus::NeedsYou | SessionStatus::ReviewReady)).collect();
-    waiting.sort_by_key(|a| a.last_activity);
-    let waiting_agents = waiting
-        .iter()
-        .map(|a| prism_core::state::WaitingAgent { id: a.id.clone(), title: a.title.clone(), status: serde_json::to_value(a.status).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default(), profile: None })
-        .collect();
-    Presence { agents: running.len() as u32, waiting: waiting.len() as u32, first: waiting.first().map(|a| a.title.clone()), waiting_agents }
+    let (agents, waiting_agents) = prism_core::state::waiting_agents(&hub.subscribe().borrow());
+    Presence { agents: agents as u32, waiting: waiting_agents.len() as u32, first: waiting_agents.first().map(|a| a.title.clone()), waiting_agents }
 }
 
 pub async fn run(hub: Hub) {

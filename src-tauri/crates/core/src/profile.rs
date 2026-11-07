@@ -354,12 +354,35 @@ pub fn is_host() -> bool {
     std::fs::read_to_string(host_path()).is_ok_and(|p| p.trim() == std::process::id().to_string())
 }
 
-/// This process is now the app holding the windows.
-pub fn claim_host() -> Result<()> {
+/// This process becomes the app holding the windows, unless one runs: `Some(its pid)`. Claimed
+/// at once (the file created only if absent): two launches at the same moment never both hold it.
+pub fn claim_host() -> Result<Option<u32>> {
+    use std::io::Write;
     let path = host_path();
     std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")))?;
+    for _ in 0..3 {
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(mut f) => {
+                f.write_all(std::process::id().to_string().as_bytes())?;
+                return Ok(None);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                // Being written: its pid in a moment.
+                let pid = std::fs::read_to_string(&path).ok().and_then(|p| p.trim().parse::<u32>().ok());
+                match pid {
+                    Some(pid) if pid != std::process::id() && is_prism(pid) => return Ok(Some(pid)),
+                    Some(_) => {
+                        let _ = std::fs::remove_file(&path);
+                    }
+                    None => std::thread::sleep(std::time::Duration::from_millis(50)),
+                }
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+    // Left by a Prism gone and taken meanwhile by nobody alive: this one's.
     std::fs::write(&path, std::process::id().to_string())?;
-    Ok(())
+    Ok(None)
 }
 
 /// At exit: the app's place goes, if it is still this one's.
@@ -388,9 +411,14 @@ pub fn ask_host(pid: u32, id: &str) -> Result<()> {
 
 /// The profiles asked since (`ask_host`), each once, those that exist.
 pub fn take_requests() -> Vec<String> {
+    // Moved aside first: a request written meanwhile goes to a new file, never lost.
     let path = requests_path();
-    let Ok(text) = std::fs::read_to_string(&path) else { return Vec::new() };
-    let _ = std::fs::remove_file(&path);
+    let taken = path.with_extension("taken");
+    if std::fs::rename(&path, &taken).is_err() {
+        return Vec::new();
+    }
+    let text = std::fs::read_to_string(&taken).unwrap_or_default();
+    let _ = std::fs::remove_file(&taken);
     let mut out: Vec<String> = Vec::new();
     for id in text.lines().map(str::trim).filter(|id| exists(id)) {
         if !out.iter().any(|o| o == id) {

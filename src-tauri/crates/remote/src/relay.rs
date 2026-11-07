@@ -208,15 +208,8 @@ pub(crate) async fn summary_cached(inner: &Inner, id: &str) -> Option<Summary> {
 }
 
 pub(crate) fn counts(snap: &prism_core::state::Snapshot) -> Summary {
-    use prism_core::state::{AgentState, SessionStatus::*};
-    let running: Vec<_> = snap.agents.iter().filter(|a| a.state == AgentState::Running).collect();
-    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, WaitingTool | NeedsYou | ReviewReady)).collect();
-    waiting.sort_by_key(|a| a.last_activity);
-    let waiting_agents = waiting
-        .iter()
-        .map(|a| prism_core::state::WaitingAgent { id: a.id.clone(), title: a.title.clone(), status: serde_json::to_value(a.status).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default(), profile: None })
-        .collect();
-    Summary { agents: running.len(), waiting: waiting.len(), dev_ports: crate::preview::dev_ports(snap), waiting_agents }
+    let (agents, waiting_agents) = prism_core::state::waiting_agents(snap);
+    Summary { agents, waiting: waiting_agents.len(), dev_ports: crate::preview::dev_ports(snap), waiting_agents }
 }
 
 /// This machine's profiles as a peer's desk shows them (`/peer/summary`): this one (the hub)

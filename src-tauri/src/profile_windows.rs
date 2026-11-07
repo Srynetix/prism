@@ -21,13 +21,15 @@ pub const PREFIX: &str = "profile-";
 /// relaunched (Restart Prism, an update) stops them in its turn.
 pub struct Engines {
     started: Mutex<HashSet<String>>,
+    /// When each was last started: one starting has not claimed its profile yet (`holder`).
+    starting: Mutex<std::collections::HashMap<String, std::time::Instant>>,
 }
 
 impl Default for Engines {
     /// Those a former app started, still running.
     fn default() -> Self {
         let started = std::fs::read_to_string(started_path()).unwrap_or_default().lines().map(str::trim).filter(|id| !id.is_empty() && profile::holder(id).is_some()).map(String::from).collect();
-        Self { started: Mutex::new(started) }
+        Self { started: Mutex::new(started), starting: Default::default() }
     }
 }
 
@@ -137,9 +139,17 @@ fn engine(app: &AppHandle, id: &str) -> Result<()> {
     if profile::holder(id).is_some() {
         return Ok(());
     }
+    let engines = app.state::<Arc<Engines>>();
+    {
+        // Asked twice at once (a reopened profile also asked by a launch, a double click): one.
+        let mut starting = engines.starting.lock().unwrap();
+        if starting.get(id).is_some_and(|at| at.elapsed() < std::time::Duration::from_secs(20)) {
+            return Ok(());
+        }
+        starting.insert(id.to_string(), std::time::Instant::now());
+    }
     let pid = profile::start_engine(id)?;
     tracing::info!("profile {id}: its Prism started without a window (pid {pid})");
-    let engines = app.state::<Arc<Engines>>();
     let mut started = engines.started.lock().unwrap();
     started.insert(id.to_string());
     Engines::save(&started);
@@ -167,6 +177,7 @@ pub fn stop(app: &AppHandle, id: &str) -> Result<()> {
         let mut started = engines.started.lock().unwrap();
         started.remove(id);
         Engines::save(&started);
+        engines.starting.lock().unwrap().remove(id);
     }
     profile::stop(id);
     // The window is gone once its event ran: the list read without it.

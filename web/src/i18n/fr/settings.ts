@@ -491,7 +491,6 @@ export default {
   'Start': 'Démarrer',
   'This window: profile {name}': 'Cette fenêtre : profil {name}',
   '{profile}: an agent needs a permission': '{profile} : un agent demande une autorisation',
-  '{profile}: an agent waits for you': '{profile} : un agent vous attend',
   '{n} agent waiting in another profile': '{n} agent vous attend dans un autre profil',
   '{n} agents waiting in other profiles': '{n} agents vous attendent dans d’autres profils',
   'Rename it, or change its color': 'Le renommer, ou changer sa couleur',
