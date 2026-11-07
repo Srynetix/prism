@@ -196,7 +196,7 @@
   small, .muted { color: var(--text-muted); font-size: var(--fs-meta); }
   p { margin: 0; }
   .ko { color: var(--ko); display: flex; gap: 6px; align-items: center; }
-  .mono { font-family: var(--font-mono, ui-monospace, monospace); }
+  .mono { font-family: var(--mono); }
   .pair { display: flex; gap: 16px; align-items: center; padding: 12px; border-radius: var(--r10); background: var(--surface-muted); }
   .qr { width: 176px; height: 176px; flex: none; background: #fff; border-radius: 8px; padding: 6px; }
   .qr :global(svg) { width: 100%; height: 100%; display: block; }

@@ -596,7 +596,7 @@
   .card .acts { gap: 4px; align-self: end; }
   .srow { padding: 4px 12px 6px; font-size: var(--fs-meta); }
 
-  .du-menu { position: fixed; z-index: 50; min-width: 220px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8, 8px); background: var(--surface); box-shadow: var(--shadow, 0 8px 28px rgb(0 0 0 / 0.25)); font-size: var(--fs-meta); }
+  .du-menu { position: fixed; z-index: 50; min-width: 220px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8, 8px); background: var(--surface); box-shadow: 0 8px 28px rgb(0 0 0 / 0.25); font-size: var(--fs-meta); }
   .du-menu .mh { padding: 3px 9px 5px; color: var(--text-muted); font-size: var(--fs-tag); border-bottom: 1px solid var(--border); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
   .du-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 9px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   .du-menu button :global(svg) { width: 13px; height: 13px; color: var(--text-muted); }

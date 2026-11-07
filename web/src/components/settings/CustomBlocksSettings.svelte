@@ -331,7 +331,7 @@
   label small, .lbl small, .hint { color: var(--text-muted); font-size: var(--fs-tag); }
   .lbl { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-meta); color: var(--text-muted); }
   input, textarea, select { padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); }
-  textarea { font-family: var(--font-mono); font-size: var(--fs-meta); resize: vertical; }
+  textarea { font-family: var(--mono); font-size: var(--fs-meta); resize: vertical; }
   .seg { display: inline-flex; align-self: flex-start; gap: 1px; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
   .seg button { padding: 3px 12px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
   .seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
@@ -350,7 +350,7 @@
   .tried { border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
   .tried .head, .tried summary { padding: 5px 10px; background: var(--surface-muted); font-size: var(--fs-meta); color: var(--text-muted); cursor: default; }
   .tried summary { cursor: pointer; }
-  .tried pre { margin: 0; padding: 6px 10px; max-height: 240px; overflow: auto; font-family: var(--font-mono); font-size: var(--fs-meta); white-space: pre-wrap; word-break: break-word; }
+  .tried pre { margin: 0; padding: 6px 10px; max-height: 240px; overflow: auto; font-family: var(--mono); font-size: var(--fs-meta); white-space: pre-wrap; word-break: break-word; }
   .tried pre.err { color: var(--ko); }
   .preview { max-height: 320px; overflow: auto; }
 </style>

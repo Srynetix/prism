@@ -223,11 +223,11 @@
 {/if}
 
 <style>
-  .tip { position: fixed; z-index: 1000; display: flex; align-items: baseline; gap: 8px; max-width: min(340px, calc(100vw - 12px)); padding: 4px 8px; border-radius: var(--r6); background: var(--tip-bg, color-mix(in srgb, var(--text) 90%, var(--bg))); color: var(--tip-text, var(--bg)); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); line-height: 1.4; pointer-events: none; animation: tip-in 0.09s ease-out; }
+  .tip { position: fixed; z-index: 1000; display: flex; align-items: baseline; gap: 8px; max-width: min(340px, calc(100vw - 12px)); padding: 4px 8px; border-radius: var(--r6); background: color-mix(in srgb, var(--text) 90%, var(--bg)); color: var(--bg); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); line-height: 1.4; pointer-events: none; animation: tip-in 0.09s ease-out; }
   .body { white-space: pre-line; overflow-wrap: anywhere; }
   .keys { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
   .keys i { font-style: normal; opacity: 0.6; }
-  kbd { padding: 0 4px; border-radius: var(--r3); background: color-mix(in srgb, var(--tip-text, var(--bg)) 18%, transparent); font: 600 10.5px var(--mono); line-height: 15px; }
+  kbd { padding: 0 4px; border-radius: var(--r3); background: color-mix(in srgb, var(--bg) 18%, transparent); font: 600 10.5px var(--mono); line-height: 15px; }
   @keyframes tip-in { from { opacity: 0; transform: translateY(var(--tip-from, 2px)); } }
   .tip.above { --tip-from: -2px; }
   .tip.right, .tip.left { --tip-from: 0; }

@@ -178,5 +178,5 @@
   td { padding: 4px 6px; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .st { width: 18px; padding-left: 12px; }
-  .raw { margin: 0; padding: 8px 12px; font-family: var(--font-mono); font-size: var(--fs-meta); white-space: pre-wrap; word-break: break-word; color: var(--text); }
+  .raw { margin: 0; padding: 8px 12px; font-family: var(--mono); font-size: var(--fs-meta); white-space: pre-wrap; word-break: break-word; color: var(--text); }
 </style>

@@ -130,7 +130,7 @@
   .tag { margin-left: 6px; padding: 0 6px; border: 1px solid var(--border); border-radius: 9px; font-size: var(--fs-tag); color: var(--text-muted); }
   .agent { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ko); font-size: var(--fs-meta); }
   .agent :global(svg) { width: 12px; height: 12px; flex-shrink: 0; }
-  .diff { margin: 0; max-height: 220px; overflow: auto; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); font-family: var(--font-mono); font-size: var(--fs-meta); line-height: 1.45; }
+  .diff { margin: 0; max-height: 220px; overflow: auto; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); font-family: var(--mono); font-size: var(--fs-meta); line-height: 1.45; }
   .l { display: block; white-space: pre; }
   .l.add { background: color-mix(in srgb, var(--ok) 14%, transparent); }
   .l.del { background: color-mix(in srgb, var(--ko) 14%, transparent); }
