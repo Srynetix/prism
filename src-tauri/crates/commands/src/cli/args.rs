@@ -89,6 +89,9 @@ pub enum Cmd {
     /// The profile's Prism without a window, shown in a window of the app (internal)
     #[command(hide = true)]
     Engine,
+    /// Hold the agents' sessions where there is no tmux, beyond the window (internal)
+    #[command(hide = true)]
+    Sessions,
     /// `token clickup`'s former name
     #[command(name = "clickup-token", hide = true)]
     ClickupToken,
@@ -429,7 +432,7 @@ mod tests {
         let help = command(&SERVER).render_help().to_string();
         assert!(help.contains("Usage: prism-server"), "{help}");
         assert!(help.contains("serve") && help.contains("token"), "{help}");
-        for hidden in ["hook", "watch", "clickup-token", "jira-token", "google-secret"] {
+        for hidden in ["hook", "watch", "sessions", "clickup-token", "jira-token", "google-secret"] {
             assert!(!help.contains(hidden), "{hidden} in {help}");
         }
         let app = command(&APP).render_help().to_string();

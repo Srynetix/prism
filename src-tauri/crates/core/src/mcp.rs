@@ -28,7 +28,23 @@ pub fn socket_path() -> PathBuf {
 /// On Windows, the named pipe in its place: named after the profile's data folder, as a long
 /// socket path is (`socket_for`), so that each profile has its own.
 pub fn pipe_name() -> String {
-    format!(r"\\.\pipe\prism-mcp-{:016x}", fnv(&crate::profile::data_dir(&crate::profile::data_base()).join("mcp.sock")))
+    pipe_for("mcp")
+}
+
+/// `prism sessions`' socket (`prism_agents::tmux::daemon`), beside `socket_path`: where Prism
+/// holds the agents' sessions itself, they outlive the window.
+pub fn sessions_socket_path() -> PathBuf {
+    socket_for(&crate::profile::data_dir(&crate::profile::data_base()).join("sessions.sock"))
+}
+
+/// On Windows, `sessions_socket_path`'s named pipe.
+pub fn sessions_pipe_name() -> String {
+    pipe_for("sessions")
+}
+
+/// The profile's pipe `kind`: named after the socket it stands in for.
+fn pipe_for(kind: &str) -> String {
+    format!(r"\\.\pipe\prism-{kind}-{:016x}", fnv(&crate::profile::data_dir(&crate::profile::data_base()).join(format!("{kind}.sock"))))
 }
 
 /// FNV-1a: the same short name for the same path, in both processes.
@@ -43,7 +59,8 @@ fn socket_for(preferred: &Path) -> PathBuf {
     let hash = fnv(preferred);
     let base = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).filter(|d| d.is_dir()).unwrap_or_else(std::env::temp_dir);
     // A folder of this account's in it (`/tmp` is everyone's): checked as it is used (`private_dir`).
-    base.join(format!("prism-{}", uid())).join(format!("mcp-{hash:016x}.sock"))
+    let stem = preferred.file_stem().and_then(|s| s.to_str()).unwrap_or("mcp");
+    base.join(format!("prism-{}", uid())).join(format!("{stem}-{hash:016x}.sock"))
 }
 
 #[cfg(unix)]

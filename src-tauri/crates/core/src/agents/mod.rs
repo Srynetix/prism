@@ -13,11 +13,11 @@ pub mod usage;
 /// Claude session identifier.
 pub const PREFIX: &str = "prism-";
 
-/// Prism holds the agents' sessions itself (`prism_agents::tmux::local`) instead of a tmux server:
-/// on Windows, which has no tmux, or with `PRISM_SESSIONS=local` (to try it elsewhere). No tmux
-/// is needed then.
+/// Prism holds the agents' sessions itself (`prism_agents::tmux::local`, in `prism sessions`)
+/// instead of a tmux server: on Windows, which has no tmux, or with `PRISM_SESSIONS=local` (to try
+/// it elsewhere; `inprocess`: in Prism's process, stopping with it). No tmux is needed then.
 pub fn local_sessions() -> bool {
-    cfg!(windows) || std::env::var("PRISM_SESSIONS").is_ok_and(|v| v == "local")
+    cfg!(windows) || std::env::var("PRISM_SESSIONS").is_ok_and(|v| v == "local" || v == "inprocess")
 }
 
 /// `ABC-4661 · Export CSV des mesures` → `abc-4661-export-csv-des-mesures` (40 characters at most).

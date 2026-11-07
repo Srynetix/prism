@@ -44,7 +44,7 @@ pub fn run(info: &Info, args: Vec<OsString>) -> Run {
             // What Prism itself starts with a profile (the window, the MCP server written into
             // the agent CLIs' configs, a hook, the keep-running job) goes on with the default one,
             // as before; what is typed stops.
-            if !matches!(cli.command, None | Some(Cmd::Mcp(_) | Cmd::Hook { .. } | Cmd::Watch)) {
+            if !matches!(cli.command, None | Some(Cmd::Mcp(_) | Cmd::Hook { .. } | Cmd::Watch | Cmd::Sessions)) {
                 eprintln!("{said}");
                 return Run::Exit(2);
             }
@@ -75,6 +75,7 @@ fn subcommand(info: &Info, cmd: &Cmd) -> i32 {
         Cmd::Peer(action) => peer(action).map(|()| None),
         Cmd::Restart => crate::profile::restart().map(Some),
         Cmd::Watch => crate::profile::watch(),
+        Cmd::Sessions => crate::agents::tmux::daemon::main().map(|()| None),
         Cmd::Pack(action) => pack(action).map(Some),
         Cmd::Mcp(mcp) => match &mcp.action {
             None => crate::mcp::serve_stdio(false).map(|()| None),
