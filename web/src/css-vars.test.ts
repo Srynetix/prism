@@ -9,9 +9,12 @@ import { describe, expect, it } from 'vitest'
  */
 const SOURCES = import.meta.glob<string>(['./**/*.{svelte,ts,css}', '!./**/*.test.ts', '!./bindings/**'], { query: '?raw', import: 'default', eager: true })
 
+/** The source without its comments (block, HTML, and a line's `//`): a name in one defines nothing. */
+const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' ')).replace(/^\s*\/\/.*$/gm, '')
+
 function defined(): Set<string> {
   const names = new Set<string>()
-  for (const src of Object.values(SOURCES)) {
+  for (const src of Object.values(SOURCES).map(code)) {
     for (const m of src.matchAll(/(?:^|[\s;{("'`:])--([\w-]+)\s*['"`]?\s*:/g)) names.add(m[1])
     for (const m of src.matchAll(/style:--([\w-]+)/g)) names.add(m[1])
     for (const m of src.matchAll(/setProperty\(\s*['"`]--([\w-]+)/g)) names.add(m[1])

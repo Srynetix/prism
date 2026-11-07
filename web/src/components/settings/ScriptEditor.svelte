@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import { EditorState } from '@codemirror/state'
   import { EditorView } from '@codemirror/view'
   import { baseExtensions, compartments, sizeTheme } from '../../editor/setup'
-  import { filesSettings } from '../../files-editor.svelte'
+  import { filesFontSize } from '../../files-editor.svelte'
   import { languageOf } from '../../editor/languages'
 
   /**
@@ -17,8 +17,10 @@
   let host: HTMLDivElement | undefined = $state()
   let view: EditorView | undefined
   let lang = ''
+  /** The size the editor has. */
+  let made = 0
   /** The Files tab's text size. */
-  const size = $derived(filesSettings().font_size || 11.5)
+  const size = $derived(filesFontSize())
 
   /** The file name whose language the shebang gives. */
   function pathOf(text: string): string {
@@ -44,7 +46,7 @@
       parent: host,
       state: EditorState.create({
         doc: value,
-        extensions: baseExtensions({ vim: false, wrap: false, fontSize: size, readOnly: false }, [
+        extensions: baseExtensions({ vim: false, wrap: false, fontSize: (made = untrack(() => size)), readOnly: false }, [
           EditorView.updateListener.of((u) => {
             if (!u.docChanged) return
             value = u.state.doc.toString()
@@ -60,7 +62,9 @@
   // The Files tab's size changed: the editor follows.
   $effect(() => {
     const px = size
-    view?.dispatch({ effects: compartments.size.reconfigure(sizeTheme(px)) })
+    if (!view || px === made) return
+    made = px
+    view.dispatch({ effects: compartments.size.reconfigure(sizeTheme(px)) })
   })
 
   // Set from outside: the editor follows.
