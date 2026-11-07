@@ -42,7 +42,7 @@ pub const OPENCODE: &str = "opencode";
 pub const ALL: [&str; 4] = [CLAUDE, CODEX, COMMAND_CODE, OPENCODE];
 
 fn home() -> Option<PathBuf> {
-    std::env::var_os("HOME").map(PathBuf::from)
+    dirs::home_dir()
 }
 
 /// `~/.claude/projects`, or under `CLAUDE_CONFIG_DIR`.

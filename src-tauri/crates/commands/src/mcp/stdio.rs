@@ -22,7 +22,7 @@ const VERSIONS: &[&str] = &["2025-06-18", "2025-03-26", "2024-11-05"];
 
 /// The running Prism, reached on its socket: one connection, its answers matched by id.
 struct Link {
-    write: Mutex<tokio::net::unix::OwnedWriteHalf>,
+    write: Mutex<Box<dyn tokio::io::AsyncWrite + Send + Unpin>>,
     pending: Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Value>>>>,
     next: AtomicU64,
     hello: Value,
@@ -32,12 +32,7 @@ struct Link {
 
 impl Link {
     async fn open(client: &str, aside: bool) -> Result<Self> {
-        let path = prism_core::mcp::socket_path();
-        if path.exists() {
-            prism_core::mcp::owned_socket(&path)?;
-        }
-        let stream = tokio::net::UnixStream::connect(&path).await.with_context(|| format!("Prism is not running for the profile {} (no {})", prism_core::profile::active(), path.display()))?;
-        let (read, write) = stream.into_split();
+        let (read, write) = connect().await?;
         let pending: Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Value>>>> = Arc::default();
         let waiting = pending.clone();
         let closed: Arc<std::sync::atomic::AtomicBool> = Arc::default();
@@ -75,6 +70,40 @@ impl Link {
     fn alive(&self) -> bool {
         !self.closed.load(std::sync::atomic::Ordering::SeqCst)
     }
+}
+
+type Halves = (Box<dyn tokio::io::AsyncRead + Send + Unpin>, Box<dyn tokio::io::AsyncWrite + Send + Unpin>);
+
+/// The running Prism's socket, this account's only.
+#[cfg(unix)]
+async fn connect() -> Result<Halves> {
+    let path = prism_core::mcp::socket_path();
+    if path.exists() {
+        prism_core::mcp::owned_socket(&path)?;
+    }
+    let stream = tokio::net::UnixStream::connect(&path).await.with_context(|| format!("Prism is not running for the profile {} (no {})", prism_core::profile::active(), path.display()))?;
+    let (read, write) = stream.into_split();
+    Ok((Box::new(read), Box::new(write)))
+}
+
+/// The running Prism's named pipe; busy (all its instances taken an instant), tried again.
+#[cfg(windows)]
+async fn connect() -> Result<Halves> {
+    use tokio::net::windows::named_pipe::ClientOptions;
+    /// `ERROR_PIPE_BUSY`.
+    const BUSY: i32 = 231;
+    let name = prism_core::mcp::pipe_name();
+    let mut tries = 0;
+    let pipe = loop {
+        match ClientOptions::new().open(&name) {
+            Ok(pipe) => break pipe,
+            Err(e) if e.raw_os_error() == Some(BUSY) && tries < 50 => tries += 1,
+            Err(e) => return Err(e).with_context(|| format!("Prism is not running for the profile {} (no {name})", prism_core::profile::active())),
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    };
+    let (read, write) = tokio::io::split(pipe);
+    Ok((Box::new(read), Box::new(write)))
 }
 
 /// The server's state across requests.

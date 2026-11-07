@@ -109,6 +109,7 @@ pub(crate) struct Local;
 pub(crate) const LOCAL_PEER: &str = "this computer's app";
 
 /// The routes of the profile's local socket: a peer's, nothing of the phone's.
+#[cfg_attr(not(unix), allow(dead_code))]
 pub fn local_router(inner: Shared) -> Router {
     Router::new()
         .route("/peer/ws", get(peer_socket))

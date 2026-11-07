@@ -583,8 +583,8 @@ pub(super) mod tests {
         fn drop(&mut self) {
             let _ = std::process::Command::new("tmux").args(["-L", &self.tmux.socket, "kill-server"]).output();
             // tmux leaves its socket behind: `$TMUX_TMPDIR/tmux-<uid>/<name>`.
-            let base = std::env::var_os("TMUX_TMPDIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp"));
-            let _ = std::fs::remove_file(base.join(format!("tmux-{}", prism_sys::process::uid())).join(&self.tmux.socket));
+            #[cfg(unix)]
+            let _ = std::fs::remove_file(std::env::var_os("TMUX_TMPDIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp")).join(format!("tmux-{}", prism_sys::process::uid())).join(&self.tmux.socket));
             let _ = std::fs::remove_dir_all(&self.dir);
         }
     }

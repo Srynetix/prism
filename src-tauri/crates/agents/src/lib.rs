@@ -437,7 +437,7 @@ impl Agents {
 /// A Claude Code conversation of this id in its usual place (`~/.claude/projects/<folder>/<id>.jsonl`,
 /// or under `CLAUDE_CONFIG_DIR`): its hooks may not have said where it is (an agent from before).
 fn claude_conversation_exists(id: &str) -> bool {
-    let root = std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".claude")));
+    let root = std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from).or_else(|| dirs::home_dir().map(|h| h.join(".claude")));
     let Some(projects) = root.map(|r| r.join("projects")) else { return false };
     let file = format!("{id}.jsonl");
     std::fs::read_dir(projects).into_iter().flatten().flatten().any(|d| d.path().join(&file).is_file())
@@ -756,7 +756,7 @@ mod tests {
         assert_eq!((bare.spec().cwd.as_deref(), bare.spec().then.len()), (Some("/repo"), 0));
         // Any folder picked, under the home folder written `~/…`.
         let home: Launch = serde_json::from_value(serde_json::json!({ "title": "T", "cwd": "~/notes" })).unwrap();
-        assert_eq!(home.cwd, Some(PathBuf::from(std::env::var("HOME").unwrap()).join("notes")));
+        assert_eq!(home.cwd, Some(dirs::home_dir().unwrap().join("notes")));
     }
 
     /// A worktree's shells: one owner per path, the same after a restart, never taken for an agent.

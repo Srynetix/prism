@@ -1,6 +1,6 @@
 //! The running Prism's end of `prism mcp`: a Unix socket of the profile (`mcp::socket_path`, the
-//! owner's only), one JSON request per line, one answer per line. Prism reads, checks and applies:
-//! the MCP server never reads a file itself. What it changes waits, as a proposal, for the user's
+//! owner's only; a named pipe on Windows, `mcp::pipe_name`), one JSON request per line, one answer
+//! per line. Prism reads, checks and applies: the MCP server never reads a file itself. What it changes waits, as a proposal, for the user's
 //! answer in the window (`answer`).
 
 use std::sync::{
@@ -60,49 +60,93 @@ fn host() -> Result<&'static Arc<Host>> {
     HOST.get().context("prism mcp: not serving")
 }
 
-/// Serves `prism mcp` on the profile's socket, for as long as Prism runs.
+/// Serves `prism mcp` on the profile's socket (a named pipe on Windows), for as long as Prism runs.
 pub fn serve(state: Arc<AppState>) {
-    let path = prism_core::mcp::socket_path();
-    if let Err(e) = prism_core::mcp::private_dir(&path) {
-        return tracing::warn!("mcp: no socket: {e:#}");
-    }
-    // One Prism per profile: a socket left there is a former one's.
-    let _ = std::fs::remove_file(&path);
-    // Bound here (no runtime needed), served from the runtime.
-    let listener = match std::os::unix::net::UnixListener::bind(&path).and_then(|l| l.set_nonblocking(true).map(|()| l)) {
-        Ok(l) => l,
-        Err(e) => return tracing::warn!("mcp: no socket at {}: {e}", path.display()),
-    };
-    if let Err(e) = prism_core::mcp::owner_only(&path) {
-        let _ = std::fs::remove_file(&path);
-        return tracing::warn!("mcp: {e:#}");
-    }
+    #[cfg(unix)]
+    let Some(listener) = bind() else { return };
     let host = Arc::new(Host { state, next: AtomicU64::new(1), clients: Mutex::new(Vec::new()), proposals: Mutex::new(Vec::new()) });
     let _ = HOST.set(host.clone());
     prism_base::rt::Generation::outside(|| {
-        prism_base::rt::spawn(async move {
-            let listener = match tokio::net::UnixListener::from_std(listener) {
-                Ok(l) => l,
-                Err(e) => return tracing::warn!("mcp: {e}"),
-            };
-            loop {
-                match listener.accept().await {
-                    Ok((stream, _)) => {
-                        prism_base::rt::spawn(host.clone().connection(stream));
-                    }
-                    Err(e) => {
-                        tracing::warn!("mcp: {e}");
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    }
-                }
-            }
-        });
+        #[cfg(unix)]
+        prism_base::rt::spawn(accept(host, listener));
+        #[cfg(windows)]
+        prism_base::rt::spawn(accept(host));
     });
 }
 
+/// The socket, bound here (no runtime needed) to be served from the runtime.
+#[cfg(unix)]
+fn bind() -> Option<std::os::unix::net::UnixListener> {
+    let path = prism_core::mcp::socket_path();
+    if let Err(e) = prism_core::mcp::private_dir(&path) {
+        tracing::warn!("mcp: no socket: {e:#}");
+        return None;
+    }
+    // One Prism per profile: a socket left there is a former one's.
+    let _ = std::fs::remove_file(&path);
+    let listener = match std::os::unix::net::UnixListener::bind(&path).and_then(|l| l.set_nonblocking(true).map(|()| l)) {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::warn!("mcp: no socket at {}: {e}", path.display());
+            return None;
+        }
+    };
+    if let Err(e) = prism_core::mcp::owner_only(&path) {
+        let _ = std::fs::remove_file(&path);
+        tracing::warn!("mcp: {e:#}");
+        return None;
+    }
+    Some(listener)
+}
+
+#[cfg(unix)]
+async fn accept(host: Arc<Host>, listener: std::os::unix::net::UnixListener) {
+    let listener = match tokio::net::UnixListener::from_std(listener) {
+        Ok(l) => l,
+        Err(e) => return tracing::warn!("mcp: {e}"),
+    };
+    loop {
+        match listener.accept().await {
+            Ok((stream, _)) => {
+                prism_base::rt::spawn(host.clone().connection(stream));
+            }
+            Err(e) => {
+                tracing::warn!("mcp: {e}");
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+    }
+}
+
+/// The profile's named pipe: an instance per connection, the next one made before the connected
+/// one is served. The first one claims the name (`first_pipe_instance`): another process cannot
+/// have made it first; clients of this computer only.
+#[cfg(windows)]
+async fn accept(host: Arc<Host>) {
+    use tokio::net::windows::named_pipe::ServerOptions;
+    let name = prism_core::mcp::pipe_name();
+    let make = |first: bool| ServerOptions::new().first_pipe_instance(first).reject_remote_clients(true).create(&name);
+    let mut server = match make(true) {
+        Ok(s) => s,
+        Err(e) => return tracing::warn!("mcp: no pipe {name}: {e}"),
+    };
+    loop {
+        if let Err(e) = server.connect().await {
+            tracing::warn!("mcp: {e}");
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+        let next = match make(false) {
+            Ok(s) => s,
+            Err(e) => return tracing::warn!("mcp: no pipe {name}: {e}"),
+        };
+        let connected = std::mem::replace(&mut server, next);
+        prism_base::rt::spawn(host.clone().connection(connected));
+    }
+}
+
 impl Host {
-    async fn connection(self: Arc<Self>, stream: tokio::net::UnixStream) {
-        let (read, write) = stream.into_split();
+    async fn connection<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + 'static>(self: Arc<Self>, stream: S) {
+        let (read, write) = tokio::io::split(stream);
         let write = Arc::new(tokio::sync::Mutex::new(write));
         let mut lines = BufReader::new(read).lines();
         let id = self.next.fetch_add(1, Ordering::SeqCst);

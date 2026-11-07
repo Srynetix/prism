@@ -84,6 +84,14 @@ linux *args:
 linux-desktop *args:
     scripts/linux-desktop.sh {{args}}
 
+# Checks that Prism compiles for Windows, from macOS or Linux (cargo xwin; scripts/windows.sh --help)
+windows-check *args:
+    {{no_extra}}scripts/windows.sh check {{args}}
+
+# Builds the Windows x64 installer (NSIS, unsigned) from macOS or Linux (scripts/windows.sh --help)
+windows-build *args:
+    {{no_extra}}scripts/windows.sh build {{args}}
+
 # Prints the changelog since the previous release, the notes `just release` publishes
 changelog *args:
     scripts/changelog.sh {{args}}

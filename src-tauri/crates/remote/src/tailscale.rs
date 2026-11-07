@@ -88,7 +88,7 @@ impl Cli {
 }
 
 fn which(name: &str) -> Option<std::path::PathBuf> {
-    std::env::var_os("PATH").and_then(|paths| std::env::split_paths(&paths).map(|p| p.join(name)).find(|p| p.is_file()))
+    prism_core::detect::which(name)
 }
 
 /// This computer on its tailnet, which must be up.
