@@ -613,7 +613,15 @@ fn the_proposing_tools_are_flagged() {
         let mut t = Tool { tool: name.into(), ..Tool::default() };
         Fold::aside_call(&mut t, &serde_json::json!({ "toml": "x", "why": "y" }));
         assert!(t.propose && !t.aside, "{name}");
+        assert_eq!(t.what.as_deref(), Some("y"), "the reason ties it to its proposal");
     }
+    // The wait: the proposal's id; Codex's arguments as a string.
+    let mut wait = Tool { tool: "prism__prism_wait_proposal".into(), ..Tool::default() };
+    Fold::aside_call(&mut wait, &Value::String(r#"{"id": 12}"#.into()));
+    assert_eq!(wait.what.as_deref(), Some("#12"));
+    // Words around the JSON, a bracket before it.
+    let noted = super::fold::propose_answer("[[repos]] proposed\n{\"status\":\"applied\"}\nnote: reload").unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&noted).unwrap(), serde_json::json!({ "status": "applied" }));
     let mut other = Tool { tool: "mcp__prism__prism_validate".into(), ..Tool::default() };
     Fold::aside_call(&mut other, &serde_json::json!({}));
     assert!(!other.propose);

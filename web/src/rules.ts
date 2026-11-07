@@ -375,10 +375,10 @@ function sessionAlerts(s: Snapshot): Alert[] {
 function proposalAlerts(s: Snapshot): Alert[] {
   return (s.mcp?.proposals ?? []).map((p) => {
     const who = (p.agent && s.agents?.find((a) => a.id === p.agent)?.title) || p.client
-    const add = p.diff.filter((l) => l.op === '+').length
-    const del = p.diff.filter((l) => l.op === '-').length
-    const what = [add ? `+${add}` : '', del ? `−${del}` : '', p.touches.join(', ')].filter(Boolean).join(' · ')
-    const text = p.kind === 'custom_block' ? tr('“{who}” proposes a new custom block: {what}', { who, what: p.block ?? what }) : tr('“{who}” proposes a change of Prism: {what}', { who, what })
+    // What stays the same while it waits (its id, its reason), not its diff, computed again when
+    // config.toml changes: the alert keeps its identity, seen stays seen.
+    const why = p.why.trim() || `#${p.id}`
+    const text = p.kind === 'custom_block' ? tr('“{who}” proposes a new custom block: {what}', { who, what: why }) : tr('“{who}” proposes a change of Prism: {what}', { who, what: why })
     return { kind: 'Claude', severity: 'warn', since: p.at, text, notify: false, fixes: [{ kind: 'proposal', id: p.id }] }
   })
 }

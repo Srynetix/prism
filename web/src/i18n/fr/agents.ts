@@ -1003,4 +1003,6 @@ export default {
   'Its diff, then apply or refuse it': 'Son diff, puis l’appliquer ou la refuser',
   'It proposes a change of Prism: see it, apply or refuse it': 'Il propose un changement de Prism : le voir, l’appliquer ou le refuser',
   'It proposes {n} changes of Prism: see them': 'Il propose {n} changements de Prism : les voir',
+  'Proposal answered': 'Proposition répondue',
+  'Proposal: no answer recorded': 'Proposition : aucune réponse enregistrée',
 } satisfies Dictionary

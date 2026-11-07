@@ -14,10 +14,12 @@
    * drawer), Refuse… (a reason the agent gets) and Apply (two clicks); once answered, what became
    * of it. On a phone, read only: the answer is given on the computer.
    */
-  let { call, proposal }: {
+  let { call, proposal, old = false }: {
     call: ConversationTool
-    /** The proposal it waits for (`Proposal.agent`, oldest call ↔ oldest proposal); none yet. */
+    /** The proposal it waits for (its agent's, by the reason or id the call gave); none in sight. */
     proposal: Proposal | undefined
+    /** Its call is of an earlier turn: one still without an answer waits no more (its CLI stopped). */
+    old?: boolean
   } = $props()
 
   /** Its answer, as the call's result says it (`fold::propose_answer`). */
@@ -36,9 +38,11 @@
   let error = $state('')
   const desk = isDesktop()
 
+  /** Armed for this proposal only: another under the second click applies nothing. */
+  const armKey = $derived(`apply-${proposal?.id ?? ''}`)
   async function act(action: 'apply' | 'refuse') {
-    if (!proposal) return
-    if (action === 'apply' && !arm.confirm('apply')) return
+    if (!proposal || busy) return
+    if (action === 'apply' && !arm.confirm(armKey)) return
     busy = true
     error = ''
     try {
@@ -52,7 +56,10 @@
   }
 </script>
 
-{#if done}
+{#if call.state !== 'running' && !done}
+  <!-- Answered, its answer not readable here. -->
+  <div class="line"><Icon name="settings" size={12} /> {t('Proposal answered')}</div>
+{:else if done}
   <div class="line" class:ok={done.status !== 'refused'} class:ko={done.status === 'refused'}>
     <Icon name={done.status === 'refused' ? 'close' : 'check'} size={12} />
     {#if done.status === 'refused'}{t('Proposal refused')}{#if done.reason}<span class="why">· « {done.reason} »</span>{/if}
@@ -90,12 +97,14 @@
         <button class="ghost" onclick={() => openProposal(proposal.id)}><Icon name="diff" size={12} /> {t('See the diff')}</button>
         <span class="grow"></span>
         <button disabled={busy} onclick={() => (refusing = true)}>{t('Refuse…')}</button>
-        <button class="primary" class:armed={arm.is('apply')} disabled={busy} onclick={() => act('apply')}>
-          {#if arm.is('apply')}{proposal.kind === 'custom_block' ? t('Trust and add?') : t('Apply?')}{:else if proposal.kind === 'custom_block'}{t('Trust and add')}{:else if proposal.stale}{t('Apply on the current version')}{:else}{t('Apply')}{/if}
+        <button class="primary" class:armed={arm.is(armKey)} disabled={busy} onclick={() => act('apply')}>
+          {#if arm.is(armKey)}{proposal.kind === 'custom_block' ? t('Trust and add?') : t('Apply?')}{:else if proposal.kind === 'custom_block'}{t('Trust and add')}{:else if proposal.stale}{t('Apply on the current version')}{:else}{t('Apply')}{/if}
         </button>
       </div>
     {/if}
   </div>
+{:else if old}
+  <div class="line"><Icon name="settings" size={12} /> {t('Proposal: no answer recorded')}</div>
 {:else}
   <!-- Waiting, its proposal not in sight (being checked, or answered a moment ago). -->
   <div class="line"><Icon name="settings" size={12} /> {t('A proposal waits for your answer')}{#if desk}<button class="link" onclick={() => openProposal()}>{t('Open')}</button>{/if}</div>

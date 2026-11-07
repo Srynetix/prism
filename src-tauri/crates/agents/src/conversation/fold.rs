@@ -208,8 +208,17 @@ impl Fold {
     /// A call proposing a change of Prism: flagged for its card.
     pub(super) fn aside_call(tool: &mut Tool, input: &Value) {
         if propose_tool(&tool.tool) {
+            // What ties it to its proposal: the reason it gave (the proposal keeps it), or the
+            // proposal's id it waits for (`prism_wait_proposal`). Codex gives its arguments as a
+            // JSON string.
+            let parsed = input.as_str().and_then(|s| serde_json::from_str::<Value>(s).ok());
+            let input = parsed.as_ref().unwrap_or(input);
             tool.kind = "other";
             tool.propose = true;
+            tool.what = match input.get("id").and_then(Value::as_u64) {
+                Some(id) => Some(format!("#{id}")),
+                None => input.get("why").and_then(Value::as_str).map(|w| w.trim().to_string()),
+            };
             return;
         }
         if !aside_tool(&tool.tool) {
@@ -441,7 +450,7 @@ pub(super) fn propose_tool(name: &str) -> bool {
 /// blocks, Codex's output): its status, the reason of a refusal, the errors of an invalid one;
 /// nothing else (its diff, its notes).
 pub(super) fn propose_answer(output: &str) -> Option<String> {
-    let v = answer_in(&parse_from_brace(output)?, 6)?;
+    let v = json_values(output).find_map(|v| answer_in(&v, 6))?;
     let mut out = serde_json::json!({ "status": v.get("status")?.as_str()? });
     if let Some(r) = v.get("reason").and_then(Value::as_str).filter(|r| !r.trim().is_empty()) {
         out["reason"] = Value::from(cut(r.trim(), 500));
@@ -452,10 +461,10 @@ pub(super) fn propose_answer(output: &str) -> Option<String> {
     Some(out.to_string())
 }
 
-/// The JSON a text holds, from its first `{` or `[`.
-fn parse_from_brace(text: &str) -> Option<Value> {
-    let start = text.find(['{', '['])?;
-    serde_json::from_str(text[start..].trim()).ok()
+/// The JSON values a text holds: from each `{` or `[`, the first value there (what follows it,
+/// a note, ignored); a bracket in the words before it is tried and passed.
+fn json_values(text: &str) -> impl Iterator<Item = Value> + '_ {
+    text.match_indices(['{', '[']).filter_map(|(i, _)| serde_json::Deserializer::from_str(&text[i..]).into_iter::<Value>().next()?.ok())
 }
 
 /// The object with a `status` in `v`, or in what it wraps (a string of JSON included), `depth` deep.
@@ -467,7 +476,7 @@ fn answer_in(v: &Value, depth: u8) -> Option<Value> {
         return None;
     }
     match v {
-        Value::String(s) => answer_in(&parse_from_brace(s)?, depth - 1),
+        Value::String(s) => json_values(s).find_map(|v| answer_in(&v, depth - 1)),
         Value::Array(a) => a.iter().find_map(|x| answer_in(x, depth - 1)),
         Value::Object(o) => o.values().find_map(|x| answer_in(x, depth - 1)),
         _ => None,

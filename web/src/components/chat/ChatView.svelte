@@ -232,15 +232,16 @@
   /** Its plans proposed (plan mode), in order: the last one is answered; each shows its changes since the one before. */
   const proposals = $derived((convo?.turns ?? []).flatMap((t) => t.entries.flatMap((e) => (e.type === 'tool' && e.proposal ? [e.proposal] : []))))
   /**
-   * Its changes of Prism waiting for you (`prism mcp`), each to its call waiting in this Chat: the
-   * oldest call to the oldest proposal of this agent.
+   * Its changes of Prism waiting for you (`prism mcp`), each to the call waiting for it: by the
+   * reason the call gave (the proposal keeps it), or the id `prism_wait_proposal` waits for. A
+   * call of an earlier turn still without its answer (its CLI stopped meanwhile) waits no more.
    */
-  const waitingCalls = $derived((convo?.turns ?? []).flatMap((t) => t.entries.filter((e) => e.type === 'tool' && !!e.propose && e.state === 'running')))
   const mine = $derived(mcpProposals(shared.snapshot).filter((p) => p.agent === id))
   const proposalOf = (call: ConversationEntry) => {
-    const i = waitingCalls.indexOf(call)
-    return i >= 0 ? mine[i] : undefined
+    const what = call.type === 'tool' && call.state === 'running' ? call.what?.trim() : undefined
+    return what ? mine.find((p) => `#${p.id}` === what || p.why.trim() === what) : undefined
   }
+  const lastEntries = $derived(convo?.turns.at(-1)?.entries ?? [])
   const lastPlan = $derived(proposals.at(-1)?.call)
   const before = (call: string) => {
     const i = proposals.findIndex((p) => p.call === call)
@@ -408,7 +409,7 @@
     {@const p = row.entry.proposal}
     <PlanCard {id} plan={p} previous={before(p.call)} latest={p.call === lastPlan} {acts} {typing} onwide={onplan} />
   {:else if proposalCard(row.entry)}
-    <ProposalCard call={row.entry} proposal={proposalOf(row.entry)} />
+    <ProposalCard call={row.entry} proposal={proposalOf(row.entry)} old={!lastEntries.includes(row.entry)} />
   {:else if row.entry.ask}
     <QuestionCard {id} ask={row.entry.ask} status={row.entry.state} {acts} {typing} {passkey} />
   {:else if row.entry.aside}
