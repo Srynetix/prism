@@ -4,7 +4,7 @@
 //!
 //! An item of Prism's own (`prism:<action>`) is sent to the window as the `menu` event, whose
 //! payload is the action: `settings`, `new-agent`, `agents`, `help`, `help:<guide>`,
-//! `profile:<id>` (switch to it), `profile-open:<id>` (open it alongside), `profile-new`, `profiles`.
+//! `profile:<id>` (its window in front: `profile_windows`), `profile-new`, `profiles`.
 //!
 //! Its labels follow the window's language (`[appearance] language`, which the window resolves and
 //! gives with its guides, `prism_base::i18n`): `tr`.
@@ -66,7 +66,6 @@ pub fn tr(en: &'static str) -> &'static str {
         "Bring All to Front" => "Tout ramener au premier plan",
         "Prism Help" => "Aide de Prism",
         "Send Feedback…" => "Envoyer un retour…",
-        "Open Alongside" => "Ouvrir à côté",
         "New Profile…" => "Nouveau profil…",
         "Manage Profiles…" => "Gérer les profils…",
         _ => en,
@@ -90,13 +89,18 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     build(app)?;
     app.on_menu_event(|app, event| {
         let Some(action) = event.id().as_ref().strip_prefix(PREFIX) else { return };
-        // A click toggles a check item: the active profile stays the checked one.
-        if action.starts_with("profile:") || action.starts_with("profile-open:") {
+        // A profile: its window in front, here; a click toggles a check item, set again.
+        if let Some(id) = action.strip_prefix("profile:") {
+            if let Err(e) = crate::profile_windows::open(app, id) {
+                tracing::warn!("profile {id}: {e:#}");
+            }
             let _ = set_profiles(app);
+            return;
         }
-        // To the window in front: a machine's acts on its machine; otherwise the main one, shown.
+        // To the window in front: a machine's or a profile's acts on its Prism; otherwise the main
+        // one, shown.
         use tauri::Manager;
-        let front = app.webview_windows().into_values().find(|w| w.label().starts_with("machine-") && w.is_focused().unwrap_or(false));
+        let front = app.webview_windows().into_values().find(|w| (w.label().starts_with("machine-") || w.label().starts_with(crate::profile_windows::PREFIX)) && w.is_focused().unwrap_or(false));
         match front {
             Some(w) => {
                 let _ = w.emit_to(tauri::EventTarget::webview_window(w.label()), "menu", action.to_string());
@@ -180,8 +184,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// The Profile menu: every profile, the active one checked, ⌥⌘1… in order; then New Profile… and
-/// Manage Profiles…. Rebuilt when a profile is created, renamed or removed.
+/// The Profile menu: every profile, those with a window here checked, ⌥⌘1… in order (its window
+/// in front); then New Profile… and Manage Profiles…. Rebuilt when a profile is created, renamed,
+/// removed, opened or stopped.
 pub fn set_profiles(app: &AppHandle) -> tauri::Result<()> {
     use tauri::menu::CheckMenuItem;
     let Some(menu) = app.menu() else { return Ok(()) };
@@ -194,25 +199,46 @@ pub fn set_profiles(app: &AppHandle) -> tauri::Result<()> {
     while !sub.items()?.is_empty() {
         sub.remove_at(0)?;
     }
+    use tauri::Manager;
     let names = crate::profile::names();
     for (i, (id, name)) in names.iter().enumerate() {
         let accel = (i < 9).then(|| format!("Alt+CmdOrCtrl+{}", i + 1));
-        sub.append(&CheckMenuItem::with_id(app, format!("{PREFIX}profile:{id}"), name, true, id == crate::profile::active(), accel.as_deref())?)?;
+        let here = id == crate::profile::active() || app.get_webview_window(&crate::profile_windows::label(id)).is_some();
+        sub.append(&CheckMenuItem::with_id(app, format!("{PREFIX}profile:{id}"), name, true, here, accel.as_deref())?)?;
     }
     sub.append(&PredefinedMenuItem::separator(app)?)?;
-    // Another profile in its own Prism, next to this one.
-    let others: Vec<MenuItem<tauri::Wry>> = names
-        .iter()
-        .filter(|(id, _)| id != crate::profile::active())
-        .map(|(id, name)| MenuItem::with_id(app, format!("{PREFIX}profile-open:{id}"), name, true, None::<&str>))
-        .collect::<tauri::Result<_>>()?;
-    if !others.is_empty() {
-        let refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = others.iter().map(|m| m as &dyn tauri::menu::IsMenuItem<tauri::Wry>).collect();
-        sub.append(&Submenu::with_items(app, tr("Open Alongside"), true, &refs)?)?;
-    }
     sub.append(&MenuItem::with_id(app, format!("{PREFIX}profile-new"), tr("New Profile…"), true, None::<&str>)?)?;
     sub.append(&MenuItem::with_id(app, format!("{PREFIX}profiles"), tr("Manage Profiles…"), true, None::<&str>)?)?;
+    #[cfg(target_os = "macos")]
+    set_dock(app, &names);
     Ok(())
+}
+
+/// The app, for what the Dock's menu picks.
+#[cfg(target_os = "macos")]
+static APP: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
+
+/// The Dock's menu: every profile, open here or not, those with a window checked (macOS lists the
+/// windows above).
+#[cfg(target_os = "macos")]
+fn set_dock(app: &AppHandle, names: &[(String, String)]) {
+    use tauri::Manager;
+    let _ = APP.set(app.clone());
+    // One profile: nothing to pick.
+    let items: Vec<prism_macos::dock::Item> = if names.len() < 2 {
+        Vec::new()
+    } else {
+        names.iter().map(|(id, name)| prism_macos::dock::Item { key: id.clone(), title: name.clone(), checked: id == crate::profile::active() || app.get_webview_window(&crate::profile_windows::label(id)).is_some() }).collect()
+    };
+    let _ = app.run_on_main_thread(move || {
+        prism_macos::dock::set_menu(&items, |id| {
+            let Some(app) = APP.get() else { return };
+            if let Err(e) = crate::profile_windows::open(app, &id) {
+                tracing::warn!("profile {id}: {e:#}");
+            }
+            let _ = set_profiles(app);
+        });
+    });
 }
 
 /// The Help menu: Prism Help, then the guides by group (Reference: all blocks, shortcuts, settings).

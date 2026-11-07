@@ -343,6 +343,8 @@
   </div>
 {:else}
   <footer class="statusbar items" bind:this={bar} {@attach observe} oncontextmenu={onContext} title={t('Right-click to choose the blocks')}>
+    <!-- With several profiles, whose window this is: its color and name (each profile in a window of the app). -->
+    {#if snap?.profile?.shared}<span class="me" style:--pc={profileColor(snap.profile.color)} title={t('This window: profile {name}', { name: snap.profile.name })}><span class="dot"></span>{snap.profile.name}</span>{/if}
     {#each sides as s (s.side)}
       {#if s.side === 'right'}<span class="grow"></span>{/if}
       <span class="side {s.side}">
@@ -437,6 +439,8 @@
   .items :global(.sbi.ko), .items :global(.sbi.ko b), .items :global(.sbi.ko .g) { color: var(--ko); }
   .sbi.soon { background: color-mix(in srgb, var(--src-calendar) 14%, transparent); }
   /* Another profile open beside this one: its initial on its color; tinted while one of its agents waits. */
+  .me { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px 0 2px; margin-right: 2px; color: var(--text); font-weight: 600; border-right: 1px solid var(--border); }
+  .me .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pc); }
   .sbi.prof { flex: none; }
   .sbi.prof .pb { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: var(--r4); border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent); background: color-mix(in srgb, var(--pc) 20%, transparent); color: var(--pc); font-size: 9px; font-weight: 700; }
   .sbi.prof.waits { background: color-mix(in srgb, var(--pc) 14%, transparent); }

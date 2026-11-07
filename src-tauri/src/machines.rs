@@ -2,6 +2,9 @@
 //! page as the main window's, its calls sent to that machine (`prism_remote::machine`) rather than
 //! to this Prism. A window reaches only its own machine: which one is told by its label, never by
 //! what the page sends. The token stays here (the keychain), never in the page.
+//!
+//! This computer's other profiles open the same way (`profile_windows`), their Prism reached
+//! through its local socket rather than over the network: no token, no confirmation.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -15,15 +18,17 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 /// The machines open in a window, by the window's label, and their terminals.
 #[derive(Default)]
 pub struct Machines {
-    open: Mutex<HashMap<String, Open>>,
+    pub(crate) open: Mutex<HashMap<String, Open>>,
     ttys: Mutex<HashMap<(String, String), Tty>>,
 }
 
-struct Open {
-    name: String,
+pub(crate) struct Open {
+    pub(crate) name: String,
     /// One of its profiles reached through it; `None`, the one its remote answers at.
-    profile: Option<String>,
-    machine: Option<Arc<Machine>>,
+    pub(crate) profile: Option<String>,
+    pub(crate) machine: Option<Arc<Machine>>,
+    /// A profile of this computer (`profile_windows`), through its local socket: no machine.
+    pub(crate) local: Option<String>,
 }
 
 const PREFIX: &str = "machine-";
@@ -144,7 +149,7 @@ pub fn machine_open(app: AppHandle, state: State<'_, Arc<Machines>>, prism: Stat
         let _ = w.set_focus();
         return Ok(());
     }
-    state.open.lock().unwrap().insert(label.clone(), Open { name: name.clone(), profile: profile.clone(), machine: None });
+    state.open.lock().unwrap().insert(label.clone(), Open { name: name.clone(), profile: profile.clone(), machine: None, local: None });
     // The page learns which machine (and profile) it shows before any of its scripts.
     // Strings and an optional one: JSON that cannot fail to write.
     let script = format!("window.__PRISM_MACHINE__ = {}; window.__PRISM_MACHINE_PROFILE__ = {};", serde_json::json!(name), serde_json::json!(profile));
@@ -217,7 +222,7 @@ pub fn watch(hub: prism_core::state::Hub) {
                     let Some(token) = token else {
                         return (name.clone(), Err(anyhow::anyhow!("not paired yet")), false);
                     };
-                    let r = prism_remote::machine::summary(&Target { url, token, profile: None }).await;
+                    let r = prism_remote::machine::summary(&Target { url, token, profile: None, socket: None }).await;
                     // Refused: its token may have been replaced (paired again) since.
                     let refused = r.as_ref().is_err_and(|e| format!("{e:#}").contains("token"));
                     (name, r, refused)
@@ -243,9 +248,9 @@ pub fn watch(hub: prism_core::state::Hub) {
 /// A token kept or replaced here (a pairing, one pasted): `watch` reads them again.
 static TOKENS_CHANGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// A machine window closed: its socket and terminals with it.
+/// A machine's or a profile's window closed: its socket and terminals with it.
 pub fn closed(app: &AppHandle, label: &str) {
-    if !label.starts_with(PREFIX) {
+    if !label.starts_with(PREFIX) && !label.starts_with(crate::profile_windows::PREFIX) {
         return;
     }
     let state = app.state::<Arc<Machines>>();
@@ -265,10 +270,15 @@ fn machine(state: &Machines, window: &WebviewWindow) -> Cmd<Arc<Machine>> {
 /// SSH host.
 #[tauri::command]
 pub async fn machine_connect(state: State<'_, Arc<Machines>>, window: WebviewWindow) -> Cmd<Value> {
-    let (name, profile) = state.open.lock().unwrap().get(window.label()).map(|o| (o.name.clone(), o.profile.clone())).ok_or("not a machine's window")?;
-    let m = find(&name)?;
-    let token = token(&m).await?.ok_or_else(|| format!("no token for {name}: pair this computer with it (prism peer pair there)"))?;
-    let target = Target { url: m.url.clone(), token, profile };
+    let (name, profile, local) = state.open.lock().unwrap().get(window.label()).map(|o| (o.name.clone(), o.profile.clone(), o.local.clone())).ok_or("not a machine's window")?;
+    let (target, ssh) = match &local {
+        Some(id) => (Target::local(prism_core::profile::engine_socket(id)), String::new()),
+        None => {
+            let m = find(&name)?;
+            let token = token(&m).await?.ok_or_else(|| format!("no token for {name}: pair this computer with it (prism peer pair there)"))?;
+            (Target { url: m.url.clone(), token, profile, socket: None }, m.ssh)
+        }
+    };
     let to = window.clone();
     let machine = Machine::open(
         target,
@@ -280,7 +290,7 @@ pub async fn machine_connect(state: State<'_, Arc<Machines>>, window: WebviewWin
         o.machine = Some(Arc::new(machine));
     }
     state.ttys.lock().unwrap().retain(|(l, _), _| l != window.label());
-    Ok(serde_json::json!({ "name": name, "ssh": m.ssh }))
+    Ok(serde_json::json!({ "name": name, "ssh": ssh, "local": local }))
 }
 
 /// A command of the window, answered by its machine. What the machine classes critical (its own

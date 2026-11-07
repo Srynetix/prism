@@ -86,6 +86,9 @@ pub enum Cmd {
     /// Start the profile's Prism if it should run and does not (the keep-running job; internal)
     #[command(hide = true)]
     Watch,
+    /// The profile's Prism without a window, shown in a window of the app (internal)
+    #[command(hide = true)]
+    Engine,
     /// `token clickup`'s former name
     #[command(name = "clickup-token", hide = true)]
     ClickupToken,
@@ -182,7 +185,7 @@ pub enum Service {
 fn absent(bin: Bin) -> &'static [&'static str] {
     match bin {
         Bin::App => &["serve"],
-        Bin::Server => &[],
+        Bin::Server => &["engine"],
     }
 }
 
@@ -400,6 +403,8 @@ mod tests {
     #[test]
     fn subcommands_and_their_arguments() {
         assert!(matches!(cmd_of(&SERVER, &["serve"]), Some(Cmd::Serve)));
+        assert!(matches!(cmd_of(&APP, &["engine"]), Some(Cmd::Engine)), "a profile's Prism for a window of the app");
+        assert_eq!(exit_of(&SERVER, &["engine"]), Some(2), "the app's alone");
         assert!(matches!(cmd_of(&APP, &["pack", "update", "team"]), Some(Cmd::Pack(Pack::Update { name, reference: None })) if name == "team"));
         assert!(matches!(cmd_of(&APP, &["pack", "update", "team", "v3"]), Some(Cmd::Pack(Pack::Update { reference: Some(r), .. })) if r == "v3"));
         assert!(matches!(cmd_of(&APP, &["mcp"]), Some(Cmd::Mcp(Mcp { action: None }))));

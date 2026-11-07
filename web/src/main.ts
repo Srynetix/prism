@@ -1,5 +1,5 @@
 import { mount, unmount } from 'svelte'
-import { hasCore, invoke, isDesktop, machine, useTransport } from './bridge'
+import { hasCore, invoke, isDesktop, machine, profileWindow, useTransport } from './bridge'
 import { openLink } from './links'
 import './app.css'
 import { preload } from './persist'
@@ -27,8 +27,9 @@ document.addEventListener('click', (e) => {
 document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'graphite' : 'paper'
 
 // A machine's window: its calls go to that machine. Out of reach (or no token yet), a screen
-// says so until it answers; then the page starts as the main window's.
-if (machine()) {
+// says so until it answers; then the page starts as the main window's. Another profile's window
+// the same, its Prism on this computer (starting, it answers within seconds).
+if (machine() || profileWindow()) {
   const m = await import('./machine.svelte')
   useTransport(m.openMachine())
   const ready = m.firstSnapshot()

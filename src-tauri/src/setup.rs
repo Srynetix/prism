@@ -17,9 +17,9 @@ pub fn run(app: &mut App, hub: state::Hub, time: collectors::time::TimeService, 
     let data_dir = profile::data_dir(&app.path().app_data_dir()?);
     let state = app::AppState::start(data_dir, hub.clone(), time, team_id, Arc::new(app::Desk(app.handle().clone())), env!("PRISM_BUILD").to_string())?;
     // With several profiles, the window says which one is open.
-    let (shared, name) = { let s = hub.subscribe(); let p = &s.borrow().profile; (p.shared, p.name.clone()) };
+    let shared = hub.subscribe().borrow().profile.shared;
     if shared && let Some(w) = app.get_webview_window("main") {
-        let _ = w.set_title(&format!("Prism — {name}"));
+        let _ = w.set_title(&crate::profile_windows::title(profile::active()));
     }
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
@@ -39,5 +39,8 @@ pub fn run(app: &mut App, hub: state::Hub, time: collectors::time::TimeService, 
     app::tray(app.handle())?;
     #[cfg(target_os = "macos")]
     menu::install(app.handle())?;
+    // The profiles open in windows last time, back; then what launches asked meanwhile.
+    crate::profile_windows::reopen(app.handle());
+    crate::profile_windows::asked_quietly(app.handle());
     Ok(())
 }

@@ -68,6 +68,15 @@ pub trait Host: Send + Sync + 'static {
     fn peer_call(&self, command: String, _args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move { bail!(tr!("{command} is not answered from another Prism", command = command)) })
     }
+    /// A command of the window called by this computer's app, from its window of this profile
+    /// (`Remote::serve_local`): the same account and disk, so what opens or writes here too.
+    fn local_call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
+        self.peer_call(command, args)
+    }
+    /// What the chains and the inbox tell (`Agents::notices`), for that window to show: none here.
+    fn notices(&self) -> Option<futures::stream::BoxStream<'static, Notice>> {
+        None
+    }
     /// This machine's profiles, for a phone's switcher (`relay`): none, a single Prism.
     fn profiles(&self) -> BoxFuture<'static, Vec<prism_core::profile::Profile>> {
         Box::pin(async { Vec::new() })
@@ -76,6 +85,14 @@ pub trait Host: Send + Sync + 'static {
     fn open_profile(&self, id: &str) -> Result<()> {
         bail!(tr!("unknown profile {id}", id = id))
     }
+}
+
+/// A notice of the chains or the inbox: a toast for `ms`, and a notification of the system.
+#[derive(Debug, Clone)]
+pub struct Notice {
+    pub text: String,
+    pub ms: u64,
+    pub system: bool,
 }
 
 /// What a phone's keys and size reach: nothing, for a terminal watched read-only.
@@ -296,6 +313,35 @@ impl Remote {
             peer_pairing: Default::default(),
         };
         Ok(Self { inner: Arc::new(inner) })
+    }
+
+    /// The profile's local socket (`path`, made private): this computer's app opens its window of
+    /// this profile through it (`machine::Target::local`), whatever `[remote]` says. A socket left
+    /// by a Prism gone is replaced; one a running Prism listens on is not.
+    #[cfg(unix)]
+    pub async fn serve_local(&self, path: &std::path::Path) -> Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+            std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
+        }
+        if path.exists() {
+            if tokio::net::UnixStream::connect(path).await.is_ok() {
+                bail!("{}: another Prism listens there", path.display());
+            }
+            std::fs::remove_file(path)?;
+        }
+        let listener = tokio::net::UnixListener::bind(path).with_context(|| path.display().to_string())?;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        let app = server::local_router(self.inner.clone());
+        let at = path.to_path_buf();
+        prism_base::rt::spawn(async move {
+            if let Err(e) = axum::serve(listener, app).await {
+                tracing::warn!("local socket {}: {e}", at.display());
+            }
+        });
+        tracing::info!("local socket at {}", path.display());
+        Ok(())
     }
 
     /// Applies `[remote]`: starts, restarts or stops the server; durations, tabs and mail apply

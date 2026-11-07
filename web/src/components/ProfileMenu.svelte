@@ -1,7 +1,7 @@
 <script lang="ts">
   import { anchored, dismissable, exclusive } from '../popup'
   import { keys } from '../platform'
-  import { activeProfile, initial, loadProfiles, openProfile, profileColor, profiles, profilesView, switchProfile } from '../profiles.svelte'
+  import { activeProfile, currentProfileId, initial, loadProfiles, openProfile, profileColor, profiles, profilesView } from '../profiles.svelte'
   import { closeAgents } from '../agents.svelte'
   import { openSettings } from '../settings.svelte'
   import { toast } from '../toast.svelte'
@@ -12,11 +12,11 @@
   interface Machine { name: string; url: string; ssh: string; token: boolean; open: boolean; profiles: MachineProfile[] }
 
   /**
-   * Foot of the rail: the active profile's badge, its letter on its color. Its menu lists the
-   * profiles (⌥⌘1…) and switches to one, which relaunches Prism; New and Manage open Settings › General › Profiles.
-   * Below, the other computers' Prism (`[[machines]]`), each opened in a window of its own. In a
-   * machine's window, the badge is that machine's profile, and this computer's profiles open its
-   * own window rather than relaunching anything.
+   * Foot of the rail: this window's profile badge, its letter on its color. Its menu lists the
+   * profiles (⌥⌘1…), each in a window of the app (picked: its window in front, opened if need be);
+   * New and Manage open Settings › General › Profiles. Below, the other computers' Prism
+   * (`[[machines]]`), each opened in a window of its own. In a machine's window, the badge is that
+   * machine's profile.
    */
   let open = $state(false)
   let button: HTMLButtonElement | undefined = $state()
@@ -25,6 +25,8 @@
   const hereProfile = machineProfile()
   /** This window is machine `name`'s profile `profile` (`null`: its hub's). */
   const isHere = (name: string, profile: string | null) => name === here && profile === hereProfile
+  /** This window shows profile `id` of this computer. */
+  const mine = (id: string) => !here && id === currentProfileId()
   let machines = $state<Machine[]>([])
 
   async function toggle(e: MouseEvent) {
@@ -39,11 +41,8 @@
     e.stopPropagation()
     const p = profiles.list.find((x) => x.id === id)
     open = false
-    if (!p) return
-    // From a machine's window, this computer's profile is its own window; another, its own Prism.
-    if (here) return void (p.active ? invoke('machine_main') : openProfile({ id })).catch((err) => toast(String(err), 6000))
-    if (p.active) return
-    await switchProfile(p).catch((err) => toast(String(err), 6000))
+    if (!p || mine(id)) return
+    await openProfile({ id }).catch((err) => toast(String(err), 6000))
   }
   async function openMachine(e: MouseEvent, name: string, profile: string | null = null) {
     e.stopPropagation()
@@ -55,12 +54,6 @@
     open = false
     closeAgents()
     openSettings('machines')
-  }
-  /** Next to this Prism, in its own: Open alongside. */
-  async function alongside(e: MouseEvent, id: string) {
-    e.stopPropagation()
-    open = false
-    await openProfile({ id }).catch((err) => toast(String(err), 6000))
   }
   function manage(e: MouseEvent, creating: boolean) {
     e.stopPropagation()
@@ -82,13 +75,12 @@
     <div class="t">{here ? t('This computer') : t('Profile')}</div>
     {#each profiles.list as p, i (p.id)}
       <div class="row">
-        <button role="menuitemradio" aria-checked={p.active && !here} class:cur={p.active && !here} style:--c={profileColor(p.color)} onclick={(e) => pick(e, p.id)} title={p.active ? t('This Prism') : p.open ? t('Open in another Prism: bring it to the front') : t('Switch this Prism to {name}', { name: p.name })}>
-          <span class="chk">{p.active && !here ? '✓' : ''}</span>
+        <button role="menuitemradio" aria-checked={mine(p.id)} class:cur={mine(p.id)} style:--c={profileColor(p.color)} onclick={(e) => pick(e, p.id)} title={mine(p.id) ? t('This window') : p.state === 'closed' ? t('Open {name} in a window', { name: p.name }) : t('Show {name}’s window', { name: p.name })}>
+          <span class="chk">{mine(p.id) ? '✓' : ''}</span>
           <span class="pf sm" style:--c={profileColor(p.color)}>{initial(p.name)}</span>
-          <span class="name">{p.name}{#if p.open}<em>{t('open')}</em>{/if}<small>{p.error ? t('config not readable') : describe(p)}</small></span>
+          <span class="name">{p.name}{#if !mine(p.id) && p.state === 'window'}<em>{t('window')}</em>{:else if p.state === 'background'}<em class="bg">{t('background')}</em>{/if}<small>{p.error ? t('config not readable') : describe(p)}</small></span>
           {#if i < 9}<kbd>{keys(`⌥⌘${i + 1}`)}</kbd>{/if}
         </button>
-        {#if !p.active && !p.open && !here}<button class="side" onclick={(e) => alongside(e, p.id)} title={t('Open {name} alongside, in its own Prism', { name: p.name })} aria-label={t('Open {name} alongside', { name: p.name })}>⧉</button>{/if}
       </div>
     {/each}
     {#if machines.length}
@@ -111,7 +103,7 @@
       {/each}
     {/if}
     <hr />
-    <p class="note">{t('Switching relaunches Prism; ⧉ opens a profile alongside, in its own Prism. Agents keep running, in their own profile.')}</p>
+    <p class="note">{t('Each profile in a window of its own (⌘` from one to the other); closed, its Prism goes on in the background. Agents keep running, in their own profile.')}</p>
     <button onclick={(e) => manage(e, true)}><span class="chk"></span>{t('New profile…')}</button>
     <button onclick={(e) => manage(e, false)}><span class="chk"></span>{t('Manage profiles…')}</button>
     {#if isDesktop() && !here}<button onclick={settingsMachines}><span class="chk"></span>{t('Other computers…')}</button>{/if}
@@ -133,8 +125,7 @@
   .menu button:disabled { opacity: 0.5; cursor: default; }
   .row { display: flex; align-items: stretch; gap: 2px; }
   .row > button:first-child { flex: 1; min-width: 0; }
-  .menu .side { flex: 0 0 auto; justify-content: center; width: 28px; padding: 0; color: var(--text-muted); font-size: 13px; }
-  .menu .side:hover { color: var(--text); }
+  .name em.bg { background: var(--surface-muted); color: var(--text-muted); }
   .name em { margin-left: 6px; padding: 0 5px; border-radius: var(--r6); background: var(--ok-bg); color: var(--ok); font-style: normal; font-size: var(--fs-tag); }
   .menu button.cur { background: color-mix(in srgb, var(--c) 10%, transparent); }
   .chk { width: 12px; flex-shrink: 0; color: var(--c, var(--accent)); font-weight: 700; }

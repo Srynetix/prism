@@ -8,6 +8,7 @@ mod menu;
 mod feedback;
 mod youtube_relay;
 mod machines;
+mod profile_windows;
 mod dictation;
 mod setup;
 
@@ -38,7 +39,28 @@ fn main() {
     match prism_commands::cli::run(&info, std::env::args_os().collect()) {
         prism_commands::cli::Run::Window => {}
         prism_commands::cli::Run::Exit(code) => std::process::exit(code),
-        prism_commands::cli::Run::Serve => unreachable!("refused by the app's parser"),
+        // `prism engine`: a profile's Prism without a window, for a window of the app.
+        prism_commands::cli::Run::Serve => std::process::exit(engine(context())),
+    }
+
+    // The app holding the windows is running: it shows this profile, in its window. Otherwise
+    // this one is that app, from now on (claimed at once: two launches never both are).
+    #[cfg(unix)]
+    {
+        prism_sys::process::ignore_wake();
+        match profile::claim_host() {
+            Ok(Some(host)) => match profile::ask_host(host, profile::active()) {
+                Ok(()) => std::process::exit(0),
+                Err(e) => eprintln!("prism: the app (pid {host}) not reached: {e:#}"),
+            },
+            Ok(None) => {}
+            Err(e) => eprintln!("prism: host: {e:#}"),
+        }
+    }
+    // This profile's Prism runs without a window (an app gone, `keep_running`): this app takes
+    // it over, its agents going on in tmux.
+    if profile::holder(profile::active()).is_some() && profile::engine_socket(profile::active()).exists() && profile::stop(profile::active()) && !profile::wait_free(profile::active(), std::time::Duration::from_secs(8)) {
+        eprintln!("prism: profile {}'s Prism did not stop", profile::active());
     }
 
     // Before any thread (the runtime's workers start with `process::start`, below).
@@ -46,15 +68,15 @@ fn main() {
     // One Prism per profile: if this one is already open, it comes to the front instead.
     if let Some(pid) = prism_commands::process::start(tauri::async_runtime::handle().inner().clone()) {
         tracing::info!("profile {} already open (pid {pid}): brought to the front", profile::active());
+        profile::release_host();
         profile::wake(pid);
         std::process::exit(0);
     }
-    // What the library crates reach of Tauri: its opener.
-    platform::set_opener(platform::Opener {
-        path: |path| tauri_plugin_opener::open_path(path, None::<&str>).map_err(|e| anyhow::anyhow!("{e}")),
-        reveal: |path| tauri_plugin_opener::reveal_item_in_dir(path).map_err(|e| anyhow::anyhow!("{e}")),
-        url: |url| tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| anyhow::anyhow!("{e}")),
-    });
+    // Another launch's SIGUSR1 (`ask_host`) heard from now on, its request shown once the windows
+    // are up; one before was ignored, its request waits in `host-open` (`asked_quietly`).
+    #[cfg(unix)]
+    app::catch_wake();
+    set_opener();
     #[cfg(target_os = "linux")]
     warn_webkit_env();
 
@@ -72,8 +94,9 @@ fn main() {
         // An agent's pages in the Web view: `prismfile://localhost/<agent>/<path>`, only
         // inside its folder; its CSP sandboxes it (an opaque origin: no IPC).
         .register_asynchronous_uri_scheme_protocol("prismfile", app::serve_agent_file)
-        // Other computers' Prism, each in a window of its own.
+        // Other computers' Prism, each in a window of its own; this computer's other profiles too.
         .manage(std::sync::Arc::new(machines::Machines::default()))
+        .manage(std::sync::Arc::new(profile_windows::Engines::default()))
         .setup({
             let (hub, time, team_id) = (hub.clone(), time.clone(), team_id.clone());
             move |app| setup::run(app, hub, time, team_id)
@@ -83,6 +106,21 @@ fn main() {
             // is minimised instead: without AppIndicator (GNOME by default) there is no tray icon to
             // bring a hidden window back, while the task bar always shows a minimised one.
             // A machine's window closes for good, its socket and terminals with it.
+            // A profile's hides, as the main one: its Prism goes on.
+            if window.label().starts_with(profile_windows::PREFIX) {
+                match event {
+                    WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        #[cfg(target_os = "linux")]
+                        let _ = window.minimize();
+                        #[cfg(not(target_os = "linux"))]
+                        let _ = window.hide();
+                    }
+                    WindowEvent::Destroyed => machines::closed(window.app_handle(), window.label()),
+                    _ => {}
+                }
+                return;
+            }
             if window.label().starts_with("machine-") {
                 if let WindowEvent::Destroyed = event {
                     machines::closed(window.app_handle(), window.label());
@@ -104,7 +142,7 @@ fn main() {
             }
         })
         .invoke_handler(commands::handler())
-        .build(tauri::generate_context!())
+        .build(context())
         .expect("failed to build Prism")
         .run(|app, event| match event {
             // Click on the Dock icon while the window is hidden.
@@ -112,7 +150,12 @@ fn main() {
             tauri::RunEvent::Reopen { .. } => app::show_main(app),
             // ⌘Q, Quit from the menu, system shutdown: nothing must outlive Prism.
             tauri::RunEvent::Exit => {
+                // Relaunching, the profiles' Prisms go on: the new app stops them when it quits.
+                if !app::restarting() {
+                    profile_windows::quit(app);
+                }
                 profile::release();
+                profile::release_host();
                 // whisper's model let go before ggml's statics are (it aborts otherwise).
                 prism_dictation::whisper::unload(std::time::Duration::ZERO);
                 // `tailscale serve` must not keep sending phones to a Prism gone.
@@ -128,6 +171,28 @@ fn main() {
         });
 }
 
+/// What the library crates reach of Tauri: its opener (the app's, and a profile's Prism's).
+fn set_opener() {
+    platform::set_opener(platform::Opener {
+        path: |path| tauri_plugin_opener::open_path(path, None::<&str>).map_err(|e| anyhow::anyhow!("{e}")),
+        reveal: |path| tauri_plugin_opener::reveal_item_in_dir(path).map_err(|e| anyhow::anyhow!("{e}")),
+        url: |url| tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| anyhow::anyhow!("{e}")),
+    });
+}
+
+/// The app's context, its files with it: one place generates it (each would embed them).
+fn context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
+}
+
+/// `prism engine`: the profile's Prism without a window (no Dock icon: no window server
+/// reached), shown in a window of the app through its local socket. The phone's page from the
+/// files the app carries, each read when asked. Its exit code.
+fn engine(mut context: tauri::Context<tauri::Wry>) -> i32 {
+    set_opener();
+    let assets = context.set_assets(Box::new(app::NoAssets));
+    prism_commands::serve::run(Box::new(move |path| assets.get(&path.into()).map(|b| b.into_owned())), env!("PRISM_BUILD").to_string(), true)
+}
 
 /// WebKitGTK 2.50 crashes (`AcceleratedBackingStore::update`) on the first page change that
 /// composites when `WEBKIT_DISABLE_COMPOSITING_MODE` or `WEBKIT_DISABLE_DMABUF_RENDERER` is set,

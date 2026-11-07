@@ -11,6 +11,17 @@ pub fn uid() -> u32 {
 pub enum Signal {
     Usr1,
     Usr2,
+    /// Stop (a profile's Prism without a window, when the app that started it quits).
+    Term,
+}
+
+/// SIGUSR1 ignored from now on, until a handler of Prism's is installed: a launch asking the app
+/// for a window then never ends it (the signal's default) while it starts; its request waits in a
+/// file the app reads once up.
+#[cfg(unix)]
+pub fn ignore_wake() {
+    // SAFETY: SIG_IGN for one signal, no handler of ours: nothing runs in signal context.
+    unsafe { libc::signal(libc::SIGUSR1, libc::SIG_IGN) };
 }
 
 /// Sends `signal` to process `pid`; false if it could not (gone, not ours).
@@ -18,6 +29,7 @@ pub fn signal(pid: u32, signal: Signal) -> bool {
     let sig = match signal {
         Signal::Usr1 => libc::SIGUSR1,
         Signal::Usr2 => libc::SIGUSR2,
+        Signal::Term => libc::SIGTERM,
     };
     // SAFETY: kill reads no memory; the signals sent are handled by Prism, never a group (pid > 0).
     pid > 0 && unsafe { libc::kill(pid as libc::pid_t, sig) } == 0

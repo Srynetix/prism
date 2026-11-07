@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { localInvoke as invoke, machine } from '../bridge'
+  import { localInvoke as invoke, machine, profileWindow } from '../bridge'
   import { machineState } from '../machine.svelte'
   import { t } from '../i18n.svelte'
 
@@ -8,10 +8,11 @@
    * when it has no token, its pairing: the code its Prism shows (`prism peer pair` there), this
    * computer then accepted there by name; or a token pasted (`prism peer add` there). The token
    * goes to this computer's keychain. The page starts by itself once the machine's snapshot comes
-   * (`main.ts`).
+   * (`main.ts`). Another profile's window: its Prism starting, or started again from here.
    */
-  const name = $derived(machineState.name || machine() || '')
-  const noToken = $derived(machineState.reason === 'token' || (!!machineState.error && /no token/.test(machineState.error)))
+  const local = profileWindow()
+  const name = $derived(machineState.name || machine() || local || '')
+  const noToken = $derived(!local && (machineState.reason === 'token' || (!!machineState.error && /no token/.test(machineState.error))))
   let token = $state('')
   let code = $state('')
   /** A token pasted rather than a code typed. */
@@ -63,6 +64,11 @@
         <button class="link" onclick={() => (pasting = false)}>{t('Pair with a code instead')}</button>
       </span>
       <p class="hint">{t('Kept in this computer’s keychain. It opens that Prism as its account would: keep it as an SSH key.')}</p>
+    {:else if local && machineState.error}
+      <p>{t('Its Prism does not answer yet, trying again…')}</p>
+      <span class="acts"><button class="btn" onclick={() => run(() => invoke('open_profile', { id: local }))} disabled={busy}>{t('Start')}</button></span>
+    {:else if local}
+      <p>{t('Starting its Prism…')}</p>
     {:else if machineState.error}
       <p>{t('Out of reach, trying again…')}</p>
     {:else}

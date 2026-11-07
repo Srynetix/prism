@@ -3,7 +3,7 @@ import { agentsEnabled, agentsView, closeAgents, openAgents } from './agents.sve
 import { guides } from './help-guides'
 import { openHelp } from './help.svelte'
 import { openSettings } from './settings.svelte'
-import { openProfile, profilesView, switchProfileById } from './profiles.svelte'
+import { profilesView, switchProfileById } from './profiles.svelte'
 import { toast } from './toast.svelte'
 import { toggleZen, zen } from './layout.svelte'
 import { keys } from './platform'
@@ -43,7 +43,6 @@ export function run(action: string) {
     else openSettings('feedback')
   } else if (action === 'help') openHelp()
   else if (action.startsWith('help:')) openHelp(action.slice('help:'.length))
-  else if (action.startsWith('profile-open:')) void openProfile({ id: action.slice('profile-open:'.length) }).catch((e) => toast(String(e), 6000))
   else if (action.startsWith('profile:')) void switchProfileById(action.slice('profile:'.length)).catch((e) => toast(String(e), 6000))
   else if (action === 'profile-new' || action === 'profiles') {
     closeAgents()

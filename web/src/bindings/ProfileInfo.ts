@@ -17,9 +17,14 @@ packs: Array<string>,
  */
 agents: number, 
 /**
- * Open in another Prism, next to this one.
+ * Its Prism runs (this one, or another, with a window or without).
  */
 open: boolean, 
+/**
+ * Where it shows on this computer: `window` (in a window of the app), `background` (its Prism
+ * runs, no window shown) or `closed`.
+ */
+state: string, 
 /**
  * Its config could not be read.
  */

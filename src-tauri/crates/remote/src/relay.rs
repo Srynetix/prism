@@ -208,15 +208,8 @@ pub(crate) async fn summary_cached(inner: &Inner, id: &str) -> Option<Summary> {
 }
 
 pub(crate) fn counts(snap: &prism_core::state::Snapshot) -> Summary {
-    use prism_core::state::{AgentState, SessionStatus::*};
-    let running: Vec<_> = snap.agents.iter().filter(|a| a.state == AgentState::Running).collect();
-    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, WaitingTool | NeedsYou | ReviewReady)).collect();
-    waiting.sort_by_key(|a| a.last_activity);
-    let waiting_agents = waiting
-        .iter()
-        .map(|a| prism_core::state::WaitingAgent { id: a.id.clone(), title: a.title.clone(), status: serde_json::to_value(a.status).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_default(), profile: None })
-        .collect();
-    Summary { agents: running.len(), waiting: waiting.len(), dev_ports: crate::preview::dev_ports(snap), waiting_agents }
+    let (agents, waiting_agents) = prism_core::state::waiting_agents(snap);
+    Summary { agents, waiting: waiting_agents.len(), dev_ports: crate::preview::dev_ports(snap), waiting_agents }
 }
 
 /// This machine's profiles as a peer's desk shows them (`/peer/summary`): this one (the hub)
@@ -799,7 +792,7 @@ mod tests {
             Box::pin(async { anyhow::bail!("none") })
         }
         fn profiles(&self) -> futures::future::BoxFuture<'static, Vec<prism_core::profile::Profile>> {
-            let p = |id: &str, name: &str| prism_core::profile::Profile { id: id.into(), name: name.into(), color: "pink".into(), config: String::new(), active: false, packs: Vec::new(), agents: 0, open: true, error: None };
+            let p = |id: &str, name: &str| prism_core::profile::Profile { id: id.into(), name: name.into(), color: "pink".into(), config: String::new(), active: false, packs: Vec::new(), agents: 0, open: true, state: "background".into(), error: None };
             let list = vec![p("default", "Work"), p("perso", "Perso"), p("closed", "Closed")];
             Box::pin(async move { list })
         }
@@ -946,13 +939,13 @@ mod tests {
         let url = format!("http://127.0.0.1:{port}");
 
         // The hub's summary lists its profiles: itself first, the relayed one answering.
-        let s = crate::machine::summary(&Target { url: url.clone(), token: token.clone(), profile: None }).await.unwrap();
+        let s = crate::machine::summary(&Target { url: url.clone(), token: token.clone(), profile: None, socket: None }).await.unwrap();
         let listed: Vec<(String, bool, bool)> = s.profiles.iter().map(|p| (p.id.clone(), p.hub, p.reachable)).collect();
         assert_eq!(listed, [("default".into(), true, true), ("perso".into(), false, true), ("closed".into(), false, false)]);
 
         // Its window on the relayed profile, through the hub.
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
-        let machine = Machine::open(Target { url: url.clone(), token: token.clone(), profile: Some("perso".into()) }, Arc::new(move |v| drop(tx.send(v))));
+        let machine = Machine::open(Target { url: url.clone(), token: token.clone(), profile: Some("perso".into()), socket: None }, Arc::new(move |v| drop(tx.send(v))));
         let hello = loop {
             let v = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv()).await.unwrap().unwrap();
             if v["t"] == "hello" {
@@ -972,7 +965,7 @@ mod tests {
         req.headers_mut().insert(super::PEER, "desk".parse().unwrap());
         assert!(tokio_tungstenite::connect_async(req).await.is_err());
         // Nor with a token the hub did not make.
-        let forged = Target { url: url.clone(), token: "forged".into(), profile: Some("perso".into()) };
+        let forged = Target { url: url.clone(), token: "forged".into(), profile: Some("perso".into()), socket: None };
         assert!(crate::machine::summary(&forged).await.unwrap_err().to_string().contains("token"));
 
         // Revoked at the hub: the relayed profile's window closes.

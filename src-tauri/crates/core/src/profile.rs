@@ -5,8 +5,9 @@
 //! `prism-clickup`. The others live in `~/.config/prism/profiles/<id>/`.
 //!
 //! One profile is active per process, chosen at launch: `prism --profile <id>`, `PRISM_PROFILE`,
-//! otherwise the last one switched to (`~/.config/prism/active-profile`). Switching relaunches Prism
-//! on the chosen profile.
+//! otherwise the last one switched to (`~/.config/prism/active-profile`). The first Prism launched
+//! with a window holds every window (`host`): another profile opened runs without a window (`prism
+//! engine`), shown in a window of that app.
 
 use prism_base::{i18n::tr, tr};
 use std::{
@@ -164,6 +165,9 @@ pub struct Presence {
     /// The title of the one waiting longest.
     #[serde(default)]
     pub first: Option<String>,
+    /// Those waiting, longest first: what the app holding the windows notifies.
+    #[serde(default)]
+    pub waiting_agents: Vec<crate::state::WaitingAgent>,
 }
 
 fn presence_path(id: &str) -> PathBuf {
@@ -332,6 +336,172 @@ pub fn launch(id: &str) -> Result<()> {
     Ok(())
 }
 
+/// The app holding the windows (`host.pid`, in the data folder): the first Prism launched with a
+/// window, whatever its profile. The other profiles run without a window (`prism engine`), each
+/// shown in a window of that app, reached through its local socket (`engine_socket`).
+fn host_path() -> PathBuf {
+    data_base().join("host.pid")
+}
+
+/// The app holding the windows, other than this process, if it is still running.
+pub fn host() -> Option<u32> {
+    let pid: u32 = std::fs::read_to_string(host_path()).ok()?.trim().parse().ok()?;
+    (pid != std::process::id() && is_prism(pid)).then_some(pid)
+}
+
+/// This process is the app holding the windows.
+pub fn is_host() -> bool {
+    std::fs::read_to_string(host_path()).is_ok_and(|p| p.trim() == std::process::id().to_string())
+}
+
+/// This process becomes the app holding the windows, unless one runs: `Some(its pid)`. Claimed
+/// at once (the file created only if absent): two launches at the same moment never both hold it.
+pub fn claim_host() -> Result<Option<u32>> {
+    use std::io::Write;
+    let path = host_path();
+    std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")))?;
+    for _ in 0..3 {
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(mut f) => {
+                f.write_all(std::process::id().to_string().as_bytes())?;
+                return Ok(None);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                // Being written: its pid in a moment.
+                let pid = std::fs::read_to_string(&path).ok().and_then(|p| p.trim().parse::<u32>().ok());
+                match pid {
+                    Some(pid) if pid != std::process::id() && is_prism(pid) => return Ok(Some(pid)),
+                    Some(_) => {
+                        let _ = std::fs::remove_file(&path);
+                    }
+                    None => std::thread::sleep(std::time::Duration::from_millis(50)),
+                }
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+    // Left by a Prism gone and taken meanwhile by nobody alive: this one's.
+    std::fs::write(&path, std::process::id().to_string())?;
+    Ok(None)
+}
+
+/// At exit: the app's place goes, if it is still this one's.
+pub fn release_host() {
+    let path = host_path();
+    if std::fs::read_to_string(&path).is_ok_and(|p| p.trim() == std::process::id().to_string()) {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+/// The profiles another launch asked the app to show (`prism --profile perso`), one per line.
+fn requests_path() -> PathBuf {
+    data_base().join("host-open")
+}
+
+/// Asks the app holding the windows (`pid`) to show profile `id`: its window opened, or brought
+/// to the front.
+pub fn ask_host(pid: u32, id: &str) -> Result<()> {
+    use std::io::Write;
+    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(requests_path())?;
+    writeln!(f, "{id}")?;
+    drop(f);
+    wake(pid);
+    Ok(())
+}
+
+/// The profiles asked since (`ask_host`), each once, those that exist.
+pub fn take_requests() -> Vec<String> {
+    // Moved aside first: a request written meanwhile goes to a new file, never lost.
+    let path = requests_path();
+    let taken = path.with_extension("taken");
+    if std::fs::rename(&path, &taken).is_err() {
+        return Vec::new();
+    }
+    let text = std::fs::read_to_string(&taken).unwrap_or_default();
+    let _ = std::fs::remove_file(&taken);
+    let mut out: Vec<String> = Vec::new();
+    for id in text.lines().map(str::trim).filter(|id| exists(id)) {
+        if !out.iter().any(|o| o == id) {
+            out.push(id.to_string());
+        }
+    }
+    out
+}
+
+/// The profiles open in the app's windows when it quit (beside `active-profile`, the app's own).
+const OPEN_FILE: &str = "open-profiles";
+
+/// Remembers the profiles open in the app's windows, for the next launch.
+pub fn remember_open(ids: &[String]) -> Result<()> {
+    std::fs::create_dir_all(root())?;
+    std::fs::write(root().join(OPEN_FILE), ids.join("\n"))?;
+    Ok(())
+}
+
+/// The profiles open in the app's windows last time, still there, the app's own aside.
+pub fn reopen() -> Vec<String> {
+    let text = std::fs::read_to_string(root().join(OPEN_FILE)).unwrap_or_default();
+    let mut out: Vec<String> = Vec::new();
+    for id in text.lines().map(str::trim).filter(|id| *id != active() && exists(id)) {
+        if !out.iter().any(|o| o == id) {
+            out.push(id.to_string());
+        }
+    }
+    out
+}
+
+/// The local socket of profile `id`'s Prism (`prism_remote::Remote::serve_local`), in the data
+/// folder (the owner's only). A Unix socket's path is short (104 bytes on macOS): a long one is
+/// named by a hash of the id instead.
+pub fn engine_socket(id: &str) -> PathBuf {
+    let dir = data_base().join("engines");
+    let plain = dir.join(format!("{id}.sock"));
+    if plain.as_os_str().len() < 100 {
+        return plain;
+    }
+    let hash = id.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
+    dir.join(format!("{:08x}.sock", hash as u32))
+}
+
+/// Starts profile `id`'s Prism without a window (`prism engine`), for a window of this app:
+/// detached, its output in its own log. Its pid.
+#[cfg(unix)]
+pub fn start_engine(id: &str) -> Result<u32> {
+    ensure!(exists(id), tr!("unknown profile {id}", id = id));
+    let exe = executable()?;
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg("engine").env("PRISM_PROFILE", id).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    let child = prism_sys::process::new_session(&mut cmd).spawn().context("starting the profile's Prism")?;
+    Ok(child.id())
+}
+
+#[cfg(not(unix))]
+pub fn start_engine(_id: &str) -> Result<u32> {
+    bail!("profiles in windows of one app: not on this system yet")
+}
+
+/// Stops profile `id`'s Prism (`SIGTERM`), if one runs: its agents go on in their tmux.
+pub fn stop(id: &str) -> bool {
+    #[cfg(unix)]
+    if let Some(pid) = holder(id) {
+        return prism_sys::process::signal(pid, prism_sys::process::Signal::Term);
+    }
+    let _ = id;
+    false
+}
+
+/// Waits (up to `max`) for profile `id` to be free: its Prism gone.
+pub fn wait_free(id: &str, max: std::time::Duration) -> bool {
+    let until = std::time::Instant::now() + max;
+    while holder(id).is_some() {
+        if std::time::Instant::now() > until {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    true
+}
+
 /// The tmux server of the active profile's agents: `prism`, `prism-perso`.
 pub fn tmux_socket() -> String {
     service_of("prism", active())
@@ -415,8 +585,11 @@ pub struct Profile {
     pub packs: Vec<String>,
     /// Agents still running in its tmux server.
     pub agents: u32,
-    /// Open in another Prism, next to this one.
+    /// Its Prism runs (this one, or another, with a window or without).
     pub open: bool,
+    /// Where it shows on this computer: `window` (in a window of the app), `background` (its Prism
+    /// runs, no window shown) or `closed`.
+    pub state: String,
     /// Its config could not be read.
     pub error: Option<String>,
 }
@@ -453,6 +626,7 @@ async fn describe(id: &str) -> Profile {
         packs: Vec::new(),
         agents: running_agents(id).await,
         open: holder(id).is_some(),
+        state: if id == active() { "window" } else if holder(id).is_some() { "background" } else { "closed" }.to_string(),
         error: None,
     };
     if !path.is_file() {
@@ -848,6 +1022,19 @@ pub fn watch() -> Result<Option<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A profile's local socket: in the data folder, named by its id, a hash when too long for a
+    /// Unix socket's path; two profiles never share one.
+    #[test]
+    fn each_profile_its_socket() {
+        let short = engine_socket("perso");
+        assert!(short.starts_with(data_base().join("engines")) && short.ends_with("perso.sock"));
+        let long = "a-profile-whose-name-is-as-long-as-ids-go";
+        let path = engine_socket(long);
+        assert!(path.as_os_str().len() < 104 || data_base().as_os_str().len() > 80, "{}", path.display());
+        assert_ne!(engine_socket("work"), engine_socket("perso"));
+        assert_eq!(engine_socket(long), path, "the same one each time");
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
