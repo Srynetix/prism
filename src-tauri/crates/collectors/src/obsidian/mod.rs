@@ -471,30 +471,39 @@ impl Actions {
 impl Actions {
     /// Creates a card at the end of the lane of `status` on `board` (its list id). A board whose
     /// cards link notes gets a note too, numbered after the others (`T-013 — Title.md`) and shaped
-    /// as the latest; its card links it. Returns the new card's key.
-    pub async fn create(&self, hub: &Hub, board: &str, status: &str, title: &str) -> Result<String> {
-        let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    /// as the latest, the description under its title; its card links it. On a board without, a
+    /// description gets a note of its own beside the board (`Title.md`), a title alone a plain
+    /// card. Returns the new card's key.
+    pub async fn create(&self, hub: &Hub, new: &crate::tracker::NewTicket) -> Result<String> {
+        let (board, status) = (new.board.as_str(), new.status.as_str());
+        let title = new.title.split_whitespace().collect::<Vec<_>>().join(" ");
         anyhow::ensure!(!title.is_empty(), "{}", tr("the card needs a title"));
         let sh = &self.shared;
         let b = sh.boards.iter().find(|b| b.file.strip_prefix(&sh.vault).unwrap_or(&b.file).to_string_lossy() == board).with_context(|| tr!("no board \"{board}\"", board = board))?;
         let text = std::fs::read_to_string(&b.file).with_context(|| tr!("reading {path}", path = b.file.display()))?;
         anyhow::ensure!(parse_board(&text).iter().any(|l| status_of(&l.name) == status), "{}", tr!("no lane \"{lane}\" on {board}", lane = status, board = b.name));
+        let created = Local::now().format("%Y-%m-%d").to_string();
         let card = match self.notes_folder(b, &text) {
             Some(folder) => {
                 let names: Vec<String> = std::fs::read_dir(&folder)?.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).filter(|n| n.ends_with(".md")).collect();
                 let id = edit::next_id(names.iter().map(String::as_str)).context(tr("the board's notes have no numbered names to follow"))?;
                 let stem = format!("{id} — {}", file_safe(&title));
-                let path = folder.join(format!("{stem}.md"));
-                anyhow::ensure!(!path.exists(), "{}", tr!("{path} exists already", path = path.display()));
                 // The latest note (highest number) shapes the new one.
                 let latest = names.iter().filter(|n| edit::next_id([n.as_str()]).is_some()).max_by_key(|n| n.split(|c: char| !c.is_ascii_digit()).find(|s| !s.is_empty()).and_then(|s| s.parse::<u64>().ok()));
                 let template = latest.and_then(|n| std::fs::read_to_string(folder.join(n)).ok());
-                let mut fields = vec![("id", id.clone()), ("title", yaml_str(&title)), ("created", Local::now().format("%Y-%m-%d").to_string())];
+                let mut fields = vec![("id", id.clone()), ("title", yaml_str(&title)), ("created", created)];
                 if let Some(s) = self.note_status(&b.file, status) {
                     fields.push(("status", s));
                 }
-                tracing::info!("obsidian: new note {}", path.display());
-                std::fs::write(&path, edit::new_note(template.as_deref(), &fields, &title)).with_context(|| tr!("writing {path}", path = path.display()))?;
+                write_note(&folder.join(format!("{stem}.md")), &edit::new_note(template.as_deref(), &fields, &title, &new.description))?;
+                format!("[[{stem}]]")
+            }
+            None if !new.description.trim().is_empty() => {
+                let stem = file_safe(&title);
+                anyhow::ensure!(!stem.is_empty(), "{}", tr("the card needs a title"));
+                let folder = b.file.parent().unwrap_or(&sh.vault);
+                let fields = [("title", yaml_str(&title)), ("created", created)];
+                write_note(&folder.join(format!("{stem}.md")), &edit::new_note(None, &fields, &title, &new.description))?;
                 format!("[[{stem}]]")
             }
             None => title.clone(),
@@ -520,6 +529,16 @@ impl Actions {
         }
         counts.into_iter().max_by_key(|(p, n)| (*n, std::cmp::Reverse(p.clone()))).map(|(p, _)| p)
     }
+}
+
+/// A new note, never over another.
+fn write_note(path: &Path, text: &str) -> Result<()> {
+    tracing::info!("obsidian: new note {}", path.display());
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(path).map_err(|e| match e.kind() {
+        std::io::ErrorKind::AlreadyExists => anyhow::anyhow!(tr!("{path} exists already", path = path.display())),
+        _ => anyhow::Error::from(e).context(tr!("writing {path}", path = path.display())),
+    })?;
+    std::io::Write::write_all(&mut file, text.as_bytes()).with_context(|| tr!("writing {path}", path = path.display()))
 }
 
 /// A title as a file name Obsidian accepts: without `* " \ / < > : | ? # ^ [ ]`.
@@ -844,6 +863,7 @@ mod tests {
     /// board without, a plain card.
     #[test]
     fn creates_cards_and_notes() {
+        let new = |board: &str, status: &str, title: &str, description: &str| crate::tracker::NewTicket { board: board.into(), status: status.into(), title: title.into(), description: description.into(), assign_me: false };
         let vault = std::env::temp_dir().join(format!("prism-obsidian-c-{}", std::process::id())).join("Notes");
         let tickets = vault.join("P/Tickets");
         std::fs::create_dir_all(&tickets).unwrap();
@@ -854,7 +874,7 @@ mod tests {
         let actions = Actions::new(&cfg);
         let hub = Hub::new();
         let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
-        let key = rt.block_on(actions.create(&hub, "P/Board.md", "backlog", "Fix: the  parser")).unwrap();
+        let key = rt.block_on(actions.create(&hub, &new("P/Board.md", "backlog", "Fix: the  parser", ""))).unwrap();
         assert_eq!(key, "P/Board.md#P/Tickets/T-009 — Fix the parser.md");
         let note = std::fs::read_to_string(tickets.join("T-009 — Fix the parser.md")).unwrap();
         assert!(note.starts_with("---\nid: T-009\ntitle: \"Fix: the parser\"\nstatus: todo\ntags: []\ncreated: "), "{note}");
@@ -863,9 +883,22 @@ mod tests {
         assert!(board.contains("- [ ] [[T-008 — Old]]\n- [ ] [[T-009 — Fix the parser]]\n"), "{board}");
         let t = rt.block_on(actions.ticket(&key)).unwrap();
         assert_eq!((t.id.as_str(), t.name.as_str()), ("T-009", "Fix: the parser"));
-        let plain = rt.block_on(actions.create(&hub, "Q.md", "todo", "C-2 — another")).unwrap();
+        let plain = rt.block_on(actions.create(&hub, &new("Q.md", "todo", "C-2 — another", ""))).unwrap();
         assert_eq!(plain, "Q.md#C-2 — another");
-        assert!(rt.block_on(actions.create(&hub, "Q.md", "nowhere", "x")).is_err());
+        assert!(rt.block_on(actions.create(&hub, &new("Q.md", "nowhere", "x", ""))).is_err());
+        // A description: under the title of the numbered note; on a board without notes, in a note
+        // of its own beside the board, which the card links.
+        let key = rt.block_on(actions.create(&hub, &new("P/Board.md", "doing", "Described", "Why it matters.\n"))).unwrap();
+        let note = std::fs::read_to_string(tickets.join("T-010 — Described.md")).unwrap();
+        assert!(note.ends_with("# Described\n\nWhy it matters.\n\n## Context\n"), "{note}");
+        assert_eq!(key, "P/Board.md#P/Tickets/T-010 — Described.md");
+        let key = rt.block_on(actions.create(&hub, &new("Q.md", "todo", "Loose: one", "Body"))).unwrap();
+        let note = std::fs::read_to_string(vault.join("Loose one.md")).unwrap();
+        assert!(note.starts_with("---\ntitle: \"Loose: one\"\ncreated: ") && note.ends_with("---\n# Loose: one\n\nBody\n"), "{note}");
+        assert!(std::fs::read_to_string(vault.join("Q.md")).unwrap().contains("- [ ] [[Loose one]]\n"));
+        assert_eq!(key, "Q.md#Loose one.md");
+        // Never over a note that exists.
+        assert!(rt.block_on(actions.create(&hub, &new("Q.md", "todo", "Loose one", "Again"))).is_err());
         std::fs::remove_dir_all(vault.parent().unwrap()).ok();
     }
 

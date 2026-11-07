@@ -1,5 +1,6 @@
 import { used } from './feature-use.svelte'
 import { openProblems } from './problems.svelte'
+import { openNewTicket, ticketBoards } from './new-ticket.svelte'
 import { mrTickets } from './conventions'
 import { live, trackerOn } from './live.svelte'
 import { pref, setPref, showBlock, setView, toggleEditing, toggleZen } from './layout.svelte'
@@ -267,6 +268,7 @@ function addRepo(mode: AddMode) {
 function commandEntries(): Entry[] {
   const own: Entry[] = phone() ? [] : [
     ...(agentsEnabled() ? [{ id: 'cmd:new-agent', kind: 'command' as const, title: t('New agent'), words: 'new agent', keys: keys('⌘N'), run: newAgent }] : []),
+    ...(ticketBoards().length ? [{ id: 'cmd:new-ticket', kind: 'command' as const, title: t('New ticket…'), hint: t('On one of the sprint\'s boards'), words: 'new ticket create task card issue', run: openNewTicket }] : []),
     { id: 'cmd:reopen', kind: 'command', title: t('Reopen the last closed panel'), words: 'reopen closed panel undo restore', keys: keys('⌘⇧T'), run: reopenLastPanel },
     { id: 'cmd:zen', kind: 'command', title: t('Zen mode'), words: 'zen', keys: keys('⌘⇧F'), run: toggleZen },
     { id: 'cmd:edit-layout', kind: 'command', title: t('Edit layout'), words: 'edit layout', run: toggleEditing },

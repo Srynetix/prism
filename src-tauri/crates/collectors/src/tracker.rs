@@ -17,6 +17,18 @@ use crate::{
 /// What Obsidian has no notion of.
 const NOT_ON_OBSIDIAN: &str = "Obsidian boards have no assignees, comment authors nor sprint lists";
 
+/// A ticket to create: on `board` (a sprint board's id), in `status`.
+#[derive(Debug, Clone, Default)]
+pub struct NewTicket {
+    pub board: String,
+    pub status: String,
+    pub title: String,
+    /// Markdown; empty, none.
+    pub description: String,
+    /// Assigned to me (the trackers that have assignees).
+    pub assign_me: bool,
+}
+
 #[derive(Clone)]
 pub enum Tracker {
     Clickup(crate::clickup::Actions),
@@ -132,12 +144,12 @@ impl Tracker {
         }
     }
 
-    /// Creates a ticket titled `title` on `board` (a sprint board's id), in `status`; returns its key.
-    pub async fn create(&self, hub: &Hub, board: &str, status: &str, title: &str) -> Result<String> {
+    /// Creates a ticket; returns its key.
+    pub async fn create(&self, hub: &Hub, new: &NewTicket) -> Result<String> {
         match self {
-            Self::Clickup(_) => bail!("{}", tr("creating ClickUp tickets is not offered yet")),
-            Self::Obsidian(o) => o.create(hub, board, status, title).await,
-            Self::Jira(j) => j.create(hub, board, status, title).await,
+            Self::Clickup(c) => c.create(hub, new).await,
+            Self::Obsidian(o) => o.create(hub, new).await,
+            Self::Jira(j) => j.create(hub, new).await,
         }
     }
 

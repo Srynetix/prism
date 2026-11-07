@@ -71,6 +71,22 @@ impl Actions {
         }
     }
 
+    /// Creates a task on one of the sprint's boards (a list: the sprint's or a board's), its
+    /// description in Markdown, assigned to me if asked; returns its id (its custom one if any).
+    pub async fn create(&self, hub: &Hub, new: &crate::tracker::NewTicket) -> Result<String> {
+        let snap = hub.subscribe().borrow().clone();
+        let known = snap.sprint.as_ref().is_some_and(|s| s.boards.iter().any(|b| b.id == new.board));
+        anyhow::ensure!(known, "{}", tr!("no board \"{board}\"", board = new.board));
+        let me = if new.assign_me { Some(snap.tracker_me.clone().context(tr("ClickUp user not known yet"))?) } else { None };
+        let body = new_task(new, me.as_ref().map(|p| p.id))?;
+        let created: Created = Api::new().await?.post(&format!("/list/{}/task", new.board), body).await?;
+        let key = created.custom_id.unwrap_or(created.id);
+        tracing::info!("clickup: {key} created");
+        // Read back on the next round: the sprint shows it without waiting for the interval.
+        self.team.refresh_queues();
+        Ok(key)
+    }
+
     pub async fn add_to_sprint(&self, hub: &Hub, task_id: &str) -> Result<()> {
         add_to_sprint(hub, task_id).await
     }
@@ -291,6 +307,30 @@ async fn set_mine(hub: &Hub, task_id: &str, assign: bool) -> Result<()> {
         changed
     });
     Ok(())
+}
+
+/// The body of a new task: its title, status, description (none if empty) and me as assignee
+/// (`me`: my user id).
+fn new_task(new: &crate::tracker::NewTicket, me: Option<u64>) -> Result<serde_json::Value> {
+    let title = new.title.trim();
+    anyhow::ensure!(!title.is_empty(), "{}", tr("a title is needed"));
+    let mut body = serde_json::json!({ "name": title });
+    if !new.status.is_empty() {
+        body["status"] = new.status.clone().into();
+    }
+    if !new.description.trim().is_empty() {
+        body["markdown_content"] = new.description.trim().into();
+    }
+    if let Some(me) = me {
+        body["assignees"] = serde_json::json!([me]);
+    }
+    Ok(body)
+}
+
+#[derive(Deserialize)]
+struct Created {
+    id: String,
+    custom_id: Option<String>,
 }
 
 /// Adds a ticket to the current sprint, on top of its list (ClickUp's "Tasks in Multiple
@@ -663,6 +703,17 @@ fn mentions_of(segments: &serde_json::Value) -> Vec<Mention> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A new task: its title, status, Markdown description and me; nothing empty sent.
+    #[test]
+    fn a_new_task_carries_its_description_and_assignee() {
+        let new = crate::tracker::NewTicket { board: "901".into(), status: "to do".into(), title: " Fix it ".into(), description: "**Why**\n\n- a\n".into(), assign_me: true };
+        let body = new_task(&new, Some(42)).unwrap();
+        assert_eq!(body, serde_json::json!({ "name": "Fix it", "status": "to do", "markdown_content": "**Why**\n\n- a", "assignees": [42] }));
+        let bare = crate::tracker::NewTicket { title: "Fix it".into(), ..Default::default() };
+        assert_eq!(new_task(&bare, None).unwrap(), serde_json::json!({ "name": "Fix it" }));
+        assert!(new_task(&crate::tracker::NewTicket { title: "  ".into(), ..Default::default() }, None).is_err());
+    }
 
     #[test]
     fn reads_a_clickup_task() {

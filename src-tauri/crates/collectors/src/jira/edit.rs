@@ -101,15 +101,17 @@ impl Actions {
         Ok(())
     }
 
-    /// Creates an issue titled `title` in the board's project (`[jira] issue_type`), in the active
-    /// sprint if there is one, then moves it to `status` if it starts elsewhere; returns its key.
-    pub async fn create(&self, hub: &Hub, board: &str, status: &str, title: &str) -> Result<String> {
-        anyhow::ensure!(board == self.shared.cfg.board.to_string(), "board {board} is not [jira] board");
-        let title = title.trim();
+    /// Creates an issue in the board's project (`[jira] issue_type`), its description in ADF,
+    /// assigned to me if asked, in the active sprint if there is one, then moves it to the status
+    /// asked if it starts elsewhere; returns its key.
+    pub async fn create(&self, hub: &Hub, new: &crate::tracker::NewTicket) -> Result<String> {
+        anyhow::ensure!(new.board == self.shared.cfg.board.to_string(), "board {} is not [jira] board", new.board);
+        let title = new.title.trim();
         anyhow::ensure!(!title.is_empty(), "{}", tr("a title is needed"));
         let project = self.shared.project.read().unwrap().clone().context(tr("the board's project is not known: is it a board of one project?"))?;
+        let me = if new.assign_me { Some(self.shared.me.read().unwrap().clone().context(tr("Jira user not known yet"))?) } else { None };
         let api = self.api().await?;
-        let fields = json!({ "project": { "key": project }, "summary": title, "issuetype": { "name": self.shared.cfg.issue_type.trim() } });
+        let fields = new_fields(&project, self.shared.cfg.issue_type.trim(), title, &new.description, me.as_deref());
         let created: Created = serde_json::from_value(api.send(reqwest::Method::POST, "/rest/api/3/issue", json!({ "fields": fields })).await?).context("unreadable answer to the creation")?;
         tracing::info!("jira: {} created", created.key);
         let sprint = hub.subscribe().borrow().sprint.as_ref().map(|s| s.list_id.clone()).filter(|id| !id.is_empty());
@@ -118,7 +120,7 @@ impl Actions {
         }
         let path = format!("/rest/api/3/issue/{}/transitions", super::encode(&created.key));
         let offered: Transitions = api.get(&path).await?;
-        if let Some(t) = offered.transitions.iter().find(|t| t.to.name.eq_ignore_ascii_case(status)) {
+        if let Some(t) = offered.transitions.iter().find(|t| t.to.name.eq_ignore_ascii_case(&new.status)) {
             api.send(reqwest::Method::POST, &path, json!({ "transition": { "id": t.id } })).await?;
         }
         // Read back now: the sprint shows it without waiting for the next pass.
@@ -140,6 +142,18 @@ impl Actions {
         api.send(reqwest::Method::PUT, &format!("/rest/api/3/issue/{}/comment/{}", super::encode(key), super::encode(comment)), json!({ "body": document(text) })).await?;
         Ok(())
     }
+}
+
+/// The fields of a new issue: its description (none if empty) and assignee (`me`, an account id).
+fn new_fields(project: &str, issue_type: &str, title: &str, description: &str, me: Option<&str>) -> Value {
+    let mut fields = json!({ "project": { "key": project }, "summary": title, "issuetype": { "name": issue_type } });
+    if !description.trim().is_empty() {
+        fields["description"] = document(description);
+    }
+    if let Some(me) = me {
+        fields["assignee"] = json!({ "accountId": me });
+    }
+    fields
 }
 
 /// A comment's text as an ADF document: a paragraph per block of lines, its lines kept apart;
@@ -212,7 +226,7 @@ struct Priority {
 
 #[cfg(test)]
 mod tests {
-    use super::document;
+    use super::{document, new_fields};
     use crate::jira::adf::markdown;
 
     #[test]
@@ -226,5 +240,16 @@ mod tests {
         let doc = document("a\nb");
         assert_eq!(doc["content"][0]["content"].as_array().unwrap().len(), 3);
         assert_eq!(doc["content"][0]["content"][1]["type"], "hardBreak");
+    }
+
+    /// A new issue: its description as ADF and me as assignee when given, neither otherwise.
+    #[test]
+    fn a_new_issue_carries_its_description_and_assignee() {
+        let f = new_fields("PRJ", "Task", "Fix it", "Why\n\nHow", Some("acc-1"));
+        assert_eq!((f["project"]["key"].as_str(), f["summary"].as_str(), f["issuetype"]["name"].as_str()), (Some("PRJ"), Some("Fix it"), Some("Task")));
+        assert_eq!(f["description"], document("Why\n\nHow"));
+        assert_eq!(f["assignee"]["accountId"], "acc-1");
+        let bare = new_fields("PRJ", "Task", "Fix it", "  ", None);
+        assert!(bare.get("description").is_none() && bare.get("assignee").is_none(), "{bare}");
     }
 }

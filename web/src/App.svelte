@@ -83,6 +83,8 @@
   import ShellDrawer from './components/ShellDrawer.svelte'
   import MrPanel from './components/MrPanel.svelte'
   import LauncherDrawer from './components/LauncherDrawer.svelte'
+  import NewTicketDialog from './components/NewTicketDialog.svelte'
+  import { newTicketDialog } from './new-ticket.svelte'
   import StatusBar from './components/StatusBar.svelte'
   import Tooltip from './components/Tooltip.svelte'
   import ContextMenu from './components/ContextMenu.svelte'
@@ -649,6 +651,7 @@
   <FirstLaunch />
   {#if wizard.open}<PagesWizard />{/if}
   {#if clonesPrompt.open}<ClonesPrompt />{/if}
+  {#if newTicketDialog.open}<NewTicketDialog />{/if}
   <!-- Before the other drawers: its Escape is heard first. -->
   <LauncherDrawer />
   <MrPanel />
