@@ -38,6 +38,12 @@ proposal?: ProposedPlan,
  */
 aside?: boolean, 
 /**
+ * A call proposing a change of Prism (`prism_propose_config`, `prism_propose_layout`,
+ * `prism_create_custom_block`, `prism_wait_proposal`): its Chat shows the proposal's card while
+ * it waits, then its answer (`output`: `{"status", "reason"?, "errors"?}`).
+ */
+propose?: boolean, 
+/**
  * When it was called (ISO 8601), and once done, how long it took.
  */
 at: string | null, ms: number | null, 

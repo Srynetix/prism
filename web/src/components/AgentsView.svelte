@@ -48,6 +48,7 @@
   import RoutineReview from './RoutineReview.svelte'
   import OverlapChip from './OverlapChip.svelte'
   import AsideChip from './AsideChip.svelte'
+  import ProposalChip from './ProposalChip.svelte'
   import AsideList from './AsideList.svelte'
   import { asideView, asidesOf, badged } from '../asides.svelte'
   import { overlapsOfAgent } from '../overlaps'
@@ -459,6 +460,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions : ⌘↵ is the keyboard path -->
     <b class="title" ondblclick={() => { grid.focus(i); grid.zoomed = true }} title="{a.title} · {t('double-click: the whole view ({key})', { key: keys('⌘↵') })}">{a.title}</b>
     <span class="pill {waitsForYou(a.status) ? 'warn' : isWorking(a.status) ? 'info' : ''}" class:working={isWorking(a.status)} title={a.needs_action ?? undefined}>{#if isWorking(a.status)}<span class="spin-ascii" aria-hidden="true"></span>{/if}{agentStateLabel(a)}</span>
+    <ProposalChip agent={a} />
     <AsideChip agent={a} />
     {#if overlapsOf(a).length}<OverlapChip seen={overlapsOf(a)} short />{/if}
     <QuickAnswers agent={a} compact />
@@ -508,7 +510,7 @@
               {#if e.kind === 'desktop'}<span class="pill dk">Desktop</span>{#if e.c.group}<span>{e.c.group}</span>{/if}{/if}
               {#if e.kind === 'agent' && e.a.category && groupBy !== 'category'}<KindBadge name={e.a.category} />{/if}
               {#if groupBy !== 'tag'}{#each tagsOf(e) as tag (tag)}<span class="pill tag">#{tag}</span>{/each}{/if}
-              {#if e.kind === 'agent'}<AsideChip agent={e.a} />{/if}
+              {#if e.kind === 'agent'}<ProposalChip agent={e.a} /><AsideChip agent={e.a} />{/if}
               {#if e.kind === 'agent' && overlapsOf(e.a).length}<OverlapChip seen={overlapsOf(e.a)} />{/if}
               {#if e.kind === 'agent' && e.a.looping}<span class="pill loop" title={t('{command} failed {n} times in a row: going in circles? (Activity tab)', { command: e.a.looping.command, n: e.a.looping.count })}>↻ ×{e.a.looping.count}</span>{/if}
               {#if e.kind === 'agent' && e.a.state !== 'running'}<span class="pill">{AGENT_STATE[e.a.state]}</span>{/if}
@@ -684,6 +686,7 @@
             <button class="primary" onclick={() => act(() => resumeAgent(a.id))} title={t('{command}, same folder', { command: cliOf(a.provider).resume })}><Icon name="retry" />{t('Resume')}</button>
           {/if}
           <AgentCliChip {a} />
+          <ProposalChip agent={a} />
           <AsideChip agent={a} />
           {#if overlapsOf(a).length}<OverlapChip seen={overlapsOf(a)} />{/if}
           {#if live.snapshot?.overlaps?.other_base.some((x) => x.path === (a.worktree ?? a.cwd))}<span class="chip" title={t('On another base than its repository’s: its changes are not compared with those of the other agents')}>{t('not compared: other base')}</span>{/if}

@@ -605,6 +605,29 @@ fn a_subagent_woken_by_a_message_works_again_until_its_task_ends() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// Prism's proposing tools, however the CLI names them, flagged for their Chat card; their answer
+/// kept as its status and reason only.
+#[test]
+fn the_proposing_tools_are_flagged() {
+    for name in ["mcp__prism__prism_propose_config", "prism__prism_propose_layout", "mcp__plugin_prism_prism__prism_create_custom_block", "prism.prism_wait_proposal"] {
+        let mut t = Tool { tool: name.into(), ..Tool::default() };
+        Fold::aside_call(&mut t, &serde_json::json!({ "toml": "x", "why": "y" }));
+        assert!(t.propose && !t.aside, "{name}");
+    }
+    let mut other = Tool { tool: "mcp__prism__prism_validate".into(), ..Tool::default() };
+    Fold::aside_call(&mut other, &serde_json::json!({}));
+    assert!(!other.propose);
+    // In Claude's text blocks, in Codex's output, or as is.
+    let wrapped = super::fold::propose_answer(r#"[{"type":"text","text":"{\"reason\":\"not that repo\",\"status\":\"refused\"}"}]"#).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&wrapped).unwrap(), serde_json::json!({ "status": "refused", "reason": "not that repo" }));
+    let codex = super::fold::propose_answer(r#"{"content":[{"type":"text","text":"{\"errors\":[\"[[repos]] needs a path\"],\"status\":\"invalid\"}"}]}"#).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&codex).unwrap(), serde_json::json!({ "status": "invalid", "errors": ["[[repos]] needs a path"] }));
+    let refused = super::fold::propose_answer(r#"{"reason":"not that repo","status":"refused"}"#).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&refused).unwrap(), serde_json::json!({ "status": "refused", "reason": "not that repo" }));
+    let modified = super::fold::propose_answer(r#"{"diff_from_proposal":"+ a","note":"n","status":"applied_modified"}"#).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&modified).unwrap(), serde_json::json!({ "status": "applied_modified" }));
+}
+
 /// Prism's « in passing » tools, however the CLI names them, flagged for their Chat card; Desktop's
 /// own `spawn_task` is not one of them.
 #[test]

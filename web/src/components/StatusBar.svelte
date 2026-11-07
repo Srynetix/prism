@@ -281,7 +281,8 @@
     {@const ps = proposals(snap)}
     <!-- Agents on Prism's MCP server (`prism mcp`), and their proposals waiting for an answer. -->
     {#if ps.length}
-      <button class="sbi update" onclick={() => openProposal()} title={tn(ps.length, 'An agent proposes a change of Prism: see it, apply or refuse it', '{n} changes of Prism proposed by agents: see them', {})}><span class="g"><Icon name="settings" /></span>MCP · <b>{ps.length}</b> {tn(ps.length, 'proposal', 'proposals')}</button>
+      <!-- In the accent's color while one waits: something asks you, here. -->
+      <button class="sbi update asks" onclick={() => openProposal()} title={tn(ps.length, 'An agent proposes a change of Prism: see it, apply or refuse it', '{n} changes of Prism proposed by agents: see them', {})}><span class="g"><Icon name="settings" /></span>MCP · <b>{ps.length}</b> {tn(ps.length, 'proposal', 'proposals')}</button>
     {:else}
       {@const cs = snap!.mcp.clients}
       <button class="sbi" onclick={() => openSettings('prism-mcp')} title={t('Connected to Prism MCP: {who} · Settings › Agents › Prism MCP', { who: cs.map((c) => c.name).join(', ') })}><span class="g"><Icon name="settings" /></span>MCP · {cs.length}</button>
@@ -435,6 +436,8 @@
   .claude .g { color: var(--src-claude); }
   .clickup .g { color: var(--src-clickup); }
   .update .g { color: var(--accent); }
+  .sbi.asks { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-weight: 600; }
+  .sbi.asks .g { color: inherit; }
   .items :global(.g) { display: inline-flex; flex-shrink: 0; }
   .items :global(.sbi.ko), .items :global(.sbi.ko b), .items :global(.sbi.ko .g) { color: var(--ko); }
   .sbi.soon { background: color-mix(in srgb, var(--src-calendar) 14%, transparent); }

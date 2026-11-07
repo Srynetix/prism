@@ -11,8 +11,11 @@
   import type { IconName } from '../../icons'
   import { span } from '../../time'
   import type { Agent } from '../../types'
-  import { base, matches, promptImages, segments, summarize, sumSteps } from './turns'
+  import { base, matches, promptImages, proposalCard, segments, summarize, sumSteps } from './turns'
   import QuestionCard from './QuestionCard.svelte'
+  import ProposalCard from './ProposalCard.svelte'
+  import { live as shared } from '../../live.svelte'
+  import { proposals as mcpProposals } from '../../mcp-view.svelte'
   import PlanCard from './PlanCard.svelte'
   import AsideCard from '../AsideCard.svelte'
   import { asideOfCall, isSuggest } from '../../asides.svelte'
@@ -203,7 +206,7 @@
     const entries = convo?.turns.at(-1)?.entries ?? []
     for (let i = entries.length - 1; i >= 0; i--) {
       const e = entries[i]
-      if (e.type === 'tool' && e.state === 'running' && !e.ask && !e.proposal) return e
+      if (e.type === 'tool' && e.state === 'running' && !e.ask && !e.proposal && !e.propose) return e
     }
     return null
   })
@@ -228,6 +231,16 @@
 
   /** Its plans proposed (plan mode), in order: the last one is answered; each shows its changes since the one before. */
   const proposals = $derived((convo?.turns ?? []).flatMap((t) => t.entries.flatMap((e) => (e.type === 'tool' && e.proposal ? [e.proposal] : []))))
+  /**
+   * Its changes of Prism waiting for you (`prism mcp`), each to its call waiting in this Chat: the
+   * oldest call to the oldest proposal of this agent.
+   */
+  const waitingCalls = $derived((convo?.turns ?? []).flatMap((t) => t.entries.filter((e) => e.type === 'tool' && !!e.propose && e.state === 'running')))
+  const mine = $derived(mcpProposals(shared.snapshot).filter((p) => p.agent === id))
+  const proposalOf = (call: ConversationEntry) => {
+    const i = waitingCalls.indexOf(call)
+    return i >= 0 ? mine[i] : undefined
+  }
   const lastPlan = $derived(proposals.at(-1)?.call)
   const before = (call: string) => {
     const i = proposals.findIndex((p) => p.call === call)
@@ -394,6 +407,8 @@
   {:else if row.entry.proposal}
     {@const p = row.entry.proposal}
     <PlanCard {id} plan={p} previous={before(p.call)} latest={p.call === lastPlan} {acts} {typing} onwide={onplan} />
+  {:else if proposalCard(row.entry)}
+    <ProposalCard call={row.entry} proposal={proposalOf(row.entry)} />
   {:else if row.entry.ask}
     <QuestionCard {id} ask={row.entry.ask} status={row.entry.state} {acts} {typing} {passkey} />
   {:else if row.entry.aside}

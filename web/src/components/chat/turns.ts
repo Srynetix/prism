@@ -75,8 +75,15 @@ export const base = (path: string) => path.split('/').pop() || path
  */
 export type Segment = { type: 'steps'; from: number; entries: ConversationEntry[] } | { type: 'one'; at: number; entry: ConversationEntry }
 
-/** Prism's « in passing » tools (`aside`) have a card of their own: never folded. */
-const isStep = (e: ConversationEntry) => e.type === 'thinking' || (e.type === 'tool' && !e.ask && !e.proposal && !e.aside && e.kind !== 'agent')
+/**
+ * A call proposing a change of Prism (`prism_propose_*`) that has a card: waiting for you, or
+ * answered (applied, refused, edited). One whose proposal was invalid, or that handed its wait on
+ * (`waiting`: `prism_wait_proposal` follows), stays a step.
+ */
+export const proposalCard = (e: ConversationEntry) => e.type === 'tool' && !!e.propose && (e.state === 'running' || /"status":"(applied|refused|applied_modified)"/.test(e.output ?? ''))
+
+/** Prism's « in passing » tools (`aside`) and its proposals have a card of their own: never folded. */
+const isStep = (e: ConversationEntry) => e.type === 'thinking' || (e.type === 'tool' && !e.ask && !e.proposal && !e.aside && !proposalCard(e) && e.kind !== 'agent')
 
 export function segments(entries: ConversationEntry[]): Segment[] {
   const out: Segment[] = []

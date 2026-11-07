@@ -9,7 +9,8 @@
   import Icon from './Icon.svelte'
   import type { Alert, Fix, OpenTarget } from '../rules'
   import { isSeen, setSeen } from '../seen.svelte'
-  import { hasCore } from '../bridge'
+  import { hasCore, isDesktop } from '../bridge'
+  import { openProposal } from '../mcp-view.svelte'
   import { canPreview, changeStatus, openTicket } from '../ticket-view.svelte'
   import { rebaseMr, retryPipeline, setAutoMerge, setMergeQueue } from '../pipeline-actions'
   import { canShowLogs, openPipeline } from '../logs.svelte'
@@ -91,6 +92,8 @@
           return app ? [{ key: 'mr', label: mrKey(f), title: t('Open {name}', { name: mrKey(f) }), run: () => openMr(f) }] : []
         case 'podlogs':
           return canShowPodLogs() ? [{ key: 'podlogs', label: t('Pod logs'), title: t('Logs of {name}', { name: f.deployment }), run: () => openWorkload({ context: f.context, namespace: f.namespace, deployment: f.deployment, label: f.label }) }] : []
+        case 'proposal':
+          return isDesktop() ? [{ key: `proposal-${f.id}`, label: t('See the proposal'), title: t('Its diff, then apply or refuse it'), run: () => openProposal(f.id) }] : []
         case 'settings':
           return [{ key: `settings-${f.section}`, label: f.label, title: t('Open {name}', { name: f.label }), run: () => openSettings(f.section) }]
         case 'claude': {

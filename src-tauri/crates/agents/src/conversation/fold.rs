@@ -205,7 +205,13 @@ impl Fold {
     }
 
     /// A call of Prism's « in passing » tools: what it is about (its title, or the task withdrawn).
+    /// A call proposing a change of Prism: flagged for its card.
     pub(super) fn aside_call(tool: &mut Tool, input: &Value) {
+        if propose_tool(&tool.tool) {
+            tool.kind = "other";
+            tool.propose = true;
+            return;
+        }
         if !aside_tool(&tool.tool) {
             return;
         }
@@ -229,7 +235,9 @@ impl Fold {
             tool.state = if failed { "failed" } else { "ok" };
             tool.ms = tool.at.as_deref().zip(at).and_then(|(from, to)| millis(from, to));
             // A task flagged in passing: its answer gives its id, which its Chat card follows.
-            if failed || tool.kind == "command" || tool.aside {
+            if tool.propose {
+                tool.output = output.as_deref().and_then(propose_answer).or_else(|| output.map(|o| tail(&o)).filter(|o| !o.is_empty()));
+            } else if failed || tool.kind == "command" || tool.aside {
                 tool.output = output.map(|o| tail(&o)).filter(|o| !o.is_empty());
             }
         }
@@ -420,6 +428,49 @@ impl Fold {
         };
         b.ended = b.ended.take().filter(|_| b.state == "stopped").or(at.map(String::from));
         b.summary = tag("summary").map(|s| cut(&s, 300)).or(b.summary.take());
+    }
+}
+
+/// Prism's tools that propose a change and wait for the user's answer, as each CLI names them
+/// (`mcp__prism__prism_propose_config`, `prism__prism_propose_layout`…).
+pub(super) fn propose_tool(name: &str) -> bool {
+    ["prism_propose_config", "prism_propose_layout", "prism_create_custom_block", "prism_wait_proposal"].iter().any(|t| name.ends_with(t))
+}
+
+/// A proposing call's answer, as its tool gave it (JSON, which each CLI may wrap: Claude's text
+/// blocks, Codex's output): its status, the reason of a refusal, the errors of an invalid one;
+/// nothing else (its diff, its notes).
+pub(super) fn propose_answer(output: &str) -> Option<String> {
+    let v = answer_in(&parse_from_brace(output)?, 6)?;
+    let mut out = serde_json::json!({ "status": v.get("status")?.as_str()? });
+    if let Some(r) = v.get("reason").and_then(Value::as_str).filter(|r| !r.trim().is_empty()) {
+        out["reason"] = Value::from(cut(r.trim(), 500));
+    }
+    if let Some(e) = v.get("errors").filter(|e| e.as_array().is_some_and(|a| !a.is_empty())) {
+        out["errors"] = e.clone();
+    }
+    Some(out.to_string())
+}
+
+/// The JSON a text holds, from its first `{` or `[`.
+fn parse_from_brace(text: &str) -> Option<Value> {
+    let start = text.find(['{', '['])?;
+    serde_json::from_str(text[start..].trim()).ok()
+}
+
+/// The object with a `status` in `v`, or in what it wraps (a string of JSON included), `depth` deep.
+fn answer_in(v: &Value, depth: u8) -> Option<Value> {
+    if v.get("status").is_some_and(Value::is_string) {
+        return Some(v.clone());
+    }
+    if depth == 0 {
+        return None;
+    }
+    match v {
+        Value::String(s) => answer_in(&parse_from_brace(s)?, depth - 1),
+        Value::Array(a) => a.iter().find_map(|x| answer_in(x, depth - 1)),
+        Value::Object(o) => o.values().find_map(|x| answer_in(x, depth - 1)),
+        _ => None,
     }
 }
 

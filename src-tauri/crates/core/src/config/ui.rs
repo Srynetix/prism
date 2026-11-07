@@ -76,7 +76,7 @@ impl Default for AlertsConfig {
             large_mr_lines: 400,
             no_reviewer_minutes: 10,
             open_threads: true,
-            band_now: ["question", "permission", "review", "branch-ci", "infra"].map(String::from).to_vec(),
+            band_now: ["question", "permission", "proposal", "review", "branch-ci", "infra"].map(String::from).to_vec(),
             band_later: ["your-turn", "need-rebase", "only-ci", "no-ticket", "agent-cost", "worktree"].map(String::from).to_vec(),
             band_hidden: Vec::new(),
             escalate_hours: 24,
