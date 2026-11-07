@@ -79,9 +79,10 @@ What goes through the app (actions, agents, time tracking) is absent from the pr
 |---|---|---|
 | macOS | `macos/Prism.app` | unsigned: right-click › Open at first launch |
 | Linux | `deb/*.deb`, `appimage/*.AppImage` | the `.deb` pulls in `tmux` |
-| Windows | `nsis/*-setup.exe` | per-user installer; installs WebView2 if missing |
+| Windows | `nsis/*-setup.exe` | per-user installer, unsigned (SmartScreen: More info › Run anyway); installs WebView2 if missing |
 
-Each system builds its own bundle, no cross-compilation, except Linux through Docker:
+Each system builds its own bundle, no cross-compilation, except Linux through Docker and Windows
+through cargo-xwin:
 
 - **`just linux`** (`scripts/linux.sh`) builds `dist/Prism_<version>_amd64.deb` and `.AppImage`,
   with their `.sha256`, in an Ubuntu 22.04 container: they run on any distribution as recent (the
@@ -93,8 +94,11 @@ Each system builds its own bundle, no cross-compilation, except Linux through Do
   `.sha256`: checks (frontend types, Rust tests), a universal release build (Apple silicon and
   Intel), then a disk image with `Prism.app` and a link to `/Applications`. `--native` builds for
   this machine's architecture only.
+- **`just windows-build`** (`scripts/windows.sh build`) builds the NSIS installer with cargo-xwin
+  (Microsoft's CRT and SDK, `XWIN_ACCEPT_LICENSE=1`), x64 by default, `WINDOWS_ARCH=arm64` for
+  ARM; `just windows-check` checks that the workspace compiles for Windows.
 
-Both refuse uncommitted changes to tracked files, so the app names its commit (`--allow-dirty`
+`just dmg` and `just linux` refuse uncommitted changes to tracked files, so the app names its commit (`--allow-dirty`
 anyway), and run the checks first (`--skip-checks` not). Nothing personal goes into a package:
 config, packs and tokens stay in `~/.config/prism` and the keychain of each machine.
 
@@ -225,8 +229,9 @@ uncommitted changes.
 `just release` (`scripts/release.sh --to <source>`) publishes this Prism where installed Prisms
 update from: a release tagged `prism-v<version>` (bump `Cargo.toml` first: an existing release is
 refused) holding `Prism_<version>_macos-universal.dmg` (a first install), `.app.tar.gz` (what an
-update replaces) and, with `--linux`, the `amd64` `.deb`, AppImage and Arch package, each with its `.sha256`
-and its `.minisig`.
+update replaces), with `--linux` the `amd64` `.deb`, AppImage and Arch package, and with
+`--windows` the installers `Prism_<version>_windows-x64-setup.exe` and `windows-arm64-setup.exe`
+(built from the Mac with `scripts/windows.sh`), each with its `.sha256` and its `.minisig`.
 
 - Signed with minisign (`brew install minisign`): the key `PRISM_SIGN_KEY` names (environment or
   `.env`; `~/.minisign/prism.key` by default), its password asked once per file. Its public half
@@ -247,7 +252,9 @@ and its `.minisig`.
 
 Installed Prisms follow `[updates] source` (the same `glab:`/`gh:` form, read with glab or gh):
 they check at launch and every 6 hours, and Settings › General › Updates installs the new
-version. A team's build (with its blocks) goes to the team's private repository, Prism alone
+version. On Windows, the installer of the computer's architecture is downloaded and checked, then
+runs as Prism restarts, without a question, and starts the new Prism; the agents go on in
+`prism sessions`, which runs from a copy of `prism.exe` the installer leaves alone. A team's build (with its blocks) goes to the team's private repository, Prism alone
 (`--no-extra`) to the public one: one channel each.
 
 ## Blocks of another repository

@@ -476,6 +476,11 @@ fn exchange(stream: &mut Stream, req: &Request, body: Option<&[u8]>) -> io::Resu
 /// Windows), without a window, what it says in `sessions.log` of the profile's data folder.
 fn spawn() -> Result<()> {
     let exe = std::env::current_exe().context("Prism's executable")?;
+    #[cfg(windows)]
+    let exe = own_copy(&exe).unwrap_or_else(|e| {
+        tracing::warn!("agents: prism sessions from prism.exe itself: {e:#}");
+        exe
+    });
     let log = prism_core::profile::data_dir(&prism_core::profile::data_base()).join("sessions.log");
     let stderr = std::fs::File::create(&log).map(std::process::Stdio::from).unwrap_or_else(|_| std::process::Stdio::null());
     let mut cmd = std::process::Command::new(&exe);
@@ -511,6 +516,33 @@ fn spawn() -> Result<()> {
     })?;
     tracing::info!("agents: started prism sessions ({})", log.display());
     Ok(())
+}
+
+/// On Windows, a copy of `prism.exe` for `prism sessions` to run from, in the local data folder:
+/// an update's installer replaces `prism.exe` and closes whatever runs from it (the Restart
+/// Manager), the agents with it otherwise. One per build (its size and time); those of former
+/// builds are removed once nothing runs from them.
+#[cfg(windows)]
+fn own_copy(exe: &std::path::Path) -> Result<PathBuf> {
+    let meta = std::fs::metadata(exe)?;
+    let stamp = meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs());
+    let dir = dirs::data_local_dir().context("no local data folder")?.join("app.prism.desktop").join("sessions");
+    std::fs::create_dir_all(&dir)?;
+    let name = format!("prism-sessions-{}-{:x}-{stamp:x}.exe", env!("CARGO_PKG_VERSION"), meta.len());
+    let copy = dir.join(&name);
+    if !copy.exists() {
+        let part = dir.join(format!("{name}.part"));
+        std::fs::copy(exe, &part).with_context(|| format!("copying {} to {}", exe.display(), part.display()))?;
+        std::fs::rename(&part, &copy)?;
+    }
+    for entry in std::fs::read_dir(&dir)?.flatten() {
+        let path = entry.path();
+        if path != copy && path.file_name().is_some_and(|n| n.to_string_lossy().starts_with("prism-sessions-")) {
+            // Still running for a former build's sessions: kept until the next time.
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+    Ok(copy)
 }
 
 impl Engine for Remote {

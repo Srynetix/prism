@@ -105,8 +105,11 @@ just install   # frontend dependencies and the Tauri CLI
 just dev       # the app, with hot reload
 just build     # a release bundle: Prism.app, .deb + AppImage, or the Windows installer
 just windows-check  # that it compiles for Windows, from macOS or Linux (cargo-xwin)
-just windows-build  # the Windows x64 installer, unsigned, from macOS or Linux (cargo-xwin)
+just windows-build  # the Windows installer, unsigned, from macOS or Linux (cargo-xwin; WINDOWS_ARCH=arm64)
 ```
+
+The Windows installer is not signed: SmartScreen stops it the first time, **More info › Run
+anyway** installs it. Its updates are checked with Prism's own key (minisign) before they install.
 
 At first launch, Prism greets you and asks where to start: an empty profile, your team's pack, or
 **the demo**, a fictitious team's work in every block, to try everything without connecting
