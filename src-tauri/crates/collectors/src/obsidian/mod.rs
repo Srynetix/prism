@@ -483,10 +483,15 @@ impl Actions {
         let text = std::fs::read_to_string(&b.file).with_context(|| tr!("reading {path}", path = b.file.display()))?;
         anyhow::ensure!(parse_board(&text).iter().any(|l| status_of(&l.name) == status), "{}", tr!("no lane \"{lane}\" on {board}", lane = status, board = b.name));
         let created = Local::now().format("%Y-%m-%d").to_string();
-        let card = match self.notes_folder(b, &text) {
-            Some(folder) => {
-                let names: Vec<String> = std::fs::read_dir(&folder)?.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).filter(|n| n.ends_with(".md")).collect();
-                let id = edit::next_id(names.iter().map(String::as_str)).context(tr("the board's notes have no numbered names to follow"))?;
+        // A board whose cards link numbered notes: the next one. (A note of its own, `Title.md`,
+        // linked from a card, makes no numbering to follow.)
+        let numbered = self.notes_folder(b, &text).and_then(|folder| {
+            let names: Vec<String> = std::fs::read_dir(&folder).ok()?.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).filter(|n| n.ends_with(".md")).collect();
+            let id = edit::next_id(names.iter().map(String::as_str))?;
+            Some((folder, names, id))
+        });
+        let (card, note) = match numbered {
+            Some((folder, names, id)) => {
                 let stem = format!("{id} — {}", file_safe(&title));
                 // The latest note (highest number) shapes the new one.
                 let latest = names.iter().filter(|n| edit::next_id([n.as_str()]).is_some()).max_by_key(|n| n.split(|c: char| !c.is_ascii_digit()).find(|s| !s.is_empty()).and_then(|s| s.parse::<u64>().ok()));
@@ -495,21 +500,29 @@ impl Actions {
                 if let Some(s) = self.note_status(&b.file, status) {
                     fields.push(("status", s));
                 }
-                write_note(&folder.join(format!("{stem}.md")), &edit::new_note(template.as_deref(), &fields, &title, &new.description))?;
-                format!("[[{stem}]]")
+                let path = folder.join(format!("{stem}.md"));
+                write_note(&path, &edit::new_note(template.as_deref(), &fields, &title, &new.description))?;
+                (format!("[[{stem}]]"), Some(path))
             }
             None if !new.description.trim().is_empty() => {
                 let stem = file_safe(&title);
                 anyhow::ensure!(!stem.is_empty(), "{}", tr("the card needs a title"));
                 let folder = b.file.parent().unwrap_or(&sh.vault);
                 let fields = [("title", yaml_str(&title)), ("created", created)];
-                write_note(&folder.join(format!("{stem}.md")), &edit::new_note(None, &fields, &title, &new.description))?;
-                format!("[[{stem}]]")
+                let path = folder.join(format!("{stem}.md"));
+                write_note(&path, &edit::new_note(None, &fields, &title, &new.description))?;
+                (format!("[[{stem}]]"), Some(path))
             }
-            None => title.clone(),
+            None => (title.clone(), None),
         };
+        if let Err(e) = rewrite(&b.file, |t| edit::add_card(t, status, &card)) {
+            // No card for it: the note goes too, or the next try would find it in the way.
+            if let Some(note) = note {
+                let _ = std::fs::remove_file(note);
+            }
+            return Err(e);
+        }
         tracing::info!("obsidian: new card on {} → {status}", b.name);
-        rewrite(&b.file, |t| edit::add_card(t, status, &card))?;
         self.publish(hub)?;
         let cards = sh.cards.read().unwrap();
         let on_board = |e: &&Entry| e.board == b.file && e.card == card;
@@ -897,8 +910,13 @@ mod tests {
         assert!(note.starts_with("---\ntitle: \"Loose: one\"\ncreated: ") && note.ends_with("---\n# Loose: one\n\nBody\n"), "{note}");
         assert!(std::fs::read_to_string(vault.join("Q.md")).unwrap().contains("- [ ] [[Loose one]]\n"));
         assert_eq!(key, "Q.md#Loose one.md");
-        // Never over a note that exists.
-        assert!(rt.block_on(actions.create(&hub, &new("Q.md", "todo", "Loose one", "Again"))).is_err());
+        // Never over a note that exists; the board takes cards still, its loose note no numbering.
+        let again = rt.block_on(actions.create(&hub, &new("Q.md", "todo", "Loose one", "Again"))).unwrap_err().to_string();
+        assert!(again.contains("exists"), "{again}");
+        assert!(!std::fs::read_to_string(vault.join("Q.md")).unwrap().contains("[[Loose one]]\n- [ ] [[Loose one]]"));
+        assert_eq!(rt.block_on(actions.create(&hub, &new("Q.md", "todo", "C-3 — plain", ""))).unwrap(), "Q.md#C-3 — plain");
+        rt.block_on(actions.create(&hub, &new("Q.md", "todo", "Second loose", "Body"))).unwrap();
+        assert!(vault.join("Second loose.md").exists());
         std::fs::remove_dir_all(vault.parent().unwrap()).ok();
     }
 

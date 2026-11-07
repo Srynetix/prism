@@ -72,16 +72,20 @@ impl Actions {
     }
 
     /// Creates a task on one of the sprint's boards (a list: the sprint's or a board's), its
-    /// description in Markdown, assigned to me if asked; returns its id (its custom one if any).
+    /// description in Markdown, assigned to me if asked; returns its task id, the one the sprint's
+    /// tickets and the actions use.
     pub async fn create(&self, hub: &Hub, new: &crate::tracker::NewTicket) -> Result<String> {
-        let snap = hub.subscribe().borrow().clone();
-        let known = snap.sprint.as_ref().is_some_and(|s| s.boards.iter().any(|b| b.id == new.board));
-        anyhow::ensure!(known, "{}", tr!("no board \"{board}\"", board = new.board));
-        let me = if new.assign_me { Some(snap.tracker_me.clone().context(tr("ClickUp user not known yet"))?) } else { None };
+        let me = {
+            let snap = hub.subscribe();
+            let snap = snap.borrow();
+            let known = snap.sprint.as_ref().is_some_and(|s| s.boards.iter().any(|b| b.id == new.board));
+            anyhow::ensure!(known, "{}", tr!("no board \"{board}\"", board = new.board));
+            if new.assign_me { Some(snap.tracker_me.clone().context(tr("ClickUp user not known yet"))?) } else { None }
+        };
         let body = new_task(new, me.as_ref().map(|p| p.id))?;
         let created: Created = Api::new().await?.post(&format!("/list/{}/task", new.board), body).await?;
-        let key = created.custom_id.unwrap_or(created.id);
-        tracing::info!("clickup: {key} created");
+        tracing::info!("clickup: {} created", created.custom_id.as_deref().unwrap_or(&created.id));
+        let key = created.id;
         // Read back on the next round: the sprint shows it without waiting for the interval.
         self.team.refresh_queues();
         Ok(key)
@@ -330,6 +334,7 @@ fn new_task(new: &crate::tracker::NewTicket, me: Option<u64>) -> Result<serde_js
 #[derive(Deserialize)]
 struct Created {
     id: String,
+    #[serde(default)]
     custom_id: Option<String>,
 }
 

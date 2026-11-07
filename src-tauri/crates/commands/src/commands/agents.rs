@@ -705,7 +705,7 @@ async fn make_ticket(state: &AppState, a: &crate::state::Aside) -> anyhow::Resul
 /// agent that does it, the files it touches.
 fn aside_description(a: &crate::state::Aside) -> String {
     let by = a.seen.iter().map(|s| s.name.as_str()).collect::<Vec<_>>().join(", ");
-    let files = if a.files.is_empty() { String::new() } else { format!("\n\n{}: {}", tr("Files"), a.files.iter().map(|f| format!("`{f}`")).collect::<Vec<_>>().join(", ")) };
+    let files = if a.files.is_empty() { String::new() } else { format!("\n\n{}: {}", tr("Files"), a.files.join(", ")) };
     format!("{}\n\n{}\n\n{}{files}", a.tldr, tr!("Spotted in passing by {agents}. The prompt for the agent that does it:", agents = by), a.prompt)
 }
 

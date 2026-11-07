@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../i18n.svelte'
   import { conventions } from '../conventions'
-  import { offers } from '../tracker'
+  import { offers, trackerLogo } from '../tracker'
   import { openTicket } from '../ticket-view.svelte'
   import { toast } from '../toast.svelte'
   import { keys } from '../platform'
@@ -10,7 +10,7 @@
 
   /**
    * A new ticket: its board (when there are several), its lane (the first one to pick by default),
-   * its title, a description in Markdown (folded until asked) and Assign me (the trackers with
+   * its title, a description in Markdown (plain text on Jira; folded until asked) and Assign me (the trackers with
    * assignees). Enter in the title creates it, ⌘↵ creates and opens it; Escape closes.
    */
   let { onclose, wide = false }: { onclose: () => void; wide?: boolean } = $props()
@@ -33,7 +33,7 @@
   })
 
   async function create(open: boolean) {
-    if (saving || !title.trim()) return
+    if (saving || !title.trim() || !status) return
     saving = true
     error = ''
     try {
@@ -74,7 +74,7 @@
   </div>
   {#if described}
     <!-- svelte-ignore a11y_autofocus -->
-    <textarea bind:value={description} rows={wide ? 8 : 4} placeholder={t('Description (Markdown)')} aria-label={t('Description')} autofocus onkeydown={(e) => onkey(e, false)}></textarea>
+    <textarea bind:value={description} rows={wide ? 8 : 4} placeholder={trackerLogo() === 'jira' ? t('Description') : t('Description (Markdown)')} aria-label={t('Description')} autofocus onkeydown={(e) => onkey(e, false)}></textarea>
   {/if}
   <div class="row foot">
     {#if !described}<button type="button" class="link" onclick={() => (described = true)}><Icon name="plus" size={11} /> {t('Description')}</button>{/if}

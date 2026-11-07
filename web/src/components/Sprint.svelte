@@ -8,7 +8,7 @@
   import { trackerOn } from '../live.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import TaskType from './TaskType.svelte'
-  import { openTicket, previewClick } from '../ticket-view.svelte'
+  import { previewClick } from '../ticket-view.svelte'
   import Logo from './Logo.svelte'
   import type { OutsideSprint, Person, Snapshot, Sprint, StatusOption, Ticket } from '../types'
   import { isDone, statusColor, statusRank } from '../rules'

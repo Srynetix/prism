@@ -10,6 +10,8 @@
   const none = $derived(ticketBoards().length === 0)
 </script>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); closeNewTicket() } }} />
+
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="scrim" onclick={(e) => e.target === e.currentTarget && closeNewTicket()}>
   <div class="sheet" role="dialog" aria-label={t('New ticket')}>
