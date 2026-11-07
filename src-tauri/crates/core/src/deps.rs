@@ -50,7 +50,9 @@ struct Probe {
 
 fn probes(cfg: &crate::config::Config) -> Vec<Probe> {
     let probe = |name: &'static str, args: &'static [&'static str], needed: bool, package: &'static str| Probe { name, program: name.into(), args, needed, package };
-    let mut out = vec![probe("tmux", &["-V"], cfg.agents.enabled, "tmux"), probe("git", &["--version"], true, "git")];
+    // Prism's own sessions in place of tmux (Windows): none to look for.
+    let mut out = if crate::agents::local_sessions() { Vec::new() } else { vec![probe("tmux", &["-V"], cfg.agents.enabled, "tmux")] };
+    out.push(probe("git", &["--version"], true, "git"));
     for p in AgentProvider::ALL {
         let used = cfg.agents.enabled && (cfg.agents.provider == p || cfg.repos.iter().any(|r| r.agent == Some(p)));
         let bin = cfg.agents.cli(p).bin.clone().filter(|b| !b.is_empty());

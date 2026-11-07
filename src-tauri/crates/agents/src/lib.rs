@@ -671,7 +671,7 @@ fn shell_key(id: &str, n: u32) -> String {
 
 /// A shell at its prompt, rather than a program it runs (`pane_current_command`).
 fn is_shell(command: &str) -> bool {
-    matches!(command.trim_start_matches('-'), "sh" | "bash" | "zsh" | "fish" | "dash" | "ksh" | "mksh" | "tcsh" | "csh" | "nu" | "xonsh" | "elvish" | "pwsh")
+    matches!(command.trim_start_matches('-').to_ascii_lowercase().as_str(), "sh" | "bash" | "zsh" | "fish" | "dash" | "ksh" | "mksh" | "tcsh" | "csh" | "nu" | "xonsh" | "elvish" | "pwsh" | "powershell" | "cmd")
 }
 
 /// Current branch of a folder, read from `HEAD` without running git (repository or worktree).
@@ -840,14 +840,27 @@ mod tests {
             return;
         }
         let s = tmux::tests::scratch("attach");
-        let (tmux, dir) = (&s.tmux, &s.dir);
+        attach_type_exit(&s.tmux, &s.dir, "t1").await;
+    }
+
+    /// The same path in the sessions Prism holds itself (Windows').
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn attaches_types_and_sees_exit_in_prisms_own_sessions() {
+        let dir = std::env::temp_dir().join(format!("prism-local-attach-{}", std::process::id()));
+        let tmux = Tmux::local(&dir).unwrap();
+        attach_type_exit(&tmux, &dir, "lt1").await;
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    async fn attach_type_exit(tmux: &Tmux, dir: &Path, id: &str) {
         let argv: Vec<String> = ["sh", "-c", "printf 'ready\\n'; read line; printf 'got:%s\\n' \"$line\"; exit 3"].map(String::from).to_vec();
-        tmux.new_session("t1", dir, &[], &argv).await.unwrap();
-        assert_eq!(tmux.panes().await.unwrap().get("t1"), Some(&Pane::Alive));
+        tmux.new_session(id, dir, &[], &argv).await.unwrap();
+        assert_eq!(tmux.panes().await.unwrap().get(id), Some(&Pane::Alive));
 
         let (tx, rx) = mpsc::channel::<Vec<u8>>();
         let (end_tx, end_rx) = mpsc::channel::<()>();
-        let mut att = Attachment::spawn("t1", &tmux.attach_argv("t1"), 100, 30, 1, move |b| { let _ = tx.send(b); }, move || { let _ = end_tx.send(()); }).unwrap();
+        let mut att = tmux.attach(id, id, tmux::Client::Desk, 100, 30, 1, move |b| { let _ = tx.send(b); }, move || { let _ = end_tx.send(()); }).unwrap();
         let mut seen = String::new();
         let until = |seen: &mut String, needle: &str| {
             let deadline = std::time::Instant::now() + Duration::from_secs(5);
@@ -865,17 +878,18 @@ mod tests {
 
         // Once the program has exited, the session stays on its last screen, with its code.
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while tmux.panes().await.unwrap().get("t1") != Some(&Pane::Exited(3)) && std::time::Instant::now() < deadline {
+        while tmux.panes().await.unwrap().get(id) != Some(&Pane::Exited(3)) && std::time::Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        assert_eq!(tmux.panes().await.unwrap().get("t1"), Some(&Pane::Exited(3)));
+        assert_eq!(tmux.panes().await.unwrap().get(id), Some(&Pane::Exited(3)));
+        assert!(tmux.history(id, 100, true).await.unwrap().contains("got:hello"));
 
         // Detaching the terminal does not stop the session; killing it ends the attachment.
         drop(att);
         assert!(end_rx.recv_timeout(Duration::from_secs(5)).is_ok());
-        assert!(tmux.panes().await.unwrap().contains_key("t1"));
-        tmux.kill("t1").await.unwrap();
-        assert!(tmux.panes().await.unwrap().is_empty());
+        assert!(tmux.panes().await.unwrap().contains_key(id));
+        tmux.kill(id).await.unwrap();
+        assert!(!tmux.panes().await.unwrap().contains_key(id));
     }
 
     /// Detaching a terminal sends nothing to the program: portable-pty's writer, dropped, types

@@ -144,4 +144,5 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no agent of Prism's saw it: launch it instead", "aucun agent de Prism ne l’a vue : lancez-la plutôt"),
     ("its agent is closed: launch it instead", "son agent est fermé : lancez-la plutôt"),
     ("only a proposal dealt with leaves the list", "seule une proposition traitée quitte la liste"),
+    ("on this computer, an agent's terminal opens in Prism only", "sur cet ordinateur, le terminal d’un agent ne s’ouvre que dans Prism"),
 ];

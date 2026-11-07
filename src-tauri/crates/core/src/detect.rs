@@ -116,7 +116,7 @@ pub async fn detect(workspaces: &[PathBuf], gitlab_host: &str) -> Detection {
         let (roots, home) = (roots.clone(), home.clone());
         tokio::task::spawn_blocking(move || repositories(&home, &roots))
     };
-    let (agents, tmux, kube, repos) = tokio::join!(agents(&home), version("tmux", &["-V"]), kube_contexts(), scan);
+    let (agents, tmux, kube, repos) = tokio::join!(agents(&home), tmux_version(), kube_contexts(), scan);
     let repos = repos.unwrap_or_default();
     // Signed in where the repositories are: the config's instance unless they all point elsewhere.
     let host = gitlab_host_of(&repos, gitlab_host);
@@ -321,26 +321,18 @@ async fn kube_contexts() -> Option<Vec<String>> {
     Some(out.filter(|o| o.status.success()).map(|o| String::from_utf8_lossy(&o.stdout).lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect()).unwrap_or_default())
 }
 
+/// tmux's version; Prism's own sessions in its place (`agents::local_sessions`): "Prism".
+async fn tmux_version() -> Option<String> {
+    if crate::agents::local_sessions() {
+        return Some("Prism".into());
+    }
+    version("tmux", &["-V"]).await
+}
+
 /// A program in the PATH (the login shell's, as Prism reads it at launch). On Windows, with the
 /// extensions of `PATHEXT` (`git` is `git.exe`).
 pub fn which(program: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    let names = names(program, cfg!(windows).then(|| std::env::var("PATHEXT").ok()).flatten().as_deref(), cfg!(windows));
-    std::env::split_paths(&path).find_map(|d| names.iter().map(|n| d.join(n)).find(|p| p.is_file()))
-}
-
-/// The file names `program` goes by in a folder of the PATH: itself; on Windows, itself with each
-/// extension of `PATHEXT` first (by default `.COM;.EXE;.BAT;.CMD`), and itself alone only when it
-/// has one already (`git.exe`).
-fn names(program: &str, pathext: Option<&str>, windows: bool) -> Vec<String> {
-    if !windows {
-        return vec![program.to_string()];
-    }
-    let mut names: Vec<String> = pathext.unwrap_or(".COM;.EXE;.BAT;.CMD").split(';').map(str::trim).filter(|e| e.starts_with('.')).map(|e| format!("{program}{}", e.to_ascii_lowercase())).collect();
-    if Path::new(program).extension().is_some() {
-        names.insert(0, program.to_string());
-    }
-    names
+    crate::platform::which(program)
 }
 
 /// Obsidian's vaults, from its own settings (`obsidian.json`), the most recently opened first.
@@ -376,15 +368,6 @@ pub fn tilde(home: &Path, p: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    /// A program in the PATH: as is, or on Windows with `PATHEXT`'s extensions.
-    #[test]
-    fn a_program_has_its_windows_names() {
-        assert_eq!(super::names("git", Some(".COM;.EXE"), false), ["git"]);
-        assert_eq!(super::names("git", Some(".COM;.EXE;;.CMD"), true), ["git.com", "git.exe", "git.cmd"]);
-        assert_eq!(super::names("claude", None, true), ["claude.com", "claude.exe", "claude.bat", "claude.cmd"]);
-        assert_eq!(super::names("git.exe", Some(".EXE"), true), ["git.exe", "git.exe.exe"]);
-    }
-
     use super::*;
 
     #[test]

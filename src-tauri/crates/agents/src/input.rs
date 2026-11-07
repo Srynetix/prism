@@ -190,6 +190,9 @@ impl Agents {
         if self.inner.registry.lock().unwrap().get(id).is_none() {
             bail!(tr("unknown agent"));
         }
+        if self.inner.tmux.is_local() {
+            bail!(tr("on this computer, an agent's terminal opens in Prism only"));
+        }
         let argv = self.inner.tmux.attach_argv(id);
         crate::platform::run_in_terminal(app, &argv, &self.inner.work, &format!("attach-{id}")).await
     }

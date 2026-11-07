@@ -16,7 +16,7 @@ impl Agents {
         let inner = self.inner.clone();
         let key = id.to_string();
         let label: String = id.chars().take(8).collect();
-        let attachment = Attachment::spawn(&label, &self.inner.tmux.attach_argv(id), cols, rows, token, on_data, move || {
+        let attachment = self.inner.tmux.attach(&label, id, tmux::Client::Desk, cols, rows, token, on_data, move || {
             let mut map = inner.attachments.lock().unwrap();
             if map.get(&key).is_some_and(|a| a.token == token) {
                 map.remove(&key);
@@ -67,7 +67,7 @@ impl Agents {
         };
         let token = self.inner.next_token.fetch_add(1, Ordering::Relaxed);
         let label: String = format!("phone:{}", id.chars().take(8).collect::<String>());
-        let attachment = Attachment::spawn(&label, &self.inner.tmux.watch_argv(id, size.is_some()), cols, rows, token, on_data, on_end)?;
+        let attachment = self.inner.tmux.attach(&label, id, tmux::Client::Watch { sized: size.is_some() }, cols, rows, token, on_data, on_end)?;
         Ok((attachment, cols, rows))
     }
 
@@ -78,7 +78,7 @@ impl Agents {
         self.phone_key(id)?;
         let token = self.inner.next_token.fetch_add(1, Ordering::Relaxed);
         let label: String = format!("phone:{}", id.chars().take(8).collect::<String>());
-        Attachment::spawn(&label, &self.inner.tmux.attach_argv(id), cols, rows, token, on_data, on_end)
+        self.inner.tmux.attach(&label, id, tmux::Client::Desk, cols, rows, token, on_data, on_end)
     }
 
     pub fn detach(&self, id: &str) {

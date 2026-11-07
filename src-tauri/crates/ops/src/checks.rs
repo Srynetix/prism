@@ -125,9 +125,11 @@ async fn check_inner(check: Check) -> Outcome {
         Check::AgentTools { provider, bin } => {
             let bin = bin.as_deref().map(str::trim).filter(|b| !b.is_empty());
             let program = bin.map_or_else(|| provider.program().to_string(), |b| crate::config::expand_home(Path::new(b)).display().to_string());
-            let tmux = output("tmux", &["-V"]).await;
+            // Prism's own sessions in place of tmux (Windows): only the CLI to find.
+            let tmux = if prism_core::agents::local_sessions() { Ok(String::new()) } else { output("tmux", &["-V"]).await };
             let cli = output(&program, &["--version"]).await;
             match (tmux, cli) {
+                (Ok(t), Ok(c)) if t.trim().is_empty() => ok(format!("{} {}", bin.unwrap_or(provider.program()), c.trim())),
                 (Ok(t), Ok(c)) => ok(format!("{} · {} {}", t.trim(), bin.unwrap_or(provider.program()), c.trim())),
                 (Err(_), _) => ko(tr!("tmux not found ({hint})", hint = crate::platform::install_hint("tmux"))),
                 (_, Err(_)) if bin.is_some() => ko(tr!("{program} not found", program = program)),

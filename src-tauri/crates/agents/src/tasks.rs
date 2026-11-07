@@ -103,7 +103,7 @@ fn quote(word: &str) -> String {
     if !word.is_empty() && word.chars().all(|c| c.is_ascii_alphanumeric() || "_-.:/@+=,".contains(c)) {
         word.to_string()
     } else {
-        format!("'{}'", word.replace('\'', r"'\''"))
+        crate::platform::quote(word)
     }
 }
 
@@ -335,6 +335,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn quotes_only_what_needs_it() {
         assert_eq!(quote("build:web"), "build:web");
         assert_eq!(quote("it's"), r"'it'\''s'");

@@ -122,7 +122,7 @@ type. Prism finds these tools in the PATH of your login shell, even when opened 
 | GitLab | [`glab`](https://gitlab.com/gitlab-org/cli), logged in: `glab auth login` | `brew install glab` |
 | GitHub | [`gh`](https://cli.github.com), logged in: `gh auth login` | `brew install gh` |
 | Worktrees, agents | `git` | Xcode Command Line Tools |
-| Agents | [`tmux`](https://github.com/tmux/tmux), and the agent CLI: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`), Command Code (`cmd`), [OpenCode](https://opencode.ai) (`opencode`) or [Codex](https://github.com/openai/codex) (`codex`) | `brew install tmux` |
+| Agents | [`tmux`](https://github.com/tmux/tmux) (not on Windows: Prism holds the sessions itself, and they stop when it quits; their conversations resume at the next launch), and the agent CLI: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`), Command Code (`cmd`), [OpenCode](https://opencode.ai) (`opencode`) or [Codex](https://github.com/openai/codex) (`codex`) | `brew install tmux` |
 | Claude plan usage | Claude Code, logged in with a Claude.ai plan | |
 | Vulnerabilities | [`trivy`](https://trivy.dev); for images, `docker login` to the registry (or `gcloud` for GCP's) | `brew install trivy` |
 | Kubernetes: pods, environments, ArgoCD | a `~/.kube/config` with read access; `kubectl` for Settings' checks and context list; `gke-gcloud-auth-plugin` for GKE | `brew install kubectl` |
