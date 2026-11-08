@@ -52,7 +52,7 @@ pub fn available() -> Option<&'static str> {
 pub async fn test(def: &Def) -> Result<Tested> {
     def.check()?;
     let Some(sandbox) = available() else {
-        bail!(tr("no sandbox on this computer (sandbox-exec on macOS, bwrap on Linux): a block nobody trusted is not run outside one. It runs once added and trusted in Prism."));
+        bail!(tr("no sandbox on this computer (sandbox-exec on macOS, bwrap on Linux, none on Windows): a block nobody trusted is not run outside one. It runs once added and trusted in Prism."));
     };
     let dir = temp_dir()?;
     let done = test_in(def, sandbox, &dir).await;

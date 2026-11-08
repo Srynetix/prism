@@ -603,7 +603,7 @@ export const SCHEMA: SectionSpec[] = [
     intro: t('Another computer’s Prism paired with this one (Remote › Devices › Pair a computer, or prism peer pair) opens it in a window as this account would. It always reads, settings included (tokens never: they stay in the keychain). What each switch lets it do is logged with its name. Applied at once.'),
     fields: [
       { key: 'actions', label: t('Actions'), hint: t('A ticket’s status, a comment, a retry, a rebase, an agent launched, answered or resumed, a worktree’s branch pulled. An agent launched runs commands of its own: with Actions on, Typing off does not keep that computer from running code here.'), kind: 'toggle' },
-      { key: 'critical', label: t('Critical actions'), hint: t('Merge, the merge queue, a manual job, a force push, an agent stopped or closed, a worktree removed. That computer asks its own user first (Touch ID, polkit), which guards against someone at it, not against its token in other hands: this switch is what holds here.'), kind: 'toggle' },
+      { key: 'critical', label: t('Critical actions'), hint: t('Merge, the merge queue, a manual job, a force push, an agent stopped or closed, a worktree removed. That computer asks its own user first (Touch ID, polkit, Windows Hello), which guards against someone at it, not against its token in other hands: this switch is what holds here.'), kind: 'toggle' },
       { key: 'typing', label: t('Typing'), hint: t('An agent’s or a shell’s terminal typed in, a text sent to an agent, a file of its folder written, a task run.'), kind: 'toggle' },
       { key: 'settings', label: t('Settings'), hint: t('This computer’s settings saved, packs updated, tokens replaced (written, never read back), phones and computers paired or revoked. Off: it reads them only.'), kind: 'toggle' },
     ],
@@ -614,7 +614,7 @@ export const SCHEMA: SectionSpec[] = [
     fields: [
       {
         key: 'machines', label: t('Machines'), kind: 'table', blank: { name: '', url: '' },
-        hint: t('Address: https://<name>.<tailnet>.ts.net, or http://127.0.0.1:<port> at a tunnel’s end. SSH host: its name in ~/.ssh/config, to open its folders here in VS Code (Remote-SSH); empty, they open there only. What is critical there (a merge, a manual job, an agent stopped, a worktree removed, a file of an agent saved) first asks the person at this computer: Touch ID or its password on a Mac, polkit’s agent (password or fingerprint) on Linux; No confirmation: it goes without. Asked by the app, not the page.'),
+        hint: t('Address: https://<name>.<tailnet>.ts.net, or http://127.0.0.1:<port> at a tunnel’s end. SSH host: its name in ~/.ssh/config, to open its folders here in VS Code (Remote-SSH); empty, they open there only. What is critical there (a merge, a manual job, an agent stopped, a worktree removed, a file of an agent saved) first asks the person at this computer: Touch ID or its password on a Mac, polkit’s agent (password or fingerprint) on Linux, Windows Hello on Windows; No confirmation: it goes without. Asked by the app, not the page.'),
         columns: [
           { key: 'name', label: t('Name'), kind: 'text', width: '120px' },
           { key: 'url', label: t('Address'), kind: 'text', placeholder: 'https://build-srv.tail1234.ts.net' },

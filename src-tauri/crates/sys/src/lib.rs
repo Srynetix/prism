@@ -3,6 +3,8 @@
 //! (`prism-macos`). Each block says why it holds; a function whose soundness rests on its caller
 //! says so in its own documentation.
 
+#[cfg(windows)]
+pub mod audio;
 #[cfg(target_os = "macos")]
 pub mod dirlist;
 pub mod env;
@@ -16,3 +18,5 @@ pub mod sysctl;
 pub mod term;
 #[cfg(target_os = "linux")]
 pub mod webkit;
+#[cfg(windows)]
+pub mod windows;

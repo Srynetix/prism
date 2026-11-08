@@ -3,6 +3,7 @@ import type { QuickAnswer } from './bindings/QuickAnswer'
 import type { QuickAnswersConfig } from './bindings/QuickAnswersConfig'
 import { mrKey } from './mr-ref'
 import { hasCore, invoke, isDesktop } from './bridge'
+import { baseName } from './platform'
 
 /**
  * Quick answers (`[agents.quick_answers]`): one click sends an agent at its prompt a text. Its
@@ -38,7 +39,7 @@ const plain = (v: string | undefined) => (v && /^[A-Za-z0-9._/#!:@+-]{1,120}$/.t
  * renames an agent freely, its words would go out as the config's; its title, words, never.
  */
 function values(a: Agent): Record<string, string | undefined> {
-  const folder = a.cwd.split('/').filter(Boolean).pop()
+  const folder = baseName(a.cwd)
   const v = { ticket: a.ticket ?? undefined, branch: a.branch ?? undefined, mr: a.mr ? mrKey(a.mr) : undefined, title: a.title || undefined, folder }
   return onPhone() ? { ticket: plain(v.ticket), branch: plain(v.branch), mr: plain(v.mr), title: undefined, folder: plain(v.folder) } : v
 }

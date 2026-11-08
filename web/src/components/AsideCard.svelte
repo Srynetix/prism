@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../platform'
   import type { Aside } from '../types'
   import { live } from '../live.svelte'
   import { t, tn } from '../i18n.svelte'
@@ -71,7 +72,7 @@
   {#if a.tldr}<p class="tldr">{a.tldr}</p>{/if}
   {#if a.files.length || a.kind}
     <div class="meta">
-      {#each a.files.slice(0, 4) as f (f)}<code title={f}>{f.split('/').pop()}</code>{/each}
+      {#each a.files.slice(0, 4) as f (f)}<code title={f}>{baseName(f)}</code>{/each}
       {#if a.files.length > 4}<span class="more" title={a.files.slice(4).join('\n')}>+{a.files.length - 4}</span>{/if}
       {#if a.kind}<KindBadge name={a.kind} />{/if}
     </div>

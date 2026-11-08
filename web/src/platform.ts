@@ -74,5 +74,18 @@ export function keys(text: string): string {
     .replace(/\bFinder\b/g, FILE_MANAGER)
 }
 
-/** A path under the home folder, with `~` for it. */
-export const tildePath = (path: string) => path.replace(/^\/Users\/[^/]+/, '~').replace(/^\/home\/[^/]+/, '~')
+/** A path under the home folder, with `~` for it (`C:\Users\me` on Windows). */
+export const tildePath = (path: string) =>
+  path
+    .replace(/^\/Users\/[^/]+/, '~')
+    .replace(/^\/home\/[^/]+/, '~')
+    .replace(/^[A-Za-z]:[\\/]Users[\\/][^\\/]+/i, '~')
+
+/** The last name of a path, `/` or `\` (Windows) between its parts, a trailing one ignored. */
+export const baseName = (path: string) => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''
+
+/** A path's folder, without its last name; empty without a folder. */
+export const dirName = (path: string) => {
+  const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+  return cut < 0 ? '' : path.slice(0, cut)
+}

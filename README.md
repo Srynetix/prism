@@ -110,6 +110,10 @@ just windows-build  # the Windows installer, unsigned, from macOS or Linux (carg
 
 The Windows installer is not signed: SmartScreen stops it the first time, **More info › Run
 anyway** installs it. Its updates are checked with Prism's own key (minisign) before they install.
+On Windows, Move to the Trash goes to the Recycle Bin, Keep the computer awake holds off sleep, and
+another computer's critical actions are confirmed with Windows Hello. Not there yet: profiles in
+windows of one app (each profile opens its own Prism), Keep Prism running (add Prism to the startup
+apps instead), and the sandbox that tests a custom block before it is trusted.
 
 At first launch, Prism greets you and asks where to start: an empty profile, your team's pack, or
 **the demo**, a fictitious team's work in every block, to try everything without connecting

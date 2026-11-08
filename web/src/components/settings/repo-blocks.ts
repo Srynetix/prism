@@ -24,7 +24,12 @@ export function namedBy(b: RepoBlock): string[] {
 export const readsOf = (b: RepoBlock, bare: string) => (namedBy(b).length ? namedBy(b) : bare ? [bare] : [])
 
 /** `~/x` for `/Users/me/x`: a working folder and a clone compare the same way. */
-export const tilde = (p: string) => p.trim().replace(/\/+$/, '').replace(/^(\/Users|\/home)\/[^/]+/, '~')
+export const tilde = (p: string) =>
+  p
+    .trim()
+    .replace(/[\\/]+$/, '')
+    .replace(/^(\/Users|\/home)\/[^/]+/, '~')
+    .replace(/^[A-Za-z]:[\\/]Users[\\/][^\\/]+/i, '~')
 
 type Row = Record<string, unknown>
 const str = (v: unknown) => (typeof v === 'string' ? v : '')

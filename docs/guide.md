@@ -96,7 +96,14 @@ through cargo-xwin:
   this machine's architecture only.
 - **`just windows-build`** (`scripts/windows.sh build`) builds the NSIS installer with cargo-xwin
   (Microsoft's CRT and SDK, `XWIN_ACCEPT_LICENSE=1`), x64 by default, `WINDOWS_ARCH=arm64` for
-  ARM; `just windows-check` checks that the workspace compiles for Windows.
+  ARM; `just windows-check` checks that the workspace compiles for Windows. Its pictures are
+  `src-tauri/icons/nsis-sidebar.bmp` (164×314, the welcome and finish pages) and
+  `nsis-header.bmp` (150×57, the other pages), 24-bit BMPs made from `icon.png` with ImageMagick:
+  `magick -size 164x314 gradient:'#2c2452'-'#16132a' \( icon.png -resize 124x124 \) -gravity north
+  -geometry +0+70 -composite -font HelveticaNeue.ttc -pointsize 26 -fill '#e9e4ff' -annotate +0+200
+  Prism -alpha off -type truecolor BMP3:nsis-sidebar.bmp`, and `magick -size 150x57 xc:white
+  \( icon.png -resize 52x52 \) -gravity east -geometry +4+0 -composite -alpha off -type truecolor
+  BMP3:nsis-header.bmp`.
 
 `just dmg` and `just linux` refuse uncommitted changes to tracked files, so the app names its commit (`--allow-dirty`
 anyway), and run the checks first (`--skip-checks` not). Nothing personal goes into a package:
@@ -187,7 +194,8 @@ What that machine classes critical (a merge, a manual job, an agent stopped, a w
 a file of an agent saved or a secret of its folder downloaded, a command of one of its own blocks)
 first asks the person at the desk: Touch ID or the account's password on a Mac,
 polkit's agent of the desktop on Linux (`pkcheck`, the password or a fingerprint where PAM takes
-one; refused without polkit). Asked by the app, never by the page; `skip_confirm = true` in the
+one; refused without polkit), Windows Hello on Windows (a face, a finger or the PIN; refused when
+it is not set up). Asked by the app, never by the page; `skip_confirm = true` in the
 machine's `[[machines]]` goes without.
 
 A machine with several profiles (each its own `prism-server --profile <id> serve`, the others

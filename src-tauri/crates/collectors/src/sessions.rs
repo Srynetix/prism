@@ -72,6 +72,10 @@ pub async fn run(cfg: SessionsConfig, scope: crate::profile::SessionScope, hub: 
 fn collect(dir: &Path, projects: &Path, shown: &crate::profile::SessionScope, transcripts: &mut HashMap<String, PathBuf>) -> Result<(Vec<ClaudeSession>, Vec<ArchivedSession>)> {
     let mut out = Vec::new();
     let mut archived = Vec::new();
+    // No Claude Desktop app (Codex alone, or the CLI only): no session, and nothing wrong.
+    if !dir.is_dir() {
+        return Ok((out, archived));
+    }
     let groups = read_groups(dir);
     // Desktop tree: <account>/<organization>/local_<id>.json
     for account in read_dirs(dir)? {
@@ -316,4 +320,14 @@ struct RawMessage {
     stop_reason: Option<String>,
     #[serde(default)]
     content: serde_json::Value,
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn no_claude_desktop_is_no_session() {
+        let missing = std::env::temp_dir().join("prism-no-claude-desktop").join("claude-code-sessions");
+        let (sessions, archived) = super::collect(&missing, &missing, &Default::default(), &mut Default::default()).unwrap();
+        assert!(sessions.is_empty() && archived.is_empty());
+    }
 }

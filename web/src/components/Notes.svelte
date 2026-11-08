@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../platform'
   import { t as tr, tc } from '../i18n.svelte'
   import { clock } from '../clock.svelte'
   import { locale } from '../locale'
@@ -372,7 +373,7 @@
     {#if !typing}<p class="off">{tr('Typing to an agent from a phone is off (Settings › Remote › Exposure)')}</p>{/if}
     {#each targetsFor(n) as { a, repo } (a.id)}
       <button role="menuitem" disabled={!n || !typing} onclick={() => n && sendTo(n, a)} title={phone || ready(a) ? tr('{name}: sent at once', { name: a.title || nameOf(a) }) : tr('{name}: sent at once, read once its turn is over', { name: a.title || nameOf(a) })}>
-        <span class="who"><b>{a.title || nameOf(a)}</b><small>{[multiRepo || (n?.repo && repo !== n.repo) ? repo : null, a.ticket, a.branch ?? a.cwd.split('/').pop()].filter(Boolean).join(' · ')}</small></span>
+        <span class="who"><b>{a.title || nameOf(a)}</b><small>{[multiRepo || (n?.repo && repo !== n.repo) ? repo : null, a.ticket, a.branch ?? baseName(a.cwd)].filter(Boolean).join(' · ')}</small></span>
         <span class="st" class:busy={!ready(a)}>{a.id === agentsView.selected && !phone ? `${tr('selected')} · ` : ''}{ready(a) ? tc('tickets', 'waits') : tc('tickets', 'working')}</span>
       </button>
     {/each}

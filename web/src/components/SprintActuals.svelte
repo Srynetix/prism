@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../platform'
   import { t, tc, tn } from '../i18n.svelte'
   import { untrack } from 'svelte'
   import Icon from './Icon.svelte'
@@ -96,7 +97,7 @@
         const dest = await save({ defaultPath: await join(await downloadDir(), file), filters: [{ name: 'CSV', extensions: ['csv'] }] })
         if (!dest) return
         await invoke('save_csv', { dest, text })
-        toast(t('Saved: {name}', { name: dest.split('/').pop() ?? file }))
+        toast(t('Saved: {name}', { name: baseName(dest) || file }))
         return
       }
       const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }))

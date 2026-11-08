@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../../platform'
   import Icon from '../Icon.svelte'
   import Control from './Control.svelte'
   import CheckBadge from './CheckBadge.svelte'
@@ -31,7 +32,7 @@
   /* ---------- Working folders ---------- */
   const WORKSPACES = ['workspaces']
   const wsRows = $derived(valueOf<Row[] | null>(WORKSPACES, null) ?? [])
-  const wsName = (w: Row) => str(w.name).trim() || tilde(str(w.dir)).split('/').pop() || t('New folder')
+  const wsName = (w: Row) => str(w.name).trim() || baseName(tilde(str(w.dir))) || t('New folder')
   const wsForge = (w: Row): ForgeProvider => (w.forge === 'github' || w.forge === 'gitlab' ? w.forge : profileForge())
   function setWorkspace(i: number, patch: Row) {
     setValue(WORKSPACES, wsRows.map((w, n) => (n === i ? clean({ ...w, ...patch }) : w)))

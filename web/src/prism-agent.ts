@@ -1,5 +1,6 @@
 import { agentsSettings, openLauncher } from './agents.svelte'
 import { cfg } from './settings.svelte'
+import { dirName } from './platform'
 
 /**
  * "Configure Prism": an agent in the config's folder, given Prism's MCP server and its skill
@@ -10,7 +11,7 @@ import { cfg } from './settings.svelte'
 export function configurePrism(section?: { page: string; table: string }) {
   const fr = agentsSettings().prompt_language === 'fr'
   const path = cfg.file?.path ?? ''
-  const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : undefined
+  const dir = dirName(path) || undefined
   const about = section ? (fr ? `\nLa question porte sur Settings › ${section.page} (${section.table}).\n` : `\nThis is about Settings › ${section.page} (${section.table}).\n`) : ''
   const prompt = fr
     ? `Aide-moi à configurer Prism. Utilise les outils du serveur MCP prism (prism_search_docs, prism_explain_key, prism_validate) et n'écris jamais config.toml toi-même : propose les changements avec prism_propose_config.\n${about}\nMa demande : `

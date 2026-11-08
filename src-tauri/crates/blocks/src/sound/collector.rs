@@ -1,4 +1,4 @@
-//! Reads the audio devices (CoreAudio on macOS, `pactl` on Linux) every `[sound] poll_seconds`,
+//! Reads the audio devices (CoreAudio on macOS, `pactl` on Linux, Core Audio on Windows) every `[sound] poll_seconds`,
 //! and at once after a change from the window. Elsewhere the block says it cannot read.
 
 use std::time::Duration;
@@ -55,7 +55,29 @@ fn read() -> Result<SoundState> {
     Ok(SoundState { output: s.output, input: s.input, devices: s.devices, recording: s.recording, updated_at: Some(Utc::now()), ..Default::default() })
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(windows)]
+fn read() -> Result<SoundState> {
+    use super::wasapi as wa;
+    use chrono::Utc;
+    Ok(SoundState { output: wa::side(Scope::Output), input: wa::side(Scope::Input), devices: wa::devices(), recording: wa::listeners(), updated_at: Some(Utc::now()), ..Default::default() })
+}
+
+#[cfg(windows)]
+pub async fn set_volume(s: Scope, percent: u8) -> Result<()> {
+    change(move || super::wasapi::set_volume(s, percent)).await
+}
+
+#[cfg(windows)]
+pub async fn set_mute(s: Scope, muted: bool) -> Result<()> {
+    change(move || super::wasapi::set_mute(s, muted)).await
+}
+
+#[cfg(windows)]
+pub async fn set_device(s: Scope, id: u32) -> Result<()> {
+    change(move || super::wasapi::set_default(s, id)).await
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
 fn read() -> Result<SoundState> {
     anyhow::bail!(prism_base::i18n::tr("the Sound block reads audio devices on macOS and Linux only"))
 }
@@ -97,17 +119,17 @@ pub async fn set_device(s: Scope, id: u32) -> Result<()> {
     change(move || super::pulse::set_default(s, id)).await
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
 pub async fn set_volume(_: Scope, _: u8) -> Result<()> {
     change(|| anyhow::bail!(prism_base::i18n::tr("the Sound block reads audio devices on macOS and Linux only"))).await
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
 pub async fn set_mute(_: Scope, _: bool) -> Result<()> {
     change(|| anyhow::bail!(prism_base::i18n::tr("the Sound block reads audio devices on macOS and Linux only"))).await
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
 pub async fn set_device(_: Scope, _: u32) -> Result<()> {
     change(|| anyhow::bail!(prism_base::i18n::tr("the Sound block reads audio devices on macOS and Linux only"))).await
 }

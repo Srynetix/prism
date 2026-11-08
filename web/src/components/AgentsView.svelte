@@ -1,6 +1,6 @@
 <script lang="ts">
   import { suggest } from '../suggest'
-  import { chord, chordKey, extraShift, inTerminal, keys, tildePath } from '../platform'
+  import { chord, chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
   import Icon from './Icon.svelte'
   import Terminal from './Terminal.svelte'
   import QuickAnswers from './QuickAnswers.svelte'
@@ -753,8 +753,8 @@
           {#if a.branch}<span class="path" title={t('Branch')}>{a.branch}</span><span class="dot">·</span>{/if}
           <span class="path" title={a.worktree ?? a.cwd}>{tildePath(a.worktree ?? a.cwd)}</span>
           {#if a.worktree}<span class="pill wt" title={t('Worktree of this agent')}>{t('worktree')}</span>{/if}
-          {#each a.adopted ?? [] as p (p)}<span class="pill wt" title={t('{path}: created by a command of this agent (a skill)', { path: tildePath(p) })}>+ {p.split('/').pop()}</span>{/each}
-          {#each a.also ?? [] as p (p)}<span class="pill wt also" title={t('{path}: its worktree in this repository too, same branch (--add-dir)', { path: tildePath(p) })}>+ {agentRepo({ cwd: p, worktree: p }, live.snapshot) ?? p.split('/').pop()}</span>{/each}
+          {#each a.adopted ?? [] as p (p)}<span class="pill wt" title={t('{path}: created by a command of this agent (a skill)', { path: tildePath(p) })}>+ {baseName(p)}</span>{/each}
+          {#each a.also ?? [] as p (p)}<span class="pill wt also" title={t('{path}: its worktree in this repository too, same branch (--add-dir)', { path: tildePath(p) })}>+ {agentRepo({ cwd: p, worktree: p }, live.snapshot) ?? baseName(p)}</span>{/each}
           {@render ports(a)}
           <span class="grow"></span>
           <label class="chip" style:--k={a.category ? kindColor(a.category) : null} title={t('Kind: what it does (guessed from its command at launch)')}>

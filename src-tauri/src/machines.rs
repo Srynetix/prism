@@ -312,8 +312,13 @@ async fn call_confirmed(state: &Machines, window: &WebviewWindow, command: &str,
     let name = state.open.lock().unwrap().get(window.label()).map(|o| o.name.clone()).unwrap_or_default();
     if !find(&name).is_ok_and(|m| m.skip_confirm) {
         let reason = format!("{} on {name}", describe(command, &args));
-        if !tokio::task::spawn_blocking(move || confirm_here(&reason)).await? {
-            return Err(format!("{command}: not confirmed on this computer (Touch ID or its password on a Mac, polkit's agent on Linux; Settings › Remote › Machines › No confirmation goes without)").into());
+        // Windows Hello's dialog sits on the machine's window.
+        #[cfg(windows)]
+        let hwnd = window.hwnd().ok().map(|h| h.0 as isize);
+        #[cfg(not(windows))]
+        let hwnd = None;
+        if !tokio::task::spawn_blocking(move || confirm_here(&reason, hwnd)).await? {
+            return Err(format!("{command}: not confirmed on this computer (Touch ID or its password on a Mac, polkit's agent on Linux, Windows Hello on Windows; Settings › Remote › Machines › No confirmation goes without)").into());
         }
     }
     match machine.ask(command, args, Some(&purpose)).await? {
@@ -372,8 +377,13 @@ mod tests {
 /// (LocalAuthentication). Linux: polkit's agent of the desktop (GNOME, KDE, Xfce…) asks for the
 /// password, or a fingerprint where PAM takes one, as for any administrative action
 /// (`org.freedesktop.policykit.exec`, nothing run); without `pkcheck` or an agent, refused:
-/// `skip_confirm` goes without. Elsewhere, nothing to ask with: refused too.
-fn confirm_here(reason: &str) -> bool {
+/// `skip_confirm` goes without. Windows: Windows Hello (a face, a finger or the PIN), its dialog
+/// on window `hwnd`; not set up, refused. Elsewhere, nothing to ask with: refused too.
+fn confirm_here(reason: &str, hwnd: Option<isize>) -> bool {
+    #[cfg(not(windows))]
+    let _ = hwnd;
+    #[cfg(windows)]
+    return prism_sys::windows::confirm(hwnd, &format!("Prism: {reason}"));
     #[cfg(target_os = "macos")]
     return prism_macos::localauth::confirm(reason, std::time::Duration::from_secs(90));
     #[cfg(target_os = "linux")]
@@ -389,7 +399,7 @@ fn confirm_here(reason: &str) -> bool {
             }
         }
     }
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
     {
         let _ = reason;
         false

@@ -285,7 +285,7 @@
       {#if du && hasCore()}
         {#if !short}
           <select class="root" bind:value={root} disabled={!!running} aria-label={t('Folder to scan')}>
-            {#each roots as r (r)}<option value={r}>{r === '~' ? t('~ (home folder)') : r === '/' ? t('/ (the whole disk)') : r}</option>{/each}
+            {#each roots as r (r)}<option value={r}>{r === '~' ? t('~ (home folder)') : r === '/' ? t('/ (the whole disk)') : /^[A-Za-z]:\\?$/.test(r) ? t('{drive} (the whole disk)', { drive: r }) : r}</option>{/each}
             {#if root && !roots.includes(root)}<option value={root}>{root}</option>{/if}
           </select>
           {#if canPick()}<button class="act" disabled={!!running} onclick={chooseRoot} title={t('Any folder')}>{t('Choose…')}</button>{/if}

@@ -97,6 +97,18 @@ pub async fn checks(cfg: &RemoteConfig) -> Vec<AwayCheck> {
             check(false, tr("Prism is not opened again after a crash, nor at login: turn on Keep Prism running."))
         });
     }
+    // Sleep: `SetThreadExecutionState` holds whatever the power; Windows Update restarts outside
+    // the active hours; nothing opens Prism again yet.
+    #[cfg(windows)]
+    {
+        out.push(if cfg.keep_awake {
+            check(true, tr("Kept awake: the screen may lock, Prism carries on."))
+        } else {
+            check(false, tr("Keep the computer awake is off: it may sleep, out of reach until woken."))
+        });
+        out.push(check(false, tr("Windows Update may restart the computer outside its active hours: pause the updates in Settings › Windows Update before leaving.")));
+        out.push(check(false, tr("Prism is not opened again after a crash, nor at login, on Windows: add it to the startup apps (Settings › Apps › Startup).")));
+    }
     out
 }
 

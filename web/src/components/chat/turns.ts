@@ -5,6 +5,7 @@
  */
 
 import type { ConversationEntry, ConversationTurn } from '../../agents.svelte'
+import { baseName } from '../../platform'
 
 export interface TurnSummary {
   files: { path: string; added: number; removed: number }[]
@@ -66,7 +67,7 @@ export function promptImages(prompt: string): { text: string; images: string[] }
 }
 
 /** A path's file name. */
-export const base = (path: string) => path.split('/').pop() || path
+export const base = (path: string) => baseName(path) || path
 
 /**
  * A turn's entries cut where its Chat folds them: the runs of steps (its calls and thoughts)

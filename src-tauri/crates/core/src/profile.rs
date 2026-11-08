@@ -140,7 +140,12 @@ pub fn private_dirs() {
                 eprintln!("prism: {} not made private: {e}", dir.display());
             }
         }
-        #[cfg(not(unix))]
+        // Windows: an ACL of this account and the system only, its parents' left out (Administrators).
+        #[cfg(windows)]
+        if let Err(e) = std::fs::create_dir_all(&dir).and_then(|_| prism_sys::windows::private_dir(&dir)) {
+            eprintln!("prism: {} not made private: {e}", dir.display());
+        }
+        #[cfg(not(any(unix, windows)))]
         if let Err(e) = std::fs::create_dir_all(&dir) {
             eprintln!("prism: {} not made: {e}", dir.display());
         }
@@ -209,8 +214,13 @@ fn is_prism(pid: u32) -> bool {
             .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).to_lowercase().contains("prism"))
 }
 
-/// Windows: no lock; the same profile twice is left to the user.
-#[cfg(not(unix))]
+/// Windows: a running process whose executable is Prism's (`prism.exe`, its sessions' copy).
+#[cfg(windows)]
+fn is_prism(pid: u32) -> bool {
+    prism_sys::windows::executable(pid).and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_lowercase())).is_some_and(|n| n.contains("prism"))
+}
+
+#[cfg(not(any(unix, windows)))]
 fn is_prism(_pid: u32) -> bool {
     false
 }
@@ -234,21 +244,46 @@ pub fn release() {
     }
 }
 
-/// Brings the Prism holding a profile to the front (it shows its window on `SIGUSR1`).
+/// Brings the Prism holding a profile to the front (it shows its window on `SIGUSR1`; on
+/// Windows, on `WAKE` through its pipe).
 #[cfg(unix)]
 pub fn wake(pid: u32) {
     // A process checked to be Prism, which handles it.
     prism_sys::process::signal(pid, prism_sys::process::Signal::Usr1);
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+pub fn wake(pid: u32) {
+    prism_sys::windows::signal(pid, WAKE);
+}
+
+#[cfg(not(any(unix, windows)))]
 pub fn wake(_pid: u32) {}
+
+/// Windows: what another launch sends a Prism through its pipe (`prism_sys::windows::signal_pipe`),
+/// Unix's SIGUSR1: its window to the front.
+pub const WAKE: u8 = b'w';
+/// Windows: Unix's SIGUSR2, a restart (`prism restart`).
+pub const RESTART: u8 = b'r';
+
+/// Asks the Prism `pid` to restart: false if it could not be reached.
+fn ask_restart(pid: u32) -> bool {
+    #[cfg(unix)]
+    return prism_sys::process::signal(pid, prism_sys::process::Signal::Usr2);
+    #[cfg(windows)]
+    return prism_sys::windows::signal(pid, RESTART);
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = pid;
+        false
+    }
+}
 
 /// `prism restart`: the Prism holding the active profile restarts (it does on `SIGUSR2`, as the
 /// console's `restart`), and the new one is awaited; none open, Prism starts, detached from the
 /// terminal. One still starting has no handler yet and simply quits on the signal: it is started
-/// again then.
-#[cfg(unix)]
+/// again then (Windows: it has no pipe yet, and is left to start).
+#[cfg(any(unix, windows))]
 pub fn restart() -> Result<String> {
     let id = active();
     let Some(pid) = holder(id) else {
@@ -260,7 +295,7 @@ pub fn restart() -> Result<String> {
     let written = || std::fs::metadata(lock_path(id)).and_then(|m| m.modified()).ok();
     let before = written();
     // A process checked to be Prism, which handles it.
-    prism_sys::process::signal(pid, prism_sys::process::Signal::Usr2);
+    ask_restart(pid);
     let mut gone = 0;
     for _ in 0..60 {
         std::thread::sleep(std::time::Duration::from_millis(250));
@@ -307,7 +342,7 @@ pub fn executable() -> Result<PathBuf> {
 /// Starts Prism on profile `id`, detached from the terminal (its output discarded). On Linux,
 /// from a systemd unit (the watch's service, `INVOCATION_ID`), in a scope of its own: it would
 /// otherwise live (its tmux and agents with it) in that service's control group.
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn start(id: &str) -> Result<()> {
     let exe = executable()?;
     #[cfg(target_os = "linux")]
@@ -322,11 +357,16 @@ fn start(id: &str) -> Result<()> {
     #[cfg(not(target_os = "linux"))]
     let mut cmd = std::process::Command::new(exe);
     cmd.args(start_args()).env("PRISM_PROFILE", id).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
-    prism_sys::process::new_session(&mut cmd).spawn().context("starting Prism")?;
+    #[cfg(unix)]
+    prism_sys::process::new_session(&mut cmd);
+    // Out of the console's process group, without one of its own: the terminal closed, it goes on.
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0000_0008 | 0x0000_0200);
+    cmd.spawn().context("starting Prism")?;
     Ok(())
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 pub fn restart() -> Result<String> {
     bail!("prism restart is not available on this system: use restart in Prism's console")
 }

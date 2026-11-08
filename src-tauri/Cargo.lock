@@ -4782,6 +4782,7 @@ dependencies = [
  "prism-blocks",
  "prism-core",
  "prism-demo",
+ "prism-sys",
  "qrcode",
  "reqwest",
  "serde",
@@ -4830,6 +4831,10 @@ dependencies = [
  "libc",
  "tracing",
  "webkit2gtk",
+ "windows",
+ "windows-core",
+ "windows-future",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

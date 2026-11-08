@@ -81,10 +81,24 @@ fn empty(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// `path` to the Trash: macOS's (`~/.Trash`, on the home's volume) or the freedesktop one
-/// (`~/.local/share/Trash`, its `.trashinfo` written so that the file manager can put it back).
+/// `path` to the Trash: macOS's (`~/.Trash`, on the home's volume), the freedesktop one
+/// (`~/.local/share/Trash`, its `.trashinfo` written so that the file manager can put it back), or
+/// Windows' Recycle Bin.
 pub fn trash(path: &Path) -> Result<()> {
     fs::symlink_metadata(path).with_context(|| tr!("{path} is no longer there", path = path.display()))?;
+    // Windows: the shell's Recycle Bin, on the path's own disk; Explorer can put it back.
+    #[cfg(windows)]
+    return prism_sys::windows::recycle(&std::path::absolute(path)?).map_err(|e| match e.kind() {
+        std::io::ErrorKind::Unsupported => anyhow::anyhow!(tr!("{path} is on a disk without a Recycle Bin: delete it from Explorer", path = path.display())),
+        _ => anyhow::Error::from(e).context(tr!("could not move {path} to the Trash", path = path.display())),
+    });
+    #[cfg(not(windows))]
+    to_folder(path)
+}
+
+/// `path` moved into the home folder's Trash folder (macOS, freedesktop).
+#[cfg(not(windows))]
+fn to_folder(path: &Path) -> Result<()> {
     let home = dirs::home_dir().context("no home folder")?;
     let name = path.file_name().context("no name")?.to_os_string();
     // The same Trash as the block's line measures and empties.
@@ -121,7 +135,7 @@ pub fn trash(path: &Path) -> Result<()> {
 }
 
 /// The freedesktop `Path=`: a URI path, `/` kept.
-#[cfg_attr(target_os = "macos", allow(dead_code))]
+#[cfg_attr(any(target_os = "macos", windows), allow(dead_code))]
 fn percent_encode(s: &str) -> String {
     s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"/-_.~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
 }

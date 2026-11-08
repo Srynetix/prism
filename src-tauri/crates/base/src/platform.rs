@@ -99,10 +99,27 @@ pub fn install_hint(package: &str) -> String {
     if cfg!(target_os = "macos") {
         format!("brew install {package}")
     } else if cfg!(target_os = "windows") {
-        crate::tr!("install {package} and put it in the PATH", package = package)
+        match winget(package) {
+            Some(id) => format!("winget install {id}"),
+            None => crate::tr!("install {package} and put it in the PATH", package = package),
+        }
     } else {
         crate::tr!("install the {package} package of your distribution", package = package)
     }
+}
+
+/// Windows: a package's winget id (`winget install Git.Git`), for those winget has.
+fn winget(package: &str) -> Option<&'static str> {
+    Some(match package {
+        "git" => "Git.Git",
+        "glab" => "GLab.GLab",
+        "gh" => "GitHub.cli",
+        "kubectl" => "Kubernetes.kubectl",
+        "google-cloud-sdk" => "Google.CloudSDK",
+        "trivy" => "AquaSecurity.Trivy",
+        "docker" => "Docker.DockerDesktop",
+        _ => return None,
+    })
 }
 
 /// Opens `path` (folder or file) in application `app`, or with the system's default one.
@@ -500,7 +517,8 @@ pub fn quote_for(s: &str, windows: bool) -> String {
 
 /// Restarts (`restart`) or shuts down (`shutdown`) the computer as its menu would: the
 /// applications are asked to quit, and one with unsaved work may still refuse. macOS: an Apple
-/// event to loginwindow; Linux: systemd (an active session's user may, by polkit's default).
+/// event to loginwindow; Linux: systemd (an active session's user may, by polkit's default);
+/// Windows: `shutdown` at once, unforced (`/t 0` without `/f`).
 pub async fn power(action: &str) -> anyhow::Result<()> {
     use anyhow::{bail, Context};
     #[cfg(target_os = "macos")]
@@ -521,7 +539,18 @@ pub async fn power(action: &str) -> anyhow::Result<()> {
         }
         Ok(())
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    {
+        let flag = match action {
+            "restart" => "/r",
+            "shutdown" => "/s",
+            other => bail!("no power action {other}: restart or shutdown"),
+        };
+        let out = command("shutdown").args([flag, "/t", "0"]).output().await.context("shutdown")?;
+        anyhow::ensure!(out.status.success(), "shutdown {flag}: {}", String::from_utf8_lossy(&out.stderr).trim());
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
     {
         let verb = match action {
             "restart" => "reboot",

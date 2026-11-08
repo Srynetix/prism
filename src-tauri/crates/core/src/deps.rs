@@ -84,7 +84,7 @@ pub fn number(line: &str) -> Option<String> {
 }
 
 async fn run(home: &Path, p: Probe) -> Dependency {
-    let path = if p.program.contains('/') { Some(std::path::PathBuf::from(&p.program)).filter(|b| b.is_file()) } else { which(&p.program) };
+    let path = if p.program.contains(['/', '\\']) { Some(std::path::PathBuf::from(&p.program)).filter(|b| b.is_file()) } else { which(&p.program) };
     let raw = match &path {
         Some(bin) => version(&bin.display().to_string(), p.args).await,
         None => None,

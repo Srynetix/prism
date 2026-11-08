@@ -1,7 +1,11 @@
 //! The Trash, apart from any scan: every one of this account's (the home folder's, and each other
 //! disk's), measured and emptied directly, without the Finder nor `gio`. macOS: `~/.Trash` and
 //! `/Volumes/<disk>/.Trashes/<uid>`. Linux (freedesktop): `~/.local/share/Trash` and each mount's
-//! `.Trash-<uid>` or `.Trash/<uid>`, their `files/` with their `info/` records.
+//! `.Trash-<uid>` or `.Trash/<uid>`, their `files/` with their `info/` records. Windows: the
+//! Recycle Bin, every disk's at once, through the shell (`SHQueryRecycleBin`, `SHEmptyRecycleBin`).
+
+// Windows: the folders' Trash (macOS, freedesktop) unused but by its tests: the shell's Bin instead.
+#![cfg_attr(windows, allow(dead_code))]
 
 use std::{
     fs,
@@ -95,6 +99,15 @@ fn real_dir(p: &Path) -> bool {
 /// each other disk's that exists, none through a symbolic link. Blocks (the disks listed): call it
 /// off the runtime.
 pub fn bins() -> Vec<Bin> {
+    // One for every disk: the shell measures and empties them together.
+    #[cfg(windows)]
+    return vec![Bin { disk: prism_base::i18n::tr("Recycle Bin").into(), dir: PathBuf::from(RECYCLE_BIN), freedesktop: false }];
+    #[cfg(not(windows))]
+    folders()
+}
+
+#[cfg(not(windows))]
+fn folders() -> Vec<Bin> {
     let Some(home) = dirs::home_dir() else { return Vec::new() };
     let uid = owner(&home);
     let mut out = vec![home_trash(&home)];
@@ -175,6 +188,14 @@ fn items(dir: &Path) -> std::io::Result<Vec<fs::DirEntry>> {
 
 /// Every Trash measured (a walk of the Trash only). Blocks: call it off the runtime.
 pub fn measure(bins: &[Bin]) -> TrashState {
+    #[cfg(windows)]
+    return recycle_bin(bins);
+    #[cfg(not(windows))]
+    measure_folders(bins)
+}
+
+/// Trash folders measured, walked.
+fn measure_folders(bins: &[Bin]) -> TrashState {
     let mut state = TrashState::default();
     for (i, b) in bins.iter().enumerate() {
         let found = match items(&b.files()) {
@@ -199,7 +220,15 @@ pub fn measure(bins: &[Bin]) -> TrashState {
 /// Every Trash emptied: each item removed (a freedesktop item with its record), what cannot be
 /// left in place and counted. Blocks: call it off the runtime.
 pub fn empty(bins: &[Bin]) -> Result<Emptied> {
-    let before = measure(bins);
+    #[cfg(windows)]
+    return empty_recycle_bin(bins);
+    #[cfg(not(windows))]
+    empty_folders(bins)
+}
+
+/// Trash folders emptied, item by item.
+fn empty_folders(bins: &[Bin]) -> Result<Emptied> {
+    let before = measure_folders(bins);
     anyhow::ensure!(!(before.denied && before.bins.is_empty()), unreadable());
     let mut left = 0;
     for b in bins {
@@ -236,14 +265,52 @@ pub fn empty(bins: &[Bin]) -> Result<Emptied> {
             }
         }
     }
-    let after = measure(bins);
+    let after = measure_folders(bins);
     Ok(Emptied { freed: before.bytes.saturating_sub(after.bytes), left, after })
+}
+
+/// Windows: the Recycle Bin's `Bin::dir`, a name rather than a folder (each disk has its own,
+/// `C:\$Recycle.Bin\<sid>`, which the shell keeps).
+#[cfg(windows)]
+const RECYCLE_BIN: &str = "Recycle Bin";
+
+/// Windows: every disk's Recycle Bin, as the shell counts it (no walk); none asked, nothing.
+#[cfg(windows)]
+fn recycle_bin(bins: &[Bin]) -> TrashState {
+    let mut state = TrashState::default();
+    if bins.is_empty() {
+        return state;
+    }
+    match prism_sys::windows::recycle_bin() {
+        Ok((bytes, items)) => {
+            state.bytes = bytes;
+            state.items = items;
+            state.bins.push(BinInfo { disk: bins[0].disk.clone(), path: RECYCLE_BIN.into(), bytes, items });
+        }
+        Err(e) => {
+            tracing::info!("disk usage: the Recycle Bin not read: {e}");
+            state.denied = true;
+        }
+    }
+    state
+}
+
+/// Windows: every disk's Recycle Bin emptied by the shell; what it could not remove stays, counted.
+#[cfg(windows)]
+fn empty_recycle_bin(bins: &[Bin]) -> Result<Emptied> {
+    let before = recycle_bin(bins);
+    anyhow::ensure!(!before.denied, unreadable());
+    prism_sys::windows::empty_recycle_bin()?;
+    let after = recycle_bin(bins);
+    Ok(Emptied { freed: before.bytes.saturating_sub(after.bytes), left: after.items, after })
 }
 
 /// Why the home folder's Trash could not be read, and what to do.
 fn unreadable() -> &'static str {
     if cfg!(target_os = "macos") {
         prism_base::i18n::tr("The Trash cannot be read: give Prism Full Disk Access (System Settings › Privacy & Security)")
+    } else if cfg!(windows) {
+        prism_base::i18n::tr("The Recycle Bin cannot be read")
     } else {
         prism_base::i18n::tr("The Trash cannot be read: check its folder's permissions")
     }
@@ -273,16 +340,16 @@ mod tests {
         fs::write(dir.join("info/gone.trashinfo"), "[Trash Info]\n").unwrap();
         fs::write(dir.join("directorysizes"), "").unwrap();
         let bins = [Bin { disk: "test".into(), dir: dir.clone(), freedesktop: true }];
-        let m = measure(&bins);
+        let m = measure_folders(&bins);
         assert_eq!(m.items, 2);
         assert!(m.bytes >= 300_000, "{}", m.bytes);
-        let done = empty(&bins).unwrap();
+        let done = empty_folders(&bins).unwrap();
         assert_eq!(done.left, 0);
         assert!(done.freed >= 300_000);
         assert_eq!(fs::read_dir(dir.join("files")).unwrap().count(), 0);
         assert_eq!(fs::read_dir(dir.join("info")).unwrap().count(), 0, "every record gone");
         assert!(!dir.join("expunged").exists() && !dir.join("directorysizes").exists());
-        assert_eq!(measure(&bins).items, 0);
+        assert_eq!(measure_folders(&bins).items, 0);
         fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -309,8 +376,8 @@ mod tests {
         // A folder whose content cannot be removed (no write on it).
         fs::set_permissions(dir.join("locked"), fs::Permissions::from_mode(0o500)).unwrap();
         let bins = [Bin { disk: "test".into(), dir: dir.clone(), freedesktop: false }];
-        assert_eq!(measure(&bins).items, 2, ".DS_Store not counted");
-        let done = empty(&bins).unwrap();
+        assert_eq!(measure_folders(&bins).items, 2, ".DS_Store not counted");
+        let done = empty_folders(&bins).unwrap();
         fs::set_permissions(dir.join("locked"), fs::Permissions::from_mode(0o700)).unwrap();
         assert_eq!(done.left, 1);
         assert!(!dir.join("free").exists() && dir.join("locked/f").exists());
