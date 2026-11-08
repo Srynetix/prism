@@ -25,6 +25,8 @@
   import { implement, newAgentIn, nextOf, reopenLeft } from '../project-actions'
   import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
   import { pref, setPref } from '../layout.svelte'
+  import { openQuickActionDraft } from '../quick-action-draft.svelte'
+  import { socketState } from './socket.svelte'
 
   /**
    * Prism's agents on a phone (not Claude Desktop's sessions): what waits for you first — the
@@ -39,6 +41,8 @@
    * ticket's ▶ and its quick actions open the same sheet, prefilled.
    */
   let { snap, acts }: { snap: Snapshot; acts: boolean } = $props()
+  /** Critical actions on (the passkey each time): a quick action is saved to config.toml. */
+  const critical = $derived(socketState.hello?.classes.includes('critical') ?? false)
 
   /** By status (the default) or by project, shared with the computer's phone prefs. */
   let by = $state<'status' | 'project'>(pref<'status' | 'project'>('agents.phoneBy', 'status'))
@@ -159,7 +163,7 @@
       <div class="left">
         <p>{t('Left {ago} ago', { ago: ago(p.left.closed_at) })}{#if p.left.branch}{' '}· <code>{p.left.branch}</code>{/if} · {p.left.title}</p>
         {#if p.left.said}<q>{p.left.said}</q>{/if}
-        {#if acts && p.left.resumable}<div class="chips"><button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => reopenLeft(p.name))}>↻ {t('Reopen')}</button></div>{/if}
+        {#if acts}<div class="chips">{#if p.left.resumable}<button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => reopenLeft(p.name))}>↻ {t('Reopen')}</button>{/if}{#if critical}<button class="btn" onclick={() => void openQuickActionDraft({ left: p.name })} title={t('A quick action from this session: its prompt and settings, to read over')}><Icon name="quick" /> {t('Quick action…')}</button>{/if}</div>{/if}
       </div>
     {/if}
     {#if acts}

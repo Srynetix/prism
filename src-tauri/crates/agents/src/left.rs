@@ -72,7 +72,7 @@ fn shown(list: &[Left]) -> Vec<state::LeftSession> {
 }
 
 impl Agents {
-    fn left_path(&self) -> PathBuf {
+    pub(crate) fn left_path(&self) -> PathBuf {
         self.inner.work.with_file_name("agents-left.json")
     }
 
@@ -91,9 +91,10 @@ impl Agents {
     }
 
     /// What to keep of an agent being closed, while it is still known: its repository (none:
-    /// nothing kept, nor for one never started), its branch, its last words.
+    /// nothing kept, nor for one never started or drafting a quick action), its branch, its last words.
     pub(crate) async fn left_of(&self, record: &Record) -> Option<Left> {
-        if record.prepared {
+        // Nor an agent drafting a quick action's prompt: not where its repository was left.
+        if record.prepared || record.launch.as_ref().and_then(|l| l.from.as_deref()) == Some(super::session_source::DRAFTER) {
             return None;
         }
         let (repo, branch) = {

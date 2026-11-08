@@ -83,6 +83,30 @@ pub fn save_config(state: State<'_, AppState>, edits: Vec<crate::settings::Edit>
     crate::settings::read(&path).map_err(Into::into)
 }
 
+/// A quick action made from a session (Create a quick action…), added after `config.toml`'s own,
+/// never in a pack: refused when one has its name already (its own or a pack's), or without a
+/// name or a prompt. A mode it does not take (not `default`, `acceptEdits`, `plan`) is dropped as
+/// it is read, as config.toml's would be: the CLI's own then. Applies at once (its ⚡ shows).
+#[prism_macros::command]
+pub fn quick_action_add(state: State<'_, AppState>, action: crate::config::QuickAction) -> Cmd {
+    let path = crate::config_path();
+    let name = action.name.trim().to_string();
+    if name.is_empty() || action.prompt.trim().is_empty() {
+        return Err(anyhow::anyhow!(tr("a quick action needs a name and a prompt")).into());
+    }
+    let cfg = crate::config::load(&path)?;
+    if cfg.agents.quick_actions.iter().any(|a| a.name.trim() == name) {
+        return Err(anyhow::anyhow!(tr!("a quick action is already named {name}", name = name)).into());
+    }
+    let action = crate::config::QuickAction { name, ..action };
+    let mut row = serde_json::to_value(&action).map_err(anyhow::Error::from)?.as_object().cloned().unwrap_or_default();
+    // Its empty texts left out, as Settings writes one (its nulls: `add_nested_entry`).
+    row.retain(|_, v| v.as_str().is_none_or(|s| !s.trim().is_empty()));
+    crate::settings::add_nested_entry(&path, "agents", "quick_actions", &row)?;
+    apply_live(&state, &path);
+    Ok(())
+}
+
 /// Settings › General › Packs: imports a pack from a file, `glab:group/project:path@branch`, `gh:owner/repo:path@branch` or `prism:starter`, and adds it
 /// to `config.toml`. What applies live does; the rest waits for a restart, as for a save.
 #[prism_macros::command]

@@ -26,6 +26,8 @@ import { openTimeDraft } from './timeDraft.svelte'
 import { copy, toast } from './toast.svelte'
 import { isArchived, setArchived } from './agent-archive.svelte'
 import { openSwitch } from './agent-switch.svelte'
+import { openQuickActionDraft } from './quick-action-draft.svelte'
+import { DRAFTER } from './quick-action-source'
 import { offers, trackerName } from './tracker'
 import { t as tr } from './i18n.svelte'
 
@@ -269,7 +271,10 @@ export function agentMenu(a: Agent, rename: () => void): MenuSection[] {
     ...(a.worktree && a.state !== 'running' ? [{ key: 'rm-wt', icon: 'close', label: tr('Remove worktree'), hint: tr('if nothing would be lost'), run: () => removeWorktree(a.id) } satisfies MenuItem] : []),
   ]
   const hidden = isArchived(a)
+  // A session that went well, kept as a quick action (not one still prepared, nor a draft's own agent).
+  const reusable = a.state !== 'prepared' && a.launch?.from !== DRAFTER
   const session: MenuItem[] = [
+    ...(reusable ? [{ key: 'quick-action', icon: 'quick', label: tr('Create a quick action…'), hint: tr('from this session'), run: () => openQuickActionDraft({ agent: a.id }) } satisfies MenuItem] : []),
     hidden
       ? { key: 'unarchive', icon: 'show', label: tr('Unarchive'), hint: tr('back in the list'), run: () => setArchived(a, false) }
       : { key: 'archive', icon: 'hide', label: tr('Archive'), hint: tr('out of the list until it waits for you'), run: () => setArchived(a, true) },

@@ -494,6 +494,13 @@ pub async fn agent_handoff_material(state: State<'_, AppState>, id: String, turn
     state.agents.handoff_material(&id, turns.unwrap_or(8)).await.map_err(Into::into)
 }
 
+/// A past session as a quick action is made from it (Create a quick action…): an agent of the
+/// list, the last one closed in a repository, or a Claude Desktop session.
+#[prism_macros::command]
+pub async fn session_source(state: State<'_, AppState>, source: crate::agents::session_source::Source) -> Cmd<crate::agents::session_source::SessionSource> {
+    state.agents.session_source(source).await.map_err(Into::into)
+}
+
 /// The agent CLIs found on this computer, those an agent can continue with.
 #[prism_macros::command]
 pub async fn agent_installed(state: State<'_, AppState>) -> Cmd<Vec<crate::agents::provider::Provider>> {

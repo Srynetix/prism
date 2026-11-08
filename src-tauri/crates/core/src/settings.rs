@@ -141,6 +141,34 @@ pub fn add_repo(path: &Path, row: &serde_json::Map<String, serde_json::Value>) -
     write(path, &old, &doc.to_string())
 }
 
+/// Adds an entry at the end of the file's own `[[table.array]]` (a quick action made from a
+/// session: `agents`, `quick_actions`), the rest of the file as it is; never in a pack. The keys
+/// set to null are left out. Saved as `save` does.
+pub fn add_nested_entry(path: &Path, table: &str, array: &str, row: &serde_json::Map<String, serde_json::Value>) -> Result<()> {
+    let old = std::fs::read_to_string(path).unwrap_or_default();
+    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+    let mut t = Table::new();
+    for (k, v) in row.iter().filter(|(_, v)| !v.is_null()) {
+        t.insert(k, to_item(v)?);
+    }
+    if doc.get(table).is_none() {
+        let mut parent = Table::new();
+        // No empty `[table]` header: only its `[[table.array]]`.
+        parent.set_implicit(true);
+        doc.insert(table, Item::Table(parent));
+    }
+    let parent = doc.get_mut(table).and_then(Item::as_table_like_mut).with_context(|| format!("{table} is not a table"))?;
+    match parent.get(array) {
+        None => {
+            parent.insert(array, Item::ArrayOfTables(ArrayOfTables::new()));
+        }
+        Some(Item::ArrayOfTables(_)) => {}
+        Some(_) => bail!("{table}.{array} is not a list of [[{table}.{array}]] tables"),
+    }
+    parent.get_mut(array).and_then(Item::as_array_of_tables_mut).context(array.to_string())?.push(t);
+    write(path, &old, &doc.to_string())
+}
+
 /// Sets keys of the file's `[[repos]]` entry named `name` (a project published later: its
 /// `project`), the rest of the entry and of the file as they are. Saved as `save` does.
 pub fn set_repo(path: &Path, name: &str, keys: &serde_json::Map<String, serde_json::Value>) -> Result<()> {
@@ -494,6 +522,30 @@ mod tests {
         assert_eq!(out, "[gitlab]\n\n[console]\nhistory = 80\n");
         // Removing a key from a missing table does not create it.
         assert_eq!(apply("", &[edit(&["console", "key"], None)]).unwrap(), "");
+    }
+
+    /// A quick action added after the file's own, in `[agents]` as it is; in a file without
+    /// `[agents]`, no empty header written.
+    #[test]
+    fn adds_a_quick_action() {
+        let dir = std::env::temp_dir().join(format!("prism-settings-qa-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        let row = |n: &str| json!({ "name": n, "prompt": "Update {base} of {repo}\nthen scan it.", "repos": ["app"], "worktree": false, "mode": "acceptEdits", "kind": null }).as_object().unwrap().clone();
+        std::fs::write(&path, "[agents]
+provider = \"claude\" # mine\n\n[[agents.quick_actions]]\nname = \"Old\"\nprompt = \"x\"\n").unwrap();
+        add_nested_entry(&path, "agents", "quick_actions", &row("New")).unwrap();
+        let cfg = crate::config::load(&path).unwrap();
+        assert_eq!(cfg.agents.quick_actions.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(), ["Old", "New"]);
+        assert_eq!((cfg.agents.quick_actions[1].mode.as_deref(), cfg.agents.quick_actions[1].kind.as_deref()), (Some("acceptEdits"), None));
+        assert!(cfg.agents.quick_actions[1].prompt.contains("\nthen scan it."));
+        assert!(std::fs::read_to_string(&path).unwrap().contains("provider = \"claude\" # mine"));
+        std::fs::write(&path, "[console]\nkey = \"`\"\n").unwrap();
+        add_nested_entry(&path, "agents", "quick_actions", &row("First")).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(!text.contains("[agents]\n") && text.contains("[[agents.quick_actions]]"), "{text}");
+        assert_eq!(crate::config::load(&path).unwrap().agents.quick_actions[0].name, "First");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A repository added after the file's own, comments kept; in a file that has none, the first.

@@ -275,9 +275,10 @@ let launched: { id: string; at: number } | null = null
 export const planWorktree = (title: string, worktree: NonNullable<Launch['worktree']>) =>
   invoke<WorktreePlan | null>('agent_worktree_plan', { title, worktree })
 
-export async function spawnAgent(launch: Launch): Promise<string> {
+/** `quiet`: an agent working for Prism (a quick action's draft), not picked as just launched. */
+export async function spawnAgent(launch: Launch, quiet = false): Promise<string> {
   const id = await invoke<string>('agent_spawn', { launch })
-  launched = { id, at: Date.now() }
+  if (!quiet) launched = { id, at: Date.now() }
   return id
 }
 /** Declares an agent without starting it (Prepare): it waits in the list for Start. */

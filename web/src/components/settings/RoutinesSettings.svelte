@@ -5,7 +5,7 @@
   import { toast } from '../../toast.svelte'
   import { ago } from '../../time'
   import { t, tn } from '../../i18n.svelte'
-  import { BUILTINS, builtinLabel, cronWords, enableRoutine, everyWords, nextTime, removeRoutine, routinesOf, runRoutine, runTime, STATE_ICON, STATE_LABEL, trustRoutine, whenWords } from '../../routines.svelte'
+  import { routineFor, BUILTINS, builtinLabel, cronWords, enableRoutine, everyWords, nextTime, removeRoutine, routinesOf, runRoutine, runTime, STATE_ICON, STATE_LABEL, trustRoutine, whenWords } from '../../routines.svelte'
   import type { QuickAction } from '../../bindings/QuickAction'
   import type { Routine } from '../../bindings/Routine'
   import type { RoutineView } from '../../bindings/RoutineView'
@@ -82,6 +82,12 @@
   const asRow = (r: Routine) => toRow(fromRoutine(r))
 
   let draft = $state<Draft | null>(null)
+  // A quick action just made from a session, Make it a routine: a new routine running it.
+  $effect(() => {
+    if (!routineFor.action) return
+    draft = { ...blank(), source: 'action', action: routineFor.action, name: routineFor.action, repos: [...routineFor.repos] }
+    routineFor.action = ''
+  })
   let saving = $state(false)
   let armed = $state<string | null>(null)
   const arm = (what: string) => {

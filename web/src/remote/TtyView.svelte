@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { openQuickActionDraft } from '../quick-action-draft.svelte'
+  import { DRAFTER } from '../quick-action-source'
   import OverlapChip from '../components/OverlapChip.svelte'
   import AsideChip from '../components/AsideChip.svelte'
   import { overlapsOfAgent } from '../overlaps'
@@ -551,6 +553,11 @@
         {/if}
         <button class="ko" class:armed={armed.is('close')} onclick={close} disabled={busy || !critical}>{armed.is('close') ? (quickAgent.state === 'running' ? t('Tap again to stop and close') : t('Tap again to close')) : t('Close')}<small>{quickAgent.worktree ? t('Stops it, removes its worktree if nothing would be lost') : t('Stops it; the conversation stays')}</small></button>
       </div>
+      {#if quickAgent.state !== 'prepared' && quickAgent.launch?.from !== DRAFTER}
+        <div class="group">
+          <button onclick={() => { menu = false; void openQuickActionDraft({ agent: quickAgent.id }) }} disabled={!critical}>{t('Create a quick action…')}<small>{critical ? t('Its prompt and settings, to read over and save: a ⚡ on its project') : t('Saved to config.toml: critical actions on (Settings › Remote › Exposure)')}</small></button>
+        </div>
+      {/if}
       {#if quickAgent.state !== 'prepared'}
         {@const found = installedClis()}
         <div class="group">
