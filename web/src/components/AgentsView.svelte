@@ -37,6 +37,7 @@
   import { AgentPanes, LAYOUTS, layoutHint, TEMPLATE } from '../agent-panes.svelte'
   import { agentRepo } from '../repositories'
   import { isArchived, setArchived } from '../agent-archive.svelte'
+  import { openQuickActionDraft } from '../quick-action-draft.svelte'
   import { setPollsShown } from '../polls.svelte'
   import { settingsView } from '../settings.svelte'
   import { helpView } from '../help-view.svelte'
@@ -542,6 +543,7 @@
       <span>{t('Left {ago} ago', { ago: ago(p.left.closed_at) })}{#if p.left.branch}{' '}· <code>{p.left.branch}</code>{/if} · {p.left.title}</span>
       {#if p.left.said}<q>{p.left.said}</q>{/if}
       {#if p.left.resumable}<button onclick={() => act(() => reopenLeft(p.name))} disabled={!agentsAvailable()} title={t('Back in the list, on its conversation ({cli})', { cli: cliOf(p.left.provider).name })}><Icon name="retry" size={11} />{t('Reopen')}</button>{/if}
+      <button onclick={() => void openQuickActionDraft({ left: p.name })} title={t('A quick action from this session: its prompt and settings, to read over')}><Icon name="quick" size={11} />{t('Quick action…')}</button>
     </div>
   {/if}
   {@const quick = quickActionsHere(p.name)}
@@ -653,6 +655,7 @@
         <span class="pill dk">Claude Desktop</span>
         {#if c.group}<span class="muted">{c.group}</span>{/if}
         <span class="path">{c.branch ?? c.folder}</span>
+        <button class="quiet" onclick={() => void openQuickActionDraft({ desktop: c.id })} title={t('A quick action from this session: its prompt and settings, to read over')}><Icon name="quick" />{t('Quick action…')}</button>
         <button class="quiet" onclick={() => setArchived(c, !hidden)} title={hidden ? t('Back in the list') : t('Out of the list until it waits for you; Desktop keeps it as it is')}><Icon name={hidden ? 'show' : 'hide'} />{hidden ? t('Unarchive') : t('Archive')}</button>
       </header>
       <div class="deskpane">

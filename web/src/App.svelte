@@ -83,6 +83,7 @@
   import ShellDrawer from './components/ShellDrawer.svelte'
   import MrPanel from './components/MrPanel.svelte'
   import LauncherDrawer from './components/LauncherDrawer.svelte'
+  import { qaDraft } from './quick-action-draft.svelte'
   import NewTicketDialog from './components/NewTicketDialog.svelte'
   import { newTicketDialog } from './new-ticket.svelte'
   import StatusBar from './components/StatusBar.svelte'
@@ -654,6 +655,8 @@
   {#if newTicketDialog.open}<NewTicketDialog />{/if}
   <!-- Before the other drawers: its Escape is heard first. -->
   <LauncherDrawer />
+  <!-- Create a quick action… from a session: loaded the first time it opens. -->
+  {#if qaDraft.open}{#await import('./components/QuickActionDraft.svelte') then { default: QuickActionDraft }}<QuickActionDraft />{/await}{/if}
   <MrPanel />
   <TicketPanel />
   <LogPanel />

@@ -24,6 +24,7 @@ mod quick;
 mod reading;
 mod routines;
 mod suggestion;
+pub mod session_source;
 pub mod switch;
 
 mod registry;

@@ -17,6 +17,6 @@ output: SoundSide | null, input: SoundSide | null,
  */
 devices: Array<SoundDevice>, 
 /**
- * The applications recording from a microphone now (macOS 14 and later).
+ * The applications recording from a microphone now (macOS 14 and later, Linux, Windows).
  */
 recording: Array<SoundRecorder>, limits: SoundLimits, updated_at: string | null, };

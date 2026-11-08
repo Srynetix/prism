@@ -145,4 +145,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("its agent is closed: launch it instead", "son agent est fermé : lancez-la plutôt"),
     ("only a proposal dealt with leaves the list", "seule une proposition traitée quitte la liste"),
     ("on this computer, an agent's terminal opens in Prism only", "sur cet ordinateur, le terminal d’un agent ne s’ouvre que dans Prism"),
+    ("unknown session", "session inconnue"),
+    ("a quick action needs a name and a prompt", "une quick action demande un nom et un prompt"),
+    ("a quick action is already named {name}", "une quick action s’appelle déjà {name}"),
 ];

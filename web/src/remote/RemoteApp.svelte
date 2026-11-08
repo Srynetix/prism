@@ -18,6 +18,7 @@
   import { switching } from '../agent-switch.svelte'
   import { socketState } from './socket.svelte'
   import { agentsView, closeAgents, launcherDrawer, openAgents } from '../agents.svelte'
+  import { qaDraft } from '../quick-action-draft.svelte'
   import ProfileSwitch from './ProfileSwitch.svelte'
   import { ALL, phoneProfiles, several, shown, switchProfile } from './phone-profiles.svelte'
   import { profileColor } from '../profiles.svelte'
@@ -68,6 +69,7 @@
     OverlapPanel: once(() => import('../components/OverlapPanel.svelte')),
     ChangesDrawer: once(() => import('../blocks/changes/ChangesDrawer.svelte')),
     PhoneLauncher: once(() => import('./PhoneLauncher.svelte')),
+    QuickActionDraft: once(() => import('../components/QuickActionDraft.svelte')),
     Feedback: once(() => import('../components/Feedback.svelte')),
     AgentSwitch: once(() => import('../components/AgentSwitch.svelte')),
     Palette: once(() => import('../components/Palette.svelte')),
@@ -513,6 +515,7 @@
 {#if changesView.open}{#await lazy.ChangesDrawer() then { default: ChangesDrawer }}<ChangesDrawer phone />{/await}{/if}
 <!-- Last: a new agent's sheet (New, a project's +, a ticket's ▶, an action…), over the panel it came from. -->
 {#if launcherDrawer.open}{#await lazy.PhoneLauncher() then { default: PhoneLauncher }}<PhoneLauncher />{/await}{/if}
+{#if qaDraft.open}{#await lazy.QuickActionDraft() then { default: QuickActionDraft }}<QuickActionDraft />{/await}{/if}
 <Toast />
 <!-- Prism's startup screen, as the window's (`[appearance] boot`): at the page's opening, and the
      Prism relaunched from here coming back. A tap skips it. -->

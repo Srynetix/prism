@@ -25,6 +25,7 @@
   import { implement, newAgentIn, nextOf, reopenLeft } from '../project-actions'
   import { namedByQuickAction, quickActionsHere, runQuickAction } from '../quick-actions'
   import { pref, setPref } from '../layout.svelte'
+  import { openQuickActionDraft } from '../quick-action-draft.svelte'
 
   /**
    * Prism's agents on a phone (not Claude Desktop's sessions): what waits for you first — the
@@ -159,7 +160,7 @@
       <div class="left">
         <p>{t('Left {ago} ago', { ago: ago(p.left.closed_at) })}{#if p.left.branch}{' '}· <code>{p.left.branch}</code>{/if} · {p.left.title}</p>
         {#if p.left.said}<q>{p.left.said}</q>{/if}
-        {#if acts && p.left.resumable}<div class="chips"><button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => reopenLeft(p.name))}>↻ {t('Reopen')}</button></div>{/if}
+        {#if acts}<div class="chips">{#if p.left.resumable}<button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => reopenLeft(p.name))}>↻ {t('Reopen')}</button>{/if}<button class="btn" onclick={() => void openQuickActionDraft({ left: p.name })}><Icon name="quick" /> {t('Quick action…')}</button></div>{/if}
       </div>
     {/if}
     {#if acts}

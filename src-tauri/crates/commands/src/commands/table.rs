@@ -98,6 +98,8 @@ commands! {
     // More › Settings on a phone (`[remote] settings`): read, and the few keys of PHONE_SETTINGS saved.
     config::remote_settings_read: Read [phone: sync],
     config::remote_settings_save: Critical [phone: state, edits: Vec<crate::settings::Edit>; sync],
+    // Written to config.toml, as a setting saved from a phone: its passkey.
+    config::quick_action_add: Critical [phone: state, action: crate::config::QuickAction; sync],
     infra::kube_contexts: Never,
     integrations::calendar_names: Never,
     config::installed_apps: Never,
@@ -234,6 +236,7 @@ commands! {
     agents::agent_conversation: Read [phone: state, id: String, turns: Option<u32>, have: Option<Vec<String>>],
     agents::agent_installed: Read [phone: state],
     agents::agent_handoff_material: Read [phone: state, id: String, turns: Option<u32>],
+    agents::session_source: Read [phone: state, source: crate::agents::session_source::Source],
     agents::agent_leg_conversation: Read [phone: state, id: String, leg: u32, turns: Option<u32>],
     agents::agent_history: Read [phone: state, id: String, lines: Option<u32>, screen: Option<bool>],
     agents::agent_worktree_plan: Read [phone: state, title: String, worktree: crate::agents::NewWorktree],
