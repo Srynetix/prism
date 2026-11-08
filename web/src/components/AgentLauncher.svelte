@@ -1,6 +1,6 @@
 <script lang="ts">
   import { suggest } from '../suggest'
-  import { isMac, keys, tildePath } from '../platform'
+  import { isMac, keys, tildePath, baseName } from '../platform'
   import { hasCore, invoke } from '../bridge'
   import Icon from './Icon.svelte'
   import { live } from '../live.svelte'
@@ -467,7 +467,7 @@
             {/if}
           </div>
         {:else if whereTo === 'existing'}
-          <select bind:value={wtPath}>{#each existing as w (w.path)}<option value={w.path}>{wtRepos.length > 1 ? `${w.repo} · ` : ''}{w.path.split('/').pop()} · {w.branch ?? t('detached')}{w.dirty ? ` · ${t('changes')}` : ''}</option>{/each}</select>
+          <select bind:value={wtPath}>{#each existing as w (w.path)}<option value={w.path}>{wtRepos.length > 1 ? `${w.repo} · ` : ''}{baseName(w.path)} · {w.branch ?? t('detached')}{w.dirty ? ` · ${t('changes')}` : ''}</option>{/each}</select>
         {:else}
           <div class="pick">
             <select bind:value={folder}>

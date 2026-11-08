@@ -1,5 +1,6 @@
 import type { HighlighterCore, ThemedToken } from 'shiki/core'
 import type { DiffLine } from './mr-review.svelte'
+import { baseName } from './platform'
 
 /**
  * Syntax highlighting of MR diffs, by Shiki (VS Code's grammars) with its JavaScript
@@ -50,7 +51,7 @@ const MAX_CONTEXT = 3000
 const CONTEXT_SLICE = 100
 
 export function langOf(path: string): Lang | null {
-  const name = path.split('/').pop() ?? ''
+  const name = baseName(path)
   if (/^Dockerfile(\..+)?$|\.dockerfile$/i.test(name)) return 'docker'
   const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
   return EXTENSIONS[ext] ?? null

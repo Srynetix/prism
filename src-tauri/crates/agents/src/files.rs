@@ -276,7 +276,7 @@ fn planned(dir: &Path, paths: &[String], name: &str, max: u64, hidden: bool) -> 
     let (mut files, mut visits) = (Vec::new(), MAX_VISITED);
     for rel in paths {
         let path = inside(rel)?;
-        let rel = path.strip_prefix(&root).unwrap_or(&path).to_string_lossy().into_owned();
+        let rel = slashed(path.strip_prefix(&root).unwrap_or(&path));
         if path.is_dir() {
             let from = files.len();
             walk(&root, &rel, 0, &|_| true, &mut files, MAX_FILES, &mut visits);
@@ -589,7 +589,7 @@ pub fn artifacts(root: &Path) -> Vec<Artifact> {
                     walk(root, &path, depth + 1, out);
                 }
             } else if PAGE.iter().any(|ext| path.extension().is_some_and(|x| x.eq_ignore_ascii_case(ext))) {
-                let rel = path.strip_prefix(root).unwrap_or(&path).display().to_string();
+                let rel = slashed(path.strip_prefix(root).unwrap_or(&path));
                 out.push(Artifact { path: rel, modified: meta.modified().ok().map(Into::into) });
             }
         }
@@ -921,6 +921,12 @@ pub fn percent_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+/// A path inside a folder as the page names it: `/` between its parts, Windows' `\` too.
+fn slashed(rel: &Path) -> String {
+    let s = rel.to_string_lossy();
+    if cfg!(windows) { s.replace('\\', "/") } else { s.into_owned() }
 }
 
 #[cfg(test)]

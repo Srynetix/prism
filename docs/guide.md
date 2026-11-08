@@ -187,7 +187,8 @@ What that machine classes critical (a merge, a manual job, an agent stopped, a w
 a file of an agent saved or a secret of its folder downloaded, a command of one of its own blocks)
 first asks the person at the desk: Touch ID or the account's password on a Mac,
 polkit's agent of the desktop on Linux (`pkcheck`, the password or a fingerprint where PAM takes
-one; refused without polkit). Asked by the app, never by the page; `skip_confirm = true` in the
+one; refused without polkit), Windows Hello on Windows (a face, a finger or the PIN; refused when
+it is not set up). Asked by the app, never by the page; `skip_confirm = true` in the
 machine's `[[machines]]` goes without.
 
 A machine with several profiles (each its own `prism-server --profile <id> serve`, the others

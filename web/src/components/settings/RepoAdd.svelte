@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../../platform'
   import Icon from '../Icon.svelte'
   import { t } from '../../i18n.svelte'
   import { canPick, pickPath } from '../../pick'
@@ -27,7 +28,7 @@
       .filter((w) => typeof w.dir === 'string' && w.dir.trim())
       .map((w) => {
         const dir = (w.dir as string).trim().replace(/\/+$/, '')
-        return { name: (typeof w.name === 'string' && w.name.trim()) || dir.split('/').pop() || dir, dir, namespace: typeof w.namespace === 'string' ? w.namespace.trim() : '', forge: w.forge === 'github' || w.forge === 'gitlab' ? w.forge : profileForge() }
+        return { name: (typeof w.name === 'string' && w.name.trim()) || baseName(dir) || dir, dir, namespace: typeof w.namespace === 'string' ? w.namespace.trim() : '', forge: w.forge === 'github' || w.forge === 'gitlab' ? w.forge : profileForge() }
       }),
   )
   /** The working folder a path is in. */

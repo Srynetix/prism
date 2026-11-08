@@ -9,6 +9,7 @@ import { pref, setPref } from './layout.svelte'
 import { mrForSession } from './rules'
 import { repoName } from './repositories'
 import { t } from './i18n.svelte'
+import { baseName } from './platform'
 
 /** The folders an agent works in: its worktree (or folder), those it adopted, those of its other repositories. */
 export const agentPaths = (a: Agent) => [a.worktree ?? a.cwd, ...a.adopted, ...(a.also ?? [])]
@@ -28,7 +29,7 @@ export const branchOf = (o: Overlap, side: Side) => (side === 'a' ? o.a_branch :
 /** A side's name: its agent's title, otherwise its branch, otherwise its folder's name. */
 export function sideName(s: Snapshot, o: Overlap, side: Side): string {
   const path = pathOf(o, side)
-  return agentAt(s, path)?.title || branchOf(o, side) || path.split('/').pop() || path
+  return agentAt(s, path)?.title || branchOf(o, side) || baseName(path) || path
 }
 
 /** An overlap's id, the same while its two sides are. */

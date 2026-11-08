@@ -7,7 +7,7 @@ import { used } from './feature-use.svelte'
 import { live } from './live.svelte'
 import { toast } from './toast.svelte'
 import { trackerName } from './tracker'
-import { isMac } from './platform'
+import { isMac, baseName } from './platform'
 import { matches, parseShortcut } from './shortcut'
 import type { Agent, AgentProvider, AgentsSettings } from './types'
 import type { LaunchStep } from './bindings/LaunchStep'
@@ -496,7 +496,7 @@ export async function downloadAgentFiles(id: string, paths: string[], name: stri
     const dest = await save({ defaultPath: await join(await downloadDir(), file) })
     if (!dest) return null
     await invoke('agent_files_export', { id, paths, name, dest })
-    return dest.split('/').pop() ?? file
+    return baseName(dest) || file
   }
   // Prepared on the computer, fetched once from its address over HTTP, streamed into the phone's downloads.
   const d = await invoke<AgentDownload>('agent_files_download', { id, paths, name })

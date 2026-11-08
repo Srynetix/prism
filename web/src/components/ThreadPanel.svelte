@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../platform'
   import { t as tr, tn, tc } from '../i18n.svelte'
   import { clickedOutside } from '../drawers'
   import { isPinned } from '../drawer-pins'
@@ -59,7 +60,7 @@
         ? { key: 'ticket', icon: 'kanban', label: tr('Ticket'), value: t.id, state: t.status, tone: 'on', title: `${t.id} · ${t.name}`, open: canPreview() ? () => openTicket(ticketKey(t)) : undefined }
         : { key: 'ticket', icon: 'kanban', label: tr('Ticket'), value: '—', state: tr('none found'), tone: 'todo', title: tr('No ticket found in its branch or MR') },
       w
-        ? { key: 'worktree', icon: 'worktree', label: tr('Worktree'), value: w.path.split('/').pop() ?? w.path, state: w.dirty ? tr('{n} changed', { n: w.changes }) : w.ahead ? tr('{n} ahead', { n: w.ahead }) : tr('clean'), tone: 'on', title: `${w.path}\n${w.branch ?? ''}${app ? `\n${tr('Click: open in the editor')}` : ''}`, open: app ? () => void openWorktree(w.path, 'editor') : undefined }
+        ? { key: 'worktree', icon: 'worktree', label: tr('Worktree'), value: baseName(w.path) || w.path, state: w.dirty ? tr('{n} changed', { n: w.changes }) : w.ahead ? tr('{n} ahead', { n: w.ahead }) : tr('clean'), tone: 'on', title: `${w.path}\n${w.branch ?? ''}${app ? `\n${tr('Click: open in the editor')}` : ''}`, open: app ? () => void openWorktree(w.path, 'editor') : undefined }
         : { key: 'worktree', icon: 'worktree', label: tr('Worktree'), value: th.branch ? tr('none') : '—', state: th.missing.has('worktree') ? tr('in progress, no branch') : th.branch ? th.branch : '', tone: th.missing.has('worktree') ? 'miss' : 'todo', title: th.missing.has('worktree') ? tr('The ticket is in progress, but no worktree, branch or agent works on it') : tr('No local worktree') },
       a
         ? { key: 'agent', icon: 'claude', label: agentName(), value: th.agents.length > 1 ? tr('{n} agents', { n: th.agents.length }) : a.state === 'running' ? AGENT[a.status] : tr('stopped'), state: a.title, tone: a.state !== 'running' ? 'todo' : waitsForYou(a.status) ? 'warn' : 'on', title: th.agents.map((x) => `${x.title} · ${x.state === 'running' ? AGENT[x.status] : tr('stopped')}`).join('\n'), open: app ? () => openAgents(a.id) : undefined }

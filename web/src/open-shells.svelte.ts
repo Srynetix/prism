@@ -2,7 +2,7 @@ import { invoke, isDesktop } from './bridge'
 import { live } from './live.svelte'
 import { shellTabs } from './agents.svelte'
 import { openPodShell, openWorktreeShell, shellDrawer } from './shell-drawer.svelte'
-import { tildePath } from './platform'
+import { tildePath, baseName } from './platform'
 import type { OpenShell } from './bindings/OpenShell'
 
 /**
@@ -42,7 +42,7 @@ const owner = (s: OpenShell) => s.key.slice(0, s.key.lastIndexOf(':') + 1)
 function title(s: OpenShell) {
   if (s.pod) return s.pod.container ? `${s.pod.pod} (${s.pod.container})` : s.pod.pod
   const w = live.snapshot?.worktrees.find((w) => w.path === s.folder)
-  return w?.branch ?? s.folder!.split('/').pop() ?? s.folder!
+  return w?.branch ?? (baseName(s.folder!) || s.folder!)
 }
 
 export function shellGroups(): ShellGroup[] {

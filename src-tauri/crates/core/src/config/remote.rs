@@ -270,7 +270,7 @@ pub struct MachineConfig {
     pub ssh: String,
     /// What is critical there (a merge, a manual job, an agent stopped, a worktree removed) goes
     /// without asking the person at this computer first (Touch ID or its password on a Mac,
-    /// polkit's agent on Linux). Off by default.
+    /// polkit's agent on Linux, Windows Hello on Windows). Off by default.
     pub skip_confirm: bool,
 }
 

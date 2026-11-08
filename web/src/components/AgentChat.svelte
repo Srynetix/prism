@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../platform'
   import Icon from './Icon.svelte'
   import ChatView from './chat/ChatView.svelte'
   import SlashMenu from './SlashMenu.svelte'
@@ -44,7 +45,7 @@
   const suggested = $derived(suggestionOf(agent))
   let error = $state<string | null>(null)
   /** Words its dictation expects: its folder's, branch's, ticket's, and the files it read or wrote. */
-  const hints = () => [agent.cwd.split('/').filter(Boolean).pop() ?? '', agent.branch ?? '', agent.ticket ?? '', ...filesOfAgent(agent.id)]
+  const hints = () => [baseName(agent.cwd), agent.branch ?? '', agent.ticket ?? '', ...filesOfAgent(agent.id)]
   /** The box grows with its lines, up to its max-height (WebKit without `field-sizing` too). */
   $effect(() => {
     void text

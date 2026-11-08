@@ -1,4 +1,5 @@
 import type { Extension } from '@codemirror/state'
+import { baseName } from '../platform'
 
 /**
  * The language of a file for its editor, by its name: each one loaded on demand, when a file of
@@ -50,7 +51,7 @@ const NAMES: Record<string, string> = {
 
 /** The key of `path`'s language: its extension, or the name of a file without one (`Dockerfile`, `.env`). */
 function keyOf(path: string): string {
-  const name = (path.split('/').pop() ?? '').toLowerCase()
+  const name = baseName(path).toLowerCase()
   if (/^dockerfile(\..+)?$|\.dockerfile$/.test(name)) return 'dockerfile'
   if (/^\.env(\..+)?$/.test(name)) return 'env'
   if (/^(makefile|justfile)$/.test(name)) return 'sh'

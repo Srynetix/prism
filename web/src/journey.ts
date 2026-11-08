@@ -9,6 +9,7 @@ import { cliOf } from './agent-cli'
 import { span } from './time'
 import { envSteps } from './thread.svelte'
 import type { Agent, MergeRequest, Snapshot, StatusOption, Ticket } from './types'
+import { baseName } from './platform'
 
 /*
  * A ticket's journey, from refinement to done, as Prism already reads it: the tracker's status,
@@ -263,7 +264,7 @@ export function journal(s: Snapshot, t: Ticket, j: Journey, sprint?: string | nu
   for (const a of j.agents) {
     const end = a.last_activity ?? a.created_at
     const took = Date.parse(end) - Date.parse(a.created_at)
-    const where = a.worktree ? (a.branch ?? a.worktree.split('/').pop()) : a.branch
+    const where = a.worktree ? (a.branch ?? baseName(a.worktree)) : a.branch
     const detail = [cliOf(a.provider).name, took > 60_000 ? span(took) : '', where ? tr('worktree {name}', { name: where }) : ''].filter(Boolean).join(' · ')
     const working = a.state === 'running'
     stages.development.push({ key: `agent:${a.id}`, text: tr('Agent “{title}”', { title: a.title }), detail, at: a.created_at, tone: working ? 'now' : 'ok' })
@@ -271,7 +272,7 @@ export function journal(s: Snapshot, t: Ticket, j: Journey, sprint?: string | nu
   // A worktree on the ticket that no agent of it works in: work by hand, or by a Desktop session.
   const agentTrees = new Set(j.agents.map((a) => a.worktree).filter(Boolean))
   for (const w of s.worktrees.filter((w) => !w.is_main && w.ticket === t.id && !agentTrees.has(w.path))) {
-    stages.development.push({ key: `wt:${w.path}`, text: tr('Worktree {name}', { name: w.branch ?? w.path.split('/').pop() ?? '' }), detail: w.changes ? tn(w.changes, '{n} change not committed', '{n} changes not committed') : undefined, at: w.last_commit, tone: 'ok' })
+    stages.development.push({ key: `wt:${w.path}`, text: tr('Worktree {name}', { name: w.branch ?? baseName(w.path) }), detail: w.changes ? tn(w.changes, '{n} change not committed', '{n} changes not committed') : undefined, at: w.last_commit, tone: 'ok' })
   }
   if (j.step === 'dev' && !j.agents.some((a) => a.state === 'running')) stages.development.push({ key: 'dev', text: j.why || tr('In progress'), at: null, tone: 'now' })
   for (const m of mrs) {

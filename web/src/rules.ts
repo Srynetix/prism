@@ -16,6 +16,7 @@ import { isHidden } from './worktree-archive.svelte'
 import { USED_UP, planUseOf } from './usage'
 import { t as tr, tn } from './i18n.svelte'
 import { alertedOverlaps, overlapId, sideName } from './overlaps'
+import { baseName } from './platform'
 
 export { isDone, isProtected }
 
@@ -854,7 +855,7 @@ export function describeWorktrees(s: Snapshot): WorktreeInfo[] {
 
     const state: WorktreeState = w.prunable ? 'gone' : live ? 'in_use' : reasons.length ? 'stale' : 'idle'
     return {
-      w, name: w.path.split('/').pop() ?? w.path, origin, ticket, mr, sessions, agents, archived, activity, state, reasons, busy, keep,
+      w, name: baseName(w.path) || w.path, origin, ticket, mr, sessions, agents, archived, activity, state, reasons, busy, keep,
       removable: !w.is_main && !w.prunable && !w.locked && !busy && !keep,
       forceable: !w.is_main && !w.prunable && !w.locked && !busy && !!keep,
     }

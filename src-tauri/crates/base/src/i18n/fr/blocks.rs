@@ -35,6 +35,8 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no such file or folder in the scan", "aucun fichier ni dossier de ce nom dans le scan"),
     ("nothing left to free there", "plus rien à libérer ici"),
     ("The Trash cannot be read: check its folder's permissions", "La Corbeille est illisible : vérifiez les permissions de son dossier"),
+    ("The Recycle Bin cannot be read", "La Corbeille de Windows est illisible"),
+    ("Recycle Bin", "Corbeille"),
     ("the Trash is already being emptied", "la Corbeille est déjà en train d’être vidée"),
     ("The Trash cannot be read: give Prism Full Disk Access (System Settings › Privacy & Security)", "La Corbeille est illisible : donnez à Prism l’accès complet au disque (Réglages Système › Confidentialité et sécurité)"),
     ("the Disk usage block is off ([disk_usage] enabled)", "le bloc Espace disque est désactivé ([disk_usage] enabled)"),
@@ -44,6 +46,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{path} is no longer there", "{path} n’existe plus"),
     ("{path} is not a folder", "{path} n’est pas un dossier"),
     ("{path} is on another disk than the Trash: delete it from the file manager", "{path} est sur un autre disque que la corbeille : supprimez-le depuis le gestionnaire de fichiers"),
+    ("{path} is on a disk without a Recycle Bin: delete it from Explorer", "{path} est sur un disque sans Corbeille : supprimez-le depuis l’Explorateur"),
     ("{path}: a full path, or one starting with ~", "{path} : un chemin complet, ou commençant par ~"),
     ("{program} did not finish within 10 minutes", "{program} n’a pas fini en 10 minutes"),
     ("{n} of {total} not freed", "{n} sur {total} non libérés"),
@@ -95,5 +98,5 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{path} changed since Prism wrote it: not run", "{path} a changé depuis que Prism l’a écrit : non lancé"),
     ("env {name}: no {service} in the keychain", "env {name} : pas de {service} dans le trousseau"),
     ("more memory than allowed: stopped, its children with it", "plus de mémoire que permis : arrêté, ses enfants avec"),
-    ("no sandbox on this computer (sandbox-exec on macOS, bwrap on Linux): a block nobody trusted is not run outside one. It runs once added and trusted in Prism.", "pas de sandbox sur cet ordinateur (sandbox-exec sur macOS, bwrap sur Linux) : un bloc auquel personne n’a fait confiance ne tourne pas hors d’une sandbox. Il tournera une fois ajouté et confié dans Prism."),
+    ("no sandbox on this computer (sandbox-exec on macOS, bwrap on Linux, none on Windows): a block nobody trusted is not run outside one. It runs once added and trusted in Prism.", "pas de sandbox sur cet ordinateur (sandbox-exec sur macOS, bwrap sur Linux, aucune sous Windows) : un bloc auquel personne n’a fait confiance ne tourne pas hors d’une sandbox. Il tournera une fois ajouté et confié dans Prism."),
 ];
