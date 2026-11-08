@@ -3,7 +3,9 @@ import { CLOSE, OPEN, draftPrompt, parseDraft, templated, uniqueName } from './q
 
 describe('quick action from a session', () => {
   it('writes the repository and its base as variables, whole words only', () => {
-    expect(templated('Update main of prism-pack from upstream, then merge origin/main.', 'prism-pack', 'main')).toBe('Update {base} of {repo} from upstream, then merge origin/{base}.')
+    expect(templated('Update the main branch of prism-pack, then merge origin/main into `main`.', 'prism-pack', 'main')).toBe('Update the {base} branch of {repo}, then merge origin/{base} into `{base}`.')
+    expect(templated('Mets à jour la branche main de shop', 'shop', 'main')).toBe('Mets à jour la branche {base} de {repo}')
+    expect(templated('refactor the main function of app.py in app', 'app', 'main')).toBe('refactor the main function of app.py in {repo}')
     expect(templated('the domain of prism-packer', 'prism-pack', 'main')).toBe('the domain of prism-packer')
     expect(templated('already {repo} on {base}', 'repo', 'base')).toBe('already {repo} on {base}')
     expect(templated('no repo', '', '')).toBe('no repo')

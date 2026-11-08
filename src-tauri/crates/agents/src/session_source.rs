@@ -77,7 +77,9 @@ impl Agents {
                 Ok(from_record(&record, dir, prompts, at.or_else(|| Some(record.created_at.to_rfc3339()))))
             }
             Source::Left(repo) => {
-                let left = left::load(&self.left_path()).into_iter().find(|l| l.repo == repo).context(tr("nothing was left in this repository"))?;
+                let path = self.left_path();
+                let list = tokio::task::spawn_blocking(move || left::load(&path)).await?;
+                let left = list.into_iter().find(|l| l.repo == repo).context(tr("nothing was left in this repository"))?;
                 let record = left.record;
                 let dir = record.worktree.clone().filter(|w| w.is_dir()).unwrap_or_else(|| record.cwd.clone());
                 // Its CLI's session is gone with it: only Claude Code's transcript is found by its id.
@@ -107,11 +109,11 @@ impl Agents {
 fn from_record(record: &Record, dir: PathBuf, prompts: Option<Vec<String>>, at: Option<String>) -> SessionSource {
     let mut list = prompts.clone().unwrap_or_default();
     // Its first prompt as launched, when its transcript starts later (resumed) or is not read.
-    if let Some(first) = record.prompt.as_deref().map(str::trim).filter(|p| !p.is_empty())
-        && list.first().map(String::as_str) != Some(first)
-        && !list.iter().any(|p| p == first)
+    // Compared as read: the transcript's are cut too.
+    if let Some(first) = record.prompt.as_deref().map(str::trim).filter(|p| !p.is_empty()).map(cut)
+        && !list.contains(&first)
     {
-        list.insert(0, cut(first));
+        list.insert(0, first);
     }
     SessionSource {
         provider: record.provider,

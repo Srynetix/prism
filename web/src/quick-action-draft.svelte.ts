@@ -58,6 +58,10 @@ export const qaDraft = $state({
 })
 
 const MODES: Mode[] = ['default', 'acceptEdits', 'plan']
+/** The drafting agent given up after this long without its prompt. */
+const DRAFT_MS = 180_000
+/** Each opening's number: a session read late for a form opened since (or closed) is dropped. */
+let opened = 0
 const repoInfo = (name: string) => live.snapshot?.repos?.find((r) => r.name === name)
 
 /** The repository a session ran in. */
@@ -72,10 +76,12 @@ function repoOfRef(ref: SessionRef, dir: string): string {
 
 /** The form, prefilled from that session; its draft asked of an agent when its prompts can be read. */
 export async function openQuickActionDraft(ref: SessionRef) {
+  const n = ++opened
   await stopDrafting()
   Object.assign(qaDraft, { open: true, loading: true, error: '', source: null, prompt: '', first: '', drafted: false, noDraft: false, routine: false, otherCli: false })
   try {
     const source = await invoke<SessionSource>('session_source', { source: ref })
+    if (n !== opened || !qaDraft.open) return
     const repo = repoOfRef(ref, source.dir)
     const base = repoInfo(repo)?.base || 'main'
     const launch = source.launch
@@ -102,7 +108,7 @@ export async function openQuickActionDraft(ref: SessionRef) {
     })
     if (!qaDraft.noDraft) void draftWithAgent(source, repo, base)
   } catch (e) {
-    Object.assign(qaDraft, { loading: false, error: String(e) })
+    if (n === opened) Object.assign(qaDraft, { loading: false, error: String(e) })
   }
 }
 
@@ -110,7 +116,7 @@ export async function openQuickActionDraft(ref: SessionRef) {
 async function draftWithAgent(source: SessionSource, repo: string, base: string) {
   const cwd = repoInfo(repo)?.path || source.dir
   try {
-    const id = await spawnAgent({ title: t('Quick action: {name}', { name: qaDraft.name }).slice(0, 60), cwd, prompt: draftPrompt(source.prompts, repo, base), provider: source.provider, from: DRAFTER, tags: ['quick-action'] })
+    const id = await spawnAgent({ title: t('Quick action: {name}', { name: qaDraft.name }).slice(0, 60), cwd, prompt: draftPrompt(source.prompts, repo, base), provider: source.provider, from: DRAFTER, tags: ['quick-action'] }, true)
     if (!qaDraft.open || qaDraft.source !== source) return void closeAgent(id).catch(() => null)
     qaDraft.drafter = id
     void waitForDraft(id)
@@ -120,11 +126,22 @@ async function draftWithAgent(source: SessionSource, repo: string, base: string)
   }
 }
 
-/** Its reply read every few seconds, until the prompt is in it; then it is closed. */
+/**
+ * Its reply read every two seconds, until the prompt is in it; then it is closed. Given up (closed,
+ * the first prompt kept) when it stopped, asks for a permission, or takes too long.
+ */
 async function waitForDraft(id: string) {
+  const until = Date.now() + DRAFT_MS
   while (qaDraft.drafter === id) {
-    await new Promise((r) => setTimeout(r, 3000))
+    await new Promise((r) => setTimeout(r, 2000))
     if (qaDraft.drafter !== id) return
+    const a = live.snapshot?.agents.find((x) => x.id === id)
+    const stuck = !a ? null : a.state !== 'running' ? t('it stopped') : a.status === 'waiting_tool' ? t('it asked for a permission') : Date.now() > until ? t('it took too long') : null
+    if (stuck) {
+      qaDraft.noDraft = true
+      qaDraft.error = t('No draft: {error}', { error: stuck })
+      return void stopDrafting()
+    }
     const c = await agentConversation(id, 2).catch(() => null)
     const reply = c?.turns.at(-1)?.entries.map((e) => (e.type === 'text' ? e.text : '')).join('\n') ?? ''
     const text = parseDraft(reply)

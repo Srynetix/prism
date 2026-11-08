@@ -1,13 +1,14 @@
 import { live } from './live.svelte'
 import { pref, setPref } from './layout.svelte'
 import { waitsForYou } from './rules'
+import { DRAFTER } from './quick-action-source'
 import type { SessionStatus, Snapshot } from './types'
 
 /**
  * Agents and Claude Desktop sessions archived: out of the lists (Agents view, Agents block, the
  * phone's Agents) and their counts, until unarchived — or until they wait for you again after
  * being archived (a turn's end, a permission, a question): then they come back by themselves.
- * Archiving changes nothing else: an agent goes on, its terminal stays, Desktop keeps its session.
+ * An agent drafting a quick action's prompt is always out of them. Archiving changes nothing else: an agent goes on, its terminal stays, Desktop keeps its session.
  * Shared computer ↔ phone (`agents.archived`): its id → its last activity when archived.
  */
 const KEY = 'agents.archived'
@@ -18,6 +19,7 @@ interface Archivable {
   status: SessionStatus
   last_activity: string | null
   needs_action?: string | null
+  launch?: { from?: string | null } | null
 }
 
 const archived = () => pref<Record<string, string>>(KEY, {})
@@ -26,6 +28,8 @@ const archived = () => pref<Record<string, string>>(KEY, {})
 const woke = (x: Archivable, at: string) => waitsForYou(x.status) && (x.last_activity ?? '') > at
 
 export function isArchived(x: Archivable): boolean {
+  // An agent drafting a quick action's prompt: Prism's, closed once its prompt is read.
+  if (x.launch?.from === DRAFTER) return true
   const at = archived()[x.id]
   if (at === undefined) return routineHidden(x)
   return !woke(x, at)

@@ -1,3 +1,5 @@
+import { escapeRe } from './markdown'
+
 /**
  * A quick action made from a past session (Create a quick action…): what is pure in it. The words
  * a repository's name and its base branch stand for (`{repo}`, `{base}`), the prompt an agent is
@@ -11,16 +13,23 @@ export const CLOSE = 'PROMPT>>>'
 /** What a drafting agent's launch says it is (`from`): never kept as its repository's last session. */
 export const DRAFTER = 'quick-action-draft'
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
 /**
- * `text` with the repository's name written `{repo}` and its base branch `{base}`: whole words only
- * (`origin/main` too), a name already a variable left as it is.
+ * `text` with the repository's name written `{repo}` and its base branch `{base}`. The name: whole
+ * words, not a file's (`app.py`). The branch only where it is one (`origin/main`, `` `main` ``,
+ * « the main branch », « branche main »): a word like `main` or `dev` elsewhere stays. What is
+ * left, the drafting agent writes.
  */
 export function templated(text: string, repo: string, base: string): string {
   let out = text
-  if (repo) out = out.replace(new RegExp(`(?<![\\w{/-])${escape(repo)}(?![\\w}-])`, 'g'), '{repo}')
-  if (base && base !== repo) out = out.replace(new RegExp(`(?<![\\w{-])${escape(base)}(?![\\w}/-])`, 'g'), '{base}')
+  if (repo) out = out.replace(new RegExp(`(?<![\\w{/.-])${escapeRe(repo)}(?![\\w}-]|\\.\\w)`, 'g'), '{repo}')
+  if (base && base !== repo) {
+    const b = escapeRe(base)
+    out = out
+      .replace(new RegExp(`(?<=origin/)${b}(?![\\w/-])`, 'g'), '{base}')
+      .replace(new RegExp(`\`${b}\``, 'g'), '`{base}`')
+      .replace(new RegExp(`(?<=\\b(?:branch|branche)\\s+)${b}(?![\\w/-])`, 'gi'), '{base}')
+      .replace(new RegExp(`(?<![\\w/-])${b}(?=\\s+branch\\b)`, 'gi'), '{base}')
+  }
   return out
 }
 
