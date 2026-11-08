@@ -7,7 +7,7 @@ impl Agents {
     pub async fn shells(&self, id: &str) -> Result<Vec<Shell>> {
         self.dir(id)?;
         let shells = self.inner.tmux.shells(id).await?;
-        Ok(shells.into_iter().map(|(n, command)| Shell { key: shell_key(id, n), n, busy: !is_shell(&command), command }).collect())
+        Ok(shells.into_iter().map(|(n, command)| Shell { key: shell_key(id, n), n, busy: busy(&command), command }).collect())
     }
 
     /// Opens the agent's shell `n` (started again after an `exit`), or a new one (`None`).
@@ -34,14 +34,13 @@ impl Agents {
         Ok((key, true))
     }
 
-    /// The program holding the shell of `key`, `None` at its prompt. On Linux tmux names the
-    /// pane's foreground process: until the shell has started, the child tmux has just forked,
-    /// itself `tmux`. Asked again a moment later then, for up to 2 s, before it counts.
+    /// The program holding the shell of `key`, `None` at its prompt. A shell still starting
+    /// (`starting`) is asked again 100 ms later, for up to 2 s, before `tmux` counts.
     async fn holder(&self, key: &str) -> Result<Option<String>> {
         let tmux = &self.inner.tmux;
         for _ in 0..HOLDER_TRIES {
             let cmd = tmux.pane(key).await?.map(|(_, cmd)| cmd).filter(|cmd| !is_shell(cmd));
-            if cmd.as_deref() != Some("tmux") {
+            if !cmd.as_deref().is_some_and(starting) {
                 return Ok(cmd);
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -61,7 +60,7 @@ impl Agents {
     pub async fn folder_shells(&self, path: &str) -> Result<Vec<Shell>> {
         let id = self.folder_owner(path)?;
         let shells = self.inner.tmux.shells(&id).await?;
-        Ok(shells.into_iter().map(|(n, command)| Shell { key: shell_key(&id, n), n, busy: !is_shell(&command), command }).collect())
+        Ok(shells.into_iter().map(|(n, command)| Shell { key: shell_key(&id, n), n, busy: busy(&command), command }).collect())
     }
 
     /// Opens the worktree's shell `n` (again after an `exit`), or a new one (`None`): its terminal key.
@@ -117,7 +116,7 @@ impl Agents {
                     folder: pod.is_none().then_some(s.path),
                     // A pod's shell runs kubectl: anything else in its foreground, kubectl has exited (its wrapper waits for Enter).
                     ended: pod.is_some() && s.command != "kubectl",
-                    busy: pod.is_none() && !is_shell(&s.command),
+                    busy: pod.is_none() && busy(&s.command),
                     pod,
                     command: s.command,
                     started: s.created,
@@ -185,5 +184,18 @@ impl Agents {
     }
 }
 
-/// Looks at a shell named `tmux` (not started yet) this many times, 100 ms apart.
+/// Looks at a shell still starting this many times, 100 ms apart.
 const HOLDER_TRIES: u32 = 20;
+
+/// Whether `pane_current_command` says a program holds the shell: neither the shell at its
+/// prompt, nor the shell still starting.
+fn busy(command: &str) -> bool {
+    !is_shell(command) && !starting(command)
+}
+
+/// A shell's pane named `tmux`, on Linux: tmux names the pane after its foreground process, and
+/// until the shell has started that is the child tmux has just forked. Elsewhere (macOS reads
+/// the name otherwise) `tmux` is a tmux run in the shell. The tests' fake tmux does as Linux.
+fn starting(command: &str) -> bool {
+    cfg!(any(target_os = "linux", test)) && command == "tmux"
+}
