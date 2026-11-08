@@ -4,7 +4,7 @@
   import { hasCore, invoke } from '../bridge'
   import Icon from './Icon.svelte'
   import { live } from '../live.svelte'
-  import { afterLaunch, agentsAvailable, agentsSettings, agentsView, allTags, planWorktree, slug, spawnAgent, prepareAgent, closeAgent, attachFiles, mention, draggedFiles, filesOf, type Launch, type LaunchSlot, type WorktreePlan, closeLauncherDrawer, toastLaunched, kindOf } from '../agents.svelte'
+  import { afterLaunch, agentsAvailable, agentsSettings, agentsView, allTags, slug, spawnAgent, prepareAgent, closeAgent, draggedFiles, filesOf, type Launch, type LaunchSlot, closeLauncherDrawer, toastLaunched, kindOf } from '../agents.svelte'
   import { primaryRepo, worktreeRepos } from '../repositories'
   import { canPick, pickPath } from '../pick'
   import { toast } from '../toast.svelte'
@@ -16,6 +16,7 @@
   import { pref, setPref } from '../layout.svelte'
   import DictateButton from './chat/DictateButton.svelte'
   import DictationBar from './chat/DictationBar.svelte'
+  import { Attachments, nameOf, newStep, newWorktree, takeDraft, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
 
   /**
    * The New agent form of the Agents view. Mounted once and hidden when an agent shows: what is
@@ -36,11 +37,6 @@
    * line, the title and the worktree's name taken from the prompt; More options shows it all.
    */
   let quick = $state(false)
-  /**
-   * On the phone (the remote): its "Then" run by Prism on the computer, as the desk's; a task step
-   * is one of the tasks its folder declares, picked, never a command line typed (the computer checks).
-   */
-  const onPhone = document.documentElement.classList.contains('remote')
 
   /**
    * Launcher: a new worktree (default: Prism creates it next to the repository, through its hook
@@ -139,15 +135,12 @@
   /** Main checkout of the new worktree's repository: where it goes next to, and its base. */
   const main = $derived(checkouts.find((w) => w.repo === wtRepo) ?? null)
   /** Without a title, the prompt's first line; its first words name the worktree. */
-  const autoTitle = $derived(title.trim() || (prompt.trim().split('\n')[0] ?? '').slice(0, 60).trim())
-  const autoName = $derived(title.trim() ? '' : slug(prompt.replace(/@\S+/g, '').trim().split(/\s+/).slice(0, 4).join(' ')))
+  const autoTitle = $derived(titleOf(title, prompt))
+  const autoName = $derived(title.trim() ? '' : nameOf(prompt))
   const wtName = $derived(slug(name) || (wtBranch ? slug(wtBranch.split('/').pop() ?? '') : '') || slug(title) || autoName || 'agent')
 
   /** An action opens the launcher prefilled: its title, its prompt, its location. */
-  $effect(() => {
-    const d = slot.draft
-    if (!d) return
-    slot.draft = null
+  takeDraft(() => slot, (d) => {
     title = d.title
     prompt = d.prompt ?? ''
     error = ''
@@ -230,31 +223,15 @@
     then: steps.length ? $state.snapshot(steps) : undefined,
     from: from || undefined,
     prism_mcp: prismMcp || undefined,
-    ...(whereTo === 'new' ? { worktree: { name: name ? slug(name) : wtBranch ? undefined : autoName || undefined, branch: wtBranch || undefined, repo: wtRepo || undefined, base: (!wtBranch && wtBase.trim()) || undefined, also: also.length ? also : undefined } } : { cwd: whereTo === 'existing' ? wtPath : folder }),
+    ...(whereTo === 'new' ? { worktree: newWorktree({ name, fallback: autoName, branch: wtBranch, base: wtBase, repo: wtRepo, also }) } : { cwd: whereTo === 'existing' ? wtPath : folder }),
   })
   /**
    * What the new worktree will be, as Prism will create it: asked while typing (a short pause),
    * so a name already taken or an MR's branch already checked out shows before launching. Null:
    * not asked yet, or in the demo (the form's own guess then).
    */
-  let plan = $state<WorktreePlan | null>(null)
-  $effect(() => {
-    // What the plan depends on, read here: the prompt and the rest do not ask again.
-    const wt = whereTo === 'new' && hasCore() ? { name: name ? slug(name) : wtBranch ? undefined : autoName || undefined, branch: wtBranch || undefined, repo: wtRepo || undefined, base: (!wtBranch && wtBase.trim()) || undefined } : undefined
-    const ttl = autoTitle
-    if (!wt) {
-      plan = null
-      return
-    }
-    let gone = false
-    const timer = setTimeout(() => {
-      planWorktree(ttl, wt).then((p) => !gone && (plan = p), () => !gone && (plan = null))
-    }, 250)
-    return () => {
-      gone = true
-      clearTimeout(timer)
-    }
-  })
+  const planned = watchPlan(() => (whereTo === 'new' ? { title: autoTitle, worktree: newWorktree({ name, fallback: autoName, branch: wtBranch, base: wtBase, repo: wtRepo }) } : null))
+  const plan = $derived(planned.value)
   const planName = $derived(plan?.name ?? wtName)
   /**
    * The command, as Prism will run it (the name may get a suffix if already taken): built by Prism
@@ -281,57 +258,34 @@
 
   const STEP_KINDS: [StepKind, string][] = [['task', t('Task')], ['prompt', t('Prompt')], ['mr', t('Draft MR')], ['agent', t('Review agent')], ['notify', t('Notify')]]
   function addStep(kind: StepKind) {
-    steps.push(kind === 'task' ? { kind, when: 'done', command: onPhone ? testTask() ?? '' : '' } : kind === 'prompt' ? { kind, when: 'done', text: '' } : kind === 'mr' ? { kind, when: 'ok' } : kind === 'agent' ? { kind, when: 'ask', text: 'Review the code of MR !{mr}.' } : { kind, when: 'done' })
+    steps.push(newStep(kind))
   }
   /**
    * The tasks of the folder it will run in (a new worktree: its repository's), while Then shows:
-   * a task step's choices on a phone, suggestions at the desk.
+   * a task step's suggestions.
    */
-  let tasks = $state<string[]>([])
   const thenShown = $derived((!drawer && !quick) || more)
-  $effect(() => {
-    const where = whereTo === 'new' ? { repo: wtRepo || null } : { cwd: whereTo === 'existing' ? wtPath : folder }
-    if (!thenShown || !hasCore()) return
-    let gone = false
-    invoke<string[]>('launch_tasks', where).then((list) => !gone && (tasks = list), () => !gone && (tasks = []))
-    return () => {
-      gone = true
-    }
-  })
-  /** The folder's test task, failing that its first. */
-  const testTask = () => tasks.find((tk) => /\btest\b/.test(tk)) ?? tasks[0]
-  /** A recipe: on a phone, its task is the folder's test task (none: the step left out). */
+  const taskList = watchTasks(() => (thenShown ? (whereTo === 'new' ? { repo: wtRepo || null } : { cwd: whereTo === 'existing' ? wtPath : folder }) : null))
+  const tasks = $derived(taskList.list)
+  /** A recipe: its steps, as they are. */
   function useRecipe(r: (typeof RECIPES)[number]) {
-    const test = testTask()
-    steps = structuredClone(r.steps).flatMap((st) => (st.kind !== 'task' || !onPhone ? [st] : test ? [{ ...st, command: test }] : []))
+    steps = structuredClone(r.steps)
   }
 
   /* ---------- Files attached to a prompt ---------- */
 
   /** Files attached to the launcher's prompt: their path (`@path` in the prompt) and a preview. */
-  let attached = $state<{ path: string; name: string; url: string | null; size: number }[]>([])
-  let attaching = $state(false)
+  const att = new Attachments()
   let fileInput: HTMLInputElement | undefined = $state()
   async function attachToLaunch(files: File[]) {
-    if (!files.length) return
-    attaching = true
     error = ''
     try {
-      const paths = await attachFiles(files, null)
-      paths.forEach((path, i) => attached.push({ path, name: files[i].name || t('pasted image'), url: files[i].type.startsWith('image/') ? URL.createObjectURL(files[i]) : null, size: files[i].size }))
-      prompt = `${prompt.trimEnd()} ${paths.map(mention).join(' ')} `.trimStart()
+      prompt = await att.add(files, prompt)
     } catch (e) {
       error = String(e)
-    } finally {
-      attaching = false
     }
   }
-  function detach(i: number) {
-    const a = attached[i]
-    prompt = prompt.replace(mention(a.path), '').replace(/ {2,}/g, ' ')
-    if (a.url) URL.revokeObjectURL(a.url)
-    attached.splice(i, 1)
-  }
+  const detach = (i: number) => (prompt = att.remove(i, prompt))
   const kb = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1000))} kB`)
 
   /**
@@ -366,8 +320,7 @@
       title = ''
       prompt = ''
       quick = false
-      for (const a of attached) if (a.url) URL.revokeObjectURL(a.url)
-      attached = []
+      att.clear()
       name = ''
       category = ''
       launchTags = []
@@ -408,17 +361,17 @@
     <DictationBar key="launcher" />
     <div class="attach">
       <DictateButton key="launcher" field={() => promptField} text={() => prompt} write={(v) => (prompt = v)} hints={() => [launchRepo ?? '', title]} />
-      {#each attached as a, i (a.path)}
+      {#each att.list as a, i (a.path)}
         <span class="thumb" title={a.path}>
           {#if a.url}<img src={a.url} alt={a.name} />{:else}<span class="file"><Icon name="files" /></span>{/if}
           <span class="nm">{a.name}<small>{kb(a.size)}</small></span>
           <button type="button" class="x" onclick={() => detach(i)} aria-label={t('Remove {name}', { name: a.name })}>×</button>
         </span>
       {/each}
-      <button type="button" class="drop" disabled={attaching} onclick={() => fileInput?.click()}
+      <button type="button" class="drop" disabled={att.busy} onclick={() => fileInput?.click()}
         ondragover={(e) => { if (draggedFiles(e)) e.preventDefault() }}
         ondrop={(e) => { const files = filesOf(e.dataTransfer?.files); if (files.length) { e.preventDefault(); void attachToLaunch(files) } }}>
-        {attaching ? t('Attaching…') : onPhone ? t('Attach photos or files') : t('Attach images or files: drop, paste (⌘V) or click')}
+        {att.busy ? t('Attaching…') : t('Attach images or files: drop, paste (⌘V) or click')}
       </button>
       <input bind:this={fileInput} type="file" multiple hidden onchange={(e) => { void attachToLaunch(filesOf(e.currentTarget.files)); e.currentTarget.value = '' }} />
     </div>
@@ -517,8 +470,7 @@
           <div class="step">
             <span class="n">{i + 1}</span>
             <span class="k">{STEP_LABEL[s.kind]}</span>
-            {#if s.kind === 'task' && onPhone}<select bind:value={s.command} aria-label={t('Task')}>{#each tasks as tk (tk)}<option value={tk}>{tk}</option>{:else}<option value="">{t('No task in this folder')}</option>{/each}</select>
-            {:else if s.kind === 'task'}<input bind:value={s.command} {@attach suggest(() => tasks)} placeholder={t('Command, e.g. npm test')} spellcheck="false" aria-label={t('Command')} />
+            {#if s.kind === 'task'}<input bind:value={s.command} {@attach suggest(() => tasks)} placeholder={t('Command, e.g. npm test')} spellcheck="false" aria-label={t('Command')} />
             {:else if s.kind === 'prompt' || s.kind === 'agent'}<input bind:value={s.text} placeholder={s.kind === 'agent' ? t('Its prompt: {mr}, {ticket}, {branch} filled in', { mr: '{mr}', ticket: '{ticket}', branch: '{branch}' }) : t('Sent to this agent when it waits for you')} spellcheck="false" writingsuggestions="false" aria-label={t('Prompt')} />
             {:else}<span class="grow"></span>{/if}
             <select bind:value={s.when} aria-label={t('When')}>{#each Object.entries(WHEN_LABEL) as [w, label] (w)}<option value={w}>{label}</option>{/each}</select>
@@ -530,7 +482,7 @@
           <span class="muted">{t('or')}</span>
           {#each RECIPES as r (r.name)}<button type="button" class="recipe" onclick={() => useRecipe(r)} title={r.steps.map((s) => STEP_LABEL[s.kind]).join(' → ')}>{r.name}</button>{/each}
         </div>
-        {#if steps.length}<small class="muted">{t('After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.')}{#if onPhone} {t('The computer runs them; a task needs critical actions on.')}{/if}</small>{/if}
+        {#if steps.length}<small class="muted">{t('After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.')}</small>{/if}
       </div>
     </div>
     {#if kinds.length}
@@ -563,7 +515,7 @@
       <span class="grow"></span>
       {#if canCancel}<button type="button" onclick={() => (onclose ? onclose() : (agentsView.creating = false))}>{t('Cancel')}</button>{/if}
       <button type="button" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)} onclick={() => void launch(true)} title={slot.onLaunch ? t('Declare it without starting it: it waits in the list for Start, its worktree made then. The action’s effect (ticket moved…) applies now') : t('Declare it without starting it: it waits in the list for Start, its worktree made then')}>{t('Prepare')}</button>
-      <button type="submit" class="primary" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)}>{busy ? t('Starting…') : t('Launch')}{#if !onPhone} <kbd>{keys('⌘↩')}</kbd>{/if}</button>
+      <button type="submit" class="primary" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)}>{busy ? t('Starting…') : t('Launch')} <kbd>{keys('⌘↩')}</kbd></button>
     </div>
   </form>
 {/if}

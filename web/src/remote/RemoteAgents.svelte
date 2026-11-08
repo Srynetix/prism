@@ -33,9 +33,10 @@
    * conversation up again. A tap opens its terminal; each of its open ports (found by the Dev servers block)
    * opens in the remote's preview.
    * At the top, the plan's usage (the status bar's on the computer: a tap shows its windows and resets,
-   * a section per CLI when agents run on several), then a new agent from a prompt, in a new worktree.
+   * a section per CLI when agents run on several), then a new agent: New opens the sheet (`PhoneLauncher`).
    * By project (a shared pref): a card per repository instead, its agents in it (those waiting for
-   * you first), where it was left with Reopen, its next ticket, a + for a new agent in it.
+   * you first), where it was left with Reopen, its next ticket, a + for a new agent in it; its +, its
+   * ticket's ▶ and its quick actions open the same sheet, prefilled.
    */
   let { snap, acts }: { snap: Snapshot; acts: boolean } = $props()
 
@@ -93,13 +94,13 @@
   }
 
   /**
-   * A new agent: the launcher, as in the window (where, CLI, mode, kind, tags, attachments),
-   * with what was typed here as its prompt, in a new worktree of the repository agents work in.
+   * A new agent: the phone's sheet (`PhoneLauncher`), empty or with what was typed here as its
+   * prompt; it picks the repository (the last one launched in) and the place.
    */
   let prompt = $state('')
   function start() {
     const text = prompt.trim()
-    openLauncher({ title: text.split('\n')[0].slice(0, 60), prompt: text, worktree: {} })
+    openLauncher({ title: '', prompt: text })
     prompt = ''
   }
 </script>
@@ -163,7 +164,7 @@
     {/if}
     {#if acts}
       {@const quick = quickActionsHere(p.name)}
-      {#if quick.length}<div class="chips quick">{#each quick as a, i (i)}<button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => runQuickAction(a, p.name))} title={a.prompt}><Icon name="quick" /> {a.name}</button>{/each}</div>{/if}
+      {#if quick.length}<div class="chips quick">{#each quick as a, i (i)}<button class="btn" onclick={() => runQuickAction(a, p.name, true)} title={a.prompt}><Icon name="quick" /> {a.name}</button>{/each}</div>{/if}
     {/if}
     {#if p.next}
       <div class="next"><span class="muted">{tc('project', 'Next')}</span><code>{p.next.id}</code><span class="nm">{p.next.name}</span>{#if acts}<button class="btn" onclick={() => implement(p.next!)} aria-label={t('Implement {ticket}', { ticket: p.next.id })}>▶</button>{/if}</div>
