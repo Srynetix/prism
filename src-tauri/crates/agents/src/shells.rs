@@ -13,6 +13,11 @@ impl Agents {
     /// Opens the agent's shell `n` (started again after an `exit`), or a new one (`None`).
     /// Returns its terminal key (`shell:<agent>:<n>`).
     pub async fn shell(&self, id: &str, n: Option<u32>) -> Result<String> {
+        Ok(self.open_shell(id, n).await?.0)
+    }
+
+    /// `shell`, and whether it was started just now.
+    async fn open_shell(&self, id: &str, n: Option<u32>) -> Result<(String, bool)> {
         let dir = self.dir(id)?;
         let tmux = &self.inner.tmux;
         let n = match n {
@@ -20,12 +25,28 @@ impl Agents {
             None => tmux.shells(id).await?.iter().map(|(n, _)| n + 1).max().unwrap_or(1),
         };
         let key = shell_key(id, n);
-        if tmux.pane(&key).await?.is_none() {
-            // No program: tmux starts the default shell, as a login shell.
-            tmux.new_session(&key, &dir, &[], &[]).await?;
-            tmux.end_with_program(&key).await?;
+        if tmux.pane(&key).await?.is_some() {
+            return Ok((key, false));
         }
-        Ok(key)
+        // No program: tmux starts the default shell, as a login shell.
+        tmux.new_session(&key, &dir, &[], &[]).await?;
+        tmux.end_with_program(&key).await?;
+        Ok((key, true))
+    }
+
+    /// The program holding the shell of `key`, `None` at its prompt. On Linux tmux names the
+    /// pane's foreground process: until the shell has started, the child tmux has just forked,
+    /// itself `tmux`. Asked again a moment later then, for up to 2 s, before it counts.
+    async fn holder(&self, key: &str) -> Result<Option<String>> {
+        let tmux = &self.inner.tmux;
+        for _ in 0..HOLDER_TRIES {
+            let cmd = tmux.pane(key).await?.map(|(_, cmd)| cmd).filter(|cmd| !is_shell(cmd));
+            if cmd.as_deref() != Some("tmux") {
+                return Ok(cmd);
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        Ok(Some("tmux".into()))
     }
 
     /// Closes the agent's shell `n`, whatever it runs.
@@ -128,18 +149,18 @@ impl Agents {
 
     /// Runs a command line in the agent's shell `n`, or a new one (`None`), as typed (`enter`:
     /// false leaves it there to finish). Refused while a program holds the shell, unless
-    /// `interrupt`: Ctrl-C first. Returns the shell's key.
+    /// `interrupt`: Ctrl-C first. A shell started for it holds nothing yet: the line waits in
+    /// its terminal until it reads. Returns the shell's key.
     pub async fn run_in_shell(&self, id: &str, n: Option<u32>, command: &str, enter: bool, interrupt: bool) -> Result<String> {
-        let key = self.shell(id, n).await?;
+        let (key, new) = self.open_shell(id, n).await?;
         let tmux = &self.inner.tmux;
-        let busy = || async { tmux.pane(&key).await.map(|p| p.map(|(_, cmd)| cmd).filter(|cmd| !is_shell(cmd))) };
-        if let Some(cmd) = busy().await? {
+        if let Some(cmd) = if new { None } else { self.holder(&key).await? } {
             if !interrupt {
                 bail!(tr!("the shell is busy with {cmd}", cmd = cmd));
             }
             tmux.send_keys(&key, &["C-c"]).await?;
             tokio::time::sleep(Duration::from_millis(400)).await;
-            if let Some(cmd) = busy().await? {
+            if let Some(cmd) = self.holder(&key).await? {
                 bail!(tr!("{cmd} still holds the shell after Ctrl-C", cmd = cmd));
             }
         }
@@ -163,3 +184,6 @@ impl Agents {
         tasks::detect(dir, depth).await
     }
 }
+
+/// Looks at a shell named `tmux` (not started yet) this many times, 100 ms apart.
+const HOLDER_TRIES: u32 = 20;

@@ -729,3 +729,18 @@ async fn archiving_a_blocked_run_frees_its_routine() {
     // Its next time runs again.
     b.agents.run_routine_now("Nightly", None).unwrap();
 }
+
+#[tokio::test]
+async fn a_task_goes_to_a_shell_just_started_and_a_busy_one_refuses_it() {
+    let b = Bench::new();
+    let id = b.agents.spawn(b.launch("Build")).await.unwrap();
+    // No shell yet: one is started, still `tmux` for a moment on Linux, and takes the line at once.
+    b.agents.run_in_shell(&id, None, "just test", true, false).await.unwrap();
+    let typed = b.tmux.calls_of("send-keys").into_iter().any(|c| c.iter().any(|a| a == "just test"));
+    assert!(typed, "the task typed into the new shell");
+    // A shell running a program still refuses it (Ctrl-C offered).
+    let vim = shell_key(&id, 2);
+    b.tmux.run(&["new-session", "-d", "-s", &Tmux::session(&vim), "--", "vim"]).unwrap();
+    let err = b.agents.run_in_shell(&id, Some(2), "just test", true, false).await.unwrap_err();
+    assert!(err.to_string().contains("busy with vim"), "{err}");
+}

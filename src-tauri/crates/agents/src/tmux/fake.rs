@@ -120,7 +120,8 @@ fn expand(format: &str, name: &str, s: &Session) -> String {
         .replace("#{session_name}", name)
         .replace("#{pane_dead}", if s.dead.is_some() { "1" } else { "0" })
         .replace("#{pane_dead_status}", &s.dead.map(|c| c.to_string()).unwrap_or_default())
-        .replace("#{pane_current_command}", s.argv.first().map_or("", String::as_str))
+        // No program: the default shell, which Linux names after the child tmux forked until it has started.
+        .replace("#{pane_current_command}", s.argv.first().map_or("tmux", String::as_str))
         .replace("#{pane_in_mode}", "0")
         .replace("#{window_width}", "120")
         .replace("#{window_height}", "40")
