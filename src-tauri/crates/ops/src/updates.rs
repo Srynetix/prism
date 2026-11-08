@@ -7,10 +7,13 @@
 //! `.minisig`:
 //! `Prism_<version>_macos-universal.app.tar.gz` (the app itself: what an update replaces;
 //! the `.dmg` is for a first install), `Prism_<version>_<amd64|arm64>.AppImage` and `.deb`,
-//! `Prism_<version>_amd64.pkg.tar.zst` (Arch Linux).
+//! `Prism_<version>_amd64.pkg.tar.zst` (Arch Linux), `Prism_<version>_windows-<x64|arm64>-setup.exe`
+//! (the NSIS installer, for a first install and for an update).
 //! On GitLab, the files are in the project's generic packages, the release links to them.
 //!
 //! Installing replaces the app where it runs (a `Prism.app`, an AppImage), then Prism restarts;
+//! on Windows, the installer runs as Prism restarts (`take_installer`), without a question, and
+//! starts the new Prism;
 //! a `.deb` or an Arch package needs root: it is downloaded, for `sudo apt install` or
 //! `sudo pacman -U`. Only a file signed with the key built into this Prism (`update-key.pub`) is
 //! installed: whoever can publish in the source, or point a pack's `[updates] source` elsewhere,
@@ -233,8 +236,12 @@ fn pick<'a>(version: &str, assets: &'a [Asset]) -> Option<(&'a Asset, &'static s
     let arch = match std::env::consts::ARCH {
         "aarch64" => "arm64",
         "x86_64" if cfg!(target_os = "linux") => "amd64",
+        "x86_64" if cfg!(windows) => "x64",
         a => a,
     };
+    if cfg!(windows) {
+        return find(&format!("_windows-{arch}-setup.exe")).map(|a| (a, "replace"));
+    }
     if cfg!(target_os = "macos") {
         return find("_macos-universal.app.tar.gz").or_else(|| find(&format!("_macos-{arch}.app.tar.gz"))).map(|a| (a, "replace"));
     }
@@ -268,6 +275,10 @@ pub async fn install(cfg: &crate::config::UpdatesConfig, tag: &str) -> Result<(b
         "replace" if cfg!(target_os = "macos") => {
             replace_app(&bytes).await?;
             Ok((true, format!("Prism {} installed", release.version)))
+        }
+        "replace" if cfg!(windows) => {
+            stage_installer(&asset.name, &bytes)?;
+            Ok((true, format!("Prism {} downloaded: it installs as Prism restarts", release.version)))
         }
         "replace" => {
             replace_appimage(&bytes)?;
@@ -337,6 +348,36 @@ async fn replace_app(archive: &[u8]) -> Result<()> {
     result
 }
 
+/// The installer of an update, verified, waiting for Prism to restart (`take_installer`).
+static INSTALLER: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+
+/// Writes the verified installer in a folder of Prism's for `take_installer`.
+fn stage_installer(name: &str, bytes: &[u8]) -> Result<()> {
+    let dir = std::env::temp_dir().join("prism-update");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).with_context(|| format!("making {}", dir.display()))?;
+    let file = dir.join(Path::new(name).file_name().context("the file's name")?);
+    std::fs::write(&file, bytes).with_context(|| format!("writing {}", file.display()))?;
+    *INSTALLER.lock().unwrap() = Some(file);
+    Ok(())
+}
+
+/// The installer `install` downloaded, to run in place of a plain restart: once.
+pub fn take_installer() -> Option<PathBuf> {
+    INSTALLER.lock().unwrap().take()
+}
+
+/// Runs an update's installer as Prism quits: without a question (`/P`, a progress bar), as an
+/// update (`/UPDATE`: the shortcuts left as they are), the new Prism started once it is done
+/// (`/R`). The installer closes what still runs from `prism.exe`; `prism sessions` runs from a
+/// copy of its own, and the agents go on.
+pub fn run_installer(setup: &Path) -> Result<()> {
+    let mut cmd = std::process::Command::new(setup);
+    cmd.args(["/P", "/UPDATE", "/R"]).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    cmd.spawn().with_context(|| format!("starting {}", setup.display()))?;
+    Ok(())
+}
+
 /// Replaces the AppImage Prism runs from (`APPIMAGE`), through a file next to it.
 fn replace_appimage(bytes: &[u8]) -> Result<()> {
     let path = PathBuf::from(std::env::var_os("APPIMAGE").context(tr("Prism does not run from an AppImage"))?);
@@ -400,10 +441,24 @@ mod tests {
     #[test]
     fn picks_the_file_of_this_system() {
         let asset = |name: &str| Asset { name: name.into(), api: String::new(), host: String::new() };
-        let assets = [asset("Prism_0.2.0_macos-universal.dmg"), asset("Prism_0.2.0_macos-universal.app.tar.gz"), asset("Prism_0.2.0_macos-universal.app.tar.gz.sha256"), asset("Prism_0.2.0_amd64.deb")];
+        let assets = [
+            asset("Prism_0.2.0_macos-universal.dmg"),
+            asset("Prism_0.2.0_macos-universal.app.tar.gz"),
+            asset("Prism_0.2.0_macos-universal.app.tar.gz.sha256"),
+            asset("Prism_0.2.0_amd64.deb"),
+            asset("Prism_0.2.0_windows-x64-setup.exe"),
+            asset("Prism_0.2.0_windows-x64-setup.exe.minisig"),
+            asset("Prism_0.2.0_windows-arm64-setup.exe"),
+        ];
         let picked = pick("0.2.0", &assets).map(|(a, how)| (a.name.as_str(), how));
         if cfg!(target_os = "macos") {
             assert_eq!(picked, Some(("Prism_0.2.0_macos-universal.app.tar.gz", "replace")));
+        }
+        if cfg!(all(windows, target_arch = "x86_64")) {
+            assert_eq!(picked, Some(("Prism_0.2.0_windows-x64-setup.exe", "replace")));
+        }
+        if cfg!(all(windows, target_arch = "aarch64")) {
+            assert_eq!(picked, Some(("Prism_0.2.0_windows-arm64-setup.exe", "replace")));
         }
         assert!(pick("9.0.0", &assets).is_none(), "an older version's files in a newer release");
     }

@@ -68,6 +68,16 @@ pub fn restart(app: &tauri::AppHandle) -> ! {
     crate::profile::release();
     crate::profile::release_host();
     prism_dictation::whisper::unload(std::time::Duration::ZERO);
+    // An update downloaded on Windows: its installer runs and starts the new Prism.
+    if let Some(setup) = prism_ops::updates::take_installer() {
+        match prism_ops::updates::run_installer(&setup) {
+            Ok(()) => {
+                app.cleanup_before_exit();
+                std::process::exit(0);
+            }
+            Err(e) => tracing::warn!("updates: {e:#}"),
+        }
+    }
     app.restart()
 }
 

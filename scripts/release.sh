@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Publishes this Prism as a release that installed Prisms update from (Settings › General › Updates,
-# `[updates] source`): the macOS app, and with --linux the Linux packages.
+# `[updates] source`): the macOS app, with --linux the Linux packages, with --windows the Windows
+# installers.
 #
-#   scripts/release.sh --to glab:group/project|gh:owner/repo [--linux] [--no-extra] [--server] [--skip-checks]
+#   scripts/release.sh --to glab:group/project|gh:owner/repo [--linux] [--windows] [--no-extra] [--server] [--skip-checks]
 #                      [--rebuild] [--notes "text" | --notes-file file] [--no-tag] [--dry-run]
 #
 # - --to: where it is published, as [updates] source names it; PRISM_RELEASE_TO (environment or
@@ -12,7 +13,8 @@
 #   an existing release is refused.
 # - Files: Prism_<version>_macos-universal.dmg (a first install), .app.tar.gz (what an update
 #   replaces), and with --linux Prism_<version>_amd64.deb, .AppImage and .pkg.tar.zst (Arch
-#   Linux), each with its .sha256
+#   Linux), with --windows Prism_<version>_windows-x64-setup.exe and windows-arm64-setup.exe (NSIS,
+#   unsigned: SmartScreen warns; cross-built with scripts/windows.sh), each with its .sha256
 #   and its .minisig: signed with minisign (brew install minisign), with the key PRISM_SIGN_KEY
 #   names (environment or .env; ~/.minisign/prism.key by default), whose public half is
 #   src-tauri/update-key.pub. An installed Prism installs only a file signed with it.
@@ -28,15 +30,17 @@
 #   changelog starts from it; its message is the changelog, without the line naming the build and
 #   its blocks, so the tag can go to Prism's public repository. --no-tag leaves it out.
 # - --dry-run builds and prints what would be published, without publishing.
-# - Builds with scripts/dmg.sh and scripts/linux.sh (Docker): their checks and refusals apply. A
-#   build of this commit (and of these blocks) already in dist/ is published as is, without
-#   building again (`just dmg`, `just linux`, a dry run…); --rebuild builds anyway.
+# - Builds with scripts/dmg.sh, scripts/linux.sh (Docker) and scripts/windows.sh (cargo-xwin):
+#   their checks and refusals apply. A build of this commit (and of these blocks) already in dist/
+#   is published as is, without building again (`just dmg`, `just linux`, a dry run…); --rebuild
+#   builds anyway.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 to=""
 linux=false
+windows=false
 server=false
 extra=true
 checks=true
@@ -49,6 +53,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --to) to=${2:-}; shift ;;
     --linux) linux=true ;;
+    --windows) windows=true ;;
     --no-extra) extra=false ;;
     --server) server=true ;;
     --skip-checks) checks=false ;;
@@ -57,7 +62,7 @@ while [[ $# -gt 0 ]]; do
     --no-tag) tag_it=false ;;
     --dry-run) dry=true ;;
     --rebuild) rebuild=true ;;
-    -h | --help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
   shift
@@ -182,6 +187,23 @@ if $linux; then
     [[ -f "$server_bin" ]] || fail "no $server_bin"
     pack_server "$server_bin" "prism-server_${version}_amd64.tar.gz"
   fi
+fi
+
+if $windows; then
+  step "Windows"
+  # Built here, noted as linux.sh notes its packages: which commit and blocks they are of.
+  stamp=dist/Prism_${version}_windows.build
+  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit|$label" && -f dist/Prism_${version}_windows-x64-setup.exe && -f dist/Prism_${version}_windows-arm64-setup.exe ]] && ! $rebuild; then
+    echo "dist/Prism_${version}_windows-{x64,arm64}-setup.exe already built: reused (--rebuild to build again)"
+  else
+    export XWIN_ACCEPT_LICENSE=${XWIN_ACCEPT_LICENSE:-1}
+    for arch in x64 arm64; do
+      WINDOWS_ARCH=$arch scripts/windows.sh build
+      cp "src-tauri/target/$([[ $arch == x64 ]] && echo x86_64 || echo aarch64)-pc-windows-msvc/release/bundle/nsis/Prism_${version}_${arch}-setup.exe" "dist/Prism_${version}_windows-${arch}-setup.exe"
+    done
+    echo "$commit|$label" > "$stamp"
+  fi
+  for arch in x64 arm64; do cp "dist/Prism_${version}_windows-${arch}-setup.exe" "$out/"; done
 fi
 
 (cd "$out" && shopt -s nullglob && for f in Prism_* prism-server_*; do [[ $f == *.sha256 ]] || shasum -a 256 "$f" > "$f.sha256"; done)

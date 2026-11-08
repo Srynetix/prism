@@ -84,11 +84,11 @@ linux *args:
 linux-desktop *args:
     scripts/linux-desktop.sh {{args}}
 
-# Checks that Prism compiles for Windows, from macOS or Linux (cargo xwin; scripts/windows.sh --help)
+# Checks that Prism compiles for Windows, from macOS or Linux (cargo xwin; WINDOWS_ARCH=arm64 for ARM)
 windows-check *args:
     {{no_extra}}scripts/windows.sh check {{args}}
 
-# Builds the Windows x64 installer (NSIS, unsigned) from macOS or Linux (scripts/windows.sh --help)
+# Builds the Windows installer (NSIS, unsigned) from macOS or Linux: x64, WINDOWS_ARCH=arm64 for ARM
 windows-build *args:
     {{no_extra}}scripts/windows.sh build {{args}}
 
