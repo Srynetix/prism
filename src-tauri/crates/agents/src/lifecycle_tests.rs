@@ -729,3 +729,37 @@ async fn archiving_a_blocked_run_frees_its_routine() {
     // Its next time runs again.
     b.agents.run_routine_now("Nightly", None).unwrap();
 }
+
+#[tokio::test]
+async fn a_task_goes_to_a_shell_just_started_and_a_busy_one_refuses_it() {
+    let b = Bench::new();
+    let id = b.agents.spawn(b.launch("Build")).await.unwrap();
+    // No shell yet: one is started, still `tmux` for a moment on Linux, and takes the line at once.
+    b.agents.run_in_shell(&id, None, "just test", true, false).await.unwrap();
+    let typed = b.tmux.calls_of("send-keys").into_iter().any(|c| c.iter().any(|a| a == "just test"));
+    assert!(typed, "the task typed into the new shell");
+    // A shell running a program still refuses it (Ctrl-C offered).
+    let vim = shell_key(&id, 2);
+    b.tmux.run(&["new-session", "-d", "-s", &Tmux::session(&vim), "--", "vim"]).unwrap();
+    let err = b.agents.run_in_shell(&id, Some(2), "just test", true, false).await.unwrap_err();
+    assert!(err.to_string().contains("busy with vim"), "{err}");
+}
+
+#[tokio::test]
+async fn a_shell_still_starting_is_not_busy() {
+    let b = Bench::new();
+    let id = b.agents.spawn(b.launch("Build")).await.unwrap();
+    // Listed while it starts (`tmux`): free, so the Tasks tab takes it rather than another one.
+    b.agents.shell(&id, Some(1)).await.unwrap();
+    let shells = b.agents.shells(&id).await.unwrap();
+    assert_eq!(shells.iter().map(|s| (s.n, s.command.as_str(), s.busy)).collect::<Vec<_>>(), [(1, "tmux", false)]);
+    // A task run in a shell still starting waits for it, then goes.
+    let key = shell_key(&id, 3);
+    b.tmux.run(&["new-session", "-d", "-s", &Tmux::session(&key)]).unwrap();
+    b.agents.run_in_shell(&id, Some(3), "just lint", true, false).await.unwrap();
+    let typed = b.tmux.calls_of("send-keys").into_iter().any(|c| c.iter().any(|a| a == "just lint"));
+    assert!(typed, "the task typed once the shell started");
+    let looks = b.tmux.calls_of("list-panes").into_iter().filter(|c| c.contains(&Tmux::session(&key))).count();
+    // Opened (tmux), held (tmux), looked again 100 ms later (sh).
+    assert_eq!(looks, 3, "looked again until it was no longer tmux");
+}
