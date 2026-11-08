@@ -78,7 +78,7 @@ bind -T copy-mode-vi TripleClick1Pane select-pane \\; send -X select-line \\; if
 ";
 
 /// A shell's session as `all_shells` reads it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ShellSession {
     /// An agent's id, or a worktree's or pod's fingerprint.
     pub owner: String,
@@ -93,7 +93,7 @@ pub struct ShellSession {
 }
 
 /// Terminal state of an agent's tmux session.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Pane {
     Alive,
     /// Claude has exited; the screen stays displayed (`remain-on-exit`).
@@ -136,6 +136,7 @@ fn key_bytes(keys: &[&str]) -> Option<String> {
 
 #[cfg(test)]
 pub mod fake;
+pub mod daemon;
 pub mod local;
 
 pub use prism_core::agents::local_sessions;
@@ -203,7 +204,7 @@ impl Tmux {
     pub async fn shells(&self, id: &str) -> Result<Vec<(u32, String)>> {
         if self.local {
             let id = id.to_string();
-            return Ok(tokio::task::spawn_blocking(move || local::server().shells()).await?.into_iter().filter(|s| s.owner == id).map(|s| (s.n, s.command)).collect());
+            return Ok(engine(|e| e.shells()).await?.into_iter().filter(|s| s.owner == id).map(|s| (s.n, s.command)).collect());
         }
         let out = match self.run(&["list-panes", "-a", "-F", "#{session_name}\t#{pane_current_command}"]).await {
             Ok(out) => out,
@@ -226,7 +227,7 @@ impl Tmux {
     /// it started in, when (Unix seconds), the program in its foreground, its `@prism-pod`.
     pub async fn all_shells(&self) -> Result<Vec<ShellSession>> {
         if self.local {
-            return Ok(tokio::task::spawn_blocking(|| local::server().shells()).await?);
+            return engine(|e| e.shells()).await;
         }
         let out = match self.run(&["list-panes", "-a", "-F", "#{session_name}\t#{session_path}\t#{session_created}\t#{pane_current_command}\t#{@prism-pod}"]).await {
             Ok(out) => out,
@@ -239,7 +240,8 @@ impl Tmux {
     /// Sets a user option (`@<name>`) on a session: what Prism notes about it, read back by `all_shells`.
     pub async fn set_note(&self, key: &str, name: &str, value: &str) -> Result<()> {
         if self.local {
-            return local::server().set_note(&Self::session(key), name, value);
+            let (session, name, value) = (Self::session(key), name.to_string(), value.to_string());
+            return engine(move |e| e.set_note(&session, &name, &value)).await?;
         }
         self.run(&["set-option", "-t", &Self::session(key), &format!("@{name}"), value]).await.map(drop)
     }
@@ -325,7 +327,8 @@ impl Tmux {
     pub async fn new_session(&self, id: &str, cwd: &Path, env: &[String], argv: &[String]) -> Result<()> {
         let name = Self::session(id);
         if self.local {
-            return local::server().new_session(&name, cwd, env, argv);
+            let (cwd, env, argv) = (cwd.to_path_buf(), env.to_vec(), argv.to_vec());
+            return engine(move |e| e.new_session(&name, &cwd, &env, &argv)).await?;
         }
         let cwd = cwd.display().to_string();
         let mut args = vec!["new-session", "-d", "-s", &name, "-x", "120", "-y", "40", "-c", &cwd, "-e", "COLORTERM=truecolor"];
@@ -356,7 +359,8 @@ impl Tmux {
     pub async fn respawn(&self, id: &str, cwd: &Path, env: &[String], argv: &[String]) -> Result<()> {
         let name = Self::session(id);
         if self.local {
-            return local::server().respawn(&name, cwd, env, argv);
+            let (cwd, env, argv) = (cwd.to_path_buf(), env.to_vec(), argv.to_vec());
+            return engine(move |e| e.respawn(&name, &cwd, &env, &argv)).await?;
         }
         let cwd = cwd.display().to_string();
         let mut args = vec!["respawn-pane", "-k", "-t", &name, "-c", &cwd, "-e", "COLORTERM=truecolor"];
@@ -369,7 +373,7 @@ impl Tmux {
     /// Agent sessions of the server, by identifier. With no server (no agent), nothing.
     pub async fn panes(&self) -> Result<HashMap<String, Pane>> {
         if self.local {
-            return Ok(local::agent_panes(local::server().panes()));
+            return Ok(local::agent_panes(engine(|e| e.panes()).await?));
         }
         let out = match self.run(&["list-panes", "-a", "-F", "#{session_name}\t#{pane_dead}\t#{pane_dead_status}"]).await {
             Ok(out) => out,
@@ -383,7 +387,7 @@ impl Tmux {
     pub async fn pane(&self, key: &str) -> Result<Option<(Pane, String)>> {
         if self.local {
             let name = Self::session(key);
-            return Ok(tokio::task::spawn_blocking(move || local::server().pane(&name)).await?);
+            return engine(move |e| e.pane(&name)).await;
         }
         let out = match self.run(&["list-panes", "-t", &Self::session(key), "-F", "#{pane_dead}\t#{pane_dead_status}\t#{pane_current_command}"]).await {
             Ok(out) => out,
@@ -401,7 +405,8 @@ impl Tmux {
     /// Unlike an agent's, a shell's session ends with its shell (`exit`): no last screen to keep.
     pub async fn end_with_program(&self, key: &str) -> Result<()> {
         if self.local {
-            return local::server().end_with_program(&Self::session(key));
+            let session = Self::session(key);
+            return engine(move |e| e.end_with_program(&session)).await?;
         }
         self.run(&["set-option", "-t", &Self::session(key), "remain-on-exit", "off"]).await.map(drop)
     }
@@ -409,7 +414,8 @@ impl Tmux {
     pub async fn send_keys(&self, id: &str, keys: &[&str]) -> Result<()> {
         let name = Self::session(id);
         if self.local {
-            return local::server().send_keys(&name, keys);
+            let keys: Vec<String> = keys.iter().map(|k| k.to_string()).collect();
+            return engine(move |e| e.send_keys(&name, &keys.iter().map(String::as_str).collect::<Vec<_>>())).await?;
         }
         let mut args = vec!["send-keys", "-t", &name];
         args.extend(keys);
@@ -431,7 +437,8 @@ impl Tmux {
     pub async fn paste(&self, id: &str, text: &str) -> Result<()> {
         let name = Self::session(id);
         if self.local {
-            return local::server().paste(&name, text);
+            let text = text.to_string();
+            return engine(move |e| e.paste(&name, &text)).await?;
         }
         let buffer = format!("prism-{id}");
         // On its stdin, not in its arguments: a long prompt too.
@@ -461,7 +468,7 @@ impl Tmux {
     pub async fn kill(&self, id: &str) -> Result<()> {
         if self.local {
             let name = Self::session(id);
-            tokio::task::spawn_blocking(move || local::server().kill(&name)).await?;
+            engine(move |e| e.kill(&name)).await?;
             return Ok(());
         }
         match self.run(&["kill-session", "-t", &Self::session(id)]).await {
@@ -496,7 +503,8 @@ impl Tmux {
     /// last `lines` of it. Without `screen`, the history only: what scrolled off the screen.
     pub async fn history(&self, id: &str, lines: u32, screen: bool) -> Result<String> {
         if self.local {
-            return local::server().history(&Self::session(id), lines, screen);
+            let session = Self::session(id);
+            return engine(move |e| e.history(&session, lines, screen)).await?;
         }
         let start = format!("-{lines}");
         let session = Self::session(id);
@@ -510,7 +518,8 @@ impl Tmux {
     /// The pane's visible screen as text, with its colours (`-e`).
     pub async fn screen(&self, id: &str) -> Result<String> {
         if self.local {
-            return local::server().screen(&Self::session(id));
+            let session = Self::session(id);
+            return engine(move |e| e.screen(&session)).await?;
         }
         self.run(&["capture-pane", "-p", "-e", "-t", &Self::session(id)]).await
     }
@@ -525,7 +534,8 @@ impl Tmux {
             return out;
         }
         if self.local {
-            return ids.iter().filter_map(|id| Some((id.clone(), local::server().screen(&Self::session(id)).ok()?))).collect();
+            let ids = ids.to_vec();
+            return engine(move |e| ids.iter().filter_map(|id| Some((id.clone(), e.screen(&Self::session(id)).ok()?))).collect()).await.unwrap_or_default();
         }
         let sessions: Vec<String> = ids.iter().map(|id| Self::session(id)).collect();
         let marks: Vec<String> = ids.iter().map(|id| format!("{SCREEN_MARK}{id}")).collect();
@@ -558,7 +568,8 @@ impl Tmux {
     /// The agent's window, in columns and rows.
     pub async fn window_size(&self, id: &str) -> Result<(u16, u16)> {
         if self.local {
-            return local::server().window_size(&Self::session(id));
+            let session = Self::session(id);
+            return engine(move |e| e.window_size(&session)).await?;
         }
         let out = self.run(&["display-message", "-p", "-t", &Self::session(id), "#{window_width} #{window_height}"]).await?;
         let mut it = out.split_whitespace().map(|n| n.parse::<u16>().unwrap_or(0));
@@ -575,7 +586,7 @@ impl Tmux {
                 Client::Desk => (Some((cols, rows)), false),
                 Client::Watch { sized } => (sized.then_some((cols, rows)), true),
             };
-            let attached = local::server().attach(&Self::session(id), size, read_only, Box::new(on_data), Box::new(on_end))?;
+            let attached = local::engine().attach(&Self::session(id), size, read_only, Box::new(on_data), Box::new(on_end))?;
             return Ok(crate::pty::Attachment::local(label, attached, token));
         }
         let argv = match client {
@@ -601,6 +612,12 @@ impl Tmux {
 
 /// No server to answer: none running, or the one asked stopping meanwhile (its last session
 /// gone, tmux answers one of the last two while it exits).
+/// A call to Prism's own sessions (`local::engine`), off the runtime: through `prism sessions`, it
+/// waits on a pipe (and, the first time, for it to start).
+async fn engine<T: Send + 'static>(f: impl FnOnce(&'static dyn local::Engine) -> T + Send + 'static) -> Result<T> {
+    Ok(tokio::task::spawn_blocking(move || f(local::engine())).await?)
+}
+
 fn is_no_server(e: &anyhow::Error) -> bool {
     let msg = e.to_string();
     ["no server running", "error connecting", "server exited unexpectedly", "lost server"].iter().any(|m| msg.contains(m))

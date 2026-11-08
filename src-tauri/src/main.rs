@@ -164,9 +164,6 @@ fn main() {
                 tauri::async_runtime::block_on(async { tokio::time::timeout(std::time::Duration::from_secs(5), remote.apply(&Default::default())).await.ok() });
                 #[cfg(any(target_os = "macos", target_os = "linux"))]
                 audio::now_playing::stop();
-                // The sessions Prism holds itself (Windows) stop with it: their agents resume at
-                // the next launch.
-                prism_agents::tmux::local::server().stop_all();
             }
             _ => {
                 let _ = app;

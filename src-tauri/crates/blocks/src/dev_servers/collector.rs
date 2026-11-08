@@ -86,7 +86,7 @@ pub async fn stop(key: &str) -> Result<()> {
     }
     r.memory.lock().unwrap().stopping.insert(key.to_string());
     if key.starts_with(crate::agents::tmux::SHELL) && crate::agents::tmux::local_sessions() {
-        crate::agents::tmux::local::server().send_keys(&crate::agents::tmux::Tmux::session(key), &["C-c"])?;
+        crate::agents::tmux::local::engine().send_keys(&crate::agents::tmux::Tmux::session(key), &["C-c"])?;
     } else if key.starts_with(crate::agents::tmux::SHELL) {
         tmux(&["send-keys", "-t", &crate::agents::tmux::Tmux::session(key), "C-c"]).await?;
     } else if let Some(name) = key.strip_prefix("docker:") {
@@ -325,7 +325,7 @@ async fn tmux(args: &[&str]) -> Result<String> {
 
 async fn panes() -> Result<Vec<PaneInfo>> {
     if crate::agents::tmux::local_sessions() {
-        let list = tokio::task::spawn_blocking(|| crate::agents::tmux::local::server().processes()).await?;
+        let list = tokio::task::spawn_blocking(|| crate::agents::tmux::local::engine().processes()).await?;
         let lines: Vec<String> = list.into_iter().filter_map(|(name, pid, command, dead)| Some(format!("{name}\t{}\t{command}\t{}", pid?, if dead { 1 } else { 0 }))).collect();
         return Ok(parse_panes(&lines.join("\n")));
     }
@@ -361,7 +361,7 @@ fn parse_panes(out: &str) -> Vec<PaneInfo> {
 /// A shell's last non-empty lines.
 async fn tail(key: &str) -> Result<String> {
     let session = crate::agents::tmux::Tmux::session(key);
-    let out = if crate::agents::tmux::local_sessions() { crate::agents::tmux::local::server().text(&session, 60)? } else { tmux(&["capture-pane", "-p", "-J", "-t", &session, "-S", "-60"]).await? };
+    let out = if crate::agents::tmux::local_sessions() { crate::agents::tmux::local::engine().text(&session, 60)? } else { tmux(&["capture-pane", "-p", "-J", "-t", &session, "-S", "-60"]).await? };
     let lines: Vec<&str> = out.lines().map(str::trim_end).collect();
     let end = lines.iter().rposition(|l| !l.is_empty()).map_or(0, |i| i + 1);
     // The prompt the shell is back at is not part of why it stopped.

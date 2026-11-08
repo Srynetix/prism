@@ -24,7 +24,7 @@ enum Client {
         killer: Box<dyn ChildKiller + Send + Sync>,
     },
     /// A client of one of Prism's own sessions.
-    Local(crate::tmux::local::LocalClient),
+    Local(Box<dyn crate::tmux::local::Attached>),
 }
 
 /// Diagnostics, with `PRISM_TRACE_AGENTS=1` only: everything the terminal sends to an agent
@@ -110,7 +110,7 @@ impl Attachment {
     }
 
     /// A client of one of Prism's own sessions (`tmux::local`).
-    pub fn local(label: &str, client: crate::tmux::local::LocalClient, token: u64) -> Self {
+    pub fn local(label: &str, client: Box<dyn crate::tmux::local::Attached>, token: u64) -> Self {
         Self { client: Client::Local(client), token, label: format!("{label}#{token}") }
     }
 

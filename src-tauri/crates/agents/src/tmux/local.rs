@@ -1,7 +1,8 @@
 //! Sessions Prism holds itself, in place of its tmux server where there is none (Windows, its
 //! ConPTY): each one a pseudo-terminal running its program, its screen and history kept by a
-//! terminal emulator (`vt100`), the terminals attached to it fed what it prints. They live in
-//! Prism's process and stop with it: an agent is resumed at the next launch, not found running.
+//! terminal emulator (`vt100`), the terminals attached to it fed what it prints. They live in a
+//! process of their own, `prism sessions` (`daemon`), that outlives the window as tmux's server
+//! does: Prism reaches them through `engine`.
 //!
 //! What tmux does for Prism and this does too: a session per agent or shell, named as tmux names
 //! it (`Tmux::session`); several clients, the window taking the size of the latest to ask
@@ -27,9 +28,107 @@ const HISTORY: usize = 20_000;
 /// This process's sessions, by tmux name.
 static SERVER: LazyLock<Server> = LazyLock::new(Server::default);
 
-/// The process's sessions.
+/// The process's sessions: `prism sessions`' (`daemon`), or the tests'.
 pub fn server() -> &'static Server {
     &SERVER
+}
+
+/// Where Prism's sessions are: `prism sessions`, started when a session is first needed; this
+/// process's own in the tests, or with `PRISM_SESSIONS=inprocess` (they stop with Prism then).
+pub fn engine() -> &'static dyn Engine {
+    static REMOTE: LazyLock<super::daemon::Remote> = LazyLock::new(super::daemon::Remote::profile);
+    if cfg!(test) || std::env::var("PRISM_SESSIONS").is_ok_and(|v| v == "inprocess") {
+        server()
+    } else {
+        &*REMOTE
+    }
+}
+
+/// What Prism asks of its sessions: `Server`'s, in this process or through `prism sessions`.
+pub trait Engine: Send + Sync {
+    fn new_session(&self, name: &str, cwd: &Path, env: &[String], argv: &[String]) -> Result<()>;
+    fn respawn(&self, name: &str, cwd: &Path, env: &[String], argv: &[String]) -> Result<()>;
+    fn kill(&self, name: &str);
+    fn panes(&self) -> Vec<(String, Pane)>;
+    fn pane(&self, name: &str) -> Option<(Pane, String)>;
+    fn processes(&self) -> Vec<(String, Option<u32>, String, bool)>;
+    fn shells(&self) -> Vec<ShellSession>;
+    fn set_note(&self, name: &str, key: &str, value: &str) -> Result<()>;
+    fn end_with_program(&self, name: &str) -> Result<()>;
+    fn send_keys(&self, name: &str, keys: &[&str]) -> Result<()>;
+    fn paste(&self, name: &str, text: &str) -> Result<()>;
+    fn history(&self, name: &str, lines: u32, screen: bool) -> Result<String>;
+    fn text(&self, name: &str, lines: u32) -> Result<String>;
+    fn screen(&self, name: &str) -> Result<String>;
+    fn window_size(&self, name: &str) -> Result<(u16, u16)>;
+    fn attach(&self, name: &str, size: Option<(u16, u16)>, read_only: bool, on_data: OnData, on_end: OnEnd) -> Result<Box<dyn Attached>>;
+}
+
+/// A terminal attached to a session (`Engine::attach`): it types, it resizes the window. Dropped,
+/// it detaches.
+pub trait Attached: Send {
+    fn write(&self, data: &[u8]) -> Result<()>;
+    fn resize(&self, cols: u16, rows: u16);
+}
+
+impl Engine for Server {
+    fn new_session(&self, name: &str, cwd: &Path, env: &[String], argv: &[String]) -> Result<()> {
+        Server::new_session(self, name, cwd, env, argv)
+    }
+    fn respawn(&self, name: &str, cwd: &Path, env: &[String], argv: &[String]) -> Result<()> {
+        Server::respawn(self, name, cwd, env, argv)
+    }
+    fn kill(&self, name: &str) {
+        Server::kill(self, name);
+    }
+    fn panes(&self) -> Vec<(String, Pane)> {
+        Server::panes(self)
+    }
+    fn pane(&self, name: &str) -> Option<(Pane, String)> {
+        Server::pane(self, name)
+    }
+    fn processes(&self) -> Vec<(String, Option<u32>, String, bool)> {
+        Server::processes(self)
+    }
+    fn shells(&self) -> Vec<ShellSession> {
+        Server::shells(self)
+    }
+    fn set_note(&self, name: &str, key: &str, value: &str) -> Result<()> {
+        Server::set_note(self, name, key, value)
+    }
+    fn end_with_program(&self, name: &str) -> Result<()> {
+        Server::end_with_program(self, name)
+    }
+    fn send_keys(&self, name: &str, keys: &[&str]) -> Result<()> {
+        Server::send_keys(self, name, keys)
+    }
+    fn paste(&self, name: &str, text: &str) -> Result<()> {
+        Server::paste(self, name, text)
+    }
+    fn history(&self, name: &str, lines: u32, screen: bool) -> Result<String> {
+        Server::history(self, name, lines, screen)
+    }
+    fn text(&self, name: &str, lines: u32) -> Result<String> {
+        Server::text(self, name, lines)
+    }
+    fn screen(&self, name: &str) -> Result<String> {
+        Server::screen(self, name)
+    }
+    fn window_size(&self, name: &str) -> Result<(u16, u16)> {
+        Server::window_size(self, name)
+    }
+    fn attach(&self, name: &str, size: Option<(u16, u16)>, read_only: bool, on_data: OnData, on_end: OnEnd) -> Result<Box<dyn Attached>> {
+        Ok(Box::new(Server::attach(self, name, size, read_only, on_data, on_end)?))
+    }
+}
+
+impl Attached for LocalClient {
+    fn write(&self, data: &[u8]) -> Result<()> {
+        LocalClient::write(self, data)
+    }
+    fn resize(&self, cols: u16, rows: u16) {
+        LocalClient::resize(self, cols, rows);
+    }
 }
 
 type Sessions = Arc<Mutex<HashMap<String, Arc<Session>>>>;
@@ -72,8 +171,8 @@ struct Pty {
     pid: Option<u32>,
 }
 
-type OnData = Box<dyn Fn(Vec<u8>) + Send>;
-type OnEnd = Box<dyn FnOnce() + Send>;
+pub type OnData = Box<dyn Fn(Vec<u8>) + Send>;
+pub type OnEnd = Box<dyn FnOnce() + Send>;
 
 struct Client {
     id: u64,
@@ -133,12 +232,9 @@ impl Server {
         session.start(cwd, env, argv)
     }
 
-    /// Every session killed: Prism quits.
-    pub fn stop_all(&self) {
-        let all: Vec<Arc<Session>> = self.sessions.lock().unwrap().drain().map(|(_, s)| s).collect();
-        for session in all {
-            session.close();
-        }
+    /// No session: `prism sessions` ends once it holds none.
+    pub fn is_empty(&self) -> bool {
+        self.sessions.lock().unwrap().is_empty()
     }
 
     pub fn kill(&self, name: &str) {

@@ -212,7 +212,7 @@ fn parse_vm_stat(text: &str) -> Option<(u64, u64, u64)> {
 /// of what runs in it.
 async fn panes() -> Vec<(String, u32)> {
     if crate::agents::tmux::local_sessions() {
-        let list = tokio::task::spawn_blocking(|| crate::agents::tmux::local::server().processes()).await.unwrap_or_default();
+        let list = tokio::task::spawn_blocking(|| crate::agents::tmux::local::engine().processes()).await.unwrap_or_default();
         return list.into_iter().filter_map(|(name, pid, _, _)| Some((name, pid?))).collect();
     }
     let out = crate::platform::command("tmux").args(["-L", &crate::profile::tmux_socket(), "list-panes", "-a", "-F", "#{session_name} #{pane_pid}"]).output().await;
