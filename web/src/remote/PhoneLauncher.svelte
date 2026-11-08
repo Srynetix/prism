@@ -2,7 +2,7 @@
   import Icon from '../components/Icon.svelte'
   import { live } from '../live.svelte'
   import { hasCore, invoke } from '../bridge'
-  import { afterLaunch, agentsSettings, attachFiles, closeAgent, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, mention, openAgents, planWorktree, prepareAgent, slug, spawnAgent, toastLaunched, type Launch, type WorktreePlan } from '../agents.svelte'
+  import { afterLaunch, agentsSettings, attachFiles, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, mention, openAgents, planWorktree, prepareAgent, slug, spawnAgent, toastLaunched, type Launch, type WorktreePlan } from '../agents.svelte'
   import { hasWorktrees, primaryRepo } from '../repositories'
   import { CLIS, cliOf, providerOf } from '../agent-cli'
   import { choices, effortsKey, loadEfforts, loadModels } from '../settings.svelte'
@@ -28,7 +28,7 @@
   type Where = 'new' | 'existing' | 'clone' | 'folder'
   const MODES: [Mode, string, string][] = [
     ['plan', t('Plan'), t('You approve its plan before it touches the code.')],
-    ['default', t('Ask'), t('It asks before each edit and each command.')],
+    ['default', t('Ask'), t('The mode of your CLI’s settings: usually it asks before each edit and each command.')],
     ['acceptEdits', t('Edits alone'), t('It edits files on its own, and asks before a command.')],
   ]
   const isMode = (m: unknown): m is Mode => m === 'plan' || m === 'default' || m === 'acceptEdits'
@@ -39,7 +39,6 @@
   const repos = $derived((snap?.repos ?? []).filter((r) => r.path && !r.error))
 
   let prompt = $state('')
-  let field = $state<HTMLTextAreaElement>()
   let repo = $state('')
   let whereTo = $state<Where>('new')
   /** A folder the draft names that is neither a worktree nor a clone (an agent's): kept as is. */
@@ -49,8 +48,11 @@
   let branch = $state('')
   let base = $state('')
   let picked = $state<AgentProvider | ''>('')
-  let model = $state('')
-  let effort = $state('')
+  /** The model and the effort picked for each CLI (a model is one CLI's); empty: its own. */
+  let models = $state<Partial<Record<AgentProvider, string>>>({})
+  let efforts = $state<Partial<Record<AgentProvider, string>>>({})
+  /** Other repositories its new worktree is made in too (a draft's `worktree.also`). */
+  let also = $state<string[]>([])
   let mode = $state<Mode>('plan')
   let category = $state('')
   let tags = $state<string[]>([])
@@ -58,7 +60,6 @@
   let from = $state('')
   let prismMcp = $state(false)
   let title = $state('')
-  let replacing = $state('')
   let more = $state(false)
   let showRepos = $state(false)
   let busy = $state(false)
@@ -66,10 +67,18 @@
 
   /** The repository first offered: the draft's, failing that the last one launched in, the primary one. */
   const lastRepo = () => pref<string>('phone.launch.repo', '')
+  /** The repository offered when the draft names none: the last one launched in, the primary one, the first; among those making worktrees when `worktrees`. */
+  function defaultRepo(worktrees = false) {
+    const ok = repos.filter((r) => !worktrees || hasWorktrees(r.name))
+    const pool = ok.length ? ok : repos
+    return (pool.find((r) => r.name === lastRepo()) ?? pool.find((r) => r.name === primaryRepo(live.snapshot)?.name) ?? pool[0])?.name ?? ''
+  }
   function placeOf(d: Launch) {
     const s = live.snapshot
     if (d.worktree) {
-      repo = d.worktree.repo ?? (repos.find((r) => hasWorktrees(r.name)) ?? repos[0])?.name ?? ''
+      // Its repository when it has a clone here (a phone launches in nothing else), failing that the default one.
+      repo = repos.some((r) => r.name === d.worktree?.repo) ? d.worktree.repo! : defaultRepo(true)
+      // A repository that makes no worktree: its clone, said in the Where line.
       whereTo = hasWorktrees(repo) ? 'new' : 'clone'
       return
     }
@@ -92,8 +101,7 @@
       whereTo = 'folder'
       return
     }
-    const last = lastRepo()
-    repo = (repos.find((r) => r.name === last) ?? repos.find((r) => r.name === primaryRepo(s)?.name) ?? repos[0])?.name ?? ''
+    repo = defaultRepo()
     whereTo = hasWorktrees(repo) ? 'new' : 'clone'
   }
 
@@ -106,13 +114,16 @@
     title = d.title ?? ''
     error = ''
     folder = ''
+    dropAttached()
     placeOf(d)
     name = d.worktree?.name ? slug(d.worktree.name) : ''
     branch = d.worktree?.branch ?? ''
     base = d.worktree?.base ?? ''
     picked = d.provider ?? ''
-    model = d.model ?? ''
-    effort = d.effort ?? ''
+    const cli = d.provider ?? providerOf(repo || undefined)
+    models = d.model ? { [cli]: d.model } : {}
+    efforts = d.effort ? { [cli]: d.effort } : {}
+    also = d.worktree?.also ?? []
     const last = pref<string>('phone.launch.mode', '')
     mode = isMode(d.permission_mode) ? d.permission_mode : isMode(last) ? last : 'plan'
     category = d.category ?? ''
@@ -120,7 +131,6 @@
     steps = d.then ? structuredClone($state.snapshot(d.then)) : []
     from = d.from ?? ''
     prismMcp = d.prism_mcp ?? false
-    replacing = launcherDrawer.replacing ?? ''
     launcherDrawer.replacing = null
     launcherDrawer.sameAs = null
     launcherDrawer.quick = false
@@ -134,6 +144,7 @@
     whereTo = hasWorktrees(r) ? 'new' : 'clone'
     wtPath = ''
     name = branch = base = ''
+    also = also.filter((x) => x !== r)
   }
   /** The repositories in chips: the one picked first, then the last one launched in, then the rest. */
   const ordered = $derived.by(() => {
@@ -153,6 +164,8 @@
   const provider = $derived(picked || providerOf(repo || undefined))
   const cliModel = $derived(agentsSettings()[provider]?.model ?? null)
   const takesEffort = $derived(CLIS[provider].takes_effort)
+  const model = $derived(models[provider] ?? '')
+  const effort = $derived(efforts[provider] ?? '')
   $effect(() => {
     if (more) loadModels(provider)
   })
@@ -165,7 +178,9 @@
 
   const autoTitle = $derived(title.trim() || (prompt.trim().split('\n')[0] ?? '').slice(0, 60).trim())
   const autoName = $derived(slug(prompt.replace(/@\S+/g, '').trim().split(/\s+/).slice(0, 4).join(' ')))
-  const newWorktree = $derived({ name: name ? slug(name) : branch ? undefined : slug(title) || autoName || undefined, branch: branch || undefined, repo: repo || undefined, base: (!branch && base.trim()) || undefined })
+  /** Its other repositories, while its CLI can work in several folders. */
+  const alsoIn = $derived(CLIS[provider].takes_dirs ? also.filter((x) => x !== repo) : [])
+  const newWorktree = $derived({ name: name ? slug(name) : branch ? undefined : slug(title) || autoName || undefined, branch: branch || undefined, repo: repo || undefined, base: (!branch && base.trim()) || undefined, also: alsoIn.length ? alsoIn : undefined })
 
   /** The new worktree as Prism will make it (its name, branch and base), asked after a short pause. */
   let plan = $state<WorktreePlan | null>(null)
@@ -196,7 +211,6 @@
     prism_mcp: prismMcp || undefined,
     ...(whereTo === 'new' ? { worktree: newWorktree } : { cwd }),
   })
-  const ready = $derived(whereTo === 'new' ? !!repo && !plan?.error : !!cwd)
 
   /** What Launch does, in a line under it. */
   const summary = $derived(
@@ -213,7 +227,7 @@
     whereTo === 'new'
       ? branch
         ? t('new worktree on {branch}', { branch })
-        : t('new worktree from {base}', { base: base.trim() || plan?.base || 'main' })
+        : t('new worktree from {base}', { base: base.trim() || plan?.base || 'main' }) + (alsoIn.length ? ` · ${t('also in {repos}', { repos: alsoIn.join(', ') })}` : '')
       : whereTo === 'existing'
         ? t('in the worktree {name}', { name: baseName(wtPath) || '—' })
         : whereTo === 'clone'
@@ -240,6 +254,14 @@
       attaching = false
     }
   }
+  /** The previews let go (closed, or another draft): the files stay on the computer, unmentioned. */
+  function dropAttached() {
+    for (const a of attached) if (a.url) URL.revokeObjectURL(a.url)
+    attached = []
+  }
+  $effect(() => () => {
+    for (const a of attached) if (a.url) URL.revokeObjectURL(a.url)
+  })
   function detach(i: number) {
     const a = attached[i]
     prompt = prompt.replace(mention(a.path), '').replace(/ {2,}/g, ' ')
@@ -249,17 +271,33 @@
 
   /* ---------- Then: its steps, those a phone may add (`phone_then`) ---------- */
   let tasks = $state<string[]>([])
+  /** `tasks` are the folder's now picked (not still loading, nor another folder's). */
+  let tasksFor = $state('')
+  const where = $derived(whereTo === 'new' ? { repo: repo || null } : { cwd })
+  const whereKey = $derived(JSON.stringify(where))
+  const hasTaskStep = $derived(steps.some((st) => st.kind === 'task'))
   $effect(() => {
-    const where = whereTo === 'new' ? { repo: repo || null } : { cwd }
-    if (!more || !hasCore()) return
+    const at = where
+    const key = whereKey
+    if (!(more || hasTaskStep) || !hasCore()) return
     let gone = false
-    invoke<string[]>('launch_tasks', where).then((l) => !gone && (tasks = l), () => !gone && (tasks = []))
+    invoke<string[]>('launch_tasks', at).then((l) => !gone && ((tasks = l), (tasksFor = key)), () => !gone && ((tasks = []), (tasksFor = key)))
     return () => {
       gone = true
     }
   })
+  const testTask = () => tasks.find((tk) => /\btest\b/.test(tk)) ?? tasks[0] ?? ''
+  // Its task steps on the folder's tasks: loaded after the step was added, or another folder picked.
+  const tasksReady = $derived(tasksFor === whereKey)
+  $effect(() => {
+    if (!tasksReady) return
+    for (const st of steps) if (st.kind === 'task' && !tasks.includes(st.command ?? '')) st.command = testTask()
+  })
+  /** A task step names one of the folder's tasks (`phone_then` refuses any other). */
+  const stepsOk = $derived(!hasTaskStep || (tasksReady && steps.every((st) => st.kind !== 'task' || (!!st.command && tasks.includes(st.command)))))
+  const ready = $derived((whereTo === 'new' ? !!repo && !plan?.error : !!cwd) && stepsOk)
   function addStep(kind: StepKind) {
-    const test = tasks.find((tk) => /\btest\b/.test(tk)) ?? tasks[0] ?? ''
+    const test = testTask()
     steps.push(kind === 'task' ? { kind, when: 'done', command: test } : kind === 'prompt' ? { kind, when: 'done', text: '' } : kind === 'mr' ? { kind, when: 'ok' } : kind === 'agent' ? { kind, when: 'ask', text: 'Review the code of MR !{mr}.' } : { kind, when: 'done' })
   }
   function addTag(input: HTMLInputElement) {
@@ -277,11 +315,9 @@
       const id = await (prepared ? prepareAgent : spawnAgent)(launch)
       setPref('phone.launch.mode', mode)
       if (repo) setPref('phone.launch.repo', repo)
-      if (replacing) await closeAgent(replacing).catch(() => null)
       const effect = launcherDrawer.onLaunch
       launcherDrawer.onLaunch = null
-      for (const a of attached) if (a.url) URL.revokeObjectURL(a.url)
-      attached = []
+      dropAttached()
       closeLauncherDrawer()
       if (prepared) toastLaunched(id, launch.title, true)
       else openAgents(id)
@@ -301,7 +337,8 @@
   }
 </script>
 
-<div class="scrim" role="presentation" onclick={closeLauncherDrawer}></div>
+<!-- A tap beside it does not close it: a prompt being written is not lost to a stray thumb. -->
+<div class="scrim" role="presentation"></div>
 <div class="sheet" role="dialog" aria-modal="true" aria-label={t('New session')}>
   <div class="grab"></div>
   <header>
@@ -310,9 +347,9 @@
     <span class="grow"></span>
     <button class="x" onclick={closeLauncherDrawer} aria-label={t('Close')}><Icon name="close" /></button>
   </header>
-  <form class="scroll" onsubmit={(e) => { e.preventDefault(); void go() }}>
+  <div class="scroll">
     <div class="prompt">
-      <textarea bind:this={field} bind:value={prompt} {@attach focus} placeholder={t('What should it do?')} rows="3" enterkeyhint="enter" onpaste={(e) => { const files = filesOf(e.clipboardData?.files); if (files.length) { e.preventDefault(); void attach(files) } }}></textarea>
+      <textarea bind:value={prompt} {@attach focus} placeholder={t('What should it do?')} rows="3" enterkeyhint="enter" onpaste={(e) => { const files = filesOf(e.clipboardData?.files); if (files.length) { e.preventDefault(); void attach(files) } }}></textarea>
       {#if attached.length}
         <div class="thumbs">
           {#each attached as a, i (a.path)}
@@ -382,11 +419,11 @@
         {:else if whereTo === 'existing'}
           <label class="f"><span>{t('Worktree')}</span><select bind:value={wtPath}>{#each worktrees as w (w.path)}<option value={w.path}>{baseName(w.path)} · {w.branch ?? t('detached')}{w.dirty ? ` · ${t('changes')}` : ''}</option>{/each}</select></label>
         {/if}
-        <label class="f"><span>{t('Model')}</span><input bind:value={model} list="pl-models" placeholder={cliModel ?? t('{cli}’s default', { cli: cliOf(provider).name })} spellcheck="false" autocapitalize="off" autocomplete="off" /></label>
+        <label class="f"><span>{t('Model')}</span><input value={model} oninput={(e) => (models[provider] = e.currentTarget.value)} list="pl-models" placeholder={cliModel ?? t('{cli}’s default', { cli: cliOf(provider).name })} spellcheck="false" autocapitalize="off" autocomplete="off" /></label>
         <datalist id="pl-models">{#each choices.models[provider] ?? [] as m (m)}<option value={m}></option>{/each}</datalist>
         {#if takesEffort}
           <label class="f"><span>{t('Effort')}</span>
-            <select bind:value={effort}>
+            <select value={effort} onchange={(e) => (efforts[provider] = e.currentTarget.value)}>
               <option value="">{agentsSettings()[provider]?.effort ?? t('{cli}’s default', { cli: cliOf(provider).name })}</option>
               {#each effort && !effortChoices.includes(effort) ? [...effortChoices, effort] : effortChoices as e (e)}<option value={e}>{e}</option>{/each}
             </select>
@@ -421,12 +458,13 @@
           {/each}
           <div class="chips wrap">{#each STEP_KINDS as k (k)}<button type="button" class="chip" onclick={() => addStep(k)}>+ {STEP_LABEL[k]}</button>{/each}</div>
           {#if steps.length}<p class="hint">{t('The computer runs them; a task needs critical actions on.')}</p>{/if}
+          {#if tasksReady && !stepsOk}<p class="err">{t('No task in this folder')}</p>{/if}
         </div>
       </div>
     {/if}
     {#if whereTo === 'new' && plan?.error}<p class="err">{plan.error}</p>{/if}
     {#if error}<p class="err">{error}</p>{/if}
-  </form>
+  </div>
   <footer>
     <button type="button" class="prep" disabled={busy || !ready} onclick={() => go(true)} title={t('Kept in the list, started from the computer or here later')}>{t('Prepare')}</button>
     <button type="button" class="launch" disabled={busy || !ready} onclick={() => go()}>{busy ? t('Launching…') : t('Launch')}<small>{summary}</small></button>

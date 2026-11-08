@@ -164,7 +164,7 @@
     {/if}
     {#if acts}
       {@const quick = quickActionsHere(p.name)}
-      {#if quick.length}<div class="chips quick">{#each quick as a, i (i)}<button class="btn" disabled={busy === p.name} onclick={() => runQuickAction(a, p.name, true)} title={a.prompt}><Icon name="quick" /> {a.name}</button>{/each}</div>{/if}
+      {#if quick.length}<div class="chips quick">{#each quick as a, i (i)}<button class="btn" onclick={() => runQuickAction(a, p.name, true)} title={a.prompt}><Icon name="quick" /> {a.name}</button>{/each}</div>{/if}
     {/if}
     {#if p.next}
       <div class="next"><span class="muted">{tc('project', 'Next')}</span><code>{p.next.id}</code><span class="nm">{p.next.name}</span>{#if acts}<button class="btn" onclick={() => implement(p.next!)} aria-label={t('Implement {ticket}', { ticket: p.next.id })}>▶</button>{/if}</div>

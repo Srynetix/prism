@@ -36,11 +36,6 @@
    * line, the title and the worktree's name taken from the prompt; More options shows it all.
    */
   let quick = $state(false)
-  /**
-   * On the phone (the remote): its "Then" run by Prism on the computer, as the desk's; a task step
-   * is one of the tasks its folder declares, picked, never a command line typed (the computer checks).
-   */
-  const onPhone = document.documentElement.classList.contains('remote')
 
   /**
    * Launcher: a new worktree (default: Prism creates it next to the repository, through its hook
@@ -281,11 +276,11 @@
 
   const STEP_KINDS: [StepKind, string][] = [['task', t('Task')], ['prompt', t('Prompt')], ['mr', t('Draft MR')], ['agent', t('Review agent')], ['notify', t('Notify')]]
   function addStep(kind: StepKind) {
-    steps.push(kind === 'task' ? { kind, when: 'done', command: onPhone ? testTask() ?? '' : '' } : kind === 'prompt' ? { kind, when: 'done', text: '' } : kind === 'mr' ? { kind, when: 'ok' } : kind === 'agent' ? { kind, when: 'ask', text: 'Review the code of MR !{mr}.' } : { kind, when: 'done' })
+    steps.push(kind === 'task' ? { kind, when: 'done', command: '' } : kind === 'prompt' ? { kind, when: 'done', text: '' } : kind === 'mr' ? { kind, when: 'ok' } : kind === 'agent' ? { kind, when: 'ask', text: 'Review the code of MR !{mr}.' } : { kind, when: 'done' })
   }
   /**
    * The tasks of the folder it will run in (a new worktree: its repository's), while Then shows:
-   * a task step's choices on a phone, suggestions at the desk.
+   * a task step's suggestions.
    */
   let tasks = $state<string[]>([])
   const thenShown = $derived((!drawer && !quick) || more)
@@ -298,12 +293,9 @@
       gone = true
     }
   })
-  /** The folder's test task, failing that its first. */
-  const testTask = () => tasks.find((tk) => /\btest\b/.test(tk)) ?? tasks[0]
-  /** A recipe: on a phone, its task is the folder's test task (none: the step left out). */
+  /** A recipe: its steps, as they are. */
   function useRecipe(r: (typeof RECIPES)[number]) {
-    const test = testTask()
-    steps = structuredClone(r.steps).flatMap((st) => (st.kind !== 'task' || !onPhone ? [st] : test ? [{ ...st, command: test }] : []))
+    steps = structuredClone(r.steps)
   }
 
   /* ---------- Files attached to a prompt ---------- */
@@ -418,7 +410,7 @@
       <button type="button" class="drop" disabled={attaching} onclick={() => fileInput?.click()}
         ondragover={(e) => { if (draggedFiles(e)) e.preventDefault() }}
         ondrop={(e) => { const files = filesOf(e.dataTransfer?.files); if (files.length) { e.preventDefault(); void attachToLaunch(files) } }}>
-        {attaching ? t('Attaching…') : onPhone ? t('Attach photos or files') : t('Attach images or files: drop, paste (⌘V) or click')}
+        {attaching ? t('Attaching…') : t('Attach images or files: drop, paste (⌘V) or click')}
       </button>
       <input bind:this={fileInput} type="file" multiple hidden onchange={(e) => { void attachToLaunch(filesOf(e.currentTarget.files)); e.currentTarget.value = '' }} />
     </div>
@@ -517,8 +509,7 @@
           <div class="step">
             <span class="n">{i + 1}</span>
             <span class="k">{STEP_LABEL[s.kind]}</span>
-            {#if s.kind === 'task' && onPhone}<select bind:value={s.command} aria-label={t('Task')}>{#each tasks as tk (tk)}<option value={tk}>{tk}</option>{:else}<option value="">{t('No task in this folder')}</option>{/each}</select>
-            {:else if s.kind === 'task'}<input bind:value={s.command} {@attach suggest(() => tasks)} placeholder={t('Command, e.g. npm test')} spellcheck="false" aria-label={t('Command')} />
+            {#if s.kind === 'task'}<input bind:value={s.command} {@attach suggest(() => tasks)} placeholder={t('Command, e.g. npm test')} spellcheck="false" aria-label={t('Command')} />
             {:else if s.kind === 'prompt' || s.kind === 'agent'}<input bind:value={s.text} placeholder={s.kind === 'agent' ? t('Its prompt: {mr}, {ticket}, {branch} filled in', { mr: '{mr}', ticket: '{ticket}', branch: '{branch}' }) : t('Sent to this agent when it waits for you')} spellcheck="false" writingsuggestions="false" aria-label={t('Prompt')} />
             {:else}<span class="grow"></span>{/if}
             <select bind:value={s.when} aria-label={t('When')}>{#each Object.entries(WHEN_LABEL) as [w, label] (w)}<option value={w}>{label}</option>{/each}</select>
@@ -530,7 +521,7 @@
           <span class="muted">{t('or')}</span>
           {#each RECIPES as r (r.name)}<button type="button" class="recipe" onclick={() => useRecipe(r)} title={r.steps.map((s) => STEP_LABEL[s.kind]).join(' → ')}>{r.name}</button>{/each}
         </div>
-        {#if steps.length}<small class="muted">{t('After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.')}{#if onPhone} {t('The computer runs them; a task needs critical actions on.')}{/if}</small>{/if}
+        {#if steps.length}<small class="muted">{t('After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.')}</small>{/if}
       </div>
     </div>
     {#if kinds.length}
@@ -563,7 +554,7 @@
       <span class="grow"></span>
       {#if canCancel}<button type="button" onclick={() => (onclose ? onclose() : (agentsView.creating = false))}>{t('Cancel')}</button>{/if}
       <button type="button" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)} onclick={() => void launch(true)} title={slot.onLaunch ? t('Declare it without starting it: it waits in the list for Start, its worktree made then. The action’s effect (ticket moved…) applies now') : t('Declare it without starting it: it waits in the list for Start, its worktree made then')}>{t('Prepare')}</button>
-      <button type="submit" class="primary" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)}>{busy ? t('Starting…') : t('Launch')}{#if !onPhone} <kbd>{keys('⌘↩')}</kbd>{/if}</button>
+      <button type="submit" class="primary" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)}>{busy ? t('Starting…') : t('Launch')} <kbd>{keys('⌘↩')}</kbd></button>
     </div>
   </form>
 {/if}

@@ -1014,7 +1014,7 @@ export default {
   'Ask': 'Demande',
   'Edits alone': 'Édite seul',
   'You approve its plan before it touches the code.': 'Vous validez son plan avant qu’il touche au code.',
-  'It asks before each edit and each command.': 'Il demande avant chaque modification et chaque commande.',
+  'The mode of your CLI’s settings: usually it asks before each edit and each command.': 'Le mode des réglages de votre CLI : d’ordinaire, il demande avant chaque modification et chaque commande.',
   'It edits files on its own, and asks before a command.': 'Il modifie les fichiers seul et demande avant une commande.',
   'new worktree': 'nouveau worktree',
   'new worktree from {base}': 'nouveau worktree depuis {base}',
