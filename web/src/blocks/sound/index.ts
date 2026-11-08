@@ -32,7 +32,7 @@ export const sound = {
       t('In the status bar: the output volume and the microphone’s beside it (orange while too low); the wheel sets the volume it is over (output or microphone), a click opens a panel with the output and the microphone (mute, volume, device, “Raise”). With [sound] status_volume off: nothing, unless the microphone is too low.'),
       t('Short: one line for the output, one for the microphone, each with its mute and its volume slider.'),
     ],
-    source: t('Local: the audio devices’ settings (CoreAudio, PulseAudio) every [sound] poll_seconds, and at once after a change. Nothing is listened to and no permission is asked: Prism reads the settings, never the sound. macOS and Linux.'),
+    source: t('Local: the audio devices’ settings (CoreAudio, PulseAudio, Windows’ Core Audio) every [sound] poll_seconds, and at once after a change. Nothing is listened to and no permission is asked: Prism reads the settings, never the sound. macOS, Linux and Windows.'),
   },
   status: { label: t('Sound'), side: 'right', after: 'system' },
   settings: {
@@ -41,7 +41,7 @@ export const sound = {
     sections: [
       {
         id: 'sound', source: 'sound', label: t('Sound'), table: '[sound]', path: ['sound'],
-        intro: t('The Sound block (macOS, Linux): the output and the microphone, their device, volume and mute, changed from the block. Read from CoreAudio’s or PulseAudio’s settings: nothing is listened to, no permission asked. Read at launch.'),
+        intro: t('The Sound block (macOS, Linux, Windows): the output and the microphone, their device, volume and mute, changed from the block. Read from the system’s audio settings: nothing is listened to, no permission asked. Read at launch.'),
         fields: [
           { key: 'enabled', label: t('Sound'), hint: t('On by default: the audio devices’ settings, read locally.'), kind: 'toggle' },
           { key: 'min_input_gain', label: t('Microphone too low'), hint: t('The microphone’s input volume under this in Alerts, notified while an application records from it. 0: never.'), kind: 'number', unit: '%' },

@@ -16,7 +16,7 @@ export const diskUsage = {
       t('Reclaimable: what can be rebuilt, found by its name (node_modules, Rust target/, .venv, .next, DerivedData, the caches, the iOS simulators, Docker’s image, the Trash), with how it is freed; each group goes in two clicks.'),
       t('The bar at the top: the disk, the folder scanned in it, the rest used, and the free space.'),
     ],
-    source: t('Local: the folder read once per scan, on several threads, what the files take on the disk (a sparse disk image counts what it holds, a hard link once). Other disks mounted inside it and folders kept in the cloud only (iCloud Drive, OneDrive…) are not entered. The last scan of each folder is kept in Prism’s data folder, for Δ and to show it again after a restart. macOS and Linux.'),
+    source: t('Local: the folder read once per scan, on several threads, what the files take on the disk (a sparse disk image counts what it holds, a hard link once). Other disks mounted inside it and folders kept in the cloud only (iCloud Drive, OneDrive…) are not entered. The last scan of each folder is kept in Prism’s data folder, for Δ and to show it again after a restart. macOS, Linux and Windows.'),
   },
   settings: {
     parent: 'infra',
@@ -27,7 +27,7 @@ export const diskUsage = {
         intro: t('The Disk usage block (macOS, Linux): a folder or a disk scanned on demand, where its space goes, and what can be rebuilt freed from the block. Nothing is read until a scan is asked for.'),
         fields: [
           { key: 'enabled', label: t('Disk usage'), hint: t('On by default: nothing is read until you scan.'), kind: 'toggle' },
-          { key: 'roots', label: t('Folders offered'), hint: t('Offered to scan, one per line: ~ for the home folder, / for the whole disk. Any other can be chosen from the block.'), kind: 'list' },
+          { key: 'roots', label: t('Folders offered'), hint: t('Offered to scan, one per line: ~ for the home folder, / for the whole disk (C: on Windows). Any other can be chosen from the block.'), kind: 'list' },
           { key: 'exclude', label: t('Never entered'), hint: t('Folders the scan leaves out, one per line (~ allowed).'), kind: 'list' },
           { key: 'one_volume', label: t('One disk'), hint: t('Stay on the scanned folder’s disk: other disks and network shares mounted inside it are left out.'), kind: 'toggle' },
           { key: 'delta', label: t('Growth (Δ)'), hint: t('How much each folder grew since the scan before: the last scan of each folder is kept.'), kind: 'toggle' },

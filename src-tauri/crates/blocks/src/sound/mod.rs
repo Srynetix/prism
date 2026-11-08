@@ -1,8 +1,8 @@
 //! The Sound block (`[sound]`): the output and the microphone, their device, volume and mute,
 //! changed from the block; and an alert when the microphone's input volume (its gain) is too low,
 //! notified when an application records from it (muted is not one). Read from the audio devices'
-//! settings — CoreAudio on macOS, `pactl` on Linux: nothing is ever listened to, no permission
-//! asked. macOS and Linux. Its window side: `web/src/blocks/sound/`.
+//! settings — CoreAudio on macOS, `pactl` on Linux, Core Audio (WASAPI) on Windows: nothing is
+//! ever listened to, no permission asked. Its window side: `web/src/blocks/sound/`.
 
 use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
@@ -19,6 +19,8 @@ mod demo;
 /// Linux's side. Its parsing compiles on every OS, tested from any of them.
 #[cfg(any(target_os = "linux", test))]
 mod pulse;
+#[cfg(windows)]
+mod wasapi;
 
 pub struct Sound;
 
@@ -85,7 +87,7 @@ impl Block for Sound {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct SoundConfig {
-    /// On by default: the audio devices' settings (CoreAudio, `pactl`), read locally every `poll_seconds`.
+    /// On by default: the audio devices' settings (CoreAudio, `pactl`, Windows' Core Audio), read locally every `poll_seconds`.
     pub enabled: bool,
     /// The microphone's input volume under this % is an alert (orange), notified when an
     /// application records from it. 0: never.
@@ -132,7 +134,7 @@ pub enum Scope {
 }
 
 impl Scope {
-    #[cfg_attr(not(any(target_os = "macos", target_os = "linux")), allow(dead_code))]
+    #[cfg_attr(not(any(target_os = "macos", target_os = "linux", windows)), allow(dead_code))]
     fn word(self) -> &'static str {
         match self {
             Scope::Input => "input",
@@ -150,7 +152,7 @@ pub struct SoundState {
     pub input: Option<Side>,
     /// Every device, inputs and outputs, in CoreAudio's order.
     pub devices: Vec<Device>,
-    /// The applications recording from a microphone now (macOS 14 and later).
+    /// The applications recording from a microphone now (macOS 14 and later, Linux, Windows).
     pub recording: Vec<Listener>,
     pub limits: Limits,
     pub updated_at: Option<DateTime<Utc>>,

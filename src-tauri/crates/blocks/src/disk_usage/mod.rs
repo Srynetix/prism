@@ -163,8 +163,8 @@ fn depth(args: &Value) -> u32 {
 pub struct DiskUsageConfig {
     /// On by default: nothing is read until a scan is asked for.
     pub enabled: bool,
-    /// The folders offered to scan (`~` for the home folder, `/` for the whole disk); any other
-    /// can be chosen from the block.
+    /// The folders offered to scan (`~` for the home folder, `/` for the whole disk, the system's
+    /// drive on Windows: `C:\`); any other can be chosen from the block.
     pub roots: Vec<String>,
     /// Folders never entered (`~/Library/Mobile Documents`); `~` expanded.
     pub exclude: Vec<String>,
@@ -178,16 +178,30 @@ pub struct DiskUsageConfig {
 
 impl Default for DiskUsageConfig {
     fn default() -> Self {
-        Self { enabled: true, roots: vec!["~".into(), "/".into()], exclude: Vec::new(), one_volume: true, delta: true, cleanup: true }
+        Self { enabled: true, roots: vec!["~".into(), whole_disk()], exclude: Vec::new(), one_volume: true, delta: true, cleanup: true }
     }
 }
 
-/// `~` and `~/…` as the home folder.
+/// The whole disk: `/`, or on Windows the system's drive (`C:\`).
+fn whole_disk() -> String {
+    if cfg!(windows) { system_drive() } else { "/".into() }
+}
+
+/// Windows' system drive, `C:\` most often.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn system_drive() -> String {
+    let drive = std::env::var("SystemDrive").ok().filter(|d| !d.trim().is_empty()).unwrap_or_else(|| "C:".into());
+    format!("{}\\", drive.trim().trim_end_matches(['\\', '/']))
+}
+
+/// `~` and `~/…` as the home folder; on Windows `/` as the system's drive (a config written on
+/// another computer), and `~\\…` too.
 pub fn expand(path: &str) -> PathBuf {
     let home = dirs::home_dir().unwrap_or_default();
     match path.trim() {
         "~" => home,
-        p => match p.strip_prefix("~/") {
+        "/" | "\\" if cfg!(windows) => PathBuf::from(system_drive()),
+        p => match p.strip_prefix("~/").or_else(|| p.strip_prefix("~\\").filter(|_| cfg!(windows))) {
             Some(rest) => home.join(rest),
             None => PathBuf::from(p),
         },
@@ -355,7 +369,7 @@ mod tests {
     fn defaults() {
         let cfg: DiskUsageConfig = toml::from_str("").unwrap();
         assert!(cfg.enabled && cfg.one_volume && cfg.delta && cfg.cleanup);
-        assert_eq!(cfg.roots, ["~", "/"]);
+        assert_eq!(cfg.roots, ["~".to_string(), whole_disk()]);
     }
 
     #[test]
