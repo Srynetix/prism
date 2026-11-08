@@ -680,7 +680,9 @@
           {/if}
           <span class="pill {waitsForYou(a.status) ? 'warn' : isWorking(a.status) ? 'info' : ''}" class:working={isWorking(a.status)} title={a.needs_action ?? undefined}>{#if isWorking(a.status)}<span class="spin-ascii" aria-hidden="true"></span>{/if}{agentStateLabel(a)}</span>
           <!-- The one action of the moment: answer Claude, or bring a stopped agent back. -->
-          {#if a.status === 'waiting_tool' && !chatting(a.id)}
+          {#if a.gate && !chatting(a.id)}
+            <span class="pill trusting" title={a.needs_action ?? ''}><Icon name="shield" />{t('Waits for your trust')}</span>
+          {:else if a.status === 'waiting_tool' && !chatting(a.id)}
             <button class="allow" onclick={() => act(() => allowAgent(a.id))} title="{t('Answers {answer} to {agent}’s permission prompt', { answer: cliOf(a.provider).allow, agent: nameOf(a) })}{a.needs_action ? `: ${a.needs_action}` : ''}"><Icon name="check" />{t('Allow once')}</button>
           {:else if a.state === 'prepared'}
             <button class="primary" onclick={() => act(() => start(a))} title={t('Start it now, as prepared (its worktree is made then)')}><Icon name="play" />{t('Start')}</button>
@@ -1069,4 +1071,5 @@
   .veil { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; border: 2px dashed var(--src-claude); border-radius: var(--r4); background: color-mix(in srgb, var(--src-claude) 14%, rgba(10, 10, 10, 0.55)); pointer-events: none; }
   .veil > div { max-width: 380px; padding: 12px 18px; border-radius: var(--r10); background: var(--surface); text-align: center; font-size: var(--fs-body); }
   .veil small { display: block; margin-top: 3px; color: var(--text-muted); font-size: var(--fs-meta); }
+  .pill.trusting { display: inline-flex; align-items: center; gap: 4px; border-color: var(--violet); color: var(--violet); }
 </style>

@@ -102,6 +102,10 @@ impl Agents {
             bail!("not a menu key: {key}");
         }
         self.phone_key(id)?;
+        // Its CLI's question before its session (its folder's trust): only from its card, read on its screen.
+        if self.gate(id).is_some() && !matches!(key, "Up" | "Down" | "Left" | "Right" | "Tab" | "BTab") {
+            bail!(tr("it asks before it starts: answer from its card"));
+        }
         // A choice, Enter or Esc on its permission's menu answers it; the arrows only move in it.
         let answers = !matches!(key, "Up" | "Down" | "Left" | "Right" | "Tab" | "BTab" | "C-c") && self.inner.folds.lock().unwrap().get(id).is_some_and(|f| f.status == SessionStatus::WaitingTool);
         self.inner.tmux.leave_copy_mode(id).await?;

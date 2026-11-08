@@ -763,3 +763,27 @@ async fn a_shell_still_starting_is_not_busy() {
     // Opened (tmux), held (tmux), looked again 100 ms later (sh).
     assert_eq!(looks, 3, "looked again until it was no longer tmux");
 }
+
+/// Claude Code asking to trust its folder before it starts: no hook, read off its screen; its
+/// status that of a permission, Allow refused (its first choice is « No »); answered from its card,
+/// the keys sent while the question shows, then seen gone.
+#[tokio::test]
+async fn a_folders_trust_is_read_off_the_screen_and_answered() {
+    let b = Bench::new();
+    let id = b.agents.spawn(b.launch("Trusting")).await.unwrap();
+    let session = Tmux::session(&id);
+    let screen = " Accessing workspace:\n\n /dev/prism.worktrees/fix\n\n Quick safety check: Is this a project you created or one you trust?\n\n ❯ No, exit\n   Yes, I trust this folder\n\n Enter to confirm · Esc to cancel\n";
+    b.tmux.show(&session, screen, Some("Enter"));
+    let a = b.shown(&id).await.unwrap();
+    let gate = a.gate.clone().expect("its trust read off its screen");
+    assert_eq!((gate.kind, gate.answerable, gate.folder.as_deref()), (state::GateKind::Folder, true, Some("/dev/prism.worktrees/fix")));
+    assert_eq!(a.status, SessionStatus::WaitingTool);
+    assert!(b.agents.allow(&id).await.is_err(), "Allow would press its « No »");
+    assert!(b.agents.key(&id, "Enter").await.is_err());
+    b.agents.answer_gate(&id, state::GateKind::Folder, true, false).await.unwrap();
+    let keys: Vec<String> = b.tmux.calls_of("send-keys").into_iter().filter(|c| c.contains(&session)).filter_map(|c| c.last().cloned()).collect();
+    assert_eq!(keys, ["Down", "Enter"]);
+    assert!(b.shown(&id).await.unwrap().gate.is_none());
+    // Gone from its screen meanwhile: nothing sent.
+    assert!(b.agents.answer_gate(&id, state::GateKind::Folder, true, false).await.is_err());
+}

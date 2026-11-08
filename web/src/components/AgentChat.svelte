@@ -2,6 +2,7 @@
   import { baseName } from '../platform'
   import Icon from './Icon.svelte'
   import ChatView from './chat/ChatView.svelte'
+  import TrustCard from './TrustCard.svelte'
   import SlashMenu from './SlashMenu.svelte'
   import QuickAnswers from './QuickAnswers.svelte'
   import ContextDetail from './ContextDetail.svelte'
@@ -105,7 +106,9 @@
 <div class="achat">
   <ChatView id={agent.id} {agent} working={agent.status === 'running'} acts={running} typing={running} wide {pending} onlanded={() => setPending(agent.id, null)} {onterminal} {onplan} />
   <div class="dock" class:under={agent.status === 'running'}>
-    {#if agent.status === 'waiting_tool'}
+    {#if agent.gate}
+      <TrustCard {agent} {onterminal} />
+    {:else if agent.status === 'waiting_tool'}
       <div class="perm" role="group" aria-label={t('Its permission prompt')}>
         <b><Icon name="warning" /> {t('{name} asks', { name: nameOf(agent) })}</b>
         {#if agent.needs_action}<code>{agent.needs_action}</code>{/if}

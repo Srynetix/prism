@@ -201,6 +201,32 @@ impl StepRun {
     }
 }
 
+/// What an agent's CLI asks on its screen before its session starts (`Agent::gate`).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct AgentGate {
+    pub kind: GateKind,
+    /// The folder it names (a folder's trust), as its screen writes it.
+    pub folder: Option<String>,
+    /// Prism knows this screen's keys: it can answer it. Otherwise only its terminal does.
+    pub answerable: bool,
+    /// The folder of the repository's worktrees (`<repo>.worktrees`), when trusting it would cover
+    /// this one and the next (Claude Code): « All worktrees of … ».
+    pub parent: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum GateKind {
+    /// Trust the folder (its settings, hooks and MCP servers run).
+    Folder,
+    /// Approve Prism's hooks (Codex): without them, no status.
+    Hooks,
+    /// Something else it asks before it starts (an update…).
+    Other,
+}
+
 /// Agent launched by Prism in its tmux server (Agents view).
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -244,6 +270,9 @@ pub struct Agent {
     pub needs_action: Option<String>,
     /// At its prompt, the next prompt Claude Code suggests (dimmed in its input), read off its screen.
     pub suggestion: Option<String>,
+    /// What its CLI asks before it starts, read off its screen (it sends no hook until answered):
+    /// to trust its folder, to approve Prism's hooks. Its status is then `WaitingTool`.
+    pub gate: Option<AgentGate>,
     pub last_activity: Option<DateTime<Utc>>,
     /// How much of its context window the conversation fills (Claude Code); absent before its
     /// first reply, and after a compaction until the next one.

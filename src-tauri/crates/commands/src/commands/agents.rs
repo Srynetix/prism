@@ -494,6 +494,19 @@ pub async fn agent_handoff_material(state: State<'_, AppState>, id: String, turn
     state.agents.handoff_material(&id, turns.unwrap_or(8)).await.map_err(Into::into)
 }
 
+/// Trusts what the agent's CLI asks before it starts (its folder; Codex: Prism's hooks), from its
+/// card; `parent`: its repository's worktrees' folder first, the next ones not asked.
+#[prism_macros::command]
+pub async fn agent_trust(state: State<'_, AppState>, id: String, kind: crate::state::GateKind, parent: Option<bool>) -> Cmd {
+    state.agents.answer_gate(&id, kind, true, parent.unwrap_or(false)).await.map_err(Into::into)
+}
+
+/// Refuses what the agent's CLI asks before it starts: it exits.
+#[prism_macros::command]
+pub async fn agent_refuse_gate(state: State<'_, AppState>, id: String, kind: crate::state::GateKind) -> Cmd {
+    state.agents.answer_gate(&id, kind, false, false).await.map_err(Into::into)
+}
+
 /// A past session as a quick action is made from it (Create a quick action…): an agent of the
 /// list, the last one closed in a repository, or a Claude Desktop session.
 #[prism_macros::command]

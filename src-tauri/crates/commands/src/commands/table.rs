@@ -285,6 +285,9 @@ commands! {
     agents::agent_send: Never [demo: refused],
     // A quick answer: the config's text, filled and checked on the computer (no free text).
     agents::agent_quick_answer: Act [phone: state, id: String, label: String, text: String],
+    // Trusting a folder lets its settings, hooks and MCP servers run: from a phone, its passkey.
+    agents::agent_trust: Critical [phone: state, id: String, kind: crate::state::GateKind, parent: Option<bool>],
+    agents::agent_refuse_gate: Act [phone: state, id: String, kind: crate::state::GateKind],
     // The agent's own suggestion, checked on its screen (no free text).
     agents::agent_send_suggestion: Act [phone: state, id: String, text: String],
     agents::agent_compact: Act [phone: state, id: String],

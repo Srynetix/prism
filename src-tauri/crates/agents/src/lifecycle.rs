@@ -390,6 +390,10 @@ impl Agents {
         if !waiting {
             bail!(tr("this agent is not waiting for a permission"));
         }
+        // A question before its session (its folder's trust): its menu's first choice is not « yes ».
+        if self.gate(id).is_some() {
+            bail!(tr("it asks before it starts: answer from its card"));
+        }
         let provider = self.provider(id)?;
         self.inner.tmux.send_keys(id, if review { &["C-a"] } else { provider.allow_keys() }).await?;
         self.permission_answered(id);

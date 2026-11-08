@@ -288,6 +288,7 @@ export const isWorking = (s: ClaudeSession['status']) => s === 'running' || s ==
 export const AGENT_STATE: Record<Agent['state'], string> = { running: '', exited: tr('Exited'), gone: tr('Stopped'), prepared: tr('Prepared') }
 /** An agent's state in words: its CLI's while it runs, otherwise why it stopped; `short` in the phone's header. */
 export const agentStateLabel = (a: Agent, short = false) =>
+  (a.state === 'running' && a.gate ? (short ? tr('Your trust') : tr('Waits for your trust')) : '') ||
   (a.state === 'running' ? (a.status === 'waiting_tool' ? (short ? tr('Permission') : tr('Permission requested')) : SESSION_LABEL[a.status]) : AGENT_STATE[a.state]) + (a.state === 'exited' && a.exit_code ? ` (${a.exit_code})` : '')
 /**
  * The Claude sessions counted in Prism's figures (header, status bar, menu bar,
