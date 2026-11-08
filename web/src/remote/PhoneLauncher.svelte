@@ -1,8 +1,8 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
   import { live } from '../live.svelte'
-  import { hasCore, invoke } from '../bridge'
-  import { afterLaunch, agentsSettings, attachFiles, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, mention, openAgents, planWorktree, prepareAgent, slug, spawnAgent, toastLaunched, type Launch, type WorktreePlan } from '../agents.svelte'
+  import { afterLaunch, agentsSettings, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, openAgents, prepareAgent, slug, spawnAgent, toastLaunched, type Launch } from '../agents.svelte'
+  import { Attachments, nameOf, newStep, newWorktree, takeDraft, tasksFor, testTask, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
   import { hasWorktrees, primaryRepo } from '../repositories'
   import { CLIS, cliOf, providerOf } from '../agent-cli'
   import { choices, effortsKey, loadEfforts, loadModels } from '../settings.svelte'
@@ -106,15 +106,12 @@
   }
 
   /** Its draft, once, each time it opens (as the computer's launcher). */
-  $effect(() => {
-    const d = launcherDrawer.draft
-    if (!d) return
-    launcherDrawer.draft = null
+  takeDraft(() => launcherDrawer, (d) => {
     prompt = d.prompt ?? ''
     title = d.title ?? ''
     error = ''
     folder = ''
-    dropAttached()
+    att.clear()
     placeOf(d)
     name = d.worktree?.name ? slug(d.worktree.name) : ''
     branch = d.worktree?.branch ?? ''
@@ -176,25 +173,15 @@
   const effortChoices = $derived(choices.efforts[effortsKey(provider, effortModel)] ?? [])
   const kinds = $derived(kindNames())
 
-  const autoTitle = $derived(title.trim() || (prompt.trim().split('\n')[0] ?? '').slice(0, 60).trim())
-  const autoName = $derived(slug(prompt.replace(/@\S+/g, '').trim().split(/\s+/).slice(0, 4).join(' ')))
+  const autoTitle = $derived(titleOf(title, prompt))
+  const autoName = $derived(nameOf(prompt))
   /** Its other repositories, while its CLI can work in several folders. */
   const alsoIn = $derived(CLIS[provider].takes_dirs ? also.filter((x) => x !== repo) : [])
-  const newWorktree = $derived({ name: name ? slug(name) : branch ? undefined : slug(title) || autoName || undefined, branch: branch || undefined, repo: repo || undefined, base: (!branch && base.trim()) || undefined, also: alsoIn.length ? alsoIn : undefined })
+  const worktree = $derived(newWorktree({ name, fallback: slug(title) || autoName, branch, base, repo, also: alsoIn }))
 
-  /** The new worktree as Prism will make it (its name, branch and base), asked after a short pause. */
-  let plan = $state<WorktreePlan | null>(null)
-  $effect(() => {
-    const wt = whereTo === 'new' && hasCore() ? newWorktree : null
-    const ttl = autoTitle
-    if (!wt) return void (plan = null)
-    let gone = false
-    const timer = setTimeout(() => planWorktree(ttl, wt).then((p) => !gone && (plan = p), () => !gone && (plan = null)), 250)
-    return () => {
-      gone = true
-      clearTimeout(timer)
-    }
-  })
+  /** The new worktree as Prism will make it (its name, branch and base). */
+  const planned = watchPlan(() => (whereTo === 'new' ? { title: autoTitle, worktree } : null))
+  const plan = $derived(planned.value)
 
   const cwd = $derived(whereTo === 'existing' ? wtPath : whereTo === 'clone' ? repoPath : folder)
   const launch = $derived<Launch>({
@@ -209,7 +196,7 @@
     then: steps.length ? $state.snapshot(steps) : undefined,
     from: from || undefined,
     prism_mcp: prismMcp || undefined,
-    ...(whereTo === 'new' ? { worktree: newWorktree } : { cwd }),
+    ...(whereTo === 'new' ? { worktree } : { cwd }),
   })
 
   /** What Launch does, in a line under it. */
@@ -236,70 +223,35 @@
   )
 
   /* ---------- Photos and files, attached to the prompt ---------- */
-  let attached = $state<{ path: string; name: string; url: string | null }[]>([])
-  let attaching = $state(false)
+  const att = new Attachments()
   let photoInput = $state<HTMLInputElement>()
   let fileInput = $state<HTMLInputElement>()
   async function attach(files: File[]) {
-    if (!files.length) return
-    attaching = true
     error = ''
     try {
-      const paths = await attachFiles(files, null)
-      paths.forEach((path, i) => attached.push({ path, name: files[i].name || t('pasted image'), url: files[i].type.startsWith('image/') ? URL.createObjectURL(files[i]) : null }))
-      prompt = `${prompt.trimEnd()} ${paths.map(mention).join(' ')} `.trimStart()
+      prompt = await att.add(files, prompt)
     } catch (e) {
       error = String(e)
-    } finally {
-      attaching = false
     }
   }
-  /** The previews let go (closed, or another draft): the files stay on the computer, unmentioned. */
-  function dropAttached() {
-    for (const a of attached) if (a.url) URL.revokeObjectURL(a.url)
-    attached = []
-  }
-  $effect(() => () => {
-    for (const a of attached) if (a.url) URL.revokeObjectURL(a.url)
-  })
-  function detach(i: number) {
-    const a = attached[i]
-    prompt = prompt.replace(mention(a.path), '').replace(/ {2,}/g, ' ')
-    if (a.url) URL.revokeObjectURL(a.url)
-    attached.splice(i, 1)
-  }
+  const detach = (i: number) => (prompt = att.remove(i, prompt))
 
   /* ---------- Then: its steps, those a phone may add (`phone_then`) ---------- */
-  let tasks = $state<string[]>([])
-  /** `tasks` are the folder's now picked (not still loading, nor another folder's). */
-  let tasksFor = $state('')
   const where = $derived(whereTo === 'new' ? { repo: repo || null } : { cwd })
-  const whereKey = $derived(JSON.stringify(where))
   const hasTaskStep = $derived(steps.some((st) => st.kind === 'task'))
-  $effect(() => {
-    const at = where
-    const key = whereKey
-    if (!(more || hasTaskStep) || !hasCore()) return
-    let gone = false
-    invoke<string[]>('launch_tasks', at).then((l) => !gone && ((tasks = l), (tasksFor = key)), () => !gone && ((tasks = []), (tasksFor = key)))
-    return () => {
-      gone = true
-    }
-  })
-  const testTask = () => tasks.find((tk) => /\btest\b/.test(tk)) ?? tasks[0] ?? ''
+  const taskList = watchTasks(() => (more || hasTaskStep ? where : null))
+  const tasks = $derived(taskList.list)
+  /** `tasks` are the folder's now picked (not still loading, nor another folder's). */
+  const tasksReady = $derived(tasksFor(taskList, where))
   // Its task steps on the folder's tasks: loaded after the step was added, or another folder picked.
-  const tasksReady = $derived(tasksFor === whereKey)
   $effect(() => {
     if (!tasksReady) return
-    for (const st of steps) if (st.kind === 'task' && !tasks.includes(st.command ?? '')) st.command = testTask()
+    for (const st of steps) if (st.kind === 'task' && !tasks.includes(st.command ?? '')) st.command = testTask(tasks)
   })
   /** A task step names one of the folder's tasks (`phone_then` refuses any other). */
   const stepsOk = $derived(!hasTaskStep || (tasksReady && steps.every((st) => st.kind !== 'task' || (!!st.command && tasks.includes(st.command)))))
   const ready = $derived((whereTo === 'new' ? !!repo && !plan?.error : !!cwd) && stepsOk)
-  function addStep(kind: StepKind) {
-    const test = testTask()
-    steps.push(kind === 'task' ? { kind, when: 'done', command: test } : kind === 'prompt' ? { kind, when: 'done', text: '' } : kind === 'mr' ? { kind, when: 'ok' } : kind === 'agent' ? { kind, when: 'ask', text: 'Review the code of MR !{mr}.' } : { kind, when: 'done' })
-  }
+  const addStep = (kind: StepKind) => steps.push(newStep(kind, testTask(tasks)))
   function addTag(input: HTMLInputElement) {
     const tag = input.value.trim().replace(/^#/, '')
     input.value = ''
@@ -317,7 +269,7 @@
       if (repo) setPref('phone.launch.repo', repo)
       const effect = launcherDrawer.onLaunch
       launcherDrawer.onLaunch = null
-      dropAttached()
+      att.clear()
       closeLauncherDrawer()
       if (prepared) toastLaunched(id, launch.title, true)
       else openAgents(id)
@@ -350,18 +302,18 @@
   <div class="scroll">
     <div class="prompt">
       <textarea bind:value={prompt} {@attach focus} placeholder={t('What should it do?')} rows="3" enterkeyhint="enter" onpaste={(e) => { const files = filesOf(e.clipboardData?.files); if (files.length) { e.preventDefault(); void attach(files) } }}></textarea>
-      {#if attached.length}
+      {#if att.list.length}
         <div class="thumbs">
-          {#each attached as a, i (a.path)}
+          {#each att.list as a, i (a.path)}
             <span class="thumb">{#if a.url}<img src={a.url} alt={a.name} />{:else}<Icon name="files" />{/if}<span>{a.name}</span><button type="button" onclick={() => detach(i)} aria-label={t('Remove {name}', { name: a.name })}>×</button></span>
           {/each}
         </div>
       {/if}
       <div class="tools">
-        <button type="button" disabled={attaching} onclick={() => photoInput?.click()} aria-label={t('Take a photo')}><Icon name="camera" /></button>
-        <button type="button" disabled={attaching} onclick={() => fileInput?.click()} aria-label={t('Attach photos or files')}><Icon name="attach" /></button>
+        <button type="button" disabled={att.busy} onclick={() => photoInput?.click()} aria-label={t('Take a photo')}><Icon name="camera" /></button>
+        <button type="button" disabled={att.busy} onclick={() => fileInput?.click()} aria-label={t('Attach photos or files')}><Icon name="attach" /></button>
         <span class="grow"></span>
-        {#if attaching}<small>{t('Attaching…')}</small>{:else}<small>{t('The keyboard’s mic dictates')}</small>{/if}
+        {#if att.busy}<small>{t('Attaching…')}</small>{:else}<small>{t('The keyboard’s mic dictates')}</small>{/if}
       </div>
       <input bind:this={photoInput} type="file" accept="image/*" capture="environment" hidden onchange={(e) => { void attach(filesOf(e.currentTarget.files)); e.currentTarget.value = '' }} />
       <input bind:this={fileInput} type="file" multiple hidden onchange={(e) => { void attach(filesOf(e.currentTarget.files)); e.currentTarget.value = '' }} />
