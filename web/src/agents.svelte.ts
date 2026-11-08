@@ -142,7 +142,7 @@ export async function launchNow(launch: Launch): Promise<string | null> {
 /**
  * The launcher, prefilled: in the Agents view while it is the one shown (its New, ⌘N, an agent's
  * Launch again…), otherwise as a drawer over what is open, which the launch leaves in place. On a
- * phone, always the drawer (the whole screen): its Agents view has no launcher of its own.
+ * phone, always the drawer's slot, shown as the phone's own sheet (`remote/PhoneLauncher.svelte`).
  */
 export function openLauncher(draft: Launch, desktopHref?: string | null, onLaunch?: (() => Promise<void>) | null, origin?: string, quick = false) {
   const slot: LaunchSlot = { draft, sameAs: null, replacing: null, desktopHref: desktopHref ?? null, onLaunch: onLaunch ?? null, quick }

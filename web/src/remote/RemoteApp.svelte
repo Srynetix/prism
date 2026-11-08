@@ -67,7 +67,7 @@
     ArgoPanel: once(() => import('../components/ArgoPanel.svelte')),
     OverlapPanel: once(() => import('../components/OverlapPanel.svelte')),
     ChangesDrawer: once(() => import('../blocks/changes/ChangesDrawer.svelte')),
-    LauncherDrawer: once(() => import('../components/LauncherDrawer.svelte')),
+    PhoneLauncher: once(() => import('./PhoneLauncher.svelte')),
     Feedback: once(() => import('../components/Feedback.svelte')),
     AgentSwitch: once(() => import('../components/AgentSwitch.svelte')),
     Palette: once(() => import('../components/Palette.svelte')),
@@ -511,8 +511,8 @@
 {#if argoView.open}{#await lazy.ArgoPanel() then { default: ArgoPanel }}<ArgoPanel />{/await}{/if}
 {#if overlapView.open}{#await lazy.OverlapPanel() then { default: OverlapPanel }}<OverlapPanel phone />{/await}{/if}
 {#if changesView.open}{#await lazy.ChangesDrawer() then { default: ChangesDrawer }}<ChangesDrawer phone />{/await}{/if}
-<!-- Last: an agent action's launcher, over the panel it came from. -->
-{#if launcherDrawer.open}{#await lazy.LauncherDrawer() then { default: LauncherDrawer }}<LauncherDrawer />{/await}{/if}
+<!-- Last: a new agent's sheet (New, a project's +, a ticket's ▶, an action…), over the panel it came from. -->
+{#if launcherDrawer.open}{#await lazy.PhoneLauncher() then { default: PhoneLauncher }}<PhoneLauncher />{/await}{/if}
 <Toast />
 <!-- Prism's startup screen, as the window's (`[appearance] boot`): at the page's opening, and the
      Prism relaunched from here coming back. A tap skips it. -->

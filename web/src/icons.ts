@@ -1,6 +1,8 @@
 import type { Component } from 'svelte'
 import Activity from '@lucide/svelte/icons/activity'
 import Cpu from '@lucide/svelte/icons/cpu'
+import Camera from '@lucide/svelte/icons/camera'
+import Paperclip from '@lucide/svelte/icons/paperclip'
 import AlarmClock from '@lucide/svelte/icons/alarm-clock'
 import Moon from '@lucide/svelte/icons/moon'
 import ArrowDown from '@lucide/svelte/icons/arrow-down'
@@ -221,6 +223,8 @@ export const ICONS = {
   sprint: ChartPie, // sprint day (◔)
   comment: MessageSquare, // discussion threads (💬)
   image: Image, // 🖼
+  camera: Camera, // a photo taken to attach (📷)
+  attach: Paperclip, // files attached to a prompt (📎)
   star: Star, // organizer (★)
   // Audio
   music: Music, // ♪
