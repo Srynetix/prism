@@ -965,9 +965,9 @@ pub fn routine_remove(state: State<'_, AppState>, name: String) -> Cmd {
     Ok(())
 }
 
-/// What the builtins read, as the window shows it: the open alerts, the current sprint's retro figures.
+/// What the builtins read, as the window shows it: the open alerts (the retro is the core's, `crate::retro`).
 #[prism_macros::command]
-pub fn routine_inputs(state: State<'_, AppState>, alerts: Option<String>, retro: Option<String>) -> Cmd {
-    state.agents.set_routine_inputs(crate::agents::RoutineInputs { alerts, retro });
+pub fn routine_inputs(state: State<'_, AppState>, alerts: Option<String>) -> Cmd {
+    state.agents.set_routine_inputs(crate::agents::RoutineInputs { alerts });
     Ok(())
 }

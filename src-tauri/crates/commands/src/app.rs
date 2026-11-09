@@ -67,6 +67,9 @@ impl AppState {
         spawn(crate::presence::run(hub.clone()));
         let agents = crate::agents::Agents::new(data_dir.clone(), hub.clone(), Vec::new(), Vec::new())?;
         agents.configure(started.agents.cfg.clone());
+        // `builtin:retro-draft` reads the retro here, the window open or not.
+        let (retro_hub, retro_store) = (hub.clone(), Store::new(data_dir.clone()));
+        agents.set_retro_source(Arc::new(move || crate::retro::draft(&retro_hub, &retro_store)));
         // The demo profile shows sample agents: the real ones (tmux) would replace them.
         if !started.agents.demo {
             spawn(agents.clone().run());

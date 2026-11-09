@@ -186,6 +186,9 @@ commands! {
     tracker::ticket_commits: Read [phone: state, id: String],
     tracker::ticket_image: Read [phone: state, url: String],
     tracker::refresh_tickets: Read [phone: state],
+    // My sprint (`crate::retro`).
+    tracker::retro_get: Read [phone: state, points: Option<Vec<crate::blocks::trail::retro::RetroPoint>>; sync],
+    tracker::retro_keep: Act [demo: own] [phone: state, history: Option<Vec<crate::blocks::trail::retro::RetroSummary>>; sync],
     forge::mr_detail: Read [phone: state, repo: Option<String>, iid: u64],
     forge::mr_diff: Read [phone: state, repo: Option<String>, iid: u64],
     forge::mr_commits: Read [phone: state, repo: Option<String>, iid: u64],

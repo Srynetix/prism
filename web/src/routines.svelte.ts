@@ -5,11 +5,7 @@ import { openAgents } from './agents.svelte'
 import { ROUTINE_OPENED } from './agent-archive.svelte'
 import { toast } from './toast.svelte'
 import { t } from './i18n.svelte'
-import { retro, retroMarkdown, type RetroSummary } from './retro'
-import { pointsOf } from './retro-points.svelte'
-import { notes } from './notes.svelte'
 import { BUILTINS } from './routines'
-import type { TrailState } from './blocks/trail/trail'
 import type { Alert } from './rules'
 import type { Snapshot } from './types'
 import type { RoutineRun } from './bindings/RoutineRun'
@@ -20,7 +16,7 @@ export * from './routines'
  * Routines (`[[agents.routines]]`): a quick action launched by a cron or at a pace, without me —
  * run by Prism's core (`prism_agents::routines`), the window open or not. Here, what acts: the
  * gestures of "To review" (Open, Archive, Rerun), Settings' (Run now, Trust, on and off), and what
- * the builtins read of the window (the open alerts, the retro's figures). The rest: `routines.ts`.
+ * the builtins read of the window (the open alerts; the retro is the core's). The rest: `routines.ts`.
  */
 
 /** A routine's agent opened from "To review" (Open, Reply): in the lists from then on (agent-archive). */
@@ -54,9 +50,8 @@ let sent = ''
 let latest: { s: Snapshot; alerts: Alert[] } | null = null
 let timer: ReturnType<typeof setTimeout> | null = null
 /**
- * The open alerts and the current sprint's retro figures, given to the core (`routine_inputs`)
- * when a builtin routine is declared and they changed: at most once a minute, computed only then
- * (not at each snapshot).
+ * The open alerts, given to the core (`routine_inputs`) when a builtin routine is declared and they
+ * changed: at most once a minute, computed only then (not at each snapshot).
  */
 export function publishInputs(s: Snapshot, alerts: Alert[]) {
   if (!isLocal()) return
@@ -69,15 +64,10 @@ export function publishInputs(s: Snapshot, alerts: Alert[]) {
     const { s, alerts } = latest
     latest = null
     const text = alerts.map((a) => `- [${a.severity}] ${a.kind}: ${a.text}`).join('\n')
-    let figures: string | null = null
-    if ((s.agents_settings?.routines ?? []).some((r) => r.action.trim() === 'builtin:retro-draft')) {
-      const r = retro(s, s.blocks?.trail as unknown as TrailState | undefined, notes, pref<RetroSummary[]>('retro.history', []))
-      figures = r ? retroMarkdown(r, pointsOf(r.name)) : null
-    }
-    const payload = JSON.stringify({ alerts: text, retro: figures })
+    const payload = JSON.stringify({ alerts: text })
     if (payload === sent) return
     sent = payload
-    invoke('routine_inputs', { alerts: text, retro: figures }).catch((e) => {
+    invoke('routine_inputs', { alerts: text }).catch((e) => {
       sent = ''
       console.error('routine_inputs', e)
     })
