@@ -123,3 +123,17 @@ impl AsideState {
         matches!(self, Self::Open | Self::Later)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Still to deal with: open, or set for later; launched, made a ticket, chained or dismissed, no longer.
+    #[test]
+    fn what_is_still_open() {
+        assert!(AsideState::Open.open() && AsideState::Later.open());
+        for done in [AsideState::Launched, AsideState::Ticket, AsideState::Dismissed, AsideState::Then] {
+            assert!(!done.open(), "{done:?}");
+        }
+    }
+}
