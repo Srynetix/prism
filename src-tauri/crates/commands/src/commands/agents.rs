@@ -514,6 +514,26 @@ pub async fn session_source(state: State<'_, AppState>, source: crate::agents::s
     state.agents.session_source(source).await.map_err(Into::into)
 }
 
+/// Create a quick action…: its prompt drafted from that session by a hidden agent of its CLI, in
+/// `repo`'s clone (empty: the session's folder); `name`, the form's. The draft's id.
+#[prism_macros::command]
+pub async fn quick_action_draft(state: State<'_, AppState>, source: crate::agents::session_source::Source, repo: String, name: String) -> Cmd<String> {
+    state.agents.draft_quick_action(source, &repo, &name).await.map_err(Into::into)
+}
+
+/// Where a draft asked of an agent is (`quick_action_draft`, `feedback_draft_start`); null when
+/// it is unknown (stopped, long over).
+#[prism_macros::command]
+pub fn draft_state(state: State<'_, AppState>, id: String) -> Option<crate::agents::draft::DraftState> {
+    state.agents.draft_state(&id)
+}
+
+/// A draft no longer waited for: its agent closed when it was launched for it alone.
+#[prism_macros::command]
+pub async fn draft_stop(state: State<'_, AppState>, id: String) -> Cmd {
+    state.agents.draft_stop(&id).await.map_err(Into::into)
+}
+
 /// The agent CLIs found on this computer, those an agent can continue with.
 #[prism_macros::command]
 pub async fn agent_installed(state: State<'_, AppState>) -> Cmd<Vec<crate::agents::provider::Provider>> {
@@ -962,12 +982,5 @@ pub fn routine_remove(state: State<'_, AppState>, name: String) -> Cmd {
     prism_core::settings::remove_nested_entry(&path, "agents", "routines", "name", &name)?;
     state.agents.forget_routine(&name);
     super::config::apply_live(&state, &path);
-    Ok(())
-}
-
-/// What the builtins read, as the window shows it: the open alerts, the current sprint's retro figures.
-#[prism_macros::command]
-pub fn routine_inputs(state: State<'_, AppState>, alerts: Option<String>, retro: Option<String>) -> Cmd {
-    state.agents.set_routine_inputs(crate::agents::RoutineInputs { alerts, retro });
     Ok(())
 }

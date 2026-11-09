@@ -25,8 +25,8 @@ export interface Problem {
 }
 
 /** The commands a page calls expecting they may fail (a picture, a probe): not problems. */
-const EXPECTED = new Set(['forge_avatar', 'forge_custom_emoji', 'forge_emoji_image', 'ticket_image', 'agent_files_stamps', 'reduce_transparency', 'youtube_relay', 'feedback_url', 'feedback_draft', 'set_help_guides', 'check_setting', 'token_state'])
-/** The sources that failing says nothing wrong (`rules.ts` too). */
+const EXPECTED = new Set(['forge_avatar', 'forge_custom_emoji', 'forge_emoji_image', 'ticket_image', 'agent_files_stamps', 'reduce_transparency', 'youtube_relay', 'feedback_url', 'set_help_guides', 'check_setting', 'token_state'])
+/** The sources that failing says nothing wrong (`prism_core::alerts` too). */
 const QUIET_SOURCES = new Set(['usage'])
 const KEPT = 30
 

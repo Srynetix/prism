@@ -109,6 +109,13 @@ pub trait Block: Send + Sync {
         Vec::new()
     }
 
+    /// Its lines in Alerts, from its state as it published it (`Snapshot.blocks`): `kind` its
+    /// label, a notification when broken; the core sets `block` and the rule (`block`). Computed
+    /// with the other alerts on each change of the snapshot, so cheap.
+    fn alerts(&self, _state: &Value) -> Vec<crate::alerts::Alert> {
+        Vec::new()
+    }
+
     /// A call in the demo profile, which reads nothing: its answer from sample data, or `None` to
     /// refuse it (read-only).
     fn demo_call(&self, _command: &str, _args: &Value) -> Option<Result<Value>> {
@@ -291,6 +298,11 @@ impl BlockCtx {
     /// Wait between two reads (slower while the window is hidden: see `Hub::pause`).
     pub async fn pause(&self, every: Duration) {
         self.hub.pause(every).await
+    }
+
+    /// The snapshot as it changes, for a block that follows it (the alerts appearing and going).
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<crate::state::Snapshot> {
+        self.hub.subscribe()
     }
 
     /// What `f` reads of the current snapshot (the other sources' data: MRs, tickets, agenda…).

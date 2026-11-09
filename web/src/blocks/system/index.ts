@@ -1,28 +1,6 @@
-import type { BlockAlert, BlockDef } from '../block'
-import { HOT_SECONDS, LOSS, bytes, diskTone, type SystemState } from './types'
+import type { BlockDef } from '../block'
+import { HOT_SECONDS, LOSS, diskTone, type SystemState } from './types'
 import { t, tn } from '../../i18n.svelte'
-
-/** The memory pressure red (notified), the CPU at 90 % for 5 minutes, handshakes lost. */
-function alerts(s: SystemState): BlockAlert[] {
-  if (!s.alerts || !s.updated_at) return []
-  const out: BlockAlert[] = []
-  if (s.memory.pressure === 'critical') {
-    out.push({ severity: 'ko', text: t('Memory pressure is critical: the computer is swapping, close something'), notification: { key: 'system:memory', title: t('Memory pressure') } })
-  }
-  if (s.cpu.hot_seconds >= HOT_SECONDS) {
-    out.push({ severity: 'warn', text: t('CPU at {n} % for {min} min', { n: Math.round(s.cpu.usage), min: Math.round(s.cpu.hot_seconds / 60) }), notify: false })
-  }
-  const disk = s.disks?.[0]
-  const tone = disk ? diskTone(disk, s.disk_limits) : 'ok'
-  if (disk && tone !== 'ok') {
-    const red = tone === 'ko'
-    out.push({ severity: red ? 'ko' : 'warn', text: t('Disk {name}: {free} free of {total}', { name: disk.name || disk.mount, free: bytes(disk.available), total: bytes(disk.total) }), ...(red ? { notification: { key: 'system:disk', title: t('Disk almost full') } } : { notify: false }) })
-  }
-  if (s.network.loss > LOSS) {
-    out.push({ severity: 'warn', text: t('Network: {n} % of the handshakes lost over 5 min', { n: Math.round(s.network.loss) }), notify: false })
-  }
-  return out
-}
 
 /** System: the computer's CPU, memory, disks and network, and who consumes them. */
 export const system = {
@@ -66,5 +44,4 @@ export const system = {
     const n = (s.memory.pressure === 'critical' ? 1 : 0) + (s.cpu.hot_seconds >= HOT_SECONDS ? 1 : 0) + (s.network.loss > LOSS ? 1 : 0) + (s.disks?.[0] && diskTone(s.disks[0], s.disk_limits) === 'ko' ? 1 : 0)
     return { count: n, title: tn(n, '{n} system alert', '{n} system alerts') }
   },
-  alerts,
 } satisfies BlockDef<SystemState>

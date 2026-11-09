@@ -8,9 +8,15 @@ license.workspace = true
 [lints]
 workspace = true
 
+[features]
+# The window's types (`web/src/bindings`), exported by the app's tests.
+ts = ["dep:ts-rs"]
+
 [dependencies]
 prism-base.workspace = true
 prism-core.workspace = true
+# The profile's local socket (Windows: its named pipe), served and reached (`ipc`); Windows: sleep held off (`awake`).
+prism-sys.workspace = true
 
 anyhow.workspace = true
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "ws"] }
@@ -31,11 +37,8 @@ tokio.workspace = true
 # Another Prism reached over HTTPS (`machine`): the system's roots, as the browser's.
 tokio-tungstenite = { version = "0.30", features = ["rustls-tls-native-roots"] }
 tracing.workspace = true
+ts-rs = { workspace = true, optional = true }
 url = "2"
-
-# Windows: sleep held off (`awake`).
-[target.'cfg(windows)'.dependencies]
-prism-sys.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 

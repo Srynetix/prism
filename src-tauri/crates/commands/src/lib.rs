@@ -13,6 +13,7 @@ pub mod mcp;
 mod presence;
 pub mod process;
 pub mod remote;
+pub mod retro;
 pub mod serve;
 
 use prism_agents as agents;

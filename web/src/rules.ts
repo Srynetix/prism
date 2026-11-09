@@ -1,87 +1,26 @@
-import { branchName } from './pipeline'
 import type { Agent, ArchivedSession, ClaudeSession, MergeRequest, Pipeline, PodView, Snapshot, StatusOption, Ticket, Worktree } from './types'
-import type { ClaudeActionId } from './claude-actions'
-import type { AlertRule } from './alert-bands'
+import type { Alert } from './bindings/Alert'
 import { minutesSince } from './time'
-import { alertSettings, conventions, hasTickets, isDone, isProtected, mrTickets, ticketPrefix } from './conventions'
+import { alertSettings, conventions, isDone, isProtected } from './conventions'
 import { mrKey } from './mr-ref'
-import { forgeName, meOn } from './forge'
-import { hasMergeQueue, hasWorktrees, needsTicket, repoName } from './repositories'
-import { ticketKey, ticketRef } from './tracker'
+import { hasMergeQueue, repoName } from './repositories'
+import { ticketRef } from './tracker'
 import { BLOCK_DEFS } from './blocks'
 import { stateOf } from './blocks/block'
 import { locale } from './locale'
-import { argoKey } from './argo-view.svelte'
-import { isHidden } from './worktree-archive.svelte'
-import { USED_UP, planUseOf } from './usage'
-import { t as tr, tn } from './i18n.svelte'
-import { alertedOverlaps, overlapId, sideName } from './overlaps'
+import { t as tr } from './i18n.svelte'
 import { baseName } from './platform'
 
 export { isDone, isProtected }
 
-export type Severity = 'ko' | 'warn' | 'info'
-
-export interface Alert {
-  /** A block's alerts (`blocks/`) take its label. */
-  kind: 'Source' | 'Infra' | 'CI' | 'Sync' | 'Review' | 'MR' | 'Claude' | 'ArgoCD' | 'Worktrees' | 'Data' | (string & {})
-  /** The block with a source of its own that raised it (`blocks/`): always one of mine. */
-  block?: string
-  /** A macOS notification when broken (`ko`): one per `key`, the object, not its changing detail. */
-  notification?: { key: string; title: string }
-  severity: Severity
-  text: string
-  url?: string
-  /** What "Open" shows in the app (a drawer) instead of `url`, which ⌘-click keeps. */
-  open?: OpenTarget
-  /** `false`: shown in Alerts, but without a macOS notification (pending jobs…). */
-  notify?: boolean
-  /** Fixes offered in one click in Alerts (Alerts.svelte executes them). */
-  fixes?: Fix[]
-  /** The agent the alert waits on: its quick answers in the row. */
-  answer?: string
-  /** The rule that raised it: its band (`[alerts] band_now`, `band_later`, `band_hidden`). */
-  rule?: AlertRule
-  /** Since when it holds, when the data says it; otherwise Prism counts from when it first saw it. */
-  since?: string
-  /** Its few words beside the others of its object (the same MR, the same ticket), grouped. */
-  short?: string
-}
-
-/** An alert's object, opened in the app: a ticket's preview, an MR's pane, a pipeline's logs, the ArgoCD drawer. */
-export type OpenTarget =
-  | { kind: 'ticket'; id: string }
-  | { kind: 'mr'; iid: number; repo?: string | null }
-  | { kind: 'pipeline'; pipeline: number; label: string; project?: string | null }
-  | { kind: 'argo'; cluster: string; app: string }
-const ticketOpen = (t: Ticket): OpenTarget => ({ kind: 'ticket', id: ticketKey(t) })
-const mrOpen = (m: MergeRequest): OpenTarget => ({ kind: 'mr', iid: m.iid, repo: m.repo })
-
 /**
- * Fix of an alert, as data: this module stays free of side effects. `status`: change the
- * status of a ticket; `rebase`: rebase by GitLab; `queue`: into the merge queue;
- * `retry` / `logs`: retry the failed jobs or open a pipeline's logs; `mr`: open
- * an MR's pane; `claude`: the Claude action of that name for the MR; `fix-branch`: an agent
- * fixing a protected branch's pipeline; `investigate`: an agent diagnosing a workload;
- * `dev-server`: the server's own agent, told why it stopped; `switch`: another CLI to continue an
- * agent stopped at its plan's limit (Continue with…); `block`: a command of a block's Rust
- * side (`blocks/block.ts` `call`); `changes`: the Changes timeline around the application's crash.
+ * The alerts are the core's (`Snapshot.alerts`, src-tauri/crates/core/src/alerts): computed from
+ * the snapshot on each change, the window open or not. Their types are the core's too.
  */
-export type Fix =
-  | { kind: 'status'; task_id: string; ticket: string; status: string; statuses: StatusOption[] }
-  | { kind: 'rebase' | 'mr' | 'queue' | 'automerge'; iid: number; repo?: string | null }
-  | { kind: 'retry' | 'logs'; pipeline: number; label: string; project?: string | null }
-  | { kind: 'claude'; iid: number; repo?: string | null; action: ClaudeActionId }
-  | { kind: 'podlogs'; context: string; namespace: string; deployment: string; label: string }
-  | { kind: 'settings'; section: string; label: string }
-  | { kind: 'fix-branch'; pipeline: number }
-  | { kind: 'investigate'; workload: string; namespace: string; context: string; env: string; issue: string }
-  | { kind: 'dev-server'; agent: string; command: string; where: string; tail: string }
-  | { kind: 'switch'; agent: string }
-  | { kind: 'overlap'; id: string; side: 'a' | 'b' }
-  | { kind: 'changes'; env: string | null; app: string }
-  | { kind: 'block'; block: string; command: string; args: Record<string, unknown>; label: string; title: string }
-  | { kind: 'proposal'; id: number }
+export type { Alert } from './bindings/Alert'
+export type { Fix } from './bindings/Fix'
+export type { OpenTarget } from './bindings/OpenTarget'
+export type { Severity } from './bindings/Severity'
 
 /**
  * Tickets Prism knows, with the statuses of their list (to offer a change), by `ticketRef`: an MR
@@ -102,13 +41,6 @@ export function ticketIndex(s: Snapshot): Map<string, { t: Ticket; statuses: Sta
   return index
 }
 
-/** Move the ticket to the first of these statuses its list knows; none, no fix. */
-function moveTo(entry: { t: Ticket; statuses: StatusOption[] } | undefined, wanted: string[]): Fix[] {
-  if (!entry) return []
-  const status = wanted.find((w) => w !== entry.t.status && entry.statuses.some((o) => o.status === w))
-  return status ? [{ kind: 'status', task_id: entry.t.task_id, ticket: entry.t.id, status, statuses: entry.statuses }] : []
-}
-
 /** Beyond this, a rebase becomes painful: it is flagged before (`[alerts] behind_commits`). */
 export const behindLimit = () => alertSettings().behind_commits
 
@@ -127,14 +59,8 @@ export const statusRank = (status: string) => {
   const order = conventions().workflow_statuses
   return order.indexOf(status) + 1 || order.length + 1
 }
-/** Before development, and after merge (the ticket goes to validation: this is not a desync). */
-const beforeDev = (status: string) => conventions().before_dev_statuses.includes(status)
-const afterMerge = (status: string) => conventions().after_merge_statuses.includes(status)
-const inProgress = (status: string) => conventions().in_progress_statuses.includes(status)
 /** In review, not yet at the step after approval (`review`, not `to merge`). */
 export const awaitingApproval = (status: string) => conventions().review_statuses.includes(status) && !(conventions().approved_statuses ?? []).includes(status)
-/** Blocked ticket (`[clickup] blocked_statuses`): the Sync rules leave it alone. */
-const blocked = (status: string) => (conventions().blocked_statuses ?? []).includes(status)
 
 export const openMrs = (s: Snapshot) => s.merge_requests.filter((m) => m.state === 'opened')
 
@@ -326,116 +252,13 @@ export function mrForSession(s: Snapshot, c: Pick<ClaudeSession, 'worktree' | 'b
   return s.merge_requests.find((m) => mine(m) && m.state === 'opened') ?? s.merge_requests.find(mine)
 }
 
+/**
+ * The alerts shown: the core's (`Snapshot.alerts`), and those of the blocks of another repository
+ * that say theirs in TypeScript only (`BlockDef.alerts`: Prism's own blocks say theirs in Rust,
+ * `Block::alerts`). A snapshot from an older Prism (`alerts` its thresholds then) has none.
+ */
 export function alerts(s: Snapshot): Alert[] {
-  return [...ruled('source', sourceAlerts(s)), ...ruled('infra', infraAlerts(s)), ...ruled('block', blockAlerts(s)), ...ruled('argo', argoAlerts(s)), ...ruled('branch-ci', ciAlerts(s)), ...ruled('sync', [...syncAlerts(s), ...draftAlerts(s), ...inReviewAlerts(s), ...approvedAlerts(s)]), ...ruled('queue', queueAlerts(s)), ...sessionAlerts(s), ...ruled('proposal', proposalAlerts(s)), ...ruled('overlap', overlapAlerts(s)), ...ruled('worktree', worktreeAlerts(s)), ...ruled('review', reviewAlerts(s)), ...myMrAlerts(s)]
-}
-
-/** A producer's rule, on those of its alerts that name none of their own. */
-const ruled = (rule: AlertRule, list: Alert[]) => list.map((a) => (a.rule ? a : { ...a, rule }))
-
-/** The oldest of these dates (ISO), for an alert standing for several. */
-const oldest = (dates: (string | null | undefined)[]) => dates.filter((d): d is string => !!d).sort()[0]
-
-function sessionAlerts(s: Snapshot): Alert[] {
-  const out: Alert[] = []
-  const recent = countedSessions(s).filter(waitingAlert)
-  const waiting = recent.filter((c) => c.status === 'needs_you')
-  for (const c of recent.filter((c) => c.status === 'waiting_tool')) {
-    out.push({ kind: 'Claude', rule: 'permission', since: c.last_activity ?? undefined, severity: 'warn', text: tr('“{title}” is stuck on a tool or a permission prompt', { title: c.title }) })
-  }
-  if (waiting.length > 0) {
-    // One agent alone waits: its quick answers in the row.
-    const agents = (s.agents ?? []).filter((a) => a.state === 'running' && a.status === 'needs_you')
-    const answer = waiting.length === 1 && agents.length === 1 ? agents[0].id : undefined
-    const text = answer ? tr('“{title}” is waiting for your answer', { title: agents[0].title }) : tn(waiting.length, '{n} session is waiting for your answer', '{n} sessions are waiting for your answer')
-    // A question, a plan to approve: someone waits on you. Only turns just over: nothing presses.
-    const rule = waiting.every(yourTurnOnly) ? 'your-turn' : 'question'
-    out.push({ kind: 'Claude', rule, since: oldest(waiting.map((c) => c.last_activity)), severity: 'info', text, answer })
-  }
-  // A Claude Code agent costing more than `[agents.claude] cost_alert` (its conversation, at the API prices).
-  const limit = s.agents_settings?.claude?.cost_alert ?? 0
-  for (const a of (s.agents ?? []).filter((a) => a.provider === 'claude' && limit > 0 && (a.usage?.cost ?? 0) >= limit)) {
-    out.push({ kind: 'Claude', rule: 'agent-cost', severity: 'warn', text: tr('“{title}” has cost about ${cost} (beyond ${limit})', { title: a.title, cost: a.usage!.cost!.toFixed(2), limit }) })
-  }
-  // An agent whose CLI's plan is used up, waiting: another CLI can take it on (`[agents] suggest_switch`).
-  if (s.agents_settings?.suggest_switch ?? true) {
-    for (const a of (s.agents ?? []).filter((a) => a.state !== 'prepared' && !isWorking(a.status) && (planUseOf(s, a.provider) ?? 0) >= USED_UP)) {
-      out.push({ kind: 'Claude', rule: 'agent-limit', severity: 'warn', text: tr('“{title}” stopped at its plan’s limit: another CLI can take it on', { title: a.title }), fixes: [{ kind: 'switch', agent: a.id }] })
-    }
-  }
-  // An agent running the same failing command again and again (5 times: past a first warning in its row).
-  for (const a of (s.agents ?? []).filter((a) => (a.looping?.count ?? 0) >= 5)) {
-    out.push({ kind: 'Claude', rule: 'agent-loop', severity: 'warn', text: tr('“{title}” is going in circles: {command} failed {count} times in a row', { title: a.title, command: a.looping!.command, count: a.looping!.count }) })
-  }
-  return out
-}
-
-/**
- * A change of Prism an agent proposed (`prism mcp`), waiting for your answer: one line each, from
- * when it came, gone once answered (or its agent gone). Its fix opens it.
- */
-function proposalAlerts(s: Snapshot): Alert[] {
-  return (s.mcp?.proposals ?? []).map((p) => {
-    const who = (p.agent && s.agents?.find((a) => a.id === p.agent)?.title) || p.client
-    // What stays the same while it waits (its id, its reason), not its diff, computed again when
-    // config.toml changes: the alert keeps its identity, seen stays seen.
-    const why = p.why.trim() || `#${p.id}`
-    const text = p.kind === 'custom_block' ? tr('“{who}” proposes a new custom block: {what}', { who, what: why }) : tr('“{who}” proposes a change of Prism: {what}', { who, what: why })
-    return { kind: 'Claude', severity: 'warn', since: p.at, text, notify: false, fixes: [{ kind: 'proposal', id: p.id }] }
-  })
-}
-
-/**
- * Two agents (or worktrees) on the same lines (or the same file, `[agents.overlaps] alert`): one
- * alert per pair, updated, gone with the overlap. After a merge, the one left has to rebase.
- */
-function overlapAlerts(s: Snapshot): Alert[] {
-  return alertedOverlaps(s).map((o) => {
-    const [a, b] = [sideName(s, o, 'a'), sideName(s, o, 'b')]
-    const files = o.files.filter((f) => f.level === o.level)
-    const file = files.length === 1 ? files[0].path : tn(files.length, '{n} file', '{n} files')
-    const text = o.merged
-      ? tr('“{b}” has to rebase on “{a}” (merged): they change the same lines of {file}', { a, b, file })
-      : o.level === 'lines'
-        ? tr('“{a}” and “{b}” change the same lines of {file}', { a, b, file })
-        : tr('“{a}” and “{b}” change the same file: {file}', { a, b, file })
-    return { kind: 'Claude', rule: 'overlap', short: tr('overlap'), severity: o.level === 'lines' ? 'ko' : 'warn', text, fixes: [{ kind: 'overlap', id: overlapId(o), side: 'b' }] } satisfies Alert
-  })
-}
-
-/** Claude usage has its own display, under the sessions: no duplicate alert. */
-const QUIET_SOURCES = new Set(['usage'])
-/** Setup warnings rather than an unreachable source: the source answers, the config points at nothing. */
-const SETUP_SOURCES: Record<string, string> = { 'clickup-setup': tr('ClickUp config') }
-
-/** The Settings section where a source's access is set: its token, or the forge's login. */
-const ACCESS_SECTIONS: Record<string, { section: string; name: string }> = {
-  clickup: { section: 'clickup', name: 'ClickUp' },
-  'clickup queues': { section: 'clickup', name: 'ClickUp' },
-  jira: { section: 'jira', name: 'Jira' },
-  'jira queues': { section: 'jira', name: 'Jira' },
-  gitlab: { section: 'forge', name: 'GitLab' },
-  github: { section: 'forge', name: 'GitHub' },
-}
-
-/**
- * A source's access missing or refused, in words, with the Settings section that fixes it: a
- * tracker's token not in the keychain or refused (401, 403), the forge CLI not signed in.
- */
-export function accessAlert(source: string, err: string): Alert | null {
-  const access = ACCESS_SECTIONS[source]
-  if (!access) return null
-  const fix: Fix = { kind: 'settings', section: access.section, label: tr('Settings › {name}', { name: access.section === 'forge' ? tr('Forge') : access.name }) }
-  if (err.includes('missing token')) return { kind: 'Source', severity: 'warn', text: tr('{name}: no token yet — paste it in Settings, then restart', { name: access.name }), fixes: [fix] }
-  if (/HTTP 40[13]\b/.test(err)) return { kind: 'Source', severity: 'ko', text: tr('{name} refused the token (revoked or regenerated?): paste a new one in Settings', { name: access.name }), fixes: [fix] }
-  if (access.section === 'forge' && /auth login|not logged|401 Unauthorized|HTTP 401|authentication/i.test(err)) return { kind: 'Source', severity: 'ko', text: tr('{name}: {cli} is not signed in — {err}', { name: access.name, cli: access.name === 'GitHub' ? 'gh' : 'glab', err }), fixes: [fix] }
-  return null
-}
-
-function sourceAlerts(s: Snapshot): Alert[] {
-  return Object.entries(s.errors)
-    .filter(([source]) => !QUIET_SOURCES.has(source))
-    .map(([source, err]) => accessAlert(source, err) ?? (source === 'config' ? { kind: 'Source', severity: err.startsWith('no config yet') ? 'warn' : 'ko', text: tr('Config: {err}', { err }) } : SETUP_SOURCES[source] ? { kind: 'Source', severity: 'warn', text: `${SETUP_SOURCES[source]}: ${err}` } : { kind: 'Source', severity: 'ko', text: tr('{source} unreachable: {err}', { source, err }) }))
+  return [...(Array.isArray(s.alerts) ? s.alerts : []), ...blockAlerts(s)]
 }
 
 /**
@@ -447,316 +270,22 @@ export const podDown = (p: PodView) => !p.healthy && p.status !== 'Pending'
 /** A pod's key in `pod_usage`. */
 export const usageKey = (p: PodView) => `${p.target}/${p.namespace}/${p.name}`
 
-/** The alerts of the blocks with a source of their own, from their state. */
-function blockAlerts(s: Snapshot): Alert[] {
+/** Blocks of another repository that say their alerts in TypeScript: without them, none to tell the core. */
+export const hasExternalAlerts = (): boolean => BLOCK_DEFS.some((b) => b.alerts)
+
+/**
+ * The alerts of the blocks of another repository that define them in TypeScript, from their state:
+ * the window tells the core (`alerts_external`) for the routines and the Changes block.
+ */
+export function blockAlerts(s: Snapshot): Alert[] {
   return BLOCK_DEFS.flatMap((b) => {
     const state = stateOf(b, s)
-    return state !== undefined && b.alerts ? b.alerts(state as never).map((a) => ({ ...a, kind: b.label, block: b.id })) : []
-  })
-}
-
-function infraAlerts(s: Snapshot): Alert[] {
-  const out: Alert[] = []
-  const broken = s.pods.filter((p) => !p.healthy)
-  const stuck = s.pending_jobs.filter((j) => minutesSince(j.queued_since) > alertSettings().pending_job_minutes)
-
-  // Correlation: jobs stuck with a runner down are a single incident.
-  if (stuck.length > 0) {
-    const cause = broken.find((p) => p.role === 'runner')
-    const oldest = Math.round(Math.max(...stuck.map((j) => minutesSince(j.queued_since))))
-    out.push({
-      kind: 'Infra',
-      severity: 'ko',
-      text: tn(stuck.length, '{n} job queued for {min} min', '{n} jobs queued for {min} min', { min: oldest }) + (cause ? tr(' — runner {name} is {status}', { name: cause.name, status: cause.status }) : ''),
-      // Pending jobs: to see in Alerts, nothing worth interrupting for (the runner down, for its part, notifies).
-      notify: false,
-    })
-  }
-  for (const p of broken) {
-    out.push({
-      kind: 'Infra',
-      severity: 'ko',
-      text: tr('{what} is {status}', { what: p.role === 'job' ? tr('Job {name}', { name: p.job_name ?? p.name }) : p.role === 'runner' ? tr('Runner {name}', { name: p.name }) : `Pod ${p.namespace}/${p.name} (${p.target})`, status: p.status }) + (p.restarts ? tn(p.restarts, ' ({n} restart)', ' ({n} restarts)') : ''),
-      // A pod waiting for room: visible in Alerts, without notification.
-      notify: podDown(p),
-      fixes: p.role === 'job' ? [] : [{ kind: 'investigate', workload: p.workload ?? p.name, namespace: p.namespace, context: p.context, env: p.target, issue: `pod ${p.name} is ${p.status}${p.restarts ? ` (${p.restarts} restarts)` : ''}` }],
-    })
-  }
-  // CI jobs with no runner left to take them, target by target.
-  for (const target of new Set(s.pods.filter((p) => p.role === 'job').map((p) => p.target))) {
-    if (!s.pods.some((p) => p.target === target && p.role === 'runner')) out.push({ kind: 'Infra', severity: 'ko', text: tr('No GitLab runner pod left in {target}, only its CI jobs', { target }) })
-  }
-  return out
-}
-
-/** Out of sync beyond this delay: it is no longer a deployment in progress. */
-
-/**
- * ArgoCD: last sync failed, application degraded or missing, or out of sync that lasts.
- * Fixes: the pods' logs (when the Environments block knows the namespace), and the link
- * to the ArgoCD UI (`url`).
- */
-export function argoAlerts(s: Snapshot): Alert[] {
-  const out: Alert[] = []
-  for (const instance of s.argocd?.instances ?? []) {
-    for (const a of instance.apps) {
-      // Instance replaced for this environment (`[[argocd]] envs`): its states no longer mean anything.
-      if (instance.envs && !(a.env && instance.envs.includes(a.env))) continue
-      const url = instance.url ? `${instance.url.replace(/\/$/, '')}/applications/${a.name}` : undefined
-      const open: OpenTarget = { kind: 'argo', cluster: instance.cluster, app: argoKey(instance.cluster, instance.namespace, a.name) }
-      const env = s.environments?.envs.find((e) => e.env === a.env && e.namespace === a.namespace)
-      const fixes: Fix[] =
-        env && a.deployments[0] ? [{ kind: 'podlogs', context: env.context, namespace: env.namespace, deployment: a.deployments[0], label: `${a.app ?? a.name} · ${env.env}` }] : []
-      const why = a.message ? `: ${a.message}` : ''
-      if (env && a.health === 'Degraded') fixes.push({ kind: 'investigate', workload: a.deployments[0] ?? a.app ?? a.name, namespace: env.namespace, context: env.context, env: env.env, issue: `ArgoCD application ${a.name} is Degraded${why}` })
-      // What changed just before: the Changes timeline around it (its block on).
-      if (s.blocks?.changes && (a.health === 'Degraded' || a.health === 'Missing' || a.operation === 'Failed' || a.operation === 'Error')) fixes.push({ kind: 'changes', env: a.env ?? null, app: a.app ?? a.deployments[0] ?? a.name })
-      if (a.operation === 'Failed' || a.operation === 'Error') {
-        out.push({ kind: 'ArgoCD', severity: 'ko', text: tr('{name}: last sync failed', { name: a.name }) + why, url, open, fixes })
-      } else if (a.health === 'Degraded' || a.health === 'Missing') {
-        out.push({ kind: 'ArgoCD', severity: 'ko', text: tr('{name} is {health}', { name: a.name, health: a.health }) + why, url, open, fixes })
-      } else if (a.sync === 'OutOfSync' && a.operation !== 'Running' && (!a.synced_at || minutesSince(a.synced_at) > alertSettings().argo_out_of_sync_minutes)) {
-        out.push({ kind: 'ArgoCD', severity: 'warn', text: a.synced_at ? tr('{name} out of sync with Git since {min} min', { name: a.name, min: Math.round(minutesSince(a.synced_at)) }) : tr('{name} out of sync with Git', { name: a.name }), url, open, fixes, notify: false })
-      }
-    }
-  }
-  return out
-}
-
-function ciAlerts(s: Snapshot): Alert[] {
-  // Only protected branches' pipelines are collected (every repository with `[[repos]] pipelines`).
-  return s.pipelines
-    .filter((p) => p.status === 'failed')
-    .map((p) => ({
-      kind: 'CI',
-      severity: 'ko',
-      text: (failedStage(p) ? tr('{branch} failed at stage {stage}', { branch: branchName(p), stage: failedStage(p)! }) : tr('{branch} failed', { branch: branchName(p) })) + (p.failed_jobs.length ? tr(': {jobs}', { jobs: p.failed_jobs.slice(0, 3).join(', ') }) : ''),
-      url: p.url,
-      open: { kind: 'pipeline', pipeline: p.id, label: branchName(p), project: p.project },
-      fixes: [
-        { kind: 'logs', pipeline: p.id, label: branchName(p), project: p.project },
-        { kind: 'retry', pipeline: p.id, label: branchName(p) },
-        { kind: 'fix-branch', pipeline: p.id },
-      ] satisfies Fix[],
-    }))
-}
-
-/** The heart of Prism: confront the state of the MRs with that of the tickets, both ways. */
-function syncAlerts(s: Snapshot): Alert[] {
-  const out: Alert[] = []
-  // `me` is only known after the first GitLab collection: before, the absence of an MR proves nothing.
-  if (!s.me) return out
-  const tickets = new Map<string, Ticket>()
-  // The sprint, and the boards read whole to check their tickets (`sync`).
-  for (const t of [...(s.sprint?.tickets ?? []), ...(s.pickup?.boards ?? []).filter((b) => b.sync).flatMap((b) => b.tickets)]) tickets.set(ticketRef(t.id, t.repo), t)
-  if (tickets.size === 0) return out
-
-  const byTicket = new Map<string, MergeRequest[]>()
-  for (const m of s.merge_requests) {
-    for (const id of mrTickets(m)) {
-      const key = ticketRef(id, repoName(m.repo, s))
-      byTicket.set(key, [...(byTicket.get(key) ?? []), m])
-    }
-  }
-  const branches = new Set(s.worktrees.filter((w) => w.ticket).map((w) => ticketRef(w.ticket!, w.repo)))
-  const index = ticketIndex(s)
-
-  for (const [key, mrs] of byTicket) {
-    const t = tickets.get(key)
-    if (!t || blocked(t.status)) continue
-    const id = t.id
-    const opened = mrs.filter((m) => m.state === 'opened')
-    const merged = mrs.filter((m) => m.state === 'merged')
-
-    // MR merged, ticket not yet to validate: to flag (`to merge`, `review`…), except in progress
-    // (`doing`): other MRs may follow on the same ticket.
-    if (opened.length === 0 && merged.length > 0 && !t.closed && !afterMerge(t.status) && !inProgress(t.status)) {
-      out.push({ kind: 'Sync', severity: 'warn', text: tr('{mr} merged — {id} still “{status}”', { mr: mrKey(merged[0]), id, status: t.status }), url: t.url, open: ticketOpen(t), fixes: moveTo(index.get(key), conventions().after_merge_statuses) })
-    }
-    if (opened.some((m) => !m.draft) && beforeDev(t.status)) {
-      const m = opened.find((m) => !m.draft)!
-      out.push({ kind: 'Sync', severity: 'warn', text: tr('{mr} open — {id} still “{status}”', { mr: mrKey(m), id, status: t.status }), url: t.url, open: ticketOpen(t), fixes: moveTo(index.get(key), [...conventions().review_statuses, ...conventions().in_progress_statuses]) })
-    }
-    if (opened.length > 0 && t.closed) {
-      out.push({ kind: 'Sync', severity: 'warn', text: tr('{id} closed while {mr} is still open', { id, mr: mrKey(opened[0]) }), url: opened[0].url, open: mrOpen(opened[0]), fixes: [{ kind: 'mr', iid: opened[0].iid, repo: opened[0].repo }] })
-    }
-  }
-
-  // A parent (EPIC) whose children are in the sprint: the work, and the branches, live with them.
-  const parents = new Set((s.sprint?.tickets ?? []).map((t) => t.parent).filter(Boolean))
-  for (const t of s.sprint?.tickets ?? []) {
-    if (blocked(t.status)) continue
-    const ref = ticketRef(t.id, t.repo)
-    const mrs = byTicket.get(ref) ?? []
-    if (conventions().review_statuses.includes(t.status) && !mrs.some((m) => m.state === 'opened')) {
-      if (!mrs.some((m) => m.state === 'merged')) {
-        out.push({ kind: 'Sync', severity: 'warn', text: tr('{id} is “{status}” with no open MR', { id: t.id, status: t.status }), url: t.url, open: ticketOpen(t) })
-      }
-    }
-    const idleDays = alertSettings().doing_idle_days
-    if (inProgress(t.status) && mrs.length === 0 && !branches.has(ref) && !parents.has(t.task_id) && minutesSince(t.updated_at) > idleDays * 1440) {
-      out.push({ kind: 'Sync', severity: 'info', text: tr('{id} “{status}” for over {days} days with no branch or MR', { id: t.id, status: t.status, days: idleDays }), url: t.url, open: ticketOpen(t) })
-    }
-  }
-  return out
-}
-
-/**
- * One of my MRs is a draft: I am working on it, its ticket should be "doing". Tickets
- * are looked up wherever Prism reads them (sprint, Architecture, in progress outside sprint, boards to
- * pick): a bug or hotfix MR counts too.
- */
-export function draftAlerts(s: Snapshot): Alert[] {
-  if (!s.me) return []
-  const index = ticketIndex(s)
-  return openMrs(s)
-    .filter((m) => m.draft && m.author === meOn(s, m))
-    .flatMap((m) => mrTickets(m).map((id) => [m, id] as const))
-    .flatMap(([m, id]) => {
-      const entry = index.get(ticketRef(id, repoName(m.repo, s)))
-      const t = entry?.t
-      if (!t || t.closed || inProgress(t.status)) return []
-      const wanted = conventions().in_progress_statuses
-      return [{ kind: 'Sync', severity: 'warn', text: tr('{mr} is a draft — {id} is “{status}”, not “{wanted}”', { mr: mrKey(m), id: t.id, status: t.status, wanted: wanted[0] ?? tr('in progress') }), url: t.url, open: ticketOpen(t), fixes: moveTo(entry, wanted) } satisfies Alert]
-    })
-}
-
-/**
- * A ticket still in progress ("doing") whose open MRs are all out of draft: the work is in
- * review, the ticket should say so (`[clickup] review_statuses`, the first one), or directly
- * "to merge" when they are all approved. A draft MR on the same ticket keeps it in progress,
- * rightly. Tickets looked up wherever Prism reads them.
- */
-export function inReviewAlerts(s: Snapshot): Alert[] {
-  if (!s.me) return []
-  const review = conventions().review_statuses
-  if (!review.length) return []
-  const index = ticketIndex(s)
-  const byTicket = new Map<string, MergeRequest[]>()
-  for (const m of openMrs(s)) {
-    for (const id of mrTickets(m)) {
-      const key = ticketRef(id, repoName(m.repo, s))
-      byTicket.set(key, [...(byTicket.get(key) ?? []), m])
-    }
-  }
-  return [...byTicket].flatMap(([key, mrs]) => {
-    const entry = index.get(key)
-    const t = entry?.t
-    const id = t?.id
-    if (!t || t.closed || blocked(t.status) || !inProgress(t.status) || mrs.some((m) => m.draft)) return []
-    const approved = conventions().approved_statuses ?? []
-    const wanted = approved.length && mrs.every(isApproved) ? approved : review
-    const m = mrs[0]
-    return [{ kind: 'Sync', severity: 'warn', text: tr('{mr} in review — {id} still “{status}”, not “{wanted}”', { mr: mrKey(m), id: id!, status: t.status, wanted: wanted[0] }), url: t.url, open: ticketOpen(t), fixes: moveTo(entry, wanted) } satisfies Alert]
-  })
-}
-
-/**
- * A ticket "to merge" (`[tracker] merge_queue_statuses`) whose open MR, in a repository with a
- * merge queue, is not in it: nothing will merge it. Already merging (auto-merge) or a draft, it is
- * left alone; in conflict, after a failed rebase or still short of a required approval, it is flagged without the fix.
- */
-export function queueAlerts(s: Snapshot): Alert[] {
-  const statuses = conventions().merge_queue_statuses ?? []
-  const label = s.merge_queue_label
-  if (!statuses.length || !label) return []
-  const index = ticketIndex(s)
-  return openMrs(s).flatMap((m) => {
-    if (m.draft || m.auto_merge || m.labels?.includes(label) || !hasMergeQueue(m, s)) return []
-    // Of the tickets it names, the first one waiting to be merged.
-    const t = mrTickets(m)
-      .map((id) => index.get(ticketRef(id, repoName(m.repo, s)))?.t)
-      .find((t) => t && !t.closed && !blocked(t.status) && statuses.includes(t.status))
-    if (!t) return []
-    const fixes: Fix[] = [...(canQueue(m) ? [{ kind: 'queue' as const, iid: m.iid, repo: m.repo }] : []), { kind: 'mr', iid: m.iid, repo: m.repo }]
-    const first = m.conflicts ? tr(' (conflicts first)') : rebaseFailed(m) ? tr(' (failed rebase first)') : m.approvals_left > 0 ? tr(' (approval first)') : ''
-    return [{ kind: 'Sync', severity: 'warn', text: tr('{id} “{status}” — {mr} not in the merge queue', { id: t.id, status: t.status, mr: mrKey(m) }) + first, url: m.url, open: mrOpen(m), fixes } satisfies Alert]
+    return state !== undefined && b.alerts ? b.alerts(state as never).map((a) => ({ ...a, kind: b.label, block: b.id, rule: a.rule ?? 'block' })) : []
   })
 }
 
 /** An MR that has at least one approval, and no request for changes: one that may go "to merge". */
 export const isApproved = (m: MergeRequest) => m.approved_by.length > 0 && !changesRequested(m)
-
-/**
- * A ticket's open MRs are all approved (and none is a draft), but it is still
- * in review: it should be "to merge" (`[clickup] approved_statuses`). An MR not yet
- * approved on the same ticket, or with changes requested, keeps it in review, rightly. Tickets looked up wherever Prism reads them.
- */
-export function approvedAlerts(s: Snapshot): Alert[] {
-  if (!s.me) return []
-  const wanted = conventions().approved_statuses ?? []
-  if (!wanted.length) return []
-  const index = ticketIndex(s)
-  const byTicket = new Map<string, MergeRequest[]>()
-  for (const m of openMrs(s)) {
-    for (const id of mrTickets(m)) {
-      const key = ticketRef(id, repoName(m.repo, s))
-      byTicket.set(key, [...(byTicket.get(key) ?? []), m])
-    }
-  }
-  return [...byTicket].flatMap(([key, mrs]) => {
-    const entry = index.get(key)
-    const t = entry?.t
-    const id = t?.id
-    if (!t || t.closed || blocked(t.status) || !awaitingApproval(t.status) || !mrs.every((m) => !m.draft && isApproved(m))) return []
-    const m = mrs[0]
-    return [{ kind: 'Sync', severity: 'warn', text: tr('{mr} approved — {id} still “{status}”, not “{wanted}”', { mr: mrKey(m), id: id!, status: t.status, wanted: wanted[0] }), url: t.url, open: ticketOpen(t), fixes: moveTo(entry, wanted) } satisfies Alert]
-  })
-}
-
-function reviewAlerts(s: Snapshot): Alert[] {
-  return openMrs(s)
-    .filter((m) => awaitsMyReview(m, meOn(s, m)) && minutesSince(m.updated_at) > alertSettings().review_wait_hours * 60)
-    .map((m) => ({
-      kind: 'Review',
-      severity: 'info',
-      since: m.updated_at,
-      short: tr('your review'),
-      text: tr('{mr} by {author} awaits your review', { mr: mrKey(m), author: m.author_name || m.author }),
-      url: m.url, open: mrOpen(m),
-      fixes: [{ kind: 'mr', iid: m.iid, repo: m.repo }, ...(hasWorktrees(m.repo, s) ? [{ kind: 'claude' as const, iid: m.iid, repo: m.repo, action: 'review' as const }] : [])] satisfies Fix[],
-    }))
-}
-
-/**
- * Out of draft with nobody to review it: someone was forgotten, `[alerts] no_reviewer_minutes`
- * after it opened (the time to add them; 0: never). Reviewed already counts, even by someone not asked.
- */
-export function lacksReviewer(m: MergeRequest): boolean {
-  const grace = alertSettings().no_reviewer_minutes
-  return !!grace && !m.draft && !m.reviewers.length && !m.approved_by.length && !m.changes_requested_by.length && !!m.created_at && minutesSince(m.created_at) > grace
-}
-
-/** Review threads left unresolved on my MR: feedback to apply or answer (`[alerts] open_threads`). */
-export const hasOpenThreads = (m: MergeRequest) => alertSettings().open_threads && m.state === 'opened' && m.open_threads > 0
-
-function myMrAlerts(s: Snapshot): Alert[] {
-  const out: Alert[] = []
-  for (const m of openMrs(s).filter((m) => m.author === meOn(s, m))) {
-    if (m.pipeline === 'failed') {
-      const p = m.head_pipeline
-      const fixes: Fix[] = p ? [{ kind: 'logs', pipeline: p.id, label: mrKey(m), project: m.project }, { kind: 'retry', pipeline: p.id, label: mrKey(m) }] : []
-      out.push({ kind: 'MR', rule: 'mr-ci', short: tr('CI failed'), severity: 'warn', text: tr('{mr}: CI failed', { mr: mrKey(m) }), url: m.url, open: mrOpen(m), fixes: [...fixes, ...(hasWorktrees(m.repo, s) ? [{ kind: 'claude' as const, iid: m.iid, repo: m.repo, action: 'fix-pipeline' as const }] : [])] })
-    }
-    // In conflict: an agent rebases it and resolves the conflicts, where the branch has a worktree to go to.
-    if (m.conflicts) out.push({ kind: 'MR', rule: 'conflicts', short: tr('conflicts'), severity: 'warn', text: tr('{mr}: conflicts with {target}', { mr: mrKey(m), target: m.target_branch }), url: m.url, open: mrOpen(m), fixes: [...(hasWorktrees(m.repo, s) ? [{ kind: 'claude' as const, iid: m.iid, repo: m.repo, action: 'rebase' as const }] : []), { kind: 'mr', iid: m.iid, repo: m.repo }] })
-    // The forge could not rebase it: locally, by an agent, where the conflicting commit shows.
-    else if (rebaseFailed(m))
-      out.push({ kind: 'MR', rule: 'rebase-failed', short: tr('rebase failed'), severity: 'warn', text: tr('{mr}: {forge} could not rebase it onto {target} ({reason})', { mr: mrKey(m), forge: forgeName(), target: m.target_branch, reason: rebaseFailure(m) }), url: m.url, open: mrOpen(m), fixes: [...(hasWorktrees(m.repo, s) ? [{ kind: 'claude' as const, iid: m.iid, repo: m.repo, action: 'rebase' as const }] : []), { kind: 'mr', iid: m.iid, repo: m.repo }] })
-    // Only when the rebase is the last blocker: in review, a branch behind is normal.
-    else if (m.merge_status === 'need_rebase' && !m.rebase_in_progress) out.push({ kind: 'MR', rule: 'need-rebase', short: tr('to rebase'), severity: 'info', text: tr('{mr} is ready, rebase it onto {target}', { mr: mrKey(m), target: m.target_branch }), url: m.url, open: mrOpen(m), fixes: [{ kind: 'rebase', iid: m.iid, repo: m.repo }] })
-    // Only its CI left: auto-merge, rather than coming back once it is green. In the merge queue
-    // too: the queue's job may not have come to it yet.
-    if (onlyWaitsForCi(m)) out.push({ kind: 'MR', rule: 'only-ci', short: tr('only waits for its CI'), severity: 'info', text: tr('{mr} only waits for its CI: set auto-merge', { mr: mrKey(m) }), url: m.url, open: mrOpen(m), fixes: [{ kind: 'automerge', iid: m.iid, repo: m.repo }] })
-    if (lacksReviewer(m))
-      out.push({ kind: 'MR', rule: 'no-reviewer', short: tr('no reviewer'), since: m.created_at ?? undefined, severity: 'warn', text: tr('{mr} has no reviewer', { mr: mrKey(m) }), url: m.url, open: mrOpen(m), fixes: [{ kind: 'mr', iid: m.iid, repo: m.repo }] })
-    if (hasOpenThreads(m))
-      out.push({ kind: 'MR', rule: 'open-threads', short: tn(m.open_threads, '{n} thread', '{n} threads'), severity: 'warn', text: tn(m.open_threads, '{mr}: {n} unresolved thread', '{mr}: {n} unresolved threads', { mr: mrKey(m) }), url: m.url, open: mrOpen(m), fixes: [{ kind: 'mr', iid: m.iid, repo: m.repo }, ...(hasWorktrees(m.repo, s) ? [{ kind: 'claude' as const, iid: m.iid, repo: m.repo, action: 'review-fix' as const }] : [])] })
-    // Not every repository (infra, helm…) has tickets: only those with `[[repos]] ticket_required`.
-    if (!m.ticket && needsTicket(m, s) && hasTickets()) out.push({ kind: 'MR', rule: 'no-ticket', short: tr('no ticket id'), severity: 'info', text: tr('{mr} has no {prefix}- id in its title or branch', { mr: mrKey(m), prefix: ticketPrefix() }), url: m.url, open: mrOpen(m) })
-  }
-  return out
-}
 
 /*
  * Worktrees: what each one is linked to (ticket, MR, Claude sessions), whether it is "stale", and whether it
@@ -861,15 +390,4 @@ export function describeWorktrees(s: Snapshot): WorktreeInfo[] {
       forceable: !w.is_main && !w.prunable && !w.locked && !busy && !!keep,
     }
   })
-}
-
-function worktreeAlerts(s: Snapshot): Alert[] {
-  // Archived ones are left alone; a folder gone still says so.
-  const infos = describeWorktrees(s).filter((i) => i.state === 'gone' || !isHidden(i))
-  const safe = infos.filter((i) => i.state === 'stale' && i.removable).length
-  const gone = infos.filter((i) => i.state === 'gone').length
-  const out: Alert[] = []
-  if (safe) out.push({ kind: 'Worktrees', severity: 'info', notify: false, text: tn(safe, '{n} stale worktree can be removed safely', '{n} stale worktrees can be removed safely') })
-  if (gone) out.push({ kind: 'Worktrees', severity: 'info', notify: false, text: tn(gone, '{n} worktree whose folder is gone (prune)', '{n} worktrees whose folder is gone (prune)') })
-  return out
 }

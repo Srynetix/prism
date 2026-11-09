@@ -53,7 +53,7 @@
     try {
       if (preview) {
         const s = live.snapshot as unknown as Record<string, unknown> | null
-        const effective = { alerts: s?.alerts, appearance: s?.appearance, palette: s?.palette, console: s?.console }
+        const effective = { alerts: s?.alerts_settings, appearance: s?.appearance, palette: s?.palette, console: s?.console }
         data = { values: {}, effective, defaults: {}, inherited: {}, error: null, editable: [...EDITABLE_PREVIEW] }
       } else {
         data = await invoke<PhoneSettings>('remote_settings_read')

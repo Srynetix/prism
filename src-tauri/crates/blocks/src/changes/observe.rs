@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Duration as Span, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity, ChangesConfig, WindowAlert};
+use super::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity, ChangesConfig, EnvAlert};
 use crate::state::{ArgoApp, EnvStatus, Snapshot, Vulnerabilities};
 
 /// What a read needs of the snapshot.
@@ -64,11 +64,11 @@ pub struct Last {
     /// By `<env>/<namespace>/<name>`.
     #[serde(default)]
     pub workloads: BTreeMap<String, WorkloadLast>,
-    /// The window's alerts by key; absent until it sent them once.
+    /// The environments' alerts by key; absent until they were first seen.
     #[serde(default)]
-    pub alerts: Option<BTreeMap<String, WindowAlert>>,
-    /// Of those, the ones the window no longer sends, since when: over only after `ALERT_GRACE`
-    /// (a source unreadable for a read, the window's first lists before the sources answer).
+    pub alerts: Option<BTreeMap<String, EnvAlert>>,
+    /// Of those, the ones no longer there, since when: over only after `ALERT_GRACE` (a source
+    /// unreadable for a read, the first lists before the sources answer).
     #[serde(default)]
     pub missing: BTreeMap<String, DateTime<Utc>>,
     /// The findings to fix (`<id>|<project>`) of the last scan seen; absent before the first.
@@ -92,7 +92,7 @@ pub struct WorkloadLast {
 }
 
 /// The changes of this read, `since` the retention's start; `last` becomes this read.
-pub fn observe(cfg: &ChangesConfig, view: &View, alerts: Option<&[WindowAlert]>, last: &mut Last, now: DateTime<Utc>, since: DateTime<Utc>) -> Vec<ChangeEvent> {
+pub fn observe(cfg: &ChangesConfig, view: &View, alerts: Option<&[EnvAlert]>, last: &mut Last, now: DateTime<Utc>, since: DateTime<Utc>) -> Vec<ChangeEvent> {
     let mut out = Vec::new();
     if cfg.reads("argocd") {
         argo(view, last, now, since, &mut out);
@@ -104,7 +104,7 @@ pub fn observe(cfg: &ChangesConfig, view: &View, alerts: Option<&[WindowAlert]>,
         merged(cfg, view, since, &mut out);
     }
     if cfg.reads("alerts") && let Some(alerts) = alerts {
-        window_alerts(alerts, last, now, &mut out);
+        env_alerts(alerts, last, now, &mut out);
     }
     if cfg.reads("vulnerabilities") {
         vulnerabilities(cfg, view, last, now, &mut out);
@@ -278,17 +278,17 @@ fn merged(cfg: &ChangesConfig, view: &View, since: DateTime<Utc>, out: &mut Vec<
 
 /* ---------- Alerts ---------- */
 
-/// An alert the window stops sending is over once it has been gone this long.
+/// An alert no longer there is over once it has been gone this long.
 const ALERT_GRACE: i64 = 3;
 
-fn window_alerts(alerts: &[WindowAlert], last: &mut Last, now: DateTime<Utc>, out: &mut Vec<ChangeEvent>) {
-    let current: BTreeMap<String, WindowAlert> = alerts.iter().map(|a| (a.key.clone(), a.clone())).collect();
+fn env_alerts(alerts: &[EnvAlert], last: &mut Last, now: DateTime<Utc>, out: &mut Vec<ChangeEvent>) {
+    let current: BTreeMap<String, EnvAlert> = alerts.iter().map(|a| (a.key.clone(), a.clone())).collect();
     let Some(on) = last.alerts.as_mut() else {
         // The first sight is only noted.
         last.alerts = Some(current);
         return;
     };
-    let event = |a: &WindowAlert, start: bool, at: DateTime<Utc>| {
+    let event = |a: &EnvAlert, start: bool, at: DateTime<Utc>| {
         let severity = match (start, a.severity.as_str()) {
             (false, _) => ChangeSeverity::Ok,
             (true, "ko") => ChangeSeverity::Ko,
@@ -516,7 +516,7 @@ mod tests {
 
     #[test]
     fn alerts_appear_and_go() {
-        let alert = |key: &str| WindowAlert { key: key.into(), severity: "ko".into(), text: key.into(), env: Some("staging".into()), app: None, url: None };
+        let alert = |key: &str| EnvAlert { key: key.into(), severity: "ko".into(), text: key.into(), env: Some("staging".into()), app: None, url: None };
         let mut last = Last::default();
         let now = at(10);
         // The first sight is only noted.

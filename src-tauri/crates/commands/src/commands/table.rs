@@ -143,6 +143,8 @@ commands! {
     // demo themselves.
     system::block_call: Never [demo: own] [phone: block: String, command: String, args: Option<Value>],
     system::shared_load: Read [phone: state, name: String; sync],
+    // The window's alerts of the blocks of another repository, for the routines and Changes.
+    system::alerts_external: Never,
     system::shared_save: Act [demo: own] [phone: state, name: String, value: Value; sync],
     // Agents and stores outlive it: nothing is lost.
     system::restart_app: Act [demo: own],
@@ -173,10 +175,12 @@ commands! {
     feedback::feedback_body: Read,
     feedback::feedback_url: Read [phone: target: String, kind: String, title: String, text: String, context: Vec<String>; sync],
     feedback::feedback_requests: Read [phone: state, refresh: bool],
-    feedback::feedback_draft: Read,
     feedback::feedback_vote: Act [phone: target: String, number: u64],
     feedback::feedback_create: Act [phone: state, target: String, kind: String, title: String, text: String, context: Vec<String>, capture: Option<bool>],
-    feedback::feedback_draft_reset: Act [phone: state; sync],
+    // An agent launched to draft it, its words in its prompt as a launch's from a phone.
+    feedback::feedback_draft_start: Act [phone: state, target: String, kind: String, title: String, text: String],
+    // Its file, once Prism no longer knows the draft.
+    feedback::feedback_draft_read: Read [phone: state, id: String],
     // Reading.
     system::get_snapshot: Read,
     // The window's own: a phone gets its snapshot over its socket.
@@ -186,6 +190,9 @@ commands! {
     tracker::ticket_commits: Read [phone: state, id: String],
     tracker::ticket_image: Read [phone: state, url: String],
     tracker::refresh_tickets: Read [phone: state],
+    // My sprint (`crate::retro`).
+    tracker::retro_get: Read [phone: state, points: Option<Vec<crate::blocks::trail::retro::RetroPoint>>; sync],
+    tracker::retro_keep: Act [demo: own] [phone: state, history: Option<Vec<crate::blocks::trail::retro::RetroSummary>>; sync],
     forge::mr_detail: Read [phone: state, repo: Option<String>, iid: u64],
     forge::mr_diff: Read [phone: state, repo: Option<String>, iid: u64],
     forge::mr_commits: Read [phone: state, repo: Option<String>, iid: u64],
@@ -237,6 +244,8 @@ commands! {
     agents::agent_installed: Read [phone: state],
     agents::agent_handoff_material: Read [phone: state, id: String, turns: Option<u32>],
     agents::session_source: Read [phone: state, source: crate::agents::session_source::Source],
+    // A draft asked of an agent (a quick action's prompt, a feedback issue): read back by Prism.
+    agents::draft_state: Read [phone: state, id: String],
     agents::agent_leg_conversation: Read [phone: state, id: String, leg: u32, turns: Option<u32>],
     agents::agent_history: Read [phone: state, id: String, lines: Option<u32>, screen: Option<bool>],
     agents::agent_worktree_plan: Read [phone: state, title: String, worktree: crate::agents::NewWorktree],
@@ -269,6 +278,9 @@ commands! {
     // Agents: their permission rules still apply to what they do.
     agents::agent_spawn: Act,
     agents::agent_prepare: Act,
+    // A hidden agent, its prompt Prism's (the session's own prompts, as data), in a folder Prism shows.
+    agents::quick_action_draft: Act [phone: state, source: crate::agents::session_source::Source, repo: String, name: String],
+    agents::draft_stop: Act [phone: state, id: String],
     agents::agent_start: Act,
     agents::agent_resume: Act [phone: state, id: String],
     agents::agent_reopen: Act [phone: state, repo: String],
@@ -316,7 +328,6 @@ commands! {
     agents::routine_enable: Critical [phone: state, name: String, on: bool],
     agents::routine_trust: Never,
     agents::routine_remove: Never,
-    agents::routine_inputs: Never,
     agents::agent_rename: Act [phone: state, id: String, title: String; sync],
     agents::agent_set_tags: Act [phone: state, id: String, tags: Vec<String>; sync],
     agents::agent_set_category: Act [phone: state, id: String, category: Option<String>; sync],

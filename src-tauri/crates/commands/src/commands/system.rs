@@ -246,21 +246,40 @@ pub fn shared_save(state: State<'_, AppState>, name: String, value: serde_json::
     if (name == "notes" && !value.is_array()) || (name != "notes" && !value.is_object()) {
         return Err(format!("{name}: unexpected shape").into());
     }
+    // The alerts follow the agents and worktrees archived, the overlaps ignored (in the demo too).
+    if name == "prefs" {
+        state.hub.set_alert_prefs(&value);
+    }
     // The demo writes nothing: the page keeps what it changed until it is closed.
     if crate::demo::active() {
         return Ok(state.hub.subscribe().borrow().shared_revs.get(&name).copied().unwrap_or(0));
     }
-    state.store.save(&name, &value)?;
+    // The points written without the sprints kept (`crate::retro::keep`): those stay, under the
+    // store's lock that `keep` takes too.
+    state.store.update(&name, |stored| Ok(Some(if name == "retro" { crate::blocks::trail::retro::with_history(stored.as_ref(), value) } else { value })))?;
+    Ok(shared_written(&state.hub, &name))
+}
+
+/// The alerts of the blocks of another repository (`BlockDef.alerts`, TypeScript only), as the
+/// window computes them: the routines (`{alerts}`) and the Changes block read them with the core's.
+/// Sent by the window only when it has such blocks; without the window they are absent.
+#[prism_macros::command]
+pub fn alerts_external(state: State<'_, AppState>, alerts: Vec<prism_core::alerts::Alert>) {
+    state.hub.set_external_alerts(alerts);
+}
+
+/// A shared store just written: its revision bumped, so that the other pages read it again; the new one.
+pub(crate) fn shared_written(hub: &crate::state::Hub, name: &str) -> u64 {
     // In milliseconds, so that it keeps growing across restarts: a phone's page outlives them.
     let now = u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap_or(0);
     let mut rev = 0;
-    state.hub.update(|s| {
-        let r = s.shared_revs.entry(name.clone()).or_default();
+    hub.update(|s| {
+        let r = s.shared_revs.entry(name.to_string()).or_default();
         *r = now.max(*r + 1);
         rev = *r;
         true
     });
-    Ok(rev)
+    rev
 }
 
 #[cfg(test)]

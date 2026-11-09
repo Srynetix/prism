@@ -1,23 +1,25 @@
 import { invoke } from './bridge'
 import { live } from './live.svelte'
-import { agentConversation, agentsSettings, closeAgent, spawnAgent } from './agents.svelte'
+import { agentsSettings } from './agents.svelte'
 import { providerOf } from './agent-cli'
 import { agentRepo, hasWorktrees } from './repositories'
-import { DRAFTER, draftPrompt, parseDraft, templated, uniqueName } from './quick-action-source'
+import { templated, uniqueName } from './quick-action-source'
 import { openSettings } from './settings.svelte'
 import { routineFor } from './routines.svelte'
 import { toast } from './toast.svelte'
 import { t } from './i18n.svelte'
 import type { QuickAction } from './bindings/QuickAction'
 import type { SessionSource } from './bindings/SessionSource'
+import type { DraftState } from './bindings/DraftState'
 
 /**
  * Create a quick action… from a past session (an agent of the list, archived too; the last one
  * closed in a repository; a Claude Desktop session): the form of a quick action, prefilled from
  * it (`session_source`). Its prompt is first the session's first one, its repository and base
- * branch as `{repo}` and `{base}`; meanwhile an agent of the session's CLI writes one that stands
- * on its own from all the prompts given in it (`quick-action-source.ts`), read back from its reply
- * and closed once it is there. Keep this one stops it. Saved, it is added to `config.toml`
+ * branch as `{repo}` and `{base}`; meanwhile a hidden agent of the session's CLI writes one that
+ * stands on its own from all the prompts given in it (`quick_action_draft`, `prism_agents::draft`):
+ * Prism reads it back from its reply and closes it, the form reads the draft's state
+ * (`draft_state`). Keep this one stops it (`draft_stop`). Saved, it is added to `config.toml`
  * (`quick_action_add`), never to a pack; its ⚡ shows at once. Make it a routine too: Settings ›
  * Routines opens on a new one running it.
  */
@@ -58,8 +60,6 @@ export const qaDraft = $state({
 })
 
 const MODES: Mode[] = ['default', 'acceptEdits', 'plan']
-/** The drafting agent given up after this long without its prompt. */
-const DRAFT_MS = 180_000
 /** Each opening's number: a session read late for a form opened since (or closed) is dropped. */
 let opened = 0
 const repoInfo = (name: string) => live.snapshot?.repos?.find((r) => r.name === name)
@@ -106,18 +106,17 @@ export async function openQuickActionDraft(ref: SessionRef) {
       otherCli: !sameCli && !!(launch?.model || launch?.effort),
       noDraft: !source.readable || !source.prompts.length,
     })
-    if (!qaDraft.noDraft) void draftWithAgent(source, repo, base)
+    if (!qaDraft.noDraft) void draftWithAgent(ref, source, repo)
   } catch (e) {
     if (n === opened) Object.assign(qaDraft, { loading: false, error: String(e) })
   }
 }
 
-/** The agent writing the prompt, launched in the repository's clone (a folder a phone launches in too). */
-async function draftWithAgent(source: SessionSource, repo: string, base: string) {
-  const cwd = repoInfo(repo)?.path || source.dir
+/** The agent writing the prompt, launched by Prism in the repository's clone (else the session's folder). */
+async function draftWithAgent(ref: SessionRef, source: SessionSource, repo: string) {
   try {
-    const id = await spawnAgent({ title: t('Quick action: {name}', { name: qaDraft.name }).slice(0, 60), cwd, prompt: draftPrompt(source.prompts, repo, base), provider: source.provider, from: DRAFTER, tags: ['quick-action'] }, true)
-    if (!qaDraft.open || qaDraft.source !== source) return void closeAgent(id).catch(() => null)
+    const id = await invoke<string>('quick_action_draft', { source: ref, repo, name: qaDraft.name })
+    if (!qaDraft.open || qaDraft.source !== source) return void invoke('draft_stop', { id }).catch(() => null)
     qaDraft.drafter = id
     void waitForDraft(id)
   } catch (e) {
@@ -127,29 +126,30 @@ async function draftWithAgent(source: SessionSource, repo: string, base: string)
 }
 
 /**
- * Its reply read every two seconds, until the prompt is in it; then it is closed. Given up (closed,
- * the first prompt kept) when it stopped, asks for a permission, or takes too long.
+ * Its state read every two seconds, until Prism has the prompt (and closed its agent). Given up
+ * (the first prompt kept) when Prism did: it stopped, asked for a permission, or took too long;
+ * lost when Prism no longer knows it.
  */
 async function waitForDraft(id: string) {
-  const until = Date.now() + DRAFT_MS
   while (qaDraft.drafter === id) {
     await new Promise((r) => setTimeout(r, 2000))
     if (qaDraft.drafter !== id) return
-    const a = live.snapshot?.agents.find((x) => x.id === id)
-    const stuck = !a ? null : a.state !== 'running' ? t('it stopped') : a.status === 'waiting_tool' ? t('it asked for a permission') : Date.now() > until ? t('it took too long') : null
-    if (stuck) {
+    const s = await invoke<DraftState | null>('draft_state', { id }).catch(() => undefined)
+    if (qaDraft.drafter !== id) return
+    if (s === undefined || s?.state === 'waiting') continue
+    qaDraft.drafter = ''
+    if (s === null) {
+      // Unknown to Prism (restarted, or the draft long over): said, not waited for forever.
       qaDraft.noDraft = true
-      qaDraft.error = t('No draft: {error}', { error: stuck })
-      return void stopDrafting()
+      qaDraft.error = t('The draft was lost: {error}', { error: t('Prism no longer knows it (restarted, or it ended a while ago)') })
+    } else if (s.state === 'failed') {
+      qaDraft.noDraft = true
+      qaDraft.error = t('No draft: {error}', { error: s.why })
+    } else if (s?.state === 'ready') {
+      // Taken unless the prompt was changed by hand meanwhile.
+      if (qaDraft.prompt === qaDraft.first) qaDraft.prompt = s.text
+      qaDraft.drafted = true
     }
-    const c = await agentConversation(id, 2).catch(() => null)
-    const reply = c?.turns.at(-1)?.entries.map((e) => (e.type === 'text' ? e.text : '')).join('\n') ?? ''
-    const text = parseDraft(reply)
-    if (!text) continue
-    // Taken unless the prompt was changed by hand meanwhile.
-    if (qaDraft.prompt === qaDraft.first) qaDraft.prompt = text
-    qaDraft.drafted = true
-    await stopDrafting()
   }
 }
 
@@ -157,7 +157,7 @@ async function waitForDraft(id: string) {
 export async function stopDrafting() {
   const id = qaDraft.drafter
   qaDraft.drafter = ''
-  if (id) await closeAgent(id).catch(() => null)
+  if (id) await invoke('draft_stop', { id }).catch(() => null)
 }
 
 /** Back to the session's first prompt. */

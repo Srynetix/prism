@@ -1,22 +1,6 @@
-import type { BlockAlert, BlockDef } from '../block'
-import { micProblem, recorders, type SoundState } from './types'
+import type { BlockDef } from '../block'
+import { micProblem, type SoundState } from './types'
 import { t } from '../../i18n.svelte'
-
-/**
- * The microphone too low (muted is not an alert): in Alerts at once (orange), notified (red) while an
- * application records from it, the moment it matters. "Raise" fixes it from the row.
- */
-function alerts(s: SoundState): BlockAlert[] {
-  const p = micProblem(s)
-  const input = s.input
-  if (!p || !input) return []
-  const rec = s.recording.length > 0
-  const fix = { kind: 'block' as const, block: 'sound', command: 'volume', args: { side: 'input', value: s.limits.restore_gain }, label: t('Raise to {n} %', { n: s.limits.restore_gain }), title: t('Set {name}’s input volume to {n} %', { name: input.name, n: s.limits.restore_gain }) }
-  const vars = { name: input.name, volume: p.volume, min: s.limits.min_input_gain, who: rec ? recorders(s) : '' }
-  const text = rec ? t('Microphone {name}’s input volume is at {volume} % (under {min} %) while {who} records', vars) : t('Microphone {name}’s input volume is at {volume} % (under {min} %)', vars)
-  // Its own key while recording: one notification when a call starts with the microphone low.
-  return [{ severity: rec ? 'ko' : 'warn', text, fixes: [fix], ...(rec ? { notification: { key: 'sound:gain', title: t('Microphone') } } : { notify: false }) }]
-}
 
 /** Sound: the output and the microphone, and the microphone too low. */
 export const sound = {
@@ -57,5 +41,4 @@ export const sound = {
     const n = micProblem(s) && s.recording.length ? 1 : 0
     return { count: n, title: n ? t('Microphone too low while recording') : '' }
   },
-  alerts,
 } satisfies BlockDef<SoundState>

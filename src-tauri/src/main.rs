@@ -58,8 +58,9 @@ fn main() {
         }
     }
     // This profile's Prism runs without a window (an app gone, `keep_running`): this app takes
-    // it over, its agents going on in tmux.
-    if profile::holder(profile::active()).is_some() && profile::engine_socket(profile::active()).exists() && profile::stop(profile::active()) && !profile::wait_free(profile::active(), std::time::Duration::from_secs(8)) {
+    // it over, its agents going on in their sessions. The profile's holder serving its local
+    // socket is one (a Prism with a window serves none); Windows: its pipe asked for, not opened.
+    if profile::holder(profile::active()).is_some() && prism_sys::ipc::exists(&profile::engine_socket(profile::active())) && profile::stop(profile::active()) && !profile::wait_free(profile::active(), std::time::Duration::from_secs(8)) {
         eprintln!("prism: profile {}'s Prism did not stop", profile::active());
     }
 
@@ -242,6 +243,7 @@ fn export_bindings() {
     agents::conversation::Conversation::export_all(&cfg).unwrap();
     agents::switch::Material::export_all(&cfg).unwrap();
     agents::session_source::SessionSource::export_all(&cfg).unwrap();
+    agents::draft::DraftState::export_all(&cfg).unwrap();
     agents::breakdown::Breakdown::export_all(&cfg).unwrap();
     agents::activity::Activity::export_all(&cfg).unwrap();
     state::AgentCost::export_all(&cfg).unwrap();
@@ -296,10 +298,11 @@ fn export_bindings() {
     prism_blocks::tokens::TokensState::export_all(&cfg).unwrap();
     prism_blocks::data::GcpData::export_all(&cfg).unwrap();
     prism_blocks::trail::TrailState::export_all(&cfg).unwrap();
+    prism_blocks::trail::retro::Retro::export_all(&cfg).unwrap();
     prism_blocks::changes::ChangesState::export_all(&cfg).unwrap();
-    // The alerts the window gives the Changes block; the other computers of the profile menu; dictation's Settings.
-    prism_blocks::changes::WindowAlert::export_all(&cfg).unwrap();
+    // The other computers of the profile menu; dictation's Settings.
     machines::MachineView::export_all(&cfg).unwrap();
+    prism_remote::machine::MachineReason::export_all(&cfg).unwrap();
     dictation::Status::export_all(&cfg).unwrap();
     dictation::Download::export_all(&cfg).unwrap();
     // What each agent CLI can do: values, not only a type, for the window to read at once.

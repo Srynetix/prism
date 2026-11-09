@@ -13,6 +13,11 @@ pub mod usage;
 /// Claude session identifier.
 pub const PREFIX: &str = "prism-";
 
+/// What an agent Prism launches to draft a text (a quick action's prompt, a feedback issue) is
+/// launched `from` (`Launch.from`; `quick-action-source.ts` keeps a copy): always out of the lists,
+/// never kept as its repository's last session.
+pub const DRAFTER: &str = "quick-action-draft";
+
 /// Prism holds the agents' sessions itself (`prism_agents::tmux::local`, in `prism sessions`)
 /// instead of a tmux server: on Windows, which has no tmux, or with `PRISM_SESSIONS=local` (to try
 /// it elsewhere; `inprocess`: in Prism's process, stopping with it). No tmux is needed then.

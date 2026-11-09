@@ -1,23 +1,6 @@
-import type { BlockAlert, BlockDef } from '../block'
+import type { BlockDef } from '../block'
 import type { StatusState } from './types'
 import { t, tn } from '../../i18n.svelte'
-
-/** An incident under way: major and critical ones notified, minor ones and maintenance not. */
-function alerts(s: StatusState): BlockAlert[] {
-  if (!s.alerts) return []
-  return s.services.flatMap((svc) =>
-    svc.incidents
-      .filter((i) => !i.maintenance)
-      .map((i) => {
-        const serious = i.impact === 'major' || i.impact === 'critical'
-        return {
-          severity: serious ? ('ko' as const) : ('warn' as const),
-          text: `${t('{service} incident: {name}', { service: svc.name, name: i.name })}${i.status ? ` (${i.status})` : ''}`,
-          ...(serious ? { notification: { key: `status:${svc.id}:${i.id}`, title: t('{service} status', { service: svc.name }) } } : { notify: false }),
-        }
-      }),
-  )
-}
 
 /** Status pages: incidents under way at the services Prism leans on. */
 export const status = {
@@ -63,5 +46,4 @@ export const status = {
     const n = s.services.filter((x) => x.level === 'major' || x.level === 'critical').length
     return { count: n, title: tn(n, '{n} service with a major incident', '{n} services with a major incident') }
   },
-  alerts,
 } satisfies BlockDef<StatusState>

@@ -447,8 +447,9 @@ const SHARED_PREFS = new Set([
   'agents.comments',
   // Nor this: the agents and sessions archived, out of the lists on both.
   'agents.archived',
-  // The worktrees archived, likewise.
-  'worktrees.archived',
+  // The worktrees archived, likewise; and the routines' agents opened, back in the lists (the core's
+  // alerts read the three, `prism_core::alerts::Prefs`).
+  'worktrees.archived', 'routines.opened',
   // Alerts put off (⏾): off on both.
   'todo.snoozed',
   // Overlaps ignored from their panel, until their hunks change.

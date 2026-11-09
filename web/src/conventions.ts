@@ -62,7 +62,7 @@ const ALERTS: AlertsSettings = {
 
 export const conventions = (): Conventions => live.snapshot?.conventions ?? DEFAULTS
 /** A snapshot from an older Prism (the phone's, a preview) lacks the keys added since: their defaults. */
-export const alertSettings = (): AlertsSettings => (live.snapshot?.alerts ? { ...ALERTS, ...live.snapshot.alerts } : ALERTS)
+export const alertSettings = (): AlertsSettings => (live.snapshot?.alerts_settings ? { ...ALERTS, ...live.snapshot.alerts_settings } : ALERTS)
 
 /* ---------- Tickets ---------- */
 

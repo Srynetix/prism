@@ -175,20 +175,19 @@ async fn serve(endpoint: Endpoint, idle: bool) -> Result<()> {
     accept(daemon, endpoint).await
 }
 
-#[cfg(unix)]
+/// The profile's socket (a named pipe on Windows, an instance per connection, as `prism mcp`'s),
+/// this account's only (`prism_sys::ipc`): another one answering there holds the sessions, and a
+/// second `prism sessions` fails.
 async fn accept(daemon: Arc<Daemon>, endpoint: Endpoint) -> Result<()> {
-    let path = PathBuf::from(&endpoint.0);
-    prism_core::mcp::private_dir(&path)?;
-    // Another one answering there: it holds the sessions.
-    if std::os::unix::net::UnixStream::connect(&path).is_ok() {
-        bail!("prism sessions already runs on {}", path.display());
-    }
-    let _ = std::fs::remove_file(&path);
-    let listener = tokio::net::UnixListener::bind(&path).with_context(|| format!("binding {}", path.display()))?;
-    prism_core::mcp::owner_only(&path)?;
+    let at = PathBuf::from(&endpoint.0);
+    let mut listener = match prism_sys::ipc::listen(&at, &prism_core::profile::data_base(), prism_sys::ipc::Taken::Refuse) {
+        Ok(l) => l,
+        Err(e) if e.kind() == io::ErrorKind::AddrInUse => bail!("prism sessions already runs on {}", at.display()),
+        Err(e) => return Err(e).with_context(|| format!("prism sessions: no socket {}", at.display())),
+    };
     loop {
         match listener.accept().await {
-            Ok((stream, _)) => {
+            Ok(stream) => {
                 tokio::spawn(daemon.clone().connection(stream));
             }
             Err(e) => {
@@ -199,24 +198,6 @@ async fn accept(daemon: Arc<Daemon>, endpoint: Endpoint) -> Result<()> {
     }
 }
 
-/// The profile's named pipe, an instance per connection (as `prism mcp`'s): the first one claims
-/// the name (another process cannot have made it first, and a second `prism sessions` fails);
-/// clients of this computer and this account only (`prism_sys::windows::pipe_server`).
-#[cfg(windows)]
-async fn accept(daemon: Arc<Daemon>, endpoint: Endpoint) -> Result<()> {
-    let name = endpoint.0;
-    let make = |first: bool| prism_sys::windows::pipe_server(&name, first);
-    let mut server = make(true).with_context(|| format!("prism sessions: no pipe {name}"))?;
-    loop {
-        if let Err(e) = server.connect().await {
-            eprintln!("prism sessions: {e}");
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-        let next = make(false).with_context(|| format!("prism sessions: no pipe {name}"))?;
-        let connected = std::mem::replace(&mut server, next);
-        tokio::spawn(daemon.clone().connection(connected));
-    }
-}
 
 impl Daemon {
     async fn connection<S: AsyncRead + AsyncWrite + Send + 'static>(self: Arc<Self>, stream: S) {
@@ -352,10 +333,7 @@ fn answer(done: Result<Result<Value>, tokio::task::JoinError>) -> Reply {
 // ---------------------------------------------------------------------------------------------
 // Prism's end
 
-#[cfg(unix)]
-type Stream = std::os::unix::net::UnixStream;
-#[cfg(windows)]
-type Stream = std::fs::File;
+type Stream = prism_sys::ipc::BlockingClient;
 
 /// Prism's sessions in `prism sessions`, as an `Engine`: started when a session is made and it
 /// does not run; without it, there is no session (as without a tmux server).
@@ -383,30 +361,10 @@ impl Remote {
 }
 
 impl Inner {
+    /// A connection to `prism sessions`, this account's only (`prism_sys::ipc`): another account's
+    /// socket or pipe under our name is never told a session, nor typed in.
     fn open(&self) -> io::Result<Stream> {
-        #[cfg(unix)]
-        {
-            let path = std::path::Path::new(&self.endpoint.0);
-            if path.exists() {
-                prism_core::mcp::owned_socket(path).map_err(|e| io::Error::new(io::ErrorKind::PermissionDenied, format!("{e:#}")))?;
-            }
-            Stream::connect(path)
-        }
-        #[cfg(windows)]
-        {
-            /// `ERROR_PIPE_BUSY`: all its instances taken an instant.
-            const BUSY: i32 = 231;
-            let mut tries = 0;
-            loop {
-                match std::fs::OpenOptions::new().read(true).write(true).open(&self.endpoint.0) {
-                    Err(e) if e.raw_os_error() == Some(BUSY) && tries < 50 => tries += 1,
-                    // Another account's pipe under our name: never told a session, nor typed in.
-                    Ok(pipe) if !prism_sys::windows::pipe_server_is_mine(&pipe) => return Err(io::Error::new(io::ErrorKind::PermissionDenied, format!("{}: not this account's", self.endpoint.0))),
-                    other => return other,
-                }
-                std::thread::sleep(Duration::from_millis(50));
-            }
-        }
+        prism_sys::ipc::connect_blocking(std::path::Path::new(&self.endpoint.0), &prism_core::profile::data_base())
     }
 
     /// A connection that said hello; `start`: `prism sessions` started if it does not run.

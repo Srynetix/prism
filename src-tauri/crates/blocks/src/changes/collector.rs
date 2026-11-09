@@ -14,7 +14,7 @@ use std::{
     collections::{BTreeMap, HashSet},
     io::Write,
     path::{Path, PathBuf},
-    sync::{Mutex, OnceLock},
+    sync::OnceLock,
     time::Duration,
 };
 
@@ -24,12 +24,10 @@ use prism_base::{tr, i18n::tr};
 use serde::{Deserialize, Serialize};
 
 use super::observe::{self, Last, View};
-use super::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity, ChangesConfig, ChangesState, Closed, WindowAlert};
+use super::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity, ChangesConfig, ChangesState, Closed};
 use crate::{git::run as git, state::Snapshot, BlockCtx};
 
 static REFRESH: OnceLock<tokio::sync::Notify> = OnceLock::new();
-/// The window's alerts, as it last sent them.
-static ALERTS: Mutex<Option<Vec<WindowAlert>>> = Mutex::new(None);
 
 /// Every read, and at most this long without one before Prism counts as closed.
 const EVERY: Duration = Duration::from_secs(30);
@@ -44,17 +42,24 @@ pub fn refresh() {
     }
 }
 
-/// The window's alerts changed.
-pub fn alerts(alerts: Vec<WindowAlert>) {
-    let changed = {
-        let mut held = ALERTS.lock().unwrap_or_else(|e| e.into_inner());
-        let changed = held.as_ref() != Some(&alerts);
-        *held = Some(alerts);
-        changed
-    };
-    if changed {
-        refresh();
+/// The environments' alerts appearing or going (or changing severity) are read at once, not at
+/// the next read: the core computes them on each change of the snapshot. Their text is left out:
+/// it changes with a count or the minutes (out of sync since N min), which the next read takes.
+async fn follow_alerts(ctx: BlockCtx) {
+    let mut rx = ctx.subscribe();
+    let mut last = None;
+    while rx.changed().await.is_ok() {
+        let now = identities(super::env_alerts(&rx.borrow_and_update()));
+        if now != last {
+            last = now;
+            refresh();
+        }
     }
+}
+
+/// What tells the environments' alerts apart for `follow_alerts`: their keys and severities.
+fn identities(alerts: Option<Vec<super::EnvAlert>>) -> Option<Vec<(String, String)>> {
+    alerts.map(|list| list.into_iter().map(|a| (a.key, a.severity)).collect())
 }
 
 /// What the collector keeps beside the journal.
@@ -72,6 +77,7 @@ struct Kept {
 
 pub async fn run(cfg: ChangesConfig, ctx: BlockCtx) {
     let notify = REFRESH.get_or_init(tokio::sync::Notify::new);
+    prism_base::rt::spawn(follow_alerts(ctx.clone()));
     let dir = ctx.data_dir();
     let journal_path = dir.join("changes.jsonl");
     let kept_path = dir.join("changes-last.json");
@@ -100,7 +106,7 @@ pub async fn run(cfg: ChangesConfig, ctx: BlockCtx) {
         let blocks = ctx.snapshot(|s: &Snapshot| s.blocks.clone());
         let clones = ctx.snapshot(|s: &Snapshot| s.repos.iter().filter(|r| r.error.is_none() && !r.path.is_empty()).map(|r| (r.name.clone(), r.path.clone())).collect::<Vec<_>>());
         envs = view.env_names();
-        let alerts = ALERTS.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let alerts = ctx.snapshot(super::env_alerts);
         let mut fresh = observe::observe(&cfg, &view, alerts.as_deref(), &mut kept.last, now, since());
         let mut errors = Vec::new();
         if cfg.kube_events {
@@ -377,6 +383,16 @@ fn kube_event(s: &crate::state::EnvStatus, k: KubeEvent) -> Option<ChangeEvent> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn alerts_followed_by_identity_not_text() {
+        let alert = |text: &str, severity: &str| super::super::EnvAlert { key: "sync|staging|api".into(), severity: severity.into(), text: text.into(), env: Some("staging".into()), app: Some("api".into()), url: None };
+        let a = identities(Some(vec![alert("out of sync since 3 min", "warn")]));
+        assert_eq!(a, identities(Some(vec![alert("out of sync since 4 min", "warn")])));
+        assert_ne!(a, identities(Some(vec![alert("out of sync since 4 min", "ko")])));
+        assert_ne!(a, identities(Some(Vec::new())));
+        assert_eq!(identities(None), None);
+    }
 
     #[test]
     fn merge_request_of_a_commit() {

@@ -296,7 +296,7 @@ pub struct PickBoard {
 }
 
 /// Status offered by a ClickUp list.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct StatusOption {
     pub status: String,

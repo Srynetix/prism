@@ -94,7 +94,7 @@ impl Agents {
     /// nothing kept, nor for one never started or drafting a quick action), its branch, its last words.
     pub(crate) async fn left_of(&self, record: &Record) -> Option<Left> {
         // Nor an agent drafting a quick action's prompt: not where its repository was left.
-        if record.prepared || record.launch.as_ref().and_then(|l| l.from.as_deref()) == Some(super::session_source::DRAFTER) {
+        if record.prepared || record.launch.as_ref().and_then(|l| l.from.as_deref()) == Some(prism_core::agents::DRAFTER) {
             return None;
         }
         let (repo, branch) = {

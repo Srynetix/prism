@@ -50,7 +50,10 @@ export interface BlockDef<S = unknown> {
   off?: { title: string; logo: string; color: string; section: string; setting: string }
   /** Its Settings sections (its config table) and its page in the Settings tree, under `parent`. */
   settings?: { sections: SectionSpec[]; parent: string; node: TreeNode }
-  /** Its lines in Alerts, from its state; `notification`: a macOS notification when broken. */
+  /**
+   * Its lines in Alerts, from its state; `notification`: a notification when broken. For a block
+   * of another repository only: Prism's own say theirs in Rust (`Block::alerts`), in `Snapshot.alerts`.
+   */
   alerts?: (state: S) => BlockAlert[]
 }
 

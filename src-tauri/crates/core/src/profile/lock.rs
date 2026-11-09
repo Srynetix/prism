@@ -112,6 +112,9 @@ pub fn wake(_pid: u32) {}
 pub const WAKE: u8 = b'w';
 /// Windows: Unix's SIGUSR2, a restart (`prism restart`).
 pub const RESTART: u8 = b'r';
+/// Windows: Unix's SIGTERM, a clean quit (`stop`: the app taking a profile over, or quitting with
+/// the Prisms it started).
+pub const STOP: u8 = b's';
 
 /// Asks the Prism `pid` to restart: false if it could not be reached.
 pub(super) fn ask_restart(pid: u32) -> bool {
@@ -344,10 +347,14 @@ pub fn reopen() -> Vec<String> {
 
 /// The local socket of profile `id`'s Prism (`prism_remote::Remote::serve_local`), in the data
 /// folder (the owner's only). A Unix socket's path is short (104 bytes on macOS): a long one is
-/// named by a hash of the id instead.
+/// named by a hash of the id instead. On Windows, a named pipe named after that path
+/// (`\\.\pipe\prism-engine-…`): each profile, and each data folder, its own.
 pub fn engine_socket(id: &str) -> PathBuf {
     let dir = data_base().join("engines");
     let plain = dir.join(format!("{id}.sock"));
+    if cfg!(windows) {
+        return PathBuf::from(format!(r"\\.\pipe\prism-engine-{:016x}", crate::mcp::fnv(&plain)));
+    }
     if plain.as_os_str().len() < 100 {
         return plain;
     }
@@ -367,19 +374,40 @@ pub fn start_engine(id: &str) -> Result<u32> {
     Ok(child.id())
 }
 
-#[cfg(not(unix))]
+/// Windows: out of the app's console and process group (`DETACHED_PROCESS`,
+/// `CREATE_NEW_PROCESS_GROUP`), as `start` does, without a console of its own.
+#[cfg(windows)]
+pub fn start_engine(id: &str) -> Result<u32> {
+    use std::os::windows::process::CommandExt;
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+    ensure!(exists(id), tr!("unknown profile {id}", id = id));
+    let exe = executable()?;
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg("engine").env("PRISM_PROFILE", id).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+    let child = cmd.spawn().context("starting the profile's Prism")?;
+    Ok(child.id())
+}
+
+#[cfg(not(any(unix, windows)))]
 pub fn start_engine(_id: &str) -> Result<u32> {
     bail!("profiles in windows of one app: not on this system yet")
 }
 
-/// Stops profile `id`'s Prism (`SIGTERM`), if one runs: its agents go on in their tmux.
+/// Stops profile `id`'s Prism (`SIGTERM`; Windows: `STOP` through its pipe), if one runs: its
+/// agents go on in their sessions. Whether it was asked; `wait_free` waits for it to be gone.
 pub fn stop(id: &str) -> bool {
+    let Some(pid) = holder(id) else { return false };
     #[cfg(unix)]
-    if let Some(pid) = holder(id) {
-        return prism_sys::process::signal(pid, prism_sys::process::Signal::Term);
+    return prism_sys::process::signal(pid, prism_sys::process::Signal::Term);
+    #[cfg(windows)]
+    return prism_sys::windows::signal(pid, STOP);
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = pid;
+        false
     }
-    let _ = id;
-    false
 }
 
 /// Waits (up to `max`) for profile `id` to be free: its Prism gone.

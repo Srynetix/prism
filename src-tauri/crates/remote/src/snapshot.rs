@@ -5,7 +5,7 @@ use serde_json::{Map, Value};
 
 /// The snapshot's JSON without what stays on the computer: the remote's own state (its pairing token),
 /// Prism's own warnings and errors (paths, hosts, a mail's error), the mail unless `[remote]
-/// mail` lets it out, and of the custom blocks those kept on the computer (`remote = false`),
+/// mail` lets it out (its error's alert with it), and of the custom blocks those kept on the computer (`remote = false`) and their alerts,
 /// everyone's declaration, error output (it may hold a secret) and diff; a routine's diff waiting
 /// for trust; of an agent's proposal (`mcp`), the config it would write, its diff and its test's
 /// output: answered on the computer only.
@@ -14,7 +14,12 @@ pub fn filter(mut snap: Value, mail: bool) -> Value {
         obj.remove("remote");
         obj.remove("problems");
         if let Some(custom) = obj.get_mut("blocks").and_then(|b| b.get_mut("custom_blocks")) {
+            // Their alerts too.
+            let kept: Vec<Value> = custom.get("blocks").and_then(Value::as_array).into_iter().flatten().filter(|b| b.get("remote").and_then(Value::as_bool) == Some(false)).filter_map(|b| b.get("id").cloned()).collect();
             custom_blocks(custom);
+            if let Some(alerts) = obj.get_mut("alerts").and_then(Value::as_array_mut) {
+                alerts.retain(|a| !(a.get("block").and_then(Value::as_str) == Some("custom_blocks") && a.get("item").is_some_and(|i| kept.contains(i))));
+            }
         }
         // A routine waiting for trust: trusted on the computer only, where its diff is read.
         for r in obj.get_mut("routines").and_then(|r| r.get_mut("routines")).and_then(Value::as_array_mut).into_iter().flatten() {
@@ -32,6 +37,10 @@ pub fn filter(mut snap: Value, mail: bool) -> Value {
             obj.insert("mail".into(), Value::Null);
             if let Some(errors) = obj.get_mut("errors").and_then(Value::as_object_mut) {
                 errors.remove("mail");
+            }
+            // The alert the core made of its error, which says it too.
+            if let Some(alerts) = obj.get_mut("alerts").and_then(Value::as_array_mut) {
+                alerts.retain(|a| !((a.get("rule").and_then(Value::as_str) == Some("source") || a.get("kind").and_then(Value::as_str) == Some("Source")) && a.get("item").and_then(Value::as_str) == Some("mail")));
             }
         }
     }
@@ -156,6 +165,22 @@ mod tests {
     }
 
     #[test]
+    fn the_mail_error_alert_stays_on_the_computer() {
+        // As the core makes it, from the mail's error.
+        let mut s = prism_core::state::Snapshot::default();
+        s.errors.insert("mail", "imap.example.com: login refused".into());
+        s.errors.insert("gitlab", "down".into());
+        s.alerts = prism_core::alerts::compute(&s, &Default::default(), chrono::Utc::now());
+        let snap = serde_json::to_value(&s).unwrap();
+        let texts = |v: &Value| v["alerts"].as_array().unwrap().iter().map(|a| a["text"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+        assert_eq!(texts(&snap).len(), 2);
+        let out = filter(snap.clone(), false);
+        assert_eq!(texts(&out), ["gitlab unreachable: down"]);
+        assert!(!out.to_string().contains("imap.example.com"));
+        assert_eq!(texts(&filter(snap, true)).len(), 2);
+    }
+
+    #[test]
     fn the_mail_and_the_pairing_stay_on_the_mac() {
         let snap = json!({ "mail": { "unread": [1] }, "errors": { "mail": "x", "gitlab": "y" }, "remote": { "pairing": { "url": "secret" } }, "problems": [{ "message": "x" }] });
         let out = filter(snap.clone(), false);
@@ -165,9 +190,11 @@ mod tests {
 
     #[test]
     fn a_phone_gets_no_custom_block_kept_on_the_computer_nor_secrets() {
-        let snap = json!({ "blocks": { "custom_blocks": { "blocks": [{ "id": "a", "remote": true, "def": { "script": "x" }, "stderr": "token=x", "pending": { "diff": [], "reason": "new" } }, { "id": "b", "remote": false }], "errors": [] } } });
+        let alerts = json!([{ "kind": "Custom blocks", "block": "custom_blocks", "item": "a", "text": "A: x" }, { "kind": "Custom blocks", "block": "custom_blocks", "item": "b", "text": "B: secret" }, { "kind": "CI", "text": "main failed" }]);
+        let snap = json!({ "blocks": { "custom_blocks": { "blocks": [{ "id": "a", "remote": true, "def": { "script": "x" }, "stderr": "token=x", "pending": { "diff": [], "reason": "new" } }, { "id": "b", "remote": false }], "errors": [] } }, "alerts": alerts });
         let out = filter(snap, false);
         assert_eq!(out["blocks"]["custom_blocks"], json!({ "blocks": [{ "id": "a", "remote": true, "pending": { "reason": "new" } }], "errors": [] }));
+        assert_eq!(out["alerts"].as_array().unwrap().iter().map(|a| a["text"].as_str().unwrap()).collect::<Vec<_>>(), ["A: x", "main failed"], "nor its alerts");
         let snap = json!({ "routines": { "routines": [{ "name": "N", "pending": { "reason": "new", "hash": "h", "diff": ["+ x"], "agents": ["a"] } }], "runs": [] } });
         assert_eq!(filter(snap, false)["routines"]["routines"][0]["pending"], json!({ "reason": "new", "hash": "h" }), "a routine is trusted on the computer");
     }

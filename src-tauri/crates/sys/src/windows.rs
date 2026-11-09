@@ -14,7 +14,7 @@ use windows_sys::Win32::Security::Authorization::{
 };
 use windows_sys::Win32::Security::{SECURITY_ATTRIBUTES, GetSecurityDescriptorDacl, GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER};
 use windows_sys::Win32::Storage::FileSystem::GetDriveTypeW;
-use windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId;
+use windows_sys::Win32::System::Pipes::{GetNamedPipeServerProcessId, WaitNamedPipeW};
 use windows_sys::Win32::System::Power::{SetThreadExecutionState, ES_CONTINUOUS, ES_SYSTEM_REQUIRED};
 use windows_sys::Win32::System::Threading::{GetCurrentProcess, GetExitCodeProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION};
 use windows_sys::Win32::UI::Shell::{
@@ -111,25 +111,23 @@ pub fn signal(pid: u32, byte: u8) -> bool {
 }
 
 /// This process's `signal_pipe`, heard until the end: each byte another launch sends (`signal`)
-/// given to `on`. An instance per message, the next one made before the connected one is read.
+/// given to `on`. An instance per message (`ipc::Listener`).
 pub async fn listen_signals(mut on: impl FnMut(u8)) {
     use tokio::io::AsyncReadExt;
     let name = signal_pipe(std::process::id());
-    let mut server = match pipe_server(&name, true) {
-        Ok(s) => s,
+    let mut listener = match crate::ipc::listen(Path::new(&name), Path::new(""), crate::ipc::Taken::Refuse) {
+        Ok(l) => l,
         Err(e) => return tracing::warn!("no pipe {name}: {e}"),
     };
     loop {
-        if let Err(e) = server.connect().await {
-            tracing::warn!("{name}: {e}");
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            continue;
-        }
-        let next = match pipe_server(&name, false) {
-            Ok(s) => s,
-            Err(e) => return tracing::warn!("no pipe {name}: {e}"),
+        let mut connected = match listener.accept().await {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!("{name}: {e}");
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                continue;
+            }
         };
-        let mut connected = std::mem::replace(&mut server, next);
         let mut byte = [0u8; 1];
         if tokio::time::timeout(std::time::Duration::from_secs(2), connected.read_exact(&mut byte)).await.is_ok_and(|r| r.is_ok()) {
             on(byte[0]);
@@ -253,6 +251,19 @@ pub fn pipe_server(name: &str, first: bool) -> io::Result<tokio::net::windows::n
     options.first_pipe_instance(first).reject_remote_clients(true);
     // SAFETY: `attrs` a SECURITY_ATTRIBUTES whose descriptor lives in `sd`, both alive through the call.
     unsafe { options.create_with_security_attributes_raw(name, (&mut attrs as *mut SECURITY_ATTRIBUTES).cast()) }
+}
+
+/// Whether some process serves pipe `name`, without connecting to it (opening it would take an
+/// instance): an instance free, or all of them busy an instant.
+pub fn pipe_exists(name: &str) -> bool {
+    /// `ERROR_SEM_TIMEOUT`: every instance taken for the millisecond waited.
+    const TIMEOUT: i32 = 121;
+    let name = wide(OsStr::new(name));
+    // SAFETY: a NUL-terminated string, alive through the call.
+    if unsafe { WaitNamedPipeW(name.as_ptr(), 1) } != 0 {
+        return true;
+    }
+    io::Error::last_os_error().raw_os_error() == Some(TIMEOUT)
 }
 
 /// Whether the server end of pipe `client` (a handle of ours) runs as this account: a pipe another

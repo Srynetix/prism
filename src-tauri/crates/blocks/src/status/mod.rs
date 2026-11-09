@@ -46,6 +46,11 @@ impl Block for Status {
         super::section::<StatusConfig>(config, "status").ok().and_then(|c| serde_json::to_value(c).ok()).map(|v| vec![("status", v)]).unwrap_or_default()
     }
 
+    /// The incidents under way.
+    fn alerts(&self, state: &Value) -> Vec<prism_core::alerts::Alert> {
+        crate::alerts::status(state)
+    }
+
     fn call(&self, command: String, _args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move {
             match command.as_str() {

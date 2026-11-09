@@ -67,6 +67,9 @@ impl AppState {
         spawn(crate::presence::run(hub.clone()));
         let agents = crate::agents::Agents::new(data_dir.clone(), hub.clone(), Vec::new(), Vec::new())?;
         agents.configure(started.agents.cfg.clone());
+        // `builtin:retro-draft` reads the retro here, the window open or not.
+        let (retro_hub, retro_store) = (hub.clone(), Store::new(data_dir.clone()));
+        agents.set_retro_source(Arc::new(move || crate::retro::draft(&retro_hub, &retro_store)));
         // The demo profile shows sample agents: the real ones (tmux) would replace them.
         if !started.agents.demo {
             spawn(agents.clone().run());
@@ -89,7 +92,15 @@ impl AppState {
             spawn(async move { remote.apply(&cfg).await });
         }
         let live = Live { forge: started.forge.clone(), tracker: started.tracker.clone(), audio: started.audio.clone(), pod_logs: started.pod_logs.clone() };
-        let state = Arc::new(Self { remote, hub, time, store: Store::new(data_dir), agents, collectors: collecting, live: std::sync::RwLock::new(live), shell, build });
+        let store = Store::new(data_dir);
+        // What the alerts read of the stores the window and the phones share (the agents and
+        // worktrees archived, the overlaps ignored), as written last; then the alerts, computed
+        // shortly after each change and on the minute.
+        if let Ok(Some(prefs)) = store.load("prefs") {
+            hub.set_alert_prefs(&prefs);
+        }
+        spawn(prism_core::alerts::run(hub.clone()));
+        let state = Arc::new(Self { remote, hub, time, store, agents, collectors: collecting, live: std::sync::RwLock::new(live), shell, build });
         state.adopt(started);
         host.serve(&state);
         notices(&state);

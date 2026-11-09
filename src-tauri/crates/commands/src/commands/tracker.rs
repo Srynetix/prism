@@ -15,6 +15,23 @@ pub async fn log_time(state: State<'_, AppState>, entry: NewEntry) -> Cmd {
     state.time.log(entry).await.map_err(Into::into)
 }
 
+/// My sprint: the current sprint's retro (`crate::retro`), its Markdown with the points the window
+/// has; none without a sprint that has a start date.
+#[prism_macros::command]
+pub fn retro_get(state: State<'_, AppState>, points: Option<Vec<crate::blocks::trail::retro::RetroPoint>>) -> Cmd<Option<crate::blocks::trail::retro::Retro>> {
+    Ok(crate::retro::current(&state.hub, &state.store, points))
+}
+
+/// My sprint shown: its figures kept to compare the next sprints with; `history`, the window's former
+/// pref, moved into the store when it has none. The demo keeps nothing.
+#[prism_macros::command]
+pub fn retro_keep(state: State<'_, AppState>, history: Option<Vec<crate::blocks::trail::retro::RetroSummary>>) -> Cmd {
+    if crate::demo::active() {
+        return Ok(());
+    }
+    crate::retro::keep(&state.hub, &state.store, history).map_err(Into::into)
+}
+
 /// Content of a ticket (description, subtasks, comments), read when its preview opens.
 #[prism_macros::command]
 pub async fn get_ticket(state: State<'_, AppState>, id: String) -> Cmd<crate::collectors::task_view::TaskView> {

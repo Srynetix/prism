@@ -1,4 +1,4 @@
-import type { BlockAlert, BlockDef } from '../block'
+import type { BlockDef } from '../block'
 import type { DockerContainer, DockerState } from './types'
 import { t } from '../../i18n.svelte'
 
@@ -8,23 +8,6 @@ import { t } from '../../i18n.svelte'
  */
 export const containerFailing = (c: DockerContainer) =>
   c.health === 'unhealthy' || c.state === 'restarting' || c.state === 'dead' || (c.state === 'exited' && !!c.exit_code && c.exit_code !== 137 && c.exit_code !== 143)
-
-/** Failing containers, and the reclaimable disk beyond `[docker] reclaimable_gb`. */
-function alerts(d: DockerState): BlockAlert[] {
-  if (!d.server) return []
-  const out: BlockAlert[] = d.containers.filter(containerFailing).map((c) => ({
-    severity: 'ko' as const,
-    text: t('Container {name} is {state}', { name: c.project ? `${c.name} (${c.project})` : c.name, state: c.health === 'unhealthy' ? t('unhealthy') : c.state === 'exited' ? t('exited ({code})', { code: c.exit_code ?? '' }) : t(c.state) }),
-    // One notification per container turning bad, whatever its detail.
-    notification: { key: `docker:${c.name}`, title: 'Docker' },
-  }))
-  const reclaimable = d.disk.reduce((n, k) => n + k.reclaimable_bytes, 0)
-  if (d.reclaimable_gb > 0 && reclaimable > d.reclaimable_gb * 1e9) {
-    // Not worth a notification: a cleanup to do when convenient.
-    out.push({ severity: 'warn', text: t('{gb} GB of Docker data unused and reclaimable', { gb: (reclaimable / 1e9).toFixed(1) }), notify: false })
-  }
-  return out
-}
 
 export const docker = {
   id: 'docker' as const,
@@ -56,5 +39,4 @@ export const docker = {
       },
     ],
   },
-  alerts,
 } satisfies BlockDef<DockerState>

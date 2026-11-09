@@ -187,3 +187,39 @@ impl RoutineRun {
         matches!(self.state, RoutineRunState::Running | RoutineRunState::Blocked)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run(state: RoutineRunState, deliver: &str) -> RoutineRun {
+        let now = Utc::now();
+        RoutineRun { state, ..RoutineRun::new("nightly", None, deliver, now, now, false) }
+    }
+
+    /// A run new: under way, started now; skipped there and then: ended, never started.
+    #[test]
+    fn a_run_starts_or_is_skipped() {
+        let now = Utc::now();
+        let r = RoutineRun::new("nightly", Some("app".into()), "review", now, now, false);
+        assert_eq!((r.state, r.started, r.ended), (RoutineRunState::Running, Some(now), None));
+        assert!(r.under_way() && !r.to_review());
+        let s = RoutineRun::new("nightly", None, "review", now, now, true);
+        assert_eq!((s.state, s.started, s.ended), (RoutineRunState::Skipped, None, Some(now)));
+        assert!(!s.under_way() && !s.to_review());
+        assert_ne!(r.id, s.id);
+    }
+
+    /// "To review": blocked or failed whatever its delivery, ready only when delivered there; archived, never.
+    #[test]
+    fn what_waits_in_to_review() {
+        for state in [RoutineRunState::Blocked, RoutineRunState::Failed, RoutineRunState::TooLong] {
+            assert!(run(state, "branch").to_review(), "{state:?}");
+        }
+        assert!(run(RoutineRunState::Ready, "review").to_review());
+        assert!(!run(RoutineRunState::Ready, "branch").to_review());
+        assert!(!run(RoutineRunState::Nothing, "review").to_review());
+        assert!(!RoutineRun { archived: true, ..run(RoutineRunState::Failed, "review") }.to_review());
+        assert!(run(RoutineRunState::Blocked, "review").under_way() && !run(RoutineRunState::Ready, "review").under_way());
+    }
+}

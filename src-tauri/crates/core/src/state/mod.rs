@@ -132,6 +132,12 @@ pub struct ActiveProfile {
 }
 
 impl Snapshot {
+    /// Every alert the core knows: its own (`alerts`), then those the window sent of the blocks of
+    /// another repository (`external_alerts`).
+    pub fn all_alerts(&self) -> impl Iterator<Item = &crate::alerts::Alert> {
+        self.alerts.iter().chain(&self.external_alerts)
+    }
+
     /// The MR is one of repository `name` (`[[repos]] name`): its own, or the primary repository's (`repo` absent).
     pub fn mr_in_repo(&self, m: &MergeRequest, name: &str) -> bool {
         match &m.repo {
@@ -228,7 +234,15 @@ pub struct Snapshot {
     /// Team and repository conventions (ticket prefix, branches, flow statuses).
     pub conventions: crate::conventions::Conventions,
     /// Alert thresholds (`[alerts]`).
-    pub alerts: crate::config::AlertsConfig,
+    pub alerts_settings: crate::config::AlertsConfig,
+    /// The alerts, computed from the rest shortly after each change (`crate::alerts`).
+    pub alerts: Vec<crate::alerts::Alert>,
+    /// The alerts of the blocks of another repository, which say theirs in TypeScript only: as the
+    /// window sent them last (`Hub::set_external_alerts`), for the routines and the Changes block
+    /// (`all_alerts`). Absent without the window. Not sent: the window and a phone have their own.
+    #[serde(skip)]
+    #[cfg_attr(feature = "ts", ts(skip))]
+    pub external_alerts: Vec<crate::alerts::Alert>,
     pub sessions: Vec<ClaudeSession>,
     /// Archived desktop sessions that had a worktree.
     pub archived_sessions: Vec<ArchivedSession>,

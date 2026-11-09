@@ -6,7 +6,7 @@ import type { Snapshot } from './types'
 const at = (hm: string, day = 14) => new Date(2026, 9, day, Number(hm.slice(0, 2)), Number(hm.slice(3)))
 const ev = (key: string, kind: DeskEvent['kind'] = 'pipeline'): DeskEvent => ({ key, title: key, body: '', kind })
 const settings = (over: Record<string, unknown>) => {
-  live.snapshot = { alerts: { digest: true, digest_times: ['09:00', '12:30', '17:30'], digest_urgent: ['infra', 'agent'], quiet_hours: '', focus_events: 'Focus', ...over }, agenda: null } as unknown as Snapshot
+  live.snapshot = { alerts_settings: { digest: true, digest_times: ['09:00', '12:30', '17:30'], digest_urgent: ['infra', 'agent'], quiet_hours: '', focus_events: 'Focus', ...over }, agenda: null } as unknown as Snapshot
 }
 
 describe('times', () => {

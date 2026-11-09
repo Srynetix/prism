@@ -5,6 +5,7 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import { localInvoke as tauriInvoke, profileWindow, type Transport } from './bridge'
 import { applyChanges, type Change } from './snapshot-changes'
 import { canNotify, notify } from './notify'
+import type { MachineReason } from './bindings/MachineReason'
 
 /**
  * A machine's window (`[[machines]]`, `machines.rs`): the window's page, its core another
@@ -28,8 +29,8 @@ export const machineState = $state<{ name: string; ssh: string; connected: boole
   since: null,
 })
 
-/** Why the socket closed (`prism_remote::machine::reason`): what the bar says, the error its detail. */
-export type MachineReason = 'token' | 'refused' | 'unknown_host' | 'unreachable' | 'certificate' | 'dropped'
+/** Why the socket closed (`prism_remote::machine::MachineReason`): what the bar says, the error its detail. */
+export type { MachineReason }
 
 /** Out of reach this long, the page shows its last state as such (dimmed): a reconnection of a moment goes unseen. */
 export const GRACE = 5000

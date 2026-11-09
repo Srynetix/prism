@@ -5,9 +5,8 @@
 
 use super::*;
 
-/// What a quick action's drafting agent is launched `from` (`quick-action-source.ts`): never
-/// kept as its repository's last session.
-pub const DRAFTER: &str = "quick-action-draft";
+/// What a drafting agent is launched `from`: the core's.
+pub use prism_core::agents::DRAFTER;
 
 /// The prompts read at most, each cut to this many characters.
 const MAX_PROMPTS: usize = 40;

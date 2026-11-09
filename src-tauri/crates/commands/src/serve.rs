@@ -98,8 +98,8 @@ async fn serve(assets: Assets, build: String, engine: bool) -> i32 {
     tracing::info!("Prism without a window, profile {}, config {}", profile::active(), config_path().display());
     // The app's window of this profile reaches it there.
     let socket = profile::engine_socket(profile::active());
-    // Removed when stopping only if this Prism made it (another may listen there).
-    #[cfg(unix)]
+    // Removed when stopping only if this Prism made it (another may listen there). Windows: a named
+    // pipe, gone with the process.
     let bound = match state.remote.serve_local(&socket).await {
         Ok(()) => true,
         Err(e) => {
@@ -107,14 +107,12 @@ async fn serve(assets: Assets, build: String, engine: bool) -> i32 {
             false
         }
     };
-    #[cfg(not(unix))]
-    let bound = false;
     if !engine && !crate::config::load(&config_path()).is_ok_and(|c| c.remote.enabled) {
         tracing::warn!("[remote] is off in {}: no phone reaches this Prism (enabled = true, then `prism-server pair`)", config_path().display());
     }
     stopped(&state).await;
     tracing::info!("stopping");
-    if bound {
+    if bound && cfg!(unix) {
         let _ = std::fs::remove_file(&socket);
     }
     // `tailscale serve` must not keep sending phones to a Prism gone; bounded.
@@ -146,7 +144,8 @@ async fn stopped(state: &AppState) {
     }
 }
 
-/// Windows: until Ctrl-C; `prism restart` (its byte on this process's pipe) restarts it meanwhile.
+/// Windows: until Ctrl-C or `STOP` (`profile::stop`); `prism restart` (its byte on this process's
+/// pipe) restarts it meanwhile.
 #[cfg(windows)]
 async fn stopped(state: &AppState) {
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
@@ -163,6 +162,8 @@ async fn stopped(state: &AppState) {
                     state.shell.restart()
                 }
                 profile::WAKE => tracing::info!("profile {} is open here, without a window", profile::active()),
+                // The app takes this profile over, or quits with the Prisms it started.
+                profile::STOP => break,
                 _ => {}
             },
         }

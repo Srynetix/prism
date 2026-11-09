@@ -1,28 +1,6 @@
-import type { BlockAlert, BlockDef } from '../block'
+import type { BlockDef } from '../block'
 import type { CustomBlocksState } from './types'
 import { t, tn } from '../../i18n.svelte'
-
-/** What the custom blocks print in `alerts`, and each block waiting for trust. */
-function alerts(s: CustomBlocksState): BlockAlert[] {
-  return s.blocks.flatMap((b): BlockAlert[] => {
-    if (b.pending) {
-      // Added while an agent ran: someone (something) else wrote it, it is for now.
-      const agent = b.pending.agents.length > 0
-      return [{
-        severity: agent ? 'ko' : 'warn',
-        text: t('Custom block {name} waits for your trust before it runs', { name: b.label }),
-        ...(agent ? { notification: { key: `custom:${b.id}:trust`, title: t('Custom block to check') } } : { notify: false }),
-        since: b.pending.since,
-      }]
-    }
-    return (b.output?.alerts ?? []).filter((a) => a.severity !== 'ok').map((a) => ({
-      severity: a.severity === 'ko' ? 'ko' : a.severity === 'warn' ? 'warn' : 'info',
-      text: `${b.label}: ${a.text}`,
-      short: a.text,
-      ...(a.severity === 'ko' ? { notification: { key: `custom:${b.id}:${a.key}`, title: b.label } } : { notify: false }),
-    }))
-  })
-}
 
 /**
  * Custom blocks (`[[custom_blocks]]`): a command or a script that prints JSON, made a block. Each
@@ -49,5 +27,4 @@ export const customBlocks = {
     const n = s.blocks.filter((b) => b.pending).length
     return { count: n, title: tn(n, '{n} custom block waits for your trust', '{n} custom blocks wait for your trust') }
   },
-  alerts,
 } satisfies BlockDef<CustomBlocksState>

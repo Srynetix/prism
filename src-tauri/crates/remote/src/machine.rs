@@ -49,17 +49,40 @@ impl Target {
         Self { url: "http://localhost".into(), token: String::new(), profile: None, socket: Some(socket) }
     }
 
-    /// An HTTP client for it: through its socket when local.
-    fn client(&self, timeout: Option<Duration>) -> Result<reqwest::Client> {
+    /// An HTTP client for it: through its socket when local (a named pipe on Windows), checked
+    /// this account's first (`prism_sys::ipc`: Unix, the socket's owner, a `stat`; Windows, the
+    /// pipe's server, opened to ask: another account cannot add an instance to ours). The pipe's
+    /// verdict is kept for its path until a request through it fails (`failed`): asked again then.
+    async fn client(&self, timeout: Option<Duration>) -> Result<reqwest::Client> {
         let mut b = reqwest::Client::builder();
         if let Some(t) = timeout {
             b = b.timeout(t);
         }
-        #[cfg(unix)]
         if let Some(path) = &self.socket {
-            b = b.unix_socket(path.clone());
+            #[cfg(unix)]
+            {
+                prism_sys::ipc::owned_socket(path, &prism_core::profile::data_base()).with_context(|| format!("the profile's Prism ({})", path.display()))?;
+                b = b.unix_socket(path.clone());
+            }
+            #[cfg(windows)]
+            {
+                if !pipes_checked().contains(path) {
+                    drop(open_local(path).await?);
+                    pipes_checked().insert(path.clone());
+                }
+                b = b.windows_named_pipe(path.clone());
+            }
         }
         Ok(b.build()?)
+    }
+
+    /// A request through its pipe failed: the next one checks its server again (Prism there may
+    /// have restarted, its pipe made anew).
+    fn failed(&self) {
+        #[cfg(windows)]
+        if let Some(path) = &self.socket {
+            pipes_checked().remove(path);
+        }
     }
 
     /// A peer route (`ws`, `tty?…`) of its profile.
@@ -144,12 +167,12 @@ pub async fn summary(target: &Target) -> Result<Summary> {
     let local;
     let http = match target.socket {
         Some(_) => {
-            local = target.client(Some(Duration::from_secs(5)))?;
+            local = target.client(Some(Duration::from_secs(5))).await?;
             &local
         }
         None => CLIENT.get_or_init(|| reqwest::Client::builder().timeout(Duration::from_secs(5)).build().expect("an HTTP client")),
     };
-    let res = http.get(target.http(&target.peer("summary"))?).bearer_auth(target.token.trim()).send().await.context("out of reach")?;
+    let res = http.get(target.http(&target.peer("summary"))?).bearer_auth(target.token.trim()).send().await.inspect_err(|_| target.failed()).context("out of reach")?;
     if res.status() == 401 {
         bail!("the machine does not know this token");
     }
@@ -232,7 +255,7 @@ impl Machine {
     pub async fn download(&self, token: &str, dest: &std::path::Path) -> Result<()> {
         anyhow::ensure!(!token.is_empty() && token.chars().all(|c| c.is_ascii_hexdigit()), "not a download");
         let url = self.target.http(&self.target.peer(&format!("download/{token}")))?;
-        let res = self.target.client(None)?.get(url).bearer_auth(self.target.token.trim()).send().await.context("the machine does not answer")?;
+        let res = self.target.client(None).await?.get(url).bearer_auth(self.target.token.trim()).send().await.inspect_err(|_| self.target.failed()).context("the machine does not answer")?;
         anyhow::ensure!(res.status().is_success(), "the machine refused the download ({})", res.status());
         let part = dest.with_extension(format!("{}.part", dest.extension().and_then(|e| e.to_str()).unwrap_or("")));
         let written = async {
@@ -262,13 +285,12 @@ impl Machine {
         let req = self.target.request(&self.target.peer(&format!("tty?agent={agent_q}&cols={cols}&rows={rows}")))?;
         let (keys, queue) = mpsc::unbounded_channel::<Message>();
         let task = match &self.target.socket {
-            #[cfg(unix)]
             Some(path) => {
-                let io = tokio::net::UnixStream::connect(path).await.context("the profile's terminal")?;
+                let io = open_local(path).await.context("the profile's terminal")?;
                 let (socket, _) = tokio_tungstenite::client_async(req, io).await.context("the profile's terminal")?;
                 tokio::spawn(pump(socket, queue, on_data, on_end))
             }
-            _ => {
+            None => {
                 let (socket, _) = tokio_tungstenite::connect_async(req).await.context("the machine's terminal")?;
                 tokio::spawn(pump(socket, queue, on_data, on_end))
             }
@@ -329,25 +351,41 @@ impl Tty {
     }
 }
 
-/// Why a socket closed or did not open, for the window to say in words (its detail aside):
-/// `token` (refused, revoked), `refused` (nothing listens: its Prism closed, its remote off),
-/// `unknown_host` (its name not found: the tunnel down), `unreachable` (no route, a timeout,
-/// silent), `certificate` (its HTTPS refused), `dropped` (anything else).
-fn reason(detail: &str) -> &'static str {
+/// Why a socket closed or did not open, for the window to say in words (its detail aside).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub enum MachineReason {
+    /// Its token refused, revoked.
+    Token,
+    /// Nothing listens: its Prism closed, its remote off.
+    Refused,
+    /// Its name not found: the tunnel down.
+    UnknownHost,
+    /// No route, a timeout, silent.
+    Unreachable,
+    /// Its HTTPS refused.
+    Certificate,
+    /// Anything else.
+    Dropped,
+}
+
+/// What the system said of a socket, as a reason.
+fn reason(detail: &str) -> MachineReason {
     let d = detail.to_ascii_lowercase();
     let has = |words: &[&str]| words.iter().any(|w| d.contains(w));
     if has(&["token"]) {
-        "token"
+        MachineReason::Token
     } else if has(&["connection refused"]) {
-        "refused"
+        MachineReason::Refused
     } else if has(&["lookup address", "nodename nor servname", "name or service not known", "no such host", "dns"]) {
-        "unknown_host"
+        MachineReason::UnknownHost
     } else if has(&["certificate", "tls alert", "tls handshake"]) {
-        "certificate"
+        MachineReason::Certificate
     } else if has(&["timed out", "silent", "unreachable", "network is down", "no route"]) {
-        "unreachable"
+        MachineReason::Unreachable
     } else {
-        "dropped"
+        MachineReason::Dropped
     }
 }
 
@@ -375,11 +413,23 @@ async fn run(target: Target, mut out: mpsc::UnboundedReceiver<String>, pending: 
     }
 }
 
+/// A profile of this computer's local socket (a named pipe on Windows), this account's only
+/// (`prism_sys::ipc::connect`).
+/// The pipes whose server was found this account's (`Target::client`).
+#[cfg(windows)]
+fn pipes_checked() -> std::sync::MutexGuard<'static, std::collections::HashSet<std::path::PathBuf>> {
+    static CHECKED: std::sync::LazyLock<Mutex<std::collections::HashSet<std::path::PathBuf>>> = std::sync::LazyLock::new(Default::default);
+    CHECKED.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+async fn open_local(path: &std::path::Path) -> Result<prism_sys::ipc::Client> {
+    prism_sys::ipc::connect(path, &prism_core::profile::data_base()).await.with_context(|| format!("the profile's Prism ({})", path.display()))
+}
+
 async fn connect(target: &Target, out: &mut mpsc::UnboundedReceiver<String>, pending: &Pending, connected: &tokio::sync::watch::Sender<bool>, on_message: &OnMessage) -> Result<()> {
     let req = target.request(&target.peer("ws"))?;
-    #[cfg(unix)]
     if let Some(path) = &target.socket {
-        let io = tokio::net::UnixStream::connect(path).await.with_context(|| format!("the profile's Prism ({})", path.display()))?;
+        let io = open_local(path).await?;
         let (socket, _) = tokio_tungstenite::client_async(req, io).await?;
         return converse(socket, out, pending, connected, on_message).await;
     }
@@ -450,11 +500,13 @@ mod tests {
     /// What the window says of a socket closed, from what the system said.
     #[test]
     fn tells_why_a_machine_is_out_of_reach() {
-        assert_eq!(super::reason("IO error: Connection refused (os error 61)"), "refused");
-        assert_eq!(super::reason("IO error: failed to lookup address information: nodename nor servname provided"), "unknown_host");
-        assert_eq!(super::reason("the machine went silent"), "unreachable");
-        assert_eq!(super::reason("IO error: invalid peer certificate: UnknownIssuer"), "certificate");
-        assert_eq!(super::reason("the machine does not know this token (prism peer add there)"), "token");
-        assert_eq!(super::reason("Connection reset without closing handshake"), "dropped");
+        use super::{reason, MachineReason::*};
+        assert_eq!(reason("IO error: Connection refused (os error 61)"), Refused);
+        assert_eq!(reason("IO error: failed to lookup address information: nodename nor servname provided"), UnknownHost);
+        assert_eq!(reason("the machine went silent"), Unreachable);
+        assert_eq!(reason("IO error: invalid peer certificate: UnknownIssuer"), Certificate);
+        assert_eq!(reason("the machine does not know this token (prism peer add there)"), Token);
+        assert_eq!(reason("Connection reset without closing handshake"), Dropped);
+        assert_eq!(serde_json::to_value(UnknownHost).unwrap(), "unknown_host");
     }
 }
