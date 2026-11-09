@@ -168,6 +168,15 @@ impl Listener {
     }
 }
 
+/// Whether something listens at `at`, as far as can be told without connecting: Unix, the socket
+/// is there (perhaps left by a Prism gone); Windows, a process serves the pipe.
+pub fn exists(at: &Path) -> bool {
+    #[cfg(unix)]
+    return at.exists();
+    #[cfg(windows)]
+    return at.to_str().is_some_and(crate::windows::pipe_exists);
+}
+
 /// `ERROR_PIPE_BUSY`: all a pipe's instances taken an instant.
 #[cfg(windows)]
 const BUSY: i32 = 231;

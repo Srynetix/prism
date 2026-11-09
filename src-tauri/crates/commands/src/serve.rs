@@ -144,7 +144,8 @@ async fn stopped(state: &AppState) {
     }
 }
 
-/// Windows: until Ctrl-C; `prism restart` (its byte on this process's pipe) restarts it meanwhile.
+/// Windows: until Ctrl-C or `STOP` (`profile::stop`); `prism restart` (its byte on this process's
+/// pipe) restarts it meanwhile.
 #[cfg(windows)]
 async fn stopped(state: &AppState) {
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
@@ -161,6 +162,8 @@ async fn stopped(state: &AppState) {
                     state.shell.restart()
                 }
                 profile::WAKE => tracing::info!("profile {} is open here, without a window", profile::active()),
+                // The app takes this profile over, or quits with the Prisms it started.
+                profile::STOP => break,
                 _ => {}
             },
         }
