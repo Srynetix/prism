@@ -2,7 +2,8 @@
 //! never as the block runs once added, but in a sandbox of the system's — macOS's `sandbox-exec`,
 //! Linux's `bwrap` — without the home folder (no `~/.ssh`, `~/.config`, keychain, repositories),
 //! without a token (an emptied environment, no `keychain:` value), writing only in a temporary
-//! folder thrown away after, outbound network allowed (a block often asks an API), 20 s and 256 MB
+//! folder thrown away after, none of the session's services (clipboard, preferences, Apple events,
+//! Docker's socket), outbound network allowed but to this computer (a block often asks an API), 20 s and 256 MB
 //! at most, nothing left running. Without a sandbox on the computer, the test is refused: a block
 //! nobody trusted never runs outside one.
 
@@ -126,8 +127,10 @@ fn quoted(s: &str) -> String {
 }
 
 /// macOS's profile: everything denied but running programs, reading the system (not the homes, not
-/// the shared temporary folders, not the keychain's services), the network by IP (no local socket:
-/// an SSH agent's), and writing in `dir`. The last rule that matches wins.
+/// the shared temporary folders), the network by IP but this computer's own (no local socket, no
+/// local server: an SSH agent's, a database's), the system services a program needs to run, resolve
+/// a name and check a certificate — not the others (the clipboard, other apps' preferences, Apple
+/// events, the keychain) — and writing in `dir`. The last rule that matches wins.
 fn macos_profile(dir: &Path) -> String {
     let dir = quoted(&dir.display().to_string());
     format!(
@@ -138,11 +141,11 @@ fn macos_profile(dir: &Path) -> String {
 (allow signal (target same-sandbox))
 (allow process-info* (target same-sandbox))
 (allow sysctl-read)
-(allow mach-lookup)
-(deny mach-lookup (global-name "com.apple.SecurityServer") (global-name "com.apple.securityd") (global-name "com.apple.secd") (global-name "com.apple.security.agent") (global-name "com.apple.security.authhost"))
-(allow ipc-posix-shm*)
+(allow mach-lookup (global-name "com.apple.system.opendirectoryd.libinfo") (global-name "com.apple.system.opendirectoryd.membership") (global-name "com.apple.system.notification_center") (global-name "com.apple.system.logger") (global-name "com.apple.logd") (global-name "com.apple.diagnosticd") (global-name "com.apple.trustd") (global-name "com.apple.trustd.agent") (global-name "com.apple.ocspd") (global-name "com.apple.SystemConfiguration.configd") (global-name "com.apple.SystemConfiguration.DNSConfiguration") (global-name "com.apple.dnssd.service") (global-name "com.apple.analyticsd"))
+(allow ipc-posix-shm-read* (ipc-posix-name "apple.shm.notification_center"))
 (allow system-socket)
 (allow network-outbound (remote ip))
+(deny network-outbound (remote ip "localhost:*"))
 (allow network-outbound (literal "/private/var/run/mDNSResponder"))
 (allow file-read*)
 (deny file-read* (subpath "/Users") (subpath "/private/tmp") (subpath "/private/var/folders") (subpath "/Volumes") (subpath "/Library/Keychains"))
@@ -153,12 +156,14 @@ fn macos_profile(dir: &Path) -> String {
     )
 }
 
-/// bwrap's options: the system read-only, the homes and the shared temporary folders (and the
-/// session's sockets, `/run/user`) hidden behind empty ones, `dir` writable, new namespaces but the
-/// network's, an emptied environment, nothing left once Prism goes.
+/// bwrap's options: the system read-only, the homes, the shared temporary folders and `/run` (the
+/// session's sockets, Docker's: root's equal for the `docker` group) hidden behind empty ones —
+/// systemd-resolved's files bound back, for names —, `dir` writable, new namespaces but the
+/// network's (a block asks an API; no `DISPLAY` nor home, an X server's abstract socket refuses it),
+/// an emptied environment, nothing left once Prism goes.
 fn bwrap_args(dir: &Path, env: &[(String, String)]) -> Vec<String> {
     let dir = dir.display().to_string();
-    let mut args: Vec<String> = ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/home", "--tmpfs", "/root", "--tmpfs", "/tmp", "--tmpfs", "/var/tmp", "--tmpfs", "/run/user"].map(String::from).to_vec();
+    let mut args: Vec<String> = ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/home", "--tmpfs", "/root", "--tmpfs", "/tmp", "--tmpfs", "/var/tmp", "--tmpfs", "/run", "--ro-bind-try", "/run/systemd/resolve", "/run/systemd/resolve"].map(String::from).to_vec();
     if let Some(home) = dirs::home_dir().filter(|h| !h.starts_with("/home") && !h.starts_with("/root") && h != Path::new("/")) {
         args.extend(["--tmpfs".into(), home.display().to_string()]);
     }
@@ -195,6 +200,7 @@ mod tests {
         let args = bwrap_args(Path::new("/tmp/prism-sandbox-1"), &[("A".into(), "1".into())]).join(" ");
         assert!(args.contains("--tmpfs /home") && args.contains("--bind /tmp/prism-sandbox-1 /tmp/prism-sandbox-1") && args.contains("--clearenv --setenv A 1"), "{args}");
         assert!(!args.contains("--unshare-net"));
+        assert!(args.contains("--tmpfs /run --ro-bind-try /run/systemd/resolve"), "Docker's socket hidden: {args}");
     }
 
     /// The real sandbox, where there is one: the home unreadable, the folder writable, the JSON read.
@@ -208,6 +214,20 @@ mod tests {
         let def = Def { env: Default::default(), ..def(&script) };
         let t = test(&def).await.unwrap();
         assert!(t.error.is_none(), "{t:?}");
+        assert!(matches!(t.output.body, output::Body::Stats { .. }), "{t:?}");
+    }
+
+    /// macOS: none of the services that would let a test read past its folder — the clipboard,
+    /// another app's preferences, Apple events — nor a server of this computer.
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn a_test_reaches_no_service_of_the_session() {
+        if available().is_none() {
+            return;
+        }
+        let script = "#!/bin/sh\nleak() { echo \"{\\\"kind\\\":\\\"markdown\\\",\\\"text\\\":\\\"$1\\\"}\"; exit 0; }\npbpaste >/dev/null 2>&1 && leak clipboard\ndefaults read com.apple.finder 2>/dev/null | grep -q = && leak preferences\nosascript -e 'tell application \"System Events\" to get name of every process' >/dev/null 2>&1 && leak events\n/usr/bin/nc -z -w 1 127.0.0.1 22 >/dev/null 2>&1 && leak localhost\nid -un >/dev/null 2>&1 || leak 'no user'\necho '{\"kind\":\"gauge\",\"label\":\"ok\",\"value\":1}'\n";
+        let def = Def { env: Default::default(), ..def(script) };
+        let t = test(&def).await.unwrap();
         assert!(matches!(t.output.body, output::Body::Stats { .. }), "{t:?}");
     }
 }
