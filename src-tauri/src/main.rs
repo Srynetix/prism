@@ -242,6 +242,7 @@ fn export_bindings() {
     agents::conversation::Conversation::export_all(&cfg).unwrap();
     agents::switch::Material::export_all(&cfg).unwrap();
     agents::session_source::SessionSource::export_all(&cfg).unwrap();
+    agents::draft::DraftState::export_all(&cfg).unwrap();
     agents::breakdown::Breakdown::export_all(&cfg).unwrap();
     agents::activity::Activity::export_all(&cfg).unwrap();
     state::AgentCost::export_all(&cfg).unwrap();

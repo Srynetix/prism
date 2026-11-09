@@ -173,10 +173,10 @@ commands! {
     feedback::feedback_body: Read,
     feedback::feedback_url: Read [phone: target: String, kind: String, title: String, text: String, context: Vec<String>; sync],
     feedback::feedback_requests: Read [phone: state, refresh: bool],
-    feedback::feedback_draft: Read,
     feedback::feedback_vote: Act [phone: target: String, number: u64],
     feedback::feedback_create: Act [phone: state, target: String, kind: String, title: String, text: String, context: Vec<String>, capture: Option<bool>],
-    feedback::feedback_draft_reset: Act [phone: state; sync],
+    // An agent launched to draft it, its words in its prompt as a launch's from a phone.
+    feedback::feedback_draft_start: Act [phone: state, target: String, kind: String, title: String, text: String],
     // Reading.
     system::get_snapshot: Read,
     // The window's own: a phone gets its snapshot over its socket.
@@ -237,6 +237,8 @@ commands! {
     agents::agent_installed: Read [phone: state],
     agents::agent_handoff_material: Read [phone: state, id: String, turns: Option<u32>],
     agents::session_source: Read [phone: state, source: crate::agents::session_source::Source],
+    // A draft asked of an agent (a quick action's prompt, a feedback issue): read back by Prism.
+    agents::draft_state: Read [phone: state, id: String],
     agents::agent_leg_conversation: Read [phone: state, id: String, leg: u32, turns: Option<u32>],
     agents::agent_history: Read [phone: state, id: String, lines: Option<u32>, screen: Option<bool>],
     agents::agent_worktree_plan: Read [phone: state, title: String, worktree: crate::agents::NewWorktree],
@@ -269,6 +271,9 @@ commands! {
     // Agents: their permission rules still apply to what they do.
     agents::agent_spawn: Act,
     agents::agent_prepare: Act,
+    // A hidden agent, its prompt Prism's (the session's own prompts, as data), in a folder Prism shows.
+    agents::quick_action_draft: Act [phone: state, source: crate::agents::session_source::Source, repo: String, name: String],
+    agents::draft_stop: Act [phone: state, id: String],
     agents::agent_start: Act,
     agents::agent_resume: Act [phone: state, id: String],
     agents::agent_reopen: Act [phone: state, repo: String],

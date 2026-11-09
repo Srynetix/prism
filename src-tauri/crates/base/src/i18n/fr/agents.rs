@@ -160,5 +160,10 @@ pub const TABLE: &[(&str, &str)] = &[
     ("its CLI asked about another folder: nothing answered", "sa CLI a demandé pour un autre dossier : rien n’a été répondu"),
     ("the worktrees' folder was not trusted: its question is still open", "le dossier des worktrees n’a pas été approuvé : sa question est encore ouverte"),
     ("the worktrees' folder was not trusted: its CLI did not ask in time (open it there to answer)", "le dossier des worktrees n’a pas été approuvé : sa CLI n’a pas posé la question à temps (ouvrez-la là-bas pour y répondre)"),
-    ("it asks before it starts: answer from its card", "il demande avant de démarrer : répondez depuis sa carte"),
+    ("its conversation cannot be read: no draft", "sa conversation ne peut pas être lue\u{a0}: pas de brouillon"),
+    ("Quick action: {name}", "Quick action\u{a0}: {name}"),
+    ("it stopped", "il s’est arrêté"),
+    ("it asked for a permission", "il a demandé une autorisation"),
+    ("it took too long", "il a mis trop longtemps"),
+    ("it asks before it starts: answer from its card","il demande avant de démarrer : répondez depuis sa carte"),
 ];

@@ -4,7 +4,7 @@
   import { hasCore } from '../bridge'
   import { agentsEnabled } from '../agents.svelte'
   import { t, tc } from '../i18n.svelte'
-  import { KINDS, attached, capture, closeFeedback, contextLines, draftWithAgent, dropCapture, feedback, preview, send, setDraft, target, uploadsCapture, vote } from '../feedback.svelte'
+  import { KINDS, attached, capture, closeFeedback, contextLines, draftWithAgent, dropCapture, feedback, preview, send, setDraft, stopWaiting, target, uploadsCapture, vote } from '../feedback.svelte'
 
   /**
    * The feedback composer (feedback.svelte.ts): to which repository, what kind, a title and a text;
@@ -140,7 +140,7 @@
             {#if feedback.fallback}<button class="link" onclick={() => openLink(feedback.fallback)}>{t('Open it on the forge instead →')}</button>{/if}
           </div>
         {/if}
-        {#if feedback.drafting}<div class="banner info"><span>{t('An agent drafts the issue: its draft comes here when written.')}</span><button class="link" onclick={() => (feedback.drafting = false)}>{t('Stop waiting')}</button></div>{/if}
+        {#if feedback.drafting}<div class="banner info"><span>{t('An agent drafts the issue: its draft comes here when written.')}</span><button class="link" onclick={stopWaiting}>{t('Stop waiting')}</button></div>{/if}
 
         <footer>
           <button class="btn ghost" onclick={() => (showPreview = !showPreview)} aria-pressed={showPreview}>{showPreview ? t('Hide') : t('Preview')}</button>

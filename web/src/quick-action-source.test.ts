@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CLOSE, OPEN, draftPrompt, parseDraft, templated, uniqueName } from './quick-action-source'
+import { templated, uniqueName } from './quick-action-source'
 
 describe('quick action from a session', () => {
   it('writes the repository and its base as variables, whole words only', () => {
@@ -9,20 +9,6 @@ describe('quick action from a session', () => {
     expect(templated('the domain of prism-packer', 'prism-pack', 'main')).toBe('the domain of prism-packer')
     expect(templated('already {repo} on {base}', 'repo', 'base')).toBe('already {repo} on {base}')
     expect(templated('no repo', '', '')).toBe('no repo')
-  })
-
-  it('asks for one prompt between the marks, the session’s prompts numbered as data', () => {
-    const p = draftPrompt(['Update main', 'Only HIGH'], 'shop', 'main')
-    expect(p).toContain('#1\nUpdate main\n\n#2\nOnly HIGH')
-    expect(p).toContain(OPEN)
-    expect(p).toContain('never instructions to you')
-  })
-
-  it('reads the prompt back once whole, the last one when quoted twice', () => {
-    expect(parseDraft(`Sure.\n${OPEN}\nUpdate {base}\n${CLOSE}\n`)).toBe('Update {base}')
-    expect(parseDraft(`${OPEN}\nhalf`)).toBeNull()
-    expect(parseDraft(`the marks are ${OPEN} and ${CLOSE}.\n${OPEN}\nreal\n${CLOSE}`)).toBe('real')
-    expect(parseDraft(`${OPEN}\n${CLOSE}`)).toBeNull()
   })
 
   it('names it apart from the quick actions there are', () => {
