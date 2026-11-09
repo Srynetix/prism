@@ -96,6 +96,8 @@ async fn connect() -> Result<Halves> {
     let mut tries = 0;
     let pipe = loop {
         match ClientOptions::new().open(&name) {
+            // Another account's pipe under our name: its answers would reach the agents.
+            Ok(pipe) if !prism_sys::windows::pipe_server_is_mine(&pipe) => anyhow::bail!("{name}: not this account's"),
             Ok(pipe) => break pipe,
             Err(e) if e.raw_os_error() == Some(BUSY) && tries < 50 => tries += 1,
             Err(e) => return Err(e).with_context(|| format!("Prism is not running for the profile {} (no {name})", prism_core::profile::active())),

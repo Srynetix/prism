@@ -121,12 +121,11 @@ async fn accept(host: Arc<Host>, listener: std::os::unix::net::UnixListener) {
 
 /// The profile's named pipe: an instance per connection, the next one made before the connected
 /// one is served. The first one claims the name (`first_pipe_instance`): another process cannot
-/// have made it first; clients of this computer only.
+/// have made it first; clients of this computer and this account only.
 #[cfg(windows)]
 async fn accept(host: Arc<Host>) {
-    use tokio::net::windows::named_pipe::ServerOptions;
     let name = prism_core::mcp::pipe_name();
-    let make = |first: bool| ServerOptions::new().first_pipe_instance(first).reject_remote_clients(true).create(&name);
+    let make = |first: bool| prism_sys::windows::pipe_server(&name, first);
     let mut server = match make(true) {
         Ok(s) => s,
         Err(e) => return tracing::warn!("mcp: no pipe {name}: {e}"),

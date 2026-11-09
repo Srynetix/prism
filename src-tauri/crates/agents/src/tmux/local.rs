@@ -379,6 +379,8 @@ impl Session {
         } else {
             argv
         };
+        // On Windows, an npm CLI's shim started as what it starts: cmd.exe never reads the title or the prompt.
+        let argv = &prism_base::platform::terminal_argv(argv.to_vec())?[..];
         let program = &argv[0];
         let (cols, rows) = self.state.lock().unwrap().size;
         let pair = native_pty_system().openpty(PtySize { cols, rows, pixel_width: 0, pixel_height: 0 }).context("opening a pty")?;

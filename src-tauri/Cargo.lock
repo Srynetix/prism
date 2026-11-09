@@ -4828,6 +4828,7 @@ name = "prism-sys"
 version = "0.11.0"
 dependencies = [
  "libc",
+ "tokio",
  "tracing",
  "webkit2gtk",
  "windows",
