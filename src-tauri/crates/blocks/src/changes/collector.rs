@@ -42,18 +42,24 @@ pub fn refresh() {
     }
 }
 
-/// The environments' alerts appearing or going are read at once, not at the next read: the core
-/// computes them on each change of the snapshot.
+/// The environments' alerts appearing or going (or changing severity) are read at once, not at
+/// the next read: the core computes them on each change of the snapshot. Their text is left out:
+/// it changes with a count or the minutes (out of sync since N min), which the next read takes.
 async fn follow_alerts(ctx: BlockCtx) {
     let mut rx = ctx.subscribe();
     let mut last = None;
     while rx.changed().await.is_ok() {
-        let now = super::env_alerts(&rx.borrow_and_update());
+        let now = identities(super::env_alerts(&rx.borrow_and_update()));
         if now != last {
             last = now;
             refresh();
         }
     }
+}
+
+/// What tells the environments' alerts apart for `follow_alerts`: their keys and severities.
+fn identities(alerts: Option<Vec<super::EnvAlert>>) -> Option<Vec<(String, String)>> {
+    alerts.map(|list| list.into_iter().map(|a| (a.key, a.severity)).collect())
 }
 
 /// What the collector keeps beside the journal.
@@ -377,6 +383,16 @@ fn kube_event(s: &crate::state::EnvStatus, k: KubeEvent) -> Option<ChangeEvent> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn alerts_followed_by_identity_not_text() {
+        let alert = |text: &str, severity: &str| super::super::EnvAlert { key: "sync|staging|api".into(), severity: severity.into(), text: text.into(), env: Some("staging".into()), app: Some("api".into()), url: None };
+        let a = identities(Some(vec![alert("out of sync since 3 min", "warn")]));
+        assert_eq!(a, identities(Some(vec![alert("out of sync since 4 min", "warn")])));
+        assert_ne!(a, identities(Some(vec![alert("out of sync since 4 min", "ko")])));
+        assert_ne!(a, identities(Some(Vec::new())));
+        assert_eq!(identities(None), None);
+    }
 
     #[test]
     fn merge_request_of_a_commit() {

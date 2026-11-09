@@ -143,6 +143,8 @@ commands! {
     // demo themselves.
     system::block_call: Never [demo: own] [phone: block: String, command: String, args: Option<Value>],
     system::shared_load: Read [phone: state, name: String; sync],
+    // The window's alerts of the blocks of another repository, for the routines and Changes.
+    system::alerts_external: Never,
     system::shared_save: Act [demo: own] [phone: state, name: String, value: Value; sync],
     // Agents and stores outlive it: nothing is lost.
     system::restart_app: Act [demo: own],
@@ -177,6 +179,8 @@ commands! {
     feedback::feedback_create: Act [phone: state, target: String, kind: String, title: String, text: String, context: Vec<String>, capture: Option<bool>],
     // An agent launched to draft it, its words in its prompt as a launch's from a phone.
     feedback::feedback_draft_start: Act [phone: state, target: String, kind: String, title: String, text: String],
+    // Its file, once Prism no longer knows the draft.
+    feedback::feedback_draft_read: Read [phone: state, id: String],
     // Reading.
     system::get_snapshot: Read,
     // The window's own: a phone gets its snapshot over its socket.

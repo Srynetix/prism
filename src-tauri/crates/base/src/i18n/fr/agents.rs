@@ -164,5 +164,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("it stopped", "il s’est arrêté"),
     ("it asked for a permission", "il a demandé une autorisation"),
     ("it took too long", "il a mis trop longtemps"),
+    ("another draft replaced it", "un autre brouillon l’a remplacé"),
     ("it asks before it starts: answer from its card","il demande avant de démarrer : répondez depuis sa carte"),
 ];

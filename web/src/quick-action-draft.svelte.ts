@@ -127,7 +127,8 @@ async function draftWithAgent(ref: SessionRef, source: SessionSource, repo: stri
 
 /**
  * Its state read every two seconds, until Prism has the prompt (and closed its agent). Given up
- * (the first prompt kept) when Prism did: it stopped, asked for a permission, or took too long.
+ * (the first prompt kept) when Prism did: it stopped, asked for a permission, or took too long;
+ * lost when Prism no longer knows it.
  */
 async function waitForDraft(id: string) {
   while (qaDraft.drafter === id) {
@@ -137,7 +138,11 @@ async function waitForDraft(id: string) {
     if (qaDraft.drafter !== id) return
     if (s === undefined || s?.state === 'waiting') continue
     qaDraft.drafter = ''
-    if (s?.state === 'failed') {
+    if (s === null) {
+      // Unknown to Prism (restarted, or the draft long over): said, not waited for forever.
+      qaDraft.noDraft = true
+      qaDraft.error = t('The draft was lost: {error}', { error: t('Prism no longer knows it (restarted, or it ended a while ago)') })
+    } else if (s.state === 'failed') {
       qaDraft.noDraft = true
       qaDraft.error = t('No draft: {error}', { error: s.why })
     } else if (s?.state === 'ready') {

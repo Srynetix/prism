@@ -19,8 +19,9 @@ kind: string,
  */
 block?: string, 
 /**
- * The block's own item that raised it (a custom block's id): a phone is not told those of a
- * custom block kept on the computer.
+ * The block's own item that raised it (a custom block's id), or a source's error the source
+ * (`Snapshot.errors`' key): a phone is not told those of a custom block kept on the computer,
+ * nor the mail's when `[remote] mail` keeps it there.
  */
 item?: string, notification?: AlertNotification, severity: Severity, text: string, url?: string, 
 /**

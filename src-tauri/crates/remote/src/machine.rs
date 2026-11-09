@@ -50,8 +50,9 @@ impl Target {
     }
 
     /// An HTTP client for it: through its socket when local (a named pipe on Windows), checked
-    /// this account's first (`prism_sys::ipc`: Unix, the socket's owner; Windows, the pipe's
-    /// server, opened once to ask: another account cannot add an instance to ours).
+    /// this account's first (`prism_sys::ipc`: Unix, the socket's owner, a `stat`; Windows, the
+    /// pipe's server, opened to ask: another account cannot add an instance to ours). The pipe's
+    /// verdict is kept for its path until a request through it fails (`failed`): asked again then.
     async fn client(&self, timeout: Option<Duration>) -> Result<reqwest::Client> {
         let mut b = reqwest::Client::builder();
         if let Some(t) = timeout {
@@ -65,11 +66,23 @@ impl Target {
             }
             #[cfg(windows)]
             {
-                drop(open_local(path).await?);
+                if !pipes_checked().contains(path) {
+                    drop(open_local(path).await?);
+                    pipes_checked().insert(path.clone());
+                }
                 b = b.windows_named_pipe(path.clone());
             }
         }
         Ok(b.build()?)
+    }
+
+    /// A request through its pipe failed: the next one checks its server again (Prism there may
+    /// have restarted, its pipe made anew).
+    fn failed(&self) {
+        #[cfg(windows)]
+        if let Some(path) = &self.socket {
+            pipes_checked().remove(path);
+        }
     }
 
     /// A peer route (`ws`, `tty?…`) of its profile.
@@ -159,7 +172,7 @@ pub async fn summary(target: &Target) -> Result<Summary> {
         }
         None => CLIENT.get_or_init(|| reqwest::Client::builder().timeout(Duration::from_secs(5)).build().expect("an HTTP client")),
     };
-    let res = http.get(target.http(&target.peer("summary"))?).bearer_auth(target.token.trim()).send().await.context("out of reach")?;
+    let res = http.get(target.http(&target.peer("summary"))?).bearer_auth(target.token.trim()).send().await.inspect_err(|_| target.failed()).context("out of reach")?;
     if res.status() == 401 {
         bail!("the machine does not know this token");
     }
@@ -242,7 +255,7 @@ impl Machine {
     pub async fn download(&self, token: &str, dest: &std::path::Path) -> Result<()> {
         anyhow::ensure!(!token.is_empty() && token.chars().all(|c| c.is_ascii_hexdigit()), "not a download");
         let url = self.target.http(&self.target.peer(&format!("download/{token}")))?;
-        let res = self.target.client(None).await?.get(url).bearer_auth(self.target.token.trim()).send().await.context("the machine does not answer")?;
+        let res = self.target.client(None).await?.get(url).bearer_auth(self.target.token.trim()).send().await.inspect_err(|_| self.target.failed()).context("the machine does not answer")?;
         anyhow::ensure!(res.status().is_success(), "the machine refused the download ({})", res.status());
         let part = dest.with_extension(format!("{}.part", dest.extension().and_then(|e| e.to_str()).unwrap_or("")));
         let written = async {
@@ -402,6 +415,13 @@ async fn run(target: Target, mut out: mpsc::UnboundedReceiver<String>, pending: 
 
 /// A profile of this computer's local socket (a named pipe on Windows), this account's only
 /// (`prism_sys::ipc::connect`).
+/// The pipes whose server was found this account's (`Target::client`).
+#[cfg(windows)]
+fn pipes_checked() -> std::sync::MutexGuard<'static, std::collections::HashSet<std::path::PathBuf>> {
+    static CHECKED: std::sync::LazyLock<Mutex<std::collections::HashSet<std::path::PathBuf>>> = std::sync::LazyLock::new(Default::default);
+    CHECKED.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 async fn open_local(path: &std::path::Path) -> Result<prism_sys::ipc::Client> {
     prism_sys::ipc::connect(path, &prism_core::profile::data_base()).await.with_context(|| format!("the profile's Prism ({})", path.display()))
 }

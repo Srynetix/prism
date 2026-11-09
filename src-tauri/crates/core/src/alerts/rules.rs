@@ -323,6 +323,8 @@ impl<'a> Ctx<'a> {
                     "clickup-setup" => Alert::new("Source", Severity::Warn, format!("{}: {err}", tr("ClickUp config"))),
                     _ => Alert::new("Source", Severity::Ko, tr!("{source} unreachable: {err}", source = source, err = err)),
                 })
+                // Its source: a phone kept from it (the mail) is not told its error either.
+                .item(source)
             })
             .collect()
     }

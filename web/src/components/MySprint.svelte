@@ -27,13 +27,40 @@
 
   /** `undefined` until the core has answered; `null`, a sprint without a start date. */
   let r = $state<Retro | null | undefined>(undefined)
-  /** Asked at most this often: the snapshot changes far more. */
+  /** Asked at most this often. */
   const EVERY = 2000
   let asked = 0
   let lastAsked = 0
-  // Asked again as the snapshot changes (the sprint, the trail, the notes) and as the points written here do.
+  /** The minute: the retro counts until now. */
+  let minute = $state(0)
   $effect(() => {
-    void snap
+    const id = setInterval(() => minute++, 60_000)
+    return () => clearInterval(id)
+  })
+  /**
+   * What the retro reads (`retro::retro`): the sprint, me, its statuses, my merged MRs, the agents
+   * (their activity to the minute), the time tracked, the Day trail, the notes and the store `retro`
+   * by their revisions; not the rest of the snapshot, which changes far more.
+   */
+  const inputs = $derived(
+    JSON.stringify([
+      minute,
+      snap.sprint,
+      snap.tracker_me,
+      snap.me,
+      snap.me_elsewhere,
+      snap.conventions,
+      snap.merge_requests.filter((m) => m.state === 'merged').map((m) => [m.repo, m.iid, m.author, m.merged_at, m.source_branch, m.forge]),
+      snap.agents.map((a) => [a.id, a.created_at, a.last_activity?.slice(0, 16), a.ticket, a.branch, a.usage?.cost]),
+      snap.time,
+      snap.blocks.trail,
+      snap.shared_revs?.notes,
+      snap.shared_revs?.retro,
+    ]),
+  )
+  // Asked again as its inputs change and as the points written here do.
+  $effect(() => {
+    void inputs
     const points = $state.snapshot(pointsOf(snap.sprint?.name ?? ''))
     const timer = setTimeout(() => {
       lastAsked = Date.now()

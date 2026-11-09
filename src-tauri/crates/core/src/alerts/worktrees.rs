@@ -13,8 +13,7 @@ use crate::state::*;
 /// A session still at work, or waiting: its worktree is in use.
 const LIVE: [SessionStatus; 5] = [SessionStatus::Running, SessionStatus::Background, SessionStatus::NeedsYou, SessionStatus::WaitingTool, SessionStatus::ReviewReady];
 
-/// An agent drafting a quick action's prompt: Prism's, always out of the lists.
-const DRAFTER: &str = "quick-action-draft";
+use crate::agents::DRAFTER;
 
 #[derive(Debug, PartialEq)]
 pub(super) enum State {

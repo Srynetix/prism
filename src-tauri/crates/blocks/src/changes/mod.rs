@@ -175,7 +175,7 @@ pub struct EnvAlert {
     pub url: Option<String>,
 }
 
-/// The alerts of an environment (`Snapshot.alerts`), by key: Argo CD's and the clusters', those an
+/// The alerts of an environment (`Snapshot::all_alerts`: the window's of the blocks of another repository too), by key: Argo CD's and the clusters', those an
 /// agent can investigate; one that names none is left out. `None` before the clusters or Argo CD
 /// have been read: their alerts would look gone.
 pub fn env_alerts(s: &crate::state::Snapshot) -> Option<Vec<EnvAlert>> {
@@ -184,7 +184,7 @@ pub fn env_alerts(s: &crate::state::Snapshot) -> Option<Vec<EnvAlert>> {
         return None;
     }
     let mut out = Vec::new();
-    for a in &s.alerts {
+    for a in s.all_alerts() {
         let fixes = a.fixes.as_deref().unwrap_or_default();
         let investigate = fixes.iter().find_map(|f| match f {
             Fix::Investigate { workload, env, .. } => Some((workload, env)),

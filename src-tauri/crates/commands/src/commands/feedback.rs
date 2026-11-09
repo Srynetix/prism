@@ -78,7 +78,7 @@ pub async fn feedback_create(state: State<'_, AppState>, target: String, kind: S
     let request = Request { repo: t.repo.clone(), name: t.name.clone(), kind, opened: chrono::Utc::now().to_rfc3339(), issue, paste_capture: false };
     feedback::remember(&state.store, request.clone())?;
     // The agent's draft and the capture have served: they are not kept.
-    let _ = std::fs::remove_file(feedback::draft_path(&state.store));
+    feedback::clear_drafts(&state.store);
     let _ = std::fs::remove_file(shot);
     Ok(Request { paste_capture: capture == Some(true) && markdown.is_none(), ..request })
 }
@@ -117,7 +117,9 @@ pub async fn feedback_requests(state: State<'_, AppState>, refresh: bool) -> Cmd
 #[prism_macros::command]
 pub async fn feedback_draft_start(state: State<'_, AppState>, target: String, kind: String, title: String, text: String) -> Cmd<String> {
     let t = feedback::find(&crate::config_path(), &target)?;
-    let path = feedback::draft_path(&state.store);
+    // Its file named by its agent's id, in its prompt.
+    let id = crate::agents::draft::new_id();
+    let path = feedback::draft_path(&state.store, &id).ok_or("no draft id")?;
     let clone = state.hub.subscribe().borrow().repos.iter().find(|r| r.project.as_deref() == Some(t.project.as_str()) && !r.path.is_empty()).map(|r| std::path::PathBuf::from(&r.path));
     let (title, text) = (title.trim(), text.trim());
     let launch = crate::agents::Launch {
@@ -135,7 +137,24 @@ pub async fn feedback_draft_start(state: State<'_, AppState>, target: String, ki
         from: None,
         prism_mcp: false,
     };
-    // Hours: it may ask me what I have in mind first.
-    let spec = crate::agents::draft::Spec { launch, read: crate::agents::draft::Read::File(path), hidden: false, timeout: std::time::Duration::from_secs(4 * 3600) };
+    // Hours: it may ask me what I have in mind first. One at a time, the window's or a phone's: a
+    // new one gives up the one before (its agent stays, its conversation mine; its own file).
+    let spec = crate::agents::draft::Spec { id: Some(id), slot: Some("feedback"), launch, read: crate::agents::draft::Read::File(path), hidden: false, timeout: std::time::Duration::from_secs(4 * 3600) };
     state.agents.draft(spec).await.map_err(Into::into)
+}
+
+/// A feedback draft that Prism no longer knows (restarted meanwhile, or long over): its file,
+/// when its agent wrote it; none otherwise.
+#[prism_macros::command]
+pub fn feedback_draft_read(state: State<'_, AppState>, id: String) -> Option<FeedbackDraft> {
+    let path = feedback::draft_path(&state.store, &id)?;
+    let (title, text) = crate::agents::draft::parse_titled(&std::fs::read_to_string(path).ok()?)?;
+    Some(FeedbackDraft { title, text })
+}
+
+/// A feedback draft read from its file.
+#[derive(serde::Serialize)]
+pub struct FeedbackDraft {
+    pub title: String,
+    pub text: String,
 }

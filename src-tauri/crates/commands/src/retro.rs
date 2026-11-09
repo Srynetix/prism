@@ -29,11 +29,11 @@ pub fn current(hub: &Hub, store: &Store, points: Option<Vec<RetroPoint>>) -> Opt
 /// The current sprint's figures kept in the store's history, to compare the next sprints with;
 /// `migrated`, the window's former pref `retro.history`, moved in when the store has none. The other
 /// pages read it again.
+/// Nothing written, no revision bumped, when the history already holds those figures. Under the
+/// store's lock: a write of the points meanwhile (`shared_save`) is not lost.
 pub fn keep(hub: &Hub, store: &Store, migrated: Option<Vec<RetroSummary>>) -> anyhow::Result<()> {
-    let saved = store.load("retro")?;
     let summary = current(hub, store, Some(Vec::new())).map(|r| r.summary);
-    if let Some(value) = r::kept_in(saved, summary.as_ref(), migrated) {
-        store.save("retro", &value)?;
+    if store.update("retro", |saved| Ok(r::kept_in(saved, summary.as_ref(), migrated)))? {
         crate::commands::system::shared_written(hub, "retro");
     }
     Ok(())

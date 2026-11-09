@@ -251,10 +251,15 @@ async function waitForDraft(id: string) {
     if (!waiting()) return
     if (s === undefined || s?.state === 'waiting') continue
     Object.assign(feedback, { drafting: false, drafter: '' })
-    if (s?.state === 'ready') {
+    // Unknown to Prism (restarted, or the draft long over): its file, when the agent wrote it.
+    if (s === null) {
+      const read = await invoke<{ title: string; text: string } | null>('feedback_draft_read', { id }).catch(() => null)
+      if (read) setDraft({ title: read.title, text: read.text })
+      else feedback.error = tr('The draft was lost: {error}', { error: tr('Prism no longer knows it (restarted, or it ended a while ago)') })
+    } else if (s.state === 'ready') {
       setDraft({ title: s.title ?? '', text: s.text })
       if (!feedback.open) toast(tr('The agent’s draft is ready'), 5000, { label: tr('Open'), run: () => void openFeedback() })
-    } else if (s?.state === 'failed') {
+    } else if (s.state === 'failed') {
       feedback.error = tr('No draft: {error}', { error: s.why })
     }
   }

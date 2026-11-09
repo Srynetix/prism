@@ -48,9 +48,14 @@ impl Agents {
     /// creates, or Prism creates first for the others. Returns the agent's identifier.
     /// Its "Then" steps, if any, run once it has done its work (`chains`).
     pub async fn spawn(&self, launch: Launch) -> Result<String> {
+        self.spawn_id(uuid::Uuid::new_v4().to_string(), launch).await
+    }
+
+    /// `spawn` under `id`, chosen before (a draft's file named by it in its prompt).
+    pub(crate) async fn spawn_id(&self, id: String, launch: Launch) -> Result<String> {
         let then = launch.then.clone();
         let from = launch.from.clone();
-        let id = self.spawn_as(uuid::Uuid::new_v4().to_string(), launch, None).await?;
+        let id = self.spawn_as(id, launch, None).await?;
         self.start_chain(&id, then);
         self.launched_aside(from.as_deref(), &id);
         Ok(id)

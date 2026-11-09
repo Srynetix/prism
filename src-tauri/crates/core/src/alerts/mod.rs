@@ -1,13 +1,15 @@
-//! The alerts, computed by the core from the snapshot each time it changes (`Hub::update`), and
-//! once a minute for what depends on the time (`tick`): `Snapshot.alerts`, which the window, a
-//! phone, the routines and the Changes block read. Prism's rules are here (`rules`, `worktrees`),
-//! a block's own in its `Block::alerts`; the window adds those of the blocks of another repository
-//! that only say theirs in TypeScript. Its texts follow `[appearance] language`.
+//! The alerts, computed by the core from the snapshot shortly after it changes (`run`, woken by
+//! `Hub::update`, the changes of a moment taken together), and once a minute for what depends on
+//! the time: `Snapshot.alerts`, which the window, a phone, the routines and the Changes block read.
+//! Prism's rules are here (`rules`, `worktrees`), a block's own in its `Block::alerts`; the window
+//! adds those of the blocks of another repository that only say theirs in TypeScript, and tells the
+//! core (`Hub::set_external_alerts`) for the routines and the Changes block. Its texts follow
+//! `[appearance] language`.
 
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::state::{Snapshot, StatusOption};
@@ -20,7 +22,7 @@ mod tests;
 pub use rules::access_alert;
 
 /// How bad: broken (`ko`), to look at (`warn`), to know (`info`).
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
@@ -40,7 +42,7 @@ impl Severity {
 }
 
 /// What raised an alert (`Alert.rule`), as `[alerts] band_*` names them.
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "kebab-case")]
 pub enum AlertRule {
@@ -72,7 +74,7 @@ pub enum AlertRule {
 }
 
 /// A notification when broken (`ko`): one per `key`, the object, not its changing detail.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "AlertNotification"))]
 pub struct Notification {
@@ -81,7 +83,7 @@ pub struct Notification {
 }
 
 /// An alert's object, opened in the app: a ticket's preview, an MR's pane, a pipeline's logs, the ArgoCD drawer.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum OpenTarget {
@@ -107,7 +109,7 @@ pub enum OpenTarget {
 }
 
 /// The agent action a `claude` fix runs on an MR (`ClaudeActionId` in the window).
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "kebab-case")]
 pub enum FixAction {
@@ -118,7 +120,7 @@ pub enum FixAction {
 }
 
 /// A side of an overlap.
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "OverlapSide"))]
 #[serde(rename_all = "lowercase")]
@@ -135,7 +137,7 @@ pub enum Side {
 /// agent, told why it stopped; `switch`: another CLI to continue an agent stopped at its plan's
 /// limit; `block`: a command of a block's Rust side; `changes`: the Changes timeline around the
 /// application's crash.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum Fix {
@@ -238,7 +240,7 @@ pub enum Fix {
 }
 
 /// Something to know or to do, in Alerts, the status bar, the notifications and on a phone.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Alert {
     /// `Source`, `Infra`, `CI`, `Sync`, `Review`, `MR`, `Claude`, `ArgoCD`, `Worktrees`; a block's
@@ -248,8 +250,9 @@ pub struct Alert {
     #[cfg_attr(feature = "ts", ts(optional))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub block: Option<String>,
-    /// The block's own item that raised it (a custom block's id): a phone is not told those of a
-    /// custom block kept on the computer.
+    /// The block's own item that raised it (a custom block's id), or a source's error the source
+    /// (`Snapshot.errors`' key): a phone is not told those of a custom block kept on the computer,
+    /// nor the mail's when `[remote] mail` keeps it there.
     #[cfg_attr(feature = "ts", ts(optional))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
@@ -415,12 +418,25 @@ fn block_alerts(s: &Snapshot) -> Vec<Alert> {
         .collect()
 }
 
-/// The alerts computed again once a minute while Prism runs: those that depend on the time (a
-/// review waiting for hours, a job queued, a turn over a while ago) come and go without a change.
-pub async fn tick(hub: crate::state::Hub) {
+/// The changes of a moment taken together before the alerts are computed again.
+const SETTLE: std::time::Duration = std::time::Duration::from_millis(250);
+/// What depends on the time (a review waiting for hours, a job queued, a turn over a while ago)
+/// comes and goes without a change: computed again this often.
+const EVERY: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// The alerts computed while Prism runs, away from the snapshot's lock: shortly after a change
+/// (`Hub::update` wakes it), and once a minute. Their own publication wakes nothing.
+pub async fn run(hub: crate::state::Hub) {
+    let wake = hub.alerts_wake();
     loop {
-        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-        hub.refresh_alerts();
+        tokio::select! {
+            _ = wake.notified() => tokio::time::sleep(SETTLE).await,
+            _ = tokio::time::sleep(EVERY) => {}
+        }
+        let hub = hub.clone();
+        if let Err(e) = tokio::task::spawn_blocking(move || hub.refresh_alerts()).await {
+            tracing::warn!("alerts: {e}");
+        }
     }
 }
 

@@ -19,6 +19,10 @@ pub struct Hub {
     forge: std::sync::Arc<watch::Sender<()>>,
     /// What the alerts read of the stores the window and the phones share (`prefs`).
     prefs: std::sync::Arc<std::sync::RwLock<std::sync::Arc<crate::alerts::Prefs>>>,
+    /// The snapshot changed: the alerts are computed again (`crate::alerts::run`).
+    alerts_wake: std::sync::Arc<tokio::sync::Notify>,
+    /// One computation of the alerts at a time: the one that read the later snapshot publishes last.
+    refreshing: std::sync::Arc<std::sync::Mutex<()>>,
 }
 
 /// Minimum collection pace when the window is hidden.
@@ -33,7 +37,7 @@ impl Default for Hub {
 impl Hub {
     pub fn new() -> Self {
         let (tx, _) = watch::channel(Snapshot::default());
-        Self { tx, visible: Default::default(), watching: Default::default(), shown: Default::default(), forge: std::sync::Arc::new(watch::channel(()).0), prefs: Default::default() }.with_visible(true)
+        Self { tx, visible: Default::default(), watching: Default::default(), shown: Default::default(), forge: std::sync::Arc::new(watch::channel(()).0), prefs: Default::default(), alerts_wake: Default::default(), refreshing: Default::default() }.with_visible(true)
     }
 
     fn with_visible(self, v: bool) -> Self {
@@ -105,29 +109,50 @@ impl Hub {
     }
 
     /// Applies `f` and only notifies clients if the snapshot actually changed; then its alerts are
-    /// computed again from it.
+    /// computed again, shortly and away from the lock (`crate::alerts::run`; `refresh_alerts` now).
     pub fn update(&self, f: impl FnOnce(&mut Snapshot) -> bool) {
-        let prefs = std::sync::Arc::clone(&self.prefs.read().unwrap_or_else(|e| e.into_inner()));
-        self.tx.send_if_modified(|s| {
+        let changed = self.tx.send_if_modified(|s| {
             let changed = f(s);
             if changed {
-                let now = Utc::now();
-                s.updated_at = Some(now);
-                s.alerts = crate::alerts::compute(s, &prefs, now);
+                s.updated_at = Some(Utc::now());
             }
+            changed
+        });
+        if changed {
+            self.alerts_wake.notify_one();
+        }
+    }
+
+    /// What wakes `crate::alerts::run`: a change of the snapshot.
+    pub fn alerts_wake(&self) -> std::sync::Arc<tokio::sync::Notify> {
+        std::sync::Arc::clone(&self.alerts_wake)
+    }
+
+    /// The alerts computed again now, on a copy of the snapshot (its lock held only to copy it and
+    /// to publish them), the snapshot unchanged otherwise: by `crate::alerts::run`, once the shared
+    /// prefs changed, and by the tests. Clients notified only when they changed; nothing woken.
+    pub fn refresh_alerts(&self) {
+        let _one = self.refreshing.lock().unwrap_or_else(|e| e.into_inner());
+        let prefs = std::sync::Arc::clone(&self.prefs.read().unwrap_or_else(|e| e.into_inner()));
+        let snap = self.tx.borrow().clone();
+        let alerts = crate::alerts::compute(&snap, &prefs, Utc::now());
+        drop(snap);
+        self.tx.send_if_modified(|s| {
+            let changed = alerts != s.alerts;
+            s.alerts = alerts;
             changed
         });
     }
 
-    /// The alerts computed again, the snapshot unchanged otherwise: on the minute (what depends on
-    /// the time), or once the shared prefs changed. Clients notified only when they changed.
-    pub fn refresh_alerts(&self) {
-        let prefs = std::sync::Arc::clone(&self.prefs.read().unwrap_or_else(|e| e.into_inner()));
-        self.tx.send_if_modified(|s| {
-            let alerts = crate::alerts::compute(s, &prefs, Utc::now());
-            let changed = alerts != s.alerts;
-            s.alerts = alerts;
-            changed
+    /// The alerts of the blocks of another repository, as the window computes them (they say
+    /// theirs in TypeScript only): kept for the routines and the Changes block (`Snapshot::all_alerts`).
+    pub fn set_external_alerts(&self, alerts: Vec<crate::alerts::Alert>) {
+        self.update(|s| {
+            if s.external_alerts == alerts {
+                return false;
+            }
+            s.external_alerts = alerts;
+            true
         });
     }
 
@@ -202,13 +227,56 @@ mod tests {
         let hub = Hub::new();
         let mut rx = hub.subscribe();
         hub.set_error("argocd", Some("timeout".into()));
+        hub.refresh_alerts();
         assert_eq!(rx.borrow_and_update().alerts.iter().map(|a| a.text.as_str()).collect::<Vec<_>>(), ["argocd unreachable: timeout"]);
         // Nothing they read changed: nothing new.
         hub.refresh_alerts();
         hub.set_alert_prefs(&serde_json::json!({ "notes.tag": "x" }));
         assert!(!rx.has_changed().unwrap());
         hub.set_error("argocd", None);
+        hub.refresh_alerts();
         assert!(rx.borrow_and_update().alerts.is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_alerts_are_computed_once_the_changes_settle() {
+        let hub = Hub::new();
+        let mut rx = hub.subscribe();
+        tokio::spawn(crate::alerts::run(hub.clone()));
+        tokio::task::yield_now().await;
+        // A burst of changes: not computed under the snapshot's lock, nor once each.
+        hub.set_error("argocd", Some("timeout".into()));
+        hub.set_error("gitlab", Some("down".into()));
+        assert!(rx.borrow_and_update().alerts.is_empty());
+        let texts = |rx: &mut watch::Receiver<Snapshot>| rx.borrow_and_update().alerts.iter().map(|a| a.text.clone()).collect::<Vec<_>>();
+        let mut seen = Vec::new();
+        for _ in 0..10 {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            if rx.has_changed().unwrap() {
+                seen.push(texts(&mut rx));
+            }
+        }
+        assert_eq!(seen, [vec!["argocd unreachable: timeout".to_string(), "gitlab unreachable: down".to_string()]]);
+        // Their publication wakes nothing: no computation, no change after.
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        assert!(!rx.has_changed().unwrap());
+    }
+
+    #[test]
+    fn the_external_alerts_are_kept_beside() {
+        let hub = Hub::new();
+        let mut rx = hub.subscribe();
+        let alert = crate::alerts::Alert::new("Docker", crate::alerts::Severity::Warn, "low disk");
+        hub.set_external_alerts(vec![alert.clone()]);
+        assert!(rx.has_changed().unwrap());
+        hub.refresh_alerts();
+        let snap = rx.borrow_and_update().clone();
+        assert!(snap.alerts.is_empty());
+        assert_eq!(snap.all_alerts().map(|a| a.text.as_str()).collect::<Vec<_>>(), ["low disk"]);
+        // The same again: nothing new; and never sent.
+        hub.set_external_alerts(vec![alert]);
+        assert!(!rx.has_changed().unwrap());
+        assert!(serde_json::to_value(&snap).unwrap().get("external_alerts").is_none());
     }
 
     #[test]

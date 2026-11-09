@@ -254,10 +254,18 @@ pub fn shared_save(state: State<'_, AppState>, name: String, value: serde_json::
     if crate::demo::active() {
         return Ok(state.hub.subscribe().borrow().shared_revs.get(&name).copied().unwrap_or(0));
     }
-    // The points written without the sprints kept (`crate::retro::keep`): those stay.
-    let value = if name == "retro" { crate::blocks::trail::retro::with_history(state.store.load(&name)?.as_ref(), value) } else { value };
-    state.store.save(&name, &value)?;
+    // The points written without the sprints kept (`crate::retro::keep`): those stay, under the
+    // store's lock that `keep` takes too.
+    state.store.update(&name, |stored| Ok(Some(if name == "retro" { crate::blocks::trail::retro::with_history(stored.as_ref(), value) } else { value })))?;
     Ok(shared_written(&state.hub, &name))
+}
+
+/// The alerts of the blocks of another repository (`BlockDef.alerts`, TypeScript only), as the
+/// window computes them: the routines (`{alerts}`) and the Changes block read them with the core's.
+/// Sent by the window only when it has such blocks; without the window they are absent.
+#[prism_macros::command]
+pub fn alerts_external(state: State<'_, AppState>, alerts: Vec<prism_core::alerts::Alert>) {
+    state.hub.set_external_alerts(alerts);
 }
 
 /// A shared store just written: its revision bumped, so that the other pages read it again; the new one.

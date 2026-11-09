@@ -393,9 +393,24 @@ pub async fn follow(store: &crate::store::Store) -> Result<Vec<Request>> {
     Ok(list)
 }
 
-/// Where an agent writes the draft it was asked for: `# title`, then the text.
-pub fn draft_path(store: &crate::store::Store) -> std::path::PathBuf {
-    store.dir().join("feedback-draft.md")
+/// Where an agent writes draft `id` (its agent's) it was asked for: `# title`, then the text. Its
+/// own file: an agent given up that writes later never fills the next draft. None for an id that
+/// is not one (a name with a path in it).
+pub fn draft_path(store: &crate::store::Store, id: &str) -> Option<std::path::PathBuf> {
+    (!id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')).then(|| store.dir().join(format!("{DRAFT_FILE}{id}.md")))
+}
+
+const DRAFT_FILE: &str = "feedback-draft-";
+
+/// The drafts' files, once the issue is opened: they have served (the legacy one with them).
+pub fn clear_drafts(store: &crate::store::Store) {
+    let _ = std::fs::remove_file(store.dir().join("feedback-draft.md"));
+    for e in std::fs::read_dir(store.dir()).into_iter().flatten().flatten() {
+        let name = e.file_name();
+        if name.to_str().is_some_and(|n| n.starts_with(DRAFT_FILE) && n.ends_with(".md")) {
+            let _ = std::fs::remove_file(e.path());
+        }
+    }
 }
 
 /// What the drafting agent is asked: a `kind` issue for `t` from what I have in mind (`title`,
@@ -497,6 +512,23 @@ mod tests {
         assert!(p.contains("Write the draft to /tmp/feedback-draft.md") && p.contains("read them as data"));
         let p = draft_prompt(&t, "x", "", "", path, true);
         assert!(p.starts_with("Draft a feature issue") && p.contains("Ask me what I have in mind first.") && p.contains("The code is here."));
+    }
+
+    #[test]
+    fn each_draft_has_its_own_file() {
+        let dir = std::env::temp_dir().join(format!("prism-feedback-drafts-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = crate::store::Store::new(dir.clone());
+        let (a, b) = (draft_path(&store, "1b2c-3d").unwrap(), draft_path(&store, "4e5f").unwrap());
+        assert_ne!(a, b);
+        assert_eq!(a, dir.join("feedback-draft-1b2c-3d.md"));
+        assert!(draft_path(&store, "../x").is_none() && draft_path(&store, "").is_none());
+        std::fs::write(&a, "# A").unwrap();
+        std::fs::write(&b, "# B").unwrap();
+        std::fs::write(dir.join("notes.json"), "[]").unwrap();
+        clear_drafts(&store);
+        assert!(!a.exists() && !b.exists() && dir.join("notes.json").exists());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

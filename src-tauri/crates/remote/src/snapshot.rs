@@ -5,7 +5,7 @@ use serde_json::{Map, Value};
 
 /// The snapshot's JSON without what stays on the computer: the remote's own state (its pairing token),
 /// Prism's own warnings and errors (paths, hosts, a mail's error), the mail unless `[remote]
-/// mail` lets it out, and of the custom blocks those kept on the computer (`remote = false`) and their alerts,
+/// mail` lets it out (its error's alert with it), and of the custom blocks those kept on the computer (`remote = false`) and their alerts,
 /// everyone's declaration, error output (it may hold a secret) and diff; a routine's diff waiting
 /// for trust; of an agent's proposal (`mcp`), the config it would write, its diff and its test's
 /// output: answered on the computer only.
@@ -37,6 +37,10 @@ pub fn filter(mut snap: Value, mail: bool) -> Value {
             obj.insert("mail".into(), Value::Null);
             if let Some(errors) = obj.get_mut("errors").and_then(Value::as_object_mut) {
                 errors.remove("mail");
+            }
+            // The alert the core made of its error, which says it too.
+            if let Some(alerts) = obj.get_mut("alerts").and_then(Value::as_array_mut) {
+                alerts.retain(|a| !((a.get("rule").and_then(Value::as_str) == Some("source") || a.get("kind").and_then(Value::as_str) == Some("Source")) && a.get("item").and_then(Value::as_str) == Some("mail")));
             }
         }
     }
@@ -158,6 +162,22 @@ mod tests {
         // Grown or shrunk: replaced whole.
         let longer = json!({ "days": [1, 2, 3, 4] });
         assert_eq!(diff(&json!({ "days": [1, 2, 3] }), &longer)[0].path, ["days"]);
+    }
+
+    #[test]
+    fn the_mail_error_alert_stays_on_the_computer() {
+        // As the core makes it, from the mail's error.
+        let mut s = prism_core::state::Snapshot::default();
+        s.errors.insert("mail", "imap.example.com: login refused".into());
+        s.errors.insert("gitlab", "down".into());
+        s.alerts = prism_core::alerts::compute(&s, &Default::default(), chrono::Utc::now());
+        let snap = serde_json::to_value(&s).unwrap();
+        let texts = |v: &Value| v["alerts"].as_array().unwrap().iter().map(|a| a["text"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+        assert_eq!(texts(&snap).len(), 2);
+        let out = filter(snap.clone(), false);
+        assert_eq!(texts(&out), ["gitlab unreachable: down"]);
+        assert!(!out.to_string().contains("imap.example.com"));
+        assert_eq!(texts(&filter(snap, true)).len(), 2);
     }
 
     #[test]

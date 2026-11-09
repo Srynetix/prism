@@ -209,7 +209,7 @@ conventions: Conventions,
  */
 alerts_settings: AlertsConfig, 
 /**
- * The alerts, computed from the rest on each change (`crate::alerts`).
+ * The alerts, computed from the rest shortly after each change (`crate::alerts`).
  */
 alerts: Array<Alert>, sessions: Array<ClaudeSession>, 
 /**

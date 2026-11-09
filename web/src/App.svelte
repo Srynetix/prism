@@ -9,7 +9,7 @@
   import { t, tn, watchLanguage, tc } from './i18n.svelte'
   import { connect, live } from './live.svelte'
   import { meOn } from './forge'
-  import { alerts as computeAlerts, awaitsMyReview, countedSessions, describeWorktrees, podDown, waitingAlert, waitsForYou } from './rules'
+  import { alerts as computeAlerts, blockAlerts, hasExternalAlerts, awaitsMyReview, countedSessions, describeWorktrees, podDown, waitingAlert, waitsForYou } from './rules'
   import { alertIsMine, alertMatches, apply, applyMine, filter, mineFocus, resolve, setQuery, toggleMine } from './filter.svelte'
   import Alerts from './components/Alerts.svelte'
   import { addColumn, bandsOf, columnsOf, currentView, editing, ensureSizes, showBlock, modeOf, moveBand, moveBlock, resetLayout, setView, shift, sizesOf, stepView, toggleEditing, toggleZen, zen, zoom } from './layout.svelte'
@@ -110,7 +110,7 @@
   import { agentsEnabled, agentsView, closeAgents, openAgents, terminalKeeps } from './agents.svelte'
   import { BLOCK_HELP } from './block-help'
   import { chord, chordKey, extraShift, inTerminal, isMac, keys, pageDigit } from './platform'
-  import { isDesktop, machine, profileWindow } from './bridge'
+  import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
   import { consoleKey, toggleConsole } from './console.svelte'
   import { matches, worksWhileTyping } from './shortcut'
   import { watchCelebrations } from './celebrations.svelte'
@@ -153,6 +153,17 @@
   const snap = $derived(full ? apply(filter.mine ? applyMine(full) : full, focus) : null)
   /** Every alert of the full state (the core's, `Snapshot.alerts`), for the view and the menu bar. */
   const allAlerts = $derived(full ? computeAlerts(full) : [])
+  // The alerts of the blocks of another repository, told to the core as they change (its routines
+  // and Changes read them): only with such blocks, from this computer's window.
+  let externalSent = ''
+  $effect(() => {
+    if (!full || !hasExternalAlerts() || !isLocal()) return
+    const list = blockAlerts(full)
+    const key = JSON.stringify(list)
+    if (key === externalSent) return
+    externalSent = key
+    invoke('alerts_external', { alerts: list }).catch(() => (externalSent = ''))
+  })
   const alerts = $derived.by(() => {
     if (!full) return []
     const titles = full.sessions.filter((c) => focus?.sessions.has(c.id)).map((c) => c.title)

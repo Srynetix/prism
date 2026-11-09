@@ -94,12 +94,12 @@ impl AppState {
         let live = Live { forge: started.forge.clone(), tracker: started.tracker.clone(), audio: started.audio.clone(), pod_logs: started.pod_logs.clone() };
         let store = Store::new(data_dir);
         // What the alerts read of the stores the window and the phones share (the agents and
-        // worktrees archived, the overlaps ignored), as written last; then the alerts that depend
-        // on the time, on the minute.
+        // worktrees archived, the overlaps ignored), as written last; then the alerts, computed
+        // shortly after each change and on the minute.
         if let Ok(Some(prefs)) = store.load("prefs") {
             hub.set_alert_prefs(&prefs);
         }
-        spawn(prism_core::alerts::tick(hub.clone()));
+        spawn(prism_core::alerts::run(hub.clone()));
         let state = Arc::new(Self { remote, hub, time, store, agents, collectors: collecting, live: std::sync::RwLock::new(live), shell, build });
         state.adopt(started);
         host.serve(&state);

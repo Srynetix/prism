@@ -270,8 +270,14 @@ export const podDown = (p: PodView) => !p.healthy && p.status !== 'Pending'
 /** A pod's key in `pod_usage`. */
 export const usageKey = (p: PodView) => `${p.target}/${p.namespace}/${p.name}`
 
-/** The alerts of the blocks of another repository that define them in TypeScript, from their state. */
-function blockAlerts(s: Snapshot): Alert[] {
+/** Blocks of another repository that say their alerts in TypeScript: without them, none to tell the core. */
+export const hasExternalAlerts = (): boolean => BLOCK_DEFS.some((b) => b.alerts)
+
+/**
+ * The alerts of the blocks of another repository that define them in TypeScript, from their state:
+ * the window tells the core (`alerts_external`) for the routines and the Changes block.
+ */
+export function blockAlerts(s: Snapshot): Alert[] {
   return BLOCK_DEFS.flatMap((b) => {
     const state = stateOf(b, s)
     return state !== undefined && b.alerts ? b.alerts(state as never).map((a) => ({ ...a, kind: b.label, block: b.id, rule: a.rule ?? 'block' })) : []

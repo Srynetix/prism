@@ -7,7 +7,8 @@
 use std::{sync::LazyLock, time::Instant};
 
 use super::*;
-use session_source::{SessionSource, Source, DRAFTER};
+use prism_core::agents::DRAFTER;
+use session_source::{SessionSource, Source};
 
 /// The marks around the prompt in a quick action's drafting agent's reply.
 pub const OPEN: &str = "<<<PROMPT";
@@ -33,6 +34,11 @@ pub enum Read {
 
 /// A draft asked of an agent.
 pub struct Spec {
+    /// Its agent's id, chosen before (`new_id`) when the prompt names it; otherwise a new one.
+    pub id: Option<String>,
+    /// One draft at a time of this kind (`feedback`): a new one, from the window or a phone, gives
+    /// up the one before (its agent closed when hidden).
+    pub slot: Option<&'static str>,
     pub launch: Launch,
     pub read: Read,
     /// Launched for this alone (hidden from the archive, `DRAFTER`): closed once read or given up,
@@ -61,6 +67,14 @@ struct Entry {
 
 /// The drafts, by their agent's id.
 static DRAFTS: LazyLock<Mutex<HashMap<String, Entry>>> = LazyLock::new(Default::default);
+
+/// The draft of each slot (`Spec.slot`) now.
+static SLOTS: LazyLock<Mutex<HashMap<&'static str, String>>> = LazyLock::new(Default::default);
+
+/// A draft's id before its launch: its agent's then.
+pub fn new_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
 
 fn drafts() -> std::sync::MutexGuard<'static, HashMap<String, Entry>> {
     let mut d = DRAFTS.lock().unwrap_or_else(|e| e.into_inner());
@@ -113,8 +127,16 @@ impl Agents {
                 _ => {}
             }
         }
-        let id = self.spawn(spec.launch).await?;
+        let id = match spec.id {
+            Some(id) => self.spawn_id(id, spec.launch).await?,
+            None => self.spawn(spec.launch).await?,
+        };
         drafts().insert(id.clone(), Entry { state: DraftState::Waiting, hidden: spec.hidden, over: None });
+        // Whichever was launched last holds the slot, the other given up.
+        let before = spec.slot.and_then(|slot| SLOTS.lock().unwrap_or_else(|e| e.into_inner()).insert(slot, id.clone()));
+        if let Some(before) = before.filter(|b| *b != id) {
+            self.give_up(&before, tr("another draft replaced it")).await;
+        }
         let me = self.clone();
         let agent = id.clone();
         prism_base::rt::spawn(async move { me.watch_draft(agent, spec.read, spec.hidden, spec.timeout).await });
@@ -133,6 +155,20 @@ impl Agents {
             self.close(id).await?;
         }
         Ok(())
+    }
+
+    /// Draft `id`, still waited for, given up for `why`: its agent closed when launched for it alone.
+    async fn give_up(&self, id: &str, why: &str) {
+        let hidden = match drafts().get_mut(id) {
+            Some(e) if e.state == DraftState::Waiting => {
+                (e.state, e.over) = (DraftState::Failed { why: why.to_string() }, Some(Instant::now()));
+                e.hidden
+            }
+            _ => return,
+        };
+        if hidden && let Err(e) = self.close(id).await {
+            tracing::warn!("draft {id}: closing its agent: {e:#}");
+        }
     }
 
     /// A quick action's prompt drafted from session `source` by an agent of its CLI, hidden, in
@@ -164,7 +200,7 @@ impl Agents {
             from: Some(DRAFTER.into()),
             prism_mcp: false,
         };
-        self.draft(Spec { launch, read: Read::Reply, hidden: true, timeout: QUICK_ACTION_TIME }).await
+        self.draft(Spec { id: None, slot: None, launch, read: Read::Reply, hidden: true, timeout: QUICK_ACTION_TIME }).await
     }
 
     async fn watch_draft(&self, id: String, read: Read, hidden: bool, timeout: Duration) {

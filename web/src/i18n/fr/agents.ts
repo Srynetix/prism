@@ -1034,6 +1034,8 @@ export default {
   'Make it a routine': 'En faire une routine',
   'New quick action': 'Nouvelle quick action',
   'No draft: {error}': 'Pas de brouillon : {error}',
+  'Prism no longer knows it (restarted, or it ended a while ago)': 'Prism ne le connaît plus (redémarré, ou terminé depuis un moment)',
+  'The draft was lost: {error}': 'Le brouillon a été perdu : {error}',
   'Quick action {name} added to config.toml': 'Quick action {name} ajoutée à config.toml',
   'Quick action…': 'Quick action…',
   'Reading the session…': 'Lecture de la session…',

@@ -7,7 +7,7 @@ import { escapeRe } from './markdown'
  * State and actions: `quick-action-draft.svelte.ts`.
  */
 
-/** What a drafting agent's launch says it is (`from`, `session_source::DRAFTER`): never kept as its repository's last session. */
+/** What a drafting agent's launch says it is (`from`): a copy of `prism_core::agents::DRAFTER` (src-tauri/crates/core/src/agents/mod.rs), never kept as its repository's last session. */
 export const DRAFTER = 'quick-action-draft'
 
 /**
