@@ -36,7 +36,8 @@ fn picked(line: &str) -> bool {
 }
 
 const CLAUDE_YES: [&str; 2] = ["Yes, I trust this folder", "Yes, proceed"];
-const CLAUDE_NO: [&str; 2] = ["No, exit", "No, exit"];
+/// The same in both versions.
+const CLAUDE_NO: [&str; 1] = ["No, exit"];
 
 /// The folder Claude Code names: the lines after « Accessing workspace: » up to a blank one (a
 /// long path wraps), or the line after « Do you trust the files in this folder? ».
@@ -57,11 +58,16 @@ pub fn read(provider: Provider, screen: &str) -> Option<AgentGate> {
         }
         Provider::Codex => {
             // Its words not read for sure yet: shown, answered in its terminal.
-            let low = text.to_lowercase();
-            let menu = lines.iter().any(|l| picked(l) && l.trim_start().trim_start_matches(['❯', '›']).trim_start().starts_with(|c: char| c.is_ascii_digit()));
-            if !menu {
+            // A menu at the bottom of its screen, its line picked numbered, nothing of its prompt
+            // under it: its history uses the same `›` (a past message « › 2. review the hook »).
+            let numbered = |l: &str| l.trim_start().trim_start_matches(['❯', '›']).trim_start().split_once(". ").is_some_and(|(n, _)| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()));
+            let at = lines.iter().rposition(|l| picked(l) && numbered(l))?;
+            let below = &lines[at + 1..];
+            if below.iter().any(|l| l.contains("? for shortcuts") || l.contains("context left")) || below.iter().filter(|l| !l.trim().is_empty() && !numbered(l)).count() > 3 {
                 return None;
             }
+            // Its words: the lines just above its menu, and the menu.
+            let low = lines[at.saturating_sub(12)..].join("\n").to_lowercase();
             let kind = if low.contains("hook") && (low.contains("approve") || low.contains("trust") || low.contains("review")) {
                 GateKind::Hooks
             } else if low.contains("trust") && (low.contains("folder") || low.contains("directory")) {
@@ -151,5 +157,10 @@ mod tests {
         assert_eq!(read(Provider::Codex, hooks).unwrap().kind, GateKind::Hooks);
         assert!(keys(Provider::Codex, folder, GateKind::Folder, true).is_err());
         assert_eq!(read(Provider::Codex, "› Ask Codex to do anything\n  ? for shortcuts"), None);
+        // A past message of its history, its prompt under it: no gate.
+        let history = "› 2. review the hook script and trust it\n\n• Done: the hook now runs.\n\n› Ask Codex to do anything\n\n  ? for shortcuts · 92% context left\n";
+        assert_eq!(read(Provider::Codex, history), None);
+        let scrolled = format!("› 1. review the hook and approve it\n{}", "• some reply line\n".repeat(6));
+        assert_eq!(read(Provider::Codex, &scrolled), None);
     }
 }

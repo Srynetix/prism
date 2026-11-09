@@ -368,6 +368,8 @@ impl Agents {
             Some(_) => self.inner.tmux.respawn(id, &cwd, &env, &argv).await?,
             None => self.inner.tmux.new_session(id, &cwd, &env, &argv).await?,
         }
+        // Its CLI may ask again before it starts (`gate.rs`): its screen read until a hook comes.
+        self.inner.relaunched.lock().unwrap().insert(id.to_string(), Utc::now());
         self.inner.changed.notify_one();
         Ok(())
     }

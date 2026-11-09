@@ -24,6 +24,14 @@ impl Agents {
                 gates.remove(&a.id);
                 continue;
             };
+            // A long path wraps on its screen, a space lost where it was cut: the agent's own folder
+            // when it is that one.
+            if let Some(read) = gate.folder.as_deref() {
+                let own = a.worktree.clone().unwrap_or_else(|| a.cwd.clone());
+                if read != own && same_folder(read, Path::new(&own)) {
+                    gate.folder = Some(own);
+                }
+            }
             if gate.kind == GateKind::Folder && a.provider == Provider::Claude {
                 gate.parent = a.worktree.as_deref().and_then(|w| worktrees_parent(Path::new(w), worktrees_dir.as_deref()));
             }
@@ -50,13 +58,13 @@ impl Agents {
         let tmux = &self.inner.tmux;
         tmux.leave_copy_mode(id).await?;
         // Checked before anything: still that question, one Prism knows.
-        trust::keys(provider, &tmux.screen(id).await?, kind, yes)?;
+        let mut keys = trust::keys(provider, &tmux.screen(id).await?, kind, yes)?;
         if yes && parent {
             let folder = self.gate(id).and_then(|g| g.parent).context(tr("no worktrees' folder to trust"))?;
             self.trust_folder(provider, Path::new(&folder)).await?;
+            // Read again just before the keys: they go to that question only.
+            keys = trust::keys(provider, &tmux.screen(id).await?, kind, yes)?;
         }
-        // Read again just before the keys: they go to that question only.
-        let keys = trust::keys(provider, &tmux.screen(id).await?, kind, yes)?;
         for k in keys {
             tmux.send_keys(id, &[k]).await?;
             tokio::time::sleep(Duration::from_millis(150)).await;
@@ -89,13 +97,14 @@ impl Agents {
                 tokio::time::sleep(Duration::from_millis(400)).await;
                 let screen = tmux.screen(&key).await.unwrap_or_default();
                 if let Some(g) = trust::read(provider, &screen) {
-                    let same = g.folder.as_deref().is_none_or(|f| f.trim_end_matches('/') == folder.display().to_string().trim_end_matches('/'));
-                    ensure!(same, tr("its CLI asked about another folder: nothing answered"));
+                    ensure!(g.folder.as_deref().is_none_or(|f| same_folder(f, folder)), tr("its CLI asked about another folder: nothing answered"));
                     break Some(trust::keys(provider, &screen, GateKind::Folder, true)?);
                 }
-                if suggestion::visible(&screen).contains("? for shortcuts") || std::time::Instant::now() > until {
+                if suggestion::visible(&screen).contains("? for shortcuts") {
                     break None;
                 }
+                // Something else on its screen (a login, a notice, a slow start): not trusted, said so.
+                ensure!(std::time::Instant::now() < until, tr("the worktrees' folder was not trusted: its CLI did not ask in time (open it there to answer)"));
             };
             let Some(keys) = keys else { return Ok(()) };
             for k in keys {
@@ -116,6 +125,21 @@ impl Agents {
     }
 }
 
+/// `shown` (a path read off a screen) is `folder`: the same once resolved (`/tmp` and
+/// `/private/tmp`, a link, `~`), or once their spaces are out (a wrapped line loses one).
+fn same_folder(shown: &str, folder: &Path) -> bool {
+    let shown = shown.trim().trim_end_matches('/');
+    let shown = match shown.strip_prefix('~') {
+        Some(rest) => format!("{}{rest}", dirs::home_dir().map(|h| h.display().to_string()).unwrap_or_default()),
+        None => shown.to_string(),
+    };
+    let real = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let dense = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    let (a, b) = (real(Path::new(&shown)), real(folder));
+    let flat = |p: &Path| dense(&p.display().to_string()).trim_end_matches('/').to_string();
+    a == b || [folder.to_path_buf(), b].iter().any(|f| flat(f) == flat(&a))
+}
+
 /// The folder of a repository's worktrees holding `worktree`: `<repo>.worktrees`, or
 /// `[agents] worktrees_dir`.
 fn worktrees_parent(worktree: &Path, worktrees_dir: Option<&Path>) -> Option<String> {
@@ -128,23 +152,25 @@ fn worktrees_parent(worktree: &Path, worktrees_dir: Option<&Path>) -> Option<Str
 mod tests {
     use super::*;
 
-    /// Codex's hook command: the same path whatever Prism's, the script following Prism.
-    #[cfg(unix)]
-    #[test]
-    fn codex_hooks_go_through_a_path_that_stays() {
-        let work = std::env::temp_dir().join(format!("prism-stable-exe-{}", std::process::id()));
-        std::fs::create_dir_all(&work).unwrap();
-        let a = crate::stable_exe(&work, Path::new("/Applications/Prism.app/Contents/MacOS/prism")).unwrap();
-        let b = crate::stable_exe(&work, Path::new("/tmp/dev build/prism")).unwrap();
-        assert_eq!(a, b);
-        assert_eq!(std::fs::read_to_string(&b).unwrap(), "#!/bin/sh\nexec '/tmp/dev build/prism' \"$@\"\n");
-        let _ = std::fs::remove_dir_all(&work);
-    }
-
     #[test]
     fn the_worktrees_folder_is_their_parent() {
         assert_eq!(worktrees_parent(Path::new("/dev/prism.worktrees/fix-scroll"), None).as_deref(), Some("/dev/prism.worktrees"));
         assert_eq!(worktrees_parent(Path::new("/wt/fix"), Some(Path::new("/wt"))).as_deref(), Some("/wt"));
         assert_eq!(worktrees_parent(Path::new("/dev/prism/sub"), None), None);
+    }
+
+    #[test]
+    fn a_folder_read_off_a_screen_is_its_own() {
+        let dir = std::env::temp_dir().join(format!("prism-same folder-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let shown = dir.display().to_string();
+        assert!(same_folder(&shown, &dir));
+        assert!(same_folder(&format!("{shown}/"), &dir));
+        // Wrapped at its space.
+        assert!(same_folder(&shown.replace("same folder", "samefolder"), &dir));
+        // Resolved: /tmp is /private/tmp on a Mac.
+        assert!(same_folder(&std::fs::canonicalize(&dir).unwrap().display().to_string(), &dir));
+        assert!(!same_folder("/somewhere/else", &dir));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

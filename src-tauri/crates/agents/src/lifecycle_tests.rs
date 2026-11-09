@@ -780,6 +780,7 @@ async fn a_folders_trust_is_read_off_the_screen_and_answered() {
     assert_eq!(a.status, SessionStatus::WaitingTool);
     assert!(b.agents.allow(&id).await.is_err(), "Allow would press its « No »");
     assert!(b.agents.key(&id, "Enter").await.is_err());
+    assert!(b.agents.paste(&id, "go on", true).await.is_err(), "its Enter would press its « No »");
     b.agents.answer_gate(&id, state::GateKind::Folder, true, false).await.unwrap();
     let keys: Vec<String> = b.tmux.calls_of("send-keys").into_iter().filter(|c| c.contains(&session)).filter_map(|c| c.last().cloned()).collect();
     assert_eq!(keys, ["Down", "Enter"]);

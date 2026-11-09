@@ -78,6 +78,10 @@ impl Agents {
     }
 
     pub(crate) async fn paste(&self, id: &str, text: &str, enter: bool) -> Result<()> {
+        // Its CLI's question before its session: its Enter would pick the option shown (« No, exit »).
+        if self.gate(id).is_some() {
+            bail!(tr("it asks before it starts: answer from its card"));
+        }
         let tmux = &self.inner.tmux;
         tmux.leave_copy_mode(id).await?;
         // A prompt ending on a mention (an attachment's `@path`) opens the CLI's file suggestions,
