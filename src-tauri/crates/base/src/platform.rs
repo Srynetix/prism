@@ -73,24 +73,43 @@ pub fn terminal_argv(argv: Vec<String>) -> anyhow::Result<Vec<String>> {
         out.extend(argv.into_iter().skip(1));
         return Ok(out);
     }
+    // Another script: its arguments as cmd.exe reads them unchanged — a line break, which would
+    // end its command there, a space instead (a prompt's paragraphs run on).
+    let mut argv = argv;
+    for a in argv.iter_mut().skip(1) {
+        if a.contains(['\r', '\n']) {
+            *a = a.replace("\r\n", " ").replace(['\r', '\n'], " ");
+        }
+    }
     if let Some(bad) = argv[1..].iter().find(|a| !cmd_safe(a)) {
-        anyhow::bail!("{} is a cmd.exe script: it is not given « {} » (install its program, not a script)", found.display(), bad.chars().take(40).collect::<String>());
+        anyhow::bail!("{} is a cmd.exe script: it is not given « {} » (a % or \" cmd.exe would read as its own; install its program, not a script)", found.display(), bad.chars().take(40).collect::<String>());
     }
     Ok(argv)
 }
 
-/// The script an npm shim (`cmd-shim`) runs: what follows `"%dp0%\` on its line ending in `%*`.
+/// The script a package manager's shim runs (npm's and yarn's `cmd-shim`, pnpm's): the quoted
+/// path from the shim's folder (`"%dp0%\…"`, `"%~dp0\…"`) to a `.js` on its line ending in `%*`.
 fn npm_shim_target(text: &str) -> Option<String> {
     let line = text.lines().rev().find(|l| l.trim_end().ends_with("%*"))?;
-    let at = line.find("\"%dp0%\\")? + "\"%dp0%\\".len();
-    let rest = &line[at..];
-    let script = &rest[..rest.find('"')?];
-    (!script.is_empty() && !script.contains(['%', '&', '|', '^', '<', '>'])).then(|| script.to_string())
+    for from in ["\"%dp0%\\", "\"%~dp0\\"] {
+        for (at, _) in line.match_indices(from) {
+            let rest = &line[at + from.len()..];
+            let Some(end) = rest.find('"') else { continue };
+            let script = &rest[..end];
+            let js = [".js", ".cjs", ".mjs"].iter().any(|e| script.to_ascii_lowercase().ends_with(e));
+            if js && !script.contains(['%', '&', '|', '^', '<', '>']) {
+                return Some(script.to_string());
+            }
+        }
+    }
+    None
 }
 
-/// What cmd.exe reads as it is (a space: quoted by the terminal, read as one argument).
+/// What cmd.exe reads as it is, once the terminal has quoted it (`portable-pty` quotes what holds
+/// a space or a tab): never a `%` (which expands, quoted or not) nor a `"` (which ends the quote);
+/// `&`, `|`, `<`, `>`, `^`, `(`, `)` only inside quotes, so with a space.
 fn cmd_safe(arg: &str) -> bool {
-    !arg.is_empty() && arg.chars().all(|c| c.is_ascii_alphanumeric() || " -_.,:/\\=+@".contains(c))
+    !arg.contains(['"', '%', '\r', '\n']) && (arg.contains([' ', '\t']) || !arg.contains(['&', '|', '<', '>', '^', '(', ')']))
 }
 
 /// The file names `program` goes by in a folder of the PATH: itself; on Windows, itself with each
@@ -226,8 +245,19 @@ where
 {
     // Windows: `code` and many editors are `.cmd` shims, that only `start` resolves. Its
     // command line is written by hand: cmd does not read the quoting of `arg`.
+    // A program (`.exe`) started as is: its arguments quoted as it reads them, nothing for cmd.exe.
     #[cfg(windows)]
-    let mut cmd = {
+    let exe = which(program).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("exe")));
+    #[cfg(windows)]
+    let mut cmd = if let Some(exe) = exe {
+        use std::os::windows::process::CommandExt;
+        let mut c = std::process::Command::new(exe);
+        // Its own console, as `start` gives it (a terminal editor); a window's app has none.
+        const CREATE_NEW_CONSOLE: u32 = 0x10;
+        c.creation_flags(CREATE_NEW_CONSOLE);
+        c.args(args);
+        c
+    } else {
         use std::os::windows::process::CommandExt;
         let mut c = std::process::Command::new("cmd");
         c.creation_flags(CREATE_NO_WINDOW);
@@ -521,9 +551,13 @@ mod tests {
         assert_eq!(npm_shim_target(shim).as_deref(), Some("node_modules\\@anthropic-ai\\claude-code\\cli.js"));
         assert_eq!(npm_shim_target("@echo off\r\nrmdir %1\r\n"), None);
         assert!(cmd_safe("--session-id") && cmd_safe("C:\\Users\\me\\wt") && cmd_safe("a@b.c") && cmd_safe("Fix the login"));
-        for bad in ["x\" & calc & \"", "%PATH%", "fix it!", "a|b", "", "^"] {
+        assert!(cmd_safe("Corrige l'erreur ?") && cmd_safe("Été") && cmd_safe("fix it!") && cmd_safe("") && cmd_safe("a & b (quoted)"));
+        for bad in ["x\" & calc & \"", "%PATH%", "a|b", "^", "x&calc", "line\nbreak"] {
             assert!(!cmd_safe(bad), "{bad}");
         }
+        // pnpm's and yarn's shims.
+        let pnpm = "@SETLOCAL\r\n@IF EXIST \"%~dp0\\node.exe\" (\r\n  \"%~dp0\\node.exe\"  \"%~dp0\\..\\@openai\\codex\\bin\\codex.js\" %*\r\n) ELSE (\r\n  node  \"%~dp0\\..\\@openai\\codex\\bin\\codex.js\" %*\r\n)\r\n";
+        assert_eq!(npm_shim_target(pnpm).as_deref(), Some("..\\@openai\\codex\\bin\\codex.js"));
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]

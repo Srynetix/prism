@@ -256,7 +256,9 @@ pub fn pipe_server(name: &str, first: bool) -> io::Result<tokio::net::windows::n
 }
 
 /// Whether the server end of pipe `client` (a handle of ours) runs as this account: a pipe another
-/// account made first under our name is never spoken to.
+/// account made first under our name is never spoken to. A server of this account started as
+/// administrator (elevated) is refused too: its token cannot be read from a normal process, and
+/// Prism is not meant to run elevated (`prism mcp`, `prism sessions`, `prism restart` then fail).
 pub fn pipe_server_is_mine(client: &impl std::os::windows::io::AsRawHandle) -> bool {
     let mut pid = 0u32;
     // SAFETY: a pipe handle the caller holds, alive through the call; `pid` ours to write.

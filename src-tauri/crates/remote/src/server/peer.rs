@@ -83,7 +83,7 @@ pub(super) async fn converse_peer(inner: Shared, socket: WebSocket, name: String
             if !matches!(class, Some(Class::Read)) {
                 tracing::info!("remote: peer {name}: {command}");
             }
-            let allowed = if local { Ok(()) } else { peer_allowed(&inner.live().peers, &command, class) };
+            let allowed = if local { Ok(()) } else { peer_allowed(&inner.live().peers, &command, &args, class) };
             // What this Prism classes critical is confirmed at the desk first, as it classes it
             // (a block of its own, a command the desk does not know): the window's app asks the
             // person there, then calls again with this purpose. Advisory against a token in other
@@ -199,13 +199,13 @@ pub(super) const PEER_SETTINGS: &[&str] = &[
 /// always reads; acting, what is critical, typing and the settings each have their switch. A
 /// command classed `never` for a phone is the window's to call: acting, unless it types or writes
 /// the settings.
-/// A command it does not know is refused; a block's command its block keeps from a phone (a custom
-/// block tried, saved, trusted: a command run) is a setting's.
-pub(super) fn peer_allowed(rights: &prism_core::config::PeerRights, command: &str, class: Option<Class>) -> anyhow::Result<()> {
+/// A command it does not know is refused; a custom block's command its block keeps from a phone
+/// (tried, saved, trusted: a command run unchecked) is a setting's.
+pub(super) fn peer_allowed(rights: &prism_core::config::PeerRights, command: &str, args: &Value, class: Option<Class>) -> anyhow::Result<()> {
     let Some(class) = class else { anyhow::bail!("{}", tr!("{command}: not a command of this Prism", command = command)) };
     let (on, what) = if PEER_TYPING.contains(&command) {
         (rights.typing, "typing")
-    } else if PEER_SETTINGS.contains(&command) || (command == "block_call" && class == Class::Never) {
+    } else if PEER_SETTINGS.contains(&command) || (command == "block_call" && class == Class::Never && args.get("block").and_then(Value::as_str) == Some("custom_blocks")) {
         (rights.settings, "settings")
     } else {
         match class {

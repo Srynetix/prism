@@ -1259,23 +1259,24 @@ mod tests {
     #[test]
     fn a_peer_does_what_its_rights_say() {
         let mut r = prism_core::config::PeerRights::default();
-        assert!(super::peer_allowed(&r, "merge_mr", Some(Class::Critical)).is_ok());
+        assert!(super::peer_allowed(&r, "merge_mr", &Value::Null, Some(Class::Critical)).is_ok());
         r = prism_core::config::PeerRights { actions: false, critical: false, typing: false, settings: false };
-        assert!(super::peer_allowed(&r, "mr_detail", Some(Class::Read)).is_ok());
-        assert!(super::peer_allowed(&r, "read_config", Some(Class::Never)).is_err(), "never for a phone: acting, unless read");
-        assert!(super::peer_allowed(&r, "rebase_mr", Some(Class::Act)).is_err());
-        assert!(super::peer_allowed(&r, "merge_mr", Some(Class::Critical)).is_err());
-        assert!(super::peer_allowed(&r, "agent_type", Some(Class::Critical)).unwrap_err().to_string().contains("typing"));
-        assert!(super::peer_allowed(&r, "save_config", Some(Class::Never)).unwrap_err().to_string().contains("settings"));
+        assert!(super::peer_allowed(&r, "mr_detail", &Value::Null, Some(Class::Read)).is_ok());
+        assert!(super::peer_allowed(&r, "read_config", &Value::Null, Some(Class::Never)).is_err(), "never for a phone: acting, unless read");
+        assert!(super::peer_allowed(&r, "rebase_mr", &Value::Null, Some(Class::Act)).is_err());
+        assert!(super::peer_allowed(&r, "merge_mr", &Value::Null, Some(Class::Critical)).is_err());
+        assert!(super::peer_allowed(&r, "agent_type", &Value::Null, Some(Class::Critical)).unwrap_err().to_string().contains("typing"));
+        assert!(super::peer_allowed(&r, "save_config", &Value::Null, Some(Class::Never)).unwrap_err().to_string().contains("settings"));
         // Acting allowed, the settings not: what writes them or trusts a command by another way.
         r.actions = true;
         r.critical = true;
         for command in ["mcp_proposal_answer", "routine_trust", "mcp_install", "cli_command_install", "quick_action_add"] {
-            assert!(super::peer_allowed(&r, command, Some(Class::Never)).unwrap_err().to_string().contains("settings"), "{command}");
+            assert!(super::peer_allowed(&r, command, &Value::Null, Some(Class::Never)).unwrap_err().to_string().contains("settings"), "{command}");
         }
-        assert!(super::peer_allowed(&r, "block_call", Some(Class::Never)).unwrap_err().to_string().contains("settings"), "a custom block tried");
-        assert!(super::peer_allowed(&r, "block_call", Some(Class::Act)).is_ok());
-        assert!(super::peer_allowed(&r, "no_such_command", None).is_err());
+        assert!(super::peer_allowed(&r, "block_call", &json!({ "block": "custom_blocks", "command": "try" }), Some(Class::Never)).unwrap_err().to_string().contains("settings"), "a custom block tried");
+        assert!(super::peer_allowed(&r, "block_call", &json!({ "block": "changes", "command": "alerts" }), Some(Class::Never)).is_ok(), "the window's alerts fed: acting");
+        assert!(super::peer_allowed(&r, "block_call", &Value::Null, Some(Class::Act)).is_ok());
+        assert!(super::peer_allowed(&r, "no_such_command", &Value::Null, None).is_err());
     }
 
     /// The next message of kind `t` a machine sent.

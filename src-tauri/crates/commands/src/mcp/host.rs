@@ -524,7 +524,9 @@ fn compute(file: &str, change: &Change) -> Result<Computed> {
 /// What a proposal may not change, from `a` to `b`: what runs a program here (`[open_with]`,
 /// `[agents.<cli>] bin`/`args`, `[updates] source`), opens this computer (`[remote]`,
 /// `[[machines]]`), what its agents may do (`[mcp]`, `[agents] permission_mode`,
-/// `handoff_review`), its packs and profile. Applied, the agent would have widened its own rights.
+/// `handoff_review`; the quick actions and routines, a prompt and a mode one click or a schedule
+/// launches), its packs and profile, where its projects are (`[[workspaces]]`, a repository's
+/// `path`). Applied, the agent would have widened its own rights.
 fn guarded_changes(a: &str, b: &str) -> Vec<String> {
     let (ta, tb) = (a.parse::<toml::Table>().unwrap_or_default(), b.parse::<toml::Table>().unwrap_or_default());
     let at = |t: &toml::Table, path: &[&str]| -> Option<toml::Value> {
@@ -535,7 +537,8 @@ fn guarded_changes(a: &str, b: &str) -> Vec<String> {
         Some(v)
     };
     let mut paths: Vec<Vec<String>> = ["open_with", "remote", "machines", "mcp", "packs", "profile", "updates"].iter().map(|k| vec![k.to_string()]).collect();
-    paths.extend([["agents", "permission_mode"], ["agents", "handoff_review"], ["worktrees", "repo"], ["feedback", "repo"]].map(|p| p.map(String::from).to_vec()));
+    paths.push(vec!["workspaces".to_string()]);
+    paths.extend([["agents", "permission_mode"], ["agents", "handoff_review"], ["agents", "quick_actions"], ["agents", "routines"], ["worktrees", "repo"], ["feedback", "repo"]].map(|p| p.map(String::from).to_vec()));
     // Each CLI's table, one added later too.
     let clis: std::collections::BTreeSet<String> = [&ta, &tb].iter().filter_map(|t| t.get("agents")?.as_table()).flat_map(|a| a.iter().filter(|(_, v)| v.is_table()).map(|(k, _)| k.clone())).collect();
     for cli in clis {
@@ -548,7 +551,17 @@ fn guarded_changes(a: &str, b: &str) -> Vec<String> {
             at(&ta, &p) != at(&tb, &p)
         })
         .map(|p| if p.len() == 1 { format!("[{}]", p[0]) } else { format!("[{}] {}", p[..p.len() - 1].join("."), p[p.len() - 1]) })
+        // Each repository's folder: a pack names the repository, this computer where it is.
+        .chain((repo_paths(&ta) != repo_paths(&tb)).then(|| "[[repos]] path".to_string()))
         .collect()
+}
+
+/// Each `[[repos]]` entry's `path`, by name.
+fn repo_paths(t: &toml::Table) -> Vec<(String, Option<String>)> {
+    let repos = t.get("repos").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+    let mut out: Vec<(String, Option<String>)> = repos.iter().filter_map(|r| r.as_table()).map(|r| (r.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string(), r.get("path").and_then(|v| v.as_str()).map(String::from))).filter(|(_, p)| p.is_some()).collect();
+    out.sort();
+    out
 }
 
 /// The top tables that differ from `a` to `b`.
@@ -785,6 +798,10 @@ mod tests {
         assert_eq!(guarded_changes(file, &format!("{file}[agents.codex]\nargs = [\"--yolo\"]\n")), ["[agents.codex] args"]);
         assert_eq!(guarded_changes(file, &format!("{file}[[machines]]\nname = \"x\"\nurl = \"https://x\"\n[mcp]\nproposals = true\n")), ["[machines]", "[mcp]"]);
         assert!(compute(file, &Change::Config { toml: "[remote]\nenabled = true\n".into(), whole: false }).is_err());
+        assert_eq!(guarded_changes(file, &format!("{file}[[agents.quick_actions]]\nname = \"x\"\nprompt = \"y\"\nmode = \"acceptEdits\"\n")), ["[agents] quick_actions"]);
+        let repos = "[[repos]]\nname = \"app\"\npath = \"~/dev/app\"\n";
+        assert!(guarded_changes(repos, &repos.replace("[[repos]]", "[[repos]]\nbranch = \"main\"")).is_empty(), "a repository's other keys");
+        assert_eq!(guarded_changes(repos, &repos.replace("~/dev/app", "/tmp/evil")), ["[[repos]] path"]);
     }
 
     #[test]

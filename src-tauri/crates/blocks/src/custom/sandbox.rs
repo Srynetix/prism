@@ -3,7 +3,9 @@
 //! Linux's `bwrap` — without the home folder (no `~/.ssh`, `~/.config`, keychain, repositories),
 //! without a token (an emptied environment, no `keychain:` value), writing only in a temporary
 //! folder thrown away after, none of the session's services (clipboard, preferences, Apple events,
-//! Docker's socket), outbound network allowed but to this computer (a block often asks an API), 20 s and 256 MB
+//! Docker's socket), outbound network allowed (a block often asks an API) — on macOS not to
+//! `localhost`, though this computer's other addresses (its LAN's, Tailscale's) stay reachable, and
+//! on Linux to all of it (cutting it off would cut the network) —, 20 s and 256 MB
 //! at most, nothing left running. Without a sandbox on the computer, the test is refused: a block
 //! nobody trusted never runs outside one.
 
@@ -127,8 +129,9 @@ fn quoted(s: &str) -> String {
 }
 
 /// macOS's profile: everything denied but running programs, reading the system (not the homes, not
-/// the shared temporary folders), the network by IP but this computer's own (no local socket, no
-/// local server: an SSH agent's, a database's), the system services a program needs to run, resolve
+/// the shared temporary folders), the network by IP but `localhost` (no local socket, no server on
+/// loopback: an SSH agent's, a database's; a profile names no other address of this computer, so
+/// one listening on all of them is reached through its LAN or Tailscale address), the system services a program needs to run, resolve
 /// a name and check a certificate — not the others (the clipboard, other apps' preferences, Apple
 /// events, the keychain) — and writing in `dir`. The last rule that matches wins.
 fn macos_profile(dir: &Path) -> String {
@@ -156,14 +159,24 @@ fn macos_profile(dir: &Path) -> String {
     )
 }
 
-/// bwrap's options: the system read-only, the homes, the shared temporary folders and `/run` (the
-/// session's sockets, Docker's: root's equal for the `docker` group) hidden behind empty ones —
-/// systemd-resolved's files bound back, for names —, `dir` writable, new namespaces but the
-/// network's (a block asks an API; no `DISPLAY` nor home, an X server's abstract socket refuses it),
-/// an emptied environment, nothing left once Prism goes.
+/// The sockets of the system's daemons hidden from a test on Linux: containers' (root's equal for
+/// their group) and the system bus.
+const SYSTEM_SOCKETS: [&str; 7] = ["/run/docker.sock", "/var/run/docker.sock", "/run/podman/podman.sock", "/run/containerd/containerd.sock", "/run/crio/crio.sock", "/run/dbus/system_bus_socket", "/var/run/dbus/system_bus_socket"];
+
+/// bwrap's options: the system read-only, the homes, the shared temporary folders and the session's
+/// sockets (`/run/user`) hidden behind empty ones, the system daemons' sockets too
+/// (`SYSTEM_SOCKETS`), `dir` writable, new namespaces but the network's (a block asks an API: this
+/// computer's own servers stay reachable, unlike macOS; no `DISPLAY` nor home, an X server's
+/// abstract socket refuses it), an emptied environment, nothing left once Prism goes.
 fn bwrap_args(dir: &Path, env: &[(String, String)]) -> Vec<String> {
     let dir = dir.display().to_string();
-    let mut args: Vec<String> = ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/home", "--tmpfs", "/root", "--tmpfs", "/tmp", "--tmpfs", "/var/tmp", "--tmpfs", "/run", "--ro-bind-try", "/run/systemd/resolve", "/run/systemd/resolve"].map(String::from).to_vec();
+    let mut args: Vec<String> = ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/home", "--tmpfs", "/root", "--tmpfs", "/tmp", "--tmpfs", "/var/tmp", "--tmpfs", "/run/user"].map(String::from).to_vec();
+    // The system's sockets that would give it more than this account has (Docker's: root's equal
+    // for the `docker` group), each covered by an empty file where there is one; the rest of /run
+    // stays (resolv.conf lives there: resolvconf, NetworkManager, systemd-resolved; NixOS's programs).
+    for socket in SYSTEM_SOCKETS {
+        args.extend(["--ro-bind-try".into(), "/dev/null".into(), socket.to_string()]);
+    }
     if let Some(home) = dirs::home_dir().filter(|h| !h.starts_with("/home") && !h.starts_with("/root") && h != Path::new("/")) {
         args.extend(["--tmpfs".into(), home.display().to_string()]);
     }
@@ -200,7 +213,7 @@ mod tests {
         let args = bwrap_args(Path::new("/tmp/prism-sandbox-1"), &[("A".into(), "1".into())]).join(" ");
         assert!(args.contains("--tmpfs /home") && args.contains("--bind /tmp/prism-sandbox-1 /tmp/prism-sandbox-1") && args.contains("--clearenv --setenv A 1"), "{args}");
         assert!(!args.contains("--unshare-net"));
-        assert!(args.contains("--tmpfs /run --ro-bind-try /run/systemd/resolve"), "Docker's socket hidden: {args}");
+        assert!(args.contains("--ro-bind-try /dev/null /run/docker.sock") && args.contains("--tmpfs /run/user") && !args.contains("--tmpfs /run "), "Docker's socket hidden, the rest of /run kept: {args}");
     }
 
     /// The real sandbox, where there is one: the home unreadable, the folder writable, the JSON read.

@@ -324,10 +324,13 @@ impl Provider {
 
     /// The files `mcp_args` reads, written in `work` for the executable as it is now (its path
     /// follows Prism's): Claude Code's plugin and its « in passing » `--mcp-config`. The others need none.
+    /// Each written whatever became of the other: one failed, the other still serves.
     pub fn write_mcp(self, work: &Path) -> anyhow::Result<()> {
         if self == Self::Claude {
-            crate::mcp::write_claude_plugin(work, &crate::mcp::command())?;
-            crate::mcp::write_claude_aside(work, &crate::mcp::aside_command())?;
+            let plugin = crate::mcp::write_claude_plugin(work, &crate::mcp::command());
+            let aside = crate::mcp::write_claude_aside(work, &crate::mcp::aside_command());
+            plugin?;
+            aside?;
         }
         Ok(())
     }
