@@ -74,6 +74,8 @@ pub fn preview(now: DateTime<Utc>) -> serde_json::Value {
     let cfg: crate::config::Config = toml::from_str(CONFIG).expect("demo config");
     let mut s = Snapshot { views: cfg.views.clone(), conventions: prism_core::conventions::Conventions::of(&cfg), ..Default::default() };
     Demo { now }.write(&mut s);
+    // Its alerts, as the core computes them.
+    s.alerts = prism_core::alerts::compute(&s, &Default::default(), now);
     let mut v = serde_json::to_value(&s).expect("demo snapshot");
     v["answered"] = serde_json::json!(SOURCES);
     v

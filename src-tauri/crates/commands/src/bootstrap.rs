@@ -322,7 +322,7 @@ fn forget_collected(s: &mut state::Snapshot) {
         appearance: old.appearance,
         views: old.views,
         templates: old.templates,
-        alerts: old.alerts,
+        alerts_settings: old.alerts_settings,
         conventions: old.conventions,
         blocks: old.blocks.into_iter().filter(|(id, _)| kept(id)).collect(),
         errors: old.errors.into_iter().filter(|(source, _)| kept(source)).collect(),
@@ -717,7 +717,7 @@ pub fn show_settings(hub: &state::Hub, cfg: &config::Config, conventions: conven
     prism_base::i18n::set(prism_base::i18n::resolve(&cfg.appearance.language));
     hub.update(|s| {
         s.conventions = conventions;
-        s.alerts = cfg.alerts.clone();
+        s.alerts_settings = cfg.alerts.clone();
         s.open_with = open_with;
         s.console = cfg.console.clone();
         s.palette = cfg.palette.clone();

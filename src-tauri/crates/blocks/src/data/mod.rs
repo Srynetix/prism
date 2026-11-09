@@ -44,6 +44,11 @@ impl Block for Data {
         settings(config).ok().and_then(|c| serde_json::to_value(c).ok()).map(|v| vec![("data", v)]).unwrap_or_default()
     }
 
+    /// Jobs, tables and streams broken or drifting, a cost spike.
+    fn alerts(&self, state: &Value) -> Vec<prism_core::alerts::Alert> {
+        crate::alerts::data(state)
+    }
+
     fn call(&self, command: String, _args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move {
             match command.as_str() {

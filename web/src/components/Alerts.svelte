@@ -47,7 +47,7 @@
   let { alerts, phone = false, popup = false }: { alerts: Alert[]; phone?: boolean; popup?: boolean } = $props()
 
   /**
-   * Fixes for an alert (rules.ts), in one click: change the ticket status, take the MR out of
+   * Fixes for an alert (the core's, `prism_core::alerts`), in one click: change the ticket status, take the MR out of
    * draft, rebase, retry or read the pipeline logs, open the MR, or the Claude action. Those
    * that go through the app do not exist in the browser preview. The alert disappears by itself
    * when the data catches up; until then, the button shows ✓.

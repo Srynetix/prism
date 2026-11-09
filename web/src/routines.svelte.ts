@@ -10,7 +10,6 @@ import { pointsOf } from './retro-points.svelte'
 import { notes } from './notes.svelte'
 import { BUILTINS } from './routines'
 import type { TrailState } from './blocks/trail/trail'
-import type { Alert } from './rules'
 import type { Snapshot } from './types'
 import type { RoutineRun } from './bindings/RoutineRun'
 
@@ -51,33 +50,32 @@ export const removeRoutine = (name: string) => invoke('routine_remove', { name }
 
 let sent = ''
 /** The last state given, read when the timer fires: nothing is computed in between. */
-let latest: { s: Snapshot; alerts: Alert[] } | null = null
+let latest: { s: Snapshot } | null = null
 let timer: ReturnType<typeof setTimeout> | null = null
 /**
- * The open alerts and the current sprint's retro figures, given to the core (`routine_inputs`)
- * when a builtin routine is declared and they changed: at most once a minute, computed only then
- * (not at each snapshot).
+ * The current sprint's retro figures, given to the core (`routine_inputs`) when a builtin routine
+ * is declared and they changed: at most once a minute, computed only then (not at each snapshot).
+ * The open alerts are the core's own (`Snapshot.alerts`).
  */
-export function publishInputs(s: Snapshot, alerts: Alert[]) {
+export function publishInputs(s: Snapshot) {
   if (!isLocal()) return
-  latest = { s, alerts }
+  latest = { s }
   if (timer) return
   if (!(s.agents_settings?.routines ?? []).some((r) => (BUILTINS as readonly string[]).includes(r.action.trim()))) return
   timer = setTimeout(() => {
     timer = null
     if (!latest) return
-    const { s, alerts } = latest
+    const { s } = latest
     latest = null
-    const text = alerts.map((a) => `- [${a.severity}] ${a.kind}: ${a.text}`).join('\n')
     let figures: string | null = null
     if ((s.agents_settings?.routines ?? []).some((r) => r.action.trim() === 'builtin:retro-draft')) {
       const r = retro(s, s.blocks?.trail as unknown as TrailState | undefined, notes, pref<RetroSummary[]>('retro.history', []))
       figures = r ? retroMarkdown(r, pointsOf(r.name)) : null
     }
-    const payload = JSON.stringify({ alerts: text, retro: figures })
+    const payload = JSON.stringify({ retro: figures })
     if (payload === sent) return
     sent = payload
-    invoke('routine_inputs', { alerts: text, retro: figures }).catch((e) => {
+    invoke('routine_inputs', { retro: figures }).catch((e) => {
       sent = ''
       console.error('routine_inputs', e)
     })

@@ -268,6 +268,11 @@ impl Block for Custom {
         Ok(())
     }
 
+    /// What the custom blocks print in `alerts`, and those waiting for trust.
+    fn alerts(&self, state: &Value) -> Vec<prism_core::alerts::Alert> {
+        crate::alerts::custom(state)
+    }
+
     fn call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move {
             let id = || args.get("id").and_then(Value::as_str).map(str::to_string).context("id");

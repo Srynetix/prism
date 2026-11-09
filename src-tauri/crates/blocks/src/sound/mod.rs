@@ -53,6 +53,11 @@ impl Block for Sound {
         super::section::<SoundConfig>(config, "sound").ok().and_then(|c| serde_json::to_value(c).ok()).map(|v| vec![("sound", v)]).unwrap_or_default()
     }
 
+    /// The microphone too low.
+    fn alerts(&self, state: &Value) -> Vec<prism_core::alerts::Alert> {
+        crate::alerts::sound(state)
+    }
+
     fn call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move {
             let scope = match args.get("side").and_then(Value::as_str) {

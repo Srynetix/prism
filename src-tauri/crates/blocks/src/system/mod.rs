@@ -48,6 +48,11 @@ impl Block for System {
         super::section::<SystemConfig>(config, "system").ok().and_then(|c| serde_json::to_value(c).ok()).map(|v| vec![("system", v)]).unwrap_or_default()
     }
 
+    /// Memory, CPU, disk and network in trouble.
+    fn alerts(&self, state: &Value) -> Vec<prism_core::alerts::Alert> {
+        crate::alerts::system(state)
+    }
+
     fn call(&self, command: String, _args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move { bail!("the System block has no command {command}") })
     }

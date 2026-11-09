@@ -3,6 +3,7 @@
 //! forge providers).
 
 pub mod agents;
+pub mod alerts;
 pub mod blocks;
 pub mod changes;
 pub mod config;

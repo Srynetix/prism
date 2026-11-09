@@ -35,7 +35,7 @@ export const BLOCK_HELP: Record<BlockId, BlockHelp> = {
         t('x marks an alert as seen; it comes back if the situation changes.'),
       ]
     },
-    source: t('Computed in the app from the other blocks (rules.ts).'),
+    source: t('Computed by Prism’s core from what the other blocks read, the window open or not.'),
   },
   sessions: {
     get purpose() {

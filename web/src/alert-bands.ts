@@ -1,4 +1,5 @@
 import type { Alert, Severity } from './rules'
+import type { AlertRule } from './bindings/AlertRule'
 import { t } from './i18n.svelte'
 
 /**
@@ -11,11 +12,8 @@ import { t } from './i18n.svelte'
 export type Band = 'now' | 'today' | 'later'
 export const BANDS: Band[] = ['now', 'today', 'later']
 
-/** What raised an alert (`Alert.rule`), as `[alerts] band_*` names them. */
-export type AlertRule =
-  | 'question' | 'permission' | 'proposal' | 'your-turn' | 'agent-cost' | 'agent-loop' | 'agent-limit'
-  | 'review' | 'open-threads' | 'mr-ci' | 'conflicts' | 'rebase-failed' | 'need-rebase' | 'only-ci' | 'no-reviewer' | 'no-ticket'
-  | 'sync' | 'queue' | 'branch-ci' | 'infra' | 'argo' | 'source' | 'block' | 'worktree' | 'overlap'
+/** What raised an alert (`Alert.rule`), as `[alerts] band_*` names them: the core's rules. */
+export type { AlertRule }
 
 /** Every rule, in Settings' order, with its name there. */
 export const ALERT_RULES: { id: AlertRule; label: string }[] = [

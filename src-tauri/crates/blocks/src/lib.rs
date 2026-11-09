@@ -3,6 +3,7 @@
 
 pub use prism_core::blocks::*;
 
+mod alerts;
 pub mod changes;
 pub mod custom;
 pub mod data;

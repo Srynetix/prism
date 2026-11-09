@@ -49,18 +49,12 @@ impl Block for Changes {
         settings(config).ok().and_then(|c| serde_json::to_value(c).ok()).map(|v| vec![("changes", v)]).unwrap_or_default()
     }
 
-    fn call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
+    fn call(&self, command: String, _args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move {
             match command.as_str() {
                 // Reads the sources again now.
                 "refresh" => {
                     collector::refresh();
-                    Ok(Value::Null)
-                }
-                // The window's alerts (computed there), each time they change.
-                "alerts" => {
-                    let alerts: Vec<WindowAlert> = serde_json::from_value(args.get("alerts").cloned().unwrap_or_default())?;
-                    collector::alerts(alerts);
                     Ok(Value::Null)
                 }
                 other => bail!("the Changes block has no command {other}"),
@@ -73,7 +67,7 @@ impl Block for Changes {
     }
 
     fn demo_call(&self, command: &str, _args: &Value) -> Option<Result<Value>> {
-        matches!(command, "refresh" | "alerts").then_some(Ok(Value::Null))
+        (command == "refresh").then_some(Ok(Value::Null))
     }
 }
 
@@ -164,24 +158,72 @@ impl ChangesConfig {
     }
 }
 
-/// An alert as the window computed it, sent each time they change.
+/// An alert of an environment, as the journal keeps it: Argo CD's and the clusters', those an agent
+/// can investigate (`env_alerts`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-pub struct WindowAlert {
+pub struct EnvAlert {
     /// The same alert from one computation to the next.
     pub key: String,
     /// `ko`, `warn`, `info`.
     pub severity: String,
     pub text: String,
     #[serde(default)]
-    #[cfg_attr(feature = "ts", ts(optional))]
     pub env: Option<String>,
     #[serde(default)]
-    #[cfg_attr(feature = "ts", ts(optional))]
     pub app: Option<String>,
     #[serde(default)]
-    #[cfg_attr(feature = "ts", ts(optional))]
     pub url: Option<String>,
+}
+
+/// The alerts of an environment (`Snapshot.alerts`), by key: Argo CD's and the clusters', those an
+/// agent can investigate; one that names none is left out. `None` before the clusters or Argo CD
+/// have been read: their alerts would look gone.
+pub fn env_alerts(s: &crate::state::Snapshot) -> Option<Vec<EnvAlert>> {
+    use prism_core::alerts::{Fix, OpenTarget};
+    if s.environments.is_none() && s.argocd.is_none() {
+        return None;
+    }
+    let mut out = Vec::new();
+    for a in &s.alerts {
+        let fixes = a.fixes.as_deref().unwrap_or_default();
+        let investigate = fixes.iter().find_map(|f| match f {
+            Fix::Investigate { workload, env, .. } => Some((workload, env)),
+            _ => None,
+        });
+        let changes = fixes.iter().find_map(|f| match f {
+            Fix::Changes { env, app } => Some((env, app)),
+            _ => None,
+        });
+        if a.kind != "Infra" && a.kind != "ArgoCD" && investigate.is_none() {
+            continue;
+        }
+        let app = match &a.open {
+            Some(OpenTarget::Argo { app, .. }) => s.argocd.iter().flat_map(|x| &x.instances).flat_map(|i| &i.apps).find(|x| app.ends_with(&format!("/{}", x.name))),
+            _ => None,
+        };
+        let env = changes
+            .and_then(|(env, _)| env.clone())
+            .or_else(|| app.and_then(|x| x.env.clone()))
+            .or_else(|| investigate.filter(|(_, env)| s.environments.iter().flat_map(|e| &e.envs).any(|e| e.env == **env)).map(|(_, env)| env.clone()));
+        // Runners and CI jobs are no environment's.
+        let Some(env) = env.filter(|e| !e.is_empty()) else { continue };
+        let name = changes.map(|(_, app)| app.clone()).or_else(|| app.and_then(|x| x.app.clone())).or_else(|| investigate.map(|(w, _)| w.clone()));
+        let rule = a.rule.and_then(|r| serde_json::to_value(r).ok()).and_then(|v| v.as_str().map(String::from)).unwrap_or_else(|| a.kind.clone());
+        let object = match &a.open {
+            Some(OpenTarget::Mr { iid, repo }) => Some(format!("mr:{}:{iid}", repo.as_deref().unwrap_or_default())),
+            Some(OpenTarget::Ticket { id }) => Some(format!("ticket:{id}")),
+            Some(OpenTarget::Pipeline { pipeline, project, .. }) => Some(format!("pipeline:{}:{pipeline}", project.as_deref().unwrap_or_default())),
+            Some(OpenTarget::Argo { cluster, app }) => Some(format!("argo:{cluster}:{app}")),
+            None => None,
+        };
+        let id = format!("{rule}|{}", object.clone().unwrap_or_else(|| a.text.clone()));
+        // Its object's when it names one (an Argo CD application); otherwise its environment and
+        // application, not its text, which changes with a count (restarts) or the language.
+        let key = if object.is_some() { id } else { format!("{rule}|{env}|{}", name.clone().unwrap_or(id)) };
+        out.push(EnvAlert { key, severity: a.severity.name().into(), text: a.text.clone(), env: Some(env), app: name, url: a.url.clone() });
+    }
+    out.sort_by(|a, b| a.key.cmp(&b.key));
+    Some(out)
 }
 
 /// What the window shows: the journal, oldest first.

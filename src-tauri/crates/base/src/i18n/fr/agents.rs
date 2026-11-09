@@ -116,7 +116,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{exit} again", "{exit} de nouveau"),
     ("Sent to {agent}", "Envoyé à {agent}"),
     ("Not sent to {agent}: {error}", "Non envoyé à {agent} : {error}"),
-    ("the open alerts are not known yet: open Prism's window once", "les alertes ouvertes ne sont pas encore connues : ouvrez une fois la fenêtre de Prism"),
     ("the sprint's figures are not known yet: open Prism's window once", "les chiffres du sprint ne sont pas encore connus : ouvrez une fois la fenêtre de Prism"),
     ("no builtin action {action}", "aucune action fournie {action}"),
     ("its time passed while the computer slept or Prism was closed", "son heure est passée pendant la veille de l’ordinateur ou Prism fermé"),

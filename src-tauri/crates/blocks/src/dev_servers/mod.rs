@@ -52,6 +52,11 @@ impl Block for DevServers {
         settings(config).ok().and_then(|c| serde_json::to_value(c).ok()).map(|v| vec![("dev_servers", v)]).unwrap_or_default()
     }
 
+    /// A server stopped on an error.
+    fn alerts(&self, state: &Value) -> Vec<prism_core::alerts::Alert> {
+        crate::alerts::dev_servers(state)
+    }
+
     fn call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move {
             let arg = |key: &str| args.get(key).and_then(Value::as_str).unwrap_or_default().to_string();
