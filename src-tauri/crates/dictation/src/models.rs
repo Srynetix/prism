@@ -43,6 +43,8 @@ fn url(m: &Model) -> String {
 
 /// A model as Settings lists it.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(rename = "DictationModel"))]
 pub struct ModelInfo {
     pub name: String,
     pub bytes: u64,

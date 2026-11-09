@@ -35,8 +35,4 @@ mod blocks {
     }
 }
 
-/// The active profile's `config.toml` (`~/.config/prism/config.toml` for the default one), or
-/// `PRISM_CONFIG`.
-pub fn config_path() -> std::path::PathBuf {
-    std::env::var("PRISM_CONFIG").map(std::path::PathBuf::from).unwrap_or_else(|_| profile::config_of(profile::active()))
-}
+pub use prism_core::profile::config_path;

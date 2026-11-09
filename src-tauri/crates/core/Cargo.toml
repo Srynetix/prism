@@ -17,6 +17,8 @@ schema = ["dep:schemars"]
 testing = []
 
 [dependencies]
+# SHA-256, as hex (`textdiff::sha256`): what was trusted, a token kept.
+sha2.workspace = true
 prism-base.workspace = true
 prism-sys.workspace = true
 

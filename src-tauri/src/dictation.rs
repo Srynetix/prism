@@ -185,6 +185,8 @@ pub async fn dictation_cancel(dictation: State<'_, Dictation>, id: u64) -> Cmd {
 /// What Settings › Agents › Dictation shows: the engine `auto` picks here, the system's
 /// recognition, the models, the microphones, what macOS does with Fn.
 #[derive(Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(rename = "DictationStatus"))]
 pub struct Status {
     engine: prism_dictation::Engine,
     /// macOS's on-device recognition takes the language.
@@ -239,7 +241,9 @@ pub async fn dictation_status(state: State<'_, Arc<AppState>>, dictation: State<
 
 /// A download's progress, pushed as it goes and once at its end.
 #[derive(Clone, Serialize)]
-struct Download {
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(rename = "DictationDownload"))]
+pub(crate) struct Download {
     model: String,
     done: u64,
     total: u64,

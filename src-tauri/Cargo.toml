@@ -134,6 +134,7 @@ prism-collectors = { workspace = true, features = ["ts"] }
 prism-agents = { workspace = true, features = ["ts"] }
 prism-blocks = { workspace = true, features = ["ts"] }
 prism-ops = { workspace = true, features = ["ts"] }
+prism-dictation = { workspace = true, features = ["ts"] }
 prism-commands = { workspace = true, features = ["tauri", "ts"] }
 
 [build-dependencies]

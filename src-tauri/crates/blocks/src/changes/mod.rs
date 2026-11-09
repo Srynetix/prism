@@ -166,6 +166,7 @@ impl ChangesConfig {
 
 /// An alert as the window computed it, sent each time they change.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct WindowAlert {
     /// The same alert from one computation to the next.
     pub key: String,
@@ -173,10 +174,13 @@ pub struct WindowAlert {
     pub severity: String,
     pub text: String,
     #[serde(default)]
+    #[cfg_attr(feature = "ts", ts(optional))]
     pub env: Option<String>,
     #[serde(default)]
+    #[cfg_attr(feature = "ts", ts(optional))]
     pub app: Option<String>,
     #[serde(default)]
+    #[cfg_attr(feature = "ts", ts(optional))]
     pub url: Option<String>,
 }
 

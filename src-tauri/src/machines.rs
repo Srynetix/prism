@@ -63,6 +63,8 @@ async fn token(m: &MachineConfig) -> anyhow::Result<Option<String>> {
 
 /// A machine as the profile menu and Settings show it.
 #[derive(serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(rename = "Machine"))]
 pub struct MachineView {
     name: String,
     url: String,

@@ -7,9 +7,8 @@
   import { toast } from '../toast.svelte'
   import { t, tn } from '../i18n.svelte'
   import { invoke, isDesktop, machine, machineProfile } from '../bridge'
-  import type { MachineProfile } from '../bindings/MachineProfile'
 
-  interface Machine { name: string; url: string; ssh: string; token: boolean; open: boolean; profiles: MachineProfile[] }
+  import type { Machine } from '../bindings/Machine'
 
   /**
    * Foot of the rail: this window's profile badge, its letter on its color. Its menu lists the

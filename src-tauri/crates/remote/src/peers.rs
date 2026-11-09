@@ -47,8 +47,7 @@ fn save(dir: &Path, peers: &[Peer]) -> Result<()> {
 }
 
 fn hash(token: &str) -> String {
-    use sha2::{Digest, Sha256};
-    Sha256::digest(token.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
+    prism_core::textdiff::sha256(token)
 }
 
 /// A new peer `name` (one of that name replaced): its token, shown this once.

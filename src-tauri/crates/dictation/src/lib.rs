@@ -36,6 +36,8 @@ pub struct Options {
 
 /// The engine that transcribes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(rename = "DictationEngine"))]
 #[serde(rename_all = "lowercase")]
 pub enum Engine {
     System,

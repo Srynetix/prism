@@ -396,10 +396,7 @@ fn data_dir() -> PathBuf {
     MANAGER.get().map(|m| m.data.clone()).unwrap_or_else(|| prism_core::profile::data_dir(&dirs::data_dir().unwrap_or_default().join(prism_core::profile::IDENTIFIER)))
 }
 
-/// The active profile's `config.toml` (or `PRISM_CONFIG`).
-fn config_path() -> PathBuf {
-    std::env::var("PRISM_CONFIG").map(PathBuf::from).unwrap_or_else(|_| prism_core::profile::config_of(prism_core::profile::active()))
-}
+use prism_core::profile::config_path;
 
 /// The `[[custom_blocks]]` entries of config.toml itself and of its packs alone, by id.
 struct Layers {

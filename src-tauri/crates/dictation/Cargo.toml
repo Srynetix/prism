@@ -8,6 +8,10 @@ license.workspace = true
 [lints]
 workspace = true
 
+[features]
+# The window's types (`web/src/bindings`), exported by the app's tests.
+ts = ["dep:ts-rs"]
+
 [dependencies]
 prism-base.workspace = true
 prism-macos.workspace = true
@@ -19,6 +23,7 @@ serde.workspace = true
 sha2.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+ts-rs = { workspace = true, optional = true }
 # The microphone, on every system (CoreAudio, ALSA).
 cpal = "0.18"
 

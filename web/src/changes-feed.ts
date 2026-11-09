@@ -4,15 +4,10 @@ import { alertId } from './alert-bands'
 import type { Alert } from './rules'
 import type { Snapshot } from './types'
 
+import type { WindowAlert } from './bindings/WindowAlert'
+
 /** An alert as the Changes block keeps it (`WindowAlert`, crates/blocks/src/changes). */
-export interface FedAlert {
-  key: string
-  severity: string
-  text: string
-  env?: string
-  app?: string
-  url?: string
-}
+export type FedAlert = WindowAlert
 
 /** The alerts of an environment: Argo CD's and the clusters', those an agent can investigate; one that names none is left out. */
 export function infraAlerts(s: Snapshot, alerts: Alert[]): FedAlert[] {
