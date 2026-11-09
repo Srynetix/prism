@@ -344,10 +344,14 @@ pub fn reopen() -> Vec<String> {
 
 /// The local socket of profile `id`'s Prism (`prism_remote::Remote::serve_local`), in the data
 /// folder (the owner's only). A Unix socket's path is short (104 bytes on macOS): a long one is
-/// named by a hash of the id instead.
+/// named by a hash of the id instead. On Windows, a named pipe named after that path
+/// (`\\.\pipe\prism-engine-…`): each profile, and each data folder, its own.
 pub fn engine_socket(id: &str) -> PathBuf {
     let dir = data_base().join("engines");
     let plain = dir.join(format!("{id}.sock"));
+    if cfg!(windows) {
+        return PathBuf::from(format!(r"\\.\pipe\prism-engine-{:016x}", crate::mcp::fnv(&plain)));
+    }
     if plain.as_os_str().len() < 100 {
         return plain;
     }

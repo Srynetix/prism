@@ -8,6 +8,8 @@ pub mod audio;
 #[cfg(target_os = "macos")]
 pub mod dirlist;
 pub mod env;
+#[cfg(any(unix, windows))]
+pub mod ipc;
 #[cfg(unix)]
 pub mod fd;
 #[cfg(unix)]

@@ -49,15 +49,25 @@ impl Target {
         Self { url: "http://localhost".into(), token: String::new(), profile: None, socket: Some(socket) }
     }
 
-    /// An HTTP client for it: through its socket when local.
-    fn client(&self, timeout: Option<Duration>) -> Result<reqwest::Client> {
+    /// An HTTP client for it: through its socket when local (a named pipe on Windows), checked
+    /// this account's first (`prism_sys::ipc`: Unix, the socket's owner; Windows, the pipe's
+    /// server, opened once to ask: another account cannot add an instance to ours).
+    async fn client(&self, timeout: Option<Duration>) -> Result<reqwest::Client> {
         let mut b = reqwest::Client::builder();
         if let Some(t) = timeout {
             b = b.timeout(t);
         }
-        #[cfg(unix)]
         if let Some(path) = &self.socket {
-            b = b.unix_socket(path.clone());
+            #[cfg(unix)]
+            {
+                prism_sys::ipc::owned_socket(path, &prism_core::profile::data_base()).with_context(|| format!("the profile's Prism ({})", path.display()))?;
+                b = b.unix_socket(path.clone());
+            }
+            #[cfg(windows)]
+            {
+                drop(open_local(path).await?);
+                b = b.windows_named_pipe(path.clone());
+            }
         }
         Ok(b.build()?)
     }
@@ -144,7 +154,7 @@ pub async fn summary(target: &Target) -> Result<Summary> {
     let local;
     let http = match target.socket {
         Some(_) => {
-            local = target.client(Some(Duration::from_secs(5)))?;
+            local = target.client(Some(Duration::from_secs(5))).await?;
             &local
         }
         None => CLIENT.get_or_init(|| reqwest::Client::builder().timeout(Duration::from_secs(5)).build().expect("an HTTP client")),
@@ -232,7 +242,7 @@ impl Machine {
     pub async fn download(&self, token: &str, dest: &std::path::Path) -> Result<()> {
         anyhow::ensure!(!token.is_empty() && token.chars().all(|c| c.is_ascii_hexdigit()), "not a download");
         let url = self.target.http(&self.target.peer(&format!("download/{token}")))?;
-        let res = self.target.client(None)?.get(url).bearer_auth(self.target.token.trim()).send().await.context("the machine does not answer")?;
+        let res = self.target.client(None).await?.get(url).bearer_auth(self.target.token.trim()).send().await.context("the machine does not answer")?;
         anyhow::ensure!(res.status().is_success(), "the machine refused the download ({})", res.status());
         let part = dest.with_extension(format!("{}.part", dest.extension().and_then(|e| e.to_str()).unwrap_or("")));
         let written = async {
@@ -262,13 +272,12 @@ impl Machine {
         let req = self.target.request(&self.target.peer(&format!("tty?agent={agent_q}&cols={cols}&rows={rows}")))?;
         let (keys, queue) = mpsc::unbounded_channel::<Message>();
         let task = match &self.target.socket {
-            #[cfg(unix)]
             Some(path) => {
-                let io = tokio::net::UnixStream::connect(path).await.context("the profile's terminal")?;
+                let io = open_local(path).await.context("the profile's terminal")?;
                 let (socket, _) = tokio_tungstenite::client_async(req, io).await.context("the profile's terminal")?;
                 tokio::spawn(pump(socket, queue, on_data, on_end))
             }
-            _ => {
+            None => {
                 let (socket, _) = tokio_tungstenite::connect_async(req).await.context("the machine's terminal")?;
                 tokio::spawn(pump(socket, queue, on_data, on_end))
             }
@@ -375,11 +384,16 @@ async fn run(target: Target, mut out: mpsc::UnboundedReceiver<String>, pending: 
     }
 }
 
+/// A profile of this computer's local socket (a named pipe on Windows), this account's only
+/// (`prism_sys::ipc::connect`).
+async fn open_local(path: &std::path::Path) -> Result<prism_sys::ipc::Client> {
+    prism_sys::ipc::connect(path, &prism_core::profile::data_base()).await.with_context(|| format!("the profile's Prism ({})", path.display()))
+}
+
 async fn connect(target: &Target, out: &mut mpsc::UnboundedReceiver<String>, pending: &Pending, connected: &tokio::sync::watch::Sender<bool>, on_message: &OnMessage) -> Result<()> {
     let req = target.request(&target.peer("ws"))?;
-    #[cfg(unix)]
     if let Some(path) = &target.socket {
-        let io = tokio::net::UnixStream::connect(path).await.with_context(|| format!("the profile's Prism ({})", path.display()))?;
+        let io = open_local(path).await?;
         let (socket, _) = tokio_tungstenite::client_async(req, io).await?;
         return converse(socket, out, pending, connected, on_message).await;
     }

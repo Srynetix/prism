@@ -63,6 +63,7 @@ fn host() -> Result<&'static Arc<Host>> {
 
 /// Serves `prism mcp` on the profile's socket (a named pipe on Windows), for as long as Prism runs.
 pub fn serve(state: Arc<AppState>) {
+    // Unix: bound here (no runtime needed) to be served from the runtime.
     #[cfg(unix)]
     let Some(listener) = bind() else { return };
     let host = Arc::new(Host { state, next: AtomicU64::new(1), clients: Mutex::new(Vec::new()), proposals: Mutex::new(Vec::new()) });
@@ -70,45 +71,34 @@ pub fn serve(state: Arc<AppState>) {
     prism_base::rt::Generation::outside(|| {
         #[cfg(unix)]
         prism_base::rt::spawn(accept(host, listener));
+        // Windows: a pipe is made inside the runtime.
         #[cfg(windows)]
-        prism_base::rt::spawn(accept(host));
+        prism_base::rt::spawn(async move {
+            if let Some(listener) = bind() {
+                accept(host, listener).await
+            }
+        });
     });
 }
 
-/// The socket, bound here (no runtime needed) to be served from the runtime.
-#[cfg(unix)]
-fn bind() -> Option<std::os::unix::net::UnixListener> {
-    let path = prism_core::mcp::socket_path();
-    if let Err(e) = prism_core::mcp::private_dir(&path) {
-        tracing::warn!("mcp: no socket: {e:#}");
-        return None;
-    }
-    // One Prism per profile: a socket left there is a former one's.
-    let _ = std::fs::remove_file(&path);
-    let listener = match std::os::unix::net::UnixListener::bind(&path).and_then(|l| l.set_nonblocking(true).map(|()| l)) {
-        Ok(l) => l,
+/// The profile's socket (a named pipe on Windows), this account's only (`prism_sys::ipc`). One
+/// Prism per profile: a socket left there is a former one's, replaced; a pipe's name is claimed
+/// (another process cannot have made it first).
+fn bind() -> Option<prism_sys::ipc::Listener> {
+    let at = prism_core::mcp::endpoint();
+    match prism_sys::ipc::listen(&at, &prism_core::profile::data_base(), prism_sys::ipc::Taken::Replace) {
+        Ok(l) => Some(l),
         Err(e) => {
-            tracing::warn!("mcp: no socket at {}: {e}", path.display());
-            return None;
+            tracing::warn!("mcp: no socket at {}: {e}", at.display());
+            None
         }
-    };
-    if let Err(e) = prism_core::mcp::owner_only(&path) {
-        let _ = std::fs::remove_file(&path);
-        tracing::warn!("mcp: {e:#}");
-        return None;
     }
-    Some(listener)
 }
 
-#[cfg(unix)]
-async fn accept(host: Arc<Host>, listener: std::os::unix::net::UnixListener) {
-    let listener = match tokio::net::UnixListener::from_std(listener) {
-        Ok(l) => l,
-        Err(e) => return tracing::warn!("mcp: {e}"),
-    };
+async fn accept(host: Arc<Host>, mut listener: prism_sys::ipc::Listener) {
     loop {
         match listener.accept().await {
-            Ok((stream, _)) => {
+            Ok(stream) => {
                 prism_base::rt::spawn(host.clone().connection(stream));
             }
             Err(e) => {
@@ -116,31 +106,6 @@ async fn accept(host: Arc<Host>, listener: std::os::unix::net::UnixListener) {
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         }
-    }
-}
-
-/// The profile's named pipe: an instance per connection, the next one made before the connected
-/// one is served. The first one claims the name (`first_pipe_instance`): another process cannot
-/// have made it first; clients of this computer and this account only.
-#[cfg(windows)]
-async fn accept(host: Arc<Host>) {
-    let name = prism_core::mcp::pipe_name();
-    let make = |first: bool| prism_sys::windows::pipe_server(&name, first);
-    let mut server = match make(true) {
-        Ok(s) => s,
-        Err(e) => return tracing::warn!("mcp: no pipe {name}: {e}"),
-    };
-    loop {
-        if let Err(e) = server.connect().await {
-            tracing::warn!("mcp: {e}");
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        }
-        let next = match make(false) {
-            Ok(s) => s,
-            Err(e) => return tracing::warn!("mcp: no pipe {name}: {e}"),
-        };
-        let connected = std::mem::replace(&mut server, next);
-        prism_base::rt::spawn(host.clone().connection(connected));
     }
 }
 

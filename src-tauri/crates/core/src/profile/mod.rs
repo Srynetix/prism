@@ -468,7 +468,11 @@ mod tests {
     #[test]
     fn each_profile_its_socket() {
         let short = engine_socket("perso");
-        assert!(short.starts_with(data_base().join("engines")) && short.ends_with("perso.sock"));
+        if cfg!(windows) {
+            assert!(short.to_string_lossy().starts_with(r"\\.\pipe\prism-engine-"), "{}", short.display());
+        } else {
+            assert!(short.starts_with(data_base().join("engines")) && short.ends_with("perso.sock"));
+        }
         let long = "a-profile-whose-name-is-as-long-as-ids-go";
         let path = engine_socket(long);
         assert!(path.as_os_str().len() < 104 || data_base().as_os_str().len() > 80, "{}", path.display());

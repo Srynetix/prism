@@ -74,37 +74,16 @@ impl Link {
 
 type Halves = (Box<dyn tokio::io::AsyncRead + Send + Unpin>, Box<dyn tokio::io::AsyncWrite + Send + Unpin>);
 
-/// The running Prism's socket, this account's only.
-#[cfg(unix)]
+/// The running Prism's socket (a named pipe on Windows), this account's only (`prism_sys::ipc`):
+/// another account's under our name never hears the agents, nor answers them.
 async fn connect() -> Result<Halves> {
-    let path = prism_core::mcp::socket_path();
-    if path.exists() {
-        prism_core::mcp::owned_socket(&path)?;
-    }
-    let stream = tokio::net::UnixStream::connect(&path).await.with_context(|| format!("Prism is not running for the profile {} (no {})", prism_core::profile::active(), path.display()))?;
-    let (read, write) = stream.into_split();
-    Ok((Box::new(read), Box::new(write)))
-}
-
-/// The running Prism's named pipe; busy (all its instances taken an instant), tried again.
-#[cfg(windows)]
-async fn connect() -> Result<Halves> {
-    use tokio::net::windows::named_pipe::ClientOptions;
-    /// `ERROR_PIPE_BUSY`.
-    const BUSY: i32 = 231;
-    let name = prism_core::mcp::pipe_name();
-    let mut tries = 0;
-    let pipe = loop {
-        match ClientOptions::new().open(&name) {
-            // Another account's pipe under our name: its answers would reach the agents.
-            Ok(pipe) if !prism_sys::windows::pipe_server_is_mine(&pipe) => anyhow::bail!("{name}: not this account's"),
-            Ok(pipe) => break pipe,
-            Err(e) if e.raw_os_error() == Some(BUSY) && tries < 50 => tries += 1,
-            Err(e) => return Err(e).with_context(|| format!("Prism is not running for the profile {} (no {name})", prism_core::profile::active())),
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    let at = prism_core::mcp::endpoint();
+    let stream = match prism_sys::ipc::connect(&at, &prism_core::profile::data_base()).await {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => return Err(e.into()),
+        Err(e) => return Err(e).with_context(|| format!("Prism is not running for the profile {} (no {})", prism_core::profile::active(), at.display())),
     };
-    let (read, write) = tokio::io::split(pipe);
+    let (read, write) = tokio::io::split(stream);
     Ok((Box::new(read), Box::new(write)))
 }
 
