@@ -19,7 +19,8 @@
 #   names (environment or .env; ~/.minisign/prism.key by default), whose public half is
 #   src-tauri/update-key.pub. An installed Prism installs only a file signed with it.
 #   With --server (Prism alone only: --no-extra), prism-server too, Prism without a window:
-#   prism-server_<version>_macos-universal.tar.gz, and with --linux prism-server_<version>_amd64.tar.gz.
+#   prism-server_<version>_macos-universal.tar.gz, with --linux prism-server_<version>_amd64.tar.gz,
+#   with --windows prism-server_<version>_windows-x64.zip and windows-arm64.zip.
 #   Installed Prisms never pick them (the updater reads Prism_<version>_… only).
 #   On GitLab they go to the project's generic packages (prism/<version>), the release links to
 #   them; on GitHub they are the release's assets.
@@ -62,7 +63,7 @@ while [[ $# -gt 0 ]]; do
     --no-tag) tag_it=false ;;
     --dry-run) dry=true ;;
     --rebuild) rebuild=true ;;
-    -h | --help) sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
   shift
@@ -193,17 +194,36 @@ if $windows; then
   step "Windows"
   # Built here, noted as linux.sh notes its packages: which commit and blocks they are of.
   stamp=dist/Prism_${version}_windows.build
-  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit|$label" && -f dist/Prism_${version}_windows-x64-setup.exe && -f dist/Prism_${version}_windows-arm64-setup.exe ]] && ! $rebuild; then
-    echo "dist/Prism_${version}_windows-{x64,arm64}-setup.exe already built: reused (--rebuild to build again)"
+  built=true
+  for arch in x64 arm64; do
+    [[ -f dist/Prism_${version}_windows-${arch}-setup.exe ]] || built=false
+    ! $server || [[ -f dist/prism-server_${version}_windows-${arch}.exe ]] || built=false
+  done
+  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit|$label" ]] && $built && ! $rebuild; then
+    echo "dist/Prism_${version}_windows-{x64,arm64}-setup.exe$($server && echo " and prism-server") already built: reused (--rebuild to build again)"
   else
     export XWIN_ACCEPT_LICENSE=${XWIN_ACCEPT_LICENSE:-1}
     for arch in x64 arm64; do
+      target=$([[ $arch == x64 ]] && echo x86_64 || echo aarch64)-pc-windows-msvc
       WINDOWS_ARCH=$arch scripts/windows.sh build
-      cp "src-tauri/target/$([[ $arch == x64 ]] && echo x86_64 || echo aarch64)-pc-windows-msvc/release/bundle/nsis/Prism_${version}_${arch}-setup.exe" "dist/Prism_${version}_windows-${arch}-setup.exe"
+      cp "src-tauri/target/$target/release/bundle/nsis/Prism_${version}_${arch}-setup.exe" "dist/Prism_${version}_windows-${arch}-setup.exe"
+      if $server; then
+        WINDOWS_ARCH=$arch scripts/windows.sh server
+        cp "src-tauri/target/$target/release/prism-server.exe" "dist/prism-server_${version}_windows-${arch}.exe"
+      fi
     done
     echo "$commit|$label" > "$stamp"
   fi
-  for arch in x64 arm64; do cp "dist/Prism_${version}_windows-${arch}-setup.exe" "$out/"; done
+  for arch in x64 arm64; do
+    cp "dist/Prism_${version}_windows-${arch}-setup.exe" "$out/"
+    if $server; then
+      # In a .zip, as Windows opens it without anything else.
+      stage=$(mktemp -d "${TMPDIR:-/tmp}/prism-server.XXXXXX")
+      cp "dist/prism-server_${version}_windows-${arch}.exe" "$stage/prism-server.exe"
+      (cd "$stage" && zip -q -X "$OLDPWD/$out/prism-server_${version}_windows-${arch}.zip" prism-server.exe)
+      rm -rf "$stage"
+    fi
+  done
 fi
 
 (cd "$out" && shopt -s nullglob && for f in Prism_* prism-server_*; do [[ $f == *.sha256 ]] || shasum -a 256 "$f" > "$f.sha256"; done)

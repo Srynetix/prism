@@ -5,6 +5,10 @@
 #   scripts/windows.sh check [cargo args]   cargo check of the workspace and its tests
 #   scripts/windows.sh build [tauri args]   the NSIS installer, unsigned:
 #                                           src-tauri/target/<target>/release/bundle/nsis
+#   scripts/windows.sh server [cargo args]  prism-server.exe, Prism without a window (the phone's
+#                                           page, web/dist, built first and carried in it):
+#                                           src-tauri/target/<target>/release/prism-server.exe
+#                                           A team's blocks (PRISM_EXTRA_BLOCKS) in it, as `build`.
 #
 # Needs clang-cl, lld-link, ninja and cmake (macOS: `brew install llvm lld ninja cmake`), makensis
 # to build (`brew install makensis`), cargo-xwin (`cargo install --locked cargo-xwin`) and the Rust
@@ -27,10 +31,10 @@ case "${WINDOWS_ARCH:-x64}" in
     *) echo "windows: WINDOWS_ARCH x64 or arm64, not ${WINDOWS_ARCH}" >&2; exit 2 ;;
 esac
 
-usage() { sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
 mode="${1:-}"
 case "$mode" in
-    check | build) shift ;;
+    check | build | server) shift ;;
     -h | --help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
 esac
@@ -42,6 +46,7 @@ done
 export PATH
 tools="cargo-xwin clang-cl lld-link ninja cmake clang"
 [ "$mode" = build ] && tools="$tools makensis llvm-lib"
+[ "$mode" = server ] && tools="$tools llvm-lib pnpm"
 for tool in $tools; do
     command -v "$tool" >/dev/null || { echo "windows: $tool not found (scripts/windows.sh --help)" >&2; exit 1; }
 done
@@ -103,5 +108,11 @@ case "$target" in
     aarch64-pc-windows-msvc) export CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_RUSTFLAGS="$flags" ;;
 esac
 cd "$root"
+if [ "$mode" = server ]; then
+    pnpm --dir web build
+    cargo xwin build --release -p prism-server --manifest-path src-tauri/Cargo.toml --target "$target" "$@"
+    ls "$root/src-tauri/target/$target/release/prism-server.exe"
+    exit 0
+fi
 web/node_modules/.bin/tauri build --runner cargo-xwin --target "$target" "$@"
 ls "$root/src-tauri/target/$target/release/bundle/nsis/"*-setup.exe

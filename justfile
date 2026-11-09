@@ -101,6 +101,11 @@ changelog *args:
 release *args:
     scripts/release.sh {{no_extra_flag}}{{args}}
 
+# Publishes Prism alone (no team blocks) for macOS, Linux and Windows, prism-server with it, to the public repository (scripts/release.sh --help)
+[macos]
+release-oss *args:
+    PRISM_EXTRA_BLOCKS= PRISM_EXTRA_NAME= PRISM_EXTRA_LABEL= scripts/release.sh --to gh:Srynetix/prism --no-extra --server --linux --windows {{args}}
+
 # Starts Tailscale for the remote beside a VPN (userspace tailscaled, no network change) and signs in; `just tailscale down` stops it
 tailscale *args:
     scripts/tailscale.sh {{args}}
