@@ -352,7 +352,7 @@ fn obsidian_vaults(home: &Path) -> Vec<String> {
 pub fn vaults_of(text: &str, home: &Path) -> Vec<String> {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else { return Vec::new() };
     let mut vaults: Vec<(i64, PathBuf)> = v["vaults"].as_object().into_iter().flatten().filter_map(|(_, vault)| Some((vault["ts"].as_i64().unwrap_or(0), PathBuf::from(vault["path"].as_str()?)))).filter(|(_, p)| p.is_dir()).collect();
-    vaults.sort_by(|a, b| b.0.cmp(&a.0));
+    vaults.sort_by_key(|v| std::cmp::Reverse(v.0));
     vaults.into_iter().map(|(_, p)| tilde(home, &p)).collect()
 }
 

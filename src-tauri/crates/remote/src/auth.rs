@@ -146,11 +146,6 @@ impl Auth {
         &self.devices
     }
 
-    /// Whether a session of `device` is open now.
-    pub fn has_session(&self, device: &str) -> bool {
-        self.sessions.values().any(|s| s.device == device)
-    }
-
     // Pairing, on the desk's side.
 
     /// Opens a pairing (any other one is dropped): its token and when it expires.

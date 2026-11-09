@@ -330,4 +330,7 @@ export default {
   'Closed panel': 'Panneau fermé',
   'Reopen the last closed panel': 'Rouvrir le dernier panneau fermé',
   'reopen the panel closed last (MR, ticket, logs, shell…)': 'rouvrir le dernier panneau fermé (MR, ticket, logs, shell…)',
+  'Computer': 'Ordinateur',
+  'Send its agent the error, to fix it:\n\n{text}': 'Envoyer l’erreur à son agent, pour qu’il la corrige\xa0:\n\n{text}',
+  'Its agent is busy: the error is typed in its prompt, for you to send.\n\n{text}': 'Son agent est occupé\xa0: l’erreur est tapée dans son prompt, à vous de l’envoyer.\n\n{text}',
 } satisfies Dictionary

@@ -114,7 +114,7 @@ config, packs and tokens stay in `~/.config/prism` and the keychain of each mach
 `prism-server` is Prism without its window, for a machine reached from a phone only (a Linux
 server, typically): the same collectors, agents, chains and remote, no WebKit, the phone's page
 carried in the binary. Prism's releases carry it (`prism-server_<version>_amd64.tar.gz`, `_macos-universal.tar.gz`,
-each with its `.sha256` and `.minisig`), or build it on the server itself, the page first, then the binary:
+`_windows-x64.zip`, `_windows-arm64.zip`, each with its `.sha256` and `.minisig`), or build it on the server itself, the page first, then the binary:
 
 ```bash
 just install && just server   # scripts/server.sh: pnpm --dir web build, then cargo build -p prism-server
