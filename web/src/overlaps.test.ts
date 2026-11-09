@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adjustPrompt, alertedOverlaps, hunksOf, overlapsAt, visibleOverlaps, whoAdjusts } from './overlaps'
+import { adjustPrompt, hunksOf, overlapsAt, visibleOverlaps, whoAdjusts } from './overlaps'
 import type { Overlap, Snapshot } from './types'
 import type { AgentDiff } from './bindings/AgentDiff'
 
@@ -18,13 +18,10 @@ const snap = (pairs: Overlap[], cfg: Partial<{ level: string; alert: string }> =
   }) as unknown as Snapshot
 
 describe('overlaps', () => {
-  it('shows chips from the level, alerts from the alert setting', () => {
+  it('shows chips from the level', () => {
     const s = snap([pair('lines'), { ...pair('file'), b: '/w/c' }])
     expect(visibleOverlaps(s)).toHaveLength(2)
-    expect(alertedOverlaps(s)).toHaveLength(1)
     expect(visibleOverlaps(snap([pair('file')], { level: 'lines' }))).toHaveLength(0)
-    expect(alertedOverlaps(snap([pair('file')], { alert: 'file' }))).toHaveLength(1)
-    expect(alertedOverlaps(snap([pair('lines')], { alert: 'off' }))).toHaveLength(0)
   })
 
   it('names the other side; a merged side sees nothing', () => {

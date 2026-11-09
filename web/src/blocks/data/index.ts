@@ -1,24 +1,9 @@
-import type { BlockAlert, BlockDef } from '../block'
+import type { BlockDef } from '../block'
 import { dataProblems } from './data'
 import type { GcpData } from './types'
 import guide from './13-data.md?raw'
 import guideFr from './13-data.fr.md?raw'
 import { t, tn } from '../../i18n.svelte'
-
-/**
- * Data: what is broken (job failed or not started, late table whose job failed, stream
- * failed) notifies; what drifts (slow job, late table, lagging stream, cost spike) does not.
- */
-function alerts(d: GcpData): BlockAlert[] {
-  return dataProblems(d).map((p) => ({
-    severity: p.state.tone === 'ko' ? 'ko' : 'warn',
-    text: `${t('{name}: {state}', { name: p.name, state: p.state.label })}${p.state.why ? ` — ${p.state.why}` : ''}`,
-    url: p.url,
-    notify: p.state.tone === 'ko',
-    // One notification per transition to the broken state: the object, not its changing detail.
-    notification: { key: `data:${p.name}`, title: t('Data pipeline') },
-  }))
-}
 
 /** Broken jobs, tables or streams (not drifting ones): the badge of the pages showing them. */
 function badge(d: GcpData) {
@@ -44,7 +29,6 @@ export const data = {
   guide: { file: '13-data.md', text: guide, translations: { fr: guideFr } },
   boot: { label: t('Polling GCP pipelines'), detail: (d) => `${tn(d.jobs.length, '{n} job', '{n} jobs')} · ${tn(d.streams.length, '{n} stream', '{n} streams')}` },
   badge,
-  alerts,
   settings: {
     parent: 'infra',
     node: { id: 'data', label: t('Data (GCP)'), sections: ['data'], toggle: 'data' },

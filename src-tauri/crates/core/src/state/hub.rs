@@ -17,6 +17,8 @@ pub struct Hub {
     /// An action from Prism changed the forge (merge, approval, comment, retry…): its reads come
     /// again at once rather than at their pace.
     forge: std::sync::Arc<watch::Sender<()>>,
+    /// What the alerts read of the stores the window and the phones share (`prefs`).
+    prefs: std::sync::Arc<std::sync::RwLock<std::sync::Arc<crate::alerts::Prefs>>>,
 }
 
 /// Minimum collection pace when the window is hidden.
@@ -31,7 +33,7 @@ impl Default for Hub {
 impl Hub {
     pub fn new() -> Self {
         let (tx, _) = watch::channel(Snapshot::default());
-        Self { tx, visible: Default::default(), watching: Default::default(), shown: Default::default(), forge: std::sync::Arc::new(watch::channel(()).0) }.with_visible(true)
+        Self { tx, visible: Default::default(), watching: Default::default(), shown: Default::default(), forge: std::sync::Arc::new(watch::channel(()).0), prefs: Default::default() }.with_visible(true)
     }
 
     fn with_visible(self, v: bool) -> Self {
@@ -102,15 +104,45 @@ impl Hub {
         self.tx.subscribe()
     }
 
-    /// Applies `f` and only notifies clients if the snapshot actually changed.
+    /// Applies `f` and only notifies clients if the snapshot actually changed; then its alerts are
+    /// computed again from it.
     pub fn update(&self, f: impl FnOnce(&mut Snapshot) -> bool) {
+        let prefs = std::sync::Arc::clone(&self.prefs.read().unwrap_or_else(|e| e.into_inner()));
         self.tx.send_if_modified(|s| {
             let changed = f(s);
             if changed {
-                s.updated_at = Some(Utc::now());
+                let now = Utc::now();
+                s.updated_at = Some(now);
+                s.alerts = crate::alerts::compute(s, &prefs, now);
             }
             changed
         });
+    }
+
+    /// The alerts computed again, the snapshot unchanged otherwise: on the minute (what depends on
+    /// the time), or once the shared prefs changed. Clients notified only when they changed.
+    pub fn refresh_alerts(&self) {
+        let prefs = std::sync::Arc::clone(&self.prefs.read().unwrap_or_else(|e| e.into_inner()));
+        self.tx.send_if_modified(|s| {
+            let alerts = crate::alerts::compute(s, &prefs, Utc::now());
+            let changed = alerts != s.alerts;
+            s.alerts = alerts;
+            changed
+        });
+    }
+
+    /// The shared store `prefs` as written last (at launch, then by the window or a phone): the
+    /// agents and worktrees archived, the overlaps ignored. The alerts follow.
+    pub fn set_alert_prefs(&self, value: &serde_json::Value) {
+        let prefs = crate::alerts::Prefs::of(value);
+        {
+            let mut held = self.prefs.write().unwrap_or_else(|e| e.into_inner());
+            if **held == prefs {
+                return;
+            }
+            *held = std::sync::Arc::new(prefs);
+        }
+        self.refresh_alerts();
     }
 
     /// The outcome of a read of `source`: its data first (`apply` says whether the snapshot
@@ -163,6 +195,20 @@ mod tests {
         });
         assert!(rx.has_changed().unwrap());
         assert!(rx.borrow_and_update().updated_at.is_some());
+    }
+
+    #[test]
+    fn the_alerts_follow_the_snapshot() {
+        let hub = Hub::new();
+        let mut rx = hub.subscribe();
+        hub.set_error("argocd", Some("timeout".into()));
+        assert_eq!(rx.borrow_and_update().alerts.iter().map(|a| a.text.as_str()).collect::<Vec<_>>(), ["argocd unreachable: timeout"]);
+        // Nothing they read changed: nothing new.
+        hub.refresh_alerts();
+        hub.set_alert_prefs(&serde_json::json!({ "notes.tag": "x" }));
+        assert!(!rx.has_changed().unwrap());
+        hub.set_error("argocd", None);
+        assert!(rx.borrow_and_update().alerts.is_empty());
     }
 
     #[test]

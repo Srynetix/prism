@@ -58,6 +58,9 @@ pub use crate::stages::{Hints, Provider as StagesProvider, Stage, Stages};
 /// local clone it may read them in.
 pub use crate::collectors::vulnerabilities::{ImageProvider, ImageRef, ImageTag, ImageTarget, LocalRepo};
 
+/// A block's lines in Alerts (`Block::alerts`): an alert, its fixes, how bad.
+pub use prism_core::alerts::{Alert, AlertRule, Fix, OpenTarget, Severity};
+
 /// What a block adds to the Changes timeline (`Block::changes`).
 pub use prism_core::changes::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity};
 

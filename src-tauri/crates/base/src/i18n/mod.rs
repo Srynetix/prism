@@ -82,6 +82,16 @@ pub fn placeholders_differ(table: Table) -> Vec<(&'static str, &'static str)> {
     table.iter().copied().filter(|(en, tr)| names(en) != names(tr)).collect()
 }
 
+/// `one` or `other` by `n`, in the messages' language: French says the singular for 0 and 1 as well,
+/// as the window's `tn` (`web/src/i18n.svelte.ts`).
+pub fn tn(n: f64, one: &'static str, other: &'static str) -> &'static str {
+    let single = match lang() {
+        Lang::Fr => n.abs() < 2.0,
+        Lang::En => n == 1.0,
+    };
+    tr(if single { one } else { other })
+}
+
 /// `text` with each `{name}` replaced by its value.
 pub fn fill(text: &str, values: &[(&str, &dyn std::fmt::Display)]) -> String {
     let mut out = text.to_string();
@@ -102,6 +112,15 @@ macro_rules! tr {
     };
 }
 
+/// A count's message, `{n}` and the other `{name}`s filled: `tn!(n, "{n} file", "{n} files")`.
+#[macro_export]
+macro_rules! tn {
+    ($n:expr, $one:literal, $other:literal $(, $name:ident = $value:expr)* $(,)?) => {{
+        let n = $n;
+        $crate::i18n::fill($crate::i18n::tn(n as f64, $one, $other), &[("n", &n as &dyn std::fmt::Display) $(, (stringify!($name), &$value as &dyn std::fmt::Display))*])
+    }};
+}
+
 /// Every key of the French tables, for the checks below.
 #[cfg(test)]
 pub(crate) fn fr_keys() -> Vec<(&'static str, &'static str)> {
@@ -111,6 +130,14 @@ pub(crate) fn fr_keys() -> Vec<(&'static str, &'static str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn counts_in_english_and_french() {
+        assert_eq!(tn(1.0, "{n} file", "{n} files"), "{n} file");
+        assert_eq!(tn(0.0, "{n} file", "{n} files"), "{n} files");
+        assert_eq!(crate::tn!(2, "{n} file", "{n} files"), "2 files");
+        assert_eq!(crate::tn!(1, "{n} file of {who}", "{n} files of {who}", who = "me"), "1 file of me");
+    }
 
     #[test]
     fn fills_and_falls_back_to_english() {
@@ -142,31 +169,50 @@ mod tests {
                 }
             }
         }
-        /// The string literals right after `tr(` or `tr!(`, unescaped.
+        /// A string literal at the start of `rest` (its opening quote), unescaped, and what follows it.
+        fn literal(rest: &str) -> Option<(String, &str)> {
+            let rest = rest.trim_start().strip_prefix('"')?;
+            let mut text = String::new();
+            let mut chars = rest.char_indices();
+            while let Some((i, c)) = chars.next() {
+                match c {
+                    '"' => return Some((text, &rest[i + 1..])),
+                    '\\' => match chars.next() {
+                        Some((_, 'n')) => text.push('\n'),
+                        Some((_, c)) => text.push(c),
+                        None => break,
+                    },
+                    c => text.push(c),
+                }
+            }
+            Some((text, ""))
+        }
+        /// The string literals right after `tr(` or `tr!(`, and the two of `tn(n, …)` or `tn!(n, …)`, unescaped.
         fn said(code: &str) -> Vec<String> {
             let mut out = Vec::new();
-            for (at, _) in code.match_indices("tr") {
+            for (at, _) in code.match_indices("tr").chain(code.match_indices("tn")) {
                 let before = code[..at].chars().next_back();
                 if before.is_some_and(|c| c.is_alphanumeric() || c == '_') {
                     continue;
                 }
+                let plural = &code[at..at + 2] == "tn";
                 let rest = &code[at + 2..];
                 let rest = rest.strip_prefix('!').unwrap_or(rest);
                 let Some(rest) = rest.strip_prefix('(') else { continue };
-                let Some(rest) = rest.trim_start().strip_prefix('"') else { continue };
-                let (mut text, mut chars) = (String::new(), rest.chars());
-                while let Some(c) = chars.next() {
-                    match c {
-                        '"' => break,
-                        '\\' => match chars.next() {
-                            Some('n') => text.push('\n'),
-                            Some(c) => text.push(c),
-                            None => break,
-                        },
-                        c => text.push(c),
+                if !plural {
+                    if let Some((text, _)) = literal(rest) {
+                        out.push(text);
                     }
+                    continue;
                 }
-                out.push(text);
+                // The count first, up to its comma (no comma nor quote in it), then the two forms.
+                let Some(comma) = rest.find(',') else { continue };
+                if rest[..comma].contains('"') {
+                    continue;
+                }
+                let Some((one, rest)) = literal(&rest[comma + 1..]) else { continue };
+                let Some((other, _)) = rest.trim_start().strip_prefix(',').and_then(literal) else { continue };
+                out.extend([one, other]);
             }
             out
         }

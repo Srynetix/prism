@@ -55,14 +55,6 @@ export function visibleOverlaps(s: Snapshot): Overlap[] {
   return (s.overlaps?.pairs ?? []).filter((o) => !isIgnored(o) && (!linesOnly || o.level === 'lines'))
 }
 
-/** Those that make an alert: from `alert` (`off`: none). */
-export function alertedOverlaps(s: Snapshot): Overlap[] {
-  const cfg = settings(s)
-  if (cfg && (!cfg.enabled || cfg.alert === 'off')) return []
-  const linesOnly = (cfg?.alert ?? 'lines') === 'lines'
-  return (s.overlaps?.pairs ?? []).filter((o) => !isIgnored(o) && (!linesOnly || o.level === 'lines'))
-}
-
 /** An overlap as one of its sides sees it: the other side, by name. */
 export interface Seen {
   o: Overlap

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { accessAlert, awaitsMyReview, canQueue, waitingAlert, hasOpenThreads, isApproved, lacksReviewer, mergeState, nextStep, onlyWaitsForCi } from './rules'
+import { awaitsMyReview, canQueue, waitingAlert, isApproved, mergeState, nextStep, onlyWaitsForCi } from './rules'
 import type { MergeRequest } from './types'
 
 const mr = (over: Partial<MergeRequest> = {}): MergeRequest => ({
@@ -123,50 +123,5 @@ describe('waiting sessions', () => {
     expect(waitingAlert(session({ needs_action: 'Answer its question' }))).toBe(true)
     expect(waitingAlert(session({ status: 'waiting_tool' }))).toBe(true)
     expect(waitingAlert(session({ origin: 'desktop' }))).toBe(true)
-  })
-})
-
-describe('no reviewer', () => {
-  const opened = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString()
-  it('flags an MR out of draft with nobody to review it, once it had the time to get one', () => {
-    expect(lacksReviewer(mr({ created_at: opened(30) }))).toBe(true)
-    expect(lacksReviewer(mr({ created_at: opened(2) }))).toBe(false)
-  })
-  it('leaves a draft, an MR with a reviewer, or already reviewed', () => {
-    expect(lacksReviewer(mr({ created_at: opened(30), draft: true }))).toBe(false)
-    expect(lacksReviewer(mr({ created_at: opened(30), reviewers: ['bob'] }))).toBe(false)
-    expect(lacksReviewer(mr({ created_at: opened(30), approved_by: ['bob'] }))).toBe(false)
-    expect(lacksReviewer(mr({ created_at: opened(30), changes_requested_by: ['bob'] }))).toBe(false)
-  })
-  it('needs to know when it opened', () => {
-    expect(lacksReviewer(mr({ created_at: null }))).toBe(false)
-  })
-})
-
-describe('unresolved threads', () => {
-  it('flags an open MR with threads left unresolved', () => {
-    expect(hasOpenThreads(mr({ open_threads: 2 }))).toBe(true)
-    expect(hasOpenThreads(mr({ open_threads: 0 }))).toBe(false)
-    expect(hasOpenThreads(mr({ open_threads: 2, state: 'merged' }))).toBe(false)
-  })
-})
-
-describe('access alerts', () => {
-  it('says a token is missing, and where to paste it', () => {
-    const a = accessAlert('clickup', 'missing token: set CLICKUP_TOKEN or the "prism-clickup" keychain entry')
-    expect(a?.text).toMatch(/^ClickUp: no token yet/)
-    expect(a?.fixes).toEqual([{ kind: 'settings', section: 'clickup', label: 'Settings › ClickUp' }])
-  })
-  it('says a token is refused', () => {
-    expect(accessAlert('jira queues', 'Jira /rest/api/3/search: HTTP 401 Unauthorized')?.text).toMatch(/^Jira refused the token/)
-    expect(accessAlert('clickup', 'ClickUp /team: HTTP 403 Forbidden')?.severity).toBe('ko')
-  })
-  it('sends a forge not signed in to its login', () => {
-    const a = accessAlert('gitlab', 'glab api: 401 Unauthorized')
-    expect(a?.fixes?.[0]).toMatchObject({ section: 'forge' })
-  })
-  it('leaves the other errors as they were', () => {
-    expect(accessAlert('clickup', 'ClickUp /team: HTTP 500')).toBeNull()
-    expect(accessAlert('kube', 'missing token')).toBeNull()
   })
 })

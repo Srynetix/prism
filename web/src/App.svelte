@@ -56,7 +56,7 @@
   import InProgress from './components/InProgress.svelte'
   import RoutinesBlock from './components/RoutinesBlock.svelte'
   import AsidesBlock from './components/AsidesBlock.svelte'
-  import { publishInputs, reviewPile } from './routines.svelte'
+  import { reviewPile } from './routines.svelte'
   import TicketPanel from './components/TicketPanel.svelte'
   import Refinement from './components/Refinement.svelte'
   import LogPanel from './components/LogPanel.svelte'
@@ -77,7 +77,6 @@
   import ArgoPanel from './components/ArgoPanel.svelte'
   import OverlapPanel from './components/OverlapPanel.svelte'
   import ChangesDrawer from './blocks/changes/ChangesDrawer.svelte'
-  import { feedChanges } from './changes-feed'
   import McpProposal from './components/McpProposal.svelte'
   import { watchProposals } from './mcp-view.svelte'
   import ShellDrawer from './components/ShellDrawer.svelte'
@@ -150,9 +149,9 @@
   // An agent's proposal (`prism mcp`) arriving: a toast to open it.
   $effect(() => watchProposals(live.snapshot))
   const focus = $derived(full ? resolve(full, filter.query) : null)
-  /** All blocks read the filtered view; alerts are computed on the full state then filtered. */
+  /** All blocks read the filtered view; the alerts, the core's on the full state, are filtered. */
   const snap = $derived(full ? apply(filter.mine ? applyMine(full) : full, focus) : null)
-  /** Every alert of the full state, computed once per snapshot for the view and the menu bar. */
+  /** Every alert of the full state (the core's, `Snapshot.alerts`), for the view and the menu bar. */
   const allAlerts = $derived(full ? computeAlerts(full) : [])
   const alerts = $derived.by(() => {
     if (!full) return []
@@ -172,17 +171,9 @@
     const minute = clock(60_000).now
     syncDesktop(full, allAlerts.filter((a) => !isSeen(a) && !isSnoozed(a, minute) && ruleBand(a, settings) !== null))
   })
-  // What the builtin routines read (the open alerts, the retro's figures), given to the core.
-  $effect(() => {
-    if (full) publishInputs(full, allAlerts)
-  })
   // Since when each alert holds, for its age and its band (alert-snooze.svelte.ts).
   $effect(() => {
     if (full) noteAlerts(allAlerts)
-  })
-  // The Changes block notes the alerts of the environments appearing and going (changes-feed.ts).
-  $effect(() => {
-    if (full) feedChanges(full, allAlerts)
   })
 
   /** A collapsed block keeps only its title line; its neighbors share the space. */

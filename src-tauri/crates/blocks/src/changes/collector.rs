@@ -14,7 +14,7 @@ use std::{
     collections::{BTreeMap, HashSet},
     io::Write,
     path::{Path, PathBuf},
-    sync::{Mutex, OnceLock},
+    sync::OnceLock,
     time::Duration,
 };
 
@@ -24,12 +24,10 @@ use prism_base::{tr, i18n::tr};
 use serde::{Deserialize, Serialize};
 
 use super::observe::{self, Last, View};
-use super::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity, ChangesConfig, ChangesState, Closed, WindowAlert};
+use super::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity, ChangesConfig, ChangesState, Closed};
 use crate::{git::run as git, state::Snapshot, BlockCtx};
 
 static REFRESH: OnceLock<tokio::sync::Notify> = OnceLock::new();
-/// The window's alerts, as it last sent them.
-static ALERTS: Mutex<Option<Vec<WindowAlert>>> = Mutex::new(None);
 
 /// Every read, and at most this long without one before Prism counts as closed.
 const EVERY: Duration = Duration::from_secs(30);
@@ -44,16 +42,17 @@ pub fn refresh() {
     }
 }
 
-/// The window's alerts changed.
-pub fn alerts(alerts: Vec<WindowAlert>) {
-    let changed = {
-        let mut held = ALERTS.lock().unwrap_or_else(|e| e.into_inner());
-        let changed = held.as_ref() != Some(&alerts);
-        *held = Some(alerts);
-        changed
-    };
-    if changed {
-        refresh();
+/// The environments' alerts appearing or going are read at once, not at the next read: the core
+/// computes them on each change of the snapshot.
+async fn follow_alerts(ctx: BlockCtx) {
+    let mut rx = ctx.subscribe();
+    let mut last = None;
+    while rx.changed().await.is_ok() {
+        let now = super::env_alerts(&rx.borrow_and_update());
+        if now != last {
+            last = now;
+            refresh();
+        }
     }
 }
 
@@ -72,6 +71,7 @@ struct Kept {
 
 pub async fn run(cfg: ChangesConfig, ctx: BlockCtx) {
     let notify = REFRESH.get_or_init(tokio::sync::Notify::new);
+    prism_base::rt::spawn(follow_alerts(ctx.clone()));
     let dir = ctx.data_dir();
     let journal_path = dir.join("changes.jsonl");
     let kept_path = dir.join("changes-last.json");
@@ -100,7 +100,7 @@ pub async fn run(cfg: ChangesConfig, ctx: BlockCtx) {
         let blocks = ctx.snapshot(|s: &Snapshot| s.blocks.clone());
         let clones = ctx.snapshot(|s: &Snapshot| s.repos.iter().filter(|r| r.error.is_none() && !r.path.is_empty()).map(|r| (r.name.clone(), r.path.clone())).collect::<Vec<_>>());
         envs = view.env_names();
-        let alerts = ALERTS.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let alerts = ctx.snapshot(super::env_alerts);
         let mut fresh = observe::observe(&cfg, &view, alerts.as_deref(), &mut kept.last, now, since());
         let mut errors = Vec::new();
         if cfg.kube_events {

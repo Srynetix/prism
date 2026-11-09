@@ -246,6 +246,10 @@ pub fn shared_save(state: State<'_, AppState>, name: String, value: serde_json::
     if (name == "notes" && !value.is_array()) || (name != "notes" && !value.is_object()) {
         return Err(format!("{name}: unexpected shape").into());
     }
+    // The alerts follow the agents and worktrees archived, the overlaps ignored (in the demo too).
+    if name == "prefs" {
+        state.hub.set_alert_prefs(&value);
+    }
     // The demo writes nothing: the page keeps what it changed until it is closed.
     if crate::demo::active() {
         return Ok(state.hub.subscribe().borrow().shared_revs.get(&name).copied().unwrap_or(0));

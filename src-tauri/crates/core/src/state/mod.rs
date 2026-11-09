@@ -228,7 +228,9 @@ pub struct Snapshot {
     /// Team and repository conventions (ticket prefix, branches, flow statuses).
     pub conventions: crate::conventions::Conventions,
     /// Alert thresholds (`[alerts]`).
-    pub alerts: crate::config::AlertsConfig,
+    pub alerts_settings: crate::config::AlertsConfig,
+    /// The alerts, computed from the rest on each change (`crate::alerts`).
+    pub alerts: Vec<crate::alerts::Alert>,
     pub sessions: Vec<ClaudeSession>,
     /// Archived desktop sessions that had a worktree.
     pub archived_sessions: Vec<ArchivedSession>,

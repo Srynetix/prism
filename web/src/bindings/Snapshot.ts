@@ -3,6 +3,7 @@ import type { ActiveProfile } from "./ActiveProfile";
 import type { Agenda } from "./Agenda";
 import type { Agent } from "./Agent";
 import type { AgentsConfig } from "./AgentsConfig";
+import type { Alert } from "./Alert";
 import type { AlertsConfig } from "./AlertsConfig";
 import type { AppearanceConfig } from "./AppearanceConfig";
 import type { ArchivedSession } from "./ArchivedSession";
@@ -206,7 +207,11 @@ conventions: Conventions,
 /**
  * Alert thresholds (`[alerts]`).
  */
-alerts: AlertsConfig, sessions: Array<ClaudeSession>, 
+alerts_settings: AlertsConfig, 
+/**
+ * The alerts, computed from the rest on each change (`crate::alerts`).
+ */
+alerts: Array<Alert>, sessions: Array<ClaudeSession>, 
 /**
  * Archived desktop sessions that had a worktree.
  */
