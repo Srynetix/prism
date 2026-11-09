@@ -12,8 +12,9 @@ use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, HANDLE, STILL_ACTIV
 use windows_sys::Win32::Security::Authorization::{
     ConvertSecurityDescriptorToStringSecurityDescriptorW, ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, GetNamedSecurityInfoW, SetNamedSecurityInfoW, SDDL_REVISION_1, SE_FILE_OBJECT,
 };
-use windows_sys::Win32::Security::{GetSecurityDescriptorDacl, GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER};
+use windows_sys::Win32::Security::{SECURITY_ATTRIBUTES, GetSecurityDescriptorDacl, GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER};
 use windows_sys::Win32::Storage::FileSystem::GetDriveTypeW;
+use windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId;
 use windows_sys::Win32::System::Power::{SetThreadExecutionState, ES_CONTINUOUS, ES_SYSTEM_REQUIRED};
 use windows_sys::Win32::System::Threading::{GetCurrentProcess, GetExitCodeProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION};
 use windows_sys::Win32::UI::Shell::{
@@ -98,6 +99,8 @@ pub fn signal_pipe(pid: u32) -> String {
 pub fn signal(pid: u32, byte: u8) -> bool {
     for _ in 0..10 {
         match std::fs::OpenOptions::new().write(true).open(signal_pipe(pid)) {
+            // Another account's pipe under that name: told nothing.
+            Ok(pipe) if !pipe_server_is_mine(&pipe) => return false,
             Ok(mut pipe) => return pipe.write_all(&[byte]).is_ok(),
             // ERROR_PIPE_BUSY: its one instance is taken, the next comes in a moment.
             Err(e) if e.raw_os_error() == Some(231) => std::thread::sleep(std::time::Duration::from_millis(50)),
@@ -105,6 +108,33 @@ pub fn signal(pid: u32, byte: u8) -> bool {
         }
     }
     false
+}
+
+/// This process's `signal_pipe`, heard until the end: each byte another launch sends (`signal`)
+/// given to `on`. An instance per message, the next one made before the connected one is read.
+pub async fn listen_signals(mut on: impl FnMut(u8)) {
+    use tokio::io::AsyncReadExt;
+    let name = signal_pipe(std::process::id());
+    let mut server = match pipe_server(&name, true) {
+        Ok(s) => s,
+        Err(e) => return tracing::warn!("no pipe {name}: {e}"),
+    };
+    loop {
+        if let Err(e) = server.connect().await {
+            tracing::warn!("{name}: {e}");
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            continue;
+        }
+        let next = match pipe_server(&name, false) {
+            Ok(s) => s,
+            Err(e) => return tracing::warn!("no pipe {name}: {e}"),
+        };
+        let mut connected = std::mem::replace(&mut server, next);
+        let mut byte = [0u8; 1];
+        if tokio::time::timeout(std::time::Duration::from_secs(2), connected.read_exact(&mut byte)).await.is_ok_and(|r| r.is_ok()) {
+            on(byte[0]);
+        }
+    }
 }
 
 /// The calling thread keeps the computer from sleeping (`on`), or no longer. Windows holds it as
@@ -117,9 +147,15 @@ pub fn stay_awake(on: bool) -> bool {
 
 /// This account's SID, `S-1-5-21-…`.
 fn user_sid() -> io::Result<String> {
+    // SAFETY: the process's own pseudo handle, never closed.
+    process_sid(unsafe { GetCurrentProcess() })
+}
+
+/// The SID of the account process `process` runs as.
+fn process_sid(process: HANDLE) -> io::Result<String> {
     let mut token: HANDLE = null_mut();
-    // SAFETY: the process's own pseudo handle; `token` ours to write, closed by `Handle`.
-    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+    // SAFETY: a process handle the caller holds; `token` ours to write, closed by `Handle`.
+    if unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) } == 0 {
         return Err(io::Error::last_os_error());
     }
     let token = Handle(token);
@@ -199,6 +235,43 @@ pub fn private_dir(dir: &Path) -> io::Result<()> {
         return Err(io::Error::from_raw_os_error(err as i32));
     }
     Ok(())
+}
+
+/// A named pipe's first or next instance, this account's only (and the system's): no other account
+/// of this computer opens it, nor any of another computer. `first`: the name claimed — it fails if
+/// some process made it already (another account squatting it).
+pub fn pipe_server(name: &str, first: bool) -> io::Result<tokio::net::windows::named_pipe::NamedPipeServer> {
+    let sddl = wide(OsStr::new(&format!("D:P(A;;GA;;;{})(A;;GA;;;SY)", user_sid()?)));
+    let mut sd: PSECURITY_DESCRIPTOR = null_mut();
+    // SAFETY: a NUL-terminated string; the descriptor freed by `Local`.
+    if unsafe { ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.as_ptr(), SDDL_REVISION_1, &mut sd, null_mut()) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let sd = Local(sd);
+    let mut attrs = SECURITY_ATTRIBUTES { nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32, lpSecurityDescriptor: sd.0, bInheritHandle: 0 };
+    let mut options = tokio::net::windows::named_pipe::ServerOptions::new();
+    options.first_pipe_instance(first).reject_remote_clients(true);
+    // SAFETY: `attrs` a SECURITY_ATTRIBUTES whose descriptor lives in `sd`, both alive through the call.
+    unsafe { options.create_with_security_attributes_raw(name, (&mut attrs as *mut SECURITY_ATTRIBUTES).cast()) }
+}
+
+/// Whether the server end of pipe `client` (a handle of ours) runs as this account: a pipe another
+/// account made first under our name is never spoken to. A server of this account started as
+/// administrator (elevated) is refused too: its token cannot be read from a normal process, and
+/// Prism is not meant to run elevated (`prism mcp`, `prism sessions`, `prism restart` then fail).
+pub fn pipe_server_is_mine(client: &impl std::os::windows::io::AsRawHandle) -> bool {
+    let mut pid = 0u32;
+    // SAFETY: a pipe handle the caller holds, alive through the call; `pid` ours to write.
+    if unsafe { GetNamedPipeServerProcessId(client.as_raw_handle() as HANDLE, &mut pid) } == 0 {
+        return false;
+    }
+    // SAFETY: an id; the handle closed by `Handle`.
+    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if process.is_null() {
+        return false;
+    }
+    let process = Handle(process);
+    matches!((process_sid(process.0), user_sid()), (Ok(a), Ok(b)) if a == b)
 }
 
 /// `C:\` of `C:\Users\me\x`.

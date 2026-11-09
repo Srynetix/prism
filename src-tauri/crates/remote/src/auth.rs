@@ -28,8 +28,7 @@ pub type ClaimShown = (String, String, bool);
 
 /// A session's token as kept: its SHA-256, the token itself only in the phone's cookie.
 fn key(token: &str) -> String {
-    use sha2::{Digest, Sha256};
-    Sha256::digest(token.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
+    prism_core::textdiff::sha256(token)
 }
 const CHALLENGE_TTL: Duration = Duration::minutes(2);
 /// Failed confirmations of a phone tolerated in a minute before its confirmations are refused for
@@ -144,11 +143,6 @@ impl Auth {
 
     pub fn devices(&self) -> &[Device] {
         &self.devices
-    }
-
-    /// Whether a session of `device` is open now.
-    pub fn has_session(&self, device: &str) -> bool {
-        self.sessions.values().any(|s| s.device == device)
     }
 
     // Pairing, on the desk's side.

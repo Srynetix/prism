@@ -36,10 +36,16 @@ impl Block for DiskUsage {
         "disk_usage"
     }
 
-    fn remote(&self, command: &str, _args: &Value) -> RemoteClass {
+    fn remote(&self, command: &str, args: &Value) -> RemoteClass {
         match command {
             "tree" | "ancestors" => RemoteClass::Read,
-            "scan" | "stop" => RemoteClass::Act,
+            // One of `[disk_usage] roots`; any other folder (`/`, `~/.ssh`), its names listed to a
+            // phone: the passkey's.
+            "scan" => match args.get("root").and_then(Value::as_str) {
+                Some(root) if !scan::scanner().is_ok_and(|s| s.cfg.roots.iter().any(|r| r == root)) => RemoteClass::Critical,
+                _ => RemoteClass::Act,
+            },
+            "stop" => RemoteClass::Act,
             "trash_measure" => RemoteClass::Read,
             "trash" | "clean" | "empty_trash" => RemoteClass::Critical,
             _ => RemoteClass::Never,

@@ -780,7 +780,7 @@ mod tests {
         }
         fn class(&self, command: &str, _args: &Value) -> Option<Class> {
             match command {
-                "mr_detail" => Some(Class::Read),
+                "mr_detail" | "agent_files_download" => Some(Class::Read),
                 "merge_mr" => Some(Class::Critical),
                 _ => None,
             }

@@ -50,6 +50,68 @@ pub fn which(program: &str) -> Option<std::path::PathBuf> {
     std::env::split_paths(&path).find_map(|d| names.iter().map(|n| d.join(n)).find(|p| p.is_file()))
 }
 
+/// The command line to start `argv` with in a terminal (`portable-pty`, which quotes as a program
+/// reads its arguments, not as cmd.exe does). On Windows a `.cmd`/`.bat` (an npm package's shim:
+/// `claude.cmd`, `codex.cmd`) runs through cmd.exe, which would read an argument's `&`, `|` or
+/// `%VAR%` (an agent's title or prompt, from a ticket, a MR, a log) as its own: an npm shim is
+/// started as what it starts (`node <its script>`); another script only with arguments cmd.exe
+/// reads as they are. Elsewhere, `argv` as it is.
+pub fn terminal_argv(argv: Vec<String>) -> anyhow::Result<Vec<String>> {
+    if !cfg!(windows) || argv.is_empty() {
+        return Ok(argv);
+    }
+    let program = std::path::Path::new(&argv[0]);
+    let found = if program.components().count() == 1 { which(&argv[0]) } else { Some(program.to_path_buf()) };
+    let Some(found) = found.filter(|p| p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("cmd") || e.eq_ignore_ascii_case("bat"))) else {
+        return Ok(argv);
+    };
+    let dir = found.parent().map(std::path::Path::to_path_buf).unwrap_or_default();
+    if let Some(script) = std::fs::read_to_string(&found).ok().as_deref().and_then(npm_shim_target) {
+        let node = dir.join("node.exe");
+        let node = if node.is_file() { node } else { which("node").unwrap_or_else(|| "node".into()) };
+        let mut out = vec![node.display().to_string(), dir.join(script).display().to_string()];
+        out.extend(argv.into_iter().skip(1));
+        return Ok(out);
+    }
+    // Another script: its arguments as cmd.exe reads them unchanged — a line break, which would
+    // end its command there, a space instead (a prompt's paragraphs run on).
+    let mut argv = argv;
+    for a in argv.iter_mut().skip(1) {
+        if a.contains(['\r', '\n']) {
+            *a = a.replace("\r\n", " ").replace(['\r', '\n'], " ");
+        }
+    }
+    if let Some(bad) = argv[1..].iter().find(|a| !cmd_safe(a)) {
+        anyhow::bail!("{} is a cmd.exe script: it is not given « {} » (a % or \" cmd.exe would read as its own; install its program, not a script)", found.display(), bad.chars().take(40).collect::<String>());
+    }
+    Ok(argv)
+}
+
+/// The script a package manager's shim runs (npm's and yarn's `cmd-shim`, pnpm's): the quoted
+/// path from the shim's folder (`"%dp0%\…"`, `"%~dp0\…"`) to a `.js` on its line ending in `%*`.
+fn npm_shim_target(text: &str) -> Option<String> {
+    let line = text.lines().rev().find(|l| l.trim_end().ends_with("%*"))?;
+    for from in ["\"%dp0%\\", "\"%~dp0\\"] {
+        for (at, _) in line.match_indices(from) {
+            let rest = &line[at + from.len()..];
+            let Some(end) = rest.find('"') else { continue };
+            let script = &rest[..end];
+            let js = [".js", ".cjs", ".mjs"].iter().any(|e| script.to_ascii_lowercase().ends_with(e));
+            if js && !script.contains(['%', '&', '|', '^', '<', '>']) {
+                return Some(script.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// What cmd.exe reads as it is, once the terminal has quoted it (`portable-pty` quotes what holds
+/// a space or a tab): never a `%` (which expands, quoted or not) nor a `"` (which ends the quote);
+/// `&`, `|`, `<`, `>`, `^`, `(`, `)` only inside quotes, so with a space.
+fn cmd_safe(arg: &str) -> bool {
+    !arg.contains(['"', '%', '\r', '\n']) && (arg.contains([' ', '\t']) || !arg.contains(['&', '|', '<', '>', '^', '(', ')']))
+}
+
 /// The file names `program` goes by in a folder of the PATH: itself; on Windows, itself with each
 /// extension of `PATHEXT` first (by default `.COM;.EXE;.BAT;.CMD`), and itself alone only when it
 /// has one already (`git.exe`).
@@ -183,14 +245,28 @@ where
 {
     // Windows: `code` and many editors are `.cmd` shims, that only `start` resolves. Its
     // command line is written by hand: cmd does not read the quoting of `arg`.
+    // A program (`.exe`) started as is: its arguments quoted as it reads them, nothing for cmd.exe.
     #[cfg(windows)]
-    let mut cmd = {
+    let exe = which(program).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("exe")));
+    #[cfg(windows)]
+    let mut cmd = if let Some(exe) = exe {
+        use std::os::windows::process::CommandExt;
+        let mut c = std::process::Command::new(exe);
+        // Its own console, as `start` gives it (a terminal editor); a window's app has none.
+        const CREATE_NEW_CONSOLE: u32 = 0x10;
+        c.creation_flags(CREATE_NEW_CONSOLE);
+        c.args(args);
+        c
+    } else {
         use std::os::windows::process::CommandExt;
         let mut c = std::process::Command::new("cmd");
         c.creation_flags(CREATE_NO_WINDOW);
-        c.raw_arg(format!("/C start \"\" \"{program}\""));
+        // Quoted, `&`, `|` and the like are read as they are; `%` would still expand, and a `"` end
+        // the quote: refused.
+        let quoted = |a: &str| if a.contains(['"', '%']) { anyhow::bail!("{a}: a \" or % cmd.exe would read as its own") } else { Ok(format!("\"{a}\"")) };
+        c.raw_arg(format!("/C start \"\" {}", quoted(program)?));
         for a in args {
-            c.raw_arg(format!("\"{}\"", a.as_ref().to_string_lossy()));
+            c.raw_arg(quoted(&a.as_ref().to_string_lossy())?);
         }
         c
     };
@@ -435,17 +511,20 @@ pub async fn disk_usage(dir: &Path) -> Option<u64> {
 pub fn remove_dirs_detached(paths: &[PathBuf]) {
     #[cfg(unix)]
     let child = std_command("rm").arg("-rf").args(paths).spawn();
+    // Windows: cmd.exe's `rmdir`, each path quoted (its `&` read as it is); one with a `%` (which
+    // would expand) erased here, in a thread.
     #[cfg(not(unix))]
     let child = {
-        let mut cmd = std_command("cmd");
-        cmd.arg("/C");
-        for (i, p) in paths.iter().enumerate() {
-            if i > 0 {
-                cmd.arg("&");
-            }
-            cmd.args(["rmdir", "/S", "/Q"]).arg(p);
+        use std::os::windows::process::CommandExt;
+        let (odd, plain): (Vec<&PathBuf>, Vec<&PathBuf>) = paths.iter().partition(|p| p.to_string_lossy().contains(['%', '"']));
+        let odd: Vec<PathBuf> = odd.into_iter().cloned().collect();
+        if !odd.is_empty() {
+            std::thread::spawn(move || odd.iter().for_each(|p| drop(std::fs::remove_dir_all(p))));
         }
-        cmd.spawn()
+        let mut cmd = std_command("cmd");
+        let line = plain.iter().map(|p| format!("rmdir /S /Q \"{}\"", p.display())).collect::<Vec<_>>().join(" & ");
+        cmd.raw_arg(format!("/D /C {line}"));
+        if plain.is_empty() { return } else { cmd.spawn() }
     };
     if let Ok(mut child) = child {
         std::thread::spawn(move || child.wait());
@@ -464,6 +543,22 @@ mod tests {
     }
 
     use super::*;
+
+    /// An npm shim, as cmd-shim writes it: started as `node <its script>`, no cmd.exe between.
+    #[test]
+    fn an_npm_shim_is_started_as_what_it_starts() {
+        let shim = "@ECHO off\r\nGOTO start\r\n:start\r\nIF EXIST \"%dp0%\\node.exe\" (\r\n  SET \"_prog=%dp0%\\node.exe\"\r\n) ELSE (\r\n  SET \"_prog=node\"\r\n)\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & \"%_prog%\"  \"%dp0%\\node_modules\\@anthropic-ai\\claude-code\\cli.js\" %*\r\n";
+        assert_eq!(npm_shim_target(shim).as_deref(), Some("node_modules\\@anthropic-ai\\claude-code\\cli.js"));
+        assert_eq!(npm_shim_target("@echo off\r\nrmdir %1\r\n"), None);
+        assert!(cmd_safe("--session-id") && cmd_safe("C:\\Users\\me\\wt") && cmd_safe("a@b.c") && cmd_safe("Fix the login"));
+        assert!(cmd_safe("Corrige l'erreur ?") && cmd_safe("Été") && cmd_safe("fix it!") && cmd_safe("") && cmd_safe("a & b (quoted)"));
+        for bad in ["x\" & calc & \"", "%PATH%", "a|b", "^", "x&calc", "line\nbreak"] {
+            assert!(!cmd_safe(bad), "{bad}");
+        }
+        // pnpm's and yarn's shims.
+        let pnpm = "@SETLOCAL\r\n@IF EXIST \"%~dp0\\node.exe\" (\r\n  \"%~dp0\\node.exe\"  \"%~dp0\\..\\@openai\\codex\\bin\\codex.js\" %*\r\n) ELSE (\r\n  node  \"%~dp0\\..\\@openai\\codex\\bin\\codex.js\" %*\r\n)\r\n";
+        assert_eq!(npm_shim_target(pnpm).as_deref(), Some("..\\@openai\\codex\\bin\\codex.js"));
+    }
 
     #[cfg(all(unix, not(target_os = "macos")))]
     #[test]

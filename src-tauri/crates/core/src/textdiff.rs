@@ -1,7 +1,13 @@
-//! Two texts compared line by line: a custom block's declaration since it was trusted, a config
-//! change an agent proposes (`mcp`).
+//! Two texts compared line by line: a custom block's or a routine's declaration since it was
+//! trusted, a config change an agent proposes (`mcp`); and their hash.
 
 use serde::Serialize;
+use sha2::Digest;
+
+/// `bytes`' SHA-256 in hex: a declaration's, to know it is the one trusted; a token's, kept in its stead.
+pub fn sha256(bytes: impl AsRef<[u8]>) -> String {
+    sha2::Sha256::digest(bytes.as_ref()).iter().map(|b| format!("{b:02x}")).collect()
+}
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]

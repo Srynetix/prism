@@ -308,6 +308,7 @@ fn reworded(bin: Bin, text: &str) -> String {
 
 /// The table of the guide's CLI section: each public subcommand (and theirs), what it does, which
 /// binary has it. Kept in docs/guide.md by a test.
+#[cfg(test)]
 pub fn guide_table() -> String {
     let app = command(&Info { bin: Bin::App, version: "", build: "" });
     let mut lines = vec!["| Command | What it does | `prism` | `prism-server` |".to_string(), "|---|---|:-:|:-:|".to_string()];

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # A team's blocks for the packaging scripts (dmg.sh, linux.sh), sourced: their folder as `just`
 # reads it, and the label the app shows after its version (src-tauri/build.rs, web/vite.config.ts).
 #

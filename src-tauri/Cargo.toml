@@ -115,8 +115,6 @@ tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-window-state = "2"
-# The releases' signatures (scripts/release.sh, minisign): an update installs only what its key signed.
-minisign-verify = "0.3"
 tokio.workspace = true
 toml.workspace = true
 notify.workspace = true
@@ -136,6 +134,7 @@ prism-collectors = { workspace = true, features = ["ts"] }
 prism-agents = { workspace = true, features = ["ts"] }
 prism-blocks = { workspace = true, features = ["ts"] }
 prism-ops = { workspace = true, features = ["ts"] }
+prism-dictation = { workspace = true, features = ["ts"] }
 prism-commands = { workspace = true, features = ["tauri", "ts"] }
 
 [build-dependencies]

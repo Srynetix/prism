@@ -92,6 +92,10 @@ windows-check *args:
 windows-build *args:
     {{no_extra}}scripts/windows.sh build {{args}}
 
+# Builds prism-server.exe, Prism without a window, for Windows from macOS or Linux (cargo xwin; WINDOWS_ARCH=arm64 for ARM)
+windows-server *args:
+    {{no_extra}}scripts/windows.sh server {{args}}
+
 # Prints the changelog since the previous release, the notes `just release` publishes
 changelog *args:
     scripts/changelog.sh {{args}}

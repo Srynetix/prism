@@ -297,6 +297,44 @@ impl Provider {
         }
     }
 
+    /// The options that give it Prism's MCP server (`whole`: every tool and the skill, `[agents]
+    /// prism_mcp`; otherwise « in passing » alone, `[agents.aside]`), files read from `work`
+    /// (`write_mcp`). OpenCode gets it in its environment (`env`), Command Code not at all.
+    pub fn mcp_args(self, work: &Path, whole: bool) -> Vec<String> {
+        use crate::mcp;
+        match (self, whole) {
+            (Self::Claude, true) => vec!["--plugin-dir".into(), mcp::claude_plugin_dir(work).display().to_string()],
+            (Self::Claude, false) => vec!["--mcp-config".into(), mcp::claude_aside_file(work).display().to_string()],
+            (Self::Codex, true) => mcp::codex_args(&mcp::command()),
+            (Self::Codex, false) => mcp::codex_args(&mcp::aside_command()),
+            (Self::OpenCode | Self::CommandCode, _) => Vec::new(),
+        }
+    }
+
+    /// The « in passing » tools allowed without asking (`suggest_task` only records a proposal:
+    /// never a permission prompt that would stop the agent); a CLI that asks for none, nothing.
+    pub fn aside_allowed(self) -> Vec<String> {
+        if self != Self::Claude {
+            return Vec::new();
+        }
+        // Its tools as named by `--mcp-config`, and by the plugin of the whole server (`plugin_<plugin>_<server>`).
+        let s = crate::mcp::SERVER;
+        vec![format!("--allowedTools=mcp__{s}__suggest_task,mcp__{s}__dismiss_task,mcp__plugin_{s}_{s}__suggest_task,mcp__plugin_{s}_{s}__dismiss_task")]
+    }
+
+    /// The files `mcp_args` reads, written in `work` for the executable as it is now (its path
+    /// follows Prism's): Claude Code's plugin and its « in passing » `--mcp-config`. The others need none.
+    /// Each written whatever became of the other: one failed, the other still serves.
+    pub fn write_mcp(self, work: &Path) -> anyhow::Result<()> {
+        if self == Self::Claude {
+            let plugin = crate::mcp::write_claude_plugin(work, &crate::mcp::command());
+            let aside = crate::mcp::write_claude_aside(work, &crate::mcp::aside_command());
+            plugin?;
+            aside?;
+        }
+        Ok(())
+    }
+
     /// What the CLI's environment adds for Prism: OpenCode's plugin (`wiring`), merged into the
     /// user's own config, and, for `acceptEdits`, edits allowed whatever that config says (OpenCode
     /// allows them by default).
@@ -381,6 +419,19 @@ fn codex_hooks(file: &Path) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Prism's MCP server for each CLI, whole or « in passing » alone, from the one place.
+    #[test]
+    fn each_cli_gets_prism_s_mcp_its_own_way() {
+        let work = Path::new("/w");
+        assert_eq!(Provider::Claude.mcp_args(work, true)[..2], ["--plugin-dir".to_string(), "/w/prism-mcp-plugin".into()]);
+        assert_eq!(Provider::Claude.mcp_args(work, false)[0], "--mcp-config");
+        let codex = Provider::Codex.mcp_args(work, false).join(" ");
+        assert!(codex.contains("mcp_servers.prism.args") && codex.contains("\"aside\""), "{codex}");
+        assert!(Provider::OpenCode.mcp_args(work, true).is_empty() && Provider::CommandCode.mcp_args(work, true).is_empty());
+        assert!(Provider::Claude.aside_allowed()[0].starts_with("--allowedTools=mcp__prism__suggest_task"));
+        assert!(Provider::Codex.aside_allowed().is_empty());
+    }
 
     /// What the window reads of each CLI (`provider-specs.ts`) says what its command lines do.
     #[test]

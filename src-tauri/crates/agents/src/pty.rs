@@ -65,6 +65,8 @@ impl Attachment {
         on_end: impl FnOnce() + Send + 'static,
     ) -> Result<Self> {
         let pair = native_pty_system().openpty(size(cols, rows)).context("opening a pty")?;
+        // On Windows, an npm CLI's shim started as what it starts: cmd.exe never reads its arguments.
+        let argv = prism_base::platform::terminal_argv(argv.to_vec())?;
         let mut cmd = CommandBuilder::new(&argv[0]);
         cmd.args(&argv[1..]);
         cmd.env("TERM", "xterm-256color");

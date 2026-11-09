@@ -146,7 +146,31 @@ async fn stopped(state: &AppState) {
     }
 }
 
-#[cfg(not(unix))]
+/// Windows: until Ctrl-C; `prism restart` (its byte on this process's pipe) restarts it meanwhile.
+#[cfg(windows)]
+async fn stopped(state: &AppState) {
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let listen = tokio::spawn(prism_sys::windows::listen_signals(move |byte| {
+        let _ = tx.send(byte);
+    }));
+    loop {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => break,
+            Some(byte) = rx.recv() => match byte {
+                profile::RESTART => {
+                    tracing::info!("prism restart: restarting");
+                    let _ = tokio::time::timeout(std::time::Duration::from_secs(5), state.remote.apply(&Default::default())).await;
+                    state.shell.restart()
+                }
+                profile::WAKE => tracing::info!("profile {} is open here, without a window", profile::active()),
+                _ => {}
+            },
+        }
+    }
+    listen.abort();
+}
+
+#[cfg(not(any(unix, windows)))]
 async fn stopped(_state: &AppState) {
     let _ = tokio::signal::ctrl_c().await;
 }

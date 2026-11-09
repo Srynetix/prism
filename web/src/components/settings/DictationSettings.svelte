@@ -14,9 +14,9 @@
    * system's recognition (macOS) and its permission, whisper's models (downloaded here, checked,
    * removed), the microphones, what macOS does with Fn, and a test.
    */
-  type Model = { name: string; bytes: number; installed: boolean }
-  type Status = { engine: 'system' | 'whisper'; system: boolean; system_auth: string; system_language: string; models: Model[]; downloading: string[]; devices: string[]; fn_usage: number | null; demo: boolean }
-  type Download = { model: string; done: number; total: number; finished: boolean; error: string | null }
+  // Rust's (`src-tauri/src/dictation.rs`), generated.
+  import type { DictationStatus as Status } from '../../bindings/DictationStatus'
+  import type { DictationDownload as Download } from '../../bindings/DictationDownload'
 
   const NOTES: Record<string, string> = {
     tiny: t('very fast, many mistakes'),

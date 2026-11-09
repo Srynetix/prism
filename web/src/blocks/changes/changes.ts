@@ -4,7 +4,7 @@ import type { ChangeLink } from '../../bindings/ChangeLink'
 import type { ChangesState } from '../../bindings/ChangesState'
 import type { ChangesClosed } from '../../bindings/ChangesClosed'
 import { locale } from '../../locale'
-import { t, tn } from '../../i18n.svelte'
+import { t } from '../../i18n.svelte'
 
 /** The journal and its events: Rust's types (`crates/core/src/changes.rs`, `crates/blocks/src/changes`), generated in `bindings/`. */
 export type { ChangeEvent, ChangeKind, ChangeLink, ChangesState, ChangesClosed }
@@ -248,5 +248,3 @@ export function markdown(list: Row[], env: string | null, range: Range): string 
   return [head, '', ...lines].join('\n')
 }
 
-/** A short count for the header: `12 changes`. */
-export const countLabel = (n: number) => tn(n, '{n} change recorded', '{n} changes recorded')

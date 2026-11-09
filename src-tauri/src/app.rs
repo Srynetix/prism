@@ -216,45 +216,19 @@ impl tauri::Assets<tauri::Wry> for NoAssets {
 /// message, the next one made before the connected one is read.
 #[cfg(windows)]
 pub fn listen_signals(app: &AppHandle) {
-    use tokio::io::AsyncReadExt;
-    use tokio::net::windows::named_pipe::ServerOptions;
-    let name = prism_sys::windows::signal_pipe(std::process::id());
     let handle = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let make = |first: bool| ServerOptions::new().first_pipe_instance(first).reject_remote_clients(true).create(&name);
-        let mut server = match make(true) {
-            Ok(s) => s,
-            Err(e) => return tracing::warn!("no pipe {name}: {e}"),
-        };
-        loop {
-            if let Err(e) = server.connect().await {
-                tracing::warn!("{name}: {e}");
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                continue;
-            }
-            let next = match make(false) {
-                Ok(s) => s,
-                Err(e) => return tracing::warn!("no pipe {name}: {e}"),
-            };
-            let mut connected = std::mem::replace(&mut server, next);
-            let mut byte = [0u8; 1];
-            if tokio::time::timeout(Duration::from_secs(2), connected.read_exact(&mut byte)).await.is_err() {
-                continue;
-            }
-            match byte[0] {
-                crate::profile::WAKE => {
-                    // Windows are the main thread's.
-                    let app = handle.clone();
-                    let _ = handle.run_on_main_thread(move || crate::profile_windows::asked(&app));
-                }
-                crate::profile::RESTART => {
-                    tracing::info!("prism restart: restarting");
-                    self::restart(&handle);
-                }
-                _ => {}
-            }
+    tauri::async_runtime::spawn(prism_sys::windows::listen_signals(move |byte| match byte {
+        crate::profile::WAKE => {
+            // Windows are the main thread's.
+            let app = handle.clone();
+            let _ = handle.run_on_main_thread(move || crate::profile_windows::asked(&app));
         }
-    });
+        crate::profile::RESTART => {
+            tracing::info!("prism restart: restarting");
+            self::restart(&handle);
+        }
+        _ => {}
+    }));
 }
 
 /// The signals another launch sends: SIGUSR1 shows what it asked (`profile::ask_host`: a

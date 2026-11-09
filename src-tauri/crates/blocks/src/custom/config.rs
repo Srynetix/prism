@@ -5,7 +5,6 @@ use std::collections::BTreeMap;
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
-use sha2::Digest;
 
 /// A custom block (`[[custom_blocks]]`).
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -166,7 +165,7 @@ impl Def {
             actions: &'a [Action],
         }
         let runs = Runs { command: &self.command, script: &self.script, args: &self.args, cwd: &self.cwd, env: &self.env, timeout: self.timeout_seconds, actions: &self.actions };
-        hex(&sha2::Sha256::digest(serde_json::to_vec(&runs).unwrap_or_default()))
+        prism_core::textdiff::sha256(serde_json::to_vec(&runs).unwrap_or_default())
     }
 }
 
@@ -190,10 +189,6 @@ pub fn valid_id(id: &str) -> bool {
 pub fn secret_name(name: &str) -> bool {
     let n = name.to_ascii_uppercase();
     ["TOKEN", "KEY", "PASSWORD", "PASSWD", "SECRET"].iter().any(|s| n.contains(s))
-}
-
-pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// The blocks of the merged config (`[[custom_blocks]]`), each read alone: one that does not read

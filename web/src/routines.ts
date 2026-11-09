@@ -25,7 +25,6 @@ export function toReview(r: RoutineRun): boolean {
   if (r.archived) return false
   return r.state === 'blocked' || r.state === 'failed' || r.state === 'too_long' || (r.state === 'ready' && r.deliver === 'review')
 }
-export const underWay = (r: RoutineRun) => r.state === 'running' || r.state === 'blocked'
 
 /** The pile, the ones waiting on me first (blocked), then the most recent. */
 export function reviewPile(s: Snapshot | null | undefined): RoutineRun[] {
@@ -44,11 +43,6 @@ export const STATE_LABEL: Record<RoutineRunState, string> = {
   skipped: t('skipped'),
 }
 export const STATE_ICON: Record<RoutineRunState, string> = { running: '…', blocked: '?', ready: '✓', nothing: '–', failed: '!', too_long: '!', skipped: '·' }
-
-/** The agents the routines launched: archived at once, back when they wait for an answer. */
-export function routineAgents(s: Snapshot | null | undefined): Map<string, RoutineRun> {
-  return new Map(routinesOf(s).runs.flatMap((r) => (r.agent ? [[r.agent, r] as const] : [])))
-}
 
 /** The MR of a run's branch, when the forge has one. */
 export function runMr(s: Snapshot | null | undefined, r: RoutineRun) {

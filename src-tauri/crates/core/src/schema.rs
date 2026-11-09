@@ -373,6 +373,15 @@ fn short(v: &Value) -> String {
 mod tests {
     use super::*;
 
+    /// Each table of config.toml says where Settings shows it (`prism_explain_key`): a table added
+    /// without its page here is caught.
+    #[test]
+    fn every_table_has_its_settings_page() {
+        let tables = serde_json::to_value(crate::config::parsed("")).unwrap();
+        let lost: Vec<&String> = tables.as_object().unwrap().keys().filter(|t| settings_page(t, None).starts_with("its block's page")).collect();
+        assert!(lost.is_empty(), "tables with no page in schema::settings_page: {lost:?}");
+    }
+
     fn schema() -> Value {
         json!({
             "type": "object",

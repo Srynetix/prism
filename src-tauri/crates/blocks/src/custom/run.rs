@@ -10,7 +10,6 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use prism_base::{i18n::tr, tr};
-use sha2::Digest;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 /// What is read of the standard output: beyond, cut and said.
@@ -257,9 +256,7 @@ pub fn scripts_dir(data: &Path) -> Result<PathBuf> {
     Ok(dir)
 }
 
-fn sha(text: &str) -> String {
-    super::config::hex(&sha2::Sha256::digest(text.as_bytes()))
-}
+use prism_core::textdiff::sha256 as sha;
 
 /// `script` as a file of `dir` named `<name>-<hash>`, executable by me alone, written atomically;
 /// the former files of `name` removed. Its content checked against its hash just before it runs.

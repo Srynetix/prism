@@ -43,7 +43,8 @@ pub const KEYCHAIN_SERVICE: &str = "prism-clickup";
 
 /// The workspace's custom task types (`custom_item_id` → name and Font Awesome icon), re-read with
 /// the lists. Id 1 is the built-in "Milestone" type; 0 or nothing, an ordinary task.
-static TASK_TYPES: LazyLock<RwLock<std::collections::HashMap<u64, (String, Option<String>)>>> = LazyLock::new(Default::default);
+type TaskTypes = std::collections::HashMap<u64, (String, Option<String>)>;
+static TASK_TYPES: LazyLock<RwLock<TaskTypes>> = LazyLock::new(Default::default);
 
 pub fn task_type(id: Option<u64>) -> Option<String> {
     match id? {

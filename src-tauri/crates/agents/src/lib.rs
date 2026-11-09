@@ -556,17 +556,9 @@ fn carried(legs: &[crate::state::AgentLeg], provider: Provider, session: &str) -
 /// (development, release) wherever it is; and what the file says runs in every agent of that CLI.
 fn write_wiring(work: &Path, provider: Provider) -> Result<()> {
     let exe = std::env::current_exe().context("locating the Prism executable")?;
-    // Prism's MCP plugin (`[agents] prism_mcp`, Configure Prism): its executable's path follows Prism's.
-    if provider == Provider::Claude
-        && let Err(e) = prism_core::mcp::write_claude_plugin(work, &prism_core::mcp::command())
-    {
-        tracing::warn!("agents: Prism's MCP plugin not written: {e:#}");
-    }
-    // Its « in passing » mode alone (`[agents.aside]`), as `--mcp-config`.
-    if provider == Provider::Claude
-        && let Err(e) = prism_core::mcp::write_claude_aside(work, &prism_core::mcp::aside_command())
-    {
-        tracing::warn!("agents: Prism's MCP config not written: {e:#}");
+    // Prism's MCP server, whole or « in passing » alone (`mcp_args`): its executable's path follows Prism's.
+    if let Err(e) = provider.write_mcp(work) {
+        tracing::warn!("agents: Prism's MCP files not written for {}: {e:#}", provider.program());
     }
     let wiring: Vec<u8> = match provider {
         Provider::Claude => serde_json::to_vec_pretty(&hook::hooks_settings(&exe, work))?,
