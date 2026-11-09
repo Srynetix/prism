@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TrustCard from '../components/TrustCard.svelte'
   import { openQuickActionDraft } from '../quick-action-draft.svelte'
   import { DRAFTER } from '../quick-action-source'
   import OverlapChip from '../components/OverlapChip.svelte'
@@ -656,7 +657,9 @@
         {@const pct = context.size ? Math.min(100, (context.used / context.size) * 100) : 0}
         <button class="ctxline" class:warn={pct >= 70} onclick={() => (ctxOpen = !ctxOpen)} aria-expanded={ctxOpen} aria-label={t('Context {pct}%: the detail', { pct: Math.round(pct) })}><i style:width="{pct}%"></i></button>
       {/if}
-      {#if calm && status === 'waiting_tool'}
+      {#if quickAgent?.gate && !shell}
+        <TrustCard agent={quickAgent} phone {critical} onterminal={() => (picked = 'terminal')} />
+      {:else if calm && status === 'waiting_tool'}
         <div class="perm" role="group" aria-label={t('Its permission prompt')}>
           <b><Icon name="warning" /> {t('It asks')}</b>
           {#if quickAgent?.needs_action}<code>{quickAgent.needs_action}</code>{/if}
@@ -668,7 +671,7 @@
       {/if}
       {#if quickAgent && !shell}<div class="qrow"><QuickAnswers agent={quickAgent} /></div>{/if}
       <div class="quick" class:hidden={calm && !keysOpen}>
-        {#if status === 'waiting_tool' && !calm}<button class="allow" onclick={() => act('agent_allow')} disabled={busy}><Icon name="check" /> {t('Allow once')}</button>{/if}
+        {#if status === 'waiting_tool' && !calm && !quickAgent?.gate}<button class="allow" onclick={() => act('agent_allow')} disabled={busy}><Icon name="check" /> {t('Allow once')}</button>{/if}
         <!-- A permission's other choices ("don't ask again"…) are answered at the desk. -->
         {#each status === 'waiting_tool' && !shell ? [] : ['1', '2', '3'] as n (n)}<button onclick={() => act('agent_key', { key: n })} disabled={busy} title={shell ? t('Choice {n} of its prompt', { n }) : t('Choice {n} of the agent’s question', { n })}>{n}</button>{/each}
         {#if shell}

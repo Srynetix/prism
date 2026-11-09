@@ -11,6 +11,7 @@ mod chains;
 pub mod conversation;
 mod costs;
 pub mod files;
+mod gate;
 pub mod hook;
 mod input;
 mod left;
@@ -33,6 +34,7 @@ mod shells;
 pub mod slash;
 mod status;
 pub mod tasks;
+pub mod trust;
 mod term;
 pub mod vcs;
 mod windows;
@@ -220,6 +222,11 @@ struct Inner {
     refreshing: tokio::sync::Mutex<()>,
     registry: Mutex<Registry>,
     attachments: Mutex<HashMap<String, Attachment>>,
+    /// What each agent's CLI asks on its screen before it starts (`gate.rs`), as last read.
+    gates: Mutex<HashMap<String, crate::state::AgentGate>>,
+    /// When each agent's CLI was last resumed or restarted: its screen read for a gate until a
+    /// hook comes after (its saved status, Running or a permission, says nothing of it).
+    relaunched: Mutex<HashMap<String, chrono::DateTime<Utc>>>,
     next_token: AtomicU64,
     hub: Hub,
     /// Wakes the state loop right away after a launch or a close.
@@ -272,8 +279,11 @@ impl Agents {
         // end never arrived (an agent interrupted, Prism closed) — worktree paths, kept a day.
         attach::prune(&work.join("attach"));
         hook::prune_watch(&work.join("watch"));
+        // One CLI's wiring not written leaves the others working: its agents only lack Prism's hooks.
         for provider in Provider::ALL {
-            write_wiring(&work, provider)?;
+            if let Err(e) = write_wiring(&work, provider) {
+                tracing::warn!("agents: {} wiring not written: {e:#}", provider.program());
+            }
         }
         let agents = Self {
             inner: Arc::new(Inner {
@@ -289,6 +299,8 @@ impl Agents {
                 refreshing: tokio::sync::Mutex::default(),
                 registry: Mutex::new(registry),
                 attachments: Mutex::default(),
+                gates: Mutex::default(),
+                relaunched: Mutex::default(),
                 next_token: AtomicU64::new(1),
                 hub,
                 changed: Notify::new(),
@@ -390,14 +402,23 @@ impl Agents {
                 a
             })
             .collect();
-        // The prompt Claude Code suggests at its prompt, read off its screen.
+        // The prompt Claude Code suggests at its prompt, read off its screen; and what a CLI asks
+        // before it starts (no hook yet, or at its prompt: a resume asks too), `gate.rs`.
         let mut list = list;
+        // A gate already read is read again until it is gone; an agent resumed, until a hook comes.
+        let (gated, relaunched) = (self.inner.gates.lock().unwrap().clone(), self.inner.relaunched.lock().unwrap().clone());
+        let asks = |a: &Agent| {
+            matches!(a.provider, Provider::Claude | Provider::Codex)
+                && a.state == AgentState::Running
+                && (a.last_activity.is_none() || quick::at_prompt(a.state, a.status) || gated.contains_key(&a.id) || relaunched.get(&a.id).is_some_and(|at| a.last_activity.is_none_or(|l| l <= *at)))
+        };
         // Every one's screen in a single tmux call.
-        let ids: Vec<String> = list.iter().filter(|a| a.provider == Provider::Claude && quick::at_prompt(a.state, a.status)).map(|a| a.id.clone()).collect();
+        let ids: Vec<String> = list.iter().filter(|a| (a.provider == Provider::Claude && quick::at_prompt(a.state, a.status)) || asks(a)).map(|a| a.id.clone()).collect();
         let screens = self.inner.tmux.screens(&ids).await;
         for a in list.iter_mut().filter(|a| ids.contains(&a.id)) {
             a.suggestion = screens.get(&a.id).and_then(|s| suggestion::read(s));
         }
+        self.apply_gates(&mut list, &screens);
         // Agents also appear among the Claude sessions: Claude block, menu bar,
         // notifications and alerts see them like the desktop ones.
         let sessions: Vec<ClaudeSession> = list.iter().filter(|a| a.state != AgentState::Prepared).map(as_session).collect();
@@ -512,6 +533,7 @@ fn read_agent(r: Record, folds: &mut HashMap<String, Fold>, usages: &mut HashMap
         model: usage.as_ref().and_then(|u| u.model.clone()).or_else(|| fold.model.clone()),
         usage,
         suggestion: None,
+        gate: None,
         planned: fold.planned,
         looping: fold.failing.clone().filter(|(_, n)| *n >= LOOPING && state == AgentState::Running).map(|(command, count)| crate::state::Looping { command, count }),
         legs: r.legs,
@@ -550,7 +572,9 @@ fn write_wiring(work: &Path, provider: Provider) -> Result<()> {
         Provider::Claude => serde_json::to_vec_pretty(&hook::hooks_settings(&exe, work))?,
         Provider::CommandCode => provider::COMMAND_CODE_MOD.into(),
         Provider::OpenCode => provider::OPENCODE_PLUGIN.into(),
-        Provider::Codex => serde_json::to_vec_pretty(&hook::codex_overrides(&exe, work))?,
+        // Through a script of a path that stays (`stable_exe`): Codex asks again to approve
+        // hooks whose command changed, as Prism's path does from one build or place to another.
+        Provider::Codex => serde_json::to_vec_pretty(&hook::codex_overrides(&stable_exe(work, &exe)?, work))?,
     };
     let file = work.join(provider.wiring_file());
     // Left alone when already right: Command Code watches its mod and reloads it, in every
@@ -575,6 +599,39 @@ fn write_wiring(work: &Path, provider: Provider) -> Result<()> {
     }
     std::io::Write::write_all(&mut open.open(&file)?, &wiring)?;
     Ok(())
+}
+
+/// A script in the data folder that runs this Prism (`<work>/bin/prism`), rewritten when Prism is
+/// elsewhere: its path, in the hooks' command, stays the same from one build or place to another.
+/// Owner-only. One per data folder: another Prism using it (a development build) points it at
+/// itself, the running agents' Codex hooks with it, until this one writes it again (a launch, a
+/// resume); worth it, as Codex would otherwise ask to approve its hooks at every update.
+/// On Windows, Prism's own path (the CLIs run it from Git Bash, cmd or PowerShell).
+pub(crate) fn stable_exe(work: &Path, exe: &Path) -> Result<PathBuf> {
+    static NEXT_TMP: AtomicU64 = AtomicU64::new(0);
+    if cfg!(windows) {
+        return Ok(exe.to_path_buf());
+    }
+    let dir = work.join("bin");
+    let script = dir.join("prism");
+    let text = format!("#!/bin/sh\nexec {} \"$@\"\n", hook::quote(&exe.display().to_string()));
+    if std::fs::read_to_string(&script).is_ok_and(|t| t == text) {
+        return Ok(script);
+    }
+    std::fs::create_dir_all(&dir)?;
+    // Its own temporary file: two launches at once each write theirs, the last rename wins.
+    let tmp = dir.join(format!("prism.{}.{}.tmp", std::process::id(), NEXT_TMP.fetch_add(1, Ordering::Relaxed)));
+    std::fs::write(&tmp, &text)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o700))?;
+    }
+    if let Err(e) = std::fs::rename(&tmp, &script) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e.into());
+    }
+    Ok(script)
 }
 
 fn effective_worktree(r: &Record, fold: &Fold) -> Option<PathBuf> {
@@ -735,6 +792,19 @@ mod tests {
     use std::sync::mpsc;
 
     use super::*;
+
+    /// Codex's hook command: the same path whatever Prism's, the script following Prism.
+    #[cfg(unix)]
+    #[test]
+    fn codex_hooks_go_through_a_path_that_stays() {
+        let work = std::env::temp_dir().join(format!("prism-stable-exe-{}", std::process::id()));
+        std::fs::create_dir_all(&work).unwrap();
+        let a = stable_exe(&work, Path::new("/Applications/Prism.app/Contents/MacOS/prism")).unwrap();
+        let b = stable_exe(&work, Path::new("/tmp/dev build/prism")).unwrap();
+        assert_eq!(a, b);
+        assert_eq!(std::fs::read_to_string(&b).unwrap(), "#!/bin/sh\nexec '/tmp/dev build/prism' \"$@\"\n");
+        let _ = std::fs::remove_dir_all(&work);
+    }
 
     #[test]
     fn a_launch_is_kept_as_asked() {

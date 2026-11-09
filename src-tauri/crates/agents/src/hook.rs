@@ -428,8 +428,9 @@ pub fn hooks_settings(exe: &Path, dir: &Path) -> serde_json::Value {
 }
 
 /// Codex's hooks, for its command line (`codex -c <pair>`): every event calls the same command
-/// as Claude Code's. Codex asks once to trust them (`/hooks`), then again only if they change:
-/// when Prism moves (another build) or its data folder does.
+/// as Claude Code's, through a script of a path that stays (`stable_exe`, lib.rs). Codex asks
+/// once to trust them (`/hooks`), then again only if they change: when the data folder does, or
+/// its events (`CODEX_EVENTS`).
 pub fn codex_overrides(exe: &Path, dir: &Path) -> Vec<String> {
     let command = toml::Value::String(command(exe, dir));
     CODEX_EVENTS.iter().map(|e| format!("hooks.{e}=[{{ hooks = [{{ type = \"command\", command = {command}, timeout = 10 }}] }}]")).collect()

@@ -66,7 +66,7 @@
   const STATUS: Record<SessionStatus, string> = { running: t('on it'), background: t('on it, in the background'), waiting_tool: t('asks permission'), needs_you: t('waits for you'), review_ready: t('ready for review'), completed: tc('core', 'done'), idle: t('idle') }
   /** The agent working on an alert: launched on the MR's branch, or under the fix's title. */
   const onIt = (match: (a: Agent) => boolean) => agents.find(match)
-  const agentFix = (a: Agent, key: string): QuickFix => ({ key: `on-${key}`, label: `${agentName()} ${STATUS[a.status]}`, title: t('{title} · open it', { title: a.title }), agent: a })
+  const agentFix = (a: Agent, key: string): QuickFix => ({ key: `on-${key}`, label: `${agentName()} ${a.gate ? t('waits for your trust') : STATUS[a.status]}`, title: t('{title} · open it', { title: a.title }), agent: a })
   /** Told now when it waits for a prompt; otherwise typed in its prompt, for you to send once it is free. */
   const waitsForPrompt = (a: Agent) => a.status === 'idle' || a.status === 'background' || a.status === 'completed' || a.status === 'review_ready' || a.status === 'needs_you'
   function quickFixes(a: Alert): QuickFix[] {

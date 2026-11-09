@@ -368,6 +368,8 @@ impl Agents {
             Some(_) => self.inner.tmux.respawn(id, &cwd, &env, &argv).await?,
             None => self.inner.tmux.new_session(id, &cwd, &env, &argv).await?,
         }
+        // Its CLI may ask again before it starts (`gate.rs`): its screen read until a hook comes.
+        self.inner.relaunched.lock().unwrap().insert(id.to_string(), Utc::now());
         self.inner.changed.notify_one();
         Ok(())
     }
@@ -389,6 +391,10 @@ impl Agents {
         let (waiting, review) = self.inner.folds.lock().unwrap().get(id).map_or((false, false), |f| (f.status == SessionStatus::WaitingTool, matches!(f.waiting, Some(status::Waiting::Plan { .. }))));
         if !waiting {
             bail!(tr("this agent is not waiting for a permission"));
+        }
+        // A question before its session (its folder's trust): its menu's first choice is not « yes ».
+        if self.gate(id).is_some() {
+            bail!(tr("it asks before it starts: answer from its card"));
         }
         let provider = self.provider(id)?;
         self.inner.tmux.send_keys(id, if review { &["C-a"] } else { provider.allow_keys() }).await?;

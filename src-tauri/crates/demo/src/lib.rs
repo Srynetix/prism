@@ -1035,6 +1035,7 @@ impl Demo {
             // The longer it has worked, the fuller its window.
             context: Some(crate::agents::context::ContextUse { used: 40_000 + 1_100 * (90 + minutes as u64).min(150), size: Some(200_000) }),
             suggestion: None,
+            gate: None,
             looping: None,
             legs: Vec::new(),
             // The review agent proposes plans (details.rs).

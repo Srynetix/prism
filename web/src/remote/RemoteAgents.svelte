@@ -81,7 +81,7 @@
   const elsewhere = $derived(agents.filter((a) => !agentRepo(a, snap)))
   let showResting = $state(false)
 
-  const label = (a: Agent) => (a.state === 'running' ? (STATE[a.status] ?? ['', '']) : [a.state === 'prepared' ? t('Prepared') : t('Stopped'), ''])
+  const label = (a: Agent) => (a.state === 'running' && a.gate ? [t('Waits for your trust'), 'trust'] : a.state === 'running' ? (STATE[a.status] ?? ['', '']) : [a.state === 'prepared' ? t('Prepared') : t('Stopped'), ''])
   const ctx = (a: Agent) => (a.context?.size ? `ctx ${Math.round((100 * a.context.used) / a.context.size)} %` : '')
 
   let busy = $state<string | null>(null)
@@ -287,7 +287,8 @@
   .ag.off { opacity: 0.6; }
   .h { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; }
   .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
-  .dot.asks { background: var(--warn); } .dot.tool { background: var(--ko); } .dot.run { background: var(--info); }
+  .dot.asks { background: var(--warn); } .dot.trust { background: var(--violet); }
+  .st.trust { color: var(--violet); } .dot.tool { background: var(--ko); } .dot.run { background: var(--info); }
   .st { font-weight: 600; }
   .st.asks { color: var(--warn); } .st.tool { color: var(--ko); } .st.run { color: var(--info); }
   .grow { flex: 1; }

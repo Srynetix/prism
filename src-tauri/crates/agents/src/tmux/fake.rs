@@ -17,11 +17,14 @@ struct Session {
     /// No program (the default shell): the looks left named `tmux`, as Linux names the child
     /// tmux forked before the shell starts; `sh` after them.
     starting: u8,
+    /// What its pane shows (`capture-pane`), and the key that clears it (a menu answered).
+    screen: String,
+    clears: Option<String>,
 }
 
 impl Session {
     fn new(argv: Vec<String>) -> Self {
-        Self { dead: None, starting: if argv.is_empty() { 2 } else { 0 }, argv, interrupts: 0 }
+        Self { dead: None, starting: if argv.is_empty() { 2 } else { 0 }, argv, interrupts: 0, screen: String::new(), clears: None }
     }
 }
 
@@ -57,6 +60,14 @@ impl Server {
     /// The server is gone (a computer restart): no session left.
     pub fn crash(&self) {
         self.sessions.lock().unwrap().clear();
+    }
+
+    /// Session `key`'s pane shows `screen` (its full tmux name), until `clears` is pressed in it.
+    pub fn show(&self, key: &str, screen: &str, clears: Option<&str>) {
+        let mut sessions = self.sessions.lock().unwrap();
+        let s = sessions.get_mut(key).expect("no such session");
+        s.screen = screen.to_string();
+        s.clears = clears.map(String::from);
     }
 
     pub fn run(&self, args: &[&str]) -> Result<String> {
@@ -114,8 +125,16 @@ impl Server {
                     } else {
                         s.interrupts = 0;
                     }
+                    if s.clears.as_deref() == Some(*key) {
+                        s.screen.clear();
+                        s.clears = None;
+                    }
                 }
                 Ok(String::new())
+            }
+            "capture-pane" => {
+                let name = target.context("capture-pane without -t")?;
+                sessions.get(&name).map(|s| s.screen.clone()).ok_or_else(|| missing(&name))
             }
             "display-message" => {
                 let name = target.context("display-message without -t")?;

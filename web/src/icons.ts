@@ -3,6 +3,8 @@ import Activity from '@lucide/svelte/icons/activity'
 import Cpu from '@lucide/svelte/icons/cpu'
 import Camera from '@lucide/svelte/icons/camera'
 import Paperclip from '@lucide/svelte/icons/paperclip'
+import Shield from '@lucide/svelte/icons/shield'
+import KeyRound from '@lucide/svelte/icons/key-round'
 import AlarmClock from '@lucide/svelte/icons/alarm-clock'
 import Moon from '@lucide/svelte/icons/moon'
 import ArrowDown from '@lucide/svelte/icons/arrow-down'
@@ -225,6 +227,8 @@ export const ICONS = {
   image: Image, // 🖼
   camera: Camera, // a photo taken to attach (📷)
   attach: Paperclip, // files attached to a prompt (📎)
+  shield: Shield, // a folder's trust asked by an agent's CLI (🛡)
+  key: KeyRound, // done with the passkey (🔑)
   star: Star, // organizer (★)
   // Audio
   music: Music, // ♪
