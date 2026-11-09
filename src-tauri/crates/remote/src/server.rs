@@ -114,8 +114,32 @@ pub(crate) struct Local;
 /// The name a local window goes by (logs, its downloads).
 pub(crate) const LOCAL_PEER: &str = "this computer's app";
 
+/// The profile's local socket (a named pipe on Windows) as axum serves it: each connection the
+/// listener accepts, an error waited out a second.
+pub(crate) struct LocalListener(pub(crate) prism_sys::ipc::Listener);
+
+impl axum::serve::Listener for LocalListener {
+    type Io = prism_sys::ipc::Server;
+    type Addr = ();
+
+    async fn accept(&mut self) -> (Self::Io, Self::Addr) {
+        loop {
+            match self.0.accept().await {
+                Ok(io) => return (io, ()),
+                Err(e) => {
+                    tracing::warn!("local socket {}: {e}", self.0.at().display());
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+            }
+        }
+    }
+
+    fn local_addr(&self) -> std::io::Result<Self::Addr> {
+        Ok(())
+    }
+}
+
 /// The routes of the profile's local socket: a peer's, nothing of the phone's.
-#[cfg_attr(not(unix), allow(dead_code))]
 pub fn local_router(inner: Shared) -> Router {
     Router::new()
         .route("/peer/ws", get(peer_socket))

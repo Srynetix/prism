@@ -111,25 +111,23 @@ pub fn signal(pid: u32, byte: u8) -> bool {
 }
 
 /// This process's `signal_pipe`, heard until the end: each byte another launch sends (`signal`)
-/// given to `on`. An instance per message, the next one made before the connected one is read.
+/// given to `on`. An instance per message (`ipc::Listener`).
 pub async fn listen_signals(mut on: impl FnMut(u8)) {
     use tokio::io::AsyncReadExt;
     let name = signal_pipe(std::process::id());
-    let mut server = match pipe_server(&name, true) {
-        Ok(s) => s,
+    let mut listener = match crate::ipc::listen(Path::new(&name), Path::new(""), crate::ipc::Taken::Refuse) {
+        Ok(l) => l,
         Err(e) => return tracing::warn!("no pipe {name}: {e}"),
     };
     loop {
-        if let Err(e) = server.connect().await {
-            tracing::warn!("{name}: {e}");
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            continue;
-        }
-        let next = match pipe_server(&name, false) {
-            Ok(s) => s,
-            Err(e) => return tracing::warn!("no pipe {name}: {e}"),
+        let mut connected = match listener.accept().await {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!("{name}: {e}");
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                continue;
+            }
         };
-        let mut connected = std::mem::replace(&mut server, next);
         let mut byte = [0u8; 1];
         if tokio::time::timeout(std::time::Duration::from_secs(2), connected.read_exact(&mut byte)).await.is_ok_and(|r| r.is_ok()) {
             on(byte[0]);

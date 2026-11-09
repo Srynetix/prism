@@ -58,8 +58,9 @@ fn main() {
         }
     }
     // This profile's Prism runs without a window (an app gone, `keep_running`): this app takes
-    // it over, its agents going on in tmux.
-    if profile::holder(profile::active()).is_some() && profile::engine_socket(profile::active()).exists() && profile::stop(profile::active()) && !profile::wait_free(profile::active(), std::time::Duration::from_secs(8)) {
+    // it over, its agents going on in tmux. (Windows: its pipe is not looked at, opening it would
+    // connect; nor is it stopped, `profile::stop` being Unix's.)
+    if profile::holder(profile::active()).is_some() && cfg!(unix) && profile::engine_socket(profile::active()).exists() && profile::stop(profile::active()) && !profile::wait_free(profile::active(), std::time::Duration::from_secs(8)) {
         eprintln!("prism: profile {}'s Prism did not stop", profile::active());
     }
 

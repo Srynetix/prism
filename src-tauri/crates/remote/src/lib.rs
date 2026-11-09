@@ -317,26 +317,20 @@ impl Remote {
 
     /// The profile's local socket (`path`, made private): this computer's app opens its window of
     /// this profile through it (`machine::Target::local`), whatever `[remote]` says. A socket left
-    /// by a Prism gone is replaced; one a running Prism listens on is not.
-    #[cfg(unix)]
+    /// by a Prism gone is replaced; one a running Prism listens on is not. On Windows, `path` is a
+    /// named pipe's name (`prism_core::profile::engine_socket`), claimed (`prism_sys::ipc`).
     pub async fn serve_local(&self, path: &std::path::Path) -> Result<()> {
-        use std::os::unix::fs::PermissionsExt;
+        #[cfg(unix)]
         if let Some(dir) = path.parent() {
+            use std::os::unix::fs::PermissionsExt;
             std::fs::create_dir_all(dir)?;
             std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
         }
-        if path.exists() {
-            if tokio::net::UnixStream::connect(path).await.is_ok() {
-                bail!("{}: another Prism listens there", path.display());
-            }
-            std::fs::remove_file(path)?;
-        }
-        let listener = tokio::net::UnixListener::bind(path).with_context(|| path.display().to_string())?;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        let listener = prism_sys::ipc::listen(path, &prism_core::profile::data_base(), prism_sys::ipc::Taken::Refuse)?;
         let app = server::local_router(self.inner.clone());
         let at = path.to_path_buf();
         prism_base::rt::spawn(async move {
-            if let Err(e) = axum::serve(listener, app).await {
+            if let Err(e) = axum::serve(server::LocalListener(listener), app).await {
                 tracing::warn!("local socket {}: {e}", at.display());
             }
         });

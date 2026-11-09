@@ -42,13 +42,23 @@ pub fn sessions_pipe_name() -> String {
     pipe_for("sessions")
 }
 
+/// Where `prism mcp` reaches the running Prism, as `prism_sys::ipc` takes it: `pipe_name` on
+/// Windows, `socket_path` elsewhere.
+pub fn endpoint() -> PathBuf {
+    if cfg!(windows) {
+        PathBuf::from(pipe_name())
+    } else {
+        socket_path()
+    }
+}
+
 /// The profile's pipe `kind`: named after the socket it stands in for.
 fn pipe_for(kind: &str) -> String {
     format!(r"\\.\pipe\prism-{kind}-{:016x}", fnv(&crate::profile::data_dir(&crate::profile::data_base()).join(format!("{kind}.sock"))))
 }
 
 /// FNV-1a: the same short name for the same path, in both processes.
-fn fnv(path: &Path) -> u64 {
+pub(crate) fn fnv(path: &Path) -> u64 {
     path.as_os_str().as_encoded_bytes().iter().fold(0xcbf29ce484222325u64, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x100000001b3))
 }
 
@@ -74,32 +84,14 @@ fn uid() -> u32 {
 }
 
 /// The socket's folder, made if missing (0700), and refused unless it is a real folder of this
-/// account's that no one else may enter: another account cannot have put it there first.
+/// account's that no one else may enter: another account cannot have put it there first
+/// (`prism_sys::ipc::private_dir`, the data folder trusted as private). Listening and connecting
+/// do it themselves (`prism_sys::ipc`).
 pub fn private_dir(socket: &Path) -> Result<()> {
-    let dir = socket.parent().context("the socket's folder")?;
-    #[cfg(not(unix))]
-    let _ = dir;
     #[cfg(unix)]
-    {
-        use std::os::unix::fs::{DirBuilderExt, MetadataExt};
-        if !dir.exists() {
-            std::fs::DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
-        }
-        let meta = std::fs::symlink_metadata(dir)?;
-        // The profile's data folder sits in the home (private already); the fallback in a shared one.
-        let shared = !dir.starts_with(crate::profile::data_base());
-        anyhow::ensure!(meta.is_dir() && meta.uid() == uid() && (!shared || meta.mode() & 0o077 == 0), "{}: not a private folder of this account", dir.display());
-    }
-    Ok(())
-}
-
-/// The socket at `path` is this account's: `prism mcp` never talks to another's.
-#[cfg(unix)]
-pub fn owned_socket(path: &Path) -> Result<()> {
-    use std::os::unix::fs::MetadataExt;
-    private_dir(path)?;
-    let meta = std::fs::symlink_metadata(path).with_context(|| format!("no {}", path.display()))?;
-    anyhow::ensure!(meta.uid() == uid(), "{}: another account's socket", path.display());
+    prism_sys::ipc::private_dir(socket, &crate::profile::data_base())?;
+    #[cfg(not(unix))]
+    socket.parent().context("the socket's folder")?;
     Ok(())
 }
 
