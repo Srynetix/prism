@@ -46,26 +46,13 @@ impl Agents {
         // Prism's MCP server and skill: Claude Code's plugin, Codex's options (OpenCode's in its
         // environment, `env`); or its « in passing » mode alone (`suggest_task`, `dismiss_task`).
         // Nothing written here: the launcher's preview builds this too.
-        if self.prism_mcp(launch) {
-            let command = prism_core::mcp::command();
-            match provider {
-                // Written with the rest of the wiring, as the agent launches (`write_wiring`).
-                Provider::Claude => cli.args.extend(["--plugin-dir".to_string(), prism_core::mcp::claude_plugin_dir(&self.inner.work).display().to_string()]),
-                Provider::Codex => cli.args.extend(prism_core::mcp::codex_args(&command)),
-                Provider::OpenCode | Provider::CommandCode => {}
-            }
-        } else if self.aside_mcp() {
-            match provider {
-                Provider::Claude => cli.args.extend(["--mcp-config".to_string(), prism_core::mcp::claude_aside_file(&self.inner.work).display().to_string()]),
-                Provider::Codex => cli.args.extend(prism_core::mcp::codex_args(&prism_core::mcp::aside_command())),
-                Provider::OpenCode | Provider::CommandCode => {}
-            }
+        // Its files written with the rest of the wiring, as the agent launches (`write_wiring`).
+        let whole = self.prism_mcp(launch);
+        if whole || self.aside_mcp() {
+            cli.args.extend(provider.mcp_args(&self.inner.work, whole));
         }
-        // `suggest_task` only records a proposal: never a permission prompt that would stop the agent.
-        if provider == Provider::Claude && self.aside_mcp() {
-            // Its tools as named by `--mcp-config`, and by the plugin of the whole server (`plugin_<plugin>_<server>`).
-            let s = prism_core::mcp::SERVER;
-            cli.args.push(format!("--allowedTools=mcp__{s}__suggest_task,mcp__{s}__dismiss_task,mcp__plugin_{s}_{s}__suggest_task,mcp__plugin_{s}_{s}__dismiss_task"));
+        if self.aside_mcp() {
+            cli.args.extend(provider.aside_allowed());
         }
         cli
     }
