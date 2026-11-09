@@ -212,8 +212,8 @@ impl tauri::Assets<tauri::Wry> for NoAssets {
 
 /// Windows: what SIGUSR1 / SIGUSR2 are on Unix, through this Prism's pipe
 /// (`prism_sys::windows::signal_pipe`): a launch of the same profile brings the window up
-/// (`profile::WAKE`), `prism restart` restarts it (`profile::RESTART`). An instance per
-/// message, the next one made before the connected one is read.
+/// (`profile::WAKE`), `prism restart` restarts it (`profile::RESTART`), `profile::stop` quits it
+/// (`profile::STOP`). An instance per message, the next one made before the connected one is read.
 #[cfg(windows)]
 pub fn listen_signals(app: &AppHandle) {
     let handle = app.clone();
@@ -226,6 +226,11 @@ pub fn listen_signals(app: &AppHandle) {
         crate::profile::RESTART => {
             tracing::info!("prism restart: restarting");
             self::restart(&handle);
+        }
+        // Unix's SIGTERM (`profile::stop`): quits as the menu's Quit does.
+        crate::profile::STOP => {
+            tracing::info!("asked to stop: quitting");
+            handle.exit(0);
         }
         _ => {}
     }));
