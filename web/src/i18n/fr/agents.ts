@@ -1074,4 +1074,5 @@ export default {
   '{cli} asks to trust this folder': '{cli} demande à faire confiance à ce dossier',
   '{cli} exits': '{cli} quitte',
   '{cli} waits for an answer in its terminal': '{cli} attend une réponse dans son terminal',
+  'Chain it after this agent': 'L’enchaîner après cet agent',
 } satisfies Dictionary

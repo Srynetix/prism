@@ -48,7 +48,15 @@
     }
   }
   const launch = () => run(() => launchAside(a, useBranch))
-  const then = () => run(() => asideThen(a, useBranch), t('Runs after {agent}', { agent: origin?.title ?? '' }))
+  // An agent wrote its prompt, which runs unattended once its agent is done: read first (the first
+  // click shows it), chained at the second.
+  const then = () => {
+    if (!showPrompt) {
+      showPrompt = true
+      return
+    }
+    return run(() => asideThen(a, useBranch), t('Runs after {agent}', { agent: origin?.title ?? '' }))
+  }
   const ticket = () =>
     run(async () => {
       const key = await asideTicket(a)
@@ -99,7 +107,7 @@
       {:else}
         <div class="acts">
           {#if main === 'then' && canThen}
-            <button class="b pri" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{t('After this agent')}</button>
+            <button class="b pri" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{showPrompt ? t('Chain it after this agent') : t('After this agent')}</button>
             <button class="b" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
           {:else if main === 'ticket'}
             <button class="b pri" disabled={busy} onclick={ticket}>{t('Ticket')}</button>
@@ -113,7 +121,7 @@
               <option value="branch">{t('from {branch}', { branch })}</option>
             </select>
           {/if}
-          {#if main !== 'then' && canThen}<button class="b" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{t('After this agent')}</button>{/if}
+          {#if main !== 'then' && canThen}<button class="b" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{showPrompt ? t('Chain it after this agent') : t('After this agent')}</button>{/if}
           {#if main !== 'ticket' && canTicket}<button class="b" disabled={busy} onclick={ticket} title={t('A ticket of the tracker: its title, its tldr and prompt in a comment')}>{t('Ticket')}</button>{/if}
           {#if a.state === 'open'}<button class="b ghost" disabled={busy} onclick={() => run(() => asideLater(a))} title={t('Kept in the list, without its badge')}>{t('Later')}</button>{/if}
           <button class="b ghost" class:on={showPrompt} onclick={() => (showPrompt = !showPrompt)} aria-pressed={showPrompt} title={t('What the new agent is given')}>{t('Prompt')}</button>

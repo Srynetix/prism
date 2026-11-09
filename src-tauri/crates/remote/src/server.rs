@@ -879,21 +879,33 @@ const PEER_SETTINGS: &[&str] = &[
     "remote_peer_pair_answer",
     "remote_peer_pair_cancel",
     "remote_peer_revoke",
+    // What writes the settings or trusts a command to run, by another way.
+    "mcp_proposal_answer",
+    "mcp_install",
+    "routine_trust",
+    "routine_remove",
+    "quick_action_add",
+    "cli_command_install",
+    "cli_command_remove",
+    "update_install",
 ];
 
 /// Whether `[remote.peers]` lets another Prism's window call `command` (of class `class`): it
 /// always reads; acting, what is critical, typing and the settings each have their switch. A
 /// command classed `never` for a phone is the window's to call: acting, unless it types or writes
 /// the settings.
+/// A command it does not know is refused; a block's command its block keeps from a phone (a custom
+/// block tried, saved, trusted: a command run) is a setting's.
 fn peer_allowed(rights: &prism_core::config::PeerRights, command: &str, class: Option<Class>) -> anyhow::Result<()> {
+    let Some(class) = class else { anyhow::bail!("{}", tr!("{command}: not a command of this Prism", command = command)) };
     let (on, what) = if PEER_TYPING.contains(&command) {
         (rights.typing, "typing")
-    } else if PEER_SETTINGS.contains(&command) {
+    } else if PEER_SETTINGS.contains(&command) || (command == "block_call" && class == Class::Never) {
         (rights.settings, "settings")
     } else {
         match class {
-            Some(Class::Read) => return Ok(()),
-            Some(Class::Critical) => (rights.critical, "critical"),
+            Class::Read => return Ok(()),
+            Class::Critical => (rights.critical, "critical"),
             _ => (rights.actions, "actions"),
         }
     };
@@ -1666,6 +1678,15 @@ mod tests {
         assert!(super::peer_allowed(&r, "merge_mr", Some(Class::Critical)).is_err());
         assert!(super::peer_allowed(&r, "agent_type", Some(Class::Critical)).unwrap_err().to_string().contains("typing"));
         assert!(super::peer_allowed(&r, "save_config", Some(Class::Never)).unwrap_err().to_string().contains("settings"));
+        // Acting allowed, the settings not: what writes them or trusts a command by another way.
+        r.actions = true;
+        r.critical = true;
+        for command in ["mcp_proposal_answer", "routine_trust", "mcp_install", "cli_command_install", "quick_action_add"] {
+            assert!(super::peer_allowed(&r, command, Some(Class::Never)).unwrap_err().to_string().contains("settings"), "{command}");
+        }
+        assert!(super::peer_allowed(&r, "block_call", Some(Class::Never)).unwrap_err().to_string().contains("settings"), "a custom block tried");
+        assert!(super::peer_allowed(&r, "block_call", Some(Class::Act)).is_ok());
+        assert!(super::peer_allowed(&r, "no_such_command", None).is_err());
     }
 
     /// The next message of kind `t` a machine sent.

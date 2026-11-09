@@ -44,8 +44,13 @@ pub fn kill_group(pgid: u32) -> bool {
     if pgid <= 1 || pgid == own {
         return false;
     }
+    // Stopped first, then killed: killed at once, a shell of the group woken by its child's death
+    // could start one more command (`(sleep 2; touch x) &`) before its own kill reached it.
     // SAFETY: killpg reads no memory; our own group and groups 0 and 1 are refused above.
-    unsafe { libc::killpg(pgid as libc::pid_t, libc::SIGKILL) == 0 }
+    unsafe {
+        libc::killpg(pgid as libc::pid_t, libc::SIGSTOP);
+        libc::killpg(pgid as libc::pid_t, libc::SIGKILL) == 0
+    }
 }
 
 /// Whether process `pid` exists (someone else's included).

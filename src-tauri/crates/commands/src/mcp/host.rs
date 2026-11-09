@@ -10,6 +10,7 @@ use std::sync::{
 
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
+use prism_base::tr;
 use prism_core::mcp::{McpClient, McpState, Proposal, ProposalKind};
 use serde_json::{json, Value};
 use tokio::{
@@ -504,6 +505,8 @@ fn compute(file: &str, change: &Change) -> Result<Computed> {
             (text, vec![format!("custom_blocks[{}]", def.id)], Some(def.id))
         }
     };
+    let guarded = guarded_changes(file, &text);
+    anyhow::ensure!(guarded.is_empty(), "{}", tr!("an agent does not change {keys}: what runs programs here, opens this computer or what agents may do — change it yourself in Settings", keys = guarded.join(", ")));
     let check = check_text(&text);
     let set: Vec<String> = if set.is_empty() { changed_tables(file, &text) } else { set };
     let mut touches: Vec<String> = set.iter().map(|p| p.split(['.', '[']).next().unwrap_or(p).to_string()).collect();
@@ -517,6 +520,36 @@ fn compute(file: &str, change: &Change) -> Result<Computed> {
     let overrides = set.iter().filter(|p| in_table(&inherited, p)).cloned().collect();
     let diff = prism_core::textdiff::around(prism_core::textdiff::lines(file, &text), 3);
     Ok(Computed { text, diff, touches, overrides, block, check })
+}
+
+/// What a proposal may not change, from `a` to `b`: what runs a program here (`[open_with]`,
+/// `[agents.<cli>] bin`/`args`, `[updates] source`), opens this computer (`[remote]`,
+/// `[[machines]]`), what its agents may do (`[mcp]`, `[agents] permission_mode`,
+/// `handoff_review`), its packs and profile. Applied, the agent would have widened its own rights.
+fn guarded_changes(a: &str, b: &str) -> Vec<String> {
+    let (ta, tb) = (a.parse::<toml::Table>().unwrap_or_default(), b.parse::<toml::Table>().unwrap_or_default());
+    let at = |t: &toml::Table, path: &[&str]| -> Option<toml::Value> {
+        let mut v = t.get(path[0])?.clone();
+        for k in &path[1..] {
+            v = v.as_table()?.get(*k)?.clone();
+        }
+        Some(v)
+    };
+    let mut paths: Vec<Vec<String>> = ["open_with", "remote", "machines", "mcp", "packs", "profile", "updates"].iter().map(|k| vec![k.to_string()]).collect();
+    paths.extend([["agents", "permission_mode"], ["agents", "handoff_review"], ["worktrees", "repo"], ["feedback", "repo"]].map(|p| p.map(String::from).to_vec()));
+    // Each CLI's table, one added later too.
+    let clis: std::collections::BTreeSet<String> = [&ta, &tb].iter().filter_map(|t| t.get("agents")?.as_table()).flat_map(|a| a.iter().filter(|(_, v)| v.is_table()).map(|(k, _)| k.clone())).collect();
+    for cli in clis {
+        paths.extend(["bin", "args"].map(|k| vec!["agents".to_string(), cli.clone(), k.to_string()]));
+    }
+    paths
+        .into_iter()
+        .filter(|p| {
+            let p: Vec<&str> = p.iter().map(String::as_str).collect();
+            at(&ta, &p) != at(&tb, &p)
+        })
+        .map(|p| if p.len() == 1 { format!("[{}]", p[0]) } else { format!("[{}] {}", p[..p.len() - 1].join("."), p[p.len() - 1]) })
+        .collect()
 }
 
 /// The top tables that differ from `a` to `b`.
@@ -742,6 +775,18 @@ async fn run_custom_block(params: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A proposal never widens what runs here or what agents may do; the rest it may change.
+    #[test]
+    fn a_proposal_keeps_off_what_guards_this_computer() {
+        let file = "[agents]\npermission_mode = \"default\"\n[agents.claude]\ncost_alert = 5.0\n[clickup]\nsprint_folder = \"S\"\n";
+        assert!(guarded_changes(file, &file.replace("\"S\"", "\"T\"")).is_empty());
+        assert!(guarded_changes(file, &file.replace("cost_alert = 5.0", "cost_alert = 9.0")).is_empty());
+        assert_eq!(guarded_changes(file, &file.replace("\"default\"", "\"acceptEdits\"")), ["[agents] permission_mode"]);
+        assert_eq!(guarded_changes(file, &format!("{file}[agents.codex]\nargs = [\"--yolo\"]\n")), ["[agents.codex] args"]);
+        assert_eq!(guarded_changes(file, &format!("{file}[[machines]]\nname = \"x\"\nurl = \"https://x\"\n[mcp]\nproposals = true\n")), ["[machines]", "[mcp]"]);
+        assert!(compute(file, &Change::Config { toml: "[remote]\nenabled = true\n".into(), whole: false }).is_err());
+    }
 
     #[test]
     fn values_are_found_through_lists() {
