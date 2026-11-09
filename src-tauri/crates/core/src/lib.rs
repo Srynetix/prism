@@ -23,6 +23,7 @@ pub mod settings;
 pub mod stages;
 pub mod state;
 pub mod ticket;
+pub mod trust;
 pub mod textdiff;
 pub mod tracker;
 

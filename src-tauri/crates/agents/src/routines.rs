@@ -91,33 +91,6 @@ pub(crate) struct Watch {
     dirty: BTreeMap<String, String>,
 }
 
-/// The trust given to the routines (`routines-trust.json`).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct Trust {
-    #[serde(default)]
-    trusted: BTreeMap<String, Trusted>,
-    /// When a version waiting for trust was first seen, and the agents running then.
-    #[serde(default)]
-    seen: BTreeMap<String, Seen>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Trusted {
-    routine: String,
-    action: String,
-    /// Both as text, for the diff of a version changed since.
-    text: String,
-    at: chrono::DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Seen {
-    hash: String,
-    at: chrono::DateTime<Utc>,
-    #[serde(default)]
-    agents: Vec<String>,
-}
-
 /// What the window gives the builtins: the open alerts, the retro's figures, as it shows them.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Inputs {
@@ -130,7 +103,8 @@ pub struct Inputs {
 pub(crate) struct Book {
     dir: PathBuf,
     pub(crate) kept: Kept,
-    trust: Trust,
+    /// The trust given to the routines (`routines-trust.json`).
+    trust: prism_core::trust::Store,
     inputs: Inputs,
     /// Runs being finished (their files counted, their words read): not twice.
     finishing: HashSet<String>,
@@ -149,7 +123,7 @@ impl Book {
         Book {
             dir: dir.to_path_buf(),
             kept: read(dir.join("routines.json")),
-            trust: read(dir.join("routines-trust.json")),
+            trust: prism_core::trust::read(&dir.join("routines-trust.json")),
             inputs: read(dir.join("routine-inputs.json")),
             finishing: HashSet::new(),
             config_dir: None,
@@ -172,7 +146,9 @@ impl Book {
     }
 
     fn save_trust(&self) {
-        self.write("routines-trust.json", &self.trust);
+        if let Err(e) = self.trust.write(&self.dir.join("routines-trust.json")) {
+            tracing::warn!("routines: writing their trust: {e:#}");
+        }
     }
 
     fn run_mut(&mut self, id: &str) -> Option<&mut RoutineRun> {
@@ -265,22 +241,23 @@ fn hashes(r: &Routine, actions: &[QuickAction]) -> (String, String, String) {
     (sha(&rt), sha(&at), format!("{rt}\n{at}"))
 }
 
-/// Line by line, from `old` to `new`: `-` gone, `+` added, ` ` kept (`textdiff::lines`).
-fn diff(old: &str, new: &str) -> Vec<String> {
-    prism_core::textdiff::lines(old, new).into_iter().map(|l| format!("{} {}", l.op, l.text)).collect()
+/// Line by line, from the trusted version to this one: `-` gone, `+` added, ` ` kept.
+fn diff_lines(lines: Vec<prism_core::textdiff::Line>) -> Vec<String> {
+    lines.into_iter().map(|l| format!("{} {}", l.op, l.text)).collect()
 }
 
-/// Its trust: none needed (trusted as it is), or why it waits.
-fn pending_of(trust: &Trust, r: &Routine, actions: &[QuickAction]) -> Option<(RoutinePendingReason, String, String)> {
+/// Its trust (`prism_core::trust`): none needed (trusted as it is), or why it waits, the hash it is
+/// trusted by (`routine:action`) and what the store says of it.
+fn pending_of(trust: &prism_core::trust::Store, r: &Routine, actions: &[QuickAction]) -> Option<(RoutinePendingReason, String, prism_core::trust::Pending)> {
     let (rh, ah, text) = hashes(r, actions);
     let hash = format!("{rh}:{ah}");
-    match trust.trusted.get(&r.name) {
-        Some(t) if t.routine == rh && t.action == ah => None,
-        Some(t) if t.routine == rh => Some((RoutinePendingReason::ActionModified, hash, t.text.clone())),
-        Some(t) => Some((RoutinePendingReason::Modified, hash, t.text.clone())),
-        None => Some((RoutinePendingReason::New, hash, String::new())),
-    }
-    .map(|(reason, hash, before)| (reason, hash, if before.is_empty() { text.clone() } else { format!("{before}\u{0}{text}") }))
+    let p = trust.pending(&r.name, &hash, &text)?;
+    let reason = match &p.trusted {
+        Some(t) if t.hash.split_once(':').is_some_and(|(trh, _)| trh == rh) => RoutinePendingReason::ActionModified,
+        Some(_) => RoutinePendingReason::Modified,
+        None => RoutinePendingReason::New,
+    };
+    Some((reason, hash, p))
 }
 
 /// What a routine's times are made of: changed, they start again from now.
@@ -381,13 +358,9 @@ impl Agents {
             .iter()
             .map(|r| {
                 let checked = r.check(&cfg.quick_actions);
-                let pending = pending_of(&book.trust, r, &cfg.quick_actions).map(|(reason, hash, text)| {
-                    let seen = book.trust.seen.get(&r.name).filter(|s| s.hash == hash);
-                    let diff = match text.split_once('\u{0}') {
-                        Some((before, after)) => diff(before, after),
-                        None => text.lines().map(|l| format!("+ {l}")).collect(),
-                    };
-                    RoutinePending { reason, hash, since: seen.map_or(now, |s| s.at), agents: seen.map(|s| s.agents.clone()).unwrap_or_default(), diff }
+                let pending = pending_of(&book.trust, r, &cfg.quick_actions).map(|(reason, hash, p)| {
+                    let seen = p.seen.as_ref();
+                    RoutinePending { reason, hash, since: seen.map_or(now, |s| s.at), agents: seen.map(|s| s.agents.clone()).unwrap_or_default(), diff: diff_lines(p.diff) }
                 });
                 let (error, next, repos, action) = match &checked {
                     Err(e) => (Some(e.clone()), Vec::new(), r.repos.clone(), None),
@@ -447,10 +420,7 @@ impl Agents {
             let Ok((when, qa)) = r.check(&cfg.quick_actions) else { continue };
             if let Some((_, hash, _)) = pending_of(&book.trust, r, &cfg.quick_actions) {
                 // Waiting for trust: when this version was first seen, and who worked near the config then.
-                if book.trust.seen.get(&r.name).is_none_or(|s| s.hash != hash) {
-                    book.trust.seen.insert(r.name.clone(), Seen { hash, at: now, agents: near.clone() });
-                    seen_changed = true;
-                }
+                seen_changed |= book.trust.see(&r.name, &hash, &near, now);
                 continue;
             }
             let key = schedule_key(r);
@@ -965,8 +935,7 @@ impl Agents {
             bail!(tr("this routine changed since it was shown: look at it again"));
         }
         let mut book = self.routines_book();
-        book.trust.trusted.insert(name.to_string(), Trusted { routine: rh, action: ah, text, at: Utc::now() });
-        book.trust.seen.remove(name);
+        book.trust.trust(name, &format!("{rh}:{ah}"), &text, serde_json::Value::Null);
         book.save_trust();
         // Its times from now on, not those it missed while it waited.
         let key = schedule_key(r);
@@ -988,8 +957,7 @@ impl Agents {
             if old.is_some_and(|(orh, oah, _)| orh == rh && oah == ah) {
                 continue;
             }
-            book.trust.trusted.insert(r.name.clone(), Trusted { routine: rh, action: ah, text, at: Utc::now() });
-            book.trust.seen.remove(&r.name);
+            book.trust.trust(&r.name, &format!("{rh}:{ah}"), &text, serde_json::Value::Null);
             changed = true;
         }
         if changed {
@@ -1000,8 +968,7 @@ impl Agents {
     /// Forgets the trust of the routines no longer declared.
     pub fn forget_routine(&self, name: &str) {
         let mut book = self.routines_book();
-        book.trust.trusted.remove(name);
-        book.trust.seen.remove(name);
+        book.trust.forget(name);
         book.kept.slots.remove(name);
         book.save_trust();
         book.save();
@@ -1020,21 +987,24 @@ mod tests {
     fn trust_follows_the_routine_and_its_action() {
         let qa = vec![QuickAction { name: "Bump".into(), prompt: "Bump {repo}.".into(), repos: vec!["api".into()], ..Default::default() }];
         let r = routine("name = \"N\"\naction = \"Bump\"\ncron = \"0 3 * * *\"\n");
-        let mut trust = Trust::default();
+        let mut trust = prism_core::trust::Store::default();
         assert_eq!(pending_of(&trust, &r, &qa).unwrap().0, RoutinePendingReason::New);
         let (rh, ah, text) = hashes(&r, &qa);
-        trust.trusted.insert("N".into(), Trusted { routine: rh, action: ah, text, at: Utc::now() });
+        trust.trust("N", &format!("{rh}:{ah}"), &text, serde_json::Value::Null);
         assert!(pending_of(&trust, &r, &qa).is_none());
+        // Trusted before the store was shared: its two hashes apart.
+        let former: prism_core::trust::Store = serde_json::from_value(serde_json::json!({ "trusted": { "N": { "routine": rh, "action": ah, "text": text, "at": "2026-10-01T09:00:00Z" } } })).unwrap();
+        assert!(pending_of(&former, &r, &qa).is_none());
         // Off, renamed elsewhere? Its switch is not what it runs: the trust holds.
         let off = Routine { enabled: false, ..r.clone() };
         assert!(pending_of(&trust, &off, &qa).is_none());
         let later = Routine { cron: Some("0 4 * * *".into()), ..r.clone() };
         assert_eq!(pending_of(&trust, &later, &qa).unwrap().0, RoutinePendingReason::Modified);
         let merges = vec![QuickAction { prompt: "Bump {repo}, then merge.".into(), ..qa[0].clone() }];
-        let (reason, _, text) = pending_of(&trust, &r, &merges).unwrap();
+        let (reason, _, p) = pending_of(&trust, &r, &merges).unwrap();
         assert_eq!(reason, RoutinePendingReason::ActionModified);
-        let (before, after) = text.split_once('\u{0}').unwrap();
-        let d = diff(before, after);
+        assert_eq!(pending_of(&former, &r, &merges).unwrap().0, RoutinePendingReason::ActionModified);
+        let d = diff_lines(p.diff);
         assert!(d.contains(&"- prompt = \"Bump {repo}.\"".to_string()) && d.contains(&"+ prompt = \"Bump {repo}, then merge.\"".to_string()), "{d:?}");
         assert!(d.iter().any(|l| l.starts_with("  action")));
     }
@@ -1045,17 +1015,16 @@ mod tests {
         let r = routine("name = \"W\"\nprompt = \"\"\"\nSum up {repo}.\nBy ticket.\n\"\"\"\nrepos = [\"api\"]\nmodel = \"opus\"\nevery = \"1d\"\n");
         let (rh, ah, text) = hashes(&r, &[]);
         assert!(ah.is_empty() && text.contains("Sum up {repo}.\nBy ticket.") && text.contains("model = \"opus\""), "{text}");
-        let mut trust = Trust::default();
-        trust.trusted.insert("W".into(), Trusted { routine: rh, action: ah, text, at: Utc::now() });
+        let mut trust = prism_core::trust::Store::default();
+        trust.trust("W", &format!("{rh}:{ah}"), &text, serde_json::Value::Null);
         assert!(pending_of(&trust, &r, &[]).is_none());
         // A quick action of the same name changing is not its business.
         let other = vec![QuickAction { name: "W".into(), prompt: "x".into(), ..Default::default() }];
         assert!(pending_of(&trust, &r, &other).is_none());
         let edited = Routine { prompt: Some("Sum up {repo}.\nBy author.\n".into()), ..r.clone() };
-        let (reason, _, text) = pending_of(&trust, &edited, &[]).unwrap();
+        let (reason, _, p) = pending_of(&trust, &edited, &[]).unwrap();
         assert_eq!(reason, RoutinePendingReason::Modified);
-        let (before, after) = text.split_once('\u{0}').unwrap();
-        let d = diff(before, after);
+        let d = diff_lines(p.diff);
         assert!(d.contains(&"- By ticket.".to_string()) && d.contains(&"+ By author.".to_string()) && d.contains(&"  Sum up {repo}.".to_string()), "{d:?}");
         let faster = Routine { effort: Some("low".into()), ..r.clone() };
         assert!(pending_of(&trust, &faster, &[]).is_some(), "its effort is trusted too");
