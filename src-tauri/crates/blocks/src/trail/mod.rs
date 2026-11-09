@@ -3,7 +3,7 @@
 //! and commented on the forge, your tickets changing status, your meetings once over) over
 //! `keep_days`; the window adds your agents and logged time, and shows a day as a timeline, by
 //! ticket (to log time), or as a daily. Nothing leaves the machine but the forge's read of your own
-//! events. Its window side: `web/src/blocks/trail/`.
+//! events. Its window side: `web/src/blocks/trail/`. My sprint's retro reads it too (`retro`).
 
 use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
@@ -15,6 +15,7 @@ use super::{sdk::RemoteClass, Block, BlockCtx};
 
 mod collector;
 mod demo;
+pub mod retro;
 
 pub struct Trail;
 

@@ -297,6 +297,7 @@ fn export_bindings() {
     prism_blocks::tokens::TokensState::export_all(&cfg).unwrap();
     prism_blocks::data::GcpData::export_all(&cfg).unwrap();
     prism_blocks::trail::TrailState::export_all(&cfg).unwrap();
+    prism_blocks::trail::retro::Retro::export_all(&cfg).unwrap();
     prism_blocks::changes::ChangesState::export_all(&cfg).unwrap();
     // The alerts the window gives the Changes block; the other computers of the profile menu; dictation's Settings.
     prism_blocks::changes::WindowAlert::export_all(&cfg).unwrap();

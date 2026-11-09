@@ -250,17 +250,24 @@ pub fn shared_save(state: State<'_, AppState>, name: String, value: serde_json::
     if crate::demo::active() {
         return Ok(state.hub.subscribe().borrow().shared_revs.get(&name).copied().unwrap_or(0));
     }
+    // The points written without the sprints kept (`crate::retro::keep`): those stay.
+    let value = if name == "retro" { crate::blocks::trail::retro::with_history(state.store.load(&name)?.as_ref(), value) } else { value };
     state.store.save(&name, &value)?;
+    Ok(shared_written(&state.hub, &name))
+}
+
+/// A shared store just written: its revision bumped, so that the other pages read it again; the new one.
+pub(crate) fn shared_written(hub: &crate::state::Hub, name: &str) -> u64 {
     // In milliseconds, so that it keeps growing across restarts: a phone's page outlives them.
     let now = u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap_or(0);
     let mut rev = 0;
-    state.hub.update(|s| {
-        let r = s.shared_revs.entry(name.clone()).or_default();
+    hub.update(|s| {
+        let r = s.shared_revs.entry(name.to_string()).or_default();
         *r = now.max(*r + 1);
         rev = *r;
         true
     });
-    Ok(rev)
+    rev
 }
 
 #[cfg(test)]

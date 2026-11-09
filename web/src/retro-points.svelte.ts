@@ -1,5 +1,7 @@
 import { read, write } from './persist'
-import { hasCore } from './bridge'
+import { hasCore, invoke, isLocal } from './bridge'
+import { live } from './live.svelte'
+import { pref, setPref } from './layout.svelte'
 import { onShared, shareSave } from './shared.svelte'
 import { t } from './i18n.svelte'
 
@@ -7,7 +9,8 @@ import { t } from './i18n.svelte'
  * Points for the sprint retro, written in the My sprint block, apart from the free notes: by
  * sprint (its name), each one to keep, to change, or an idea. Stored by the app in its data folder
  * (`retro.json`), shared with the phones (`shared.svelte.ts`). The retro often happens once the next sprint has begun: the block shows any
- * sprint's points, the current one's first.
+ * sprint's points, the current one's first. The same store keeps the sprints' figures (`history`),
+ * written by the core alone (`retro_keep`): a write of the points leaves them as they are.
  */
 export type PointKind = 'keep' | 'change' | 'idea'
 export const POINT_KINDS: [PointKind, string, string][] = [
@@ -99,13 +102,26 @@ export function removePoint(sprint: string, id: string) {
 /** On click on a point's mark: to keep → to change → idea → to keep. */
 export const nextKind = (k: PointKind): PointKind => POINT_KINDS[(POINT_KINDS.findIndex(([x]) => x === k) + 1) % POINT_KINDS.length][0]
 
-/** `### My points` in Markdown, by kind; empty without points. */
-export function pointsMarkdown(points: RetroPoint[]): string[] {
-  if (!points.length) return []
-  const out = ['', t('### My points')]
-  for (const [k, , label] of POINT_KINDS) {
-    const list = points.filter((p) => p.kind === k)
-    if (list.length) out.push(`**${label}**`, ...list.map((p) => `- ${p.text}`))
-  }
-  return out
+/** Where the window kept the sprints' figures before the core did: moved into the store once. */
+const OLD_HISTORY = 'retro.history'
+
+/**
+ * The current sprint's figures kept by the core in the store's history (My sprint shown), the
+ * window's former pref `retro.history` moved there with them when the store has none.
+ */
+export function keepFigures(): Promise<void> {
+  const old = pref<unknown[] | undefined>(OLD_HISTORY, undefined)
+  return invoke('retro_keep', { history: Array.isArray(old) && old.length ? old : null }).then(() => {
+    if (old !== undefined) setPref(OLD_HISTORY, undefined)
+  })
 }
+
+// At the window's first snapshot: the former pref moved, whether My sprint shows or not.
+$effect.root(() => {
+  let done = false
+  $effect(() => {
+    if (done || !live.snapshot || !isLocal() || pref(OLD_HISTORY, undefined) === undefined) return
+    done = true
+    keepFigures().catch((e) => console.error('retro_keep', e))
+  })
+})

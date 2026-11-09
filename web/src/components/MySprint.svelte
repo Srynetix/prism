@@ -1,54 +1,65 @@
 <script lang="ts">
   import { t } from '../i18n.svelte'
-  import { untrack } from 'svelte'
   import BlockControls from './BlockControls.svelte'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
+  import { invoke } from '../bridge'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
-  import { notes } from '../notes.svelte'
-  import { hours, median, retro, retroMarkdown, type RetroSummary } from '../retro'
-  import { addPoint, nextKind, POINT_KINDS, POINT_LABEL, pointsOf, pointsStorage, removePoint, sprintsWithPoints, updatePoint, type PointKind, type RetroPoint } from '../retro-points.svelte'
+  import { hours } from '../retro'
+  import { addPoint, keepFigures, nextKind, POINT_KINDS, POINT_LABEL, pointsOf, pointsStorage, removePoint, sprintsWithPoints, updatePoint, type PointKind, type RetroPoint } from '../retro-points.svelte'
   import { claudeClick, retroAction } from '../claude-actions'
   import { canPreview, openTicket } from '../ticket-view.svelte'
   import { ticketKey, trackerLogo } from '../tracker'
   import { openSettings } from '../settings.svelte'
   import { copy } from '../toast.svelte'
   import { locale } from '../locale'
-  import type { TrailState } from '../blocks/trail/trail'
+  import type { Retro } from '../bindings/Retro'
   import type { Snapshot } from '../types'
   import SprintActuals from './SprintActuals.svelte'
   import { conventions } from '../conventions'
 
   /**
-   * My sprint: the current sprint from your side, for the retro (see retro.ts). Your figures,
-   * compared with your own previous sprint; each sprint's are kept in the layout's prefs when the
-   * block shows them.
+   * My sprint: the current sprint from your side, for the retro, as the core computes it
+   * (`retro_get`, crates/blocks/src/trail/retro.rs). Your figures, compared with your own previous
+   * sprint; each sprint's are kept by the core (`retro_keep`) when the block shows them.
    */
   let { snap }: { snap: Snapshot } = $props()
 
-  const HISTORY = 'retro.history'
-  /** Sprints kept to compare with. */
-  const KEEP = 8
-  let history = $state<RetroSummary[]>(pref<RetroSummary[]>(HISTORY, []))
-  const trail = $derived(snap.blocks?.trail as unknown as TrailState | undefined)
-  // The history read untracked: keeping this sprint's figures in it (below) must not compute it all again.
-  const r = $derived(retro(snap, trail, notes, untrack(() => history)))
-  const previous = $derived(r ? history.filter((h) => h.name !== r.name).at(-1) : undefined)
+  /** `undefined` until the core has answered; `null`, a sprint without a start date. */
+  let r = $state<Retro | null | undefined>(undefined)
+  /** Asked at most this often: the snapshot changes far more. */
+  const EVERY = 2000
+  let asked = 0
+  let lastAsked = 0
+  // Asked again as the snapshot changes (the sprint, the trail, the notes) and as the points written here do.
+  $effect(() => {
+    void snap
+    const points = $state.snapshot(pointsOf(snap.sprint?.name ?? ''))
+    const timer = setTimeout(() => {
+      lastAsked = Date.now()
+      const n = ++asked
+      invoke<Retro | null>('retro_get', { points }).then((v) => {
+        if (n === asked) r = v
+      }).catch(() => {})
+    }, Math.max(0, lastAsked + EVERY - Date.now()))
+    return () => clearTimeout(timer)
+  })
+  const previous = $derived(r?.previous ?? undefined)
 
   // The sprint's figures, kept for the next sprints to compare with (the last state seen).
+  let keeping = ''
   $effect(() => {
-    const s = r?.summary
-    if (!s) return
-    const old = history.find((h) => h.name === s.name)
-    if (old && JSON.stringify(old) === JSON.stringify(s)) return
-    history = [...history.filter((h) => h.name !== s.name), s].slice(-KEEP)
-    setPref(HISTORY, history)
+    if (!r || r.kept) return
+    const key = JSON.stringify(r.summary)
+    if (key === keeping) return
+    keeping = key
+    keepFigures().catch(() => (keeping = ''))
   })
 
   const tracked = $derived(r ? r.time.sprint + r.time.other + r.time.none : 0)
   const all = $derived(r ? tracked + r.time.meetings : 0)
   const pct = (n: number) => (all ? Math.round((100 * n) / all) : 0)
-  const focus = $derived(r ? median(r.daily.map((d) => d.focus)) : 0)
+  const focus = $derived(r ? r.summary.focusMedian : 0)
   const maxFocus = $derived(r ? Math.max(60, ...r.daily.map((d) => d.focus)) : 60)
   const delta = (now: number, before: number | undefined, unit = '') => (before === undefined || now === before ? '' : `${now > before ? '▲' : '▼'} ${Math.abs(now - before)}${unit}`)
   const dayLabel = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString(locale(), { weekday: 'narrow' })
@@ -78,7 +89,7 @@
   let tab = $state<'retro' | 'actuals'>(pref<'retro' | 'actuals'>('retro.tab', 'retro'))
   const setTab = (v: 'retro' | 'actuals') => setPref('retro.tab', (tab = v))
   const actuals = $derived(conventions().actuals && tab === 'actuals')
-  const md = $derived(r ? retroMarkdown(r, pointsOf(r.name)) : '')
+  const md = $derived(r?.markdown ?? '')
   const draft = $derived(r ? retroAction(md, r.name) : null)
 </script>
 
@@ -98,6 +109,8 @@
     <div class="empty">{t('No current sprint read from the tracker.')}</div>
   {:else if actuals}
     {#if !isShort('retro')}<SprintActuals {snap} />{/if}
+  {:else if r === undefined}
+    <!-- The core has not answered yet. -->
   {:else if !r}
     <div class="empty">{t('The sprint has no start date: Prism cannot tell its days.')}</div>
   {:else if !snap.tracker_me}
@@ -210,7 +223,7 @@
             {#if r.notes.length}
               <h3 class="sub">{t('From my notes')} <span>#retro</span></h3>
               {#each r.notes as n (n.id)}
-                <p class="obs"><span class="muted">·</span>{n.text.replace(/\s*#retro\b/gi, '').trim()}</p>
+                <p class="obs"><span class="muted">·</span>{n.text}</p>
               {/each}
             {/if}
             <h3 class="sub">{t('Team')} <span>{t('one line, no ranking')}</span></h3>
