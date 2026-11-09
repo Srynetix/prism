@@ -110,19 +110,32 @@ pub async fn feedback_requests(state: State<'_, AppState>, refresh: bool) -> Cmd
     Ok(feedback::requests(&state.store))
 }
 
-/// Clears the agent's previous draft: where it is to write the new one.
+/// An agent drafts the issue (Draft with an agent): it reads the code (its clone, or the forge with
+/// glab/gh), looks for a duplicate, and writes the draft to a file Prism reads back
+/// (`draft_state`). It never opens the issue: that stays the composer's, after a read. The agent
+/// shows in the list, its conversation mine: its id, the draft's.
 #[prism_macros::command]
-pub fn feedback_draft_reset(state: State<'_, AppState>) -> Cmd<String> {
+pub async fn feedback_draft_start(state: State<'_, AppState>, target: String, kind: String, title: String, text: String) -> Cmd<String> {
+    let t = feedback::find(&crate::config_path(), &target)?;
     let path = feedback::draft_path(&state.store);
-    match std::fs::remove_file(&path) {
-        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.into()),
-        _ => {}
-    }
-    Ok(path.display().to_string())
-}
-
-/// The agent's draft, once written: its title and text.
-#[prism_macros::command]
-pub fn feedback_draft(state: State<'_, AppState>) -> Option<(String, String)> {
-    feedback::read_draft(&state.store)
+    let clone = state.hub.subscribe().borrow().repos.iter().find(|r| r.project.as_deref() == Some(t.project.as_str()) && !r.path.is_empty()).map(|r| std::path::PathBuf::from(&r.path));
+    let (title, text) = (title.trim(), text.trim());
+    let launch = crate::agents::Launch {
+        title: format!("Feedback: {}", if title.is_empty() { t.name.as_str() } else { title }).chars().take(60).collect(),
+        prompt: Some(feedback::draft_prompt(&t, &kind, title, text, &path, clone.is_some())),
+        cwd: clone,
+        worktree: None,
+        permission_mode: None,
+        category: None,
+        tags: vec!["feedback".into()],
+        provider: None,
+        model: None,
+        effort: None,
+        then: Vec::new(),
+        from: None,
+        prism_mcp: false,
+    };
+    // Hours: it may ask me what I have in mind first.
+    let spec = crate::agents::draft::Spec { launch, read: crate::agents::draft::Read::File(path), hidden: false, timeout: std::time::Duration::from_secs(4 * 3600) };
+    state.agents.draft(spec).await.map_err(Into::into)
 }

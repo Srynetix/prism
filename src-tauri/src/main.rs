@@ -243,6 +243,7 @@ fn export_bindings() {
     agents::conversation::Conversation::export_all(&cfg).unwrap();
     agents::switch::Material::export_all(&cfg).unwrap();
     agents::session_source::SessionSource::export_all(&cfg).unwrap();
+    agents::draft::DraftState::export_all(&cfg).unwrap();
     agents::breakdown::Breakdown::export_all(&cfg).unwrap();
     agents::activity::Activity::export_all(&cfg).unwrap();
     state::AgentCost::export_all(&cfg).unwrap();
@@ -302,6 +303,7 @@ fn export_bindings() {
     // The alerts the window gives the Changes block; the other computers of the profile menu; dictation's Settings.
     prism_blocks::changes::WindowAlert::export_all(&cfg).unwrap();
     machines::MachineView::export_all(&cfg).unwrap();
+    prism_remote::machine::MachineReason::export_all(&cfg).unwrap();
     dictation::Status::export_all(&cfg).unwrap();
     dictation::Download::export_all(&cfg).unwrap();
     // What each agent CLI can do: values, not only a type, for the window to read at once.

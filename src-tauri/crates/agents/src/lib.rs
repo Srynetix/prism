@@ -10,6 +10,7 @@ pub mod chain;
 mod chains;
 pub mod conversation;
 mod costs;
+pub mod draft;
 pub mod files;
 mod gate;
 pub mod hook;

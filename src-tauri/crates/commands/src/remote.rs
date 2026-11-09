@@ -245,7 +245,6 @@ async fn dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Val
             let A { text, context } = args(a)?;
             fb::feedback_body(text, context)
         })),
-        "feedback_draft" => Ok(serde_json::to_value(fb::feedback_draft(State(&state)))?),
         // A permission's choices past "once" ("don't ask again", "no, and…") are answered at the
         // desk: from a phone, Allow once, Esc, or the terminal with its passkey.
         // A folder's tasks are listed by running its task runner there: one Prism shows only.

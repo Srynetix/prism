@@ -221,27 +221,24 @@ impl Block for Custom {
             // A pack's block stays the pack's, config.toml overriding some of its keys or not.
             let origin = if packs.contains_key(&def.id) { Origin::Pack } else { Origin::Config };
             let hash = def.hash();
-            let trusted = store.trusted.get(&def.id);
-            let (runs, pending) = match trusted {
-                Some(t) if t.hash == hash => (Some(def.clone()), None),
-                _ => {
-                    let reason = match (trusted, origin) {
+            let (runs, pending) = match store.pending(&def.id, &hash, &diff::text(&def)) {
+                None => (Some(def.clone()), None),
+                Some(p) => {
+                    let reason = match (&p.trusted, origin) {
                         (None, _) => Reason::New,
                         (Some(_), Origin::Pack) => Reason::PackUpdated,
                         (Some(_), Origin::Config) => Reason::Modified,
                     };
                     // A pack's update: the version trusted runs on until this one is.
-                    let runs = trusted.filter(|_| reason == Reason::PackUpdated).map(|t| t.def.clone());
-                    let seen = store.seen.get(&def.id).filter(|s| s.hash == hash).cloned();
-                    let (since, near) = match seen {
+                    let runs = p.trusted.as_ref().filter(|_| reason == Reason::PackUpdated).and_then(trust::def);
+                    let (since, near) = match p.seen {
                         Some(s) => (s.at, s.agents),
                         None => {
-                            seen_now.push((def.id.clone(), hash.clone(), agents.clone()));
+                            seen_now.push((def.id.clone(), hash.clone()));
                             (Utc::now(), agents.clone())
                         }
                     };
-                    let before = trusted.map(|t| diff::text(&t.def)).unwrap_or_default();
-                    let pending = Pending { reason, hash: hash.clone(), since, agents: near, diff: diff::lines(&before, &diff::text(&def)), runs_trusted: runs.is_some() };
+                    let pending = Pending { reason, hash: hash.clone(), since, agents: near, diff: p.diff, runs_trusted: runs.is_some() };
                     (runs, Some(pending))
                 }
             };
@@ -249,8 +246,8 @@ impl Block for Custom {
         }
         if !seen_now.is_empty() {
             let _ = trust::update(&data, |s| {
-                for (id, hash, agents) in seen_now {
-                    s.seen.insert(id, trust::Seen { hash, at: Utc::now(), agents });
+                for (id, hash) in seen_now {
+                    s.see(&id, &hash, &agents, Utc::now());
                 }
             });
         }
@@ -293,7 +290,8 @@ impl Block for Custom {
                 "revert" => {
                     let id = id()?;
                     let trusted = trust::load(&data_dir()).trusted.get(&id).cloned().with_context(|| tr!("custom block {id}: no trusted version", id = id))?;
-                    let entry = entry_for(&trusted.def, &id, &layers())?;
+                    let def = trust::def(&trusted).with_context(|| tr!("custom block {id}: no trusted version", id = id))?;
+                    let entry = entry_for(&def, &id, &layers())?;
                     write_entry(&id, Some(&entry))?;
                     Ok(Value::Null)
                 }
@@ -304,10 +302,7 @@ impl Block for Custom {
                         bail!(tr!("custom block {id} comes from a pack: remove it there, or turn it off (enabled = false) in config.toml", id = id));
                     }
                     write_entry(&id, None)?;
-                    let _ = trust::update(&data_dir(), |s| {
-                        s.trusted.remove(&id);
-                        s.seen.remove(&id);
-                    });
+                    let _ = trust::update(&data_dir(), |s| s.forget(&id));
                     Ok(Value::Null)
                 }
                 // Settings: the entry `def` written in config.toml (in place of `former`, its id
@@ -331,7 +326,7 @@ impl Block for Custom {
                     let data = data_dir();
                     let before = trust::load(&data);
                     trust::update(&data, |s| {
-                        s.trust(&def);
+                        trust::trust(s, &def);
                         if !former.is_empty() && former != def.id {
                             s.trusted.remove(&former);
                         }
@@ -728,7 +723,7 @@ impl Manager {
         if slot.decl.hash() != hash {
             bail!(tr!("custom block {id} changed again since it was shown: look at it once more", id = id));
         }
-        trust::update(&self.data, |s| s.trust(&slot.decl))?;
+        trust::update(&self.data, |s| trust::trust(s, &slot.decl))?;
         *lock(&slot.runs) = Some(slot.decl.clone());
         *lock(&slot.pending) = None;
         let view = slot.view();
