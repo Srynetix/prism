@@ -300,6 +300,7 @@ fn export_bindings() {
     // The alerts the window gives the Changes block; the other computers of the profile menu; dictation's Settings.
     prism_blocks::changes::WindowAlert::export_all(&cfg).unwrap();
     machines::MachineView::export_all(&cfg).unwrap();
+    prism_remote::machine::MachineReason::export_all(&cfg).unwrap();
     dictation::Status::export_all(&cfg).unwrap();
     dictation::Download::export_all(&cfg).unwrap();
     // What each agent CLI can do: values, not only a type, for the window to read at once.
