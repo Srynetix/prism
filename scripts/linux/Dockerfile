@@ -4,11 +4,11 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 # Tauri's Linux prerequisites, the keyring's D-Bus, what bundling an AppImage runs, and the
-# dictation's: ALSA (the microphone) and cmake (whisper.cpp, built with the app).
+# dictation's: ALSA (the microphone), cmake and libclang (whisper.cpp, built with the app, and its bindgen).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential ca-certificates curl wget file git rsync pkg-config xz-utils \
       libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev \
-      libasound2-dev cmake \
+      libasound2-dev cmake libclang-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ARG NODE_VERSION=24.11.1
