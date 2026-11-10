@@ -83,8 +83,20 @@ struct Collected {
     pipelines: Vec<(Option<String>, poll::Pipelines)>,
 }
 
-/// The main branch (the project's default one if none is declared) and the release branches.
+/// The branches whose pipeline is followed (`[[repos]] pipeline_branches`; none: the main branch,
+/// the project's default one if none is declared, and the release branches).
 async fn protected_refs(r: &crate::config::PipelineRepo) -> Result<Vec<String>> {
+    Ok(pipeline_branches(r).await?.refs)
+}
+
+/// The followed branches as GitLab has them, and the entries it has no branch for (Settings' preview).
+pub async fn pipeline_branches(r: &crate::config::PipelineRepo) -> Result<crate::config::PipelineBranches> {
+    crate::forge::branches::resolve(r, lookup_branches).await
+}
+
+/// The project's default branch (when `default`), and each search's branches, all at once: those
+/// starting with it (`^`, sorted by name, so a name comes before the longer ones it begins).
+async fn lookup_branches(r: &crate::config::PipelineRepo, default: bool, searches: Vec<crate::forge::branches::Search>) -> Result<(Option<String>, Vec<Vec<String>>)> {
     #[derive(Deserialize)]
     struct Branch {
         name: String,
@@ -93,19 +105,33 @@ async fn protected_refs(r: &crate::config::PipelineRepo) -> Result<Vec<String>> 
     struct Project {
         default_branch: Option<String>,
     }
-    // No main branch declared: the project's default one.
-    let main = if r.main_branch.is_empty() {
-        api::<Project>(&format!("projects/{}", encode(&r.project))).await?.default_branch.context(tr("the project has no default branch"))?
-    } else {
-        r.main_branch.clone()
+    let project = encode(&r.project);
+    let main = async {
+        if !default {
+            return Ok(None);
+        }
+        let p: Project = api(&format!("projects/{project}")).await?;
+        p.default_branch.context(tr("the project has no default branch")).map(Some)
     };
-    // Without a release prefix (no Git Flow), only the main branch.
-    let release: Vec<Branch> = if r.release_prefix.is_empty() {
-        Vec::new()
-    } else {
-        api(&format!("projects/{}/repository/branches?search=%5E{}&per_page=20", encode(&r.project), encode(&r.release_prefix))).await?
-    };
-    Ok(std::iter::once(main).chain(release.into_iter().map(|b| b.name)).collect())
+    let lists = futures::future::try_join_all(searches.iter().map(|s| {
+        let path = match (s.exact, s.prefix.is_empty()) {
+            (true, _) => format!("projects/{project}/repository/branches?search={}&per_page=20", encode_query(&format!("^{}", s.prefix))),
+            (false, true) => format!("projects/{project}/repository/branches?per_page=100"),
+            (false, false) => format!("projects/{project}/repository/branches?search={}&per_page=100", encode_query(&format!("^{}", s.prefix))),
+        };
+        async move { api::<Vec<Branch>>(&path).await.map(|b| b.into_iter().map(|b| b.name).collect::<Vec<_>>()) }
+    }));
+    tokio::try_join!(main, lists)
+}
+
+/// A query parameter's value, percent-encoded (`^release/` → `%5Erelease%2F`).
+fn encode_query(v: &str) -> String {
+    v.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
 }
 
 /// A repository's protected branches' latest pipelines, and its pending jobs.

@@ -206,7 +206,7 @@ mod tests {
         crate::conventions::set(crate::conventions::Conventions::of(&cfg));
         set_window(3);
         let mut cache = Cache::default();
-        let repo = PipelineRepo { name: "cli".into(), repo: None, project: "cli/cli".into(), main_branch: "trunk".into(), release_prefix: String::new() };
+        let repo = PipelineRepo { name: "cli".into(), repo: None, project: "cli/cli".into(), main_branch: "trunk".into(), release_prefix: String::new(), branches: Vec::new() };
         let health = collect(&repo, &mut cache).await.unwrap();
         assert_eq!(health.scopes.iter().map(|s| s.label.as_str()).collect::<Vec<_>>(), ["trunk", "*", "PRs"]);
         assert!(health.scopes[0].pipelines > 0 && health.scopes[2].pipelines > 0);

@@ -1,6 +1,7 @@
 //! Merge requests and pipelines, whatever the forge.
 
 
+use prism_base::{i18n::tr, tr};
 use super::State;
 
 
@@ -145,6 +146,28 @@ pub async fn forge_labels(state: State<'_, AppState>, repo: Option<String>) -> C
         return Ok(crate::demo::details::labels(&state.hub.subscribe().borrow()));
     }
     state.forge().labels(repo.as_deref()).await.map_err(Into::into)
+}
+
+/// A repository's followed branches as its forge has them (`branches`: the list being edited in
+/// Settings › Repositories, empty: the main and release ones), and the entries it has no branch for.
+#[prism_macros::command]
+pub async fn pipeline_branches(state: State<'_, AppState>, repo: String, branches: Vec<String>) -> Cmd<crate::config::PipelineBranches> {
+    if crate::demo::active() {
+        // Its pipelines in the demo snapshot (the primary repository's: those without a repository).
+        let s = state.hub.subscribe().borrow().clone();
+        let of = |named: Option<&str>| s.pipelines.iter().filter(|p| p.repo.as_deref() == named).map(|p| p.target.clone()).collect::<Vec<_>>();
+        let refs = Some(of(Some(&repo))).filter(|r| !r.is_empty()).unwrap_or_else(|| of(None));
+        return Ok(crate::config::PipelineBranches { refs, missing: Vec::new() });
+    }
+    let cfg = crate::config::load(&crate::config_path())?;
+    let r = cfg.repositories().into_iter().find(|r| r.name == repo).ok_or_else(|| tr!("no repository named {name}", name = repo))?;
+    let mut target = cfg.pipeline_repo(&r).ok_or_else(|| tr("the repository has no project"))?;
+    target.branches = branches;
+    let got = match cfg.forge.provider {
+        crate::forge::Provider::Gitlab => crate::collectors::gitlab::pipeline_branches(&target).await,
+        crate::forge::Provider::Github => crate::collectors::github::pipeline_branches(&target).await,
+    };
+    got.map_err(Into::into)
 }
 
 /// Labels of an open MR (the whole list; empty: none).

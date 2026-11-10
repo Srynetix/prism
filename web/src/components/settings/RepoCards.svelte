@@ -3,6 +3,7 @@
   import Icon from '../Icon.svelte'
   import Control from './Control.svelte'
   import CheckBadge from './CheckBadge.svelte'
+  import PipelineBranchesField from './PipelineBranchesField.svelte'
   import ArmedLabel from '../ArmedLabel.svelte'
   import { armer } from '../../armed.svelte'
   import { t, tc } from '../../i18n.svelte'
@@ -120,13 +121,14 @@
   const forgeMain = $derived(valueOf<string>(['forge', 'main_branch'], ''))
   const forgeRelease = $derived(valueOf<string>(['forge', 'release_prefix'], ''))
   const worktreeBase = $derived(valueOf<string>(['worktrees', 'base_branch'], 'auto'))
+  const forgePipelineBranches = $derived(valueOf<string[] | null>(['forge', 'pipeline_branches'], null) ?? [])
 
   const SWITCHES_HERE = [
     { key: 'worktrees', label: t('Worktrees'), hint: t('Listed in Worktrees; agents create theirs there, Claude actions run on its MRs.') },
   ]
   const SWITCHES_FORGE = [
     { key: 'merge_requests', label: t('Merge requests'), hint: t('Its MRs in the Merge requests block.') },
-    { key: 'pipelines', label: t('Pipelines'), hint: t('Its protected branches’ pipelines and waiting jobs: branch banner, CI alerts, header.') },
+    { key: 'pipelines', label: t('Pipelines'), hint: t('Its followed branches’ pipelines (main and release ones, or those listed in Branches) and waiting jobs: branch banner, CI alerts, header.') },
     { key: 'merge_queue', label: t('Merge queue'), hint: t('The merge queue label on its MRs (a CI job watches it).') },
     { key: 'ticket_required', label: t('Ticket required'), hint: t('Alerts flags its MRs without a ticket id in their title or branch.') },
   ]
@@ -231,6 +233,9 @@
             <label><span>{t('Release prefix')}</span><Control kind="text" value={(r.release_prefix as string | undefined) ?? null} onchange={(v) => update(r.name, { release_prefix: v })} optional placeholder={r.release_prefix === '' ? t('none, set here') : forgeRelease ? t('{prefix} · from Forge', { prefix: forgeRelease }) : t('none')} compact /></label>
             <label><span>{t('Worktree base')}</span><Control kind="text" value={(r.base_branch as string | undefined) ?? null} onchange={(v) => update(r.name, { base_branch: v })} optional placeholder={worktreeBase === 'auto' ? t('auto: latest release, else main') : t('{branch} · from Worktrees', { branch: worktreeBase })} compact /></label>
           </div>
+          {#if r.pipelines && project && !foreign(r)}
+            <PipelineBranchesField repo={name} value={(r.pipeline_branches as string[] | undefined) ?? null} fallback={forgePipelineBranches} onchange={(v) => update(r.name, { pipeline_branches: v })} />
+          {/if}
         </div>
 
         <div class="foot">

@@ -96,6 +96,11 @@ pub struct ForgeConfig {
     pub main_branch: String,
     #[serde(default = "default_release_prefix")]
     pub release_prefix: String,
+    /// The branches whose pipeline is followed, of every repository that names none of its own
+    /// (`[[repos]] pipeline_branches`): names, `*` patterns, `@main`, `@release`. Empty (the
+    /// default): the main branch and the release ones.
+    #[serde(default)]
+    pub pipeline_branches: Vec<String>,
     /// Days during which a merged MR stays followed.
     #[serde(default = "default_merged_days")]
     pub merged_days: u32,
@@ -129,6 +134,7 @@ impl Default for ForgeConfig {
             enabled: true,
             main_branch: default_main_branch(),
             release_prefix: default_release_prefix(),
+            pipeline_branches: Vec::new(),
             merged_days: default_merged_days(),
             poll_seconds: default_gitlab_poll(),
             ci_health: true,

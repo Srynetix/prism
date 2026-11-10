@@ -353,7 +353,9 @@ impl Demo {
             manual_jobs: vec![ManualJob { id: 9320, name: "tag-release(production)".into(), url: format!("{HOST}/{PROJECT}/-/jobs/9320") }],
             ..self.stage("tag", "manual", 1, 0, 25)
         });
-        vec![main, release]
+        // Followed too (`pipeline_branches = ["@main", "develop", "@release"]`): the integration branch.
+        let develop = self.pipeline(9202, "develop", "success", 12);
+        vec![main, develop, release]
     }
 
     fn environments(&self) -> (Environments, ArgoCd) {
@@ -1248,7 +1250,7 @@ mod tests {
     fn fills_every_block() {
         let mut s = Snapshot::default();
         Demo { now: Utc::now() }.write(&mut s);
-        assert!(s.merge_requests.len() > 5 && s.pipelines.len() == 2 && s.sprint.as_ref().is_some_and(|x| x.tickets.len() > 5));
+        assert!(s.merge_requests.len() > 5 && s.pipelines.len() == 3 && s.sprint.as_ref().is_some_and(|x| x.tickets.len() > 5));
         assert!(s.environments.is_some() && s.vulnerabilities.is_some() && !s.worktrees.is_empty());
         assert!(serde_json::to_string(&s).is_ok());
     }

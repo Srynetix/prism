@@ -52,6 +52,7 @@ stale_days = 14
 # each remote's default branch.
 # main_branch = "main"
 release_prefix = "release/"   # Git Flow; default: none, the main branch only
+# pipeline_branches = ["@main", "develop", "@release"]   # followed branches; default: main + releases
 merged_days = 7               # how long a merged MR is followed, in days
 poll_seconds = 15
 ci_health = true      # the CI health block (on by default)
@@ -98,7 +99,10 @@ enabled = true
 # One switch per feature, off by default: `worktrees` (its worktrees
 # listed, agents create theirs there, Claude actions on its MRs; needs `path`), `merge_queue` (the
 # [gitlab] merge_queue_label on its MRs), `ticket_required` (its MRs need a ticket id), `pipelines`
-# (its main and release branches' pipelines and pending jobs; needs `project`). Branches:
+# (its main and release branches' pipelines and pending jobs; needs `project`), `pipeline_branches`
+# (the branches whose pipeline is followed instead, in order: names, `*` patterns such as "env/*",
+# "@main" for the main branch, "@release" for the release prefix's; absent: [forge] pipeline_branches,
+# empty there: the main and release ones). Branches:
 # `main_branch`, `release_prefix` (Git Flow; empty: none) and `base_branch` (of new worktrees,
 # "auto" = latest release, else main); absent, [forge] and [worktrees] give them (no [forge]
 # main_branch: the remote's default branch).
