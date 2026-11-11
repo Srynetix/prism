@@ -566,8 +566,7 @@ impl Agents {
     /// The folder `provider` keeps its sessions in under `account` (its usual one without, or an
     /// account no longer declared).
     pub(crate) fn cli_home(&self, provider: Provider, account: Option<&str>) -> Option<PathBuf> {
-        let settings = self.inner.settings.lock().unwrap();
-        provider.home(account.and_then(|n| settings.account(provider, Some(n))).map(|a| a.dir.as_path()))
+        self.inner.settings.lock().unwrap().cli_home(provider, account)
     }
 
     /// The agent's environment: where Command Code's mod and OpenCode's plugin write its log

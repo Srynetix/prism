@@ -169,7 +169,11 @@
     const first = list.find((x) => x.account === null) ?? list[0]
     return first ? [first, ...list.filter((x) => x !== first)] : []
   })
-  const account = $derived(accounts.length > 1 ? accountPicks[provider] || '' : '')
+  /** The account picked; the first (what it gets without one) named by a draft reads as no pick. */
+  const account = $derived.by(() => {
+    const pick = accounts.length > 1 ? accountPicks[provider] || '' : ''
+    return pick && pick === accounts[0]?.account ? '' : pick
+  })
   const cliModel = $derived(agentsSettings()[provider]?.model ?? null)
   const takesEffort = $derived(CLIS[provider].takes_effort)
   const model = $derived(models[provider] ?? '')

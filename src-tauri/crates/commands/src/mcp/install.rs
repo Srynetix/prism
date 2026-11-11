@@ -44,7 +44,7 @@ fn opencode_dir() -> PathBuf {
 }
 
 fn codex_config() -> PathBuf {
-    std::env::var_os("CODEX_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".codex")).join("config.toml")
+    prism_core::agents::provider::Provider::Codex.home(None).unwrap_or_else(|| home().join(".codex")).join("config.toml")
 }
 
 /// Where each CLI stands.

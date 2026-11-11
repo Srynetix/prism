@@ -822,6 +822,15 @@ async fn another_account_of_the_same_cli_takes_its_conversation() {
     assert_eq!(argv.last().map(String::as_str), Some("Go on."));
     let respawned = b.tmux.calls_of("respawn-pane").pop().unwrap();
     assert!(respawned.contains(&format!("CLAUDE_CONFIG_DIR={}", pro.display())), "{respawned:?}");
+    // Its former CLI stopped first (a shell in its place), then the copy, then the new account.
+    assert!(b.tmux.calls_of("respawn-pane").len() >= 2, "stopped before its conversation is copied");
+    // Before the last start, a folder not given then is taken out of the session's environment
+    // (another CLI's), the one given kept.
+    let calls = b.tmux.calls();
+    let last = calls.iter().rposition(|c| c[0] == "respawn-pane").unwrap();
+    let before = calls[..last].iter().rposition(|c| c[0] == "respawn-pane").unwrap();
+    let unset: Vec<&str> = calls[before + 1..last].iter().filter(|c| c[0] == "set-environment").filter_map(|c| c.last().map(String::as_str)).collect();
+    assert_eq!(unset, ["CODEX_HOME"]);
     let agent = b.shown(&id).await.unwrap();
     assert_eq!((agent.provider, agent.account.as_deref()), (Provider::Claude, Some("Claude pro")));
     let leg = &agent.legs[0];

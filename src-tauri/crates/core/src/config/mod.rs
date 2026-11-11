@@ -313,6 +313,7 @@ pub fn load_text(path: &Path, raw: &str) -> Result<Config> {
 fn resolve_accounts(list: &mut Vec<crate::config::AgentAccount>) {
     let mut seen = std::collections::HashSet::new();
     let mut defaulted = std::collections::HashSet::new();
+    let mut dirs = std::collections::HashSet::new();
     list.retain_mut(|a| {
         a.name = a.name.trim().to_string();
         let keep = !a.name.is_empty() && !a.dir.as_os_str().is_empty() && a.cli.home_var().is_some() && seen.insert(a.name.clone());
@@ -321,6 +322,9 @@ fn resolve_accounts(list: &mut Vec<crate::config::AgentAccount>) {
             return false;
         }
         a.dir = expand_home(&a.dir);
+        if !dirs.insert((a.cli, a.dir.clone())) {
+            tracing::warn!("[[agents.accounts]] {:?}: another {} account has the folder {} already: the same login and plan", a.name, a.cli.program(), a.dir.display());
+        }
         if a.default && !defaulted.insert(a.cli) {
             tracing::warn!("[[agents.accounts]] {:?}: another {} account is the default already", a.name, a.cli.program());
             a.default = false;

@@ -95,6 +95,9 @@ struct Plan {
     account: Option<String>,
     /// That account's folder; none: the CLI's usual one, as before accounts.
     home: Option<PathBuf>,
+    /// Accounts are declared: the usual folder's login is its own keychain entry, not the
+    /// freshest of all (which may be another account's).
+    exact: bool,
 }
 
 impl Plan {
@@ -102,7 +105,13 @@ impl Plan {
     fn of(cfg: &crate::config::AgentsConfig, provider: Provider, name: Option<&str>) -> Self {
         let account = name.and_then(|n| cfg.account(provider, Some(n)));
         // Its usual folder: read as before (see `Provider::own_home`).
-        Self { provider, account: account.map(|a| a.name.clone()), home: account.and_then(|a| provider.own_home(&a.dir)) }
+        Self { provider, account: account.map(|a| a.name.clone()), home: account.and_then(|a| provider.own_home(&a.dir)), exact: cfg.accounts.iter().any(|a| a.cli == provider) }
+    }
+
+    /// The same plan read: the same CLI in the same folder, whatever its account is called (an
+    /// agent from before accounts and the default account of the usual folder).
+    fn same(&self, other: &Self) -> bool {
+        self.provider == other.provider && self.home == other.home
     }
 
     /// `[agents] provider` under its default account.
@@ -122,7 +131,7 @@ fn active_others(s: &crate::state::Snapshot) -> Vec<Plan> {
     let mut out: Vec<Plan> = Vec::new();
     for a in running {
         let plan = Plan::of(cfg, a.provider, a.account.as_deref());
-        if plan != configured && a.provider.has_plan() && !out.contains(&plan) {
+        if !plan.same(&configured) && a.provider.has_plan() && !out.iter().any(|p| p.same(&plan)) {
             out.push(plan);
         }
     }
@@ -218,9 +227,9 @@ impl Meter {
 
     /// One reading, cached on success, and the wait before the next; the error as shown.
     async fn read(&mut self, http: &reqwest::Client, claude: &crate::config::ClaudeConfig) -> (Result<ClaudeUsage, String>, Duration) {
-        let home = self.plan.home.clone();
+        let (home, exact) = (self.plan.home.clone(), self.plan.exact);
         let mut result = match self.plan.provider {
-            Provider::Claude => fetch(http, home.as_deref()).await,
+            Provider::Claude => fetch(http, home.as_deref(), exact).await,
             Provider::CommandCode => command_code::fetch(http).await,
             Provider::Codex => codex::fetch(home.clone()).await,
             Provider::OpenCode => return (Err(tr("OpenCode has no plan").into()), BACKOFF_MAX),
@@ -234,7 +243,7 @@ impl Meter {
             self.refreshed = Some(std::time::Instant::now());
             // Shown with the error: without it, a renewal that fails or changes nothing goes unseen.
             result = match refresh(claude.cli.bin.as_deref().unwrap_or("claude"), home.as_deref()).await {
-                Ok(()) => fetch(http, home.as_deref()).await.map_err(|e| if e.is::<Expired>() { anyhow::anyhow!(tr!("{err} (claude doctor did not renew it)", err = format!("{e:#}"))) } else { e }),
+                Ok(()) => fetch(http, home.as_deref(), exact).await.map_err(|e| if e.is::<Expired>() { anyhow::anyhow!(tr!("{err} (claude doctor did not renew it)", err = format!("{e:#}"))) } else { e }),
                 Err(e) => {
                     tracing::warn!("usage: claude doctor: {e:#}");
                     Err(anyhow::anyhow!(tr!("{err} (claude doctor failed: {why})", err = format!("{expired:#}"), why = format!("{e:#}"))))
@@ -322,8 +331,8 @@ impl std::fmt::Display for RateLimited {
 
 impl std::error::Error for RateLimited {}
 
-async fn fetch(http: &reqwest::Client, home: Option<&Path>) -> Result<(ClaudeUsage, serde_json::Value)> {
-    let token = access_token(home).await?;
+async fn fetch(http: &reqwest::Client, home: Option<&Path>, exact: bool) -> Result<(ClaudeUsage, serde_json::Value)> {
+    let token = access_token(home, exact).await?;
     let resp = http
         .get(ENDPOINT)
         .bearer_auth(&token)
@@ -364,6 +373,9 @@ mod cache {
         /// Absent: Claude Code, the only provider before the choice existed.
         #[serde(default)]
         provider: Provider,
+        /// The account it was read for: two names may share a file name.
+        #[serde(default)]
+        account: Option<String>,
         fetched_at: DateTime<Utc>,
         body: serde_json::Value,
     }
@@ -386,7 +398,7 @@ mod cache {
     pub fn load(provider: Provider, account: Option<&str>) -> Option<ClaudeUsage> {
         let saved: Saved = serde_json::from_slice(&std::fs::read(path(provider, account)?).ok()?).ok()?;
         let usage = match saved.provider {
-            _ if saved.provider != provider => return None,
+            _ if saved.provider != provider || saved.account.as_deref() != account => return None,
             Provider::Claude => super::parse(&saved.body),
             Provider::CommandCode => super::command_code::parse(&saved.body),
             Provider::Codex => super::codex::parse(&saved.body),
@@ -397,7 +409,7 @@ mod cache {
 
     pub fn save(provider: Provider, account: Option<&str>, body: &serde_json::Value) {
         let Some(path) = path(provider, account) else { return };
-        let saved = Saved { provider, fetched_at: Utc::now(), body: body.clone() };
+        let saved = Saved { provider, account: account.map(String::from), fetched_at: Utc::now(), body: body.clone() };
         let write = || -> std::io::Result<()> {
             std::fs::create_dir_all(path.parent().unwrap_or(&path))?;
             let tmp = path.with_extension("json.tmp");
@@ -439,8 +451,13 @@ fn parse(body: &serde_json::Value) -> ClaudeUsage {
 /// macOS (`keychain_service`), its `.credentials.json` elsewhere. Without: the keychain's every
 /// `Claude Code-credentials*` entry on macOS (a configuration folder of its own has its entry, and
 /// an older one may linger), `~/.claude/.credentials.json` (or under `CLAUDE_CONFIG_DIR`) on Linux
-/// and Windows.
-async fn credentials(home: Option<&Path>) -> Result<Vec<String>> {
+/// and Windows. `exact` (accounts declared): the usual folder's own entry only — the one of the
+/// `CLAUDE_CONFIG_DIR` Prism was given, else the plain one —, another account's never read for it.
+async fn credentials(home: Option<&Path>, exact: bool) -> Result<Vec<String>> {
+    if cfg!(target_os = "macos") && home.is_none() && exact {
+        let service = std::env::var_os("CLAUDE_CONFIG_DIR").map_or_else(|| KEYCHAIN_SERVICE.to_string(), |d| keychain_service(Path::new(&d)));
+        return crate::platform::secret(&service).await?.map(|c| vec![c]).with_context(|| tr("no Claude Code credentials in the keychain"));
+    }
     if let Some(home) = home {
         if cfg!(target_os = "macos") {
             let found = crate::platform::secret(&keychain_service(home)).await?;
@@ -462,7 +479,7 @@ async fn credentials(home: Option<&Path>) -> Result<Vec<String>> {
         anyhow::ensure!(!found.is_empty(), "{}", tr("no Claude Code credentials in the keychain"));
         return Ok(found);
     }
-    let dir = std::env::var_os("CLAUDE_CONFIG_DIR").map(std::path::PathBuf::from).unwrap_or_else(|| dirs::home_dir().unwrap_or_default().join(".claude"));
+    let dir = Provider::Claude.home(None).unwrap_or_default();
     Ok(vec![tokio::fs::read_to_string(dir.join(".credentials.json")).await.context(tr("no Claude Code credentials (.credentials.json)"))?])
 }
 
@@ -496,8 +513,8 @@ fn freshest(creds: Vec<String>) -> Result<OAuth> {
     logins.into_iter().max_by_key(|o| o.expires_at.unwrap_or(i64::MAX)).context("unreadable Claude Code credentials")
 }
 
-async fn access_token(home: Option<&Path>) -> Result<String> {
-    let oauth = freshest(credentials(home).await?)?;
+async fn access_token(home: Option<&Path>, exact: bool) -> Result<String> {
+    let oauth = freshest(credentials(home, exact).await?)?;
     if let Some(expires) = oauth.expires_at.and_then(DateTime::from_timestamp_millis) {
         if expires < Utc::now() {
             return Err(Expired("expired").into());
@@ -618,6 +635,23 @@ pub(super) mod command_code {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_account_of_the_usual_folder_is_the_same_plan() {
+        use crate::{agents::provider::Provider, config::{AgentAccount, AgentsConfig}};
+        let usual = Provider::Claude.home(None).unwrap();
+        let cfg = AgentsConfig {
+            accounts: vec![
+                AgentAccount { name: "Claude perso".into(), cli: Provider::Claude, dir: usual, default: true },
+                AgentAccount { name: "Claude pro".into(), cli: Provider::Claude, dir: "/x/.claude-pro".into(), default: false },
+            ],
+            ..AgentsConfig::default()
+        };
+        let configured = super::Plan::configured(&cfg);
+        assert_eq!((configured.account.as_deref(), configured.home.as_deref(), configured.exact), (Some("Claude perso"), None, true), "its usual folder, its own login only");
+        assert!(super::Plan::of(&cfg, Provider::Claude, None).same(&configured), "an agent from before accounts: no second meter");
+        assert!(!super::Plan::of(&cfg, Provider::Claude, Some("Claude pro")).same(&configured));
+    }
 
     #[test]
     fn names_an_accounts_keychain_entry() {

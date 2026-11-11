@@ -204,7 +204,11 @@
     const first = list.find((x) => x.account === null) ?? list[0]
     return first ? [first, ...list.filter((x) => x !== first)] : []
   })
-  const launchAccount = $derived(launchAccounts.length > 1 ? accountPicks[launchProvider] || '' : '')
+  /** The account picked; the first (what it gets without one) named by a draft reads as no pick. */
+  const launchAccount = $derived.by(() => {
+    const pick = launchAccounts.length > 1 ? accountPicks[launchProvider] || '' : ''
+    return pick && pick === launchAccounts[0]?.account ? '' : pick
+  })
   /** The model typed for each CLI (a model is one CLI's); empty: its own (`[agents.<cli>] model`), failing that its default. */
   let models = $state<Partial<Record<AgentProvider, string>>>({})
   const cliModel = $derived(agentsSettings()[launchProvider]?.model ?? null)

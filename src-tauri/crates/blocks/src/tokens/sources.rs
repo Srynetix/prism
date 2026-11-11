@@ -45,14 +45,14 @@ fn home() -> Option<PathBuf> {
     dirs::home_dir()
 }
 
-/// `~/.claude/projects`, or under `CLAUDE_CONFIG_DIR`.
+/// `~/.claude/projects`, or under `CLAUDE_CONFIG_DIR` (`Provider::home`).
 pub fn claude_dir() -> Option<PathBuf> {
-    std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from).or_else(|| home().map(|h| h.join(".claude"))).map(|r| r.join("projects"))
+    prism_core::agents::provider::Provider::Claude.home(None).map(|r| r.join("projects"))
 }
 
-/// `~/.codex/sessions`, or under `CODEX_HOME`.
+/// `~/.codex/sessions`, or under `CODEX_HOME` (`Provider::home`).
 pub fn codex_dir() -> Option<PathBuf> {
-    std::env::var_os("CODEX_HOME").map(PathBuf::from).or_else(|| home().map(|h| h.join(".codex"))).map(|r| r.join("sessions"))
+    prism_core::agents::provider::Provider::Codex.home(None).map(|r| r.join("sessions"))
 }
 
 pub fn command_code_dir() -> Option<PathBuf> {

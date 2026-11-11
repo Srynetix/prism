@@ -33,7 +33,7 @@ pub async fn efforts(provider: Provider, program: &str, model: Option<&str>) -> 
         Provider::Codex => {
             let model = model.map(String::from);
             tokio::task::spawn_blocking(move || {
-                let root = std::env::var_os("CODEX_HOME").map(std::path::PathBuf::from).or_else(|| dirs::home_dir().map(|h| h.join(".codex")));
+                let root = super::provider::Provider::Codex.home(None);
                 let raw = root.and_then(|r| std::fs::read(r.join("models_cache.json")).ok()).unwrap_or_default();
                 parse_codex_efforts(&raw, model.as_deref())
             })
@@ -81,7 +81,7 @@ pub async fn list(provider: Provider, program: &str) -> Vec<String> {
 
 /// Codex's catalog, in its order: the models it lists (not those it hides).
 fn codex() -> Vec<String> {
-    let root = std::env::var_os("CODEX_HOME").map(std::path::PathBuf::from).or_else(|| dirs::home_dir().map(|h| h.join(".codex")));
+    let root = super::provider::Provider::Codex.home(None);
     let Some(raw) = root.and_then(|r| std::fs::read(r.join("models_cache.json")).ok()) else { return Vec::new() };
     parse_codex(&raw)
 }

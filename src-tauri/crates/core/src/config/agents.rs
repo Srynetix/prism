@@ -272,9 +272,10 @@ impl AgentsConfig {
         }
     }
 
-    /// The folder `provider` keeps its sessions in under account `name` (see `account`).
+    /// The folder `provider` keeps its sessions in under account `name`: that account's; none
+    /// named (an agent without one), or one no longer declared, its usual folder.
     pub fn cli_home(&self, provider: crate::agents::provider::Provider, name: Option<&str>) -> Option<PathBuf> {
-        provider.home(self.account(provider, name).map(|a| a.dir.as_path()))
+        provider.home(name.and_then(|n| self.account(provider, Some(n))).map(|a| a.dir.as_path()))
     }
 
     /// How a CLI is launched: its binary and extra arguments.
