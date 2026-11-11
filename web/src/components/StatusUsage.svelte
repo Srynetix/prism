@@ -1,6 +1,6 @@
 <script lang="ts">
   import { anchored, dismissable, exclusive } from '../popup'
-  import { hasWindows, pace, peak, resets, usageLevel, week, weekTitle, type PlanSection } from '../usage'
+  import { hasWindows, pace, peak, resets, sectionKey, sectionName, usageLevel, week, weekTitle, type PlanSection } from '../usage'
   import { cliOf } from '../agent-cli'
   import Usage from './Usage.svelte'
   import Icon from './Icon.svelte'
@@ -33,7 +33,7 @@
       five && `${t('Session (5h)')}: ${Math.round(five.utilization)}%${five.resets_at ? ` · ${resets(five)}` : ''}`,
       seven && wk && `${t('Week')}: ${weekTitle(seven, wk)}`,
       lead?.error && t('Last fetch failed: {error}', { error: lead.error }),
-      ...rest.map((p) => `${cliOf(p.provider).name}: ${line(p)}`),
+      ...rest.map((p) => `${sectionName(p, cliOf(p.provider).name)}: ${line(p)}`),
     ]
       .filter(Boolean)
       .join('\n'),
@@ -55,21 +55,21 @@
       </span>
     {/if}
     {#if rest.length}
-      <span class="more {restLevel}" aria-label={t('Also {names}', { names: rest.map((p) => cliOf(p.provider).name).join(', ') })}>+{#each rest as p (p.provider)}<span class="mg" style:color={cliOf(p.provider).color}><Icon name={cliOf(p.provider).icon} /></span>{/each}</span>
+      <span class="more {restLevel}" aria-label={t('Also {names}', { names: rest.map((p) => sectionName(p, cliOf(p.provider).name)).join(', ') })}>+{#each rest as p (sectionKey(p))}<span class="mg" style:color={cliOf(p.provider).color}><Icon name={cliOf(p.provider).icon} /></span>{/each}</span>
     {/if}
   </button>
   {#if open}
     <div class="pop" style:--cli-fill={cliOf(lead.provider).color} {@attach anchored(() => button, { align: 'end', gap: 6 })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button })}>
       {#if sections.length === 1}
-        <p>{t('{cli} usage', { cli: cliOf(lead.provider).name })}</p>
+        <p>{t('{cli} usage', { cli: sectionName(lead, cliOf(lead.provider).name) })}</p>
         <Usage usage={lead.usage} error={lead.error} />
       {:else}
         <p><span>{t('Usage')}</span><span>{t('{n} CLIs in use', { n: sections.length })}</span></p>
-        {#each sections as p (p.provider)}
+        {#each sections as p (sectionKey(p))}
           <section class="cli" style:--cli-fill={cliOf(p.provider).color}>
             <header>
               <span class="cg"><Icon name={cliOf(p.provider).icon} /></span>
-              <b>{cliOf(p.provider).name}</b>
+              <b>{sectionName(p, cliOf(p.provider).name)}</b>
               {#if p.configured}<span class="def">{tc('chat', 'default')}</span>{/if}
               <span class="n">{agents(p.agents)}</span>
             </header>

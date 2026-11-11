@@ -55,7 +55,7 @@ pub async fn list(provider: Provider, argv: Vec<String>, cwd: PathBuf) -> Result
             Ok(list)
         }
         Provider::Codex => {
-            let Some(home) = std::env::var_os("CODEX_HOME").map(PathBuf::from).or_else(|| dirs::home_dir().map(|h| h.join(".codex"))) else { return Ok(Vec::new()) };
+            let Some(home) = Provider::Codex.home(None) else { return Ok(Vec::new()) };
             Ok(tokio::task::spawn_blocking(move || codex_prompts(&home.join("prompts"))).await?)
         }
         Provider::OpenCode | Provider::CommandCode => Ok(Vec::new()),

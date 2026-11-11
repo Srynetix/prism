@@ -80,6 +80,8 @@ export function weekTitle(w: UsageWindow, wk: Period, noun = 'week') {
 /** A CLI's plan usage, as the status bar's popup and the phone show it. */
 export interface PlanSection {
   provider: AgentProvider
+  /** Its account (`[[agents.accounts]]`), each its own plan; null: the CLI's usual folder. */
+  account: string | null
   usage: ClaudeUsage | null
   error: string | undefined
   /** The CLI of `[agents] provider`. */
@@ -94,13 +96,20 @@ export interface PlanSection {
  */
 export function planSections(s: Snapshot): PlanSection[] {
   const configured = s.agents_settings?.provider ?? 'claude'
-  const running = (p: AgentProvider) => (s.agents ?? []).filter((a) => a.state === 'running' && a.provider === p).length
-  const out: PlanSection[] = [{ provider: configured, usage: s.usage ?? null, error: s.errors.usage, configured: true, agents: running(configured) }]
-  for (const o of s.other_usage ?? []) out.push({ provider: o.provider, usage: o.usage, error: o.error ?? undefined, configured: false, agents: running(o.provider) })
-  if (configured !== 'opencode' && running('opencode')) out.push({ provider: 'opencode', usage: null, error: undefined, configured: false, agents: running('opencode') })
+  const mine = s.usage_account ?? null
+  const running = (p: AgentProvider, account: string | null) => (s.agents ?? []).filter((a) => a.state === 'running' && a.provider === p && (a.account ?? null) === account).length
+  const out: PlanSection[] = [{ provider: configured, account: mine, usage: s.usage ?? null, error: s.errors.usage, configured: true, agents: running(configured, mine) }]
+  for (const o of s.other_usage ?? []) out.push({ provider: o.provider, account: o.account ?? null, usage: o.usage, error: o.error ?? undefined, configured: false, agents: running(o.provider, o.account ?? null) })
+  if (configured !== 'opencode' && running('opencode', null)) out.push({ provider: 'opencode', account: null, usage: null, error: undefined, configured: false, agents: running('opencode', null) })
   // A configured CLI without a plan, with no agent: nothing to say about it.
   return out.filter((p) => p.usage?.five_hour || p.usage?.seven_day || p.agents || p.error)
 }
+
+/** A section's key: its CLI and account (two accounts of a CLI, two plans). */
+export const sectionKey = (p: PlanSection) => `${p.provider}:${p.account ?? ''}`
+
+/** A section's name: its account's (`Claude pro`), else its CLI's. */
+export const sectionName = (p: PlanSection, cliName: string) => p.account ?? cliName
 
 /** A section with windows to draw (the others have no plan, or no reading yet). */
 export const hasWindows = (p: PlanSection) => !!(p.usage?.five_hour || p.usage?.seven_day)
@@ -109,8 +118,9 @@ export const hasWindows = (p: PlanSection) => !!(p.usage?.five_hour || p.usage?.
 export const peak = (p: PlanSection) => Math.max(0, ...[p.usage?.five_hour, p.usage?.seven_day, ...(p.usage?.others ?? []).map(([, w]) => w)].filter((w): w is UsageWindow => !!w).map((w) => w.utilization))
 
 /** How much of `p`'s plan is used now (its fullest window), when Prism reads it. */
-export function planUseOf(s: Snapshot, p: AgentProvider): number | null {
-  const section = planSections(s).find((x) => x.provider === p)
+export function planUseOf(s: Snapshot, p: AgentProvider, account?: string | null): number | null {
+  // An account's own plan; without one asked, the CLI's first section (as before accounts).
+  const section = planSections(s).find((x) => x.provider === p && (account === undefined || x.account === (account ?? null)))
   return section?.usage ? peak(section) : null
 }
 

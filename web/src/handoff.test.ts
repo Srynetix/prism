@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { INCLUDE_ALL, handoffs, relayText, suggestTarget, summaryRequest } from './handoff'
+import { INCLUDE_ALL, handoffs, relayText, suggestAccount, suggestTarget, summaryRequest, type Target } from './handoff'
 import type { HandoffMaterial } from './types'
 
 const material = (over: Partial<HandoffMaterial> = {}): HandoffMaterial => ({
@@ -81,5 +81,32 @@ describe('handoffs and suggestTarget', () => {
     expect(suggestTarget('claude', ['claude', 'codex', 'command-code', 'opencode'], use)).toBe('command-code')
     expect(suggestTarget('claude', ['claude', 'opencode'], use)).toBe('opencode')
     expect(suggestTarget('claude', ['claude'], use)).toBeNull()
+  })
+})
+
+describe('accounts of a CLI', () => {
+  const pro: Target = { provider: 'claude', account: 'Claude pro' }
+  const perso: Target = { provider: 'claude', account: 'Claude perso' }
+  const team: Target = { provider: 'claude', account: 'Claude team' }
+  const codex: Target = { provider: 'codex', account: null }
+
+  it('takes the whole conversation first, for another account of the same CLI only', () => {
+    expect(handoffs(true, true)).toEqual(['resume', 'prism', 'agent', 'task'])
+    expect(handoffs(false, true)).toEqual(['task'])
+    expect(handoffs(true, false)).not.toContain('resume')
+  })
+
+  it('suggests the least used other account of its CLI, else another CLI', () => {
+    const use = (t: Target) => ({ 'Claude pro': 100, 'Claude perso': 60, 'Claude team': 20 })[t.account ?? ''] ?? (t.provider === 'codex' ? 10 : null)
+    expect(suggestAccount(pro, [perso, team, codex], use)).toEqual(team)
+    // The other accounts used up: another CLI, though less used than any.
+    expect(suggestAccount(pro, [{ ...perso }, codex], (t) => (t.provider === 'codex' ? 30 : 100))).toEqual(codex)
+    expect(suggestAccount(pro, [], use)).toBeNull()
+  })
+
+  it('tells the next account it is the same conversation', () => {
+    expect(relayText(material(), 'resume', ctx, 'en')).toContain('another account')
+    expect(relayText(material(), 'resume', ctx, 'en')).not.toContain('# Picking up work in progress')
+    expect(relayText(material(), 'resume', { ...ctx, reason: 'choice' }, 'fr')).toContain('autre compte')
   })
 })

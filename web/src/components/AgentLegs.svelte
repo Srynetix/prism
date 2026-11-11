@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import { CLIS } from '../agent-cli'
-  import { backTo } from '../agent-switch.svelte'
+  import { backTo, targetName } from '../agent-switch.svelte'
+  import { sameTarget, type Target } from '../handoff'
   import { dateFormat } from '../locale'
   import { t, tn } from '../i18n.svelte'
   import type { Agent, AgentProvider } from '../types'
@@ -12,14 +13,19 @@
    */
   let { agent }: { agent: Agent } = $props()
 
-  interface Row { provider: AgentProvider; model?: string | null; from: string; to: string | null; replies: number; cost: number | null; why: string | null }
+  interface Row { provider: AgentProvider; account?: string | null; model?: string | null; from: string; to: string | null; replies: number; cost: number | null; why: string | null }
   const rows = $derived<Row[]>([
-    ...(agent.legs ?? []).map((l) => ({ provider: l.provider, model: l.model, from: l.started, to: l.ended, replies: l.usage?.replies ?? 0, cost: l.usage?.cost ?? null, why: l.reason === 'limit' ? t('stopped at its limit') : t('handed over') })),
-    { provider: agent.provider, model: agent.model, from: (agent.legs ?? []).at(-1)?.ended ?? agent.created_at, to: null, replies: agent.usage?.replies ?? 0, cost: agent.usage?.cost ?? null, why: null },
+    ...(agent.legs ?? []).map((l) => ({ provider: l.provider, account: l.account ?? null, model: l.model, from: l.started, to: l.ended, replies: l.usage?.replies ?? 0, cost: l.usage?.cost ?? null, why: l.reason === 'limit' ? t('stopped at its limit') : t('handed over') })),
+    { provider: agent.provider, account: agent.account ?? null, model: agent.model, from: (agent.legs ?? []).at(-1)?.ended ?? agent.created_at, to: null, replies: agent.usage?.replies ?? 0, cost: agent.usage?.cost ?? null, why: null },
   ])
   const total = $derived(rows.reduce((s, r) => s + (r.cost ?? 0), 0))
   const time = (iso: string) => dateFormat({ hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
-  const left = $derived([...new Set((agent.legs ?? []).map((l) => l.provider))].filter((p) => p !== agent.provider))
+  /** The CLIs (and accounts) it ran before, once each, but where it runs now. */
+  const left = $derived.by(() => {
+    const seen = new Map<string, Target>()
+    for (const l of agent.legs ?? []) seen.set(`${l.provider}:${l.account ?? ''}`, { provider: l.provider, account: l.account ?? null })
+    return [...seen.values()].filter((t) => !sameTarget(t, { provider: agent.provider, account: agent.account ?? null }))
+  })
 </script>
 
 {#if agent.legs?.length}
@@ -32,7 +38,7 @@
       <div class="leg" class:now={!r.to}>
         <Icon name={CLIS[r.provider].icon} />
         <div class="what">
-          {CLIS[r.provider].cli}{#if r.model}<span class="muted"> · {r.model}</span>{/if}
+          {r.account ?? CLIS[r.provider].cli}{#if r.model}<span class="muted"> · {r.model}</span>{/if}
           <small>{time(r.from)} → {r.to ? time(r.to) : t('now')} · {tn(r.replies, '{n} reply', '{n} replies')}{#if r.why} · {r.why}{/if}</small>
         </div>
         <span class="amt">{r.cost != null ? `$${r.cost.toFixed(2)}` : '—'}</span>
@@ -40,7 +46,10 @@
     {/each}
     {#if agent.state !== 'prepared'}
       <div class="back">
-        {#each left as p (p)}<button onclick={() => backTo(agent, p)} title={CLIS[p].resumes_with_prompt ? t('{cli} picks its conversation up again, told what happened since', { cli: CLIS[p].name }) : t('{cli} starts a new conversation from a relay', { cli: CLIS[p].cli })}><Icon name="retry" size={11} />{t('Back to {cli}', { cli: CLIS[p].name })}</button>{/each}
+        {#each left as target (`${target.provider}:${target.account ?? ''}`)}
+          {@const p = target.provider}
+          <button onclick={() => backTo(agent, target)} title={CLIS[p].resumes_with_prompt ? t('{cli} picks its conversation up again, told what happened since', { cli: targetName(target) }) : t('{cli} starts a new conversation from a relay', { cli: CLIS[p].cli })}><Icon name="retry" size={11} />{t('Back to {cli}', { cli: targetName(target) })}</button>
+        {/each}
       </div>
     {/if}
   </section>

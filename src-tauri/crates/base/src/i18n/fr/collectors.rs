@@ -68,6 +68,8 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no board: add [[obsidian.boards]]", "aucun tableau : ajoutez [[obsidian.boards]]"),
     ("no board: set [jira] board", "aucun tableau : renseignez [jira] board"),
     ("no Claude Code credentials (.credentials.json)", "pas d’identifiants Claude Code (.credentials.json)"),
+    ("no Claude Code credentials for {dir} in the keychain: log in once with that account", "pas d’identifiants Claude Code pour {dir} dans le trousseau : connectez-vous une fois avec ce compte"),
+    ("no Claude Code credentials in {dir}: log in once with that account", "pas d’identifiants Claude Code dans {dir} : connectez-vous une fois avec ce compte"),
     ("no Claude Code credentials in the keychain", "pas d’identifiants Claude Code dans le trousseau"),
     ("no Claude.ai login in Claude Code credentials", "pas de connexion Claude.ai dans les identifiants de Claude Code"),
     ("no code", "pas de code"),

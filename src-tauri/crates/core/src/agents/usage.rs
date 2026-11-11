@@ -249,9 +249,9 @@ pub fn price(model: &str) -> Option<Price> {
 }
 
 /// An agent's transcript when its hooks did not name it: `<id>.jsonl` in one of Claude Code's
-/// project folders.
-pub fn find_transcript(session: &str) -> Option<PathBuf> {
-    let projects = dirs::home_dir()?.join(".claude/projects");
+/// project folders, under `home` (its account's folder; absent, Claude Code's usual one).
+pub fn find_transcript(home: Option<&std::path::Path>, session: &str) -> Option<PathBuf> {
+    let projects = home.map(std::path::Path::to_path_buf).or_else(|| super::provider::Provider::Claude.home(None))?.join("projects");
     std::fs::read_dir(projects).ok()?.flatten().map(|d| d.path().join(format!("{session}.jsonl"))).find(|p| p.is_file())
 }
 

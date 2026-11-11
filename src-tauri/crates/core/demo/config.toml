@@ -138,6 +138,18 @@ icon = "worktrees"
 color = "orange"
 columns = ["worktrees", "tokens"]
 
+# Two Claude Code accounts, each its own plan: an agent continues under the other at its limit.
+[[agents.accounts]]
+name = "Claude perso"
+cli = "claude"
+dir = "~/.claude"
+default = true
+
+[[agents.accounts]]
+name = "Claude pro"
+cli = "claude"
+dir = "~/.claude-pro"
+
 # One-click jobs on a repository, and routines that run them alone (none runs in the demo).
 [[agents.quick_actions]]
 name = "Bump deps"

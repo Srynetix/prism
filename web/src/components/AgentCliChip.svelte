@@ -2,12 +2,14 @@
   import Icon from './Icon.svelte'
   import { CLIS } from '../agent-cli'
   import { anchored, dismissable, exclusive } from '../popup'
-  import { continueWith, installedClis, planUse } from '../agent-switch.svelte'
+  import { continueWith, installedClis, targetName, targetOf, targetsOf, targetUse } from '../agent-switch.svelte'
   import { t } from '../i18n.svelte'
-  import type { Agent, AgentProvider } from '../types'
+  import type { Target } from '../handoff'
+  import type { Agent } from '../types'
 
   /**
-   * An agent's CLI in its header: a chip whose menu lists the other CLIs found on the computer, each
+   * An agent's CLI in its header (its account's name when it has one): a chip whose menu lists the
+   * other CLIs found on the computer and the other accounts of each (`[[agents.accounts]]`), each
    * with its plan's use, to continue with (agent-switch.svelte.ts). A prepared agent's is read
    * only: its launch is changed in the launcher.
    */
@@ -16,37 +18,40 @@
   let open = $state(false)
   let button: HTMLButtonElement | undefined = $state()
   const found = $derived(open ? installedClis() : null)
-  const others = $derived((Object.keys(CLIS) as AgentProvider[]).filter((p) => p !== a.provider))
+  const others = $derived(targetsOf(a))
   const cli = $derived(CLIS[a.provider])
-  const used = (p: AgentProvider) => planUse(p)
+  const used = (t: Target) => targetUse(t)
+  const here = $derived(targetOf(a))
 
   function toBody(node: HTMLElement) {
     document.body.appendChild(node)
     return () => node.remove()
   }
-  function pick(p: AgentProvider) {
+  function pick(target: Target) {
     open = false
-    void continueWith(a, p)
+    void continueWith(a, target)
   }
 </script>
 
 {#if a.state === 'prepared'}
-  <span class="chip" style:--c={cli.color} title={cli.cli}><Icon name={cli.icon} />{cli.name}</span>
+  <span class="chip" style:--c={cli.color} title={cli.cli}><Icon name={cli.icon} />{targetName(here)}</span>
 {:else}
-  <button bind:this={button} class="chip" class:open style:--c={cli.color} onclick={(e) => { e.stopPropagation(); open = !open }} aria-haspopup="menu" aria-expanded={open} title={t('{cli} runs it: continue with another CLI', { cli: cli.cli })}>
-    <Icon name={cli.icon} />{cli.name}<Icon name="down" size={10} />
+  <button bind:this={button} class="chip" class:open style:--c={cli.color} onclick={(e) => { e.stopPropagation(); open = !open }} aria-haspopup="menu" aria-expanded={open} title={a.account ? t('{cli} runs it under {account}: continue with another account or CLI', { cli: cli.cli, account: a.account }) : t('{cli} runs it: continue with another CLI', { cli: cli.cli })}>
+    <Icon name={cli.icon} />{targetName(here)}<Icon name="down" size={10} />
   </button>
   {#if open}
     <div class="menu" role="menu" tabindex="-1" {@attach toBody} {@attach anchored(() => button, { align: 'start' })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, resize: true })}>
       <div class="lbl">{t('Continue with')}</div>
-      <div class="opt cur"><Icon name={cli.icon} /><span class="n">{cli.cli}<small>{t('now')}</small></span>{#if used(a.provider) !== null}<span class="use" class:hot={used(a.provider)! >= 90}>{Math.round(used(a.provider)!)} %</span>{/if}<Icon name="check" size={11} /></div>
+      <div class="opt cur"><Icon name={cli.icon} /><span class="n">{a.account ?? cli.cli}<small>{t('now')}</small></span>{#if used(here) !== null}<span class="use" class:hot={used(here)! >= 90}>{Math.round(used(here)!)} %</span>{/if}<Icon name="check" size={11} /></div>
       <div class="sep"></div>
-      {#each others as p (p)}
+      {#each others as target (`${target.provider}:${target.account ?? ''}`)}
+        {@const p = target.provider}
         {@const missing = !!found && !found.includes(p)}
-        <button class="opt" role="menuitem" disabled={missing} onclick={() => pick(p)} title={missing ? t('{program} not found in the PATH', { program: CLIS[p].program }) : t('{cli} takes it on, from a relay', { cli: CLIS[p].cli })}>
+        {@const same = p === a.provider}
+        <button class="opt" role="menuitem" disabled={missing} onclick={() => pick(target)} title={missing ? t('{program} not found in the PATH', { program: CLIS[p].program }) : same ? t('{account} takes its conversation whole', { account: targetName(target) }) : t('{cli} takes it on, from a relay', { cli: CLIS[p].cli })}>
           <Icon name={CLIS[p].icon} />
-          <span class="n">{CLIS[p].cli}{#if missing}<small>{t('not found')}</small>{:else if !CLIS[p].plan}<small>{t('your own API keys')}</small>{/if}</span>
-          {#if used(p) !== null}<span class="use" class:hot={used(p)! >= 90}>{Math.round(used(p)!)} %</span>{/if}
+          <span class="n">{target.account ?? CLIS[p].cli}{#if missing}<small>{t('not found')}</small>{:else if same}<small>{t('its conversation goes too')}</small>{:else if !CLIS[p].plan}<small>{t('your own API keys')}</small>{/if}</span>
+          {#if used(target) !== null}<span class="use" class:hot={used(target)! >= 90}>{Math.round(used(target)!)} %</span>{/if}
         </button>
       {/each}
     </div>

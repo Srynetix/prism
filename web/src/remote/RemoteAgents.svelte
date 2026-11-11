@@ -12,7 +12,7 @@
   import { isArchived, setArchived } from '../agent-archive.svelte'
   import Usage from '../components/Usage.svelte'
   import Icon from '../components/Icon.svelte'
-  import { hasWindows, peak, planSections, usageLevel } from '../usage'
+  import { hasWindows, peak, planSections, sectionKey, sectionName, usageLevel } from '../usage'
   import { mrKey } from '../mr-ref'
   import { ago } from '../time'
   import { toast } from '../toast.svelte'
@@ -183,17 +183,17 @@
     <div class="plan" class:stale={!!lead.error} style:--cli-fill={cliOf(lead.provider).color}>
       <button class="sum" onclick={() => (showUsage = !showUsage)} aria-expanded={showUsage}>
         <Icon name={cliOf(lead.provider).icon} />
-        <span class="t">{rest.length ? t('Usage') : t('{cli} usage', { cli: cliOf(lead.provider).name })}</span>
+        <span class="t">{rest.length ? t('Usage') : t('{cli} usage', { cli: sectionName(lead, cliOf(lead.provider).name) })}</span>
         {#if five}<span class="w {usageLevel(five)}"><small>5h</small><span class="bar"><i style:width="{Math.min(100, five.utilization)}%"></i></span><b>{Math.round(five.utilization)}%</b></span>{/if}
         {#if seven}<span class="w {usageLevel(seven)}"><small>{t('wk')}</small><b>{Math.round(seven.utilization)}%</b></span>{/if}
-        {#if rest.length}<span class="more {restLevel}">+{#each rest as p (p.provider)}<span style:color={cliOf(p.provider).color}><Icon name={cliOf(p.provider).icon} /></span>{/each}</span>{/if}
+        {#if rest.length}<span class="more {restLevel}">+{#each rest as p (sectionKey(p))}<span style:color={cliOf(p.provider).color}><Icon name={cliOf(p.provider).icon} /></span>{/each}</span>{/if}
         <Icon name={showUsage ? 'chevronDown' : 'chevronRight'} />
       </button>
       {#if showUsage}
         {#if rest.length}
-          {#each sections as p (p.provider)}
+          {#each sections as p (sectionKey(p))}
             <section class="cli" style:--cli-fill={cliOf(p.provider).color}>
-              <header><Icon name={cliOf(p.provider).icon} /><b>{cliOf(p.provider).name}</b>{#if p.configured}<span class="def">{t('default')}</span>{/if}<span class="n">{p.agents ? tn(p.agents, '{n} agent', '{n} agents') : t('no agent')}</span></header>
+              <header><Icon name={cliOf(p.provider).icon} /><b>{sectionName(p, cliOf(p.provider).name)}</b>{#if p.configured}<span class="def">{t('default')}</span>{/if}<span class="n">{p.agents ? tn(p.agents, '{n} agent', '{n} agents') : t('no agent')}</span></header>
               {#if !cliOf(p.provider).plan}<p class="none">{t('No plan: it runs on your own providers’ keys.')}</p>{:else}<Usage usage={p.usage} error={p.error} />{/if}
             </section>
           {/each}

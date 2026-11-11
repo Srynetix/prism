@@ -377,6 +377,8 @@ impl Agents {
             category: line.kind.clone(),
             tags: Vec::new(),
             provider: a.as_ref().map(|a| a.provider),
+            // The account of the agent that saw it, as its CLI.
+            account: a.as_ref().and_then(|a| a.account.clone()),
             model: a.as_ref().and_then(|a| a.launch.as_ref()).and_then(|l| l.model.clone()),
             effort: seen.and_then(|s| s.effort),
             then: Vec::new(),

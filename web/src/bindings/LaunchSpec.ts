@@ -25,6 +25,11 @@ permission_mode: string | null, category: string | null, tags: Array<string>,
  */
 provider: AgentProvider | null, 
 /**
+ * The CLI's account it runs under (`[[agents.accounts]]`, its name), kept on resume and
+ * changed by Continue with…; absent: the CLI's usual folder.
+ */
+account?: string, 
+/**
  * The model picked in the launcher, kept on resume; absent: the CLI's (`[agents.<cli>] model`).
  */
 model: string | null, 

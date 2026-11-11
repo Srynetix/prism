@@ -82,7 +82,7 @@ impl Agents {
                 let record = left.record;
                 let dir = record.worktree.clone().filter(|w| w.is_dir()).unwrap_or_else(|| record.cwd.clone());
                 // Its CLI's session is gone with it: only Claude Code's transcript is found by its id.
-                let transcript = if record.provider.finds_transcript() { usage::find_transcript(&record.id) } else { None };
+                let transcript = if record.provider.finds_transcript() { usage::find_transcript(self.cli_home(record.provider, record.launch.as_ref().and_then(|l| l.account.as_deref())).as_deref(), &record.id) } else { None };
                 let prompts = read_prompts(transcript, dir.clone()).await;
                 Ok(from_record(&record, dir, prompts, Some(left.closed_at.to_rfc3339())))
             }

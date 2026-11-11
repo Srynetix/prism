@@ -561,6 +561,7 @@ impl Agents {
             category: None,
             tags: vec!["routine".into()],
             provider: None,
+            account: None,
             model: None,
             effort: None,
             then: Vec::new(),

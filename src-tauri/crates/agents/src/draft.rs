@@ -194,6 +194,7 @@ impl Agents {
             category: None,
             tags: vec!["quick-action".into()],
             provider: Some(s.provider),
+            account: None,
             model: None,
             effort: None,
             then: Vec::new(),

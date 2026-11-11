@@ -67,6 +67,7 @@ fn agent(id: &str, f: impl FnOnce(&mut Agent)) -> Agent {
     let mut a = Agent {
         id: id.into(),
         provider: Cli::Claude,
+        account: None,
         title: format!("Agent {id}"),
         category: None,
         tags: Vec::new(),

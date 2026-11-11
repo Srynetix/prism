@@ -1,5 +1,8 @@
 use prism_base::{i18n::tr, tr};
-use std::time::Duration;
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Utc};
@@ -38,28 +41,32 @@ pub async fn run(hub: Hub) {
     let mut wait = Duration::ZERO;
     loop {
         let mut settings = hub.subscribe();
-        let current = settings.borrow().agents_settings.provider;
-        if meter.as_ref().is_none_or(|m| m.provider != current) {
-            let (m, cached, due) = Meter::start(current);
+        // `[agents] provider` under its default account (`[[agents.accounts]]`), each its own plan.
+        let current = Plan::configured(&settings.borrow().agents_settings);
+        if meter.as_ref().is_none_or(|m| m.plan != current) {
+            let (m, cached, due) = Meter::start(current.clone());
             meter = Some(m);
             wait = due;
+            let account = current.account.clone();
             hub.update(|s| {
-                let changed = s.usage != cached;
+                let changed = s.usage != cached || s.usage_account != account;
                 s.usage = cached;
+                s.usage_account = account;
                 changed
             });
             hub.set_error(SOURCE, None);
         }
         let Some(m) = meter.as_mut() else { continue };
+        let moved = |s: &crate::state::Snapshot| Plan::configured(&s.agents_settings) != current;
         if !wait.is_zero() {
             tokio::select! {
                 _ = hub.pause(wait) => {}
-                _ = async { let _ = settings.wait_for(|s| s.agents_settings.provider != current).await; } => continue,
+                _ = async { let _ = settings.wait_for(moved).await; } => continue,
             }
         }
         // No plan to read (and no cached reading to wait for): nothing until another provider is chosen.
-        if !current.has_plan() {
-            if settings.wait_for(|s| s.agents_settings.provider != current).await.is_err() {
+        if !current.provider.has_plan() {
+            if settings.wait_for(moved).await.is_err() {
                 return;
             }
             continue;
@@ -81,15 +88,51 @@ pub async fn run(hub: Hub) {
     }
 }
 
-/// The CLIs with a plan that agents run on, other than `[agents] provider`, in the order their
-/// first running agent was launched.
-fn active_others(s: &crate::state::Snapshot) -> Vec<Provider> {
+/// A plan read: a CLI's, under one of its accounts (`[[agents.accounts]]`) or its usual folder.
+#[derive(Debug, Clone, PartialEq)]
+struct Plan {
+    provider: Provider,
+    account: Option<String>,
+    /// That account's folder; none: the CLI's usual one, as before accounts.
+    home: Option<PathBuf>,
+    /// Accounts are declared: the usual folder's login is its own keychain entry, not the
+    /// freshest of all (which may be another account's).
+    exact: bool,
+}
+
+impl Plan {
+    /// `provider` under account `name` (none: its usual folder); an account no longer declared reads as none.
+    fn of(cfg: &crate::config::AgentsConfig, provider: Provider, name: Option<&str>) -> Self {
+        let account = name.and_then(|n| cfg.account(provider, Some(n)));
+        // Its usual folder: read as before (see `Provider::own_home`).
+        Self { provider, account: account.map(|a| a.name.clone()), home: account.and_then(|a| provider.own_home(&a.dir)), exact: cfg.accounts.iter().any(|a| a.cli == provider) }
+    }
+
+    /// The same plan read: the same CLI in the same folder, whatever its account is called (an
+    /// agent from before accounts and the default account of the usual folder).
+    fn same(&self, other: &Self) -> bool {
+        self.provider == other.provider && self.home == other.home
+    }
+
+    /// `[agents] provider` under its default account.
+    fn configured(cfg: &crate::config::AgentsConfig) -> Self {
+        let name = cfg.account(cfg.provider, None).map(|a| a.name.clone());
+        Self::of(cfg, cfg.provider, name.as_deref())
+    }
+}
+
+/// The plans (a CLI with a plan, under an account) that agents run on, other than
+/// `[agents] provider`'s default one, in the order their first running agent was launched.
+fn active_others(s: &crate::state::Snapshot) -> Vec<Plan> {
+    let cfg = &s.agents_settings;
+    let configured = Plan::configured(cfg);
     let mut running: Vec<&crate::state::Agent> = s.agents.iter().filter(|a| a.state == crate::state::AgentState::Running).collect();
     running.sort_by_key(|a| a.created_at);
-    let mut out: Vec<Provider> = Vec::new();
+    let mut out: Vec<Plan> = Vec::new();
     for a in running {
-        if a.provider != s.agents_settings.provider && a.provider.has_plan() && !out.contains(&a.provider) {
-            out.push(a.provider);
+        let plan = Plan::of(cfg, a.provider, a.account.as_deref());
+        if !plan.same(&configured) && a.provider.has_plan() && !out.iter().any(|p| p.same(&plan)) {
+            out.push(plan);
         }
     }
     out
@@ -104,21 +147,21 @@ async fn others(hub: Hub) {
     let mut settings = hub.subscribe();
     loop {
         let active = active_others(&settings.borrow_and_update());
-        if active.iter().ne(meters.iter().map(|(m, _)| &m.provider)) {
+        if active.iter().ne(meters.iter().map(|(m, _)| &m.plan)) {
             let mut kept: Vec<(Meter, tokio::time::Instant)> = Vec::new();
             let mut entries: Vec<crate::state::ProviderUsage> = Vec::new();
             for p in &active {
-                let old = hub.subscribe().borrow().other_usage.iter().find(|u| u.provider == *p).cloned();
-                match meters.iter().position(|(m, _)| m.provider == *p) {
+                let old = hub.subscribe().borrow().other_usage.iter().find(|u| u.provider == p.provider && u.account == p.account).cloned();
+                match meters.iter().position(|(m, _)| m.plan == *p) {
                     Some(i) => kept.push(meters.swap_remove(i)),
                     None => {
-                        let (m, cached, due) = Meter::start(*p);
+                        let (m, cached, due) = Meter::start(p.clone());
                         kept.push((m, tokio::time::Instant::now() + due));
-                        entries.push(crate::state::ProviderUsage { provider: *p, usage: cached, error: None });
+                        entries.push(crate::state::ProviderUsage { provider: p.provider, account: p.account.clone(), usage: cached, error: None });
                         continue;
                     }
                 }
-                entries.push(old.unwrap_or(crate::state::ProviderUsage { provider: *p, usage: None, error: None }));
+                entries.push(old.unwrap_or(crate::state::ProviderUsage { provider: p.provider, account: p.account.clone(), usage: None, error: None }));
             }
             meters = kept;
             hub.update(|s| {
@@ -148,9 +191,9 @@ async fn others(hub: Hub) {
             let (result, wait) = m.read(&http, &claude).await;
             // Read less often with the window hidden, as the configured CLI's (`Hub::pause`).
             *at = tokio::time::Instant::now() + if hub.shown() { wait } else { (wait * 4).max(Duration::from_secs(60)) };
-            let provider = m.provider;
+            let plan = m.plan.clone();
             hub.update(|s| {
-                let Some(u) = s.other_usage.iter_mut().find(|u| u.provider == provider) else { return false };
+                let Some(u) = s.other_usage.iter_mut().find(|u| u.provider == plan.provider && u.account == plan.account) else { return false };
                 let before = u.clone();
                 match result {
                     Ok(usage) => {
@@ -165,9 +208,9 @@ async fn others(hub: Hub) {
     }
 }
 
-/// A CLI's plan reader: its back-off after refusals, and Claude Code's token renewals.
+/// A plan's reader: its back-off after refusals, and Claude Code's token renewals.
 struct Meter {
-    provider: Provider,
+    plan: Plan,
     backoff: Duration,
     refreshed: Option<std::time::Instant>,
 }
@@ -176,30 +219,31 @@ impl Meter {
     /// A reader for `provider`, its last reading on disk and how long until the next is due: an
     /// app restart (frequent during development) shows it again without calling the endpoint as
     /// long as it is younger than POLL.
-    fn start(provider: Provider) -> (Self, Option<ClaudeUsage>, Duration) {
-        let cached = cache::load(provider);
+    fn start(plan: Plan) -> (Self, Option<ClaudeUsage>, Duration) {
+        let cached = cache::load(plan.provider, plan.account.as_deref());
         let due = cached.as_ref().map_or(Duration::ZERO, |u| POLL.saturating_sub((Utc::now() - u.fetched_at).to_std().unwrap_or_default()));
-        (Self { provider, backoff: POLL, refreshed: None }, cached, due)
+        (Self { plan, backoff: POLL, refreshed: None }, cached, due)
     }
 
     /// One reading, cached on success, and the wait before the next; the error as shown.
     async fn read(&mut self, http: &reqwest::Client, claude: &crate::config::ClaudeConfig) -> (Result<ClaudeUsage, String>, Duration) {
-        let mut result = match self.provider {
-            Provider::Claude => fetch(http).await,
+        let (home, exact) = (self.plan.home.clone(), self.plan.exact);
+        let mut result = match self.plan.provider {
+            Provider::Claude => fetch(http, home.as_deref(), exact).await,
             Provider::CommandCode => command_code::fetch(http).await,
-            Provider::Codex => codex::fetch().await,
+            Provider::Codex => codex::fetch(home.clone()).await,
             Provider::OpenCode => return (Err(tr("OpenCode has no plan").into()), BACKOFF_MAX),
         };
         if let Err(expired) = &result
-            && self.provider == Provider::Claude
+            && self.plan.provider == Provider::Claude
             && expired.is::<Expired>()
             && claude.refresh_token
             && self.refreshed.is_none_or(|t| t.elapsed() >= REFRESH_EVERY)
         {
             self.refreshed = Some(std::time::Instant::now());
             // Shown with the error: without it, a renewal that fails or changes nothing goes unseen.
-            result = match refresh(claude.cli.bin.as_deref().unwrap_or("claude")).await {
-                Ok(()) => fetch(http).await.map_err(|e| if e.is::<Expired>() { anyhow::anyhow!(tr!("{err} (claude doctor did not renew it)", err = format!("{e:#}"))) } else { e }),
+            result = match refresh(claude.cli.bin.as_deref().unwrap_or("claude"), home.as_deref()).await {
+                Ok(()) => fetch(http, home.as_deref(), exact).await.map_err(|e| if e.is::<Expired>() { anyhow::anyhow!(tr!("{err} (claude doctor did not renew it)", err = format!("{e:#}"))) } else { e }),
                 Err(e) => {
                     tracing::warn!("usage: claude doctor: {e:#}");
                     Err(anyhow::anyhow!(tr!("{err} (claude doctor failed: {why})", err = format!("{expired:#}"), why = format!("{e:#}"))))
@@ -208,7 +252,7 @@ impl Meter {
         }
         match result {
             Ok((usage, body)) => {
-                cache::save(self.provider, &body);
+                cache::save(self.plan.provider, self.plan.account.as_deref(), &body);
                 self.backoff = POLL;
                 (Ok(usage), POLL)
             }
@@ -223,7 +267,7 @@ impl Meter {
                     None => POLL,
                 };
                 let retry = Utc::now() + chrono::Duration::from_std(wait).unwrap_or_default();
-                tracing::warn!("usage ({:?}): {e:#}, next try at {retry}", self.provider);
+                tracing::warn!("usage ({:?}{}): {e:#}, next try at {retry}", self.plan.provider, self.plan.account.as_deref().map(|a| format!(", {a}")).unwrap_or_default());
                 (Err(tr!("{err} · next try {at}", err = format!("{e:#}"), at = retry.with_timezone(&chrono::Local).format("%H:%M"))), wait)
             }
         }
@@ -249,10 +293,15 @@ const EXPIRY_MARGIN: chrono::TimeDelta = chrono::TimeDelta::minutes(5);
 
 /// `claude doctor` renews Claude Code's OAuth token along the way, without calling the model.
 /// Run outside any project (Prism's cache folder), without a terminal, one minute at most.
-async fn refresh(claude: &str) -> Result<()> {
+async fn refresh(claude: &str, home: Option<&Path>) -> Result<()> {
     let dir = dirs::cache_dir().unwrap_or_else(std::env::temp_dir).join("prism");
     std::fs::create_dir_all(&dir).ok();
-    let mut child = crate::platform::command(claude)
+    let mut command = crate::platform::command(claude);
+    // An account's: its own login renewed.
+    if let Some(home) = home {
+        command.env("CLAUDE_CONFIG_DIR", home);
+    }
+    let mut child = command
         .arg("doctor")
         .current_dir(&dir)
         .stdin(std::process::Stdio::null())
@@ -282,8 +331,8 @@ impl std::fmt::Display for RateLimited {
 
 impl std::error::Error for RateLimited {}
 
-async fn fetch(http: &reqwest::Client) -> Result<(ClaudeUsage, serde_json::Value)> {
-    let token = access_token().await?;
+async fn fetch(http: &reqwest::Client, home: Option<&Path>, exact: bool) -> Result<(ClaudeUsage, serde_json::Value)> {
+    let token = access_token(home, exact).await?;
     let resp = http
         .get(ENDPOINT)
         .bearer_auth(&token)
@@ -324,24 +373,32 @@ mod cache {
         /// Absent: Claude Code, the only provider before the choice existed.
         #[serde(default)]
         provider: Provider,
+        /// The account it was read for: two names may share a file name.
+        #[serde(default)]
+        account: Option<String>,
         fetched_at: DateTime<Utc>,
         body: serde_json::Value,
     }
 
-    /// One file per CLI: Claude Code's keeps the name it had when it was the only one.
-    fn path(provider: Provider) -> Option<PathBuf> {
-        let name = match provider {
-            Provider::Claude => "claude-usage.json".to_string(),
-            p => format!("usage-{}.json", serde_json::to_value(p).ok()?.as_str()?),
+    /// One file per CLI and account: Claude Code's usual one keeps the name it had when it was
+    /// the only one; an account's adds its name (its letters and digits).
+    fn path(provider: Provider, account: Option<&str>) -> Option<PathBuf> {
+        let mut name = match provider {
+            Provider::Claude => "claude-usage".to_string(),
+            p => format!("usage-{}", serde_json::to_value(p).ok()?.as_str()?),
         };
-        Some(dirs::cache_dir()?.join("app.prism.desktop").join(name))
+        if let Some(a) = account {
+            name.push('-');
+            name.extend(a.chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '_' }));
+        }
+        Some(dirs::cache_dir()?.join("app.prism.desktop").join(format!("{name}.json")))
     }
 
     /// The last reading, if it is `provider`'s.
-    pub fn load(provider: Provider) -> Option<ClaudeUsage> {
-        let saved: Saved = serde_json::from_slice(&std::fs::read(path(provider)?).ok()?).ok()?;
+    pub fn load(provider: Provider, account: Option<&str>) -> Option<ClaudeUsage> {
+        let saved: Saved = serde_json::from_slice(&std::fs::read(path(provider, account)?).ok()?).ok()?;
         let usage = match saved.provider {
-            _ if saved.provider != provider => return None,
+            _ if saved.provider != provider || saved.account.as_deref() != account => return None,
             Provider::Claude => super::parse(&saved.body),
             Provider::CommandCode => super::command_code::parse(&saved.body),
             Provider::Codex => super::codex::parse(&saved.body),
@@ -350,9 +407,9 @@ mod cache {
         Some(ClaudeUsage { fetched_at: saved.fetched_at, ..usage })
     }
 
-    pub fn save(provider: Provider, body: &serde_json::Value) {
-        let Some(path) = path(provider) else { return };
-        let saved = Saved { provider, fetched_at: Utc::now(), body: body.clone() };
+    pub fn save(provider: Provider, account: Option<&str>, body: &serde_json::Value) {
+        let Some(path) = path(provider, account) else { return };
+        let saved = Saved { provider, account: account.map(String::from), fetched_at: Utc::now(), body: body.clone() };
         let write = || -> std::io::Result<()> {
             std::fs::create_dir_all(path.parent().unwrap_or(&path))?;
             let tmp = path.with_extension("json.tmp");
@@ -390,10 +447,24 @@ fn parse(body: &serde_json::Value) -> ClaudeUsage {
     }
 }
 
-/// Claude Code's credentials, as JSON: the keychain on macOS, every `Claude Code-credentials*`
-/// entry (a configuration folder of its own has its entry, and an older one may linger),
-/// `~/.claude/.credentials.json` (or under `CLAUDE_CONFIG_DIR`) on Linux and Windows.
-async fn credentials() -> Result<Vec<String>> {
+/// Claude Code's credentials, as JSON. An account's (`home`, its folder): its keychain entry on
+/// macOS (`keychain_service`), its `.credentials.json` elsewhere. Without: the keychain's every
+/// `Claude Code-credentials*` entry on macOS (a configuration folder of its own has its entry, and
+/// an older one may linger), `~/.claude/.credentials.json` (or under `CLAUDE_CONFIG_DIR`) on Linux
+/// and Windows. `exact` (accounts declared): the usual folder's own entry only — the one of the
+/// `CLAUDE_CONFIG_DIR` Prism was given, else the plain one —, another account's never read for it.
+async fn credentials(home: Option<&Path>, exact: bool) -> Result<Vec<String>> {
+    if cfg!(target_os = "macos") && home.is_none() && exact {
+        let service = std::env::var_os("CLAUDE_CONFIG_DIR").map_or_else(|| KEYCHAIN_SERVICE.to_string(), |d| keychain_service(Path::new(&d)));
+        return crate::platform::secret(&service).await?.map(|c| vec![c]).with_context(|| tr("no Claude Code credentials in the keychain"));
+    }
+    if let Some(home) = home {
+        if cfg!(target_os = "macos") {
+            let found = crate::platform::secret(&keychain_service(home)).await?;
+            return found.map(|c| vec![c]).with_context(|| tr!("no Claude Code credentials for {dir} in the keychain: log in once with that account", dir = home.display()));
+        }
+        return Ok(vec![tokio::fs::read_to_string(home.join(".credentials.json")).await.with_context(|| tr!("no Claude Code credentials in {dir}: log in once with that account", dir = home.display()))?]);
+    }
     if cfg!(target_os = "macos") {
         // The entries' names only: `dump-keychain` without `-d` shows no secret.
         let dump = crate::platform::command(crate::platform::SECURITY).arg("dump-keychain").output().await?;
@@ -408,8 +479,18 @@ async fn credentials() -> Result<Vec<String>> {
         anyhow::ensure!(!found.is_empty(), "{}", tr("no Claude Code credentials in the keychain"));
         return Ok(found);
     }
-    let dir = std::env::var_os("CLAUDE_CONFIG_DIR").map(std::path::PathBuf::from).unwrap_or_else(|| dirs::home_dir().unwrap_or_default().join(".claude"));
+    let dir = Provider::Claude.home(None).unwrap_or_default();
     Ok(vec![tokio::fs::read_to_string(dir.join(".credentials.json")).await.context(tr("no Claude Code credentials (.credentials.json)"))?])
+}
+
+/// The keychain entry Claude Code keeps its login in when run with `CLAUDE_CONFIG_DIR=home`: its
+/// name, then the first 8 hex digits of the SHA-256 of that path as given (seen on a Mac: the
+/// entry of `/Users/…/.claude` set as such).
+fn keychain_service(home: &Path) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(home.to_string_lossy().as_bytes());
+    let hex: String = digest.iter().take(4).map(|b| format!("{b:02x}")).collect();
+    format!("{KEYCHAIN_SERVICE}-{hex}")
 }
 
 /// The services of the keychain's `Claude Code-credentials*` entries, in `security dump-keychain`'s
@@ -432,8 +513,8 @@ fn freshest(creds: Vec<String>) -> Result<OAuth> {
     logins.into_iter().max_by_key(|o| o.expires_at.unwrap_or(i64::MAX)).context("unreadable Claude Code credentials")
 }
 
-async fn access_token() -> Result<String> {
-    let oauth = freshest(credentials().await?)?;
+async fn access_token(home: Option<&Path>, exact: bool) -> Result<String> {
+    let oauth = freshest(credentials(home, exact).await?)?;
     if let Some(expires) = oauth.expires_at.and_then(DateTime::from_timestamp_millis) {
         if expires < Utc::now() {
             return Err(Expired("expired").into());
@@ -556,6 +637,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn an_account_of_the_usual_folder_is_the_same_plan() {
+        use crate::{agents::provider::Provider, config::{AgentAccount, AgentsConfig}};
+        let usual = Provider::Claude.home(None).unwrap();
+        let cfg = AgentsConfig {
+            accounts: vec![
+                AgentAccount { name: "Claude perso".into(), cli: Provider::Claude, dir: usual, default: true },
+                AgentAccount { name: "Claude pro".into(), cli: Provider::Claude, dir: "/x/.claude-pro".into(), default: false },
+            ],
+            ..AgentsConfig::default()
+        };
+        let configured = super::Plan::configured(&cfg);
+        assert_eq!((configured.account.as_deref(), configured.home.as_deref(), configured.exact), (Some("Claude perso"), None, true), "its usual folder, its own login only");
+        assert!(super::Plan::of(&cfg, Provider::Claude, None).same(&configured), "an agent from before accounts: no second meter");
+        assert!(!super::Plan::of(&cfg, Provider::Claude, Some("Claude pro")).same(&configured));
+    }
+
+    #[test]
+    fn names_an_accounts_keychain_entry() {
+        // The entry a Mac holds for `CLAUDE_CONFIG_DIR=/Users/denis/.claude` (first 8 hex digits of its SHA-256).
+        assert_eq!(super::keychain_service(std::path::Path::new("/Users/denis/.claude")), "Claude Code-credentials-71b2374d");
+    }
+
+    #[test]
     fn finds_every_claude_code_entry() {
         let dump = "keychain: \"/Users/x/Library/Keychains/login.keychain-db\"\n    \"acct\"<blob>=\"x\"\n    \"svce\"<blob>=\"Claude Code-credentials\"\n    \"svce\"<blob>=\"prism-google\"\n    \"svce\"<blob>=\"Claude Code-credentials-1a2b3c4d\"\n    \"svce\"<blob>=\"Claude Code-credentials\"\n";
         assert_eq!(keychain_services(dump), ["Claude Code-credentials", "Claude Code-credentials-1a2b3c4d"]);
@@ -630,9 +734,10 @@ pub(super) mod codex {
     const FIVE_HOURS: i64 = 300;
     const WEEK: i64 = 7 * 24 * 60;
 
-    pub async fn fetch() -> Result<(ClaudeUsage, Value)> {
-        tokio::task::spawn_blocking(|| {
-            let home = std::env::var_os("CODEX_HOME").map(PathBuf::from).or_else(|| Some(dirs::home_dir()?.join(".codex"))).context("no home folder")?;
+    /// From its last session's rollout, under `home` (an account's folder; none, its usual one).
+    pub async fn fetch(home: Option<PathBuf>) -> Result<(ClaudeUsage, Value)> {
+        tokio::task::spawn_blocking(move || {
+            let home = home.or_else(|| crate::agents::provider::Provider::Codex.home(None)).context("no home folder")?;
             let rollout = latest_rollout(&home.join("sessions")).context("no Codex session yet")?;
             let limits = last_limits(&rollout).context(tr("no plan usage in Codex's last session yet"))?;
             // Only what `parse` reads: percentages, windows and resets, not the plan nor the credits.

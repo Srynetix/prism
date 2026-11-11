@@ -94,6 +94,12 @@ impl Agents {
         prism_core::agents::models::list(provider, &program).await
     }
 
+    /// Its CLI's folder: its account's, else the CLI's usual one.
+    pub(crate) fn home_of(&self, id: &str) -> Option<PathBuf> {
+        let record = self.record(id).ok()?;
+        self.cli_home(record.provider, record.launch.as_ref().and_then(|l| l.account.as_deref()))
+    }
+
     /// Its transcript (Claude Code's, Command Code's) or rollout (Codex's); none for OpenCode, or
     /// before it has one. Command Code's found by the session its mod reported.
     pub(crate) fn transcript(&self, id: &str) -> Result<Option<PathBuf>> {
@@ -104,7 +110,7 @@ impl Agents {
         let (session, transcript) = self.inner.folds.lock().unwrap().get(id).map(|f| (f.session.clone(), f.transcript.clone())).unwrap_or_default();
         let transcript = match transcript {
             Some(t) => Some(PathBuf::from(t)),
-            None if provider.finds_transcript() => usage::find_transcript(session.as_deref().unwrap_or(id)),
+            None if provider.finds_transcript() => usage::find_transcript(self.home_of(id).as_deref(), session.as_deref().unwrap_or(id)),
             None if provider == Provider::CommandCode => session.as_deref().and_then(usage::find_command_code_transcript),
             None => None,
         };

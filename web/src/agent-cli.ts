@@ -63,4 +63,5 @@ export const actorName = (repo?: string | null): string => cliOf(actorProvider(r
 export const agentIcon = (): IconName => cliOf(agentsSettings().provider).icon
 
 /** An agent's own CLI, whatever the setting is now: it keeps the one it was launched with. */
-export const nameOf = (a: Agent): string => cliOf(a.provider).name
+/** Its name as shown: its account's (`Claude pro`, `[[agents.accounts]]`), else its CLI's. */
+export const nameOf = (a: Agent): string => a.account ?? cliOf(a.provider).name

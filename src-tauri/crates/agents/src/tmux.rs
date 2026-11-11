@@ -362,6 +362,13 @@ impl Tmux {
             let (cwd, env, argv) = (cwd.to_path_buf(), env.to_vec(), argv.to_vec());
             return engine(move |e| e.respawn(&name, &cwd, &env, &argv)).await?;
         }
+        // A CLI's account folder set on the session (`new-session -e`) stays in its environment for
+        // every process after: one not given now (another account, the usual folder) is taken out.
+        for var in prism_core::agents::provider::Provider::ALL.iter().filter_map(|p| p.home_var()) {
+            if !env.iter().any(|e| e.split_once('=').is_some_and(|(k, _)| k == var)) {
+                let _ = self.run(&["set-environment", "-t", &name, "-u", var]).await;
+            }
+        }
         let cwd = cwd.display().to_string();
         let mut args = vec!["respawn-pane", "-k", "-t", &name, "-c", &cwd, "-e", "COLORTERM=truecolor"];
         args.extend(env.iter().flat_map(|e| ["-e", e.as_str()]));
