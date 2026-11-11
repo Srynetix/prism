@@ -202,8 +202,10 @@
 </div>
 
 <style>
+  /* The title keeps TITLE_MIN (220px): the other columns give way first, the MR then the next
+     step (tiers below, from the columns' real sum), and shrink before it in between. */
   .tk {
-    display: grid; grid-template-columns: 4px minmax(0, 1fr) 150px 108px 250px; gap: 0 10px; align-items: center;
+    display: grid; grid-template-columns: 4px minmax(220px, 1fr) minmax(0, 150px) 108px minmax(0, 250px); gap: 0 10px; align-items: center;
     grid-template-areas: 'flag l1 mr st right' 'flag l2 mr st right';
     padding: calc(3px * var(--space)) 10px calc(3px * var(--space)) 8px; border-bottom: 1px solid var(--border); line-height: 1.35; cursor: pointer;
     --c: var(--text-muted);
@@ -268,8 +270,16 @@
   .act:hover { background: color-mix(in srgb, var(--c) 12%, var(--surface)); text-decoration: none; }
   .act.error { border-color: var(--ko); color: var(--ko); }
   .act:disabled { cursor: progress; opacity: 0.6; }
-  /* Narrow block: title and status only; the MR and the next step stay in the preview and the menu. */
-  @container tickets (max-width: 620px) {
+  /* Full row: 18 (padding) + 4 + 150 + 108 + 250 + 4 × 10 (gaps) = 570px besides the title,
+     790px with it. Below, the MR goes first (it stays in the preview and the menu). */
+  @container tickets (max-width: 799px) {
+    .tk { grid-template-columns: 4px minmax(220px, 1fr) 108px minmax(0, 250px); grid-template-areas: 'flag l1 st right' 'flag l2 st right'; }
+    .tk.deps { grid-template-areas: 'flag l1 st right' 'flag l2 st right' 'flag l3 l3 l3'; }
+    :global(html:not(.remote)) .mr { display: none; }
+  }
+  /* Without the MR: 18 + 4 + 108 + 250 + 3 × 10 = 410px, 630px with the title. Below, the next
+     step and its action go too: title and status only. */
+  @container tickets (max-width: 639px) {
     .tk { grid-template-columns: 4px minmax(0, 1fr) 108px auto; grid-template-areas: 'flag l1 st right' 'flag l2 st right'; }
     .tk.deps { grid-template-areas: 'flag l1 st right' 'flag l2 st right' 'flag l3 l3 l3'; }
     .mr, .next, .act { display: none; }
