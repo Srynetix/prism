@@ -46,6 +46,19 @@ describe('turns', () => {
     expect(segs.map((s) => (s.type === 'steps' ? `steps ${s.from}:${s.entries.length}` : `one ${s.at}`))).toEqual(['steps 0:1', 'one 1', 'steps 2:2'])
   })
 
+  it('finds a reminder’s words only when reminders are shown', () => {
+    const reminded: ConversationTurn = { ...turn, entries: [tool({ tool: 'Read', kind: 'read', what: 'a.ts', reminders: ['consider malware'] }), { type: 'reminder', source: 'hook', text: 'worktree of SHOP-437' }] }
+    expect([matches(reminded, 'malware'), matches(reminded, 'SHOP-437')]).toEqual([false, false])
+    expect([matches(reminded, 'malware', true), matches(reminded, 'SHOP-437', true)]).toEqual([true, true])
+  })
+
+  it('keeps a reminder in the run of steps it came in, not counted', () => {
+    const hook = { type: 'reminder' as const, source: 'hook' as const, text: 'context' }
+    const segs = segments([hook, turn.entries[0], hook, turn.entries[1], hook])
+    expect(segs.map((s) => (s.type === 'steps' ? `steps ${s.from}:${s.entries.length}` : `one ${s.at}`))).toEqual(['one 0', 'steps 1:4'])
+    expect(sumSteps([turn.entries[0], hook, turn.entries[1]]).steps).toBe(2)
+  })
+
   it('sums its steps up, each file once', () => {
     expect(sumSteps(turn.entries.slice(0, 4))).toEqual({ steps: 4, read: 0, edited: 1, added: 4, removed: 2, commands: 2, others: 0, failed: 1 })
   })

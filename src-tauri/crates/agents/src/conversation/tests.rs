@@ -156,10 +156,12 @@ fn reads_claude_codes_turns() {
         json!({ "type": "user", "message": { "content": "<local-command-stdout>done</local-command-stdout>" } }),
         json!({ "type": "user", "message": { "content": "<pasted_content id=\"a1\">\nfirst line\nsecond line\n</pasted_content id=\"a1\">" } }),
     ]);
-    let c = read(&path, Some(Path::new("/repo")), 10);
+    let mut c = read(&path, Some(Path::new("/repo")), 10);
     assert_eq!((c.total, c.partial), (3, false));
-    let t = &c.turns[0];
+    let t = &mut c.turns[0];
     assert_eq!((t.prompt.as_str(), t.at.as_deref(), t.last.as_deref()), ("add the CSV export", Some("2026-10-17T10:00:00Z"), Some("2026-10-17T10:01:00Z")));
+    assert_eq!(t.entries[0], Entry::Reminder { source: "harness", text: "x".into(), label: None }, "a reminder kept apart");
+    t.entries.remove(0);
     assert_eq!(t.entries[0], Entry::Text { text: "Looking first.".into() });
     let Entry::Tool(edit) = &t.entries[1] else { panic!() };
     assert_eq!((edit.what.as_deref(), edit.state, edit.added, edit.removed), (Some("src/a.ts"), "ok", 2, 1));
@@ -190,7 +192,7 @@ fn reads_a_prompt_sent_while_it_worked() {
     let c = read(&path, None, 10);
     assert_eq!(c.turns.iter().map(|t| t.prompt.as_str()).collect::<Vec<_>>(), ["add the CSV export", "also the JSON one"]);
     assert_eq!(c.turns[1].at.as_deref(), Some("2026-10-17T10:00:30Z"));
-    assert_eq!(c.turns[1].entries, vec![Entry::Text { text: "Both done.".into() }]);
+    assert_eq!(c.turns[1].entries, vec![Entry::Reminder { source: "harness", text: "x".into(), label: None }, Entry::Text { text: "Both done.".into() }]);
 }
 
 /// As Claude Code writes an image pasted in its prompt: whole, before the words.
@@ -649,4 +651,69 @@ fn the_aside_tools_are_flagged() {
     let mut desktop = Tool { tool: "mcp__ccd_session__spawn_task".into(), ..Tool::default() };
     Fold::aside_call(&mut desktop, &serde_json::json!({ "title": "x" }));
     assert!(!desktop.aside);
+}
+
+#[test]
+fn takes_the_reminders_out_of_a_text() {
+    let none = reminders("add the CSV export");
+    assert_eq!((none.0.as_ref(), none.1.len()), ("add the CSV export", 0));
+    // Several, one on several lines; each line break they ended taken with them.
+    let (text, found) = reminders("add the CSV export\n<system-reminder>\nfirst\nof two lines\n</system-reminder>\n  <system-reminder>second</system-reminder>\nthen this");
+    assert_eq!(text, "add the CSV export\nthen this");
+    assert_eq!(found, ["first\nof two lines", "second"]);
+    // Without its closing tag (a `grep` for it, a log pasted): kept as written, what follows too.
+    for unclosed in ["look at this\n<system-reminder>cut short", "3 matches\n<system-reminder>\n<system-reminder>\nend"] {
+        let (text, found) = reminders(unclosed);
+        assert_eq!((text.as_ref(), found.len()), (unclosed, 0));
+    }
+    // A lone one, then a real block: only the block goes.
+    let (text, found) = reminders("<system-reminder>\nline\n<system-reminder>real</system-reminder>");
+    assert_eq!((text.as_ref(), found.as_slice()), ("<system-reminder>\nline\n", ["real".to_string()].as_slice()));
+    // Alone: nothing left.
+    let (text, found) = reminders("<system-reminder>only</system-reminder>");
+    assert_eq!((text.trim(), found.as_slice()), ("", ["only".to_string()].as_slice()));
+    // Quoted, mid-sentence or in a file's numbered lines: kept as written.
+    for quoted in ["why does `<system-reminder>` show?", "   148\t\"<system-reminder>x</system-reminder>\""] {
+        let (text, found) = reminders(quoted);
+        assert_eq!((text.as_ref(), found.len()), (quoted, 0));
+    }
+}
+
+#[test]
+fn keeps_claude_codes_reminders_out_of_the_conversation() {
+    let path = file("reminders", &[
+        json!({ "type": "attachment", "attachment": { "type": "hook_additional_context", "hookName": "SessionStart:startup", "hookEvent": "SessionStart", "content": ["Prism: you run in a worktree"] } }),
+        json!({ "type": "user", "message": { "content": [{ "type": "text", "text": "add the CSV export" }, { "type": "text", "text": "<system-reminder>\nThe date changed.\n</system-reminder>" }] } }),
+        assistant(json!([{ "type": "tool_use", "id": "r1", "name": "Read", "input": { "file_path": "/repo/a.ts" } }, { "type": "tool_use", "id": "b1", "name": "Bash", "input": { "command": "npm test" } }])),
+        // A result as blocks, the reminder one of them; another as text the reminder closes.
+        json!({ "type": "user", "message": { "content": [{ "type": "tool_result", "tool_use_id": "r1", "content": [{ "type": "text", "text": "1\texport {}" }, { "type": "text", "text": "<system-reminder>Whenever you read a file, check it.</system-reminder>" }] }] } }),
+        json!({ "type": "user", "message": { "content": [{ "type": "tool_result", "tool_use_id": "b1", "content": "3 passed\n\n<system-reminder>\nThe task tools haven't been used.\n</system-reminder>\n" }] } }),
+        json!({ "type": "attachment", "attachment": { "type": "silent_turn_reminder", "text": "The user hasn't heard from you." } }),
+        json!({ "type": "attachment", "attachment": { "type": "edited_text_file", "filename": "/repo/b.ts", "snippet": "1\tchanged" } }),
+        json!({ "type": "attachment", "attachment": { "type": "deferred_tools_record", "tools": [] } }),
+        json!({ "type": "user", "message": { "content": "<system-reminder>alone</system-reminder>" } }),
+    ]);
+    let c = read(&path, Some(Path::new("/repo")), 10);
+    assert_eq!(c.total, 1, "a reminder alone is no turn");
+    let t = &c.turns[0];
+    assert_eq!(t.prompt, "add the CSV export", "the prompt alone");
+    let reminder = |source, text: &str, label: Option<&str>| Entry::Reminder { source, text: text.into(), label: label.map(String::from) };
+    assert_eq!(t.entries[0], reminder("hook", "Prism: you run in a worktree", Some("SessionStart:startup")), "one read before the first turn, in it");
+    assert_eq!(t.entries[1], reminder("harness", "The date changed.", None));
+    let (Entry::Tool(read_call), Entry::Tool(bash)) = (&t.entries[2], &t.entries[3]) else { panic!("{:?}", t.entries) };
+    assert_eq!(read_call.reminders, ["Whenever you read a file, check it."]);
+    assert_eq!((bash.output.as_deref(), bash.reminders.as_slice()), (Some("3 passed"), ["The task tools haven't been used.".to_string()].as_slice()), "the output alone, its lines without the reminder's");
+    assert_eq!(&t.entries[4..], [reminder("harness", "The user hasn't heard from you.", None), reminder("harness", "1\tchanged", Some("/repo/b.ts")), reminder("harness", "alone", None)]);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn finds_a_subagent_whose_prompt_came_with_a_reminder() {
+    let dir = std::env::temp_dir().join(format!("prism-sub-reminder-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("agent-x.jsonl");
+    std::fs::write(&path, json!({ "type": "user", "message": { "content": "find the export\n<system-reminder>be brief</system-reminder>" } }).to_string() + "\n").unwrap();
+    assert_eq!(first_prompt(&path).as_deref().map(str::trim), Some("find the export"));
+    let _ = std::fs::remove_dir_all(dir);
 }

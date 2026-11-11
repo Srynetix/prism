@@ -66,10 +66,12 @@ pub(super) fn first_prompt(path: &Path) -> Option<String> {
     let mut line = String::new();
     std::io::BufReader::new(std::fs::File::open(path).ok()?).read_line(&mut line).ok()?;
     let r: Value = serde_json::from_str(&line).ok()?;
-    Some(match r.pointer("/message/content")? {
+    let text = match r.pointer("/message/content")? {
         Value::String(s) => s.clone(),
         other => content_text(other),
-    })
+    };
+    // Without the reminders Claude Code may add to it: the call's prompt has none.
+    Some(reminders(&text).0.into_owned())
 }
 
 /// The call that launched a subagent, as Claude Code notes it next to its transcript

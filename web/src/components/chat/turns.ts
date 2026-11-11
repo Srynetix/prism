@@ -40,11 +40,15 @@ export function summarize(turn: ConversationTurn): TurnSummary {
   return { files: [...files.values()], commands, failed, ms, last: line }
 }
 
-/** Whether a search's words are all in the turn (any case). */
-export function matches(turn: ConversationTurn, query: string): boolean {
+/**
+ * Whether a search's words are all in the turn (any case); its reminders' words only when they are
+ * shown where they came (`reminders`), never found where nothing shows them.
+ */
+export function matches(turn: ConversationTurn, query: string, reminders = false): boolean {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return true
-  const text = [turn.prompt, ...turn.entries.map((e) => (e.type === 'tool' ? `${e.tool} ${e.what ?? ''}` : e.text))].join('\n').toLowerCase()
+  const said = (e: ConversationEntry) => (e.type === 'tool' ? `${e.tool} ${e.what ?? ''}${reminders ? `\n${(e.reminders ?? []).join('\n')}` : ''}` : e.type === 'reminder' && !reminders ? '' : e.text)
+  const text = [turn.prompt, ...turn.entries.map(said)].join('\n').toLowerCase()
   return words.every((w) => text.includes(w))
 }
 
@@ -86,11 +90,16 @@ export const proposalCard = (e: ConversationEntry) => e.type === 'tool' && !!e.p
 /** Prism's « in passing » tools (`aside`) and its proposals have a card of their own: never folded. */
 const isStep = (e: ConversationEntry) => e.type === 'thinking' || (e.type === 'tool' && !e.ask && !e.proposal && !e.aside && !proposalCard(e) && e.kind !== 'agent')
 
+/**
+ * A turn's entries as runs of steps and entries of their own. A reminder shown where it came (a
+ * hook's, a file changed) goes in the run under way, not counted, rather than cutting it in two.
+ */
 export function segments(entries: ConversationEntry[]): Segment[] {
   const out: Segment[] = []
   entries.forEach((e, i) => {
     const last = out[out.length - 1]
-    if (!isStep(e)) out.push({ type: 'one', at: i, entry: e })
+    if (e.type === 'reminder' && last?.type === 'steps') last.entries.push(e)
+    else if (!isStep(e)) out.push({ type: 'one', at: i, entry: e })
     else if (last?.type === 'steps') last.entries.push(e)
     else out.push({ type: 'steps', from: i, entries: [e] })
   })
@@ -113,7 +122,7 @@ export interface StepsSummary {
 }
 
 export function sumSteps(entries: ConversationEntry[]): StepsSummary {
-  const s: StepsSummary = { steps: entries.length, read: 0, edited: 0, added: 0, removed: 0, commands: 0, others: 0, failed: 0 }
+  const s: StepsSummary = { steps: entries.filter((e) => e.type !== 'reminder').length, read: 0, edited: 0, added: 0, removed: 0, commands: 0, others: 0, failed: 0 }
   const files = new Set<string>()
   for (const e of entries) {
     if (e.type !== 'tool') continue

@@ -48,6 +48,10 @@ propose?: boolean,
  */
 at: string | null, ms: number | null, 
 /**
+ * The reminders Claude Code added to its result (`<system-reminder>`), out of its output.
+ */
+reminders?: Array<string>, 
+/**
  * A subagent (`Agent`, `Task`): what it did, from its own transcript.
  */
 sub?: SubagentRun, 

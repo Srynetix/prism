@@ -88,6 +88,14 @@ pub struct AgentsConfig {
     /// (its counts: files edited, commands, failures), unfolded on a click; the turn under way
     /// shows its last ones. Off: one line per call.
     pub fold_steps: bool,
+    /// In an agent's Chat (Claude Code), what Claude Code sent it besides your words — its
+    /// reminders (`<system-reminder>`), a hook's context, a file changed under it: `marker`, out of
+    /// the conversation, a ⓘ at the end of the turn (or on the call) showing them on a click;
+    /// `hidden`, never shown; `shown`, unfolded where they came.
+    /// Any other value reads as `marker`.
+    #[cfg_attr(feature = "ts", ts(type = "'marker' | 'hidden' | 'shown'"))]
+    #[serde(deserialize_with = "chat_reminders")]
+    pub chat_reminders: String,
     /// An agent's header on the computer: `read`, its ticket, MR, branch, kind and tags on a
     /// quiet line, changed behind Edit; `edit`, their fields always there.
     #[cfg_attr(feature = "ts", ts(type = "'read' | 'edit'"))]
@@ -578,6 +586,7 @@ impl Default for AgentsConfig {
             terminal_keys: vec!["Cmd+K".into()],
             view: "chat".into(),
             fold_steps: true,
+            chat_reminders: "marker".into(),
             header_meta: "read".into(),
             comment_answers: true,
             suggest_switch: true,
@@ -590,6 +599,17 @@ impl Default for AgentsConfig {
 }
 
 /// `[agents] permission_mode`: one the launcher offers, or `default`.
+/// `[agents] chat_reminders`: marker, hidden or shown, else `marker`.
+fn chat_reminders<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+    let mode = String::deserialize(d)?;
+    Ok(if matches!(mode.as_str(), "marker" | "hidden" | "shown") {
+        mode
+    } else {
+        tracing::warn!("[agents] chat_reminders {mode:?}: neither marker, hidden nor shown, marker instead");
+        "marker".into()
+    })
+}
+
 fn launcher_mode<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
     let mode = String::deserialize(d)?;
     Ok(if matches!(mode.as_str(), "default" | "acceptEdits" | "plan") {
@@ -610,4 +630,15 @@ fn quick_action_mode<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<St
         }
         ok
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_unknown_chat_reminders_reads_as_marker() {
+        let read = |v: &str| toml::from_str::<AgentsConfig>(&format!("chat_reminders = \"{v}\"")).unwrap().chat_reminders;
+        assert_eq!((read("shown"), read("hidden"), read("show"), read("Marker")), ("shown".into(), "hidden".into(), "marker".into(), "marker".into()));
+    }
 }

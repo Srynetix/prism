@@ -138,6 +138,14 @@ view: 'chat' | 'terminal',
  */
 fold_steps: boolean, 
 /**
+ * In an agent's Chat (Claude Code), what Claude Code sent it besides your words — its
+ * reminders (`<system-reminder>`), a hook's context, a file changed under it: `marker`, out of
+ * the conversation, a ⓘ at the end of the turn (or on the call) showing them on a click;
+ * `hidden`, never shown; `shown`, unfolded where they came.
+ * Any other value reads as `marker`.
+ */
+chat_reminders: 'marker' | 'hidden' | 'shown', 
+/**
  * An agent's header on the computer: `read`, its ticket, MR, branch, kind and tags on a
  * quiet line, changed behind Edit; `edit`, their fields always there.
  */

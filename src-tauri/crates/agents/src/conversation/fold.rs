@@ -74,11 +74,13 @@ pub(super) struct Fold {
     pub(super) proposals: u32,
     /// Where the line being folded starts in the transcript.
     pub(super) line: u64,
+    /// Reminders read before any turn: the first one's.
+    pub(super) early: Vec<Entry>,
 }
 
 impl Fold {
     pub(super) fn new(names: Names) -> Self {
-        Self { names, turns: Turns::default(), calls: HashMap::new(), replies: HashSet::new(), plan: Vec::new(), launching: HashMap::new(), background: Vec::new(), notifications: HashSet::new(), model: None, codex_total: 0, plan_files: HashMap::new(), plan_file: None, proposals: 0, line: 0 }
+        Self { names, turns: Turns::default(), calls: HashMap::new(), replies: HashSet::new(), plan: Vec::new(), launching: HashMap::new(), background: Vec::new(), notifications: HashSet::new(), model: None, codex_total: 0, plan_files: HashMap::new(), plan_file: None, proposals: 0, line: 0, early: Vec::new() }
     }
 
     /// The turn under way; one without a prompt when the transcript starts with the agent's words.
@@ -95,7 +97,51 @@ impl Fold {
 
     pub(super) fn begin(&mut self, prompt: String, at: Option<&str>) {
         let n = self.turns.len() as u32 + 1;
-        self.turns.push(Turn { n, prompt, at: at.map(String::from), last: at.map(String::from), ..Turn::default() });
+        let entries = std::mem::take(&mut self.early);
+        self.turns.push(Turn { n, prompt, at: at.map(String::from), last: at.map(String::from), entries, ..Turn::default() });
+    }
+
+    /// Reminders it was sent (`texts`), in the turn under way, its time left as it is; before any
+    /// turn, kept for the first one.
+    pub(super) fn reminded(&mut self, source: &'static str, label: Option<&str>, texts: impl IntoIterator<Item = String>) {
+        let entries = texts.into_iter().filter(|t| !t.trim().is_empty()).map(|t| Entry::Reminder { source, text: cut(t.trim(), REMINDER_CHARS), label: label.map(String::from) });
+        match self.turns.last_mut() {
+            Some(t) => t.entries.extend(entries),
+            None => self.early.extend(entries),
+        }
+    }
+
+    /// What Claude Code attached to its next request besides your words, kept as reminders: a
+    /// hook's context, the harness's reminder that you heard nothing for a while, a file changed
+    /// under it, a memory file read (its path). The rest (its tools, its environment) is left out.
+    pub(super) fn attached(&mut self, a: &Value) {
+        let field = |k: &str| a.get(k).and_then(Value::as_str);
+        match field("type") {
+            Some("hook_additional_context") => {
+                // Its words, out of the envelope it may come in.
+                let texts: Vec<String> = a.get("content").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(|t| {
+                    let (rest, found) = reminders(t);
+                    found.into_iter().chain([rest.trim().to_string()]).filter(|s| !s.is_empty()).collect::<Vec<_>>().join("\n\n")
+                }).collect();
+                self.reminded("hook", field("hookName").or(field("hookEvent")), texts);
+            }
+            // A reminder queued while it worked (a prompt's, not yours).
+            Some("queued_command") if a.get("isMeta").and_then(Value::as_bool) == Some(true) && a.pointer("/origin/kind").and_then(Value::as_str).is_none_or(|k| k == "human") => {
+                self.reminded("harness", None, reminders(field("prompt").unwrap_or_default()).1);
+            }
+            Some("silent_turn_reminder") => self.reminded("harness", None, field("text").map(String::from)),
+            Some("edited_text_file") => self.reminded("harness", field("filename"), field("snippet").map(String::from)),
+            Some("nested_memory") => self.reminded("harness", field("displayPath").or(field("path")), a.pointer("/content/content").and_then(Value::as_str).map(String::from)),
+            _ => {}
+        }
+    }
+
+    /// The reminders added to a call's result, kept on its call.
+    pub(super) fn tool_reminded(&mut self, id: Option<&str>, texts: Vec<String>) {
+        let Some(&(t, e)) = id.and_then(|id| self.calls.get(id)) else { return };
+        if let Some(Entry::Tool(tool)) = self.turns.get_mut(t).and_then(|turn| turn.entries.get_mut(e)) {
+            tool.reminders.extend(texts.into_iter().map(|r| cut(&r, REMINDER_CHARS)));
+        }
     }
 
     /// The prompt just begun came with `count` images, on the line being folded.
