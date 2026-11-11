@@ -1,8 +1,10 @@
-//! Another CLI takes an agent on (Continue with…): same agent, folder, branch, ticket and links,
-//! its former CLI stopped and the new one started there with a relay, the words it starts from.
-//! No CLI resumes another's conversation: the relay is what passes, built by Prism from the
-//! transcript and git (`material`), written by the former agent itself, or the task only — the
-//! window writes it, in the prompts' language, and shows it before it goes.
+//! Another CLI, or another account of the same CLI, takes an agent on (Continue with…): same agent,
+//! folder, branch, ticket and links, its former CLI stopped and the new one started there with a
+//! relay, the words it starts from. No CLI resumes another's conversation: the relay is what
+//! passes, built by Prism from the transcript and git (`material`), written by the former agent
+//! itself, or the task only — the window writes it, in the prompts' language, and shows it before
+//! it goes. Another account of the same CLI takes the conversation itself (`resume`): copied into
+//! its folder, resumed there whole, the window's words its next prompt; a relay when it cannot be.
 
 use super::*;
 
@@ -53,8 +55,12 @@ pub struct RelayTurn {
 #[derive(Debug, Deserialize)]
 pub struct Switch {
     pub to: Provider,
+    /// The account of `to` (`[[agents.accounts]]`, its name); absent: its usual folder.
+    #[serde(default)]
+    pub account: Option<String>,
     pub message: String,
-    /// `prism`, `agent` or `task`: how the relay was written.
+    /// `prism`, `agent` or `task`: how the relay was written; `resume`, another account of the same
+    /// CLI taking its conversation whole.
     pub handoff: String,
     /// `limit` (its plan used up) or `choice`.
     #[serde(default)]
@@ -154,10 +160,16 @@ impl Agents {
         if record.prepared {
             bail!(tr("this agent has not started yet: Start it"));
         }
-        ensure!(s.to != record.provider, "{}", tr!("it already runs {cli}", cli = s.to.program()));
+        let from_account = record.launch.as_ref().and_then(|l| l.account.clone());
+        let to_account = match s.account.as_deref().map(str::trim).filter(|a| !a.is_empty()) {
+            Some(name) => self.account_for(s.to, Some(name))?,
+            None => None,
+        };
+        ensure!(s.to != record.provider || to_account != from_account, "{}", tr!("it already runs {cli}", cli = s.to.program()));
+        let same_cli = s.to == record.provider;
         let message = s.message.trim();
         ensure!(!message.is_empty(), "{}", tr("nothing to tell the next agent"));
-        ensure!(matches!(s.handoff.as_str(), "prism" | "agent" | "task"), "unknown relay {}", s.handoff);
+        ensure!(matches!(s.handoff.as_str(), "prism" | "agent" | "task") || (s.handoff == "resume" && same_cli), "unknown relay {}", s.handoff);
         let reason = s.reason.as_deref().unwrap_or("choice");
         ensure!(matches!(reason, "limit" | "choice"), "unknown reason {reason}");
         let pick = |v: &Option<String>| v.as_deref().map(str::trim).filter(|v| !v.is_empty()).map(String::from);
@@ -186,6 +198,7 @@ impl Agents {
         let session = session.or_else(|| (record.provider == Provider::Claude).then(|| record.id.clone()));
         let leg = state::AgentLeg {
             provider: record.provider,
+            account: from_account.clone(),
             session,
             transcript: transcript.or_else(|| self.transcript(id).ok().flatten().map(|p| p.display().to_string())),
             model: shown.as_ref().and_then(|a| a.model.clone()),
@@ -197,16 +210,37 @@ impl Agents {
             message: message.to_string(),
         };
 
+        // Another account of the same CLI: its conversation copied into that account's folder,
+        // resumed there whole. Failing that, a relay as between two CLIs.
+        let to_home = self.cli_home(s.to, to_account.as_deref());
+        let carried = if same_cli && s.handoff == "resume" {
+            let from_home = self.cli_home(record.provider, from_account.as_deref());
+            match (leg.session.clone(), leg.transcript.as_deref(), from_home, to_home.as_deref()) {
+                (Some(session), Some(t), Some(from), Some(to)) => match carry_session(&from, to, Path::new(t)) {
+                    Ok(_) => Some(session),
+                    Err(e) => {
+                        tracing::warn!("agents: {id}'s conversation not carried to {}: {e:#}", to.display());
+                        None
+                    }
+                },
+                _ => None,
+            }
+        } else {
+            None
+        };
+        // Its words were a short note to go on, not a relay: never sent to a fresh conversation.
+        ensure!(s.handoff != "resume" || carried.is_some(), "{}", tr("its conversation could not be carried to that account: pick a relay"));
+
         // Its spec, for the new CLI: kept on resume.
         let mut spec = record.launch.clone().unwrap_or_default();
-        (spec.provider, spec.model, spec.effort, spec.permission_mode) = (Some(s.to), model, effort, mode.clone());
-        // Back on a CLI it ran before: its conversation, when that CLI takes a prompt on resume.
-        let earlier = record.legs.iter().rev().find(|l| l.provider == s.to).and_then(|l| l.session.clone());
+        (spec.provider, spec.account, spec.model, spec.effort, spec.permission_mode) = (Some(s.to), to_account.clone(), model, effort, mode.clone());
+        // Back on a CLI and account it ran before: its conversation, when that CLI takes a prompt on resume.
+        let earlier = carried.clone().or_else(|| record.legs.iter().rev().find(|l| l.provider == s.to && l.account == to_account).and_then(|l| l.session.clone()));
         let wiring = self.wiring(s.to);
         let (argv, resumed) = match earlier.as_deref().and_then(|e| s.to.resume_with(e, &wiring, mode.as_deref(), message)) {
             Some(argv) => (argv, earlier.clone()),
             // Claude Code takes the agent's id as its session: one already written under it is resumed.
-            None if s.to == Provider::Claude && claude_conversation_exists(id) => (s.to.resume_with(id, &wiring, mode.as_deref(), message).context("resume")?, Some(id.to_string())),
+            None if s.to == Provider::Claude && claude_conversation_exists(to_home.as_deref(), id) => (s.to.resume_with(id, &wiring, mode.as_deref(), message).context("resume")?, Some(id.to_string())),
             None => (s.to.launch(id, &record.title, &wiring, mode.as_deref(), None, Some(message))?, None),
         };
         let argv = s.to.with_dirs(s.to.with_cli(argv, &self.cli(s.to, Some(&spec))), &extra);
@@ -229,7 +263,7 @@ impl Agents {
                 r.resumed = resumed;
             }
         })?;
-        tracing::info!("agents: {id} continued with {}", to.program());
+        tracing::info!("agents: {id} continued with {}{}", to.program(), to_account.as_deref().map(|a| format!(" ({a})")).unwrap_or_default());
         Ok(())
     }
 
@@ -244,9 +278,61 @@ impl Agents {
     }
 }
 
+/// A conversation copied from one account's folder (`from`) into another's (`to`), at the same
+/// place under it (Claude Code's `projects/<folder>/<id>.jsonl` and its subagents' folder,
+/// Codex's `sessions/<date>/rollout-….jsonl`), over an older copy: what that account's CLI
+/// resumes. Its path there.
+fn carry_session(from: &Path, to: &Path, transcript: &Path) -> Result<PathBuf> {
+    let under = transcript.strip_prefix(from).with_context(|| format!("{} is not under {}", transcript.display(), from.display()))?;
+    let dest = to.join(under);
+    std::fs::create_dir_all(dest.parent().context("no folder")?)?;
+    std::fs::copy(transcript, &dest)?;
+    // Claude Code's subagents, beside it (`<id>/subagents`): the Chat shows them.
+    let beside = transcript.with_extension("");
+    if beside.is_dir() {
+        copy_dir(&beside, &dest.with_extension(""))?;
+    }
+    Ok(dest)
+}
+
+fn copy_dir(from: &Path, to: &Path) -> Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn carries_a_conversation_to_another_accounts_folder() {
+        let root = std::env::temp_dir().join(format!("prism-carry-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (perso, pro) = (root.join(".claude"), root.join(".claude-pro"));
+        let t = perso.join("projects/-repo/ab-12.jsonl");
+        std::fs::create_dir_all(perso.join("projects/-repo/ab-12/subagents")).unwrap();
+        std::fs::write(&t, "{\"type\":\"user\"}\n").unwrap();
+        std::fs::write(perso.join("projects/-repo/ab-12/subagents/agent-x.jsonl"), "{}\n").unwrap();
+        // An older copy there is replaced.
+        std::fs::create_dir_all(pro.join("projects/-repo")).unwrap();
+        std::fs::write(pro.join("projects/-repo/ab-12.jsonl"), "old").unwrap();
+        let dest = carry_session(&perso, &pro, &t).unwrap();
+        assert_eq!(dest, pro.join("projects/-repo/ab-12.jsonl"));
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "{\"type\":\"user\"}\n");
+        assert!(pro.join("projects/-repo/ab-12/subagents/agent-x.jsonl").is_file(), "its subagents too");
+        // A transcript elsewhere: not carried.
+        assert!(carry_session(&perso, &pro, Path::new("/elsewhere/x.jsonl")).is_err());
+        let _ = std::fs::remove_dir_all(root);
+    }
 
     #[test]
     fn cuts_and_heads() {

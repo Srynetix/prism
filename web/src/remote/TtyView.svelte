@@ -36,7 +36,7 @@
   import { toast } from '../toast.svelte'
   import { cliEffort, effortOf, effortsOf, loadEffortsOf, pickEffort, takesEffort } from '../agent-effort'
   import { CLIS } from '../agent-cli'
-  import { installedClis, openSwitch, planUse, targetsOf } from '../agent-switch.svelte'
+  import { installedClis, openSwitch, targetsOf, targetUse } from '../agent-switch.svelte'
   import AgentLimitBanner from '../components/AgentLimitBanner.svelte'
   import { agentStateLabel } from '../rules'
   import { draftOf, setDraft } from '../chat-drafts.svelte'
@@ -564,9 +564,10 @@
         <div class="group">
           <p class="head">{t('Continue with')}</p>
           {#if !typing}<p class="off">{t('The relay is typed to the agent: typing from a phone is off (Settings › Remote › Exposure)')}</p>{/if}
-          {#each targetsOf(quickAgent) as p (p)}
-            {@const use = planUse(p)}
-            <button onclick={() => { menu = false; openSwitch(quickAgent!, p) }} disabled={!typing || (!!found && !found.includes(p))}>{CLIS[p].cli}<small>{use !== null ? t('{pct} % of its plan used', { pct: Math.round(use) }) : t('from a relay: what was done, where it is')}</small></button>
+          {#each targetsOf(quickAgent) as target (`${target.provider}:${target.account ?? ''}`)}
+            {@const use = targetUse(target)}
+            {@const p = target.provider}
+            <button onclick={() => { menu = false; openSwitch(quickAgent!, target) }} disabled={!typing || (!!found && !found.includes(p))}>{target.account ?? CLIS[p].cli}<small>{use !== null ? t('{pct} % of its plan used', { pct: Math.round(use) }) : p === quickAgent.provider ? t('its conversation goes too') : t('from a relay: what was done, where it is')}</small></button>
           {/each}
         </div>
       {/if}

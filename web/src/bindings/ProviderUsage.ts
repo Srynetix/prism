@@ -3,9 +3,14 @@ import type { AgentProvider } from "./AgentProvider";
 import type { ClaudeUsage } from "./ClaudeUsage";
 
 /**
- * The plan usage of a CLI other than `[agents] provider`, read while an agent of it runs.
+ * The plan usage of a CLI (or an account of it) other than `[agents] provider`'s default, read
+ * while an agent of it runs.
  */
 export type ProviderUsage = { provider: AgentProvider, 
+/**
+ * Its account (`[[agents.accounts]]`), each with its own plan; absent: the CLI's usual folder.
+ */
+account?: string, 
 /**
  * Absent until its first reading.
  */

@@ -5,8 +5,9 @@ import { oneLine, quoted } from './untrusted'
  * The relay an agent's next CLI starts from (Continue with…), written in `[agents] prompt_language`
  * like every prompt Prism sends: `prism` from what Prism reads (its task, plan, last turns, its
  * branch's state), `agent` around the summary its former CLI wrote, `task` its task only.
+ * `resume`: another account of the same CLI takes the conversation itself, a short note its next prompt.
  */
-export type Handoff = 'prism' | 'agent' | 'task'
+export type Handoff = 'prism' | 'agent' | 'task' | 'resume'
 export type Lang = 'fr' | 'en'
 
 /** What Prism's relay recalls, each part off-able in the window. */
@@ -46,6 +47,7 @@ const WORDS = {
     branch: (b: string, base?: string | null) => `Branch ${b}${base ? `, from ${base}` : ''}.`,
     read: (base?: string | null) => `Read \`git status\` and \`git diff${base ? ` ${base}...` : ''}\` to see where it is.`,
     ask: 'Write a handoff note for another agent who will take this work over in this folder: the goal, what is done, what is left, the decisions taken and why, the pitfalls met, the files involved, and how to check the result. Reply with the note only, in Markdown, nothing else.',
+    resume: (reason: string) => `You now run under another account${reason}; your conversation is the same. Carry on where you stopped: check where it is with git first if in doubt.`,
   },
   fr: {
     title: '# Reprise d’un travail en cours',
@@ -65,6 +67,7 @@ const WORDS = {
     branch: (b: string, base?: string | null) => `Branche ${b}${base ? `, depuis ${base}` : ''}.`,
     read: (base?: string | null) => `Lis \`git status\` et \`git diff${base ? ` ${base}...` : ''}\` pour voir où il en est.`,
     ask: 'Écris un mot de passation pour un autre agent qui va reprendre ce travail dans ce dossier : le but, ce qui est fait, ce qui reste, les décisions prises et pourquoi, les pièges rencontrés, les fichiers concernés, et comment vérifier le résultat. Réponds avec le mot seul, en Markdown, rien d’autre.',
+    resume: (reason: string) => `Tu tournes maintenant sous un autre compte${reason} ; ta conversation est la même. Reprends là où tu t’es arrêté : vérifie d’abord où il en est avec git en cas de doute.`,
   },
 }
 
@@ -91,6 +94,8 @@ function links(m: HandoffMaterial, ctx: RelayContext, lang: Lang): string[] {
 /** The relay as sent: Markdown, its parts in the order the next agent needs them. */
 export function relayText(m: HandoffMaterial, handoff: Handoff, ctx: RelayContext, lang: Lang, include: Include = INCLUDE_ALL): string {
   const w = words(lang)
+  // Its whole conversation goes with it: a note to go on, no relay.
+  if (handoff === 'resume') return w.resume(ctx.reason === 'limit' ? (lang === 'fr' ? ' (l’autre était à sa limite d’usage)' : ' (the other was at its usage limit)') : '')
   const parts: string[] = [w.title, w.intro(ctx.from, ctx.reason === 'limit' ? w.limit : '')]
   const task = (m.prompt ?? '').trim() || m.title
   if (handoff === 'task' || include.prompt) parts.push(`${w.task}\n${task}`)
@@ -118,7 +123,11 @@ export function relayText(m: HandoffMaterial, handoff: Handoff, ctx: RelayContex
 }
 
 /** The relays a CLI can be handed over from: Prism's and the agent's own need its conversation read. */
-export const handoffs = (readable: boolean): Handoff[] => (readable ? ['prism', 'agent', 'task'] : ['task'])
+/**
+ * The relays it can be given: its conversation read, all three; else its task only. Another
+ * account of the same CLI (`sameCli`) takes its conversation whole first (`resume`), when it was read.
+ */
+export const handoffs = (readable: boolean, sameCli = false): Handoff[] => [...(readable && sameCli ? (['resume'] as const) : []), ...(readable ? (['prism', 'agent', 'task'] as const) : (['task'] as const))]
 
 /** A rough count of tokens (4 characters each), shown beside the relay. */
 export const tokensOf = (text: string) => Math.ceil(text.length / 4)
@@ -131,4 +140,27 @@ export function suggestTarget(current: AgentProvider, installed: AgentProvider[]
   const score = (p: AgentProvider) => (p === 'opencode' ? 99 : (use(p) ?? 50))
   const others = installed.filter((p) => p !== current && score(p) < 99.5)
   return others.sort((a, b) => score(a) - score(b))[0] ?? installed.find((p) => p !== current) ?? null
+}
+
+/** A CLI under one of its accounts (`[[agents.accounts]]`); `account` null: its usual folder. */
+export interface Target {
+  provider: AgentProvider
+  account: string | null
+}
+
+export const sameTarget = (a: Target, b: Target) => a.provider === b.provider && (a.account ?? null) === (b.account ?? null)
+
+/**
+ * The target to suggest when the agent's plan is used up: another account of its own CLI first,
+ * the least used of those not used up (its conversation goes with it); failing that, another CLI
+ * (`suggestTarget`) under its default account.
+ */
+export function suggestAccount(current: Target, targets: Target[], use: (t: Target) => number | null): Target | null {
+  const score = (t: Target) => (t.provider === 'opencode' ? 99 : (use(t) ?? 50))
+  const mine = targets.filter((t) => t.provider === current.provider && !sameTarget(t, current) && score(t) < 99.5).sort((a, b) => score(a) - score(b))
+  if (mine[0]) return mine[0]
+  const firsts = new Map<AgentProvider, Target>()
+  for (const t of targets) if (t.provider !== current.provider && !firsts.has(t.provider)) firsts.set(t.provider, t)
+  const cli = suggestTarget(current.provider, [current.provider, ...firsts.keys()], (p) => (firsts.get(p) ? use(firsts.get(p)!) : null))
+  return (cli && firsts.get(cli)) ?? targets.find((t) => !sameTarget(t, current)) ?? null
 }

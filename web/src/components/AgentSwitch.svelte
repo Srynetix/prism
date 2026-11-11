@@ -3,8 +3,8 @@
   import { live } from '../live.svelte'
   import { CLIS, nameOf } from '../agent-cli'
   import { isWorking } from '../rules'
-  import { handoffs, tokensOf, type Handoff, type Include } from '../handoff'
-  import { askSummary, closeSwitch, compose, confirmSwitch, installedClis, pickHandoff, planUse, summaryLanded, switching } from '../agent-switch.svelte'
+  import { handoffs, tokensOf, type Handoff, type Include, type Target } from '../handoff'
+  import { askSummary, closeSwitch, compose, confirmSwitch, installedClis, pickHandoff, pickTarget, sameCli, summaryLanded, switching, targetName, targetsOf, targetUse } from '../agent-switch.svelte'
   import { choices, effortsKey, loadEfforts, loadModels } from '../settings.svelte'
   import { suggest } from '../suggest'
   import { agentsSettings } from '../agents.svelte'
@@ -12,18 +12,25 @@
   import type { AgentProvider } from '../types'
 
   /**
-   * Continue with… (agent-switch.svelte.ts): the CLI the agent continues with, how it is told what
-   * was done — Prism's relay (its task, plan, last turns, branch), the former agent's own summary,
-   * or the task only — the relay itself, editable, and the new CLI's model, effort and mode.
-   * `phone`: the remote's, full screen.
+   * Continue with… (agent-switch.svelte.ts): the CLI (or account of one) the agent continues with,
+   * how it is told what was done — its whole conversation to another account of its CLI, Prism's
+   * relay (its task, plan, last turns, branch), the former agent's own summary, or the task only —
+   * the relay itself, editable, and the new CLI's model, effort and mode. `phone`: the remote's,
+   * full screen.
    */
   let { phone = false }: { phone?: boolean } = $props()
 
   const agent = $derived(live.snapshot?.agents?.find((a) => a.id === switching.id))
-  const all = Object.keys(CLIS) as AgentProvider[]
   const found = $derived(installedClis())
+  const targets = $derived(agent ? targetsOf(agent) : [])
   const readable = $derived(switching.material?.readable ?? true)
-  const offered = $derived(handoffs(readable))
+  const same = $derived(sameCli())
+  const offered = $derived(handoffs(readable, same))
+  /** The target picked, as named (its account's name, or its CLI's). */
+  const toName = $derived(switching.to ? targetName({ provider: switching.to, account: switching.account }) : '')
+  /** The relays shown: its whole conversation first for another account of its CLI. */
+  const relays = $derived<Handoff[]>(same ? ['resume', 'prism', 'agent', 'task'] : ['prism', 'agent', 'task'])
+  const picked = (t: Target) => switching.to === t.provider && switching.account === t.account
   const running = $derived(agent?.state === 'running')
   const working = $derived(!!agent && running && isWorking(agent.status))
   const to = $derived(switching.to)
@@ -43,12 +50,14 @@
   })
 
   const HANDOFF: Record<Handoff, () => { title: string; hint: string; cost: string }> = {
+    resume: () => ({ title: t('Its whole conversation'), hint: t('Copied to {account}’s folder and resumed there: nothing lost, no relay to write. Its next prompt says it changed account.', { account: toName }), cost: t('free · at once') }),
     prism: () => ({ title: t('Relay written by Prism'), hint: t('From its transcript and git, no model called: its task, plan, last turns, the files changed, the ticket. Works even at its limit.'), cost: t('free · at once') }),
     agent: () => ({ title: t('Summary written by {cli}', { cli: agent ? nameOf(agent) : '' }), hint: t('Prism asks it for a handoff note, then gives it to the next one. The best summary, but it has to answer (not at its limit).'), cost: t('one turn of {cli}', { cli: agent ? nameOf(agent) : '' }) }),
     task: () => ({ title: t('The task only'), hint: t('Its first prompt and the ticket; the next one reads the code itself (git diff).'), cost: t('minimal') }),
   }
   /** Why a relay cannot be picked, if it cannot. */
   function blocked(h: Handoff): string | null {
+    if (h === 'resume' && !same) return t('for another account of the same CLI only')
     if (!offered.includes(h)) return t('{cli} keeps no conversation Prism reads', { cli: agent ? nameOf(agent) : '' })
     if (h === 'agent' && !running) return t('it has stopped: Resume it first')
     if (h === 'agent' && switching.reason === 'limit') return t('at its limit, it cannot answer')
@@ -77,8 +86,8 @@
       void confirmSwitch()
     }
   }
-  const usage = (p: AgentProvider) => {
-    const u = planUse(p)
+  const usage = (target: Target) => {
+    const u = targetUse(target)
     return u === null ? '' : `${Math.round(u)} %`
   }
 </script>
@@ -89,7 +98,7 @@
     <div class="sheet" role="dialog" aria-modal="true" aria-label={t('Continue with…')} tabindex="-1" {onkeydown}>
       <header>
         <Icon name="retry" />
-        <b>{to ? t('Continue with {cli}', { cli: CLIS[to].cli }) : t('Continue with…')}</b>
+        <b>{to ? t('Continue with {cli}', { cli: switching.account ?? CLIS[to].cli }) : t('Continue with…')}</b>
         <button class="x" onclick={closeSwitch} aria-label={t('Close')} disabled={switching.busy}><Icon name="close" /></button>
       </header>
 
@@ -103,10 +112,11 @@
           <span class="box"><Icon name={CLIS[agent.provider].icon} />{nameOf(agent)}{#if agent.usage}<small>{tn(agent.usage.replies, '{n} reply', '{n} replies')}{#if cost != null} · ${cost.toFixed(2)}{/if}</small>{/if}</span>
           <span class="arrow">→</span>
           <div class="targets" role="radiogroup" aria-label={t('Continue with')}>
-            {#each all.filter((p) => p !== agent.provider) as p (p)}
+            {#each targets as target (`${target.provider}:${target.account ?? ''}`)}
+              {@const p = target.provider}
               {@const missing = !!found && !found.includes(p)}
-              <button class="cli" class:on={to === p} role="radio" aria-checked={to === p} disabled={missing} onclick={() => (switching.to = p)} title={missing ? t('{program} not found in the PATH', { program: CLIS[p].program }) : CLIS[p].cli}>
-                <Icon name={CLIS[p].icon} />{CLIS[p].name}{#if usage(p)}<small class:hot={(planUse(p) ?? 0) >= 90}>{usage(p)}</small>{/if}
+              <button class="cli" class:on={picked(target)} role="radio" aria-checked={picked(target)} disabled={missing} onclick={() => pickTarget(target)} title={missing ? t('{program} not found in the PATH', { program: CLIS[p].program }) : target.account ? `${CLIS[p].cli} · ${target.account}` : CLIS[p].cli}>
+                <Icon name={CLIS[p].icon} />{targetName(target)}{#if usage(target)}<small class:hot={(targetUse(target) ?? 0) >= 90}>{usage(target)}</small>{/if}
               </button>
             {/each}
           </div>
@@ -114,7 +124,7 @@
 
         <div class="lab">{t('What it is told')}</div>
         <div class="choices">
-          {#each ['prism', 'agent', 'task'] as const as h (h)}
+          {#each relays as h (h)}
             {@const why = blocked(h)}
             {@const d = HANDOFF[h]()}
             <button class="choice" class:on={switching.handoff === h} disabled={!!why} onclick={() => pickHandoff(h)} role="radio" aria-checked={switching.handoff === h}>
@@ -142,7 +152,7 @@
           </div>
         {/if}
 
-        <div class="lab">{t('Relay sent to {cli}', { cli: to ? CLIS[to].name : '…' })}{#if switching.text}<span class="muted"> · {t('~{n} tokens', { n: tokensOf(switching.text).toLocaleString() })}</span>{/if}{#if switching.edited}<button class="link" onclick={() => ((switching.edited = false), compose())}>{t('Write it again')}</button>{/if}</div>
+        <div class="lab">{switching.handoff === 'resume' ? t('Its next prompt, to {cli}', { cli: toName || '…' }) : t('Relay sent to {cli}', { cli: toName || '…' })}{#if switching.text}<span class="muted"> · {t('~{n} tokens', { n: tokensOf(switching.text).toLocaleString() })}</span>{/if}{#if switching.edited}<button class="link" onclick={() => ((switching.edited = false), compose())}>{t('Write it again')}</button>{/if}</div>
         {#if !switching.material && !switching.error}
           <p class="muted">{t('Reading its conversation and its branch…')}</p>
         {:else}
@@ -176,7 +186,7 @@
       <footer>
         <span class="note">{t('{cli} can be taken back: its Activity tab, Back to {cli}.', { cli: nameOf(agent) })}</span>
         <button class="btn quiet" onclick={closeSwitch} disabled={switching.busy}>{t('Cancel')}</button>
-        <button class="btn primary" onclick={confirmSwitch} disabled={switching.busy || !to || !switching.text.trim() || !!switching.asked}>{switching.busy ? t('Handing over…') : to ? t('Continue with {cli}', { cli: CLIS[to].name }) : t('Continue')}</button>
+        <button class="btn primary" onclick={confirmSwitch} disabled={switching.busy || !to || !switching.text.trim() || !!switching.asked}>{switching.busy ? t('Handing over…') : to ? t('Continue with {cli}', { cli: toName }) : t('Continue')}</button>
       </footer>
     </div>
   </div>

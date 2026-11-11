@@ -254,9 +254,13 @@ agent_costs_rev: number,
  */
 agents_settings: AgentsConfig, 
 /**
- * The plan usage of `[agents] provider`'s CLI.
+ * The plan usage of `[agents] provider`'s CLI, under its default account.
  */
 usage: ClaudeUsage | null, 
+/**
+ * That account (`[[agents.accounts]]`); absent: the CLI's usual folder.
+ */
+usage_account?: string, 
 /**
  * The plan usage of the other CLIs agents run on, in the order their first agent was launched.
  */

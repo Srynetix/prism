@@ -38,6 +38,7 @@ impl Bench {
             category: None,
             tags: Vec::new(),
             provider: None,
+            account: None,
             model: None,
             effort: None,
             then: Vec::new(),
@@ -202,7 +203,7 @@ async fn another_cli_takes_it_on_and_back() {
     // Codex "installed": its executable named in its settings.
     b.agents.inner.settings.lock().unwrap().codex.bin = Some("/bin/sh".into());
     let id = b.agents.spawn(b.launch("Build")).await.unwrap();
-    let to = |p: Provider, message: &str| switch::Switch { to: p, message: message.into(), handoff: "prism".into(), reason: Some("limit".into()), model: None, effort: None, permission_mode: None };
+    let to = |p: Provider, message: &str| switch::Switch { to: p, account: None, message: message.into(), handoff: "prism".into(), reason: Some("limit".into()), model: None, effort: None, permission_mode: None };
     assert!(b.agents.switch(&id, to(Provider::Claude, "x")).await.is_err(), "it runs Claude already");
     assert!(b.agents.switch(&id, to(Provider::Codex, "  ")).await.is_err(), "nothing to tell");
 
@@ -229,7 +230,7 @@ async fn another_cli_takes_it_on_and_back() {
 
 /// A switch's words, as the window sends them.
 fn switch(to: Provider, message: &str) -> switch::Switch {
-    switch::Switch { to, message: message.into(), handoff: "prism".into(), reason: None, model: None, effort: None, permission_mode: None }
+    switch::Switch { to, account: None, message: message.into(), handoff: "prism".into(), reason: None, model: None, effort: None, permission_mode: None }
 }
 
 impl Bench {
@@ -787,4 +788,43 @@ async fn a_folders_trust_is_read_off_the_screen_and_answered() {
     assert!(b.shown(&id).await.unwrap().gate.is_none());
     // Gone from its screen meanwhile: nothing sent.
     assert!(b.agents.answer_gate(&id, state::GateKind::Folder, true, false).await.is_err());
+}
+
+/// Two accounts of Claude Code: an agent runs under the default one (its folder in its
+/// environment), then another takes its conversation whole (copied into its folder, resumed).
+#[tokio::test]
+async fn another_account_of_the_same_cli_takes_its_conversation() {
+    use prism_core::config::AgentAccount;
+    let b = Bench::new().with_clis();
+    let (perso, pro) = (b.root.join(".claude"), b.root.join(".claude-pro"));
+    let mut cfg = b.agents.inner.settings.lock().unwrap().clone();
+    cfg.accounts = vec![
+        AgentAccount { name: "Claude perso".into(), cli: Provider::Claude, dir: perso.clone(), default: true },
+        AgentAccount { name: "Claude pro".into(), cli: Provider::Claude, dir: pro.clone(), default: false },
+    ];
+    b.agents.configure(cfg);
+    let id = b.agents.spawn(b.launch("Build")).await.unwrap();
+    let started = b.tmux.calls_of("new-session").pop().unwrap();
+    assert!(started.contains(&format!("CLAUDE_CONFIG_DIR={}", perso.display())), "{started:?}");
+    assert_eq!(b.agents.record(&id).unwrap().launch.unwrap().account.as_deref(), Some("Claude perso"), "the default one, kept");
+    // Its conversation, in its account's folder.
+    let t = perso.join("projects/-project").join(format!("{id}.jsonl"));
+    std::fs::create_dir_all(t.parent().unwrap()).unwrap();
+    std::fs::write(&t, "{}\n").unwrap();
+
+    let to = |account: &str, handoff: &str| switch::Switch { to: Provider::Claude, account: Some(account.into()), message: "Go on.".into(), handoff: handoff.into(), reason: Some("limit".into()), model: None, effort: None, permission_mode: None };
+    assert!(b.agents.switch(&id, to("Claude perso", "resume")).await.is_err(), "it runs under it already");
+    assert!(b.agents.switch(&id, to("Claude team", "resume")).await.is_err(), "no such account");
+    b.agents.switch(&id, to("Claude pro", "resume")).await.unwrap();
+    assert!(pro.join("projects/-project").join(format!("{id}.jsonl")).is_file(), "carried to its folder");
+    let argv = b.tmux.argv(&id).unwrap();
+    assert_eq!(argv[1..3], ["--resume".to_string(), id.clone()], "its own conversation, resumed");
+    assert_eq!(argv.last().map(String::as_str), Some("Go on."));
+    let respawned = b.tmux.calls_of("respawn-pane").pop().unwrap();
+    assert!(respawned.contains(&format!("CLAUDE_CONFIG_DIR={}", pro.display())), "{respawned:?}");
+    let agent = b.shown(&id).await.unwrap();
+    assert_eq!((agent.provider, agent.account.as_deref()), (Provider::Claude, Some("Claude pro")));
+    let leg = &agent.legs[0];
+    assert_eq!((leg.account.as_deref(), leg.handoff.as_str()), (Some("Claude perso"), "resume"));
+    assert_eq!(b.agents.record(&id).unwrap().resumed.as_deref(), Some(id.as_str()), "what it held is counted once");
 }

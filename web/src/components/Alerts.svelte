@@ -21,7 +21,7 @@
   import { branchName } from '../pipeline'
   import type { Agent, SessionStatus } from '../types'
   import { CLIS, agentName } from '../agent-cli'
-  import { openSwitch, suggestedFor } from '../agent-switch.svelte'
+  import { openSwitch, suggestedFor, targetName } from '../agent-switch.svelte'
   import { call } from '../blocks/block'
   import { live } from '../live.svelte'
   import { canShowPodLogs, openWorkload } from '../pod-logs.svelte'
@@ -128,7 +128,7 @@
         case 'switch': {
           const agent = live.snapshot?.agents?.find((x) => x.id === f.agent)
           const to = agent ? suggestedFor(agent) : null
-          return app && agent ? [{ key: 'switch', label: to ? t('Continue with {cli}…', { cli: CLIS[to].name }) : t('Continue with…'), title: t('Another CLI takes {title} on, from a relay', { title: agent.title }), run: () => openSwitch(agent, to, 'limit') }] : []
+          return app && agent ? [{ key: 'switch', label: to ? t('Continue with {cli}…', { cli: targetName(to) }) : t('Continue with…'), title: t('Another CLI takes {title} on, from a relay', { title: agent.title }), run: () => openSwitch(agent, to, 'limit') }] : []
         }
         case 'overlap':
           return [{ key: 'overlap', label: t('See the overlap'), title: t('Both sides’ hunks, side by side'), run: () => openOverlap(f.id, f.side) }]

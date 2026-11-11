@@ -432,6 +432,7 @@ impl Agents {
                     category: Some("Review".into()),
                     tags: Vec::new(),
                     provider: None,
+                    account: None,
                     model: None,
                     effort: None,
                     then: Vec::new(),

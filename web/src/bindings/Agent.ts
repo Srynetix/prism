@@ -21,7 +21,11 @@ id: string,
 /**
  * The CLI it runs: its labels, keys and commands follow it.
  */
-provider: AgentProvider, title: string, 
+provider: AgentProvider, 
+/**
+ * The CLI's account it runs under (`[[agents.accounts]]`); absent: the CLI's usual folder.
+ */
+account?: string, title: string, 
 /**
  * Its kind (`[[agents.kinds]]`), which groups them.
  */

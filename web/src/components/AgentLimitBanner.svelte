@@ -1,20 +1,21 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
-  import { CLIS } from '../agent-cli'
+  import { CLIS, nameOf } from '../agent-cli'
   import { live } from '../live.svelte'
   import { USED_UP, planSections, resets } from '../usage'
-  import { limitReached, openSwitch, planUse, suggestedFor } from '../agent-switch.svelte'
+  import { limitReached, openSwitch, suggestedFor, targetName, targetUse } from '../agent-switch.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { t } from '../i18n.svelte'
   import type { Agent } from '../types'
 
   /**
-   * Its CLI's plan used up (`[agents] suggest_switch`): when it comes back, and the CLI it can
-   * continue with meanwhile, the least used of the others. Wait hides it until the plan resets.
+   * Its plan used up (`[agents] suggest_switch`; an account's own, `[[agents.accounts]]`): when it
+   * comes back, and what it can continue with meanwhile — another account of its CLI first (its
+   * conversation goes with it), else the least used of the other CLIs. Wait hides it until the plan resets.
    */
   let { a }: { a: Agent } = $props()
 
-  const section = $derived(live.snapshot ? planSections(live.snapshot).find((s) => s.provider === a.provider) : undefined)
+  const section = $derived(live.snapshot ? planSections(live.snapshot).find((s) => s.provider === a.provider && s.account === (a.account ?? null)) : undefined)
   /** The window that is full: when it resets. */
   const full = $derived([section?.usage?.five_hour, section?.usage?.seven_day].find((w) => w && w.utilization >= USED_UP) ?? null)
   const to = $derived(suggestedFor(a))
@@ -27,10 +28,10 @@
   <div class="banner" role="status">
     <Icon name={CLIS[a.provider].icon} />
     <div class="what">
-      <b>{t('{cli} limit reached', { cli: CLIS[a.provider].name })}{#if full}, {resets(full)}{/if}</b>
-      {#if to}<small>{planUse(to) !== null ? t('{cli} is at {pct} % of its plan.', { cli: CLIS[to].name, pct: Math.round(planUse(to)!) }) : t('{cli} can take it on meanwhile.', { cli: CLIS[to].name })}</small>{/if}
+      <b>{t('{cli} limit reached', { cli: nameOf(a) })}{#if full}, {resets(full)}{/if}</b>
+      {#if to}<small>{targetUse(to) !== null ? t('{cli} is at {pct} % of its plan.', { cli: targetName(to), pct: Math.round(targetUse(to)!) }) : t('{cli} can take it on meanwhile.', { cli: targetName(to) })}{#if to.provider === a.provider}{' '}{t('Its conversation goes with it.')}{/if}</small>{/if}
     </div>
-    {#if to}<button class="primary" onclick={() => openSwitch(a, to, 'limit')}>{t('Continue with {cli}…', { cli: CLIS[to].name })}</button>{/if}
+    {#if to}<button class="primary" onclick={() => openSwitch(a, to, 'limit')}>{t('Continue with {cli}…', { cli: targetName(to) })}</button>{/if}
     {#if full?.resets_at}<button class="quiet" onclick={() => setPref(key, full!.resets_at)} title={t('Hide this until its plan resets')}>{t('Wait')}</button>{/if}
   </div>
 {/if}

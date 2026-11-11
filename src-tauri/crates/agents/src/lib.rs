@@ -111,6 +111,10 @@ pub struct Launch {
     /// `[agents] provider`.
     #[serde(default)]
     pub provider: Option<Provider>,
+    /// Its CLI's account (`[[agents.accounts]]`, its name), picked in the launcher; absent, the
+    /// CLI's default account, failing that its usual folder.
+    #[serde(default)]
+    pub account: Option<String>,
     /// Its model, picked in the launcher, kept on resume; absent, its CLI's (`[agents.<cli>] model`).
     #[serde(default)]
     pub model: Option<String>,
@@ -139,6 +143,7 @@ impl From<state::LaunchSpec> for Launch {
             category: s.category,
             tags: s.tags,
             provider: s.provider,
+            account: s.account,
             model: s.model,
             effort: s.effort,
             then: s.then,
@@ -166,6 +171,7 @@ impl Launch {
             category: some(&self.category),
             tags: clean_tags(self.tags.clone()),
             provider: self.provider,
+            account: some(&self.account),
             model: some(&self.model),
             effort: some(&self.effort),
             then: self.then.clone(),
@@ -377,10 +383,15 @@ impl Agents {
         let mut folds = self.inner.folds.lock().unwrap().clone();
         let mut usages = std::mem::take(&mut *self.inner.usages.lock().unwrap());
         let events = self.inner.events.clone();
+        // Each one's CLI folder (its account's), where its transcript is looked for.
+        let homes: HashMap<String, PathBuf> = records.iter().filter_map(|r| Some((r.id.clone(), self.cli_home(r.provider, r.launch.as_ref().and_then(|l| l.account.as_deref()))?))).collect();
         let read = tokio::task::spawn_blocking(move || {
             folds.retain(|id, _| records.iter().any(|r| &r.id == id));
             usages.retain(|id, _| records.iter().any(|r| &r.id == id));
-            let list: Vec<(Agent, Option<String>)> = records.into_iter().rev().map(|r| read_agent(r, &mut folds, &mut usages, &events, &panes)).collect();
+            let list: Vec<(Agent, Option<String>)> = records.into_iter().rev().map(|r| {
+                let home = homes.get(&r.id).cloned();
+                read_agent(r, home.as_deref(), &mut folds, &mut usages, &events, &panes)
+            }).collect();
             (list, folds, usages)
         })
         .await;
@@ -456,18 +467,15 @@ impl Agents {
 }
 
 /// The worktree the agent works in, if it exists: the one the hook created, otherwise the planned one.
-/// A Claude Code conversation of this id in its usual place (`~/.claude/projects/<folder>/<id>.jsonl`,
-/// or under `CLAUDE_CONFIG_DIR`): its hooks may not have said where it is (an agent from before).
-fn claude_conversation_exists(id: &str) -> bool {
-    let root = std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from).or_else(|| dirs::home_dir().map(|h| h.join(".claude")));
-    let Some(projects) = root.map(|r| r.join("projects")) else { return false };
-    let file = format!("{id}.jsonl");
-    std::fs::read_dir(projects).into_iter().flatten().flatten().any(|d| d.path().join(&file).is_file())
+/// A Claude Code conversation of this id under `home` (its account's folder: `<home>/projects/<folder>/<id>.jsonl`):
+/// its hooks may not have said where it is (an agent from before).
+fn claude_conversation_exists(home: Option<&Path>, id: &str) -> bool {
+    usage::find_transcript(home, id).is_some()
 }
 
 /// An agent as its record, its hook log and (Claude Code) its transcript tell it, and the model
 /// it runs; the log and transcript are read from where they were left. Blocking: disk reads.
-fn read_agent(r: Record, folds: &mut HashMap<String, Fold>, usages: &mut HashMap<String, usage::UsageFold>, events: &std::path::Path, panes: &HashMap<String, Pane>) -> (Agent, Option<String>) {
+fn read_agent(r: Record, home: Option<&Path>, folds: &mut HashMap<String, Fold>, usages: &mut HashMap<String, usage::UsageFold>, events: &std::path::Path, panes: &HashMap<String, Pane>) -> (Agent, Option<String>) {
     let fold = folds.entry(r.id.clone()).or_default();
     fold.read(&events.join(format!("{}.jsonl", r.id)));
     // Claude Code's transcript, named by its hooks or found by the conversation's id; Codex's
@@ -478,7 +486,7 @@ fn read_agent(r: Record, folds: &mut HashMap<String, Fold>, usages: &mut HashMap
             u.located = Some(t.into());
         } else if u.located.is_none() && !r.prepared && r.provider.finds_transcript() && u.searched.is_none_or(|t| t.elapsed() >= SEARCH_AGAIN) {
             // A folder read per project each time: not every tick while it is still missing.
-            u.located = usage::find_transcript(fold.session.as_deref().unwrap_or(&r.id));
+            u.located = usage::find_transcript(home, fold.session.as_deref().unwrap_or(&r.id));
             u.searched = Some(std::time::Instant::now());
         }
         if let Some(path) = u.located.clone() {
@@ -516,6 +524,7 @@ fn read_agent(r: Record, folds: &mut HashMap<String, Fold>, usages: &mut HashMap
         also: r.extra.iter().filter(|p| p.is_dir()).map(|p| p.display().to_string()).collect(),
         id: r.id,
         provider: r.provider,
+        account: r.launch.as_ref().and_then(|l| l.account.clone()),
         title: r.title,
         category: r.category,
         tags: r.tags,

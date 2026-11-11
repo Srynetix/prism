@@ -304,7 +304,29 @@ pub fn load_text(path: &Path, raw: &str) -> Result<Config> {
         cli.bin = cli.bin.take().map(|b| b.trim().to_string()).filter(|b| !b.is_empty()).map(|b| if b.starts_with('~') { expand_home(Path::new(&b)).display().to_string() } else { b });
     }
     cfg.agents.worktrees_dir = cfg.agents.worktrees_dir.as_deref().map(expand_home);
+    resolve_accounts(&mut cfg.agents.accounts);
     Ok(cfg)
+}
+
+/// The CLIs' accounts, read: folders expanded; those without a name or a folder, of a CLI without
+/// accounts, or named twice, left out; one default per CLI at most (the first).
+fn resolve_accounts(list: &mut Vec<crate::config::AgentAccount>) {
+    let mut seen = std::collections::HashSet::new();
+    let mut defaulted = std::collections::HashSet::new();
+    list.retain_mut(|a| {
+        a.name = a.name.trim().to_string();
+        let keep = !a.name.is_empty() && !a.dir.as_os_str().is_empty() && a.cli.home_var().is_some() && seen.insert(a.name.clone());
+        if !keep {
+            tracing::warn!("[[agents.accounts]] {:?}: left out (a name, a folder, a CLI among claude and codex, a name of its own)", a.name);
+            return false;
+        }
+        a.dir = expand_home(&a.dir);
+        if a.default && !defaulted.insert(a.cli) {
+            tracing::warn!("[[agents.accounts]] {:?}: another {} account is the default already", a.name, a.cli.program());
+            a.default = false;
+        }
+        true
+    });
 }
 
 /// The working folders, read: those without a folder dropped, folders expanded, each named (its
@@ -563,6 +585,21 @@ pub mod tests {
         assert_eq!(a.kind_of("review this MR"), None, "not a command");
         let a = AgentsConfig { kinds: vec![AgentKind { name: "Fix".into(), when: "/cve, acme-flow:backport".into() }], ..a };
         assert_eq!((a.kind_of("/acme-flow:cve x"), a.kind_of("/acme-flow:backport 1"), a.kind_of("/other:backport")), (Some("Fix"), Some("Fix"), None));
+    }
+
+    /// `[[agents.accounts]]` read: folders expanded; a CLI without accounts, a name taken, no
+    /// folder left out; a second default of a CLI not one; found by name or as the default.
+    #[test]
+    fn reads_the_clis_accounts() {
+        use crate::agents::provider::Provider;
+        let mut c = parsed("[[agents.accounts]]\nname = \"Claude pro\"\ncli = \"claude\"\ndir = \"~/.claude-pro\"\ndefault = true\n[[agents.accounts]]\nname = \"Claude perso\"\ncli = \"claude\"\ndir = \"/x/.claude\"\ndefault = true\n[[agents.accounts]]\nname = \"Claude pro\"\ncli = \"codex\"\ndir = \"/y\"\n[[agents.accounts]]\nname = \"Open\"\ncli = \"opencode\"\ndir = \"/z\"\n[[agents.accounts]]\nname = \"Nowhere\"\ncli = \"codex\"\n");
+        resolve_accounts(&mut c.agents.accounts);
+        let names: Vec<(&str, bool)> = c.agents.accounts.iter().map(|a| (a.name.as_str(), a.default)).collect();
+        assert_eq!(names, [("Claude pro", true), ("Claude perso", false)]);
+        assert_eq!(c.agents.accounts[0].dir, dirs::home_dir().unwrap().join(".claude-pro"));
+        let a = &c.agents;
+        assert_eq!((a.account(Provider::Claude, None).map(|x| x.name.as_str()), a.account(Provider::Claude, Some("Claude perso")).map(|x| x.dir.clone())), (Some("Claude pro"), Some(PathBuf::from("/x/.claude"))));
+        assert!(a.account(Provider::Codex, None).is_none() && a.account(Provider::Codex, Some("Claude pro")).is_none(), "another CLI's");
     }
 
     /// `[agents] categories` read as `[[agents.kinds]]`, `stages` dropped.

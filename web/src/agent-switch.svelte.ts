@@ -5,15 +5,16 @@ import { CLIS, nameOf } from './agent-cli'
 import { sendPrompt } from './agent-inbox.svelte'
 import { isWorking } from './rules'
 import { USED_UP, planUseOf } from './usage'
-import { INCLUDE_ALL, handoffs, relayText, suggestTarget, summaryRequest, type Handoff, type Include } from './handoff'
+import { INCLUDE_ALL, handoffs, relayText, sameTarget, suggestAccount, summaryRequest, type Handoff, type Include, type Target } from './handoff'
 import { mrKey } from './mr-ref'
 import { toast } from './toast.svelte'
 import { t } from './i18n.svelte'
 import type { Agent, AgentProvider, HandoffMaterial } from './types'
 
 /**
- * Continue with… (agent_switch): another CLI takes an agent on, in its folder, from a relay — the
- * words it starts from (`handoff.ts`). Its window (AgentSwitch.svelte, on the computer and the phone)
+ * Continue with… (agent_switch): another CLI, or another account of its own (`[[agents.accounts]]`),
+ * takes an agent on, in its folder, from a relay — the words it starts from (`handoff.ts`); another
+ * account of the same CLI takes its conversation whole (`resume`). Its window (AgentSwitch.svelte, on the computer and the phone)
  * opens from the agent's CLI chip, its ⋯ menu, the palette, its limit banner and the alert; Back
  * to a CLI it ran before from its Activity tab. `[agents] handoff` picks the relay first,
  * `handoff_review` off sends it without the window when nothing is to wait for.
@@ -24,6 +25,8 @@ export const switching = $state({
   open: false,
   id: '',
   to: null as AgentProvider | null,
+  /** The account of `to` (`[[agents.accounts]]`); null: its usual folder. */
+  account: null as string | null,
   reason: 'choice' as Reason,
   handoff: 'prism' as Handoff,
   include: { ...INCLUDE_ALL } as Include,
@@ -55,17 +58,47 @@ export function installedClis(): AgentProvider[] | null {
   return installed
 }
 
-/** How much of `p`'s plan is used now (its fullest window), when Prism reads it. */
-export const planUse = (p: AgentProvider): number | null => (live.snapshot ? planUseOf(live.snapshot, p) : null)
+/**
+ * How much of `p`'s plan is used now (its fullest window), when Prism reads it: under `account`
+ * (an account's own plan), or, not given, the CLI's first reading.
+ */
+export const planUse = (p: AgentProvider, account?: string | null): number | null => (live.snapshot ? planUseOf(live.snapshot, p, account) : null)
 
-/** Its CLI's plan is used up and it is not working: another CLI is offered (`[agents] suggest_switch`). */
-export const limitReached = (a: Agent) => (agentsSettings().suggest_switch ?? true) && a.state !== 'prepared' && !isWorking(a.status) && (planUse(a.provider) ?? 0) >= USED_UP
+/** Where the agent runs: its CLI, under its account. */
+export const targetOf = (a: Agent): Target => ({ provider: a.provider, account: a.account ?? null })
 
-/** The CLI offered when its own is used up: the least used of the others found. */
-export const suggestedFor = (a: Agent) => suggestTarget(a.provider, installedClis() ?? [], planUse)
+/** A target's plan used now. */
+export const targetUse = (t: Target) => planUse(t.provider, t.account)
 
-/** The CLIs it can continue with: the others found on the computer (all of them until that is known). */
-export const targetsOf = (a: Agent): AgentProvider[] => (installedClis() ?? (Object.keys(CLIS) as AgentProvider[])).filter((p) => p !== a.provider)
+/** A target's name: its account's (`Claude pro`), else its CLI's. */
+export const targetName = (t: Target) => t.account ?? CLIS[t.provider].name
+
+/** The accounts of `p` (`[[agents.accounts]]`), its default first. */
+export const accountsOf = (p: AgentProvider) => (agentsSettings().accounts ?? []).filter((a) => a.cli === p).sort((a, b) => Number(b.default) - Number(a.default))
+
+/**
+ * Where `p` runs: under each of its accounts, and in its usual folder unless one of them is its
+ * default (that one stands for it); none declared, its usual folder only.
+ */
+export function targetsOfCli(p: AgentProvider): Target[] {
+  const accounts = accountsOf(p)
+  const out: Target[] = accounts.map((a) => ({ provider: p, account: a.name }))
+  if (!accounts.some((a) => a.default)) out.push({ provider: p, account: null })
+  return out
+}
+
+/** Its plan is used up and it is not working: another account or CLI is offered (`[agents] suggest_switch`). */
+export const limitReached = (a: Agent) => (agentsSettings().suggest_switch ?? true) && a.state !== 'prepared' && !isWorking(a.status) && (targetUse(targetOf(a)) ?? 0) >= USED_UP
+
+/** What it can continue with: each CLI found on the computer (all of them until that is known) under each of its accounts, but where it runs. */
+export function targetsOf(a: Agent): Target[] {
+  const clis = installedClis() ?? (Object.keys(CLIS) as AgentProvider[])
+  // Its own CLI first: another account of it takes its conversation whole.
+  return [a.provider, ...clis.filter((p) => p !== a.provider)].flatMap(targetsOfCli).filter((t) => !sameTarget(t, targetOf(a)))
+}
+
+/** What is offered when its plan is used up: another account of its CLI, failing that the least used other CLI. */
+export const suggestedFor = (a: Agent): Target | null => suggestAccount(targetOf(a), targetsOf(a), targetUse)
 
 const agentOf = (id: string) => live.snapshot?.agents?.find((a) => a.id === id)
 const lang = () => agentsSettings().prompt_language ?? 'en'
@@ -78,13 +111,18 @@ export function compose() {
   switching.text = relayText(m, switching.handoff, { from: nameOf(a), reason: switching.reason, ticket: a.ticket, mr: a.mr ? mrKey(a.mr) : null }, lang(), switching.include)
 }
 
+/** The target picked is the agent's own CLI, under another account. */
+export const sameCli = () => !!switching.to && agentOf(switching.id)?.provider === switching.to
+
 async function loadMaterial() {
   const id = switching.id
   try {
     const m = await invoke<HandoffMaterial>('agent_handoff_material', { id, turns: agentsSettings().handoff_turns ?? 8 })
     if (switching.id !== id) return
     switching.material = m
-    if (!handoffs(m.readable).includes(switching.handoff)) switching.handoff = 'task'
+    // Another account of its CLI: its conversation whole, when it was read.
+    if (sameCli() && m.readable) switching.handoff = 'resume'
+    if (!handoffs(m.readable, sameCli()).includes(switching.handoff)) switching.handoff = 'task'
     compose()
   } catch (e) {
     switching.error = String(e)
@@ -92,9 +130,9 @@ async function loadMaterial() {
 }
 
 /** Opens its window: to `to` (failing that the one suggested), for `reason`; `show` false: its state only. */
-export function openSwitch(a: Agent, to?: AgentProvider | null, reason: Reason = 'choice', show = true): Promise<void> {
+export function openSwitch(a: Agent, to?: Target | null, reason: Reason = 'choice', show = true): Promise<void> {
   const target = to ?? suggestedFor(a) ?? targetsOf(a)[0] ?? null
-  Object.assign(switching, { open: show, id: a.id, to: target, reason, handoff: (agentsSettings().handoff ?? 'prism') as Handoff, include: { ...INCLUDE_ALL }, material: null, text: '', edited: false, model: '', effort: '', mode: a.launch?.permission_mode ?? '', busy: false, error: null, asked: null })
+  Object.assign(switching, { open: show, id: a.id, to: target?.provider ?? null, account: target?.account ?? null, reason, handoff: (agentsSettings().handoff ?? 'prism') as Handoff, include: { ...INCLUDE_ALL }, material: null, text: '', edited: false, model: '', effort: '', mode: a.launch?.permission_mode ?? '', busy: false, error: null, asked: null })
   // Its own summary needs it to answer: not at its limit.
   if (switching.handoff === 'agent' && reason === 'limit') switching.handoff = 'prism'
   return loadMaterial()
@@ -103,6 +141,21 @@ export function openSwitch(a: Agent, to?: AgentProvider | null, reason: Reason =
 export function closeSwitch() {
   switching.open = false
   switching.asked = null
+}
+
+/**
+ * Target picked in the window: its relay follows — its conversation whole to another account of
+ * its CLI (when read), a relay to another CLI (the one set, `[agents] handoff`).
+ */
+export function pickTarget(t: Target) {
+  switching.to = t.provider
+  switching.account = t.account
+  const readable = !!switching.material?.readable
+  if (sameCli() && readable) switching.handoff = 'resume'
+  else if (switching.handoff === 'resume') switching.handoff = (agentsSettings().handoff ?? 'prism') as Handoff
+  if (!handoffs(readable, sameCli()).includes(switching.handoff)) switching.handoff = 'task'
+  switching.edited = false
+  compose()
 }
 
 /** Relay picked: written again from the material (the hand edits dropped). */
@@ -152,9 +205,9 @@ export async function confirmSwitch(): Promise<boolean> {
   try {
     await invoke('agent_switch', {
       id: a.id,
-      switch: { to: switching.to, message: switching.text, handoff: switching.handoff, reason: switching.reason, model: switching.model || null, effort: switching.effort || null, permission_mode: switching.mode || null },
+      switch: { to: switching.to, account: switching.account, message: switching.text, handoff: switching.handoff, reason: switching.reason, model: switching.model || null, effort: switching.effort || null, permission_mode: switching.mode || null },
     })
-    toast(t('{title} continues with {cli}', { title: a.title, cli: CLIS[switching.to].cli }), 4000)
+    toast(t('{title} continues with {cli}', { title: a.title, cli: switching.account ?? CLIS[switching.to].cli }), 4000)
     closeSwitch()
     return true
   } catch (e) {
@@ -169,7 +222,7 @@ export async function confirmSwitch(): Promise<boolean> {
  * Continue with `to` from a menu: its window, or straight away when `[agents] handoff_review` is
  * off and the relay is Prism's or the task (the agent's own summary is always waited for there).
  */
-export async function continueWith(a: Agent, to: AgentProvider, reason: Reason = 'choice') {
+export async function continueWith(a: Agent, to: Target, reason: Reason = 'choice') {
   // The agent's own summary is waited for in the window.
   const review = (agentsSettings().handoff_review ?? true) || (agentsSettings().handoff ?? 'prism') === 'agent'
   await openSwitch(a, to, reason, review)
@@ -178,8 +231,8 @@ export async function continueWith(a: Agent, to: AgentProvider, reason: Reason =
   if (!(await confirmSwitch())) toast(switching.error ?? t('Could not hand it over'), 6000)
 }
 
-/** Back to the CLI of its stretch `leg`: the same window, that CLI picked. */
-export const backTo = (a: Agent, to: AgentProvider) => openSwitch(a, to, 'choice')
+/** Back to the CLI (and account) of one of its stretches: the same window, that one picked. */
+export const backTo = (a: Agent, to: Target) => openSwitch(a, to, 'choice')
 
 /** The conversation of its stretch `leg`, for its Chat's earlier turns. */
 export const legConversation = (id: string, leg: number, turns = 30) => invoke<AgentConversation | null>('agent_leg_conversation', { id, leg, turns })

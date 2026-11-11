@@ -40,6 +40,10 @@ pub struct AgentsConfig {
     /// guessed at launch from its command, changed in its header; in the order of the Agents
     /// view's groups when it groups them by kind. Their colours follow this order.
     pub kinds: Vec<AgentKind>,
+    /// The accounts of a CLI (`[[agents.accounts]]`): Claude Code or Codex logged in under folders of
+    /// their own (two plans, personal and work…), each agent launched under one of them and
+    /// continued under another (Continue with…). None: the CLI's usual folder, as before.
+    pub accounts: Vec<AgentAccount>,
     /// Tags suggested when tagging an agent (agent header), on top of those already in use; an
     /// agent may carry others.
     pub tags: Vec<String>,
@@ -258,6 +262,21 @@ pub struct QuickAnswer {
 }
 
 impl AgentsConfig {
+    /// The account `name` of `provider`, or, `name` absent, its default one; none: its usual
+    /// folder (an account no longer declared runs there too).
+    pub fn account(&self, provider: crate::agents::provider::Provider, name: Option<&str>) -> Option<&AgentAccount> {
+        let mine = || self.accounts.iter().filter(move |a| a.cli == provider);
+        match name {
+            Some(n) => mine().find(|a| a.name == n),
+            None => mine().find(|a| a.default),
+        }
+    }
+
+    /// The folder `provider` keeps its sessions in under account `name` (see `account`).
+    pub fn cli_home(&self, provider: crate::agents::provider::Provider, name: Option<&str>) -> Option<PathBuf> {
+        provider.home(self.account(provider, name).map(|a| a.dir.as_path()))
+    }
+
     /// How a CLI is launched: its binary and extra arguments.
     pub fn cli(&self, provider: crate::agents::provider::Provider) -> &CliConfig {
         use crate::agents::provider::Provider;
@@ -531,6 +550,23 @@ impl ClaudeConfig {
     }
 }
 
+/// An account of a CLI (`[[agents.accounts]]`): its folder, where it keeps its login, settings and
+/// sessions, given to it as `CLAUDE_CONFIG_DIR` (Claude Code) or `CODEX_HOME` (Codex).
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct AgentAccount {
+    /// Its name, shown and remembered by its agents (`Claude pro`): unique.
+    pub name: String,
+    /// Its CLI: `claude` or `codex`.
+    pub cli: crate::agents::provider::Provider,
+    /// Its folder (`~/.claude-pro`): the one its alias sets.
+    pub dir: PathBuf,
+    /// New agents of its CLI run under it; none marked: the CLI's usual folder.
+    pub default: bool,
+}
+
 /// A kind of work of the agents (`[[agents.kinds]]`).
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -569,6 +605,7 @@ impl Default for AgentsConfig {
             font_size: 12.5,
             chat_font_size: 13.5,
             scrollback: 5000,
+            accounts: Vec::new(),
             kinds: [("Refinement", "refine"), ("Development", "implement"), ("Review", "review")].map(|(name, when)| AgentKind { name: name.into(), when: when.into() }).to_vec(),
             tags: Vec::new(),
             prompt_language: "en".into(),

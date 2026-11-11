@@ -4,6 +4,7 @@
   import { hasCore, invoke } from '../bridge'
   import Icon from './Icon.svelte'
   import { live } from '../live.svelte'
+  import { targetsOfCli, targetUse } from '../agent-switch.svelte'
   import { afterLaunch, agentsAvailable, agentsSettings, agentsView, allTags, slug, spawnAgent, prepareAgent, closeAgent, draggedFiles, filesOf, type Launch, type LaunchSlot, closeLauncherDrawer, toastLaunched, kindOf } from '../agents.svelte'
   import { primaryRepo, worktreeRepos } from '../repositories'
   import { canPick, pickPath } from '../pick'
@@ -169,6 +170,7 @@
     category = d.category ?? ''
     launchTags = d.tags ?? []
     picked = d.provider ?? ''
+    accountPicks = d.account ? { [d.provider ?? providerOf(launchRepo)]: d.account } : {}
     models = d.model ? { [d.provider ?? providerOf(launchRepo)]: d.model } : {}
     efforts = d.effort ? { [d.provider ?? providerOf(launchRepo)]: d.effort } : {}
     steps = d.then ? structuredClone(d.then) : []
@@ -191,6 +193,18 @@
   const takesDirs = $derived(CLIS[launchProvider].takes_dirs)
   /** The other repositories ticked, besides the new worktree's own, while its CLI can take them. */
   const also = $derived(whereTo === 'new' && takesDirs ? alsoRepos.filter((r) => r !== wtRepo && wtRepos.some((x) => x.name === r)) : [])
+  /** The account picked for each CLI (`[[agents.accounts]]`); empty: its default one. */
+  let accountPicks = $state<Partial<Record<AgentProvider, string>>>({})
+  /**
+   * What its CLI can run under, when there is a choice: first what it gets without one (its default
+   * account, failing that its usual folder), then the other accounts.
+   */
+  const launchAccounts = $derived.by(() => {
+    const list = targetsOfCli(launchProvider)
+    const first = list.find((x) => x.account === null) ?? list[0]
+    return first ? [first, ...list.filter((x) => x !== first)] : []
+  })
+  const launchAccount = $derived(launchAccounts.length > 1 ? accountPicks[launchProvider] || '' : '')
   /** The model typed for each CLI (a model is one CLI's); empty: its own (`[agents.<cli>] model`), failing that its default. */
   let models = $state<Partial<Record<AgentProvider, string>>>({})
   const cliModel = $derived(agentsSettings()[launchProvider]?.model ?? null)
@@ -218,6 +232,7 @@
     category: category || undefined,
     tags: launchTags.length ? launchTags : undefined,
     provider: picked && picked !== defaultProvider ? picked : undefined,
+    account: launchAccount || undefined,
     model: launchModel || undefined,
     effort: launchEffort || undefined,
     then: steps.length ? $state.snapshot(steps) : undefined,
@@ -443,6 +458,16 @@
         {/each}
       </div>
     </div>
+    <!-- Its CLI's accounts (`[[agents.accounts]]`): each its own plan; empty, the default one. -->
+    {#if launchAccounts.length > 1}
+      <label><span>{t('Account')}</span>
+        <select value={launchAccount} onchange={(e) => (accountPicks[launchProvider] = e.currentTarget.value)} title={t('The {cli} account it runs under, each with its own plan: Continue with… moves it to another', { cli: launchCli.cli })}>
+          {#each launchAccounts as a, i (a.account ?? '')}
+            <option value={i === 0 ? '' : (a.account ?? '')}>{a.account ?? t('{cli}’s usual folder', { cli: launchCli.name })}{#if i === 0}{` (${t('default')})`}{/if}{#if targetUse(a) !== null}{` · ${Math.round(targetUse(a)!)} %`}{/if}</option>
+          {/each}
+        </select>
+      </label>
+    {/if}
     {#if !quick}
     <label><span>{t('Model')}</span><input value={models[launchProvider] ?? ''} oninput={(e) => (models[launchProvider] = e.currentTarget.value)} placeholder={cliModel ? t('{value} (Settings)', { value: cliModel }) : t('{cli}’s default', { cli: launchCli.name })} spellcheck="false" autocapitalize="off" {@attach suggest(() => choices.models[launchProvider] ?? [])} title={t('For this agent, kept on resume: any name its CLI takes')} /></label>
     {#if takesEffort}

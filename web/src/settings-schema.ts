@@ -293,6 +293,16 @@ export const SCHEMA: SectionSpec[] = [
       { key: 'chat_font_size', label: t('Chat text size'), hint: keys(t('Text of an agent’s Chat on the computer (its conversation, the default 13.5), its steps and cards scaled with it; applied at once. In the Agents view, an agent shown as its Chat: ⌘+ / ⌘- to adjust, ⌘0 to reset. The phone keeps its own size.')), kind: 'number', unit: 'pt', step: 0.5 },
       { key: 'scrollback', label: t('Scrollback'), hint: t('Lines kept by an agent terminal, on top of tmux history.'), kind: 'number', unit: 'lines' },
       {
+        key: 'accounts', label: t('Accounts'), kind: 'table', blank: { name: '', cli: 'claude', dir: '', default: false },
+        hint: t('Claude Code or Codex logged in under folders of their own (a personal plan, a work one…), each with its plan: what your aliases set (CLAUDE_CONFIG_DIR, CODEX_HOME). A new agent runs under its CLI’s default account (or the one picked in the launcher); Continue with… offers the others, where another account of the same CLI takes its whole conversation. None: each CLI’s usual folder, as before. An account whose folder is the usual one (~/.claude, ~/.codex) runs as before, its login kept.'),
+        columns: [
+          { key: 'name', label: t('Name'), kind: 'text', width: '130px', placeholder: 'Claude pro' },
+          { key: 'cli', label: t('CLI'), kind: 'select', options: ['claude', 'codex'], width: '90px' },
+          { key: 'dir', label: t('Folder'), kind: 'text', placeholder: '~/.claude-pro' },
+          { key: 'default', label: t('Default'), kind: 'toggle', width: '70px' },
+        ],
+      },
+      {
         key: 'kinds', label: t('Kinds'), kind: 'table', blank: { name: '', when: '' },
         hint: t('What an agent does, one each: a coloured badge in its header and the list. Guessed at launch from the command its prompt starts with, changed in its header. Grouped by kind, the Agents view lists them in this order; their colours follow it. Also editable in the Agents view › Manage, where a rename carries the agents along.'),
         columns: [

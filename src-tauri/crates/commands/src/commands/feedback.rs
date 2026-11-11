@@ -131,6 +131,7 @@ pub async fn feedback_draft_start(state: State<'_, AppState>, target: String, ki
         category: None,
         tags: vec!["feedback".into()],
         provider: None,
+        account: None,
         model: None,
         effort: None,
         then: Vec::new(),

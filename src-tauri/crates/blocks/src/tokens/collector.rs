@@ -70,6 +70,8 @@ pub async fn run(cfg: TokensConfig, ctx: BlockCtx) {
         // change; the new generation waits for the old one's pass, which stops between files.
         let held = SCAN.clone().lock_owned().await;
         let (tools, generation) = (cfg.tools(), generation.clone());
+        // The CLIs' accounts' folders, read too.
+        let accounts: Vec<(prism_core::agents::provider::Provider, PathBuf)> = ctx.snapshot(|s| s.agents_settings.accounts.iter().map(|a| (a.cli, a.dir.clone())).collect());
         let fresh = match tokio::task::spawn_blocking(move || {
             let mut held = held;
             let scan = match held.as_mut() {
@@ -77,6 +79,7 @@ pub async fn run(cfg: TokensConfig, ctx: BlockCtx) {
                 _ => held.insert(Scan::new(tools)),
             };
             scan.generation = generation;
+            scan.accounts = accounts;
             scan.pass();
             days_of(&scan.days)
         })
@@ -138,6 +141,8 @@ fn merge(history: &mut BTreeMap<String, Day>, fresh: BTreeMap<String, Day>, keep
 /// replies already counted, and the days they sum to.
 struct Scan {
     tools: Vec<&'static str>,
+    /// The CLIs' accounts (`[[agents.accounts]]`): their folders are read too.
+    accounts: Vec<(prism_core::agents::provider::Provider, PathBuf)>,
     tail: Tail,
     codex: HashMap<PathBuf, CodexFile>,
     projects: HashMap<String, String>,
@@ -151,8 +156,9 @@ struct Scan {
 
 /// Where each source is; `root`: where a Command Code folder name is looked up (`/`).
 struct Places {
-    claude: Option<PathBuf>,
-    codex: Option<PathBuf>,
+    /// Claude Code's and Codex's: their usual folder's, then each account's (`[[agents.accounts]]`).
+    claude: Vec<PathBuf>,
+    codex: Vec<PathBuf>,
     command_code: Option<PathBuf>,
     opencode: Option<PathBuf>,
     root: PathBuf,
@@ -189,7 +195,7 @@ impl Acc {
 
 impl Scan {
     fn new(tools: Vec<&'static str>) -> Self {
-        Self { tools, tail: Tail::default(), codex: HashMap::new(), projects: HashMap::new(), opencode_since: 0, seen: HashSet::new(), days: BTreeMap::new(), generation: None }
+        Self { tools, accounts: Vec::new(), tail: Tail::default(), codex: HashMap::new(), projects: HashMap::new(), opencode_since: 0, seen: HashSet::new(), days: BTreeMap::new(), generation: None }
     }
 
     fn on(&self, tool: &str) -> bool {
@@ -202,7 +208,20 @@ impl Scan {
 
     /// One read of every source on, where it is on this computer: what was added since the last one.
     fn pass(&mut self) {
-        let at = Places { claude: claude_dir(), codex: codex_dir(), command_code: command_code_dir(), opencode: opencode_db(), root: PathBuf::from("/") };
+        let mut claude: Vec<PathBuf> = claude_dir().into_iter().collect();
+        let mut codex: Vec<PathBuf> = codex_dir().into_iter().collect();
+        for (provider, home) in &self.accounts {
+            let (list, under) = match provider {
+                prism_core::agents::provider::Provider::Claude => (&mut claude, "projects"),
+                prism_core::agents::provider::Provider::Codex => (&mut codex, "sessions"),
+                _ => continue,
+            };
+            let dir = home.join(under);
+            if !list.contains(&dir) {
+                list.push(dir);
+            }
+        }
+        let at = Places { claude, codex, command_code: command_code_dir(), opencode: opencode_db(), root: PathBuf::from("/") };
         self.pass_in(&at);
     }
 
@@ -210,7 +229,9 @@ impl Scan {
     /// stays where it is, for the next generation to go on from there.
     fn pass_in(&mut self, at: &Places) {
         let mut replies = Vec::new();
-        if self.on(CLAUDE) && let Some(root) = &at.claude {
+        // A conversation carried to another account (Continue with…) is in both: its replies count once (`seen`).
+        let (claude, codex) = (if self.on(CLAUDE) { at.claude.as_slice() } else { &[] }, if self.on(CODEX) { at.codex.as_slice() } else { &[] });
+        for root in claude {
             for file in jsonl_files(root, 4) {
                 if self.stopped() {
                     break;
@@ -218,7 +239,7 @@ impl Scan {
                 self.tail.lines(&file, |l| replies.extend(sources::claude(l)));
             }
         }
-        if self.on(CODEX) && !self.stopped() && let Some(root) = &at.codex {
+        for root in codex {
             for file in jsonl_files(root, 4) {
                 if self.stopped() {
                     break;
@@ -332,7 +353,7 @@ mod tests {
     }
 
     fn places(dir: &Path) -> Places {
-        Places { claude: Some(dir.join("claude")), codex: Some(dir.join("codex")), command_code: Some(dir.join("cc")), opencode: Some(dir.join("opencode.db")), root: dir.join("disk") }
+        Places { claude: vec![dir.join("claude")], codex: vec![dir.join("codex")], command_code: Some(dir.join("cc")), opencode: Some(dir.join("opencode.db")), root: dir.join("disk") }
     }
 
     #[test]

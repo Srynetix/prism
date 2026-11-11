@@ -36,6 +36,11 @@ pub struct LaunchSpec {
     /// The CLI picked in the launcher; absent: the default, resolved then (the agent's `provider`).
     #[serde(default)]
     pub provider: Option<crate::agents::provider::Provider>,
+    /// The CLI's account it runs under (`[[agents.accounts]]`, its name), kept on resume and
+    /// changed by Continue with…; absent: the CLI's usual folder.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub account: Option<String>,
     /// The model picked in the launcher, kept on resume; absent: the CLI's (`[agents.<cli>] model`).
     #[serde(default)]
     pub model: Option<String>,
@@ -235,6 +240,10 @@ pub struct Agent {
     pub id: String,
     /// The CLI it runs: its labels, keys and commands follow it.
     pub provider: crate::agents::provider::Provider,
+    /// The CLI's account it runs under (`[[agents.accounts]]`); absent: the CLI's usual folder.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub account: Option<String>,
     pub title: String,
     /// Its kind (`[[agents.kinds]]`), which groups them.
     pub category: Option<String>,
@@ -303,6 +312,10 @@ pub struct Agent {
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct AgentLeg {
     pub provider: crate::agents::provider::Provider,
+    /// The CLI's account it ran under (`[[agents.accounts]]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub account: Option<String>,
     /// Its CLI's session, to go back to it (Claude Code: the agent's id, or the one of a `/clear`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
@@ -489,11 +502,16 @@ pub struct ClaudeUsage {
     pub fetched_at: DateTime<Utc>,
 }
 
-/// The plan usage of a CLI other than `[agents] provider`, read while an agent of it runs.
+/// The plan usage of a CLI (or an account of it) other than `[agents] provider`'s default, read
+/// while an agent of it runs.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct ProviderUsage {
     pub provider: crate::agents::provider::Provider,
+    /// Its account (`[[agents.accounts]]`), each with its own plan; absent: the CLI's usual folder.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub account: Option<String>,
     /// Absent until its first reading.
     pub usage: Option<ClaudeUsage>,
     /// Its last reading failed: the last one kept stays shown.

@@ -97,7 +97,7 @@ function agentActions(a: Agent): PaletteAction[] {
   if (a.state === 'running' && a.status === 'running') out.push({ key: 'interrupt', label: t('Interrupt'), hint: keys('⌘.'), run: () => interruptAgent(a.id) })
   if (a.state === 'running' && cliOf(a.provider).transcript && !['running', 'waiting_tool'].includes(a.status)) out.push({ key: 'clear', label: t('Clear conversation'), hint: t('/clear: the transcript stays'), confirm: t('Its context empties: ↵ again to clear'), run: () => clearAgent(a.id).catch((e) => toast(tc('shell', 'Could not clear: {error}', { error: String(e) }), 6000)) })
   // Continue with each of the other CLIs: "codex" finds the one to hand it over to.
-  if (a.state !== 'prepared') for (const p of targetsOf(a)) out.push({ key: `switch-${p}`, label: t('Continue with {cli}', { cli: CLIS[p].cli }), hint: t('from a relay'), run: () => continueWith(a, p) })
+  if (a.state !== 'prepared') for (const to of targetsOf(a)) out.push({ key: `switch-${to.provider}-${to.account ?? ''}`, label: t('Continue with {cli}', { cli: to.account ?? CLIS[to.provider].cli }), hint: to.provider === a.provider ? t('its conversation goes too') : t('from a relay'), run: () => continueWith(a, to) })
   if (a.state === 'running') out.push({ key: 'restart', label: t('Restart'), confirm: a.status === 'running' ? t('It is working: ↵ again to restart') : undefined, run: () => restartAgent(a.id) })
   if (a.ticket && trackerOn()) out.push({ key: 'ticket', label: t('Ticket {id}', { id: a.ticket }), run: () => openTicket(a.ticket!) })
   if (a.mr) out.push({ key: 'mr', label: mrKey(a.mr), run: () => openMr(a.mr!) })

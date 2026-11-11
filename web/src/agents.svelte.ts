@@ -173,7 +173,7 @@ export async function afterLaunch(onLaunch: (() => Promise<void>) | null | undef
 /** Agents only run in the app: the browser preview has no tmux server. */
 export const agentsAvailable = hasCore
 
-const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, quick_actions: [], routines: [], overlaps: { enabled: true, level: 'file', alert: 'lines', ignore: [] }, aside: { enabled: true, desktop: true, default_action: 'launch', worktree: true, stale_days: 14, statusbar: false }, terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, chat_reminders: 'marker', header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true, prism_mcp: false }
+const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, accounts: [], kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, quick_actions: [], routines: [], overlaps: { enabled: true, level: 'file', alert: 'lines', ignore: [] }, aside: { enabled: true, desktop: true, default_action: 'launch', worktree: true, stale_days: 14, statusbar: false }, terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, chat_reminders: 'marker', header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true, prism_mcp: false }
 /** `[agents]` from config.toml, with its defaults until the snapshot has brought it. */
 export const agentsSettings = (): AgentsSettings => live.snapshot?.agents_settings ?? DEFAULTS
 /**
@@ -238,6 +238,8 @@ export interface Launch {
   tags?: string[]
   /** Its CLI; absent, its repository's (`[[repos]] agent`), failing that `[agents] provider`. */
   provider?: AgentProvider
+  /** Its CLI's account (`[[agents.accounts]]`, its name); absent, the CLI's default one. */
+  account?: string
   /** Its model, kept on resume; absent, its CLI's (`[agents.<cli>] model`). */
   model?: string
   /** Its reasoning effort, kept on resume; absent, its CLI's (`[agents.<cli>] effort`). */
@@ -257,10 +259,10 @@ export interface Launch {
  */
 export function launchAgain(a: Agent): Launch {
   // Launched before Prism kept it: what the agent still says.
-  const l = a.launch ?? { title: a.title, cwd: a.cwd, prompt: a.prompt, worktree: null, permission_mode: null, category: a.category, tags: a.tags, provider: a.provider, model: null, effort: null, then: [], from: null }
+  const l = a.launch ?? { title: a.title, cwd: a.cwd, prompt: a.prompt, worktree: null, permission_mode: null, category: a.category, tags: a.tags, provider: a.provider, account: a.account, model: null, effort: null, then: [], from: null }
   const s = live.snapshot
   const opt = <T>(v: T | null | undefined) => v ?? undefined
-  const base: Launch = { title: l.title, prompt: opt(l.prompt), permission_mode: opt(l.permission_mode), category: opt(l.category), tags: l.tags.length ? l.tags : undefined, provider: opt(l.provider), model: opt(l.model), effort: opt(l.effort), then: l.then.length ? l.then : undefined, from: l.from?.startsWith('aside:') ? undefined : opt(l.from) }
+  const base: Launch = { title: l.title, prompt: opt(l.prompt), permission_mode: opt(l.permission_mode), category: opt(l.category), tags: l.tags.length ? l.tags : undefined, provider: opt(l.provider), account: opt(l.account), model: opt(l.model), effort: opt(l.effort), then: l.then.length ? l.then : undefined, from: l.from?.startsWith('aside:') ? undefined : opt(l.from) }
   if (l.worktree) return { ...base, worktree: { repo: opt(l.worktree.repo), name: opt(l.worktree.name), branch: opt(l.worktree.branch), base: opt(l.worktree.base) } }
   const known = !!l.cwd && (!!s?.repos?.some((r) => r.path === l.cwd) || !!s?.worktrees?.some((w) => w.path === l.cwd && !w.prunable))
   if (known) return { ...base, cwd: l.cwd! }

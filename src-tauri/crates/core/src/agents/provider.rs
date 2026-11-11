@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "AgentProvider"))]
@@ -58,6 +58,35 @@ pub struct ProviderSpec {
 
 impl Provider {
     pub const ALL: [Provider; 4] = [Self::Claude, Self::CommandCode, Self::OpenCode, Self::Codex];
+
+    /// The variable that gives it a folder of its own (an account, `[[agents.accounts]]`):
+    /// `CLAUDE_CONFIG_DIR`, `CODEX_HOME`; none for the CLIs without accounts.
+    pub fn home_var(self) -> Option<&'static str> {
+        match self {
+            Self::Claude => Some("CLAUDE_CONFIG_DIR"),
+            Self::Codex => Some("CODEX_HOME"),
+            Self::CommandCode | Self::OpenCode => None,
+        }
+    }
+
+    /// The folder of an account (`dir`) as its variable should give it: none when it is the CLI's
+    /// usual one already (`home(None)`), which it then runs in as before. Claude Code keeps the
+    /// login of a folder given by `CLAUDE_CONFIG_DIR` apart (another keychain entry): set to
+    /// `~/.claude`, it would ask to log in again.
+    pub fn own_home(self, dir: &Path) -> Option<PathBuf> {
+        let usual = self.home(None)?;
+        (dir != usual).then(|| dir.to_path_buf())
+    }
+
+    /// Its folder (login, settings, sessions): an account's (`dir`), else the one its variable
+    /// names in Prism's environment, else its usual one (`~/.claude`, `~/.codex`).
+    pub fn home(self, dir: Option<&Path>) -> Option<PathBuf> {
+        let var = self.home_var()?;
+        dir.map(Path::to_path_buf).or_else(|| std::env::var_os(var).map(PathBuf::from)).or_else(|| {
+            let usual = if self == Self::Claude { ".claude" } else { ".codex" };
+            dirs::home_dir().map(|h| h.join(usual))
+        })
+    }
 
     /// What it can do (`ProviderSpec`).
     pub fn spec(self) -> ProviderSpec {

@@ -265,8 +265,12 @@ pub struct Snapshot {
     pub agent_costs_rev: u64,
     /// Agent settings (`[agents]`).
     pub agents_settings: crate::config::AgentsConfig,
-    /// The plan usage of `[agents] provider`'s CLI.
+    /// The plan usage of `[agents] provider`'s CLI, under its default account.
     pub usage: Option<ClaudeUsage>,
+    /// That account (`[[agents.accounts]]`); absent: the CLI's usual folder.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub usage_account: Option<String>,
     /// The plan usage of the other CLIs agents run on, in the order their first agent was launched.
     pub other_usage: Vec<ProviderUsage>,
     pub merge_requests: Vec<MergeRequest>,

@@ -104,6 +104,8 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no command", "aucune commande"),
     ("{files} changed: check, then Start", "{files} modifié : vérifiez, puis Démarrer"),
     ("it already runs {cli}", "il tourne déjà sous {cli}"),
+    ("no {cli} account named {name} ([[agents.accounts]])", "aucun compte {cli} nommé {name} ([[agents.accounts]])"),
+    ("its conversation could not be carried to that account: pick a relay", "sa conversation n’a pas pu être portée sur ce compte : choisissez un relais"),
     ("nothing to tell the next agent", "rien à dire à l’agent suivant"),
     ("files Prism could not list", "des fichiers que Prism n’a pas pu lister"),
     ("{agent} changed what `{command}` runs: its chain waits for your go", "{agent} a modifié ce que lance `{command}` : sa chaîne attend votre feu vert"),

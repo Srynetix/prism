@@ -68,6 +68,8 @@ impl Agents {
         let id = uuid::Uuid::new_v4().to_string();
         let spec = launch.spec();
         let (place, provider) = self.place_and_provider(&launch).await?;
+        // Its account checked now; the default one taken when it starts.
+        self.account_for(provider, spec.account.as_deref())?;
         if let Some(mode) = launch.permission_mode.as_deref().filter(|m| *m != "default") {
             provider.permission_mode(mode)?;
         }
@@ -146,8 +148,11 @@ impl Agents {
 
     /// `spawn`, under a given identifier; `prepared`: the record it replaces, whose links stay.
     pub(crate) async fn spawn_as(&self, id: String, launch: Launch, prepared: Option<Record>) -> Result<String> {
-        let spec = launch.spec();
+        let mut spec = launch.spec();
         let (_, provider) = self.place_and_provider(&launch).await?;
+        // Its account, the default one when none was picked: kept, so that a later default does
+        // not move it elsewhere.
+        spec.account = self.account_for(provider, spec.account.as_deref())?;
         let title = if launch.title.trim().is_empty() { "Agent".to_string() } else { launch.title.trim().to_string() };
         let prompt = launch.prompt.map(|p| p.trim().to_string()).filter(|p| !p.is_empty());
         // Refused before a worktree exists for nothing.
@@ -355,7 +360,7 @@ impl Agents {
         // still missing, asking for it again.
         // In the permission mode it was launched in (plan stays plan).
         let mode = record.launch.as_ref().and_then(|l| l.permission_mode.as_deref());
-        let started = session.is_some() || transcript.as_deref().is_some_and(|t| Path::new(t).is_file()) || claude_conversation_exists(&record.id);
+        let started = session.is_some() || transcript.as_deref().is_some_and(|t| Path::new(t).is_file()) || claude_conversation_exists(self.home_of(id).as_deref(), &record.id);
         let argv = if provider == Provider::Claude && !started {
             let missing = record.worktree.as_ref().filter(|w| !w.is_dir()).and_then(|w| w.file_name()).map(|n| n.to_string_lossy().into_owned());
             if missing.is_some() {
@@ -545,10 +550,40 @@ impl Agents {
         self.inner.work.join(provider.wiring_file())
     }
 
+    /// The account `provider` runs under: `asked` (one of its accounts, else an error), failing
+    /// that its default one; none: its usual folder.
+    pub(crate) fn account_for(&self, provider: Provider, asked: Option<&str>) -> Result<Option<String>> {
+        let settings = self.inner.settings.lock().unwrap();
+        match asked {
+            Some(name) => match settings.account(provider, Some(name)) {
+                Some(a) => Ok(Some(a.name.clone())),
+                None => bail!(tr!("no {cli} account named {name} ([[agents.accounts]])", cli = provider.program(), name = name)),
+            },
+            None => Ok(settings.account(provider, None).map(|a| a.name.clone())),
+        }
+    }
+
+    /// The folder `provider` keeps its sessions in under `account` (its usual one without, or an
+    /// account no longer declared).
+    pub(crate) fn cli_home(&self, provider: Provider, account: Option<&str>) -> Option<PathBuf> {
+        let settings = self.inner.settings.lock().unwrap();
+        provider.home(account.and_then(|n| settings.account(provider, Some(n))).map(|a| a.dir.as_path()))
+    }
+
     /// The agent's environment: where Command Code's mod and OpenCode's plugin write its log
-    /// (Claude Code's hooks are told by their command line), and OpenCode's plugin itself.
+    /// (Claude Code's hooks are told by their command line), OpenCode's plugin itself, and the
+    /// folder of its CLI's account (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`): only the one it was
+    /// given (`launch`), not a default declared since.
     pub(crate) fn env(&self, id: &str, provider: Provider, mode: Option<&str>, launch: Option<&state::LaunchSpec>) -> Vec<String> {
         let mut env = vec![format!("PRISM_AGENT={id}"), format!("PRISM_EVENTS={}", self.inner.events.display())];
+        let account = launch.and_then(|l| l.account.as_deref());
+        if let (Some(var), Some(name)) = (provider.home_var(), account) {
+            match self.inner.settings.lock().unwrap().account(provider, Some(name)) {
+                // Its usual folder: left as it is (see `Provider::own_home`).
+                Some(a) => env.extend(provider.own_home(&a.dir).map(|d| format!("{var}={}", d.display()))),
+                None => tracing::warn!("agents: {id}'s account {name:?} is no longer declared: its CLI's usual folder"),
+            }
+        }
         let mcp = self.mcp_command(launch);
         env.extend(provider.env(&self.wiring(provider), mode, mcp.as_deref()));
         env

@@ -7,6 +7,10 @@ import type { AgentUsage } from "./AgentUsage";
  */
 export type AgentLeg = { provider: AgentProvider, 
 /**
+ * The CLI's account it ran under (`[[agents.accounts]]`).
+ */
+account?: string, 
+/**
  * Its CLI's session, to go back to it (Claude Code: the agent's id, or the one of a `/clear`).
  */
 session?: string, 

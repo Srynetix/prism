@@ -5,6 +5,7 @@
   import { Attachments, nameOf, newStep, newWorktree, takeDraft, tasksFor, testTask, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
   import { hasWorktrees, primaryRepo } from '../repositories'
   import { CLIS, cliOf, providerOf } from '../agent-cli'
+  import { targetsOfCli, targetUse } from '../agent-switch.svelte'
   import { choices, effortsKey, loadEfforts, loadModels } from '../settings.svelte'
   import { STEP_LABEL, WHEN_LABEL, type Step, type StepKind } from '../agent-chains.svelte'
   import { pref, setPref } from '../layout.svelte'
@@ -118,6 +119,7 @@
     base = d.worktree?.base ?? ''
     picked = d.provider ?? ''
     const cli = d.provider ?? providerOf(repo || undefined)
+    accountPicks = d.account ? { [cli]: d.account } : {}
     models = d.model ? { [cli]: d.model } : {}
     efforts = d.effort ? { [cli]: d.effort } : {}
     also = d.worktree?.also ?? []
@@ -159,6 +161,15 @@
   })
 
   const provider = $derived(picked || providerOf(repo || undefined))
+  /** The account picked for each CLI (`[[agents.accounts]]`); empty: its default one. */
+  let accountPicks = $state<Partial<Record<AgentProvider, string>>>({})
+  /** What its CLI can run under when there is a choice: what it gets without one first, then the other accounts. */
+  const accounts = $derived.by(() => {
+    const list = targetsOfCli(provider)
+    const first = list.find((x) => x.account === null) ?? list[0]
+    return first ? [first, ...list.filter((x) => x !== first)] : []
+  })
+  const account = $derived(accounts.length > 1 ? accountPicks[provider] || '' : '')
   const cliModel = $derived(agentsSettings()[provider]?.model ?? null)
   const takesEffort = $derived(CLIS[provider].takes_effort)
   const model = $derived(models[provider] ?? '')
@@ -191,6 +202,7 @@
     category: category || undefined,
     tags: tags.length ? tags : undefined,
     provider: picked && picked !== providerOf(repo || undefined) ? picked : undefined,
+    account: account || undefined,
     model: model.trim() || undefined,
     effort: (takesEffort && effort) || undefined,
     then: steps.length ? $state.snapshot(steps) : undefined,
@@ -337,6 +349,16 @@
           <button type="button" class="chip cli" class:on={provider === p} style:--c={c.color} onclick={() => (picked = p === providerOf(repo || undefined) ? '' : (p as AgentProvider))}><i></i>{c.name}{#if provider === p && (model.trim() || cliModel)}<small>{model.trim() || cliModel}</small>{/if}</button>
         {/each}
       </div>
+      <!-- Its CLI's accounts (`[[agents.accounts]]`), each its own plan. -->
+      {#if accounts.length > 1}
+        <div class="chips">
+          {#each accounts as a, i (a.account ?? '')}
+            {@const value = i === 0 ? '' : (a.account ?? '')}
+            {@const use = targetUse(a)}
+            <button type="button" class="chip" class:on={account === value} onclick={() => (accountPicks[provider] = value)}>{a.account ?? t('{cli}’s usual folder', { cli: cliOf(provider).name })}{#if use !== null}<small>{Math.round(use)} %</small>{/if}</button>
+          {/each}
+        </div>
+      {/if}
     </section>
 
     <section>

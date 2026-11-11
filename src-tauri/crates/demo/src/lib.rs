@@ -1019,6 +1019,7 @@ impl Demo {
     fn agents(&self) -> Vec<Agent> {
         let agent = |id: &str, title: &str, category: &str, branch: &str, ticket: u32, status: SessionStatus, needs: Option<&str>, minutes: i64| Agent {
             provider: Default::default(),
+            account: Some("Claude perso".into()),
             id: id.into(),
             title: title.into(),
             category: Some(category.into()),
@@ -1083,10 +1084,14 @@ impl Demo {
             u.cost = Some(0.6 * u.cost.unwrap_or_default());
         }
         list[1].provider = crate::agents::provider::Provider::Codex;
+        list[1].account = None;
         list[1].model = sol;
+        // The refinement under the work account, its plan used up: Continue with… offers the other one.
+        list[2].account = Some("Claude pro".into());
         // Begun on Claude, handed over to Codex at its limit (Continue with…).
         list[1].legs = vec![crate::state::AgentLeg {
             provider: crate::agents::provider::Provider::Claude,
+            account: Some("Claude perso".into()),
             session: Some("demo-a2".into()),
             transcript: None,
             model: Some("claude-opus-5-5".into()),
@@ -1201,8 +1206,20 @@ impl Demo {
             others: Vec::new(),
             fetched_at: self.now,
         });
+        s.usage_account = Some("Claude perso".into());
         s.other_usage = vec![crate::state::ProviderUsage {
+            provider: crate::agents::provider::Provider::Claude,
+            account: Some("Claude pro".into()),
+            usage: Some(ClaudeUsage {
+                five_hour: Some(UsageWindow { utilization: 100.0, resets_at: Some(self.in_(95)) }),
+                seven_day: Some(UsageWindow { utilization: 63.0, resets_at: Some(self.in_(2 * 1440)) }),
+                others: Vec::new(),
+                fetched_at: self.now,
+            }),
+            error: None,
+        }, crate::state::ProviderUsage {
             provider: crate::agents::provider::Provider::Codex,
+            account: None,
             usage: Some(ClaudeUsage {
                 five_hour: Some(UsageWindow { utilization: 74.0, resets_at: Some(self.in_(70)) }),
                 seven_day: Some(UsageWindow { utilization: 31.0, resets_at: Some(self.in_(5 * 1440 + 300)) }),
