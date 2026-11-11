@@ -201,6 +201,7 @@ commands! {
     forge::forge_members: Read [phone: state, repo: Option<String>],
     tracker::ticket_members: Read [phone: state, list: String],
     forge::forge_labels: Read [phone: state, repo: Option<String>],
+    forge::pipeline_branches: Read [phone: state, repo: String, project: String, main_branch: String, release_prefix: String, branches: Vec<String>],
     // An image of a forge text, fetched to be shown.
     forge::forge_upload: Read [phone: state, project: Option<String>, path: String],
     forge::forge_avatar: Read [phone: url: String],

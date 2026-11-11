@@ -55,10 +55,17 @@ pub struct RepoConfig {
     /// A ticket id is expected in its MRs' title or branch (Alerts flags those without).
     #[serde(default)]
     pub ticket_required: bool,
-    /// The pipelines of its protected branches (main and release ones) and its jobs waiting for a
-    /// runner: the branch banner, CI alerts, the header's count (the project is required).
+    /// The pipelines of its protected branches (main and release ones, or `pipeline_branches`) and
+    /// its jobs waiting for a runner: the branch banner, CI alerts, the header's count (the project
+    /// is required).
     #[serde(default)]
     pub pipelines: bool,
+    /// The branches whose pipeline is followed (`pipelines`), in this order: names, `*` patterns
+    /// (`env/*`, 20 branches at most each), `@main` (the main branch, whichever it is) and
+    /// `@release` (the release prefix's branches). Absent: `[forge] pipeline_branches`, empty
+    /// there: the main branch and the release ones.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pipeline_branches: Option<Vec<String>>,
     /// Main branch. Absent: `[forge] main_branch` for the primary repository, the remote's
     /// default branch for the others.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -104,6 +111,18 @@ pub struct PipelineRepo {
     pub main_branch: String,
     /// Empty: no release branches.
     pub release_prefix: String,
+    /// The branches followed (`[[repos]] pipeline_branches`); empty: the main and release ones.
+    pub branches: Vec<String>,
+}
+
+/// A repository's followed branches as the forge has them (Settings › Repositories' preview):
+/// those whose pipeline is read, in order, and the entries the forge has no branch for.
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct PipelineBranches {
+    pub refs: Vec<String>,
+    /// A name with no such branch, a pattern matching none (`@release` excepted: no release yet is normal).
+    pub missing: Vec<String>,
 }
 
 /// What the frontend knows of a repository: its role and switches.

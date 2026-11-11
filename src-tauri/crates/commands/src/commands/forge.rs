@@ -147,6 +147,22 @@ pub async fn forge_labels(state: State<'_, AppState>, repo: Option<String>) -> C
     state.forge().labels(repo.as_deref()).await.map_err(Into::into)
 }
 
+/// A repository's followed branches as its forge has them, from what Settings › Repositories shows,
+/// saved or not: its project, main branch (empty: the project's default one), release prefix and
+/// list (empty: the main and release ones); and the entries the forge has no branch for.
+#[prism_macros::command]
+pub async fn pipeline_branches(state: State<'_, AppState>, repo: String, project: String, main_branch: String, release_prefix: String, branches: Vec<String>) -> Cmd<crate::config::PipelineBranches> {
+    let target = crate::config::PipelineRepo { name: repo.clone(), repo: Some(repo), project, main_branch, release_prefix, branches };
+    if crate::demo::active() {
+        return Ok(crate::collectors::forge::branches::resolve_against(&target, crate::demo::BRANCHES, "main"));
+    }
+    let got = match state.forge().provider() {
+        crate::forge::Provider::Gitlab => crate::collectors::gitlab::pipeline_branches(&target).await,
+        crate::forge::Provider::Github => crate::collectors::github::pipeline_branches(&target).await,
+    };
+    got.map_err(Into::into)
+}
+
 /// Labels of an open MR (the whole list; empty: none).
 #[prism_macros::command]
 pub async fn set_mr_labels(state: State<'_, AppState>, repo: Option<String>, iid: u64, labels: Vec<String>) -> Cmd {

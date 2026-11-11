@@ -99,8 +99,8 @@
   /** Clock for running stages, whose duration grows. */
   const now = $derived(clock(1000).now)
 
-  /** Protected branches (main, release): the only MR-less pipelines that matter to the whole team, the primary repository's first. */
-  const branches = $derived([...snap.pipelines].sort((a, b) => +!!a.repo - +!!b.repo || (a.repo ?? '').localeCompare(b.repo ?? '') || a.target.localeCompare(b.target)))
+  /** Followed branches (main, release, or `pipeline_branches`): the only MR-less pipelines that matter to the whole team, the primary repository's first, each repository's in its list's order. */
+  const branches = $derived([...snap.pipelines].sort((a, b) => +!!a.repo - +!!b.repo || (a.repo ?? '').localeCompare(b.repo ?? '')))
 </script>
 
 {#snippet row(m: MergeRequest)}

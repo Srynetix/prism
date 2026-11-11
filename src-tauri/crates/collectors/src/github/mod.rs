@@ -493,31 +493,107 @@ fn queued(c: &GqlCommit, repo: &Option<String>, target: &str) -> Vec<crate::stat
         .collect()
 }
 
-/// The main branch (the default one if none is declared) and the release branches.
+/// The branches whose checks are followed (`[[repos]] pipeline_branches`; none: the main branch,
+/// the default one if none is declared, and the release branches).
 async fn protected_refs(r: &PipelineRepo) -> Result<Vec<String>> {
+    Ok(pipeline_branches(r).await?.refs)
+}
+
+/// The followed branches as GitHub has them, and the entries it has no branch for (Settings' preview).
+pub async fn pipeline_branches(r: &PipelineRepo) -> Result<crate::config::PipelineBranches> {
+    crate::forge::branches::resolve(r, lookup_branches).await
+}
+
+/// The default branch (when `default`), and each search's branches, in one query: a name by its
+/// ref, a prefix by `refs`, under its folder (`release/` of `release/2.`, names given without it)
+/// with the rest as `query` (which matches anywhere in the name: those starting with the prefix
+/// kept). A prefix with more than a page of branches reads its next pages on its own.
+async fn lookup_branches(r: &PipelineRepo, default: bool, searches: Vec<crate::forge::branches::Search>) -> Result<(Option<String>, Vec<Vec<String>>)> {
     #[derive(Deserialize)]
     struct Data {
-        repository: Option<Repo>,
-    }
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Repo {
-        default_branch_ref: Option<Name>,
-        refs: Option<Nodes<Name>>,
+        repository: Option<HashMap<String, serde_json::Value>>,
     }
     #[derive(Deserialize)]
     struct Name {
         name: String,
     }
-    const QUERY: &str = "query($owner: String!, $name: String!, $prefix: String!, $releases: Boolean!) { repository(owner: $owner, name: $name) { defaultBranchRef { name } refs(refPrefix: \"refs/heads/\", query: $prefix, first: 20) @include(if: $releases) { nodes { name } } } }";
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Page {
+        nodes: Vec<Name>,
+        page_info: PageInfo,
+    }
+    /// At most this many pages of 100 per prefix.
+    const PAGES: usize = 10;
+    // (folder, rest) of a prefix: `refs(refPrefix:)` needs a folder ending with `/`.
+    let split_prefix = |p: &str| match p.rfind('/') {
+        Some(i) => (p[..=i].to_string(), p[i + 1..].to_string()),
+        None => (String::new(), p.to_string()),
+    };
     let (owner, name) = split(&r.project)?;
-    let releases = !r.release_prefix.is_empty();
-    let data: Data = graphql(QUERY, &[("owner", owner.into()), ("name", name.into()), ("prefix", r.release_prefix.as_str().into()), ("releases", Var::Raw(releases.to_string()))]).await?;
-    let repo = data.repository.context(tr("repository not found or not accessible"))?;
-    let main = if r.main_branch.is_empty() { repo.default_branch_ref.context(tr("the repository has no default branch"))?.name } else { r.main_branch.clone() };
-    // `query` matches anywhere in the name: only those starting with the prefix are releases.
-    let release = repo.refs.map(|n| n.nodes).unwrap_or_default().into_iter().map(|n| n.name).filter(|n| releases && n.starts_with(&r.release_prefix));
-    Ok(std::iter::once(main).chain(release).collect())
+    let mut params = String::new();
+    let mut fields = String::new();
+    let mut values: Vec<(String, String)> = Vec::new();
+    if default {
+        fields.push_str(" defaultBranchRef { name }");
+    }
+    for (i, s) in searches.iter().enumerate() {
+        if s.exact {
+            params.push_str(&format!(", $q{i}: String!"));
+            fields.push_str(&format!(" s{i}: ref(qualifiedName: $q{i}) {{ name }}"));
+            values.push((format!("q{i}"), format!("refs/heads/{}", s.prefix)));
+        } else {
+            let (dir, rest) = split_prefix(&s.prefix);
+            params.push_str(&format!(", $p{i}: String!, $q{i}: String!"));
+            fields.push_str(&format!(" s{i}: refs(refPrefix: $p{i}, query: $q{i}, first: 100) {{ nodes {{ name }} pageInfo {{ hasNextPage endCursor }} }}"));
+            values.push((format!("p{i}"), format!("refs/heads/{dir}")));
+            values.push((format!("q{i}"), rest));
+        }
+    }
+    let query = format!("query($owner: String!, $name: String!{params}) {{ repository(owner: $owner, name: $name) {{{fields} }} }}");
+    let mut vars: Vec<(&str, Var)> = vec![("owner", owner.into()), ("name", name.into())];
+    vars.extend(values.iter().map(|(k, v)| (k.as_str(), Var::Str(v))));
+    let data: Data = graphql(&query, &vars).await?;
+    let mut repo = data.repository.context(tr("repository not found or not accessible"))?;
+    let main = if default {
+        let main: Option<Name> = serde_json::from_value(repo.remove("defaultBranchRef").unwrap_or_default())?;
+        Some(main.context(tr("the repository has no default branch"))?.name)
+    } else {
+        None
+    };
+    let mut lists = Vec::new();
+    for (i, s) in searches.iter().enumerate() {
+        let got = repo.remove(&format!("s{i}")).unwrap_or_default();
+        if s.exact {
+            lists.push(serde_json::from_value::<Option<Name>>(got)?.map(|n| n.name).into_iter().collect());
+            continue;
+        }
+        let (dir, rest) = split_prefix(&s.prefix);
+        let mut page: Option<Page> = serde_json::from_value(got)?;
+        let mut names = Vec::new();
+        for n in 1.. {
+            let Some(p) = page.take() else { break };
+            names.extend(p.nodes.into_iter().map(|b| format!("{dir}{}", b.name)).filter(|b| b.starts_with(&s.prefix)));
+            let after = match p.page_info.end_cursor {
+                Some(c) if p.page_info.has_next_page && n < PAGES => c,
+                _ => break,
+            };
+            #[derive(Deserialize)]
+            struct More {
+                repository: Option<RefsOnly>,
+            }
+            #[derive(Deserialize)]
+            struct RefsOnly {
+                refs: Option<Page>,
+            }
+            const MORE: &str = "query($owner: String!, $name: String!, $p: String!, $q: String!, $after: String!) { repository(owner: $owner, name: $name) { refs(refPrefix: $p, query: $q, first: 100, after: $after) { nodes { name } pageInfo { hasNextPage endCursor } } } }";
+            let prefix = format!("refs/heads/{dir}");
+            let more: More = graphql(MORE, &[("owner", owner.into()), ("name", name.into()), ("p", prefix.as_str().into()), ("q", rest.as_str().into()), ("after", after.as_str().into())]).await?;
+            page = more.repository.and_then(|r| r.refs);
+        }
+        lists.push(names);
+    }
+    Ok((main, lists))
 }
 
 /// The checks of each protected branch's last commit, in one query for the repository (one alias
@@ -1132,6 +1208,20 @@ mod tests {
         assert_eq!(p.stages.iter().map(|s| (s.name.as_str(), s.status.name(), s.jobs, s.finished)).collect::<Vec<_>>(), [("CI", "failed", 2, 1), ("statuses", "success", 1, 1)]);
     }
 
+    /// Against GitHub itself: a list of followed branches, a name, a pattern and the default
+    /// branch in one query; a missing name reported.
+    #[tokio::test]
+    #[ignore = "needs gh logged in, and the network"]
+    async fn resolves_followed_branches() {
+        let repo = PipelineRepo { name: "cli".into(), repo: None, project: "cli/cli".into(), main_branch: String::new(), release_prefix: String::new(), branches: vec!["@main".into(), "8761/*".into(), "no-such-branch-here".into(), "trunk".into()] };
+        let got = pipeline_branches(&repo).await.unwrap();
+        assert_eq!(got.refs, ["trunk", "8761/allow-multiple-items-in-nested-array"]);
+        assert_eq!(got.missing, ["no-such-branch-here"]);
+        // No prefix: every page read (cli/cli has some 260 branches), the last ones found.
+        let repo = PipelineRepo { branches: vec!["*-spike".into()], ..repo };
+        assert!(pipeline_branches(&repo).await.unwrap().refs.contains(&"workflow-test-spike".to_string()));
+    }
+
     /// Against GitHub itself: a public repository's pull requests, branch checks and a review.
     #[tokio::test]
     #[ignore = "needs gh logged in, and the network"]
@@ -1146,7 +1236,7 @@ mod tests {
         // The merged ones come from the cache the next time.
         let again = followed.read(Utc::now() - chrono::Duration::days(7), &me).await.unwrap();
         assert_eq!(again.mrs.iter().filter(|m| m.state == MrState::Merged).count(), mrs.iter().filter(|m| m.state == MrState::Merged).count());
-        let repo = PipelineRepo { name: "cli".into(), repo: None, project: "cli/cli".into(), main_branch: String::new(), release_prefix: String::new() };
+        let repo = PipelineRepo { name: "cli".into(), repo: None, project: "cli/cli".into(), main_branch: String::new(), release_prefix: String::new(), branches: Vec::new() };
         let refs = protected_refs(&repo).await.unwrap();
         assert_eq!(refs, ["trunk"]);
         let (pipelines, _) = branch_pipelines(&repo, &refs).await.unwrap();

@@ -266,6 +266,7 @@ fn export_bindings() {
     settings::PackFile::export_all(&cfg).unwrap();
     settings::FileView::export_all(&cfg).unwrap();
     profile::Profile::export_all(&cfg).unwrap();
+    config::PipelineBranches::export_all(&cfg).unwrap();
     forge::Member::export_all(&cfg).unwrap();
     forge::JobLog::export_all(&cfg).unwrap();
     forge::JobInfo::export_all(&cfg).unwrap();

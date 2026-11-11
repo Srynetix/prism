@@ -61,7 +61,8 @@
     sort === 'oldest' ? [...shown].reverse() : sort === 'repo' ? [...shown].sort((a, b) => (a.repo ?? '').localeCompare(b.repo ?? '')) : shown,
   )
   const mainName = $derived(snap.repos?.[0]?.name ?? 'main')
-  const branches = $derived([...snap.pipelines].sort((a, b) => +!!a.repo - +!!b.repo || a.target.localeCompare(b.target)))
+  // The primary repository's first, each repository's in its list's order (`pipeline_branches`).
+  const branches = $derived([...snap.pipelines].sort((a, b) => +!!a.repo - +!!b.repo || (a.repo ?? '').localeCompare(b.repo ?? '')))
 
   let qChosen = $state<string | null>(pref<string | null>('queue.repo', null))
   const setQRepo = (r: string) => setPref('queue.repo', (qChosen = r))

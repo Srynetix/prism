@@ -25,6 +25,7 @@ worktrees = true
 merge_queue = true
 ticket_required = true
 pipelines = true
+pipeline_branches = ["@main", "develop", "@release"]
 
 [[repos]]
 name = "helm"

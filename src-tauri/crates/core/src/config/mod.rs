@@ -421,6 +421,7 @@ impl Config {
             merge_queue: true,
             ticket_required: true,
             pipelines: true,
+            pipeline_branches: None,
             main_branch: None,
             release_prefix: None,
             base_branch: None,
@@ -450,7 +451,8 @@ impl Config {
     pub fn pipeline_repo(&self, r: &RepoConfig) -> Option<PipelineRepo> {
         let project = r.project.clone()?;
         let (main_branch, release_prefix, _) = self.branches(r);
-        Some(PipelineRepo { repo: (!r.primary).then(|| r.name.clone()), name: r.name.clone(), project, main_branch, release_prefix })
+        let branches = r.pipeline_branches.clone().unwrap_or_else(|| self.forge.pipeline_branches.clone());
+        Some(PipelineRepo { repo: (!r.primary).then(|| r.name.clone()), name: r.name.clone(), project, main_branch, release_prefix, branches })
     }
 
     /// The repositories whose protected branches' pipelines are followed, the primary one first.
@@ -807,6 +809,17 @@ pub mod tests {
         let cfg = resolved("[gitlab]\nproject = \"g/app\"\nrelease_prefix = \"rel/\"\n[[repos]]\nname = \"helm\"\nproject = \"g/helm\"\npipelines = true\n[[repos]]\nname = \"infra\"\nproject = \"g/infra\"\n").unwrap();
         let p = cfg.pipeline_repos();
         assert_eq!(p.iter().map(|r| (r.repo.clone(), r.project.as_str(), r.main_branch.as_str(), r.release_prefix.as_str())).collect::<Vec<_>>(), [(None, "g/app", "", "rel/"), (Some("helm".into()), "g/helm", "", "rel/")]);
+    }
+
+    /// Followed branches: `[forge]`'s for every repository, a repository's own over them, none:
+    /// empty (the main and release ones).
+    #[test]
+    fn pipeline_branches_default_and_override() {
+        let cfg = resolved("[forge]\npipeline_branches = [\"@main\", \"develop\"]\n[[repos]]\nname = \"app\"\nproject = \"g/app\"\nprimary = true\npipelines = true\n[[repos]]\nname = \"helm\"\nproject = \"g/helm\"\npipelines = true\npipeline_branches = [\"main\", \"env/*\"]\n").unwrap();
+        let p = cfg.pipeline_repos();
+        assert_eq!(p.iter().map(|r| r.branches.clone()).collect::<Vec<_>>(), [vec!["@main".to_string(), "develop".into()], vec!["main".into(), "env/*".into()]]);
+        let none = resolved("[[repos]]\nname = \"app\"\nproject = \"g/app\"\npipelines = true\n").unwrap();
+        assert!(none.pipeline_repos()[0].branches.is_empty());
     }
 
     /// A clone in a working folder takes its forge, unless it names its own.
