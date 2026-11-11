@@ -35,6 +35,7 @@ mod tests;
 
 use fold::*;
 pub use formats::pasted_image;
+pub(crate) use formats::reminders;
 use formats::*;
 use subagents::*;
 
@@ -51,6 +52,8 @@ const KEPT_BYTES: u64 = 256 << 20;
 const IDLE: std::time::Duration = std::time::Duration::from_secs(30);
 /// An answer's text, cut at this many characters.
 const TEXT_CHARS: usize = 12_000;
+/// A reminder's text, cut.
+const REMINDER_CHARS: usize = 4_000;
 /// A command's output: its last lines, and characters.
 const OUTPUT_LINES: usize = 16;
 /// A subagent's calls shown, its last ones; and its last words, cut.
@@ -253,6 +256,17 @@ pub enum Entry {
     /// Its thinking: its words when the CLI keeps them (often it keeps none), and how long since
     /// the step before.
     Thinking { text: String, ms: Option<u64> },
+    /// What Claude Code sent it besides your words, out of the conversation shown: its harness's
+    /// reminders (`<system-reminder>` blocks, a file changed, the memory read), a hook's context.
+    /// `label`: the hook, or the file.
+    Reminder {
+        #[cfg_attr(feature = "ts", ts(type = "'harness' | 'hook'"))]
+        source: &'static str,
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "ts", ts(optional))]
+        label: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
@@ -295,6 +309,10 @@ pub struct Tool {
     /// When it was called (ISO 8601), and once done, how long it took.
     pub at: Option<String>,
     pub ms: Option<u64>,
+    /// The reminders Claude Code added to its result (`<system-reminder>`), out of its output.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<Vec<String>>", optional))]
+    pub reminders: Vec<String>,
     /// A subagent (`Agent`, `Task`): what it did, from its own transcript.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]

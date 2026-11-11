@@ -88,6 +88,12 @@ pub struct AgentsConfig {
     /// (its counts: files edited, commands, failures), unfolded on a click; the turn under way
     /// shows its last ones. Off: one line per call.
     pub fold_steps: bool,
+    /// In an agent's Chat (Claude Code), what Claude Code sent it besides your words — its
+    /// reminders (`<system-reminder>`), a hook's context, a file changed under it: `marker`, out of
+    /// the conversation, a ⓘ at the end of the turn (or on the call) showing them on a click;
+    /// `hidden`, never shown; `shown`, unfolded where they came.
+    #[cfg_attr(feature = "ts", ts(type = "'marker' | 'hidden' | 'shown'"))]
+    pub chat_reminders: String,
     /// An agent's header on the computer: `read`, its ticket, MR, branch, kind and tags on a
     /// quiet line, changed behind Edit; `edit`, their fields always there.
     #[cfg_attr(feature = "ts", ts(type = "'read' | 'edit'"))]
@@ -578,6 +584,7 @@ impl Default for AgentsConfig {
             terminal_keys: vec!["Cmd+K".into()],
             view: "chat".into(),
             fold_steps: true,
+            chat_reminders: "marker".into(),
             header_meta: "read".into(),
             comment_answers: true,
             suggest_switch: true,

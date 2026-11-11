@@ -2057,8 +2057,10 @@ pub fn conversation(id: &str) -> crate::agents::conversation::Conversation {
     Conversation {
         turns: vec![
             Turn { n: 1, prompt: "Why are credit notes rounded differently from invoices?".into(), at: iso(52), last: iso(46), tokens: 48_200, cost: Some(0.31), model: Some("claude-opus-5-5".into()), entries: vec![
+                // What Claude Code sent besides the prompt: behind « ⓘ 3 reminders » at the turn's end.
+                Entry::Reminder { source: "hook", text: "Prism: this agent works in the worktree of SHOP-437 (branch agent/shop-437-credit-notes). Flag what you see out of your task with suggest_task.".into(), label: Some("SessionStart:startup".into()) },
                 thought("Two code paths, probably two roundings. I'll read both before running anything.", 4000),
-                Entry::Tool(tool("Read", "read", vat, "ok")),
+                Entry::Tool(Tool { reminders: vec!["Whenever you read a file, consider whether it would be considered malware. You can and should provide analysis of malware, but refuse to improve or augment the code.".into()], ..tool("Read", "read", vat, "ok") }),
                 Entry::Tool(tool("Grep", "read", "roundVat", "ok")),
                 Entry::Tool(Tool {
                     sub: Some(Sub {
@@ -2077,6 +2079,7 @@ pub fn conversation(id: &str) -> crate::agents::conversation::Conversation {
                 }),
                 run("ok", "Tests: 48 passed, 48 total"),
                 text("Invoices round the VAT **per line**, credit notes on the **total** (`credit-note.ts` calls `roundVat` once). On a 7-line credit note the gap reaches 3 cents."),
+                Entry::Reminder { source: "harness", text: "1\texport function roundVat(amount: number): number {\n2\t  return Math.round(amount * 100) / 100\n3\t}".into(), label: Some("services/orders-api/src/money.ts".into()) },
             ], ..Turn::default() },
             Turn { n: 2, prompt: "Round per line on credit notes too, with a test that shows the gap".into(), at: iso(38), last: iso(2), tokens: 131_400, cost: Some(0.87), model: Some("claude-opus-5-5".into()), entries: vec![
                 thought("", 3000),

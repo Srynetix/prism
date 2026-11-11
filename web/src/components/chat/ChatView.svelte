@@ -269,6 +269,24 @@
   let peek = $state(false)
   /** Its steps folded (`[agents] fold_steps`), the turn under way showing its last ones. */
   const fold = $derived(agentsSettings().fold_steps ?? true)
+  /**
+   * What Claude Code sent it besides your words (`[agents] chat_reminders`): its reminders, a
+   * hook's context. `marker`, out of the conversation, a ⓘ at the end of the turn; `hidden`,
+   * never; `shown`, where they came (a call's in its detail).
+   */
+  const remindersMode = $derived(agentsSettings().chat_reminders ?? 'marker')
+  const told = (entries: ConversationEntry[]) => (remindersMode === 'shown' ? entries : entries.filter((e) => e.type !== 'reminder'))
+  type Told = { what: string; label: string | null; text: string }
+  /** A turn's reminders, its calls' included, in their order. */
+  function remindersOf(entries: ConversationEntry[]): Told[] {
+    return entries.flatMap((e): Told[] => {
+      if (e.type === 'reminder') return [{ what: e.source === 'hook' ? tr('Hook') : tr('Reminder'), label: e.label ?? null, text: e.text }]
+      if (e.type === 'tool' && e.reminders?.length) return e.reminders.map((text) => ({ what: tr('After {tool}', { tool: e.tool }), label: e.what, text }))
+      return []
+    })
+  }
+  /** A reminder longer than this folds, a click shows it whole. */
+  const REMINDER_LINES = 6
   const LIVE_SHOWN = 3
 
   const toBottom = () => pane && (pane.scrollTop = pane.scrollHeight)
@@ -329,7 +347,7 @@
   const ICONS: Record<ConversationTool['kind'], IconName> = { read: 'files', write: 'edit', command: 'terminal', web: 'web', agent: 'group', other: 'code' }
   const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')
   const toggle = (key: string) => (open[key] = !open[key])
-  const detailed = (t: ConversationTool) => !!t.output || t.diff.length > 0 || !!t.sub
+  const detailed = (t: ConversationTool) => !!t.output || t.diff.length > 0 || !!t.sub || (remindersMode === 'shown' && !!t.reminders?.length)
   /** A subagent still at work: its call under way, or its task in the background. */
   const busy = (t: ConversationTool) => t.state === 'running' || !!t.sub?.running
   /** A subagent's task in the background (Claude Code launches them so), found by its description. */
@@ -382,6 +400,16 @@
   <div class={cls}>{#if p.images.length}<PromptImages images={p.images} />{/if}{p.text}</div>
 {/snippet}
 
+<!-- A reminder: what sent it, then its text, folded past a few lines. -->
+{#snippet reminder(r: Told, key: string)}
+  {@const long = r.text.split('\n').length > REMINDER_LINES || r.text.length > 600}
+  <div class="rm">
+    <span class="rh"><b>{r.what}</b>{#if r.label}<bdi>{r.label}</bdi>{/if}</span>
+    {#if long}<button class="rtx" class:clamp={!open[key]} onclick={() => toggle(key)} aria-expanded={!!open[key]} title={open[key] ? undefined : tr('Show it whole')}>{r.text}</button>
+    {:else}<pre class="rtx">{r.text}</pre>{/if}
+  </div>
+{/snippet}
+
 {#snippet entryRow(row: Row)}
   {#if row.type === 'reads'}
     <button class="tool" onclick={() => toggle(row.key)} aria-expanded={!!open[row.key]}>
@@ -399,6 +427,8 @@
     {/if}
   {:else if row.entry.type === 'note'}
     <div class="note">{row.entry.text}</div>
+  {:else if row.entry.type === 'reminder'}
+    {@render reminder(remindersOf([row.entry])[0], `${row.key}:r`)}
   {:else if row.entry.type === 'thinking'}
     {@const th = row.entry}
     <button class="think" class:open={!!open[row.key]} onclick={() => th.text && toggle(row.key)} aria-expanded={th.text ? !!open[row.key] : undefined} disabled={!th.text}>
@@ -468,6 +498,9 @@
         <div class="diff">{#each t.diff as l, i (i)}<div class:add={l[0] === '+'} class:del={l[0] === '-'}>{l}</div>{/each}</div>
       {/if}
       {#if t.output}<pre class="out">{t.output}</pre>{/if}
+      {#if remindersMode === 'shown' && t.reminders?.length}
+        {#each remindersOf([row.entry]) as r, i (i)}{@render reminder(r, `${row.key}:r${i}`)}{/each}
+      {/if}
     {/if}
   {/if}
 {/snippet}
@@ -571,9 +604,9 @@
         <div class="turnh" id="turn-{turn.n}"><b>#{turn.n}</b> {time(turn.at)}<span class="ln"></span>{#if under}<span>{tr('under way')}</span>{:else if took(turn)}<span>{took(turn)}</span>{/if}</div>
         {#if turn.prompt}{@render prompt('me', turn.prompt, turn.pasted)}{/if}
         {#if !fold}
-          {#each rows(turn.n, turn.entries) as row (row.key)}{@render entryRow(row)}{/each}
+          {#each rows(turn.n, told(turn.entries)) as row (row.key)}{@render entryRow(row)}{/each}
         {:else}
-          {@const segs = segments(turn.entries)}
+          {@const segs = segments(told(turn.entries))}
           {#each segs as seg, si (seg.type === 'steps' ? `s${seg.from}` : `o${seg.at}`)}
             {#if seg.type === 'one'}
               {@render entryRow({ type: 'entry', entry: seg.entry, key: `${turn.n}:${seg.at}` })}
@@ -603,6 +636,14 @@
               {/if}
             {/if}
           {/each}
+        {/if}
+        {#if remindersMode === 'marker'}
+          {@const rm = remindersOf(turn.entries)}
+          {#if rm.length}
+            {@const rk = `rm${turn.n}`}
+            <button class="rmk" class:open={!!open[rk]} onclick={() => toggle(rk)} aria-expanded={!!open[rk]} title={tr('What Claude Code sent it besides your words: its reminders, a hook’s context')}>ⓘ {tn(rm.length, '{n} reminder', '{n} reminders')}</button>
+            {#if open[rk]}<div class="rms">{#each rm as r, i (i)}{@render reminder(r, `${rk}:${i}`)}{/each}</div>{/if}
+          {/if}
         {/if}
       {/each}
       {#if pending}{@render prompt('me pending', pending)}{/if}
@@ -657,6 +698,14 @@
   .ai :global(p:first-child) { margin-top: 0; }
   .ai :global(p:last-child) { margin-bottom: 0; }
   .ai :global(pre) { overflow-x: auto; font-size: 12px; }
+  .rmk { align-self: flex-start; border: none; background: none; padding: 0 2px; font: inherit; font-size: 11px; color: var(--text-muted); opacity: 0.75; }
+  .rmk:hover, .rmk.open { opacity: 1; color: var(--text); }
+  .rms { display: flex; flex-direction: column; gap: 6px; padding-left: 10px; border-left: 2px solid var(--border); }
+  .rm { display: flex; flex-direction: column; gap: 2px; }
+  .rh { display: flex; gap: 6px; font-size: 11px; color: var(--text-muted); min-width: 0; }
+  .rh bdi { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rtx { text-align: left; border: none; margin: 0; padding: 6px 8px; border-radius: 8px; background: var(--chat-code); color: var(--text-muted); font: 11px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .rtx.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; line-clamp: 6; overflow: hidden; cursor: pointer; }
   .note { align-self: center; font-size: 12px; color: var(--text-muted); font-style: italic; }
   .tool { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; font: inherit; font-size: 13px; color: var(--text-muted); background: var(--chat-card); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; min-width: 0; }
   .tool b { color: var(--text); font-weight: 600; flex: none; }

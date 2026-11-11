@@ -36,11 +36,25 @@ impl Fold {
                     && r.pointer("/attachment/isMeta").and_then(Value::as_bool) != Some(true)
                     && r.pointer("/attachment/origin/kind").and_then(Value::as_str).is_none_or(|k| k == "human") =>
             {
-                if let Some(prompt) = prompt_of(r.pointer("/attachment/prompt").and_then(Value::as_str).unwrap_or_default()) {
+                let (text, found) = reminders(r.pointer("/attachment/prompt").and_then(Value::as_str).unwrap_or_default());
+                if let Some(prompt) = prompt_of(&text) {
                     self.begin(prompt, at);
                 }
+                self.reminded("harness", None, found);
             }
-            Some("user") if !flag("isMeta") && !flag("isCompactSummary") => {
+            // A hook's context (`additionalContext`), what the harness reminds it of: out of the
+            // conversation shown, kept to be read.
+            Some("attachment") => self.attached(r.get("attachment").unwrap_or(&Value::Null)),
+            // Words the CLI sends as yours but are not (a skill's text, a caveat): its reminders kept.
+            Some("user") if flag("isMeta") => {
+                let text = match r.pointer("/message/content") {
+                    Some(Value::String(s)) => s.clone(),
+                    Some(Value::Array(blocks)) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n"),
+                    _ => return,
+                };
+                self.reminded("harness", None, reminders(&text).1);
+            }
+            Some("user") if !flag("isCompactSummary") => {
                 let Some(content) = r.pointer("/message/content") else { return };
                 let mut words = Vec::new();
                 // A plan approved: the words in the same message came with it, not a prompt.
@@ -52,19 +66,21 @@ impl Fold {
                             match b.get("type").and_then(Value::as_str) {
                                 Some("tool_result") => {
                                     let failed = b.get("is_error").and_then(Value::as_bool) == Some(true);
+                                    let (output, found) = b.get("content").map(result_text).unwrap_or_default();
+                                    self.tool_reminded(b.get("tool_use_id").and_then(Value::as_str), found);
                                     self.launched(b.get("tool_use_id").and_then(Value::as_str), r.get("toolUseResult"), failed);
                                     if let Some(answers) = r.pointer("/toolUseResult/answers") {
                                         self.answered(b.get("tool_use_id").and_then(Value::as_str), answers);
                                     }
                                     let id = b.get("tool_use_id").and_then(Value::as_str);
-                                    if self.plan_answered(id, failed, &b.get("content").map(content_text).unwrap_or_default(), r.pointer("/toolUseResult/plan").and_then(Value::as_str)) && !failed {
+                                    if self.plan_answered(id, failed, &output, r.pointer("/toolUseResult/plan").and_then(Value::as_str)) && !failed {
                                         approved = id.and_then(|id| self.calls.get(id).copied());
                                     }
                                     self.forked(id, r.get("toolUseResult"));
                                     if !failed {
                                         self.resumed(id, r.get("toolUseResult"), at);
                                     }
-                                    self.result(b.get("tool_use_id").and_then(Value::as_str), at, failed, b.get("content").map(content_text));
+                                    self.result(id, at, failed, b.get("content").map(|_| output));
                                 }
                                 Some("text") => words.extend(b.get("text").and_then(Value::as_str)),
                                 _ => {}
@@ -73,29 +89,33 @@ impl Fold {
                     }
                     _ => {}
                 }
-                let text = words.join("\n");
+                let joined = words.join("\n");
+                // Its reminders apart: the prompt shown alone, they kept in its turn.
+                let (text, found) = reminders(&joined);
+                let text = text.as_ref();
                 if let Some((t, e)) = approved {
                     let words = text.trim();
                     if let Some(Entry::Tool(Tool { proposal: Some(p), .. })) = self.turns.get_mut(t).and_then(|turn| turn.entries.get_mut(e)).filter(|_| !words.is_empty()) {
                         p.feedback = Some(words.to_string());
                     }
                 } else if text.trim_start().starts_with("<task-notification>") {
-                    self.notified(&text, at);
-                } else if let Some(note) = interruption(&text) {
+                    self.notified(text, at);
+                } else if let Some(note) = interruption(text) {
                     self.push(at, Entry::Note { text: note.into() });
-                } else if let Some(command) = tagged(&text, "bash-input") {
+                } else if let Some(command) = tagged(text, "bash-input") {
                     // A `!` command: a turn of its own, its output written with it (sent while it worked) or next.
                     self.begin(format!("! {command}"), at);
                     self.call(Some(SHELL), at, Tool { tool: "Bash".into(), kind: "command", what: Some(command.to_string()), state: "running", ..Tool::default() });
-                    if let Some((output, failed)) = shell_output(&text) {
+                    if let Some((output, failed)) = shell_output(text) {
                         self.result(Some(SHELL), at, failed, Some(output));
                     }
-                } else if let Some((output, failed)) = shell_output(&text) {
+                } else if let Some((output, failed)) = shell_output(text) {
                     self.result(Some(SHELL), at, failed, Some(output));
-                } else if let Some(prompt) = prompt_of(&text) {
+                } else if let Some(prompt) = prompt_of(text) {
                     self.begin(prompt, at);
                     self.pasted(images(r).len());
                 }
+                self.reminded("harness", None, found);
             }
             Some("assistant") => {
                 let Some(msg) = r.get("message") else { return };
@@ -374,6 +394,53 @@ pub(super) fn unpasted(text: &str) -> std::borrow::Cow<'_, str> {
     }
     out.push_str(rest);
     out.into()
+}
+
+/// The `<system-reminder>…</system-reminder>` blocks Claude Code slips into what it sends (its
+/// harness's reminders, hooks' context, notes after a tool's output) taken out of `text`: what is
+/// left, and what each held (trimmed, those empty left out). Only a block whose opening tag starts
+/// a line counts, not one quoted mid-sentence or in a file's lines (`  148→ "<system-reminder>…"`);
+/// without its closing tag, it runs to the end.
+pub(crate) fn reminders(text: &str) -> (std::borrow::Cow<'_, str>, Vec<String>) {
+    const OPEN: &str = "<system-reminder>";
+    const CLOSE: &str = "</system-reminder>";
+    let at_line_start = |s: &str, i: usize| s[..i].rsplit('\n').next().is_some_and(|before| before.trim().is_empty());
+    let first = text.match_indices(OPEN).map(|(i, _)| i).find(|&i| at_line_start(text, i));
+    let Some(mut i) = first else { return (text.into(), Vec::new()) };
+    let (mut out, mut found) = (String::with_capacity(text.len()), Vec::new());
+    let mut from = 0;
+    loop {
+        // What came before it, the spaces leading its line left out.
+        out.push_str(text[from..i].trim_end_matches([' ', '\t']));
+        let body = i + OPEN.len();
+        let (inner, after) = match text[body..].find(CLOSE) {
+            Some(j) => (&text[body..body + j], body + j + CLOSE.len()),
+            None => (&text[body..], text.len()),
+        };
+        let inner = inner.trim();
+        if !inner.is_empty() {
+            found.push(inner.to_string());
+        }
+        // The line break that ended its line goes with it.
+        from = if text[after..].starts_with("\r\n") { after + 2 } else if text[after..].starts_with('\n') { after + 1 } else { after };
+        match text[from..].match_indices(OPEN).map(|(j, _)| from + j).find(|&j| at_line_start(text, j)) {
+            Some(j) => i = j,
+            None => break,
+        }
+    }
+    out.push_str(&text[from..]);
+    (out.into(), found)
+}
+
+/// A tool result's text without the reminders Claude Code adds to it (a block of their own, or
+/// closing its text), and theirs.
+pub(super) fn result_text(v: &Value) -> (String, Vec<String>) {
+    let text = content_text(v);
+    let (clean, found) = reminders(&text);
+    if found.is_empty() {
+        return (text, found);
+    }
+    (clean.trim_end().to_string(), found)
 }
 
 pub(super) fn interruption(text: &str) -> Option<&'static str> {
