@@ -77,20 +77,20 @@ pub async fn font_face(family: String, index: usize) -> Cmd<tauri::ipc::Response
     bytes.map(tauri::ipc::Response::new).map_err(Into::into)
 }
 
-/// Copies text to the system clipboard: the selection of an agent's terminal, which tmux
-/// sends outside of any user gesture (where the webview would refuse).
+/// Copies text to the system clipboard (on its own thread, `clipboard`): the selection of an
+/// agent's terminal, which tmux sends outside of any user gesture (where the webview would refuse).
 #[tauri::command]
-pub fn copy_text(app: AppHandle, text: String) -> Cmd {
+pub async fn copy_text(app: AppHandle, text: String) -> Cmd {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    app.clipboard().write_text(text).map_err(|e| e.to_string().into())
+    crate::clipboard::run(move || app.clipboard().write_text(text)).await
 }
 
-/// Reads the system clipboard: Ctrl+Shift+V in an agent's terminal (Linux, Windows), a
-/// gesture of mine.
+/// Reads the system clipboard: Ctrl+Shift+V in an agent's terminal (Linux, Windows), Paste in
+/// its menu or a field's, a gesture of mine.
 #[tauri::command]
-pub fn paste_text(app: AppHandle) -> Cmd<String> {
+pub async fn paste_text(app: AppHandle) -> Cmd<String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    app.clipboard().read_text().map_err(|e| e.to_string().into())
+    crate::clipboard::run(move || app.clipboard().read_text()).await
 }
 
 /// "Audio" block: radios and podcasts from the config.

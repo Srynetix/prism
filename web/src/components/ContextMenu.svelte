@@ -2,7 +2,7 @@
   import { t } from '../i18n.svelte'
   import { invoke, isDesktop } from '../bridge'
   import { openLink } from '../links'
-  import { writeClipboard } from '../toast.svelte'
+  import { toast, writeClipboard } from '../toast.svelte'
   import { anchored, dismissable } from '../popup'
 
   /**
@@ -64,13 +64,25 @@
     }
   })
 
+  /**
+   * The clipboard may answer late (Linux, up to its wait): its field still in the page, and no
+   * other field taken up since, or what follows is left undone.
+   */
+  function stillThere(m: Menu): boolean {
+    if (!m.field?.isConnected) return false
+    const now = document.activeElement as HTMLElement | null
+    return !now || now === m.field || now === document.body || !(isField(now) || now.isContentEditable)
+  }
   async function cut(m: Menu) {
     await writeClipboard(m.selected)
+    // Deleted only if what was copied is still what is selected: else the text stays, copied.
+    if (!stillThere(m) || selectedIn(m.field) !== m.selected) return
     m.field?.focus()
     document.execCommand('delete')
   }
   async function paste(m: Menu) {
     const text = isDesktop() ? await invoke<string>('paste_text') : await navigator.clipboard.readText()
+    if (!stillThere(m)) return
     m.field?.focus()
     // As typed: the field's undo and its `input` event.
     document.execCommand('insertText', false, text)
@@ -84,10 +96,17 @@
       document.execCommand('selectAll')
     }
   }
-  function run(action: () => unknown) {
+  /** A menu's action, once it is closed; its failure told when it says how (`failed`). */
+  function run(action: () => unknown, failed?: (error: string) => string) {
     close()
-    void Promise.resolve(action()).catch(() => {})
+    // From a `then`: an action that throws at once is caught too.
+    void Promise.resolve()
+      .then(action)
+      .catch((e) => failed && toast(failed(String(e)), 5000))
   }
+  // The clipboard read or written through the core may fail (Linux: one that does not answer).
+  const notCopied = (error: string) => t('Could not copy: {error}', { error })
+  const notPasted = (error: string) => t('Could not paste: {error}', { error })
 
   /** The point clicked, as the element the menu is placed against. */
   const at = (m: Menu) => ({ getBoundingClientRect: () => new DOMRect(m.x, m.y, 0, 0) }) as HTMLElement
@@ -100,17 +119,17 @@
   <div class="ctxmenu" role="menu" tabindex="-1" onmousedown={(e) => e.preventDefault()} {@attach anchored(() => at(m), { align: 'start', gap: 0 })} {@attach dismissable(close, { resize: true })}>
     {#if m.link}
       <button role="menuitem" onclick={() => run(() => openLink(m.link!))}>{t('Open link')}</button>
-      <button role="menuitem" onclick={() => run(() => writeClipboard(m.link!))}>{t('Copy link')}</button>
+      <button role="menuitem" onclick={() => run(() => writeClipboard(m.link!), notCopied)}>{t('Copy link')}</button>
       {#if m.field || m.selected}<hr />{/if}
     {/if}
     {#if m.field}
-      <button role="menuitem" disabled={!canEdit || !m.selected} onclick={() => run(() => cut(m))}>{t('Cut')}</button>
+      <button role="menuitem" disabled={!canEdit || !m.selected} onclick={() => run(() => cut(m), notCopied)}>{t('Cut')}</button>
     {/if}
     {#if m.field || m.selected}
-      <button role="menuitem" disabled={!m.selected} onclick={() => run(() => writeClipboard(m.selected))}>{t('Copy')}</button>
+      <button role="menuitem" disabled={!m.selected} onclick={() => run(() => writeClipboard(m.selected), notCopied)}>{t('Copy')}</button>
     {/if}
     {#if m.field}
-      <button role="menuitem" disabled={!canEdit} onclick={() => run(() => paste(m))}>{t('Paste')}</button>
+      <button role="menuitem" disabled={!canEdit} onclick={() => run(() => paste(m), notPasted)}>{t('Paste')}</button>
       <hr />
       <button role="menuitem" onclick={() => run(() => selectAll(m))}>{t('Select all')}</button>
     {/if}
