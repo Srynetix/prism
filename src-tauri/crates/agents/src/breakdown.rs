@@ -249,16 +249,18 @@ fn est_value(v: &Value) -> u64 {
     }
 }
 
-/// A tool result's content: text, or blocks of text and images.
-/// A result's text, its blocks of text joined.
-fn text_of(v: &Value) -> String {
+/// The reminders in a tool result's content (its text, or each of its blocks of text), measured;
+/// nothing copied when it has none.
+fn reminded(v: &Value) -> u64 {
+    let of = |s: &str| crate::conversation::reminders(s).1.iter().map(|r| est(r)).sum::<u64>();
     match v {
-        Value::String(s) => s.clone(),
-        Value::Array(blocks) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n"),
-        _ => String::new(),
+        Value::String(s) => of(s),
+        Value::Array(blocks) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).map(of).sum(),
+        _ => 0,
     }
 }
 
+/// A tool result's content: text, or blocks of text and images.
 fn est_content(v: &Value) -> u64 {
     match v {
         Value::String(s) => est(s),
@@ -325,20 +327,21 @@ fn claude(fold: &mut Fold, r: &Value, names: &Names) {
             }
             let meta = flag("isMeta");
             let text_kind = if meta { "reminders" } else { "prompts" };
-            // A prompt's reminders (`<system-reminder>`) count as such.
+            // A prompt's reminders (`<system-reminder>`) count as such; a text that held only them
+            // begins no turn (as in its Chat): whether words are left.
             let words = |fold: &mut Fold, s: &str| {
                 let (rest, found) = crate::conversation::reminders(s);
                 fold.add(text_kind, est(&rest));
                 if !found.is_empty() {
                     fold.add("reminders", found.iter().map(|r| est(r)).sum());
                 }
+                !rest.trim().is_empty()
             };
             match content {
                 Value::String(s) => {
-                    if !meta {
+                    if words(fold, s) && !meta {
                         fold.turn += 1;
                     }
-                    words(fold, s);
                 }
                 Value::Array(blocks) => {
                     let mut prompted = false;
@@ -347,7 +350,7 @@ fn claude(fold: &mut Fold, r: &Value, names: &Names) {
                             Some("tool_result") => {
                                 // The reminders Claude Code adds to it are not the tool's.
                                 let content = b.get("content");
-                                let reminded: u64 = content.map(|c| crate::conversation::reminders(&text_of(c)).1.iter().map(|r| est(r)).sum()).unwrap_or(0);
+                                let reminded = content.map_or(0, reminded);
                                 let tokens = content.map_or(0, est_content);
                                 fold.result(b.get("tool_use_id").and_then(Value::as_str), tokens.saturating_sub(reminded));
                                 if reminded > 0 {
@@ -356,8 +359,7 @@ fn claude(fold: &mut Fold, r: &Value, names: &Names) {
                             }
                             Some("image") => fold.add("images", IMAGE),
                             Some("text") => {
-                                prompted |= !meta;
-                                words(fold, b.get("text").and_then(Value::as_str).unwrap_or_default());
+                                prompted |= words(fold, b.get("text").and_then(Value::as_str).unwrap_or_default()) && !meta;
                             }
                             _ => {}
                         }
@@ -534,6 +536,8 @@ mod tests {
         let reminder = format!("\n<system-reminder>{}</system-reminder>", "r".repeat(4000));
         let path = file("reminders", &[
             serde_json::json!({ "type": "user", "message": { "content": format!("go{reminder}") } }),
+            // A reminder alone: no turn of its own, as in its Chat.
+            serde_json::json!({ "type": "user", "message": { "content": [{ "type": "text", "text": "<system-reminder>later</system-reminder>" }] } }),
             assistant(20_100, serde_json::json!([{ "type": "tool_use", "id": "t1", "name": "Read", "input": { "file_path": "/repo/a.rs" } }])),
             serde_json::json!({ "type": "user", "message": { "content": [{ "type": "tool_result", "tool_use_id": "t1", "content": format!("{}{reminder}", "y".repeat(400)) }] } }),
             assistant(23_000, serde_json::json!([{ "type": "text", "text": "done" }])),
@@ -542,6 +546,7 @@ mod tests {
         let part = |k: &str| b.parts.iter().find(|p| p.kind == k).map_or(0, |p| p.tokens);
         // 2 × 1000 tokens of reminders, a prompt of 1, a result of 100.
         assert!(part("prompts") < 10 && part("results") * 5 < part("reminders"), "{:?}", b.parts);
+        assert_eq!(b.heaviest.iter().map(|h| h.turn).max(), Some(1), "one turn");
         let _ = std::fs::remove_file(path);
     }
 

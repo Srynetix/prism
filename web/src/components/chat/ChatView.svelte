@@ -186,7 +186,7 @@
     const t = setTimeout(() => (turns = PAGE), SETTLED_MS)
     return () => clearTimeout(t)
   })
-  const found = $derived(convo ? convo.turns.filter((t) => matches(t, query)) : [])
+  const found = $derived(convo ? convo.turns.filter((t) => matches(t, query, remindersMode === 'shown')) : [])
   /** Back to the conversation, at that turn. */
   function jump(n: number) {
     drop = null
@@ -285,6 +285,8 @@
       return []
     })
   }
+  /** A call shown as a line of its own (`entryRow`'s last case), not as a card. */
+  const plainCall = (t: ConversationTool) => !t.proposal && !proposalCard({ type: 'tool', ...t }) && !t.ask && !t.aside && t.kind !== 'agent'
   /** A reminder longer than this folds, a click shows it whole. */
   const REMINDER_LINES = 6
   const LIVE_SHOWN = 3
@@ -364,7 +366,7 @@
   const since = (at: string | null) => (at ? dur(Math.max(0, now - Date.parse(at))) : '')
   const tokens = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : `${n}`)
   /** A folded run's counts, the failed ones apart. */
-  function counts(entries: ConversationEntry[]): { text: string; failed: number; added: number; removed: number } {
+  function counts(entries: ConversationEntry[]): { text: string; steps: number; failed: number; added: number; removed: number } {
     const s = sumSteps(entries)
     const parts = [
       s.read ? (s.read < 2 ? tr('{n} read', { n: s.read }) : tc('plural', '{n} read', { n: s.read })) : null,
@@ -372,7 +374,7 @@
       s.commands ? tn(s.commands, '{n} command', '{n} commands') : null,
       s.others ? tn(s.others, '{n} other', '{n} others') : null,
     ]
-    return { text: parts.filter(Boolean).join(' · '), failed: s.failed, added: s.added, removed: s.removed }
+    return { text: parts.filter(Boolean).join(' · '), steps: s.steps, failed: s.failed, added: s.added, removed: s.removed }
   }
   /**
    * A prompt's bubble: its words, and its images (those Prism attached, named by their path in
@@ -418,6 +420,7 @@
     </button>
     {#if open[row.key]}
       <div class="reads">{#each row.tools as t, i (i)}<div><b>{t.tool}</b> {t.what ?? ''}</div>{/each}</div>
+      {#if remindersMode === 'shown'}{#each remindersOf(row.tools.map((t) => ({ type: 'tool' as const, ...t }))) as r, i (i)}{@render reminder(r, `${row.key}:r${i}`)}{/each}{/if}
     {/if}
   {:else if row.entry.type === 'text'}
     {#if commentAnswers && acts && commentable(row.entry.text)}
@@ -502,6 +505,10 @@
         {#each remindersOf([row.entry]) as r, i (i)}{@render reminder(r, `${row.key}:r${i}`)}{/each}
       {/if}
     {/if}
+  {/if}
+  <!-- A card's (plan, proposal, question, in passing, subagent): under it; a plain call's are in its detail. -->
+  {#if remindersMode === 'shown' && row.type === 'entry' && row.entry.type === 'tool' && row.entry.reminders?.length && !plainCall(row.entry)}
+    {#each remindersOf([row.entry]) as r, i (i)}{@render reminder(r, `${row.key}:r${i}`)}{/each}
   {/if}
 {/snippet}
 
@@ -621,7 +628,7 @@
                 {@const shown = isLive ? (open[gk] ? rs : rs.slice(-LIVE_SHOWN)) : open[gk] ? rs : []}
                 <div class="work" class:live={isLive} class:open={shown.length > 0}>
                   <button class="wh" onclick={() => toggle(gk)} aria-expanded={!!open[gk]} title={open[gk] ? tr('Fold its steps') : tr('Show each of its steps')}>
-                    <b>{tn(seg.entries.length, '{n} step', '{n} steps')}</b>
+                    <b>{tn(c.steps, '{n} step', '{n} steps')}</b>
                     <span class="bits">{c.text}{#if c.added || c.removed}{' '}<i class="add">+{c.added}</i> <i class="del">−{c.removed}</i>{/if}{#if c.failed}{' '}<i class="ko">{c.failed} ✗</i>{/if}</span>
                     {#if isLive}<span class="dot"></span>{/if}
                     <Icon name={open[gk] ? 'up' : 'down'} />

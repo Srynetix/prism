@@ -142,6 +142,7 @@ fold_steps: boolean,
  * reminders (`<system-reminder>`), a hook's context, a file changed under it: `marker`, out of
  * the conversation, a ⓘ at the end of the turn (or on the call) showing them on a click;
  * `hidden`, never shown; `shown`, unfolded where they came.
+ * Any other value reads as `marker`.
  */
 chat_reminders: 'marker' | 'hidden' | 'shown', 
 /**

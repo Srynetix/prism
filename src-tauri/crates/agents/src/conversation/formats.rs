@@ -47,12 +47,8 @@ impl Fold {
             Some("attachment") => self.attached(r.get("attachment").unwrap_or(&Value::Null)),
             // Words the CLI sends as yours but are not (a skill's text, a caveat): its reminders kept.
             Some("user") if flag("isMeta") => {
-                let text = match r.pointer("/message/content") {
-                    Some(Value::String(s)) => s.clone(),
-                    Some(Value::Array(blocks)) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n"),
-                    _ => return,
-                };
-                self.reminded("harness", None, reminders(&text).1);
+                let Some(content) = r.pointer("/message/content") else { return };
+                self.reminded("harness", None, reminders(&content_text(content)).1);
             }
             Some("user") if !flag("isCompactSummary") => {
                 let Some(content) = r.pointer("/message/content") else { return };
@@ -399,32 +395,39 @@ pub(super) fn unpasted(text: &str) -> std::borrow::Cow<'_, str> {
 /// The `<system-reminder>…</system-reminder>` blocks Claude Code slips into what it sends (its
 /// harness's reminders, hooks' context, notes after a tool's output) taken out of `text`: what is
 /// left, and what each held (trimmed, those empty left out). Only a block whose opening tag starts
-/// a line counts, not one quoted mid-sentence or in a file's lines (`  148→ "<system-reminder>…"`);
-/// without its closing tag, it runs to the end.
+/// a line and that is closed counts: one quoted mid-sentence, in a file's lines (`  148→
+/// "<system-reminder>…"`) or a lone tag (a `grep` for it) stays as written.
 pub(crate) fn reminders(text: &str) -> (std::borrow::Cow<'_, str>, Vec<String>) {
     const OPEN: &str = "<system-reminder>";
     const CLOSE: &str = "</system-reminder>";
-    let at_line_start = |s: &str, i: usize| s[..i].rsplit('\n').next().is_some_and(|before| before.trim().is_empty());
-    let first = text.match_indices(OPEN).map(|(i, _)| i).find(|&i| at_line_start(text, i));
-    let Some(mut i) = first else { return (text.into(), Vec::new()) };
+    if !text.contains(OPEN) {
+        return (text.into(), Vec::new());
+    }
+    let at_line_start = |i: usize| text[..i].rsplit('\n').next().is_some_and(|before| before.trim().is_empty());
+    // The next block from `from`: where it starts, where its body is, where it ends.
+    let next = |from: usize| {
+        text[from..].match_indices(OPEN).map(|(j, _)| from + j).filter(|&i| at_line_start(i)).find_map(|i| {
+            let body = i + OPEN.len();
+            // Closed before another one opens: a lone tag before a block is not its start.
+            text[body..].find(CLOSE).map(|j| body + j).filter(|&close| !text[body..close].contains(OPEN)).map(|close| (i, body, close))
+        })
+    };
+    let Some(mut block) = next(0) else { return (text.into(), Vec::new()) };
     let (mut out, mut found) = (String::with_capacity(text.len()), Vec::new());
     let mut from = 0;
     loop {
+        let (i, body, close) = block;
         // What came before it, the spaces leading its line left out.
         out.push_str(text[from..i].trim_end_matches([' ', '\t']));
-        let body = i + OPEN.len();
-        let (inner, after) = match text[body..].find(CLOSE) {
-            Some(j) => (&text[body..body + j], body + j + CLOSE.len()),
-            None => (&text[body..], text.len()),
-        };
-        let inner = inner.trim();
+        let inner = text[body..close].trim();
         if !inner.is_empty() {
             found.push(inner.to_string());
         }
         // The line break that ended its line goes with it.
+        let after = close + CLOSE.len();
         from = if text[after..].starts_with("\r\n") { after + 2 } else if text[after..].starts_with('\n') { after + 1 } else { after };
-        match text[from..].match_indices(OPEN).map(|(j, _)| from + j).find(|&j| at_line_start(text, j)) {
-            Some(j) => i = j,
+        match next(from) {
+            Some(b) => block = b,
             None => break,
         }
     }

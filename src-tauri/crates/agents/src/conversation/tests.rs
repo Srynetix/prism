@@ -661,9 +661,14 @@ fn takes_the_reminders_out_of_a_text() {
     let (text, found) = reminders("add the CSV export\n<system-reminder>\nfirst\nof two lines\n</system-reminder>\n  <system-reminder>second</system-reminder>\nthen this");
     assert_eq!(text, "add the CSV export\nthen this");
     assert_eq!(found, ["first\nof two lines", "second"]);
-    // Without its closing tag: to the end.
-    let (text, found) = reminders("look at this\n<system-reminder>cut short");
-    assert_eq!((text.as_ref(), found.as_slice()), ("look at this\n", ["cut short".to_string()].as_slice()));
+    // Without its closing tag (a `grep` for it, a log pasted): kept as written, what follows too.
+    for unclosed in ["look at this\n<system-reminder>cut short", "3 matches\n<system-reminder>\n<system-reminder>\nend"] {
+        let (text, found) = reminders(unclosed);
+        assert_eq!((text.as_ref(), found.len()), (unclosed, 0));
+    }
+    // A lone one, then a real block: only the block goes.
+    let (text, found) = reminders("<system-reminder>\nline\n<system-reminder>real</system-reminder>");
+    assert_eq!((text.as_ref(), found.as_slice()), ("<system-reminder>\nline\n", ["real".to_string()].as_slice()));
     // Alone: nothing left.
     let (text, found) = reminders("<system-reminder>only</system-reminder>");
     assert_eq!((text.trim(), found.as_slice()), ("", ["only".to_string()].as_slice()));
