@@ -404,7 +404,8 @@ mod cache {
             Provider::Codex => super::codex::parse(&saved.body),
             Provider::OpenCode => return None,
         };
-        Some(ClaudeUsage { fetched_at: saved.fetched_at, ..usage })
+        // Codex's is dated by its measurement (`measured_at`), older than the reading itself.
+        Some(ClaudeUsage { fetched_at: saved.fetched_at.min(usage.fetched_at), ..usage })
     }
 
     pub fn save(provider: Provider, account: Option<&str>, body: &serde_json::Value) {
@@ -730,7 +731,10 @@ pub(super) mod codex {
 
     use crate::state::{ClaudeUsage, UsageWindow};
 
-    const TAIL_BYTES: u64 = 256 * 1024;
+    /// A rollout is read backwards by chunks of this size, until its last `token_count`.
+    const CHUNK: u64 = 256 * 1024;
+    /// Sessions tried, written last first, while they have no `token_count` at all.
+    const TRIED: usize = 8;
     const FIVE_HOURS: i64 = 300;
     const WEEK: i64 = 7 * 24 * 60;
 
@@ -738,10 +742,19 @@ pub(super) mod codex {
     pub async fn fetch(home: Option<PathBuf>) -> Result<(ClaudeUsage, Value)> {
         tokio::task::spawn_blocking(move || {
             let home = home.or_else(|| crate::agents::provider::Provider::Codex.home(None)).context("no home folder")?;
-            let rollout = latest_rollout(&home.join("sessions")).context("no Codex session yet")?;
-            let limits = last_limits(&rollout).context(tr("no plan usage in Codex's last session yet"))?;
-            // Only what `parse` reads: percentages, windows and resets, not the plan nor the credits.
-            let body = json!({ "primary": limits.get("primary"), "secondary": limits.get("secondary") });
+            let rollouts = rollouts(&home.join("sessions"));
+            anyhow::ensure!(!rollouts.is_empty(), "no Codex session yet");
+            // The session written last first (a resumed one keeps writing in its first day's
+            // folder), then the ones before it only while it has no `token_count` at all: the
+            // reading is then older, and dated so (`measured_at`).
+            let (rollout, (limits, measured)) = rollouts
+                .iter()
+                .find_map(|r| last_limits(r).map(|l| (r, l)))
+                .context(tr("no plan usage in Codex's recent sessions"))?;
+            tracing::debug!("usage (Codex): read from {}, measured {measured:?}", rollout.display());
+            // Only what `parse` reads: percentages, windows, resets and when Codex measured them,
+            // not the plan nor the credits.
+            let body = json!({ "primary": limits.get("primary"), "secondary": limits.get("secondary"), "measured_at": measured });
             Ok((parse(&body), body))
         })
         .await?
@@ -749,7 +762,9 @@ pub(super) mod codex {
 
     /// Each window by its length: 5 h and the week where expected, any other one by its name.
     pub fn parse(body: &Value) -> ClaudeUsage {
-        let mut usage = ClaudeUsage { five_hour: None, seven_day: None, others: Vec::new(), fetched_at: Utc::now() };
+        // When Codex measured it, not when Prism read it: an old reading shows as such.
+        let measured = body.get("measured_at").and_then(Value::as_str).and_then(|t| DateTime::parse_from_rfc3339(t).ok()).map(|t| t.with_timezone(&Utc));
+        let mut usage = ClaudeUsage { five_hour: None, seven_day: None, others: Vec::new(), fetched_at: measured.unwrap_or_else(Utc::now).min(Utc::now()) };
         for name in ["primary", "secondary"] {
             let Some(v) = body.get(name).filter(|v| v.is_object()) else { continue };
             let Some(used) = v.get("used_percent").and_then(Value::as_f64) else { continue };
@@ -768,42 +783,65 @@ pub(super) mod codex {
         usage
     }
 
-    /// The rollout written last: in the latest day's folder that has one.
-    fn latest_rollout(sessions: &Path) -> Option<PathBuf> {
-        let sorted = |dir: &Path| -> Vec<PathBuf> {
-            let mut entries: Vec<PathBuf> = std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()).collect();
-            entries.sort();
-            entries.reverse();
-            entries
-        };
-        for year in sorted(sessions).iter().filter(|p| p.is_dir()) {
-            for month in sorted(year).iter().filter(|p| p.is_dir()) {
-                for day in sorted(month).iter().filter(|p| p.is_dir()) {
-                    let latest = sorted(day)
-                        .into_iter()
-                        .filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("rollout-")) && p.extension().is_some_and(|e| e == "jsonl"))
-                        .max_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok());
-                    if latest.is_some() {
-                        return latest;
+    /// The `TRIED` rollouts written last, first, whatever their day's folder: `codex resume`
+    /// keeps writing in the folder of the day the session began. A tie goes to the later name
+    /// (it starts with the session's start), so the choice holds from one reading to the next.
+    fn rollouts(sessions: &Path) -> Vec<PathBuf> {
+        let dirs = |dir: &Path| -> Vec<PathBuf> { std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect() };
+        // Smallest first: the `TRIED` latest kept as the folders are walked.
+        let mut latest: std::collections::BinaryHeap<std::cmp::Reverse<(std::time::SystemTime, PathBuf)>> = std::collections::BinaryHeap::new();
+        for day in dirs(sessions).iter().flat_map(|y| dirs(y)).flat_map(|m| dirs(&m)) {
+            for e in std::fs::read_dir(&day).into_iter().flatten().flatten() {
+                let p = e.path();
+                if !(p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("rollout-")) && p.extension().is_some_and(|e| e == "jsonl")) {
+                    continue;
+                }
+                // Followed: a linked rollout counts by its file's writing, not the link's.
+                if let Ok(modified) = std::fs::metadata(&p).and_then(|m| m.modified()) {
+                    latest.push(std::cmp::Reverse((modified, p)));
+                    if latest.len() > TRIED {
+                        latest.pop();
                     }
                 }
             }
         }
-        None
+        let mut out: Vec<(std::time::SystemTime, PathBuf)> = latest.into_iter().map(|r| r.0).collect();
+        out.sort_by(|a, b| b.cmp(a));
+        out.into_iter().map(|(_, p)| p).collect()
     }
 
-    /// The `rate_limits` of the rollout's last `token_count`, read from its end only.
-    fn last_limits(rollout: &Path) -> Option<Value> {
+    /// The `rate_limits` of the rollout's last `token_count` and when it was written, read
+    /// backwards from its end, as far back as it takes.
+    fn last_limits(rollout: &Path) -> Option<(Value, Option<String>)> {
         let mut f = std::fs::File::open(rollout).ok()?;
-        let len = f.metadata().ok()?.len();
-        f.seek(SeekFrom::Start(len.saturating_sub(TAIL_BYTES))).ok()?;
-        let mut buf = Vec::new();
-        f.read_to_end(&mut buf).ok()?;
-        buf.split(|b| *b == b'\n').rev().find_map(|line| {
-            let v: Value = serde_json::from_slice(line).ok()?;
-            let payload = v.get("payload").filter(|p| p.get("type").and_then(Value::as_str) == Some("token_count"))?;
-            payload.get("rate_limits").filter(|r| r.is_object()).cloned()
-        })
+        let mut pos = f.metadata().ok()?.len();
+        // The start of a line cut by the chunk read before, which ends it.
+        let mut carry: Vec<u8> = Vec::new();
+        while pos > 0 {
+            let start = pos.saturating_sub(CHUNK);
+            f.seek(SeekFrom::Start(start)).ok()?;
+            let mut buf = vec![0; (pos - start) as usize];
+            f.read_exact(&mut buf).ok()?;
+            buf.extend_from_slice(&carry);
+            let mut lines: Vec<&[u8]> = buf.split(|b| *b == b'\n').collect();
+            // Not at the file's start: its first line may be cut, read with the next chunk.
+            let cut = if start > 0 { Some(lines.remove(0)) } else { None };
+            let found = lines.iter().rev().find_map(|line| {
+                if !line.windows(13).any(|w| w == b"\"token_count\"") {
+                    return None;
+                }
+                let v: Value = serde_json::from_slice(line).ok()?;
+                let payload = v.get("payload").filter(|p| p.get("type").and_then(Value::as_str) == Some("token_count"))?;
+                let limits = payload.get("rate_limits").filter(|r| r.is_object()).cloned()?;
+                Some((limits, v.get("timestamp").and_then(Value::as_str).map(String::from)))
+            });
+            if found.is_some() {
+                return found;
+            }
+            carry = cut.map(<[u8]>::to_vec).unwrap_or_default();
+            pos = start;
+        }
+        None
     }
 
     #[cfg(test)]
@@ -821,14 +859,94 @@ pub(super) mod codex {
             let soon = Utc::now().timestamp() + 3600;
             let line = format!(r#"{{"type":"event_msg","payload":{{"type":"token_count","rate_limits":{{"primary":{{"used_percent":42.0,"window_minutes":300,"resets_at":{soon}}},"secondary":{{"used_percent":7.5,"window_minutes":10080,"resets_at":1000}},"plan_type":"plus"}}}}}}"#);
             std::fs::write(new.join("rollout-b.jsonl"), format!("{line}\n{{\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_complete\"}}}}\n")).unwrap();
-            let rollout = latest_rollout(&root).unwrap();
+            written(&old.join("rollout-a.jsonl"), 60);
+            let rollout = rollouts(&root).remove(0);
             assert!(rollout.ends_with("2026/10/14/rollout-b.jsonl"));
-            let limits = last_limits(&rollout).unwrap();
+            let (limits, _) = last_limits(&rollout).unwrap();
             let usage = parse(&json!({ "primary": limits.get("primary"), "secondary": limits.get("secondary") }));
             assert_eq!(usage.five_hour.map(|w| w.utilization), Some(42.0));
             assert_eq!(usage.seven_day.map(|w| (w.utilization, w.resets_at)), Some((0.0, None)), "reset since: empty");
             assert!(usage.others.is_empty());
             let _ = std::fs::remove_dir_all(&root);
+        }
+
+        /// Ages a file: written `secs` ago.
+        fn written(path: &Path, secs: u64) {
+            let at = std::time::SystemTime::now() - std::time::Duration::from_secs(secs);
+            std::fs::File::options().write(true).open(path).unwrap().set_modified(at).unwrap();
+        }
+
+        #[test]
+        fn a_resumed_session_in_an_old_folder_is_read_first() {
+            let root = std::env::temp_dir().join(format!("prism-codex-resumed-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            let (old, new) = (root.join("2026/10/26"), root.join("2026/11/10"));
+            std::fs::create_dir_all(&old).unwrap();
+            std::fs::create_dir_all(&new).unwrap();
+            let limits = |used: f64| format!(r#"{{"type":"event_msg","payload":{{"type":"token_count","rate_limits":{{"primary":{{"used_percent":{used},"window_minutes":300}}}}}}}}"#);
+            std::fs::write(new.join("rollout-new.jsonl"), format!("{}\n", limits(10.0))).unwrap();
+            std::fs::write(old.join("rollout-resumed.jsonl"), format!("{}\n", limits(60.0))).unwrap();
+            std::fs::write(old.join("README"), "not a rollout").unwrap();
+            written(&new.join("rollout-new.jsonl"), 60);
+            let found = rollouts(&root);
+            assert_eq!(found.len(), 2, "rollouts only: {found:?}");
+            assert!(found[0].ends_with("2026/10/26/rollout-resumed.jsonl"), "written last first: {found:?}");
+            let _ = std::fs::remove_dir_all(&root);
+        }
+
+        #[test]
+        fn a_token_count_far_from_the_end_is_found_and_dated() {
+            let root = std::env::temp_dir().join(format!("prism-codex-far-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(&root).unwrap();
+            let file = root.join("rollout-long.jsonl");
+            let early = r#"{"timestamp":"2026-11-11T10:00:00.000Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":5.0,"window_minutes":300}}}}"#;
+            let late = r#"{"timestamp":"2026-11-11T13:13:06.315Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":21.0,"window_minutes":300}}}}"#;
+            // A tool's output longer than a chunk after the last `token_count`, and one line across chunks.
+            let output = format!(r#"{{"type":"response_item","payload":{{"output":"{}"}}}}"#, "x".repeat(300 * 1024));
+            std::fs::write(&file, format!("{early}\n{late}\n{output}\n{output}\n")).unwrap();
+            let (limits, measured) = last_limits(&file).unwrap();
+            assert_eq!(limits["primary"]["used_percent"], 21.0);
+            assert_eq!(measured.as_deref(), Some("2026-11-11T13:13:06.315Z"));
+            let usage = parse(&json!({ "primary": limits.get("primary"), "measured_at": measured }));
+            assert_eq!(usage.fetched_at.to_rfc3339(), "2026-11-11T13:13:06.315+00:00", "dated by Codex's measurement");
+            let _ = std::fs::remove_dir_all(&root);
+        }
+
+        #[test]
+        fn rollouts_written_together_go_by_name() {
+            let root = std::env::temp_dir().join(format!("prism-codex-tie-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            let day = root.join("2026/11/11");
+            std::fs::create_dir_all(&day).unwrap();
+            let at = std::time::SystemTime::now() - std::time::Duration::from_secs(10);
+            for n in 0..(TRIED + 3) {
+                let p = day.join(format!("rollout-{n:02}.jsonl"));
+                std::fs::write(&p, "{}\n").unwrap();
+                std::fs::File::options().write(true).open(&p).unwrap().set_modified(at).unwrap();
+            }
+            let found = rollouts(&root);
+            assert_eq!(found.len(), TRIED, "the latest only");
+            assert!(found[0].ends_with("rollout-10.jsonl") && found[TRIED - 1].ends_with("rollout-03.jsonl"), "{found:?}");
+            let _ = std::fs::remove_dir_all(&root);
+        }
+
+        #[tokio::test]
+        async fn a_session_without_token_count_falls_back_to_the_one_before() {
+            let home = std::env::temp_dir().join(format!("prism-codex-fallback-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&home);
+            let day = home.join("sessions/2026/11/11");
+            std::fs::create_dir_all(&day).unwrap();
+            let line = r#"{"type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":33.0,"window_minutes":300}}}}"#;
+            std::fs::write(day.join("rollout-before.jsonl"), format!("{line}\n")).unwrap();
+            std::fs::write(day.join("rollout-fresh.jsonl"), "{\"type\":\"session_meta\",\"payload\":{}}\n").unwrap();
+            written(&day.join("rollout-before.jsonl"), 120);
+            let (usage, _) = fetch(Some(home.clone())).await.unwrap();
+            assert_eq!(usage.five_hour.map(|w| w.utilization), Some(33.0));
+            // No `token_count` anywhere: the error says so.
+            std::fs::write(day.join("rollout-before.jsonl"), "{}\n").unwrap();
+            assert!(fetch(Some(home.clone())).await.is_err());
+            let _ = std::fs::remove_dir_all(&home);
         }
     }
 }

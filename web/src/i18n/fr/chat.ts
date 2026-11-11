@@ -55,6 +55,8 @@ export default {
   'Usage': 'Utilisation',
   'loading…': 'chargement…',
   'Last measured {time}': 'Dernière mesure {time}',
+  'Out of date · measured {time}': 'Plus à jour · mesuré {time}',
+  'Usage as of its last measurement: use since then is not counted': 'Usage à sa dernière mesure : l’usage depuis n’est pas compté',
   'no plan': 'pas d’abonnement',
   'not read yet': 'pas encore lu',
   'Last fetch failed: {error}': 'Dernière lecture en échec : {error}',
