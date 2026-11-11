@@ -249,7 +249,8 @@ impl Agents {
         // What each answer may follow: an action on a line dealt with meanwhile (another device) is refused.
         let allowed = match action {
             "later" => line.state == AsideState::Open,
-            "reopen" => matches!(line.state, AsideState::Dismissed | AsideState::Then),
+            "reopen" => matches!(line.state, AsideState::Dismissed | AsideState::Then | AsideState::Session),
+            "done" => line.state == AsideState::Session,
             "dismiss" => line.state.open() || line.state == AsideState::Then,
             "launched" => line.state.open() || line.state == AsideState::Then,
             "ticket" => line.state.open(),
@@ -278,6 +279,8 @@ impl Agents {
                 news = Some(format!("the user launched it in another agent ({}): leave it to that agent, and avoid its files: {}.", title.as_deref().unwrap_or(&agent), if line.files.is_empty() { "none named".to_string() } else { line.files.join(", ") }));
                 (line.agent, line.agent_title) = (Some(agent), title);
             }
+            // Done in its session, the agent not having said so (`done_task`): the user marks it.
+            "done" => line.state = AsideState::Done,
             "ticket" => {
                 line.state = AsideState::Ticket;
                 line.ticket = target.clone();
@@ -352,6 +355,131 @@ impl Agents {
         }
         self.tell(&agent, &format!("Task #{id} you proposed in passing (\"{title}\"): the user chained it after you; another agent does it once you are done. Do not do it yourself."));
         Ok(())
+    }
+
+    /// "In this session": the proposal sent back to the agent that saw it (the last one still
+    /// there), which does it once its current turn is over: its CLI queues a prompt typed while it
+    /// works. Exited, its session is resumed first; closed, it cannot be.
+    pub async fn aside_session(&self, id: u64) -> Result<()> {
+        let seen = {
+            let book = self.asides();
+            let line = book.items.iter().find(|a| a.id == id).with_context(|| tr("this proposal is gone"))?;
+            ensure!(line.state.open(), "{}", tr("this proposal was dealt with already"));
+            line.seen.clone()
+        };
+        let agent = {
+            let snap = self.inner.hub.subscribe();
+            let agents = &snap.borrow().agents;
+            seen.iter().rev().filter_map(|s| s.agent.as_deref()).find_map(|id| agents.iter().find(|a| a.id == id && a.state != state::AgentState::Gone).map(|a| a.id.clone()))
+        };
+        let agent = agent.context(tr("its agent is closed: launch it instead"))?;
+        self.to_session(id, &agent).await
+    }
+
+    /// A subject the user notes from an agent's Chat: a line of its own, in passing, sent to that
+    /// agent's session as the ones it flags are. Its id.
+    pub async fn aside_note(&self, agent: &str, text: &str) -> Result<u64> {
+        ensure!(self.aside_settings().enabled, "{}", tr("[agents.aside] enabled is off"));
+        let text = text.trim();
+        ensure!(!text.is_empty(), "{}", tr("nothing to note"));
+        let a = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id == agent && a.state != state::AgentState::Gone).cloned().with_context(|| tr("this agent is closed"))?;
+        let dir = a.worktree.clone().unwrap_or_else(|| a.cwd.clone());
+        let repo = self.repo_of_dir(&dir);
+        let first = text.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or(text);
+        let title = cut(&first.split_whitespace().collect::<Vec<_>>().join(" "), TITLE_CHARS);
+        let seen = AsideSeen { agent: None, session: None, call: None, name: tr("you").to_string(), cli: "user".into(), branch: a.branch.clone(), cwd: Some(dir), effort: None, tldr: String::new(), at: Utc::now() };
+        let id = {
+            let mut book = self.asides();
+            book.next += 1;
+            let id = book.next;
+            book.items.push(Aside {
+                id,
+                repo,
+                title,
+                tldr: if text.lines().filter(|l| !l.trim().is_empty()).count() > 1 { cut(text, 600) } else { String::new() },
+                prompt: cut(text, PROMPT_CHARS),
+                files: Vec::new(),
+                kind: None,
+                needs_current_branch: false,
+                seen: vec![seen],
+                state: AsideState::Open,
+                at: Utc::now(),
+                changed_at: None,
+                agent: None,
+                agent_title: None,
+                from_branch: None,
+                ticket: None,
+                dismissed_by: None,
+                why: None,
+                files_changed: false,
+            });
+            self.publish_asides(&book);
+            id
+        };
+        self.to_session(id, agent).await?;
+        Ok(id)
+    }
+
+    /// Line `id` given to `agent`'s session: marked first (a second click finds it dealt with),
+    /// back as it was if it could not be sent.
+    async fn to_session(&self, id: u64, agent: &str) -> Result<()> {
+        let title = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id == agent).map(|a| a.title.clone());
+        let (line, before) = {
+            let mut book = self.asides();
+            let line = book.items.iter_mut().find(|a| a.id == id).with_context(|| tr("this proposal is gone"))?;
+            ensure!(line.state.open(), "{}", tr("this proposal was dealt with already"));
+            let before = line.state;
+            line.state = AsideState::Session;
+            (line.agent, line.agent_title) = (Some(agent.to_string()), title);
+            line.changed_at = Some(Utc::now());
+            let out = line.clone();
+            self.publish_asides(&book);
+            (out, before)
+        };
+        if let Err(e) = self.deliver(agent, &session_prompt(&line)).await {
+            let mut book = self.asides();
+            if let Some(line) = book.items.iter_mut().find(|a| a.id == id && a.state == AsideState::Session) {
+                line.state = before;
+                (line.agent, line.agent_title) = (None, None);
+            }
+            self.publish_asides(&book);
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    /// `text` to agent `id`: through its inbox, its session resumed first if its CLI exited.
+    async fn deliver(&self, id: &str, text: &str) -> Result<()> {
+        let exited = self.inner.hub.subscribe().borrow().agents.iter().any(|a| a.id == id && a.state == state::AgentState::Exited);
+        if exited {
+            self.resume(id).await?;
+            // Its CLI at its prompt again: a prompt typed while it starts could be lost.
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            let mut rx = self.inner.hub.subscribe();
+            let back = tokio::time::timeout(std::time::Duration::from_secs(90), rx.wait_for(|s| s.agents.iter().any(|a| a.id == id && chains::ready(a)))).await;
+            ensure!(matches!(back, Ok(Ok(_))), "{}", tr("its session did not come back"));
+        }
+        self.send(id, text).await?;
+        Ok(())
+    }
+
+    /// An agent's `done_task`: the proposal it was given in its session (or one it saw and did
+    /// all the same), done.
+    pub fn done_by_agent(&self, agent: Option<&str>, id: u64, summary: Option<String>) -> Result<Value> {
+        let mut book = self.asides();
+        let line = book.items.iter_mut().find(|a| a.id == id).with_context(|| format!("no task {id}"))?;
+        if line.state == AsideState::Done {
+            return Ok(json!({ "task_id": id, "status": "done" }));
+        }
+        let given = line.state == AsideState::Session && agent.is_some() && line.agent.as_deref() == agent;
+        let saw = line.state.open() && agent.is_some() && line.seen.iter().any(|s| s.agent.as_deref() == agent);
+        ensure!(given || saw, "task {id} was not given to you");
+        line.state = AsideState::Done;
+        line.agent = agent.map(String::from);
+        line.why = summary.map(|w| cut(&w, 300)).filter(|w| !w.is_empty());
+        line.changed_at = Some(Utc::now());
+        self.publish_asides(&book);
+        Ok(json!({ "task_id": id, "status": "done" }))
     }
 
     /// The launch of a proposal: its prompt, headed by where it comes from; a new worktree (from
@@ -669,6 +797,8 @@ fn already(state: AsideState) -> &'static str {
         AsideState::Then => "chained",
         AsideState::Ticket => "ticket",
         AsideState::Dismissed => "dismissed",
+        AsideState::Session => "in_session",
+        AsideState::Done => "done",
         AsideState::Open | AsideState::Later => "open",
     }
 }
@@ -682,8 +812,18 @@ fn already_note(a: &Aside) -> String {
             Some(w) => format!("dismissed ({w}): do not propose it again"),
             None => "dismissed: do not propose it again".into(),
         },
+        AsideState::Session => format!("already being done in the session of {}: do not propose it again", a.agent_title.as_deref().unwrap_or("an agent")),
+        AsideState::Done => "already done: do not propose it again".into(),
         AsideState::Open | AsideState::Later => "open".into(),
     }
+}
+
+/// What the agent is given for a line sent to its session: done there, after its current turn.
+fn session_prompt(a: &Aside) -> String {
+    let id = a.id;
+    let by = if a.seen.iter().any(|s| s.agent.is_some()) { "You flagged it in passing (suggest_task); the user asks you to do it yourself, here" } else { "The user noted it in passing for you to do here" };
+    let files = if a.files.is_empty() { String::new() } else { format!("\n\nFiles concerned: {}", a.files.join(", ")) };
+    format!("In passing, task #{id} (\"{}\"): {by}, in this session and on this branch, once what you are doing now is done.\n\n{}{files}\n\nOnce it is done, call done_task with task_id {id} and one line on what you did.", a.title, a.prompt.trim())
 }
 
 /// An agent's id as Prism makes them: nothing that could step out of the events folder.

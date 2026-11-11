@@ -251,6 +251,10 @@ While it works, an agent often sees something worth doing that is not what you a
 
 Each line: **Launch…** opens the launcher prefilled — its prompt headed by where it comes from, a new worktree from the base or from the agent's branch (chosen on the card; the agent's branch first when the task depends on its changes), its agent's CLI and effort, its kind — and Enter launches it. **After this agent** adds it to that agent's chain: launched once it is done. **Ticket** creates it in the tracker, its tldr, who spotted it and its prompt as its description. **Later** keeps it without a badge; **✕** dismisses it, the reason going back to the agent.
 
+**In this session** (the main button while the agent that saw it is there) sends it back to that agent: it does it itself, in its session and on its branch, once its current turn is over — its CLI queues a prompt typed while it works. The card reads *in its session*, then *done* when the agent says so (`done_task`), with its line on what it did; **Mark done** does it by hand. An agent that exited is resumed first (**Resume the session**); a closed one cannot take it: launch it instead.
+
+**A subject of your own**: in an agent's Chat, write it and press **⌥↵** (or the **↗** button by Send) rather than Enter. It becomes a line of the list, sent to that session the same way and followed the same.
+
 The agent learns what became of it at its next step (launched elsewhere: it leaves those files alone; dismissed: it does not propose it again), and can withdraw one itself (`dismiss_task`): struck out in its Chat. A line whose files a commit of another branch changed since says so. Open lines older than `stale_days` fold under Older; nothing is removed on its own.
 
 [Open Settings › Agents › In passing](prism:settings/aside)

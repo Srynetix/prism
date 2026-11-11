@@ -90,7 +90,7 @@ async fn connect() -> Result<Halves> {
 /// The server's state across requests.
 struct Server {
     client: std::sync::Mutex<String>,
-    /// `prism mcp aside`: the « in passing » tools only (`suggest_task`, `dismiss_task`).
+    /// `prism mcp aside`: the « in passing » tools only (`suggest_task`, `dismiss_task`, `done_task`).
     aside: bool,
     link: Mutex<Option<Arc<Link>>>,
     out: Mutex<tokio::io::Stdout>,
@@ -240,15 +240,15 @@ impl Server {
 
     async fn call(&self, name: &str, args: Value) -> Result<Value> {
         let s = |k: &str| args.get(k).and_then(Value::as_str).map(str::to_string);
-        if self.aside && !matches!(name, "suggest_task" | "dismiss_task") {
+        if self.aside && !matches!(name, "suggest_task" | "dismiss_task" | "done_task") {
             bail!("no tool {name}");
         }
         // « In passing » is for the agents Prism launches: not listed, not answered elsewhere.
-        if !self.aside && !in_agent() && matches!(name, "suggest_task" | "dismiss_task") {
+        if !self.aside && !in_agent() && matches!(name, "suggest_task" | "dismiss_task" | "done_task") {
             bail!("no tool {name}");
         }
         match name {
-            "suggest_task" | "dismiss_task" => self.live(name, args).await,
+            "suggest_task" | "dismiss_task" | "done_task" => self.live(name, args).await,
             "prism_search_docs" => {
                 let query = s("query").context("query")?;
                 let found = docs::search(&query, &self.language().await, super::schema(), 8);
@@ -303,9 +303,10 @@ fn in_agent() -> bool {
 }
 
 /// What the « in passing » tools are for, as the server's instructions.
-const ASIDE_INSTRUCTIONS: &str = "Prism shows the user what you flag with suggest_task: a task worth doing that is OUT of what you were asked (dead code, a stale doc, a missing test, a TODO you confirmed, the same bug elsewhere, a flaw seen in passing). The user launches it in another agent, chains it after you, makes it a ticket or dismisses it; you are told at your next tool call. Do not do such a task yourself, and do not mention it in your final summary instead: call suggest_task, then carry on with your own task.";
+const ASIDE_INSTRUCTIONS: &str = "Prism shows the user what you flag with suggest_task: a task worth doing that is OUT of what you were asked (dead code, a stale doc, a missing test, a TODO you confirmed, the same bug elsewhere, a flaw seen in passing). The user launches it in another agent, chains it after you, sends it back to you in this session, makes it a ticket or dismisses it; you are told at your next tool call. A task sent back to you comes as a prompt: do it then, and call done_task once it is done. Do not do such a task yourself, and do not mention it in your final summary instead: call suggest_task, then carry on with your own task.";
 
-/// `suggest_task` and `dismiss_task`, as Claude Desktop's `spawn_task` and `dismiss_task`.
+/// `suggest_task` and `dismiss_task`, as Claude Desktop's `spawn_task` and `dismiss_task`; and
+/// `done_task`, for one sent back to the agent's session.
 fn aside_tools() -> Value {
     let obj = |props: Value, required: &[&str]| json!({ "type": "object", "properties": props, "required": required });
     json!([
@@ -328,6 +329,13 @@ fn aside_tools() -> Value {
             "title": "Withdraw a task flagged in passing",
             "description": "Withdraw a task you flagged with suggest_task that is no longer worth doing: you did it after all within your task, or you were wrong.",
             "inputSchema": obj(json!({ "task_id": { "type": "integer" }, "why": { "type": "string", "description": "A few words for the user" } }), &["task_id"]),
+            "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": false }
+        },
+        {
+            "name": "done_task",
+            "title": "Mark a task in passing done",
+            "description": "Mark done a task in passing the user sent back to you in this session (its prompt names its task_id), once you have done it: Prism shows it done to the user.",
+            "inputSchema": obj(json!({ "task_id": { "type": "integer" }, "summary": { "type": "string", "description": "One line on what you did" } }), &["task_id"]),
             "annotations": { "readOnlyHint": false, "destructiveHint": false, "openWorldHint": false }
         }
     ])
@@ -403,13 +411,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_aside_mode_offers_its_two_tools_only() {
+    async fn the_aside_mode_offers_its_own_tools_only() {
         let s = Server { client: std::sync::Mutex::new("test".into()), aside: true, link: Mutex::new(None), out: Mutex::new(tokio::io::stdout()) };
         let init = s.request("initialize", json!({ "protocolVersion": "2025-06-18" })).await.ok().unwrap();
         assert!(init["instructions"].as_str().unwrap().contains("suggest_task"));
         let tools = s.request("tools/list", json!({})).await.ok().unwrap();
         let names: Vec<&str> = tools["tools"].as_array().unwrap().iter().filter_map(|t| t["name"].as_str()).collect();
-        assert_eq!(names, ["suggest_task", "dismiss_task"]);
+        assert_eq!(names, ["suggest_task", "dismiss_task", "done_task"]);
         let refused = s.request("tools/call", json!({ "name": "prism_problems" })).await.ok().unwrap();
         assert_eq!(refused["isError"], true);
     }

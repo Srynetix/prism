@@ -13,7 +13,8 @@
   import DictationBar from './chat/DictationBar.svelte'
   import { filesOfAgent } from '../dictation.svelte'
   import { sendPrompt } from '../agent-inbox.svelte'
-  import { allowAgent, attachToDraft, filesOf, stopAgent } from '../agents.svelte'
+  import { agentsSettings, allowAgent, attachToDraft, filesOf, stopAgent } from '../agents.svelte'
+  import { asideNote } from '../asides.svelte'
   import { cliOf, nameOf } from '../agent-cli'
   import { suggestionOf } from '../quick-answers'
   import { draftOf, pendingOf, setDraft, setPending } from '../chat-drafts.svelte'
@@ -26,7 +27,9 @@
    * The text goes through the inbox, as a quick answer: at once, even while it works or once
    * interrupted (its CLI reads it when its turn is over); held only while a menu of its waits. Enter sends, ⇧Enter adds a line, `/` offers its CLI's commands, Tab takes the
    * prompt it suggests (the box's ghost text); images attached (the button, or pasted) go with the
-   * words as their `@path`, shown over the box. Its menus and its permissions' other choices stay
+   * words as their `@path`, shown over the box. ⌥Enter (or the « In passing » button) notes the
+   * text as a subject in passing instead: a line of its own in the list, sent to this session to be
+   * done after the current turn, followed as the ones it flags. Its menus and its permissions' other choices stay
    * the terminal's.
    * One dock under the conversation: what it does (ChatView's line), its permission as a card,
    * the box with its quick answers while it waits for you, then its context, its usage and Stop.
@@ -75,11 +78,34 @@
       busy = false
     }
   }
+  /** « In passing » is on: the box can note a subject for this session. */
+  const asides = $derived(agentsSettings().aside.enabled !== false)
+  /** The text as a subject in passing: a line in the list, sent to this session after its turn. */
+  async function aside() {
+    const typed = text.trim()
+    if (!typed || busy || !running || !asides) return
+    busy = true
+    note = null
+    setDraft(agent.id, '')
+    try {
+      await asideNote(agent.id, typed)
+      note = { ok: true, text: t('Noted in passing: done after its turn') }
+      setTimeout(() => note?.ok && (note = null), 4000)
+    } catch (e) {
+      if (!draftOf(agent.id)) setDraft(agent.id, typed)
+      note = { ok: false, text: t('Not noted: {error}', { error: String(e) }) }
+    } finally {
+      busy = false
+    }
+  }
   function onkeydown(e: KeyboardEvent) {
     if (slash?.keydown(e)) return
     if (e.key === 'Tab' && !e.shiftKey && !text && suggested) {
       e.preventDefault()
       write(suggested)
+    } else if (e.key === 'Enter' && e.altKey && !e.shiftKey && !e.isComposing) {
+      e.preventDefault()
+      void aside()
     } else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault()
       void send()
@@ -130,7 +156,8 @@
         <DictateButton key="chat:{agent.id}" field={() => field} text={() => text} {write} {hints} disabled={!running} />
         <QuickAnswers {agent} />
         <span class="grow"></span>
-        <span class="hint">{t('⇧↵ a line · / its commands')}</span>
+        <span class="hint">{asides ? t('⇧↵ a line · ⌥↵ in passing · / its commands') : t('⇧↵ a line · / its commands')}</span>
+        {#if asides}<button type="button" class="pass" disabled={busy || !running || !text.trim()} onclick={() => void aside()} aria-label={t('In passing')} title={t('In passing: a subject of its own, done in this session once its current turn is over, followed in the « In passing » list (⌥Enter)')}><Icon name="aside" /></button>{/if}
         <button type="submit" class="send" disabled={busy || !running || !text.trim()} aria-label={t('Send')} title={t('Sent at once, even while it works: it reads it once its turn is over (Enter)')}><Icon name="send" /></button>
       </div>
     </form>
@@ -165,6 +192,8 @@
   .hint { flex: none; font-size: var(--fs-tag); color: var(--text-muted); }
   .send { flex: none; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: none; border-radius: 50%; background: var(--accent); color: var(--on-accent); cursor: pointer; }
   .send:disabled { opacity: 0.35; cursor: default; }
+  .pass { flex: none; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: none; color: var(--info); cursor: pointer; }
+  .pass:disabled { opacity: 0.35; cursor: default; }
   .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-height: 22px; font-size: var(--fs-tag); color: var(--text-muted); }
   /* The Agents view's button style does not reach here: these are framed, with a pointer, to read as buttons. */
   .btn { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 1px solid color-mix(in srgb, var(--text-muted) 55%, transparent); border-radius: 6px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }

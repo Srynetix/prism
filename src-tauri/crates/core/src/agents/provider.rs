@@ -348,7 +348,7 @@ impl Provider {
         }
         // Its tools as named by `--mcp-config`, and by the plugin of the whole server (`plugin_<plugin>_<server>`).
         let s = crate::mcp::SERVER;
-        vec![format!("--allowedTools=mcp__{s}__suggest_task,mcp__{s}__dismiss_task,mcp__plugin_{s}_{s}__suggest_task,mcp__plugin_{s}_{s}__dismiss_task")]
+        vec![format!("--allowedTools=mcp__{s}__suggest_task,mcp__{s}__dismiss_task,mcp__plugin_{s}_{s}__suggest_task,mcp__plugin_{s}_{s}__dismiss_task,mcp__{s}__done_task,mcp__plugin_{s}_{s}__done_task")]
     }
 
     /// The files `mcp_args` reads, written in `work` for the executable as it is now (its path

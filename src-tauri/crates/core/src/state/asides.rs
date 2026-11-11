@@ -42,7 +42,7 @@ pub struct Aside {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub changed_at: Option<DateTime<Utc>>,
-    /// Launched: the new agent's id and title.
+    /// Launched: the new agent's id and title; in its session (`session`, `done`): the agent doing it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub agent: Option<String>,
@@ -57,7 +57,7 @@ pub struct Aside {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub ticket: Option<String>,
-    /// Dismissed: by whom (`user`, `agent`), and why.
+    /// Dismissed: by whom (`user`, `agent`), and why; done: what the agent said of it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub dismissed_by: Option<String>,
@@ -115,6 +115,11 @@ pub enum AsideState {
     Launched,
     Ticket,
     Dismissed,
+    /// Sent back to the session of the agent that saw it (or noted by the user from its Chat):
+    /// done there once its current turn is over.
+    Session,
+    /// Done in that session, as its agent said (`done_task`) or the user marked it.
+    Done,
 }
 
 impl AsideState {
@@ -132,7 +137,7 @@ mod tests {
     #[test]
     fn what_is_still_open() {
         assert!(AsideState::Open.open() && AsideState::Later.open());
-        for done in [AsideState::Launched, AsideState::Ticket, AsideState::Dismissed, AsideState::Then] {
+        for done in [AsideState::Launched, AsideState::Ticket, AsideState::Dismissed, AsideState::Then, AsideState::Session, AsideState::Done] {
             assert!(!done.open(), "{done:?}");
         }
     }

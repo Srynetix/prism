@@ -51,7 +51,7 @@ at: string,
  */
 changed_at?: string, 
 /**
- * Launched: the new agent's id and title.
+ * Launched: the new agent's id and title; in its session (`session`, `done`): the agent doing it.
  */
 agent?: string, agent_title?: string, 
 /**
@@ -63,7 +63,7 @@ from_branch?: boolean,
  */
 ticket?: string, 
 /**
- * Dismissed: by whom (`user`, `agent`), and why.
+ * Dismissed: by whom (`user`, `agent`), and why; done: what the agent said of it.
  */
 dismissed_by?: string, why?: string, 
 /**
