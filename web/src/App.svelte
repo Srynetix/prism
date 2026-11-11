@@ -19,6 +19,9 @@
   import { customBlock } from './blocks/custom/types'
   import { BLOCK_COMPONENTS } from './blocks/components'
   import { BLOCK_DEFS } from './blocks'
+  import { OWNER } from './blocks/runtime'
+  import ModuleBoundary from './modules/ModuleBoundary.svelte'
+  import { moduleFailure } from './modules/modules.svelte'
   import { stateOf } from './blocks/block'
   import { alertSettings, hasTickets, ticketExample } from './conventions'
   import { ruleBand } from './alert-bands'
@@ -577,6 +580,7 @@
     {:else if id === 'ci' && full!.features?.ci_health === false}<BlockOff {id} title="CI health" logo="gitlab" color="var(--src-gitlab)" section="forge" setting="[forge] ci_health" reads="ci_health" />
     {:else if id === 'ci'}<CiHealth health={full!.ci_health} error={full!.errors.ci_health} />
     {:else if isCustom(id)}<CustomBlock block={customBlock(full, id.slice('custom:'.length))} pageId={id} />
+    {:else if id in OWNER && BLOCK_DEFS.some((b) => b.id === id)}{@const Block = BLOCK_COMPONENTS[id]}{@const def = BLOCK_DEFS.find((b) => b.id === id)!}<ModuleBoundary {id} missing={id in BLOCK_COMPONENTS ? undefined : (moduleFailure(id) ?? '')}>{#if def.off && stateOf(def, full) === undefined}<BlockOff {id} {...def.off} />{:else if id in BLOCK_COMPONENTS}<Block state={stateOf(def, full) as never} error={full!.errors[def.source ?? id]} snap={full!} />{/if}</ModuleBoundary>
     {:else if id in BLOCK_COMPONENTS}{@const Block = BLOCK_COMPONENTS[id]}{@const def = BLOCK_DEFS.find((b) => b.id === id)!}{#if def.off && stateOf(def, full) === undefined}<BlockOff {id} {...def.off} />{:else}<Block state={stateOf(def, full) as never} error={full!.errors[def.source ?? id]} snap={full!} />{/if}
     {/if}
   {/snippet}

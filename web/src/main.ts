@@ -54,6 +54,8 @@ if (hasCore()) {
 }
 // The language's words before the app's modules, whose constants hold some.
 await (await import('./i18n.svelte')).loadLanguage()
+// The modules' blocks (a team's, loaded at run time), before the app's modules read the blocks.
+await (await import('./modules/modules.svelte')).loadModules()
 const { initTheme } = await import('./theme.svelte')
 initTheme()
 const { default: App } = await import('./App.svelte')

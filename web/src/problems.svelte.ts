@@ -2,6 +2,7 @@ import { invoke, isDesktop, onCommandFailed } from './bridge'
 import { pref, setPref } from './layout.svelte'
 import { packUpdates, updates } from './updates.svelte'
 import { t } from './i18n.svelte'
+import { moduleStates } from './modules/modules.svelte'
 import type { Snapshot } from './types'
 import type { CustomBlocksState } from './bindings/CustomBlocksState'
 
@@ -63,6 +64,11 @@ export function current(snap: Snapshot | null): Problem[] {
   for (const p of packUpdates.list) {
     if (p.error) out.push({ level: 'ko', where: t('pack {name}', { name: p.name }), message: t('its source does not read: {error}', { error: p.error }), count: 1, settings: 'packs' })
     else if (p.too_new) out.push({ level: 'warn', where: t('pack {name}', { name: p.name }), message: t('its source needs Prism {version}: update Prism to get it', { version: p.requires ?? '?' }), count: 1, settings: 'updates-now' })
+  }
+  // A module Prism did not load (its manifest, its contract, its Svelte, its files), or one of its blocks whose id was taken.
+  for (const m of moduleStates()) {
+    if (m.state !== 'on') out.push({ level: 'ko', where: t('module {name}', { name: m.id }), message: m.reason ?? '', count: 1, settings: 'packs' })
+    for (const block of m.clashes) out.push({ level: 'warn', where: t('module {name}', { name: m.id }), message: t('its block {block} is not shown: that id is already taken', { block }), count: 1, settings: 'packs' })
   }
   if (packUpdates.error) out.push({ level: 'warn', where: t('packs'), message: packUpdates.error, count: 1, settings: 'packs' })
   if (updates.error) out.push({ level: 'warn', where: t('updates'), message: updates.error, count: 1, settings: 'updates-now' })

@@ -265,6 +265,39 @@ runs as Prism restarts, without a question, and starts the new Prism; the agents
 `prism sessions`, which runs from a copy of `prism.exe` the installer leaves alone. A team's build (with its blocks) goes to the team's private repository, Prism alone
 (`--no-extra`) to the public one: one channel each.
 
+## Modules
+
+A **module** brings a team's blocks to Prism **at run time**, without rebuilding it: a folder of
+`modules/` next to `config.toml` (each profile its own), named after the module's id. Prism loads
+its web part when the window starts, and on the phone; a module added, replaced or removed shows
+once the window reloads (Settings › Packs › Modules › Reload the window).
+
+```text
+modules/hello/
+  module.toml        [module] id, version, contract = 1, requires; [web] dir = "web"
+  web/defs.js        its blocks' declarations and words, read first
+  web/components.js  their components (and the chunks they import)
+```
+
+- `defs.js` exports `prism` (the module contract it was built for), `svelte` (the version it was
+  compiled with: Prism refuses another minor one, Svelte's runtime not being a public API),
+  `words` (its French, under Prism's own) and `blocks()` (its `BlockDef`s). It may import
+  `@prism/sdk/words` only: it is read before anything of Prism reads the blocks.
+- `components.js` exports `components`, by block id (`<id>:status` for a status-bar item). They
+  reach Prism through `@prism/sdk` (`web/src/modules/sdk.ts`: words, the snapshot, layout,
+  Prism's actions, formats, components) and Svelte, both Prism's own instances at run time.
+- A module's block runs inside a boundary: what it throws stays in its place, with Retry, and in
+  the Problems list. A module that does not load (its manifest, its contract, its Svelte, a newer
+  Prism needed, its files) is said in Problems and Settings › Packs, as is a block whose id is
+  already taken (the core's, Prism's, or a module's before it).
+- The window reads the files through `prism-module://localhost/<id>/…` (`http://prism-module.localhost/…`
+  on Windows), the phone through `/modules/<id>/…` behind its session: a module's web folder
+  only. Another computer's window or another profile's loads no module.
+
+`examples/modules/hello` is one (`just module-example` builds it into its `dist/hello/`; copy that
+folder into `modules/`). The browser preview reads `PRISM_MODULES_DIR`:
+`PRISM_MODULES_DIR=examples/modules/hello/dist just web`.
+
 ## Blocks of another repository
 
 A team can keep its own blocks in a repository of its own, compiled into Prism when

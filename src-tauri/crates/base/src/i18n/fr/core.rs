@@ -149,4 +149,10 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{n} stale worktrees can be removed safely", "{n} worktrees périmés peuvent être supprimés sans risque"),
     ("{n} worktree whose folder is gone (prune)", "{n} worktree dont le dossier a disparu (prune)"),
     ("{n} worktrees whose folder is gone (prune)", "{n} worktrees dont le dossier a disparu (prune)"),
+    // Modules (`prism_core::modules`).
+    ("module.toml does not read: {error}", "module.toml ne se lit pas : {error}"),
+    ("its folder is {folder} but module.toml names it {id}", "son dossier est {folder} mais module.toml le nomme {id}"),
+    ("built for module contract {theirs}, this Prism gives {ours}", "construit pour le contrat de module {theirs}, ce Prism donne le {ours}"),
+    ("needs Prism {version} or later", "demande Prism {version} ou plus récent"),
+    ("no defs.js in its web folder", "pas de defs.js dans son dossier web"),
 ];

@@ -180,6 +180,26 @@ pub fn serve_agent_file(ctx: tauri::UriSchemeContext<'_, tauri::Wry>, request: t
     });
 }
 
+/// A module's web file for the `prism-module:` scheme (`prism-module://localhost/<id>/<path>`;
+/// `http://prism-module.localhost/…` on Windows): its web folder only. Never cached, so a module
+/// replaced shows on the window's next load.
+pub fn serve_module_file(_ctx: tauri::UriSchemeContext<'_, tauri::Wry>, request: tauri::http::Request<Vec<u8>>, responder: tauri::UriSchemeResponder) {
+    let path = request.uri().path().trim_start_matches('/').to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let found = path.split_once('/').ok_or_else(|| "no such file".to_string()).and_then(|(id, file)| prism_core::modules::web_file(id, file));
+        let response = match found {
+            Ok((body, mime)) => tauri::http::Response::builder()
+                .header("Content-Type", mime)
+                // The window (`tauri://localhost`) imports it as an ES module: another origin.
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Cache-Control", "no-store")
+                .body(body),
+            Err(e) => tauri::http::Response::builder().status(404).header("Content-Type", "text/plain; charset=utf-8").body(e.into_bytes()),
+        };
+        responder.respond(response.unwrap_or_else(|_| tauri::http::Response::new(Vec::new())));
+    });
+}
+
 /// SIGUSR1, caught from launch on (`catch_wake`), heard once the windows are up.
 #[cfg(unix)]
 static WAKE: std::sync::Mutex<Option<tokio::signal::unix::Signal>> = std::sync::Mutex::new(None);

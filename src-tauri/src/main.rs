@@ -96,6 +96,8 @@ fn main() {
         // An agent's pages in the Web view: `prismfile://localhost/<agent>/<path>`, only
         // inside its folder; its CSP sandboxes it (an opaque origin: no IPC).
         .register_asynchronous_uri_scheme_protocol("prismfile", app::serve_agent_file)
+        // The modules' web files (a team's blocks loaded at run time): `prism-module://localhost/<id>/<path>`.
+        .register_asynchronous_uri_scheme_protocol("prism-module", app::serve_module_file)
         // Other computers' Prism, each in a window of its own; this computer's other profiles too.
         .manage(std::sync::Arc::new(machines::Machines::default()))
         .manage(std::sync::Arc::new(profile_windows::Engines::default()))
@@ -263,6 +265,7 @@ fn export_bindings() {
     agents::slash::SlashCommand::export_all(&cfg).unwrap();
     // Settings, packs, profiles, the forge's people, labels and logs, a pod, an event.
     packs::PackInfo::export_all(&cfg).unwrap();
+    prism_core::modules::ModuleInfo::export_all(&cfg).unwrap();
     packs::PackCheck::export_all(&cfg).unwrap();
     settings::PackFile::export_all(&cfg).unwrap();
     settings::FileView::export_all(&cfg).unwrap();

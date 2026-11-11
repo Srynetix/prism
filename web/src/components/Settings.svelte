@@ -42,6 +42,7 @@
   import { FILE_MANAGER, isMac, keys } from '../platform'
   import { checkPacks, checkUpdates, installUpdate, packCheck, packUpdates, updates } from '../updates.svelte'
   import { openLink } from '../links'
+  import ModulesSettings from './settings/ModulesSettings.svelte'
 
   /**
    * Settings view: the mirror of config.toml. A tree of pages sorted by what they configure
@@ -439,6 +440,7 @@
           <button class="btn" onclick={() => checkPacks()} disabled={packUpdates.checking || !!packBusy.name} title={t('Read the packs’ sources again ([updates] packs: at launch and every 6 hours)')}>{packUpdates.checking ? t('Checking…') : t('Check now')}</button>
         </div>
       {/if}
+      <ModulesSettings />
       <div class="card">
         <div class="ch"><b>{t('Import a pack')}</b><small>{t('copied into packs/ next to config.toml, and added to packs')}</small></div>
         <div class="filerow">

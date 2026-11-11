@@ -1,0 +1,9 @@
+# An example module: one block, built apart and loaded by Prism at run time (see README.md).
+[module]
+id = "hello"
+version = "1.0.0"
+description = "An example: one block, its status-bar item, and a button that fails on purpose"
+contract = 1
+
+[web]
+dir = "web"

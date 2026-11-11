@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; media-src 'self' https: http:; frame-src https://www.youtube.com https://www.youtube-nocookie.com prismfile: http://localhost:* http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; script-src 'self' prism-module: http://prism-module.localhost; img-src 'self' data:; media-src 'self' https: http:; frame-src https://www.youtube.com https://www.youtube-nocookie.com prismfile: http://localhost:* http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {

@@ -56,6 +56,7 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
             .route("/api/tty", get(tty))
             .route("/api/download/{token}", get(crate::download::serve))
             .route("/page/{*rest}", get(crate::pages::serve))
+            .route("/modules/{*rest}", get(crate::modules::serve))
             .route("/relay/summary", get(crate::relay::own_summary))
             // A peer's window, through the hub (`relay::peer_proxy`), which checked its token.
             .route("/peer/ws", get(peer_socket))
@@ -92,6 +93,7 @@ pub fn router(inner: Shared, relayed: bool) -> Router {
         .route("/api/tty", get(tty))
         .route("/api/download/{token}", get(crate::download::serve))
         .route("/page/{*rest}", get(crate::pages::serve))
+        .route("/modules/{*rest}", get(crate::modules::serve))
         // Another Prism's window (`peers`): its token, no page nor cookie.
         .route("/peer/ws", get(peer_socket))
         .route("/peer/tty", get(peer_tty))
@@ -1444,6 +1446,11 @@ mod tests {
         let mut req = format!("ws://127.0.0.1:{port}/api/ws").into_client_request().unwrap();
         req.headers_mut().insert("origin", url.parse().unwrap());
         assert!(tokio_tungstenite::connect_async(req.clone()).await.is_err());
+        // Nor the modules (the team's code) without one.
+        for path in ["/modules/index.json", "/modules/hello/defs.js"] {
+            let modules = phone.http.get(format!("{}{path}", phone.base)).header("host", format!("localhost:{port}")).send().await.unwrap();
+            assert_eq!(modules.status(), 401, "{path}: no session");
+        }
 
         // Pairing: the desk opens it, the phone claims it and creates its passkey, the desk confirms.
         remote.pair_start().unwrap();
@@ -1465,6 +1472,13 @@ mod tests {
         let paired = phone.post("/api/pair/state", json!({ "token": token, "claim": claim["challenge"] })).await;
         assert!(paired.headers()["set-cookie"].to_str().unwrap().contains("HttpOnly"));
         phone.cookie = Some(cookie(&paired));
+
+        // With the session, the modules' list (a missing module's file is not found, not refused).
+        let modules = phone.http.get(format!("{}/modules/index.json", phone.base)).header("host", format!("localhost:{port}")).header("cookie", phone.cookie.clone().unwrap()).send().await.unwrap();
+        assert_eq!(modules.status(), 200);
+        assert!(modules.json::<Value>().await.unwrap().is_array());
+        let missing = phone.http.get(format!("{}/modules/no-such-module/defs.js", phone.base)).header("host", format!("localhost:{port}")).header("cookie", phone.cookie.clone().unwrap()).send().await.unwrap();
+        assert_eq!(missing.status(), 404);
 
         // Its socket: hello, the snapshot, a read answered, a merge refused.
         req.headers_mut().insert("cookie", phone.cookie.clone().unwrap().parse().unwrap());
