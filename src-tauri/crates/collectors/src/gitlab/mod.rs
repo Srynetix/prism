@@ -15,7 +15,7 @@ use crate::forge::cli::{Cli, Graphql};
 use crate::forge::{poll, shown};
 use crate::{
     config::GitlabConfig,
-    state::{Hub, JobLink, ManualJob, MergeRequest, MrSize, MrState, PendingJob, Pipeline, PipelineStatus, Stage},
+    state::{Hub, JobLink, ManualJob, MergeRequest, PlayedJob, MrSize, MrState, PendingJob, Pipeline, PipelineStatus, Stage},
     ticket,
 };
 

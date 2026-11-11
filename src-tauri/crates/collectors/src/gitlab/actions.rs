@@ -508,46 +508,36 @@ impl Actions {
         renovate::check(&renovate::project()?, hub, marker).await
     }
 
+    /// The project of the pipeline carrying a job Prism displays in `list`: its followed branch's
+    /// repository, or its MR's.
+    fn job_project(&self, hub: &Hub, id: u64, list: crate::forge::JobList) -> Option<String> {
+        let snap = hub.subscribe();
+        let snap = snap.borrow();
+        match snap.pipelines.iter().find(|p| list.in_pipeline(p, id)) {
+            Some(p) => p.project.clone().or_else(|| self.project().ok().map(String::from)),
+            None => snap.merge_requests.iter().find(|m| m.head_pipeline.as_ref().is_some_and(|p| list.in_pipeline(p, id))).and_then(|m| self.project_of(m.repo.as_deref()).ok().map(String::from)),
+        }
+    }
+
+    /// Runs again a manual job already run (a tag set again after a new base image). Only those
+    /// Prism displays as such are accepted.
+    pub async fn replay_job(&self, hub: &Hub, id: u64) -> Result<()> {
+        let Some(project) = self.job_project(hub, id, crate::forge::JobList::Played) else { bail!("{}", tr!("job {id} is not a job run already Prism displays", id = id)) };
+        logs::retry_job(&project, id).await?;
+        crate::forge::forget_job(hub, id, crate::forge::JobList::Played);
+        Ok(())
+    }
+
     /// Plays a manual job. Only those Prism displays as playable are accepted.
     pub async fn play_job(&self, hub: &Hub, id: u64) -> Result<()> {
-        let has = |p: &Pipeline| p.stages.iter().any(|s| s.manual_jobs.iter().any(|j| j.id == id));
-        // The project of the pipeline carrying the job: its protected branch's repository, or its MR's.
-        let found: Option<String> = {
-            let snap = hub.subscribe();
-            let snap = snap.borrow();
-            match snap.pipelines.iter().find(|p| has(p)) {
-                Some(p) => p.project.clone().or_else(|| self.project().ok().map(String::from)),
-                None => match snap.merge_requests.iter().find(|m| m.head_pipeline.as_ref().is_some_and(has)) {
-                    Some(m) => self.project_of(m.repo.as_deref()).ok().map(String::from),
-                    None => None,
-                },
-            }
-        };
-        let Some(project) = found else { bail!("{}", tr!("job {id} is not a manual job Prism displays", id = id)) };
-        let project = project.as_str();
+        let Some(project) = self.job_project(hub, id, crate::forge::JobList::Manual) else { bail!("{}", tr!("job {id} is not a manual job Prism displays", id = id)) };
         tracing::info!("gitlab: play job {id}");
         let _: serde_json::Value = glab(&[
             "api".into(), "--method".into(), "POST".into(),
-            format!("projects/{}/jobs/{id}/play", encode(project)),
+            format!("projects/{}/jobs/{id}/play", encode(&project)),
         ])
         .await?;
-        // Without waiting for the next collection: the job leaves the list of jobs to play.
-        hub.update(|s| {
-            let mut changed = false;
-            for p in s.pipelines.iter_mut().chain(s.merge_requests.iter_mut().filter_map(|m| m.head_pipeline.as_mut())) {
-                for st in p.stages.iter_mut() {
-                    let before = st.manual_jobs.len();
-                    st.manual_jobs.retain(|j| j.id != id);
-                    if st.manual_jobs.len() != before {
-                        changed = true;
-                        if st.status == PipelineStatus::Manual {
-                            st.status = PipelineStatus::Pending;
-                        }
-                    }
-                }
-            }
-            changed
-        });
+        crate::forge::forget_job(hub, id, crate::forge::JobList::Manual);
         Ok(())
     }
 }

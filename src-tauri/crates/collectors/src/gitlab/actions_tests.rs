@@ -236,3 +236,23 @@ async fn custom_emoji_are_read_on_the_project_s_group_page_by_page() {
     replay.run(actions().custom_emoji(None)).await.unwrap();
     assert_eq!(replay.calls().len(), 2);
 }
+
+/// A tag job already run, shown in its branch's pipeline: retried on GitLab, then gone from those
+/// already run at once; a job Prism does not show as such is refused before glab.
+#[tokio::test]
+async fn a_job_already_run_is_run_again() {
+    let replay = Arc::new(Replay::default());
+    let played = crate::state::PlayedJob { id: 41, name: "tag-release(api:production)".into(), url: String::new(), status: PipelineStatus::Success, finished_at: None };
+    let stage = crate::state::Stage { name: "tag".into(), played_jobs: vec![played], ..Default::default() };
+    let hub = Hub::new();
+    hub.update(|s| {
+        s.pipelines = vec![Pipeline { id: 9, target: "main".into(), stages: vec![stage], ..Default::default() }];
+        true
+    });
+    assert!(replay.run(actions().replay_job(&hub, 42)).await.is_err());
+    assert!(replay.calls().is_empty());
+    replay.on(Cli::Glab, &["projects/acme%2Fshop/jobs/41"], json!({ "id": 41, "name": "tag-release(api:production)", "status": "success", "stage": "tag", "web_url": "https://git/j/41", "pipeline": { "id": 9 } }));
+    replay.on(Cli::Glab, &["--method POST", "projects/acme%2Fshop/jobs/41/retry"], json!({ "id": 43, "name": "tag-release(api:production)", "status": "pending", "stage": "tag", "web_url": "https://git/j/43", "pipeline": { "id": 9 } }));
+    replay.run(actions().replay_job(&hub, 41)).await.unwrap();
+    assert!(hub.subscribe().borrow().pipelines[0].stages[0].played_jobs.is_empty());
+}

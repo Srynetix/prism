@@ -238,6 +238,12 @@ pub async fn play_job(state: State<'_, AppState>, id: u64) -> Cmd {
     state.forge().play_job(&state.hub, id).await.map_err(Into::into)
 }
 
+/// A manual job already run, run again (a delivery tag set again after a new base image).
+#[prism_macros::command]
+pub async fn replay_job(state: State<'_, AppState>, id: u64) -> Cmd {
+    state.forge().replay_job(&state.hub, id).await.map_err(Into::into)
+}
+
 /// Retry of a GitLab pipeline's failed or canceled jobs, requested from the window.
 #[prism_macros::command]
 pub async fn retry_pipeline(state: State<'_, AppState>, id: u64) -> Cmd {

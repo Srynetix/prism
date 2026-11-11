@@ -401,7 +401,7 @@ fn a_protected_branch_failing() {
         url: "https://p/5".into(),
         updated_at: ago(1),
         failed_jobs: ["a", "b", "c", "d"].map(String::from).to_vec(),
-        stages: vec![Stage { name: "test".into(), status: PipelineStatus::Failed, jobs: 4, finished: 4, failed: 4, failed_jobs: Vec::new(), manual_jobs: Vec::new(), started_at: None, finished_at: None }],
+        stages: vec![Stage { name: "test".into(), status: PipelineStatus::Failed, jobs: 4, finished: 4, failed: 4, failed_jobs: Vec::new(), manual_jobs: Vec::new(), played_jobs: Vec::new(), started_at: None, finished_at: None }],
     }];
     let list = run(&s);
     assert_eq!(texts(&list), ["helm · main failed at stage test: a, b, c"]);

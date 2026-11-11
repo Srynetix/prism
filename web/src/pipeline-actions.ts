@@ -21,7 +21,10 @@ export const canRunPipeline = (mr: MergeRequest) => hasCore() && mr.state === 'o
 
 export const runMrPipeline = (mr: MrRef) => invoke<void>('run_mr_pipeline', mrArgs(mr))
 
-export const playJob =(id: number) => invoke<void>('play_job', { id })
+export const playJob = (id: number) => invoke<void>('play_job', { id })
+
+/** Runs again a manual job already run (GitLab's retry, GitHub's re-run): a tag set again. */
+export const replayJob = (id: number) => invoke<void>('replay_job', { id })
 
 export const rebaseMr = (mr: MrRef) => invoke<void>('rebase_mr', mrArgs(mr))
 

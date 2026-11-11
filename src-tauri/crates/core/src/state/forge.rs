@@ -263,7 +263,7 @@ pub struct Pipeline {
     pub stages: Vec<Stage>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Stage {
     pub name: String,
@@ -275,6 +275,9 @@ pub struct Stage {
     pub failed_jobs: Vec<JobLink>,
     /// Manual jobs I can run.
     pub manual_jobs: Vec<ManualJob>,
+    /// Manual jobs already run (a tag set), which I can run again: after a new base image, the
+    /// same code rebuilt and delivered. Their latest run only.
+    pub played_jobs: Vec<PlayedJob>,
     /// First job started, and last finished once all jobs are done: enough to display
     /// the time spent in the stage (while running, the front computes it from `started_at`).
     pub started_at: Option<DateTime<Utc>>,
@@ -465,6 +468,17 @@ pub struct ManualJob {
     pub id: u64,
     pub name: String,
     pub url: String,
+}
+
+/// A manual job already run: how it ended, and when.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct PlayedJob {
+    pub id: u64,
+    pub name: String,
+    pub url: String,
+    pub status: PipelineStatus,
+    pub finished_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

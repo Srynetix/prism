@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { pipelineLabel } from './pipeline'
 import type { Pipeline, Stage } from './types'
 
-const stage = (name: string, status: Stage['status']): Stage => ({ name, status, jobs: 1, finished: 1, failed: 0, failed_jobs: [], manual_jobs: [], started_at: null, finished_at: null })
+const stage = (name: string, status: Stage['status']): Stage => ({ name, status, jobs: 1, finished: 1, failed: 0, failed_jobs: [], manual_jobs: [], played_jobs: [], started_at: null, finished_at: null })
 const pipeline = (status: Pipeline['status'], stages: Stage[]): Pipeline => ({ id: 1, repo: null, project: null, target: 'main', status, url: '', updated_at: '', failed_jobs: [], stages })
 
 describe('pipelineLabel', () => {

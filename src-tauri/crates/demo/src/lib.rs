@@ -190,9 +190,15 @@ impl Demo {
             failed: 0,
             failed_jobs: Vec::new(),
             manual_jobs: Vec::new(),
+            played_jobs: Vec::new(),
             started_at: Some(self.ago(minutes)),
             finished_at: (finished == jobs && status != "manual").then(|| self.ago(minutes.saturating_sub(4))),
         }
+    }
+
+    /// A manual job run successfully `minutes` ago.
+    fn played(&self, id: u64, name: &str, minutes: i64) -> PlayedJob {
+        PlayedJob { id, name: name.into(), url: format!("{HOST}/{PROJECT}/-/jobs/{id}"), status: PipelineStatus::Success, finished_at: Some(self.ago(minutes)) }
     }
 
     /// A pipeline with build, test and deploy stages, as far as `status` goes.
@@ -349,12 +355,15 @@ impl Demo {
                 .map(|(i, c)| ManualJob { id: 9300 + i as u64, name: format!("tag-release({c}:preprod)"), url: format!("{HOST}/{PROJECT}/-/jobs/{}", 9300 + i) })
                 .chain(std::iter::once(ManualJob { id: 9310, name: "tag-release(preprod)".into(), url: format!("{HOST}/{PROJECT}/-/jobs/9310") }))
                 .collect(),
-            ..self.stage("tag", "manual", 4, 0, 4)
+            // Tagged already (no change since): set again after a new base image.
+            played_jobs: vec![self.played(9311, "tag-release(payments-api:preprod)", 1440)],
+            ..self.stage("tag", "manual", 5, 1, 4)
         });
         let mut main = self.pipeline(9201, "main", "success", 25);
         main.stages.push(Stage {
             manual_jobs: vec![ManualJob { id: 9320, name: "tag-release(production)".into(), url: format!("{HOST}/{PROJECT}/-/jobs/9320") }],
-            ..self.stage("tag", "manual", 1, 0, 25)
+            played_jobs: vec![self.played(9321, "tag-release(payments-api:production)", 1400), self.played(9322, "tag-release(storefront-webapp:production)", 6 * 1440)],
+            ..self.stage("tag", "manual", 3, 2, 25)
         });
         // Followed too (`pipeline_branches = ["@main", "develop", "@release"]`): the integration branch.
         let develop = self.pipeline(9202, "develop", "success", 12);

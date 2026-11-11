@@ -348,6 +348,7 @@ commands! {
     forge::run_mr_pipeline: Critical [phone: state, repo: Option<String>, iid: u64],
     // Manual jobs are often deployments, which Prism cannot tell apart.
     forge::play_job: Critical [phone: state, id: u64],
+    forge::replay_job: Critical [phone: state, id: u64],
     // Typing in a terminal, running a command, ending an agent, removing a worktree.
     agents::agent_write: Critical [demo: own],
     // A phone's answer box: its passkey, as taking the terminal (the remote's server).

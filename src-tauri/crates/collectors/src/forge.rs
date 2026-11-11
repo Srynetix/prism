@@ -94,12 +94,62 @@ impl Actions {
 
         /// Plays a manual job: GitLab's, or, on GitHub, approves the deployment a job waits for.
         fn play_job(&self, hub: &Hub, id: u64) -> Result<()>;
+        /// Runs again a manual job already run (GitLab's retry, GitHub's re-run of a deployment job).
+        fn replay_job(&self, hub: &Hub, id: u64) -> Result<()>;
         fn cancel_pipeline(&self, hub: &Hub, id: u64) -> Result<()>;
         fn retry_pipeline(&self, hub: &Hub, id: u64) -> Result<()>;
         fn pipeline_jobs(&self, project: Option<&str>, pipeline: u64) -> Result<Vec<JobInfo>>;
         fn retry_job(&self, project: Option<&str>, job: u64) -> Result<JobInfo>;
         fn job_log(&self, project: Option<&str>, job: u64) -> Result<JobLog>;
     }
+}
+
+/// The list of a stage a job Prism shows is in: still to play, or run already.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum JobList {
+    Manual,
+    Played,
+}
+
+impl JobList {
+    /// `id` is in this list of the stage.
+    pub fn holds(self, st: &crate::state::Stage, id: u64) -> bool {
+        match self {
+            Self::Manual => st.manual_jobs.iter().any(|j| j.id == id),
+            Self::Played => st.played_jobs.iter().any(|j| j.id == id),
+        }
+    }
+
+    /// `id` is in this list in one of the pipeline's stages.
+    pub fn in_pipeline(self, p: &crate::state::Pipeline, id: u64) -> bool {
+        p.stages.iter().any(|st| self.holds(st, id))
+    }
+}
+
+/// A job played (or run again) leaves its list at once, without waiting for the next read; a
+/// stage left with no manual job to play is pending.
+pub fn forget_job(hub: &Hub, id: u64, list: JobList) {
+    hub.update(|s| {
+        let mut changed = false;
+        for p in s.pipelines.iter_mut().chain(s.merge_requests.iter_mut().filter_map(|m| m.head_pipeline.as_mut())) {
+            for st in p.stages.iter_mut() {
+                if !list.holds(st, id) {
+                    continue;
+                }
+                changed = true;
+                match list {
+                    JobList::Manual => {
+                        st.manual_jobs.retain(|j| j.id != id);
+                        if st.status == crate::state::PipelineStatus::Manual {
+                            st.status = crate::state::PipelineStatus::Pending;
+                        }
+                    }
+                    JobList::Played => st.played_jobs.retain(|j| j.id != id),
+                }
+            }
+        }
+        changed
+    });
 }
 
 /// Methods of `Forge`, each sent to the forge `$pick` names from its arguments.
@@ -188,10 +238,10 @@ impl Forge {
         self.of_repo(repo.as_deref())
     }
 
-    /// The forge of a manual job Prism displays: that of the MR whose pipeline carries it, if it is elsewhere.
-    fn of_job(&self, hub: &Hub, id: u64) -> &Actions {
-        let has = |p: &crate::state::Pipeline| p.stages.iter().any(|s| s.manual_jobs.iter().any(|j| j.id == id));
-        let repo = hub.subscribe().borrow().merge_requests.iter().find(|m| m.forge.is_some() && m.head_pipeline.as_ref().is_some_and(has)).and_then(|m| m.repo.clone());
+    /// The forge of a job Prism displays (to play, or run already): that of the MR whose pipeline
+    /// carries it, if it is elsewhere.
+    fn of_job(&self, hub: &Hub, id: u64, list: JobList) -> &Actions {
+        let repo = hub.subscribe().borrow().merge_requests.iter().find(|m| m.forge.is_some() && m.head_pipeline.as_ref().is_some_and(|p| list.in_pipeline(p, id))).and_then(|m| m.repo.clone());
         self.of_repo(repo.as_deref())
     }
 
@@ -221,7 +271,9 @@ impl Forge {
 
         /* ---------- Pipelines and jobs ---------- */
         /// Plays a manual job: GitLab's, or, on GitHub, approves the deployment a job waits for.
-        fn play_job(&self, hub: &Hub, id: u64) -> Result<()> => of_job(hub, id);
+        fn play_job(&self, hub: &Hub, id: u64) -> Result<()> => of_job(hub, id, JobList::Manual);
+        /// Runs again a manual job already run (a delivery tag set again after a new base image).
+        fn replay_job(&self, hub: &Hub, id: u64) -> Result<()> => of_job(hub, id, JobList::Played);
         fn cancel_pipeline(&self, hub: &Hub, id: u64) -> Result<()> => of_pipeline(hub, id);
         fn retry_pipeline(&self, hub: &Hub, id: u64) -> Result<()> => of_pipeline(hub, id);
     }
@@ -343,5 +395,27 @@ mod tests {
         assert_eq!(at("https://avatars.githubusercontent.com/u/1?v=4"), "https://avatars.githubusercontent.com/u/1?v=4&s=64");
         assert_eq!(at("https://secure.gravatar.com/avatar/ab?s=80&d=identicon"), "https://secure.gravatar.com/avatar/ab?d=identicon&s=64");
         assert_eq!(at("https://git.acme.io/uploads/-/system/user/avatar/3/a.png"), "https://git.acme.io/uploads/-/system/user/avatar/3/a.png?width=64");
+    }
+
+    /// A job run already on the head pipeline of an MR on the other forge goes to that forge; one
+    /// of a followed branch, or of an MR of this forge, to the profile's.
+    #[test]
+    fn a_job_run_already_goes_to_its_forge() {
+        use crate::state::{MergeRequest, Pipeline, PlayedJob, Stage};
+        let forge = Forge::new(Actions::Gitlab(Default::default())).with_elsewhere(Actions::Github(Default::default()), vec![("tool".into(), "me/tool".into())]);
+        let played = |id: u64| Pipeline { stages: vec![Stage { played_jobs: vec![PlayedJob { id, name: "deploy".into(), url: String::new(), status: crate::state::PipelineStatus::Success, finished_at: None }], ..Default::default() }], ..Default::default() };
+        let hub = Hub::new();
+        hub.update(|s| {
+            s.pipelines = vec![played(1)];
+            s.merge_requests = vec![
+                MergeRequest { repo: Some("tool".into()), forge: Some(Provider::Github), head_pipeline: Some(played(78)), ..Default::default() },
+                MergeRequest { head_pipeline: Some(played(5)), ..Default::default() },
+            ];
+            true
+        });
+        assert_eq!(forge.of_job(&hub, 78, JobList::Played).provider(), Provider::Github);
+        assert_eq!(forge.of_job(&hub, 1, JobList::Played).provider(), Provider::Gitlab);
+        assert_eq!(forge.of_job(&hub, 5, JobList::Played).provider(), Provider::Gitlab);
+        assert_eq!(forge.of_job(&hub, 78, JobList::Manual).provider(), Provider::Gitlab, "not a job to play");
     }
 }
