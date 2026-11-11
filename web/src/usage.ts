@@ -4,6 +4,18 @@ import { t } from './i18n.svelte'
 
 /** Plan usage (Claude Code or Command Code): computations shared by the Claude block (Usage.svelte) and the status bar. */
 
+/** A reading measured over 30 min ago (Codex dates its own, from its last request): shown as out of date. */
+const OUT_OF_DATE = 30 * 60_000
+
+/** When its reading was measured, if that is out of date: today's time, another day's with its day. */
+export function outdated(u: ClaudeUsage | null | undefined, now: number): string | null {
+  if (!u) return null
+  const at = new Date(u.fetched_at)
+  if (now - at.getTime() < OUT_OF_DATE) return null
+  const today = at.toDateString() === new Date(now).toDateString()
+  return dateFormat(today ? { hour: '2-digit', minute: '2-digit' } : { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(at)
+}
+
 /** `ko` above 90 %, `warn` above 70 %. */
 export const usageLevel = (w: UsageWindow) => (w.utilization >= 90 ? 'ko' : w.utilization >= 70 ? 'warn' : '')
 

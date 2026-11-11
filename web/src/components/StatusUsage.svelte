@@ -1,6 +1,6 @@
 <script lang="ts">
   import { anchored, dismissable, exclusive } from '../popup'
-  import { hasWindows, pace, peak, resets, sectionKey, sectionName, usageLevel, week, weekTitle, type PlanSection } from '../usage'
+  import { hasWindows, outdated, pace, peak, resets, sectionKey, sectionName, usageLevel, week, weekTitle, type PlanSection } from '../usage'
   import { cliOf } from '../agent-cli'
   import Usage from './Usage.svelte'
   import Icon from './Icon.svelte'
@@ -23,6 +23,7 @@
   const five = $derived(lead?.usage?.five_hour ?? null)
   const seven = $derived(lead?.usage?.seven_day ?? null)
   const wk = $derived(week(seven, now))
+  const old = $derived(outdated(lead?.usage, now))
   const line = (p: PlanSection) => {
     const f = p.usage?.five_hour
     const w = p.usage?.seven_day
@@ -33,6 +34,7 @@
       five && `${t('Session (5h)')}: ${Math.round(five.utilization)}%${five.resets_at ? ` · ${resets(five)}` : ''}`,
       seven && wk && `${t('Week')}: ${weekTitle(seven, wk)}`,
       lead?.error && t('Last fetch failed: {error}', { error: lead.error }),
+      !lead?.error && old && t('Out of date · measured {time}', { time: old }),
       ...rest.map((p) => `${sectionName(p, cliOf(p.provider).name)}: ${line(p)}`),
     ]
       .filter(Boolean)
@@ -42,7 +44,7 @@
 </script>
 
 {#if lead}
-  <button bind:this={button} class="sbu" class:open class:stale={!!lead.error} style:--fill={cliOf(lead.provider).color} onclick={(e) => { e.stopPropagation(); open = !open }} {title} aria-expanded={open}>
+  <button bind:this={button} class="sbu" class:open class:stale={!!lead.error || !!old} style:--fill={cliOf(lead.provider).color} onclick={(e) => { e.stopPropagation(); open = !open }} {title} aria-expanded={open}>
     <span class="g" class:fun-turn={working} aria-hidden="true"><Icon name={cliOf(lead.provider).icon} /></span>
     {#if five}
       <span class="w {usageLevel(five)}"><span class="k">5h</span><span class="bar"><i style:width="{Math.min(100, five.utilization)}%"></i></span><b>{Math.round(five.utilization)}%</b></span>

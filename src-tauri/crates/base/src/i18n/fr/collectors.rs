@@ -87,7 +87,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no line to comment on", "aucune ligne à commenter"),
     ("no merge queue label ([gitlab] merge_queue_label)", "pas de label de file de merge ([gitlab] merge_queue_label)"),
     ("no merge priority labels ([gitlab] merge_priority_prefix)", "pas de labels de priorité de merge ([gitlab] merge_priority_prefix)"),
-    ("no plan usage in Codex's last session yet", "pas encore d’utilisation du forfait dans la dernière session de Codex"),
+    ("no plan usage in Codex's recent sessions", "aucune utilisation du forfait dans les dernières sessions de Codex"),
     ("no repository for bare MR references ([forge] bare_mr_repo)", "pas de dépôt pour les références de MR sans dépôt ([forge] bare_mr_repo)"),
     ("no repository for Renovate ([renovate] repo, or a primary repository)", "pas de dépôt pour Renovate ([renovate] repo, ou un dépôt principal)"),
     ("no published image for {tags}", "aucune image publiée pour {tags}"),

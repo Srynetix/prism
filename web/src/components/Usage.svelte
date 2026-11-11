@@ -3,12 +3,13 @@
   import { locale } from '../locale'
   import type { ClaudeUsage, UsageWindow } from '../types'
   import { t } from '../i18n.svelte'
-  import { month, pace, resets, usageLevel as level, week, weekTitle, type Period } from '../usage'
+  import { month, outdated, pace, resets, usageLevel as level, week, weekTitle, type Period } from '../usage'
 
   /** Plan usage (status bar drawer): 5 h window, week, and the month for Command Code. */
   let { usage, error }: { usage: ClaudeUsage | null; error: string | undefined } = $props()
 
   const now = $derived(clock(60_000).now)
+  const old = $derived(outdated(usage, now))
 
   const label = (key: string) => (key === 'month' ? 'Month' : key.replace(/^seven_day_/, `${t('week')} · `).replace(/_/g, ' '))
   const rows = $derived(
@@ -63,6 +64,10 @@
       <span class="msg">{error ?? t('loading…')}</span>
     </div>
   {/each}
+  {#if rows.length && old && !error}
+    <!-- Measured long ago (Codex: its last request): use since, elsewhere included, not counted. -->
+    <div class="stale" title={t('Usage as of its last measurement: use since then is not counted')}>{t('Out of date · measured {time}', { time: old })}</div>
+  {/if}
   {#if rows.length && error}
     <!-- Last measurement kept on display; the endpoint refuses (429…) or fails for now. -->
     <div class="stale" title={error}>{t('Last measured {time}', { time: usage ? new Date(usage.fetched_at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) : '?' })} · {error}</div>
