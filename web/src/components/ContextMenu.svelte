@@ -64,13 +64,25 @@
     }
   })
 
+  /**
+   * The clipboard may answer late (Linux, up to its wait): its field still in the page, and no
+   * other field taken up since, or what follows is left undone.
+   */
+  function stillThere(m: Menu): boolean {
+    if (!m.field?.isConnected) return false
+    const now = document.activeElement as HTMLElement | null
+    return !now || now === m.field || now === document.body || !(isField(now) || now.isContentEditable)
+  }
   async function cut(m: Menu) {
     await writeClipboard(m.selected)
+    // Deleted only if what was copied is still what is selected: else the text stays, copied.
+    if (!stillThere(m) || selectedIn(m.field) !== m.selected) return
     m.field?.focus()
     document.execCommand('delete')
   }
   async function paste(m: Menu) {
     const text = isDesktop() ? await invoke<string>('paste_text') : await navigator.clipboard.readText()
+    if (!stillThere(m)) return
     m.field?.focus()
     // As typed: the field's undo and its `input` event.
     document.execCommand('insertText', false, text)
@@ -87,7 +99,10 @@
   /** A menu's action, once it is closed; its failure told when it says how (`failed`). */
   function run(action: () => unknown, failed?: (error: string) => string) {
     close()
-    void Promise.resolve(action()).catch((e) => failed && toast(failed(String(e)), 5000))
+    // From a `then`: an action that throws at once is caught too.
+    void Promise.resolve()
+      .then(action)
+      .catch((e) => failed && toast(failed(String(e)), 5000))
   }
   // The clipboard read or written through the core may fail (Linux: one that does not answer).
   const notCopied = (error: string) => t('Could not copy: {error}', { error })

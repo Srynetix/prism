@@ -127,6 +127,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("The {model} model is larger than expected: not kept", "Le modèle {model} est plus gros que prévu : pas gardé"),
     ("Unknown whisper model {model}", "Modèle whisper inconnu : {model}"),
     ("The clipboard did not answer within {seconds} s", "Le presse-papiers n’a pas répondu en {seconds} s"),
+    ("The clipboard is unavailable", "Le presse-papiers est indisponible"),
     ("macOS’s speech recognition: {err}", "Reconnaissance vocale de macOS : {err}"),
     ("{device}: could not start recording", "{device} : impossible de démarrer l’enregistrement"),
     ("{device}: no input format", "{device} : aucun format d’entrée"),

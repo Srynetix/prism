@@ -3,6 +3,7 @@
 
 mod app;
 mod commands;
+mod clipboard;
 mod audio;
 mod menu;
 mod feedback;
