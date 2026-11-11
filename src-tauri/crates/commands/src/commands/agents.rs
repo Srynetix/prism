@@ -689,7 +689,7 @@ pub async fn launch_tasks(state: State<'_, AppState>, cwd: Option<String>, repo:
 /// told to its agents), `launched` (`target`: the new agent), `forget` (a line dealt with).
 #[prism_macros::command]
 pub fn aside_action(state: State<'_, AppState>, id: u64, action: String, why: Option<String>, target: Option<String>) -> Cmd {
-    if !matches!(action.as_str(), "later" | "reopen" | "dismiss" | "launched" | "forget") {
+    if !matches!(action.as_str(), "later" | "reopen" | "dismiss" | "launched" | "forget" | "done") {
         return Err(format!("no action {action}").into());
     }
     state.agents.aside_action(id, &action, why, target).map_err(Into::into)
@@ -708,6 +708,20 @@ pub fn aside_launch(state: State<'_, AppState>, id: u64, from_branch: bool) -> C
 #[prism_macros::command]
 pub fn aside_then(state: State<'_, AppState>, id: u64, from_branch: bool) -> Cmd {
     state.agents.aside_then(id, from_branch).map_err(Into::into)
+}
+
+/// "In this session": the task flagged in passing sent back to the agent that saw it, done after its
+/// current turn (its session resumed first if its CLI exited).
+#[prism_macros::command]
+pub async fn aside_session(state: State<'_, AppState>, id: u64) -> Cmd {
+    state.agents.aside_session(id).await.map_err(Into::into)
+}
+
+/// A subject the user notes in passing from agent `agent`'s Chat: a line of its own, sent to its
+/// session as the ones it flags. Its id.
+#[prism_macros::command]
+pub async fn aside_note(state: State<'_, AppState>, agent: String, text: String) -> Cmd<u64> {
+    state.agents.aside_note(&agent, &text).await.map_err(Into::into)
 }
 
 /// A task flagged in passing made a ticket of the tracker: on the board of its repository (failing

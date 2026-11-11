@@ -532,5 +532,5 @@ fn answer_in(v: &Value, depth: u8) -> Option<Value> {
 /// Prism's « in passing » tools, as each CLI names them (`mcp__prism__suggest_task`,
 /// `prism__suggest_task`, `prism.suggest_task`…).
 pub(super) fn aside_tool(name: &str) -> bool {
-    name.contains("prism") && (name.ends_with("suggest_task") || name.ends_with("dismiss_task"))
+    name.contains("prism") && (name.ends_with("suggest_task") || name.ends_with("dismiss_task") || name.ends_with("done_task"))
 }

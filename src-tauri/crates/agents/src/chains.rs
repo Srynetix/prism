@@ -557,6 +557,22 @@ impl Agents {
         Ok(Sent::Sent)
     }
 
+    /// `text` out of agent `id`'s inbox if it still waits there (not typed yet): true if it did.
+    pub(crate) fn unqueue(&self, id: &str, text: &str) -> bool {
+        let mut book = self.book();
+        let Some(q) = book.inbox.get_mut(id) else { return false };
+        let before = q.len();
+        q.retain(|t| t.trim() != text.trim());
+        let gone = q.len() < before;
+        if q.is_empty() {
+            book.inbox.remove(id);
+        }
+        if gone {
+            self.publish(&book);
+        }
+        gone
+    }
+
     /// Runs the chains and the inbox as the agents change, while Prism does.
     pub async fn run_chains(self) {
         let mut rx = self.inner.hub.subscribe();

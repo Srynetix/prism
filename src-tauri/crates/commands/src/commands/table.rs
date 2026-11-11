@@ -321,6 +321,10 @@ commands! {
     agents::aside_action: Act [phone: state, id: u64, action: String, why: Option<String>, target: Option<String>; sync],
     agents::aside_then: Critical [phone: state, id: u64, from_branch: bool; sync],
     agents::aside_ticket: Act [phone: state, id: u64],
+    // Back to its agent's session: an agent's prompt run (resumed first if exited), the passkey as After this agent.
+    agents::aside_session: Critical [phone: state, id: u64],
+    // Free text sent to an agent: never from a phone (as `agent_send`).
+    agents::aside_note: Never [demo: refused],
     // Routines: a row out of "To review"; a run again, or a routine switched, launches an agent
     // on the computer (the passkey); trusting one, removing one, and the builtins' inputs: never.
     agents::routine_archive: Act [phone: state, runs: Vec<String>; sync],

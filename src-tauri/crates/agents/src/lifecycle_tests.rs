@@ -837,3 +837,73 @@ async fn another_account_of_the_same_cli_takes_its_conversation() {
     assert_eq!((leg.account.as_deref(), leg.handoff.as_str()), (Some("Claude perso"), "resume"));
     assert_eq!(b.agents.record(&id).unwrap().resumed.as_deref(), Some(id.as_str()), "what it held is counted once");
 }
+
+/// "In this session": a line sent back to the agent that saw it (its prompt typed at once: its CLI
+/// queues it), done when that agent says so; a subject the user notes, the same; a closed agent's
+/// line stays open.
+#[tokio::test]
+async fn an_aside_goes_back_to_its_session() {
+    let b = Bench::new();
+    b.agents.inner.settings.lock().unwrap().aside.enabled = true;
+    let id = b.agents.spawn(b.launch("Worker")).await.unwrap();
+    let mut a = b.shown(&id).await.unwrap();
+    a.status = SessionStatus::Running;
+    b.hub.update(|s| {
+        s.agents = vec![a.clone()];
+        true
+    });
+    let s = |title: &str| crate::asides::Suggest { title: title.into(), tldr: "t".into(), prompt: "p".into(), files: vec![format!("src/{title}.rs")], ..Default::default() };
+    let task = b.agents.suggest(Some(&id), "claude", s("Remove the dead helper")).unwrap()["task_id"].as_u64().unwrap();
+    let before = pasted(&b.tmux);
+    b.agents.aside_session(task).await.unwrap();
+    let line = b.agents.aside(task).unwrap();
+    assert_eq!((line.state, line.agent.as_deref()), (state::AsideState::Session, Some(id.as_str())));
+    assert_eq!(pasted(&b.tmux), before + 1, "typed at once, while it works");
+    assert!(b.agents.aside_session(task).await.is_err(), "dealt with already");
+    assert_eq!(b.agents.suggest(Some(&id), "claude", s("Remove the dead helper")).unwrap()["already"], "in_session");
+    assert!(b.agents.done_by_agent(Some("other"), task, None).is_err(), "not given to it");
+    b.agents.done_by_agent(Some(&id), task, Some("removed".into())).unwrap();
+    let line = b.agents.aside(task).unwrap();
+    assert_eq!((line.state, line.why.as_deref()), (state::AsideState::Done, Some("removed")));
+
+    let note = b.agents.aside_note(&id, "Rename the helper\nIts name misleads").await.unwrap();
+    let line = b.agents.aside(note).unwrap();
+    assert_eq!((line.title.as_str(), line.state, line.seen[0].cli.as_str()), ("Rename the helper", state::AsideState::Session, "user"));
+    b.agents.aside_action(note, "done", None, None).unwrap();
+    assert_eq!(b.agents.aside(note).unwrap().state, state::AsideState::Done);
+
+    // Held behind its menu: taken back, its prompt leaves the inbox and the agent hears nothing.
+    let held = b.agents.suggest(Some(&id), "claude", s("Rename the flag")).unwrap()["task_id"].as_u64().unwrap();
+    a.status = SessionStatus::WaitingTool;
+    b.hub.update(|s| {
+        s.agents = vec![a.clone()];
+        true
+    });
+    let _ = b.agents.take_news(&id);
+    b.agents.aside_session(held).await.unwrap();
+    assert_eq!(b.hub.subscribe().borrow().inbox.get(&id), Some(&1));
+    b.agents.aside_action(held, "reopen", None, None).unwrap();
+    assert!(!b.hub.subscribe().borrow().inbox.contains_key(&id), "out of the inbox");
+    assert!(b.agents.take_news(&id).is_empty(), "nothing typed: nothing to tell");
+    // Typed already: the agent is told to leave it.
+    a.status = SessionStatus::Running;
+    b.hub.update(|s| {
+        s.agents = vec![a.clone()];
+        true
+    });
+    b.agents.aside_session(held).await.unwrap();
+    b.agents.aside_action(held, "reopen", None, None).unwrap();
+    let told = b.agents.take_news(&id);
+    assert!(told.len() == 1 && told[0].contains("took it back"), "{told:?}");
+
+    // Prepared, never started: it cannot take it, the line stays open.
+    let other = b.agents.suggest(Some(&id), "claude", s("Update the stale doc")).unwrap()["task_id"].as_u64().unwrap();
+    a.state = state::AgentState::Prepared;
+    b.hub.update(|s| {
+        s.agents = vec![a.clone()];
+        true
+    });
+    assert!(b.agents.aside_session(other).await.is_err(), "not started");
+    assert!(b.agents.aside_note(&id, "Something").await.is_err());
+    assert_eq!(b.agents.aside(other).unwrap().state, state::AsideState::Open);
+}

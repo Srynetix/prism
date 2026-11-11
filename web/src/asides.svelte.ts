@@ -37,7 +37,7 @@ export const FILTERS: [AsideFilter, string][] = [
 ]
 export function inFilter(a: Aside, f: AsideFilter) {
   if (f === 'open') return isOpen(a)
-  if (f === 'launched') return a.state === 'launched' || a.state === 'then'
+  if (f === 'launched') return a.state === 'launched' || a.state === 'then' || a.state === 'session' || a.state === 'done'
   if (f === 'ticket') return a.state === 'ticket'
   return a.state === 'dismissed'
 }
@@ -100,11 +100,30 @@ export const asideDismiss = (a: Aside, why = '') => act(a.id, 'dismiss', { why: 
 export const asideForget = (a: Aside) => act(a.id, 'forget')
 /** After this agent: a "Then" step of its chain, from its branch as it is then, or the base. */
 export const asideThen = (a: Aside, fromBranch: boolean) => invoke('aside_then', { id: a.id, fromBranch })
+/** In this session: back to the agent that saw it, done once its current turn is over (resumed first if it exited). */
+export const asideSession = (a: Aside) => invoke('aside_session', { id: a.id })
+/** Done in its session, its agent not having said so. */
+export const asideDone = (a: Aside) => act(a.id, 'done')
+/** A subject of mine, noted from agent `agent`'s Chat: a line in passing, sent to its session. Its id. */
+export const asideNote = (agent: string, text: string) => invoke<number>('aside_note', { agent, text })
+/**
+ * Its session can take it (`takes_session` in the core): the agent that saw it, running, or exited
+ * or lost and resumed first; not one prepared and never started, nor Command Code (no `done_task`).
+ */
+export const sessionOf = (a: Aside, s: Snapshot | null | undefined = live.snapshot): Agent | undefined => {
+  const o = originOf(a, s)
+  return o && o.state !== 'prepared' && o.provider !== 'command-code' ? o : undefined
+}
+/** Who saw it, as shown: the user's own line in the reader's language. */
+export const seenName = (x: Aside['seen'][number]) => (x.cli === 'user' ? t('you') : x.name)
+
 /** A ticket of the tracker; its key. */
 export const asideTicket = (a: Aside) => invoke<string>('aside_ticket', { id: a.id })
 
 /** Of Prism's « in passing » tools (`ConversationTool.aside`), the one that proposes. */
 export const isSuggest = (tool: ConversationTool) => !!tool.aside && tool.tool.endsWith('suggest_task')
+/** The one that says a task sent back to its session done. */
+export const isDoneCall = (tool: ConversationTool) => !!tool.aside && tool.tool.endsWith('done_task')
 
 /** The line a `suggest_task` call made (its answer gives its `task_id`), or withdrew. */
 export function asideOfCall(tool: ConversationTool, s: Snapshot | null | undefined = live.snapshot): Aside | undefined {
@@ -112,8 +131,9 @@ export function asideOfCall(tool: ConversationTool, s: Snapshot | null | undefin
   return Number.isFinite(id) ? asidesOf(s).find((a) => a.id === id) : undefined
 }
 
-/** Its main button: `[agents.aside] default_action`, Then and Ticket only where they apply. */
-export function mainAction(a: Aside, canTicket: boolean): 'launch' | 'then' | 'ticket' {
+/** Its main button: In this session while its agent is there; else `[agents.aside] default_action`, Then and Ticket only where they apply. */
+export function mainAction(a: Aside, canTicket: boolean): 'session' | 'launch' | 'then' | 'ticket' {
+  if (sessionOf(a)) return 'session'
   const d = agentsSettings().aside.default_action ?? 'launch'
   if (d === 'then' && originOf(a) && originOf(a)!.state === 'running') return 'then'
   if (d === 'ticket' && canTicket) return 'ticket'
@@ -127,4 +147,6 @@ export const STATE_LABEL: Record<Aside['state'], string> = {
   launched: t('launched'),
   ticket: t('ticket'),
   dismissed: t('dismissed'),
+  session: t('in its session'),
+  done: t('done'),
 }

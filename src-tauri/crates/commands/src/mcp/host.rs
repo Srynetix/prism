@@ -176,7 +176,7 @@ impl Host {
         let cfg = crate::config::load(&crate::config_path()).ok();
         let str_param = |k: &str| params.get(k).and_then(Value::as_str).map(str::to_string);
         // « In passing » answers by its own switch, whatever `[mcp] enabled` says.
-        let aside = matches!(method, "suggest_task" | "dismiss_task");
+        let aside = matches!(method, "suggest_task" | "dismiss_task" | "done_task");
         if method != "hello" && !aside {
             anyhow::ensure!(cfg.as_ref().is_none_or(|c| c.mcp.enabled), "[mcp] enabled is off in this Prism");
         }
@@ -232,15 +232,17 @@ impl Host {
                 self.propose(cfg.as_ref(), client, ProposalKind::CustomBlock, Change::Block(def), str_param("why").unwrap_or_default(), test).await
             }
             "wait_proposal" => self.wait(params.get("id").and_then(Value::as_u64).context("id")?).await,
-            "suggest_task" | "dismiss_task" => {
+            "suggest_task" | "dismiss_task" | "done_task" => {
                 let (name, agent) = self.clients.lock().unwrap().iter().find(|c| c.id == client).map(|c| (c.name.clone(), c.agent.clone())).unwrap_or_else(|| ("agent".into(), None));
                 let agents = &self.state.agents;
-                let mut answer = if method == "suggest_task" {
-                    let s: prism_agents::asides::Suggest = serde_json::from_value(params).context("title, tldr and prompt (strings), files (a list of paths)")?;
-                    agents.suggest(agent.as_deref(), &name, s)?
-                } else {
-                    let id = params.get("task_id").and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.trim_start_matches('#').parse().ok()))).context("task_id")?;
-                    agents.dismiss_by_agent(agent.as_deref(), id, str_param("why"))?
+                let task_id = |p: &Value| p.get("task_id").and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.trim_start_matches('#').parse().ok()))).context("task_id");
+                let mut answer = match method {
+                    "suggest_task" => {
+                        let s: prism_agents::asides::Suggest = serde_json::from_value(params).context("title, tldr and prompt (strings), files (a list of paths)")?;
+                        agents.suggest(agent.as_deref(), &name, s)?
+                    }
+                    "done_task" => agents.done_by_agent(agent.as_deref(), task_id(&params)?, str_param("summary"))?,
+                    _ => agents.dismiss_by_agent(agent.as_deref(), task_id(&params)?, str_param("why"))?,
                 };
                 // What became of its earlier ones, if its hook has not told it yet.
                 let news = agent.as_deref().map(|a| agents.take_news(a)).unwrap_or_default();

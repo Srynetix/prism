@@ -251,6 +251,10 @@ En travaillant, un agent voit souvent quelque chose qui mériterait d’être fa
 
 Chaque ligne : **Lancer…** ouvre le lanceur pré-rempli — son prompt précédé de sa provenance, un nouveau worktree depuis la base ou depuis la branche de l’agent (choisi sur la carte ; la branche de l’agent d’abord quand la tâche dépend de ses changements), le CLI et l’effort de son agent, son type — et Entrée lance. **Après cet agent** l’ajoute à la chaîne de cet agent : lancée quand il a fini. **Ticket** la crée dans le tracker, son résumé, qui l’a repérée et son prompt en description. **Plus tard** la garde sans badge ; **✕** l’écarte, la raison revenant à l’agent.
 
+**Dans cette session** (le bouton principal tant que l’agent qui l’a vue est là) la renvoie à cet agent : il la traite lui-même, dans sa session et sur sa branche, une fois son tour en cours terminé — son CLI met en file un prompt tapé pendant qu’il travaille. La carte indique *dans sa session*, puis *terminée* quand l’agent le dit (`done_task`), avec sa ligne sur ce qu’il a fait ; **Marquer faite** le fait à la main. Un agent sorti, ou dont la session a été perdue au redémarrage de l’ordinateur, est d’abord repris (**Reprendre la session**) ; un agent préparé jamais démarré, ou sous Command Code (pas de `done_task`), ne peut pas la prendre : lancez-la plutôt. **Rouvrir** ou **Marquer faite** la reprend : son prompt quitte la file s’il y attend encore, sinon l’agent est prévenu de la laisser.
+
+**Un sujet à vous** : dans le Chat d’un agent, écrivez-le et faites **⌥↵** (ou le bouton **↗** à côté d’Envoyer) plutôt qu’Entrée. Il devient une ligne de la liste, envoyée à cette session de la même façon et suivie pareil.
+
 L’agent apprend ce qu’elle est devenue à son étape suivante (lancée ailleurs : il laisse ces fichiers ; écartée : il ne la repropose pas), et peut en retirer une lui-même (`dismiss_task`) : barrée dans son Chat. Une ligne dont un commit d’une autre branche a modifié les fichiers depuis le dit. Les lignes ouvertes plus vieilles que `stale_days` se replient sous Anciennes ; rien n’est supprimé tout seul.
 
 [Ouvrir Réglages › Agents › Au passage](prism:settings/aside)

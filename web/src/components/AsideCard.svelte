@@ -8,7 +8,7 @@
   import { openAgents } from '../agents.svelte'
   import { openTicket } from '../ticket-view.svelte'
   import { toast } from '../toast.svelte'
-  import { agentBranch, asideDismiss, asideForget, asideLater, asideReopen, asideThen, asideTicket, isOpen, launchAside, mainAction, originOf, STATE_LABEL } from '../asides.svelte'
+  import { agentBranch, asideDismiss, asideDone, asideForget, asideLater, asideReopen, asideSession, asideThen, asideTicket, isOpen, launchAside, mainAction, originOf, seenName, sessionOf, STATE_LABEL } from '../asides.svelte'
   import { ago } from '../time'
   import Icon from './Icon.svelte'
   import KindBadge from './KindBadge.svelte'
@@ -16,7 +16,8 @@
   /**
    * A task an agent flagged in passing: in its Chat where it saw it (`chat`), in the « In passing »
    * list, the block and the phone. Its title, what and why, its files, who saw it; Launch (the
-   * launcher, prefilled), from the base or its agent's branch, After this agent, Ticket, Later,
+   * launcher, prefilled), from the base or its agent's branch, In this session (its agent does it
+   * after its turn, resumed first if it exited), After this agent, Ticket, Later,
    * its prompt unfolded, Dismiss with a reason told to the agent. Never blocks: not a question.
    */
   let { a, chat = false, withdrawn = false }: { a: Aside; chat?: boolean; withdrawn?: boolean } = $props()
@@ -28,6 +29,12 @@
   const useBranch = $derived(!!branch && (fromBranch ?? a.needs_current_branch))
   const canTicket = $derived(hasCore() && offers('create') && !!live.snapshot?.sprint?.boards?.length)
   const canThen = $derived(!!origin && origin.state === 'running')
+  /** Its agent's session takes it: running (after its turn), or exited (resumed first). */
+  const session = $derived(sessionOf(a, live.snapshot))
+  const sessionLabel = $derived(session && session.state !== 'running' ? t('Resume the session') : t('In this session'))
+  const sessionTitle = $derived(session && session.state !== 'running' ? t('{agent} resumed, then given it: it does it in its session', { agent: session.title }) : t('{agent} does it in its session, once its current turn is over', { agent: session?.title ?? '' }))
+  /** Where it is done: the agent named on the line, as it is now. */
+  const doer = $derived(a.agent ? live.snapshot?.agents?.find((x) => x.id === a.agent) : undefined)
   const main = $derived(mainAction(a, canTicket))
   const desktop = $derived(a.seen.some((s) => s.cli === 'desktop'))
   const byAgent = $derived(a.state === 'dismissed' && a.dismissed_by === 'agent')
@@ -62,8 +69,9 @@
       const key = await asideTicket(a)
       toast(t('Ticket {key} created', { key }), 6000, { label: t('Open it'), run: () => openTicket(key) })
     })
+  const toSession = () => run(() => asideSession(a), t('Sent to {agent}: done after its turn', { agent: session?.title ?? '' }))
   const dismiss = () => run(() => asideDismiss(a, why)).then(() => ((dismissing = false), (why = '')))
-  const seenBy = $derived(a.seen.map((s) => s.name).filter(Boolean))
+  const seenBy = $derived(a.seen.map(seenName).filter(Boolean))
 </script>
 
 <div class="aside" class:chat class:struck={withdrawn || byAgent} class:done={!isOpen(a)}>
@@ -73,7 +81,7 @@
     {#if desktop}<span class="pill" title={t('Seen in a Claude Desktop session: its own chip stays in Desktop')}>Desktop</span>{/if}
     {#if a.files_changed}<span class="pill warn" title={t('A commit of another branch changed its files since: maybe done already')}>{t('files changed since')}</span>{/if}
     <span class="grow"></span>
-    {#if !chat && seenBy.length}<span class="by" title={a.seen.map((s) => `${s.name}: ${s.tldr}`).join('\n')}>{seenBy.length > 1 ? tn(seenBy.length, 'seen by {n} agent', 'seen by {n} agents') : t('seen by {name}', { name: seenBy[0] })}</span>{/if}
+    {#if !chat && seenBy.length}<span class="by" title={a.seen.map((s) => `${seenName(s)}${s.tldr ? `: ${s.tldr}` : ''}`).join('\n')}>{seenBy.length > 1 ? tn(seenBy.length, 'seen by {n} agent', 'seen by {n} agents') : t('seen by {name}', { name: seenBy[0] })}</span>{/if}
     <span class="age" title={new Date(a.at).toLocaleString()}>{ago(a.at)}</span>
   </div>
   <b class="title">{a.title}</b>
@@ -85,7 +93,11 @@
       {#if a.kind}<KindBadge name={a.kind} />{/if}
     </div>
   {/if}
-  {#if a.state === 'launched' && a.agent}
+  {#if a.state === 'session'}
+    <div class="out"><Icon name="next" size={11} />{t('in the session of')} <button class="lnk" onclick={() => a.agent && openAgents(a.agent)}>{doer?.title ?? a.agent_title ?? t('its agent')}</button>{t(', after its turn')}</div>
+  {:else if a.state === 'done'}
+    <div class="out"><Icon name="check" size={11} />{t('done by')} <button class="lnk" onclick={() => a.agent && openAgents(a.agent)}>{doer?.title ?? a.agent_title ?? t('its agent')}</button>{#if a.why}: {a.why}{/if}</div>
+  {:else if a.state === 'launched' && a.agent}
     <div class="out"><Icon name="next" size={11} />{t('launched in')} <button class="lnk" onclick={() => openAgents(a.agent!)}>{a.agent_title ?? t('its agent')}</button></div>
   {:else if a.state === 'then'}
     <div class="out"><Icon name="next" size={11} />{t('runs once {agent} is done, from {from}', { agent: origin?.title ?? t('its agent'), from: a.from_branch ? t('its branch') : t('the base') })}</div>
@@ -106,7 +118,10 @@
         </div>
       {:else}
         <div class="acts">
-          {#if main === 'then' && canThen}
+          {#if main === 'session' && session}
+            <button class="b pri" disabled={busy} onclick={toSession} title={sessionTitle}>{sessionLabel}</button>
+            <button class="b" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
+          {:else if main === 'then' && canThen}
             <button class="b pri" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{showPrompt ? t('Chain it after this agent') : t('After this agent')}</button>
             <button class="b" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
           {:else if main === 'ticket'}
@@ -132,9 +147,10 @@
     {:else if !chat && !withdrawn}
       <div class="acts">
         <button class="b ghost" class:on={showPrompt} onclick={() => (showPrompt = !showPrompt)} aria-pressed={showPrompt}>{t('Prompt')}</button>
-        {#if a.state === 'dismissed' || a.state === 'then'}<button class="b ghost" disabled={busy} onclick={() => run(() => asideReopen(a))} title={t('Back among the open ones')}>{t('Reopen')}</button>{/if}
+        {#if a.state === 'session'}<button class="b" disabled={busy} onclick={() => run(() => asideDone(a))} title={t('Done in its session, its agent not having said so')}>{t('Mark done')}</button>{/if}
+        {#if a.state === 'dismissed' || a.state === 'then' || a.state === 'session'}<button class="b ghost" disabled={busy} onclick={() => run(() => asideReopen(a))} title={t('Back among the open ones')}>{t('Reopen')}</button>{/if}
         <span class="grow"></span>
-        {#if a.state !== 'then'}<button class="b ghost" disabled={busy} onclick={() => run(() => asideForget(a))} title={t('Out of the list for good')}>{t('Remove')}</button>{/if}
+        {#if a.state !== 'then' && a.state !== 'session'}<button class="b ghost" disabled={busy} onclick={() => run(() => asideForget(a))} title={t('Out of the list for good')}>{t('Remove')}</button>{/if}
       </div>
     {/if}
   {/if}
@@ -148,7 +164,7 @@
   .hd { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--fs-tag); color: var(--text-muted); }
   .tag { display: inline-flex; align-items: center; gap: 3px; color: var(--info); font-weight: 600; }
   .st { padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); }
-  .st.launched, .st.then { color: var(--ok); background: var(--ok-bg); }
+  .st.launched, .st.then, .st.session, .st.done { color: var(--ok); background: var(--ok-bg); }
   .st.ticket { color: var(--info); background: var(--info-bg, color-mix(in srgb, var(--info) 12%, transparent)); }
   .pill { padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); }
   .pill.warn { color: var(--warn); background: var(--warn-bg); }

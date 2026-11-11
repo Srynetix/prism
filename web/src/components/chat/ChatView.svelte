@@ -18,7 +18,7 @@
   import { proposals as mcpProposals } from '../../mcp-view.svelte'
   import PlanCard from './PlanCard.svelte'
   import AsideCard from '../AsideCard.svelte'
-  import { asideOfCall, isSuggest } from '../../asides.svelte'
+  import { asideOfCall, isDoneCall, isSuggest } from '../../asides.svelte'
   import CommentedAnswer from './CommentedAnswer.svelte'
   import PromptImages, { type PromptImage } from './PromptImages.svelte'
   import type { PastedImages } from '../../bindings/PastedImages'
@@ -446,10 +446,11 @@
   {:else if row.entry.ask}
     <QuestionCard {id} ask={row.entry.ask} status={row.entry.state} {acts} {typing} {passkey} />
   {:else if row.entry.aside}
-    <!-- A task flagged in passing (suggest_task): its card, where the agent saw it; withdrawn (dismiss_task): struck out. -->
+    <!-- A task flagged in passing (suggest_task): its card, where the agent saw it; done in its session (done_task): one line under it, not its card again; withdrawn (dismiss_task): struck out. -->
     {@const call = row.entry}
     {@const line = asideOfCall(call)}
-    {#if line && isSuggest(call)}<AsideCard a={line} chat />
+    {#if isDoneCall(call)}<div class="note">✓ {tr('Done in passing')}: {line?.title ?? call.what ?? ''}{line?.why ? ` — ${line.why}` : ''}{call.state === 'failed' && call.output ? ` — ${call.output}` : ''}</div>
+    {:else if line && isSuggest(call)}<AsideCard a={line} chat />
     {:else if line}<AsideCard a={line} chat withdrawn />
     {:else}<div class="note">↗ {isSuggest(call) ? tr('In passing') : tr('Withdrawn')}: {call.what ?? ''}{call.state === 'failed' && call.output ? ` — ${call.output}` : ''}</div>{/if}
   {:else if row.entry.kind === 'agent'}
