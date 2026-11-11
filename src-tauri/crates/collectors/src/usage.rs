@@ -731,6 +731,8 @@ pub(super) mod codex {
     use crate::state::{ClaudeUsage, UsageWindow};
 
     const TAIL_BYTES: u64 = 256 * 1024;
+    /// Sessions tried, written last first, before giving up on one with a `token_count`.
+    const TRIED: usize = 8;
     const FIVE_HOURS: i64 = 300;
     const WEEK: i64 = 7 * 24 * 60;
 
@@ -738,8 +740,16 @@ pub(super) mod codex {
     pub async fn fetch(home: Option<PathBuf>) -> Result<(ClaudeUsage, Value)> {
         tokio::task::spawn_blocking(move || {
             let home = home.or_else(|| crate::agents::provider::Provider::Codex.home(None)).context("no home folder")?;
-            let rollout = latest_rollout(&home.join("sessions")).context("no Codex session yet")?;
-            let limits = last_limits(&rollout).context(tr("no plan usage in Codex's last session yet"))?;
+            let rollouts = rollouts(&home.join("sessions"));
+            anyhow::ensure!(!rollouts.is_empty(), "no Codex session yet");
+            // The session written last first (a resumed one keeps writing in its first day's
+            // folder), then the ones before it while it has no `token_count` yet.
+            let (rollout, limits) = rollouts
+                .iter()
+                .take(TRIED)
+                .find_map(|r| last_limits(r).map(|l| (r, l)))
+                .context(tr("no plan usage in Codex's last session yet"))?;
+            tracing::debug!("usage (Codex): read from {}", rollout.display());
             // Only what `parse` reads: percentages, windows and resets, not the plan nor the credits.
             let body = json!({ "primary": limits.get("primary"), "secondary": limits.get("secondary") });
             Ok((parse(&body), body))
@@ -768,28 +778,24 @@ pub(super) mod codex {
         usage
     }
 
-    /// The rollout written last: in the latest day's folder that has one.
-    fn latest_rollout(sessions: &Path) -> Option<PathBuf> {
-        let sorted = |dir: &Path| -> Vec<PathBuf> {
-            let mut entries: Vec<PathBuf> = std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()).collect();
-            entries.sort();
-            entries.reverse();
-            entries
-        };
-        for year in sorted(sessions).iter().filter(|p| p.is_dir()) {
-            for month in sorted(year).iter().filter(|p| p.is_dir()) {
-                for day in sorted(month).iter().filter(|p| p.is_dir()) {
-                    let latest = sorted(day)
-                        .into_iter()
-                        .filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("rollout-")) && p.extension().is_some_and(|e| e == "jsonl"))
-                        .max_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok());
-                    if latest.is_some() {
-                        return latest;
-                    }
+    /// The rollouts, written last first, whatever their day's folder: `codex resume` keeps
+    /// writing in the folder of the day the session began.
+    fn rollouts(sessions: &Path) -> Vec<PathBuf> {
+        let dirs = |dir: &Path| -> Vec<PathBuf> { std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect() };
+        let mut found: Vec<(std::time::SystemTime, PathBuf)> = Vec::new();
+        for day in dirs(sessions).iter().flat_map(|y| dirs(y)).flat_map(|m| dirs(&m)) {
+            for e in std::fs::read_dir(&day).into_iter().flatten().flatten() {
+                let p = e.path();
+                if !(p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("rollout-")) && p.extension().is_some_and(|e| e == "jsonl")) {
+                    continue;
+                }
+                if let Ok(modified) = e.metadata().and_then(|m| m.modified()) {
+                    found.push((modified, p));
                 }
             }
         }
-        None
+        found.sort_by_key(|a| std::cmp::Reverse(a.0));
+        found.into_iter().map(|(_, p)| p).collect()
     }
 
     /// The `rate_limits` of the rollout's last `token_count`, read from its end only.
@@ -821,7 +827,8 @@ pub(super) mod codex {
             let soon = Utc::now().timestamp() + 3600;
             let line = format!(r#"{{"type":"event_msg","payload":{{"type":"token_count","rate_limits":{{"primary":{{"used_percent":42.0,"window_minutes":300,"resets_at":{soon}}},"secondary":{{"used_percent":7.5,"window_minutes":10080,"resets_at":1000}},"plan_type":"plus"}}}}}}"#);
             std::fs::write(new.join("rollout-b.jsonl"), format!("{line}\n{{\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_complete\"}}}}\n")).unwrap();
-            let rollout = latest_rollout(&root).unwrap();
+            written(&old.join("rollout-a.jsonl"), 60);
+            let rollout = rollouts(&root).remove(0);
             assert!(rollout.ends_with("2026/10/14/rollout-b.jsonl"));
             let limits = last_limits(&rollout).unwrap();
             let usage = parse(&json!({ "primary": limits.get("primary"), "secondary": limits.get("secondary") }));
@@ -829,6 +836,48 @@ pub(super) mod codex {
             assert_eq!(usage.seven_day.map(|w| (w.utilization, w.resets_at)), Some((0.0, None)), "reset since: empty");
             assert!(usage.others.is_empty());
             let _ = std::fs::remove_dir_all(&root);
+        }
+
+        /// Ages a file: written `secs` ago.
+        fn written(path: &Path, secs: u64) {
+            let at = std::time::SystemTime::now() - std::time::Duration::from_secs(secs);
+            std::fs::File::options().write(true).open(path).unwrap().set_modified(at).unwrap();
+        }
+
+        #[test]
+        fn a_resumed_session_in_an_old_folder_is_read_first() {
+            let root = std::env::temp_dir().join(format!("prism-codex-resumed-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            let (old, new) = (root.join("2026/10/26"), root.join("2026/11/10"));
+            std::fs::create_dir_all(&old).unwrap();
+            std::fs::create_dir_all(&new).unwrap();
+            let limits = |used: f64| format!(r#"{{"type":"event_msg","payload":{{"type":"token_count","rate_limits":{{"primary":{{"used_percent":{used},"window_minutes":300}}}}}}}}"#);
+            std::fs::write(new.join("rollout-new.jsonl"), format!("{}\n", limits(10.0))).unwrap();
+            std::fs::write(old.join("rollout-resumed.jsonl"), format!("{}\n", limits(60.0))).unwrap();
+            std::fs::write(old.join("README"), "not a rollout").unwrap();
+            written(&new.join("rollout-new.jsonl"), 60);
+            let found = rollouts(&root);
+            assert_eq!(found.len(), 2, "rollouts only: {found:?}");
+            assert!(found[0].ends_with("2026/10/26/rollout-resumed.jsonl"), "written last first: {found:?}");
+            let _ = std::fs::remove_dir_all(&root);
+        }
+
+        #[tokio::test]
+        async fn a_session_without_token_count_falls_back_to_the_one_before() {
+            let home = std::env::temp_dir().join(format!("prism-codex-fallback-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&home);
+            let day = home.join("sessions/2026/11/11");
+            std::fs::create_dir_all(&day).unwrap();
+            let line = r#"{"type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":33.0,"window_minutes":300}}}}"#;
+            std::fs::write(day.join("rollout-before.jsonl"), format!("{line}\n")).unwrap();
+            std::fs::write(day.join("rollout-fresh.jsonl"), "{\"type\":\"session_meta\",\"payload\":{}}\n").unwrap();
+            written(&day.join("rollout-before.jsonl"), 120);
+            let (usage, _) = fetch(Some(home.clone())).await.unwrap();
+            assert_eq!(usage.five_hour.map(|w| w.utilization), Some(33.0));
+            // No `token_count` anywhere: the error says so.
+            std::fs::write(day.join("rollout-before.jsonl"), "{}\n").unwrap();
+            assert!(fetch(Some(home.clone())).await.is_err());
+            let _ = std::fs::remove_dir_all(&home);
         }
     }
 }
