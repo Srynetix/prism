@@ -202,8 +202,13 @@
 </div>
 
 <style>
+  /* The first line (l1) keeps 300px: about 220px of title beside the priority and the type icons.
+     The other columns give way before it, whole: the MR, then the next step (tiers below).
+     The tiers' thresholds are this sum: changing a width, a gap or the padding ⇒ change both.
+       full row: 18 (padding) + 4 + 150 + 108 + 250 + 4 × 10 (gaps) = 570 + 300 = 870px
+       no MR:    18 + 4 + 108 + 250 + 3 × 10 = 410 + 300 = 710px */
   .tk {
-    display: grid; grid-template-columns: 4px minmax(0, 1fr) 150px 108px 250px; gap: 0 10px; align-items: center;
+    display: grid; grid-template-columns: 4px minmax(300px, 1fr) 150px 108px 250px; gap: 0 10px; align-items: center;
     grid-template-areas: 'flag l1 mr st right' 'flag l2 mr st right';
     padding: calc(3px * var(--space)) 10px calc(3px * var(--space)) 8px; border-bottom: 1px solid var(--border); line-height: 1.35; cursor: pointer;
     --c: var(--text-muted);
@@ -268,13 +273,20 @@
   .act:hover { background: color-mix(in srgb, var(--c) 12%, var(--surface)); text-decoration: none; }
   .act.error { border-color: var(--ko); color: var(--ko); }
   .act:disabled { cursor: progress; opacity: 0.6; }
-  /* Narrow block: title and status only; the MR and the next step stay in the preview and the menu. */
-  @container tickets (max-width: 620px) {
-    .tk { grid-template-columns: 4px minmax(0, 1fr) 108px auto; grid-template-areas: 'flag l1 st right' 'flag l2 st right'; }
+  /* Under the full row: the MR goes first (it stays in the preview and the menu). */
+  @container tickets (max-width: 869px) {
+    .tk { grid-template-columns: 4px minmax(300px, 1fr) 108px 250px; grid-template-areas: 'flag l1 st right' 'flag l2 st right'; }
     .tk.deps { grid-template-areas: 'flag l1 st right' 'flag l2 st right' 'flag l3 l3 l3'; }
-    .mr, .next, .act { display: none; }
+    .mr { display: none; }
   }
-  /* On the phone: the title has the whole first line (⋯ aside); the status and fields go on the second, after the id. */
+  /* Under the row without the MR: the next step and its action go too, title and status only. */
+  @container tickets (max-width: 709px) {
+    .tk { grid-template-columns: 4px minmax(0, 1fr) 108px auto; }
+    .next, .act { display: none; }
+  }
+  /* On the phone: the title has the whole first line (⋯ aside); the status and fields go on the second, after the id.
+     No MR column there (it is in the preview), whatever the width. */
+  :global(html.remote) .mr { display: none; }
   :global(html.remote) .tk { grid-template-columns: 4px minmax(0, 1fr) auto auto; grid-template-areas: 'flag l1 l1 right' 'flag l2 st st'; }
   :global(html.remote) .tk.deps { grid-template-areas: 'flag l1 l1 right' 'flag l2 st st' 'flag l3 l3 l3'; }
   :global(html.remote) .st { flex-direction: row; align-items: center; gap: 4px; }
