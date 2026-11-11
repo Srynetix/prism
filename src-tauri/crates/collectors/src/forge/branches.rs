@@ -98,22 +98,21 @@ fn settle(r: &PipelineRepo, entries: &[Entry], default: Option<String>, mut foun
                 }
             }
             Entry::Release => {
-                for b in names.unwrap_or_default().into_iter().filter(|b| b.starts_with(&r.release_prefix)).take(PER_PATTERN) {
-                    push(&mut out.refs, b);
-                }
+                // 20 new ones: those an earlier entry already follows do not take a place.
+                let fresh: Vec<String> = names.unwrap_or_default().into_iter().filter(|b| b.starts_with(&r.release_prefix) && !out.refs.contains(b)).take(PER_PATTERN).collect();
+                out.refs.extend(fresh);
             }
             Entry::Name(n) => match names.unwrap_or_default().into_iter().find(|b| b == n) {
                 Some(b) => push(&mut out.refs, b),
                 None => out.missing.push(n.clone()),
             },
             Entry::Pattern(p) => {
-                let matching: Vec<String> = names.unwrap_or_default().into_iter().filter(|b| glob(p, b)).take(PER_PATTERN).collect();
+                let matching: Vec<String> = names.unwrap_or_default().into_iter().filter(|b| glob(p, b)).collect();
                 if matching.is_empty() {
                     out.missing.push(p.clone());
                 }
-                for b in matching {
-                    push(&mut out.refs, b);
-                }
+                let fresh: Vec<String> = matching.into_iter().filter(|b| !out.refs.contains(b)).take(PER_PATTERN).collect();
+                out.refs.extend(fresh);
             }
         }
     }
@@ -132,6 +131,13 @@ where
     let searches: Vec<Search> = entries.iter().filter_map(|e| search(r, e)).collect();
     let (default, found) = if !needs_default && searches.is_empty() { (None, Vec::new()) } else { lookup(r, needs_default, searches).await? };
     Ok(settle(r, &entries, default, found.into_iter()))
+}
+
+/// The same against a known list of branches (sorted by name) and default branch: the demo's.
+pub fn resolve_against(r: &PipelineRepo, branches: &[&str], default: &str) -> PipelineBranches {
+    let entries = entries(r);
+    let found = entries.iter().filter_map(|e| search(r, e)).map(|s| branches.iter().filter(|b| if s.exact { **b == s.prefix } else { b.starts_with(&s.prefix) }).map(|b| b.to_string()).collect()).collect::<Vec<Vec<String>>>();
+    settle(r, &entries, Some(default.to_string()), found.into_iter())
 }
 
 #[cfg(test)]
@@ -185,6 +191,16 @@ mod tests {
         // `@release` without a prefix: nothing, and not reported.
         let (got, _) = resolved(repo("main", "", &["@main", "@release"])).await;
         assert_eq!((got.refs, got.missing), (vec!["main".to_string()], vec![]));
+    }
+
+    /// A pattern's 20 places go to branches not followed yet.
+    #[tokio::test]
+    async fn the_cap_counts_new_branches() {
+        let r = repo("main", "", &["a/1*", "a/*"]);
+        let names: Vec<String> = (10..40).map(|i| format!("a/{i}")).collect();
+        let got = resolve(&r, |_, _, searches: Vec<Search>| std::future::ready(Ok((None, searches.iter().map(|s| names.iter().filter(|b| b.starts_with(&s.prefix)).cloned().collect()).collect())))).await.unwrap();
+        // 10 from `a/1*`, then 20 more from `a/*`: 30, every one of them.
+        assert_eq!(got.refs.len(), 30);
     }
 
     #[test]

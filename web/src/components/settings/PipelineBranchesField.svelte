@@ -9,7 +9,16 @@
    * and `@release` offered, and below, what the forge resolves them to, a name or a pattern it has
    * no branch for flagged. Empty: `[forge] pipeline_branches`, else the main and release ones.
    */
-  let { repo, value, fallback, onchange }: { repo: string; value: string[] | null; fallback: string[]; onchange: (v: string[] | null) => void } = $props()
+  let { repo, project, mainBranch, releasePrefix, value, fallback, onchange }: {
+    repo: string
+    project: string
+    /** As the card shows them, saved or not: empty, the project's default branch / no releases. */
+    mainBranch: string
+    releasePrefix: string
+    value: string[] | null
+    fallback: string[]
+    onchange: (v: string[] | null) => void
+  } = $props()
 
   const TOKENS = ['@main', '@release']
   const shown = $derived(value ?? [])
@@ -18,14 +27,16 @@
   let preview = $state<PipelineBranches | null>(null)
   let error = $state('')
   let loading = $state(false)
-  // Read again when the list moves, the last answer only.
+  // Read again when what it depends on changes (not when the rows are rebuilt the same), the last answer only.
+  const key = $derived(JSON.stringify([repo, project, mainBranch, releasePrefix, asked]))
   let seq = 0
   $effect(() => {
-    const branches = [...asked]
-    if (!hasCore() || !repo) return
+    const args = JSON.parse(key) as [string, string, string, string, string[]]
+    if (!hasCore() || !args[0] || !args[1]) return
+    const [repo, project, mainBranch, releasePrefix, branches] = args
     const mine = ++seq
     loading = true
-    invoke<PipelineBranches>('pipeline_branches', { repo, branches })
+    invoke<PipelineBranches>('pipeline_branches', { repo, project, mainBranch, releasePrefix, branches })
       .then((p) => {
         if (mine === seq) [preview, error] = [p, '']
       })

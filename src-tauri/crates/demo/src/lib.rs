@@ -68,6 +68,9 @@ pub fn fill(hub: &Hub, now: DateTime<Utc>) {
     }
 }
 
+/// The branches of the demo projects, sorted by name (Settings › Repositories' followed branches).
+pub const BRANCHES: &[&str] = &["develop", "env/preprod", "env/prod", "main", "release/2026.09", "release/2026.10"];
+
 /// The demo snapshot for the window's browser preview (`web/public/dev-snapshot.json`, out of
 /// git), the registered blocks' sample state included: written by the app's `dump_for_preview`.
 pub fn preview(now: DateTime<Utc>) -> serde_json::Value {

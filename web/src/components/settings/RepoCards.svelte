@@ -234,7 +234,7 @@
             <label><span>{t('Worktree base')}</span><Control kind="text" value={(r.base_branch as string | undefined) ?? null} onchange={(v) => update(r.name, { base_branch: v })} optional placeholder={worktreeBase === 'auto' ? t('auto: latest release, else main') : t('{branch} · from Worktrees', { branch: worktreeBase })} compact /></label>
           </div>
           {#if r.pipelines && project && !foreign(r)}
-            <PipelineBranchesField repo={name} value={(r.pipeline_branches as string[] | undefined) ?? null} fallback={forgePipelineBranches} onchange={(v) => update(r.name, { pipeline_branches: v })} />
+            <PipelineBranchesField repo={name} {project} mainBranch={(r.main_branch as string | undefined) ?? forgeMain} releasePrefix={(r.release_prefix as string | undefined) ?? forgeRelease} value={(r.pipeline_branches as string[] | undefined) ?? null} fallback={forgePipelineBranches} onchange={(v) => update(r.name, { pipeline_branches: v })} />
           {/if}
         </div>
 

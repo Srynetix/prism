@@ -78,7 +78,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{path} has no commit yet: commit first", "{path} n’a encore aucun commit : committez d’abord"),
     ("its folder's name cannot name a project ({name})", "le nom de son dossier ne peut pas nommer un projet ({name})"),
     ("no repository named {name}", "aucun dépôt nommé {name}"),
-    ("the repository has no project", "le dépôt n’a pas de projet"),
     ("{name} is on the forge already ({project})", "{name} est déjà sur la forge ({project})"),
     ("{name} has no local clone", "{name} n’a pas de clone local"),
     ("{namespace}: not a group or owner", "{namespace} : ni un groupe ni un owner"),

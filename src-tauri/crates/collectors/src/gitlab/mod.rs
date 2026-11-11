@@ -95,7 +95,8 @@ pub async fn pipeline_branches(r: &crate::config::PipelineRepo) -> Result<crate:
 }
 
 /// The project's default branch (when `default`), and each search's branches, all at once: those
-/// starting with it (`^`, sorted by name, so a name comes before the longer ones it begins).
+/// starting with it (`^`, sorted by name, so a name comes before the longer ones it begins). A
+/// prefix with more than a page of branches reads its next pages (10 at most).
 async fn lookup_branches(r: &crate::config::PipelineRepo, default: bool, searches: Vec<crate::forge::branches::Search>) -> Result<(Option<String>, Vec<Vec<String>>)> {
     #[derive(Deserialize)]
     struct Branch {
@@ -105,6 +106,8 @@ async fn lookup_branches(r: &crate::config::PipelineRepo, default: bool, searche
     struct Project {
         default_branch: Option<String>,
     }
+    const PER_PAGE: usize = 100;
+    const PAGES: usize = 10;
     let project = encode(&r.project);
     let main = async {
         if !default {
@@ -114,24 +117,27 @@ async fn lookup_branches(r: &crate::config::PipelineRepo, default: bool, searche
         p.default_branch.context(tr("the project has no default branch")).map(Some)
     };
     let lists = futures::future::try_join_all(searches.iter().map(|s| {
-        let path = match (s.exact, s.prefix.is_empty()) {
-            (true, _) => format!("projects/{project}/repository/branches?search={}&per_page=20", encode_query(&format!("^{}", s.prefix))),
-            (false, true) => format!("projects/{project}/repository/branches?per_page=100"),
-            (false, false) => format!("projects/{project}/repository/branches?search={}&per_page=100", encode_query(&format!("^{}", s.prefix))),
-        };
-        async move { api::<Vec<Branch>>(&path).await.map(|b| b.into_iter().map(|b| b.name).collect::<Vec<_>>()) }
+        let search = if s.prefix.is_empty() { String::new() } else { format!("search={}&", crate::http::encode(&format!("^{}", s.prefix))) };
+        let base = format!("projects/{project}/repository/branches?{search}");
+        let exact = s.exact;
+        async move {
+            // A name: one page of 20 (it comes first). A prefix: every page, up to `PAGES`.
+            if exact {
+                return api::<Vec<Branch>>(&format!("{base}per_page=20")).await.map(|b| b.into_iter().map(|b| b.name).collect::<Vec<_>>());
+            }
+            let mut names = Vec::new();
+            for page in 1..=PAGES {
+                let got: Vec<Branch> = api(&format!("{base}per_page={PER_PAGE}&page={page}")).await?;
+                let full = got.len() == PER_PAGE;
+                names.extend(got.into_iter().map(|b| b.name));
+                if !full {
+                    break;
+                }
+            }
+            Ok(names)
+        }
     }));
     tokio::try_join!(main, lists)
-}
-
-/// A query parameter's value, percent-encoded (`^release/` → `%5Erelease%2F`).
-fn encode_query(v: &str) -> String {
-    v.bytes()
-        .map(|b| match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
-            _ => format!("%{b:02X}"),
-        })
-        .collect()
 }
 
 /// A repository's protected branches' latest pipelines, and its pending jobs.
