@@ -2,6 +2,7 @@
 import type { JobLink } from "./JobLink";
 import type { ManualJob } from "./ManualJob";
 import type { PipelineStatus } from "./PipelineStatus";
+import type { PlayedJob } from "./PlayedJob";
 
 export type Stage = { name: string, status: PipelineStatus, jobs: number, 
 /**
@@ -12,6 +13,11 @@ finished: number, failed: number, failed_jobs: Array<JobLink>,
  * Manual jobs I can run.
  */
 manual_jobs: Array<ManualJob>, 
+/**
+ * Manual jobs already run (a tag set), which I can run again: after a new base image, the
+ * same code rebuilt and delivered. Their latest run only.
+ */
+played_jobs: Array<PlayedJob>, 
 /**
  * First job started, and last finished once all jobs are done: enough to display
  * the time spent in the stage (while running, the front computes it from `started_at`).

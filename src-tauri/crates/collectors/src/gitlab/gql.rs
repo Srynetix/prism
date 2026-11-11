@@ -41,6 +41,20 @@ struct GqlJob {
     playable: bool,
     #[serde(default)]
     can_play_job: bool,
+    #[serde(default)]
+    manual_job: bool,
+    #[serde(default)]
+    retryable: bool,
+    #[serde(default)]
+    retried: bool,
+    user_permissions: Option<GqlJobPermissions>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GqlJobPermissions {
+    #[serde(default)]
+    update_build: bool,
 }
 
 /// `gid://gitlab/Ci::Build/123` → 123
@@ -78,6 +92,20 @@ impl From<GqlPipelineFull> for Pipeline {
                         })
                     })
                     .collect();
+                // Manual jobs already run, their latest run, that I may run again (`retry`).
+                let played_jobs: Vec<PlayedJob> = jobs
+                    .iter()
+                    .filter(|j| j.manual_job && j.retryable && !j.retried && status(j).is_finished() && j.user_permissions.as_ref().is_some_and(|p| p.update_build))
+                    .filter_map(|j| {
+                        Some(PlayedJob {
+                            id: gid(j.id.as_deref()?)?,
+                            name: j.name.clone(),
+                            url: j.web_path.as_ref().map(|w| crate::conventions::web(w)).unwrap_or_default(),
+                            status: status(j),
+                            finished_at: j.finished_at,
+                        })
+                    })
+                    .collect();
                 let finished = jobs.iter().filter(|j| status(j).is_finished()).count() as u32;
                 // Stage time: from the first job started to the last one finished; open while a job is running.
                 let started_at = jobs.iter().filter_map(|j| j.started_at).min();
@@ -91,6 +119,7 @@ impl From<GqlPipelineFull> for Pipeline {
                     failed: failed_jobs.len() as u32,
                     failed_jobs,
                     manual_jobs,
+                    played_jobs,
                     started_at,
                     finished_at,
                     name: st.name,
@@ -334,6 +363,34 @@ mod tests {
         assert!(!conflicts(true, Some("NEED_REBASE"), None), "to rebase, not in conflict");
         assert!(conflicts(true, Some("NOT_APPROVED"), None), "an earlier check may hide the conflict");
         assert!(!conflicts(false, Some("MERGEABLE"), None) && conflicts(true, None, None));
+    }
+
+    /// A tag job already run stays, to run again; one still to run, one retried since (its new run
+    /// shows instead), one I may not run again, or an automatic one, does not.
+    #[test]
+    fn manual_jobs_already_run_are_kept() {
+        let job = |id: u32, name: &str, status: &str, manual: bool, retried: bool, update: bool| serde_json::json!({
+            "id": format!("gid://gitlab/Ci::Build/{id}"), "name": name, "status": status, "allowFailure": false,
+            "startedAt": null, "finishedAt": "2026-11-08T10:00:00Z", "webPath": format!("/g/app/-/jobs/{id}"),
+            "playable": status == "MANUAL", "canPlayJob": true, "manualJob": manual, "retryable": status != "MANUAL", "retried": retried,
+            "userPermissions": { "updateBuild": update }
+        });
+        let p: GqlPipelineFull = serde_json::from_value(serde_json::json!({
+            "id": "gid://gitlab/Ci::Pipeline/9", "status": "SUCCESS", "ref": "main", "updatedAt": "2026-11-08T10:00:00Z", "path": "/g/app/-/pipelines/9",
+            "stages": { "nodes": [{ "name": "tag", "status": "success", "jobs": { "nodes": [
+                job(1, "tag(api)", "SUCCESS", true, false, true),
+                job(2, "tag(web)", "MANUAL", true, false, true),
+                job(3, "tag(old)", "SUCCESS", true, true, true),
+                job(4, "tag(ro)", "SUCCESS", true, false, false),
+                job(5, "build", "SUCCESS", false, false, true),
+                job(6, "tag(ko)", "FAILED", true, false, true)
+            ] } }] }
+        }))
+        .unwrap();
+        let stage = &Pipeline::from(p).stages[0];
+        assert_eq!(stage.manual_jobs.iter().map(|j| j.id).collect::<Vec<_>>(), [2], "still to run: as before");
+        assert_eq!(stage.played_jobs.iter().map(|j| (j.id, j.status)).collect::<Vec<_>>(), [(1, PipelineStatus::Success), (6, PipelineStatus::Failed)]);
+        assert!(stage.played_jobs[0].finished_at.is_some() && stage.played_jobs[0].url.ends_with("/g/app/-/jobs/1"));
     }
 
     #[test]

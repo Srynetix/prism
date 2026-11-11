@@ -18,7 +18,7 @@ query($owner: String!, $name: String!, $states: [PullRequestState!], $first: Int
         additions deletions changedFiles
         commits(last: 1) { nodes { commit { oid url committedDate statusCheckRollup { state
           contexts(first: 100) @include(if: $open) { nodes { __typename
-            ... on CheckRun { databaseId name status conclusion startedAt completedAt detailsUrl
+            ... on CheckRun { databaseId name status conclusion startedAt completedAt detailsUrl deployment { databaseId }
               checkSuite { workflowRun { databaseId url createdAt workflow { name } } } }
             ... on StatusContext { context state targetUrl createdAt } } } } } } }
       }

@@ -22,7 +22,7 @@ use crate::forge::cli::{Cli, Graphql};
 use crate::forge::poll;
 use crate::{
     config::{ForgeConfig, PipelineRepo},
-    state::{Hub, JobLink, ManualJob, MergeRequest, MrSize, Pipeline, PipelineStatus, Stage},
+    state::{Hub, JobLink, ManualJob, MergeRequest, MrSize, Pipeline, PipelineStatus, PlayedJob, Stage},
     ticket,
 };
 
@@ -100,6 +100,20 @@ impl Actions {
 
     pub async fn retry_job(&self, project: Option<&str>, job: u64) -> Result<crate::forge::JobInfo> {
         ci::retry_job(self.project_for(project)?, job).await
+    }
+
+    /// Runs again a job that deployed (re-run): only those Prism displays as such.
+    pub async fn replay_job(&self, hub: &Hub, id: u64) -> Result<()> {
+        let has = |p: &Pipeline| p.stages.iter().any(|s| s.played_jobs.iter().any(|j| j.id == id));
+        let pipeline = {
+            let snap = hub.subscribe();
+            let snap = snap.borrow();
+            snap.pipelines.iter().chain(snap.merge_requests.iter().filter_map(|m| m.head_pipeline.as_ref())).find(|p| has(p)).map(|p| p.id)
+        };
+        let Some(pipeline) = pipeline else { bail!("{}", tr!("job {id} is not a job run already Prism displays", id = id)) };
+        ci::retry_job(&self.pipeline_project(hub, pipeline)?, id).await?;
+        crate::forge::forget_played(hub, id);
+        Ok(())
     }
 
     /// Approves the deployment a job Prism displays is waiting for.
@@ -962,6 +976,9 @@ enum CheckContext {
         completed_at: Option<DateTime<Utc>>,
         details_url: Option<String>,
         check_suite: Option<CheckSuite>,
+        /// The deployment it ran, if any: a job of a protected environment (GitLab's manual one).
+        #[serde(default)]
+        deployment: Option<serde_json::Value>,
     },
     #[serde(rename_all = "camelCase")]
     StatusContext {
@@ -1001,6 +1018,8 @@ struct Check {
     url: String,
     started_at: Option<DateTime<Utc>>,
     finished_at: Option<DateTime<Utc>>,
+    /// It deployed to an environment: once finished, a job that can run again (re-run).
+    deployed: bool,
 }
 
 fn rollup_status(state: &str) -> PipelineStatus {
@@ -1028,7 +1047,8 @@ fn run_status(status: &str, conclusion: Option<&str>) -> PipelineStatus {
 impl From<CheckContext> for Check {
     fn from(c: CheckContext) -> Self {
         match c {
-            CheckContext::CheckRun { database_id, name, status, conclusion, started_at, completed_at, details_url, check_suite } => Check {
+            CheckContext::CheckRun { database_id, name, status, conclusion, started_at, completed_at, details_url, check_suite, deployment } => Check {
+                deployed: deployment.is_some_and(|d| !d.is_null()),
                 id: database_id,
                 stage: check_suite.and_then(|s| s.workflow_run).map(|r| r.workflow.name).unwrap_or_else(|| "checks".into()),
                 status: run_status(&status, conclusion.as_deref()),
@@ -1039,7 +1059,7 @@ impl From<CheckContext> for Check {
             },
             CheckContext::StatusContext { context, state, target_url, created_at } => {
                 let status = rollup_status(&state);
-                Check { id: None, stage: "statuses".into(), name: context, status, url: target_url.unwrap_or_default(), started_at: created_at, finished_at: created_at.filter(|_| status.is_finished()) }
+                Check { id: None, stage: "statuses".into(), name: context, status, url: target_url.unwrap_or_default(), started_at: created_at, finished_at: created_at.filter(|_| status.is_finished()), deployed: false }
             }
         }
     }
@@ -1088,6 +1108,12 @@ fn pipeline(c: GqlCommit, target: String, url: String) -> Option<Pipeline> {
                 failed_jobs,
                 // Those awaiting a deployment's approval: approving one plays it.
                 manual_jobs: jobs.iter().filter(|j| j.status == PipelineStatus::Manual).filter_map(|j| Some(ManualJob { id: j.id?, name: j.name.clone(), url: j.url.clone() })).collect(),
+                // Those that deployed and are finished: a re-run deploys the same commit again.
+                played_jobs: jobs
+                    .iter()
+                    .filter(|j| j.deployed && j.status.is_finished() && j.status != PipelineStatus::Skipped)
+                    .filter_map(|j| Some(PlayedJob { id: j.id?, name: j.name.clone(), url: j.url.clone(), status: j.status, finished_at: j.finished_at }))
+                    .collect(),
                 started_at: jobs.iter().filter_map(|j| j.started_at).min(),
                 finished_at: all_done.then(|| jobs.iter().filter_map(|j| j.finished_at).max()).flatten(),
             }
@@ -1151,6 +1177,18 @@ mod tests {
         let ci = MergeRequest::from(p).head_pipeline.unwrap();
         let stage = &ci.stages[0];
         assert_eq!((stage.status.name(), stage.manual_jobs.iter().map(|j| (j.id, j.name.as_str())).collect::<Vec<_>>()), ("manual", vec![(77, "test")]));
+    }
+
+    /// A finished job that deployed can run again; a check that deployed nothing cannot.
+    #[test]
+    fn a_finished_deployment_job_can_run_again() {
+        let p: GqlPr = serde_json::from_str(
+            &PR.replace(r#""name": "test", "status": "IN_PROGRESS", "conclusion": null, "startedAt": "2026-10-09T09:01:00Z", "completedAt": null"#, r#""databaseId": 78, "name": "test", "status": "COMPLETED", "conclusion": "SUCCESS", "startedAt": "2026-10-09T09:01:00Z", "completedAt": "2026-10-09T09:03:00Z", "deployment": { "databaseId": 5 }"#),
+        )
+        .unwrap();
+        let ci = MergeRequest::from(p).head_pipeline.unwrap();
+        let played: Vec<_> = ci.stages.iter().flat_map(|s| &s.played_jobs).map(|j| (j.id, j.name.as_str(), j.status)).collect();
+        assert_eq!(played, [(78, "test", PipelineStatus::Success)]);
     }
 
     #[test]

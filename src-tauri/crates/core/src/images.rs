@@ -32,6 +32,7 @@ pub struct ImageRef {
 }
 
 /// A repository with a local clone (`[[repos]]` with a path), as a provider may read it.
+#[derive(Debug, Clone, PartialEq)]
 pub struct LocalRepo {
     pub name: String,
     pub clone: PathBuf,

@@ -53,6 +53,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Jira's workflow does not lead {key} to \"{status}\" from where it is; it offers: {offers}", "le workflow Jira ne mène pas {key} à « {status} » depuis son état actuel ; il propose : {offers}"),
     ("job {id} is not a job awaiting approval Prism displays", "le job {id} n’est pas un job en attente d’approbation affiché par Prism"),
     ("job {id} is not a manual job Prism displays", "le job {id} n’est pas un job manuel affiché par Prism"),
+    ("job {id} is not a job run already Prism displays", "le job {id} n’est pas un job déjà joué affiché par Prism"),
     ("job {job} is not waiting for an approval ({status})", "le job {job} n’attend pas d’approbation ({status})"),
     ("job {job} is still {status}", "le job {job} est encore {status}"),
     ("job {job} is {status}: nothing to retry", "le job {job} est {status} : rien à relancer"),

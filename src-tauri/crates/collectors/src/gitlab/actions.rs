@@ -508,6 +508,27 @@ impl Actions {
         renovate::check(&renovate::project()?, hub, marker).await
     }
 
+    /// Runs again a manual job already run (a tag set again after a new base image). Only those
+    /// Prism displays as such are accepted.
+    pub async fn replay_job(&self, hub: &Hub, id: u64) -> Result<()> {
+        let has = |p: &Pipeline| p.stages.iter().any(|s| s.played_jobs.iter().any(|j| j.id == id));
+        let found: Option<String> = {
+            let snap = hub.subscribe();
+            let snap = snap.borrow();
+            match snap.pipelines.iter().find(|p| has(p)) {
+                Some(p) => p.project.clone().or_else(|| self.project().ok().map(String::from)),
+                None => match snap.merge_requests.iter().find(|m| m.head_pipeline.as_ref().is_some_and(has)) {
+                    Some(m) => self.project_of(m.repo.as_deref()).ok().map(String::from),
+                    None => None,
+                },
+            }
+        };
+        let Some(project) = found else { bail!("{}", tr!("job {id} is not a job run already Prism displays", id = id)) };
+        logs::retry_job(&project, id).await?;
+        crate::forge::forget_played(hub, id);
+        Ok(())
+    }
+
     /// Plays a manual job. Only those Prism displays as playable are accepted.
     pub async fn play_job(&self, hub: &Hub, id: u64) -> Result<()> {
         let has = |p: &Pipeline| p.stages.iter().any(|s| s.manual_jobs.iter().any(|j| j.id == id));

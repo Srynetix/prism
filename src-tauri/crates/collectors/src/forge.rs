@@ -94,12 +94,30 @@ impl Actions {
 
         /// Plays a manual job: GitLab's, or, on GitHub, approves the deployment a job waits for.
         fn play_job(&self, hub: &Hub, id: u64) -> Result<()>;
+        /// Runs again a manual job already run (GitLab's retry, GitHub's re-run of a deployment job).
+        fn replay_job(&self, hub: &Hub, id: u64) -> Result<()>;
         fn cancel_pipeline(&self, hub: &Hub, id: u64) -> Result<()>;
         fn retry_pipeline(&self, hub: &Hub, id: u64) -> Result<()>;
         fn pipeline_jobs(&self, project: Option<&str>, pipeline: u64) -> Result<Vec<JobInfo>>;
         fn retry_job(&self, project: Option<&str>, job: u64) -> Result<JobInfo>;
         fn job_log(&self, project: Option<&str>, job: u64) -> Result<JobLog>;
     }
+}
+
+/// A job run again leaves the jobs already run at once, without waiting for the next read (where
+/// it shows running).
+pub fn forget_played(hub: &Hub, id: u64) {
+    hub.update(|s| {
+        let mut changed = false;
+        for p in s.pipelines.iter_mut().chain(s.merge_requests.iter_mut().filter_map(|m| m.head_pipeline.as_mut())) {
+            for st in p.stages.iter_mut() {
+                let before = st.played_jobs.len();
+                st.played_jobs.retain(|j| j.id != id);
+                changed |= st.played_jobs.len() != before;
+            }
+        }
+        changed
+    });
 }
 
 /// Methods of `Forge`, each sent to the forge `$pick` names from its arguments.
@@ -222,6 +240,8 @@ impl Forge {
         /* ---------- Pipelines and jobs ---------- */
         /// Plays a manual job: GitLab's, or, on GitHub, approves the deployment a job waits for.
         fn play_job(&self, hub: &Hub, id: u64) -> Result<()> => of_job(hub, id);
+        /// Runs again a manual job already run: the tags of a delivery block (only the profile's forge reads those).
+        fn replay_job(&self, hub: &Hub, id: u64) -> Result<()> => main();
         fn cancel_pipeline(&self, hub: &Hub, id: u64) -> Result<()> => of_pipeline(hub, id);
         fn retry_pipeline(&self, hub: &Hub, id: u64) -> Result<()> => of_pipeline(hub, id);
     }

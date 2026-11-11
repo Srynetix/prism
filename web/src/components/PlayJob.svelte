@@ -3,17 +3,20 @@
   import { forgeName, onGithub } from '../forge'
   import { hasCore } from '../bridge'
   import Icon from './Icon.svelte'
-  import { playJob } from '../pipeline-actions'
+  import { playJob, replayJob } from '../pipeline-actions'
   import { featureOn } from '../fun.svelte'
-  import type { ManualJob } from '../types'
+  import { ago } from '../time'
+  import type { ManualJob, PlayedJob } from '../types'
 
   /**
    * Two-click manual job launch: the first arms the button for a few seconds, the
    * second sends the order to the forge (on GitHub, approving the deployment the job waits for). `risky` (production tag): on Fridays from 4 pm,
-   * Prism asks for one more click, "I like to live dangerously".
+   * Prism asks for one more click, "I like to live dangerously". A job already run (`PlayedJob`):
+   * the same clicks run it again (GitLab's retry, GitHub's re-run), its outcome and age beside it.
    */
-  let { job, label, risky = false }: { job: ManualJob; label?: string; risky?: boolean } = $props()
+  let { job, label, risky = false }: { job: ManualJob | PlayedJob; label?: string; risky?: boolean } = $props()
   const text = $derived(label ?? job.name)
+  const played = $derived('status' in job ? job : null)
 
   const ARM_MS = 3000
   let armed = $state(false)
@@ -44,18 +47,29 @@
     armed = friday = false
     busy = true
     try {
-      await playJob(job.id)
+      await (played ? replayJob(job.id) : playJob(job.id))
     } catch (err) {
       error = String(err)
     } finally {
       busy = false
     }
   }
-  /** On GitHub, a manual job is a deployment awaiting approval. */
-  const approve = onGithub()
+  /** On GitHub, a manual job is a deployment awaiting approval; one already run is run again. */
+  const approve = $derived(onGithub() && !played)
 </script>
 
-{#if hasCore()}
+{#if hasCore() && played}
+  <button
+    class="play again"
+    class:armed
+    class:friday
+    class:error={!!error}
+    disabled={busy}
+    {onclick}
+    title={error ? t('Could not run {job} again: {error}', { job: job.name, error }) : friday ? t('It’s Friday after 16:00 and the weekend on-call is you') : armed ? t('Click again to run {job} again', { job: job.name }) : t('Already run ({status}, {ago} ago): run {job} again', { job: job.name, status: played.status, ago: ago(played.finished_at) })}
+    aria-label={armed ? t('Confirm: run {job} again', { job: job.name }) : t('Run {job} again', { job: job.name })}
+  ><Icon name="refresh" />{busy ? t('starting…') : friday ? t('It’s Friday. I like to live dangerously') : armed ? t('run {job} again?', { job: text }) : text}{#if !armed && !busy && !friday}<span class="when" class:ko={played.status === 'failed'}>{played.status === 'success' ? '✓' : '✗'} {ago(played.finished_at)}</span>{/if}</button>
+{:else if hasCore()}
   <button
     class="play"
     class:armed
@@ -77,4 +91,6 @@
   .play.friday { color: var(--ko); border-color: var(--ko); background: color-mix(in srgb, var(--ko) 12%, transparent); }
   .play.error { color: var(--ko); border-color: var(--ko); }
   .play:disabled { cursor: progress; opacity: 0.7; }
+  .when { margin-left: 4px; color: var(--ok); opacity: 0.8; }
+  .when.ko { color: var(--ko); }
 </style>

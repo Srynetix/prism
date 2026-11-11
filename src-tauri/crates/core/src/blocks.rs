@@ -180,6 +180,9 @@ pub struct BlockEnv {
     pub clone: Option<std::path::PathBuf>,
     /// `[gitlab]`, the first one's project filled in.
     pub gitlab: crate::config::GitlabConfig,
+    /// Every repository with a local clone (`[[repos]] path`), whichever block reads it: those a
+    /// block's own settings name (base images, say).
+    pub clones: Vec<crate::images::LocalRepo>,
 }
 
 impl BlockEnv {
@@ -194,6 +197,7 @@ impl BlockEnv {
             clone: first.and_then(|r| r.path.clone()),
             gitlab: crate::config::GitlabConfig { project: project.unwrap_or_default(), ..cfg.gitlab.clone() },
             repos: repos.into_iter().map(|r| BlockRepo { name: r.name, project: r.project, clone: r.path }).collect(),
+            clones: cfg.repositories().into_iter().filter_map(|r| Some(crate::images::LocalRepo { clone: r.path?, name: r.name })).collect(),
         }
     }
 }
