@@ -350,6 +350,7 @@ export default {
   'Already run ({status}, {ago} ago): run {job} again': 'Déjà joué ({status}, il y a {ago}) : relancer {job}',
   'Confirm: run {job} again': 'Confirmer : relancer {job}',
   'Run {job} again': 'Relancer {job}',
+  'Already run ({status}): run {job} again': 'Déjà joué ({status}) : relancer {job}',
   'run {job} again?': 'relancer {job} ?',
   'Already run · run again': 'Déjà joués · à relancer',
   'Approve {job}': 'Approuver {job}',

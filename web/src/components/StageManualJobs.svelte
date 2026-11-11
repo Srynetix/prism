@@ -21,7 +21,7 @@
   }
 </script>
 
-<button bind:this={button} class="manual" class:open onclick={toggle} aria-expanded={open} title={t('Manual jobs of {stage}', { stage })}><Icon name="play" /> {buttonText ?? jobs.length}</button>
+<button bind:this={button} class="manual" class:open onclick={toggle} aria-expanded={open} title={t('Manual jobs of {stage}', { stage })}><Icon name="play" /> {buttonText ?? jobs.length + played.length}</button>
 {#if open}
   <!-- Fixed position: the cell or title holding the button would clip what overflows. -->
   <div class="menu" role="menu" tabindex="-1" {@attach anchored(() => button, { align: 'center' })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, resize: true })}>

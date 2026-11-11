@@ -17,6 +17,10 @@
   let { job, label, risky = false }: { job: ManualJob | PlayedJob; label?: string; risky?: boolean } = $props()
   const text = $derived(label ?? job.name)
   const played = $derived('status' in job ? job : null)
+  /** How a job already run ended, in words, and whether it went well. */
+  const ok = $derived(played?.status === 'success')
+  const outcome = $derived(!played ? '' : played.status === 'success' ? t('passed') : played.status === 'canceled' ? t('canceled') : t('failed'))
+  const when = $derived(played?.finished_at ? ago(played.finished_at) : '')
 
   const ARM_MS = 3000
   let armed = $state(false)
@@ -66,9 +70,9 @@
     class:error={!!error}
     disabled={busy}
     {onclick}
-    title={error ? t('Could not run {job} again: {error}', { job: job.name, error }) : friday ? t('It’s Friday after 16:00 and the weekend on-call is you') : armed ? t('Click again to run {job} again', { job: job.name }) : t('Already run ({status}, {ago} ago): run {job} again', { job: job.name, status: played.status, ago: ago(played.finished_at) })}
+    title={error ? t('Could not run {job} again: {error}', { job: job.name, error }) : friday ? t('It’s Friday after 16:00 and the weekend on-call is you') : armed ? t('Click again to run {job} again', { job: job.name }) : when ? t('Already run ({status}, {ago} ago): run {job} again', { job: job.name, status: outcome, ago: when }) : t('Already run ({status}): run {job} again', { job: job.name, status: outcome })}
     aria-label={armed ? t('Confirm: run {job} again', { job: job.name }) : t('Run {job} again', { job: job.name })}
-  ><Icon name="refresh" />{busy ? t('starting…') : friday ? t('It’s Friday. I like to live dangerously') : armed ? t('run {job} again?', { job: text }) : text}{#if !armed && !busy && !friday}<span class="when" class:ko={played.status === 'failed'}>{played.status === 'success' ? '✓' : '✗'} {ago(played.finished_at)}</span>{/if}</button>
+  ><Icon name="refresh" />{busy ? t('starting…') : friday ? t('It’s Friday. I like to live dangerously') : armed ? t('run {job} again?', { job: text }) : text}{#if !armed && !busy && !friday}<span class="when" class:ko={!ok}>{ok ? '✓' : '✗'}{when ? ` ${when}` : ''}</span>{/if}</button>
 {:else if hasCore()}
   <button
     class="play"

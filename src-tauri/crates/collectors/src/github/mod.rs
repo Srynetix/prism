@@ -102,30 +102,24 @@ impl Actions {
         ci::retry_job(self.project_for(project)?, job).await
     }
 
+    /// The pipeline carrying a job Prism displays in `list`.
+    fn job_pipeline(hub: &Hub, id: u64, list: crate::forge::JobList) -> Option<u64> {
+        let snap = hub.subscribe();
+        let snap = snap.borrow();
+        snap.pipelines.iter().chain(snap.merge_requests.iter().filter_map(|m| m.head_pipeline.as_ref())).find(|p| list.in_pipeline(p, id)).map(|p| p.id)
+    }
+
     /// Runs again a job that deployed (re-run): only those Prism displays as such.
     pub async fn replay_job(&self, hub: &Hub, id: u64) -> Result<()> {
-        let has = |p: &Pipeline| p.stages.iter().any(|s| s.played_jobs.iter().any(|j| j.id == id));
-        let pipeline = {
-            let snap = hub.subscribe();
-            let snap = snap.borrow();
-            snap.pipelines.iter().chain(snap.merge_requests.iter().filter_map(|m| m.head_pipeline.as_ref())).find(|p| has(p)).map(|p| p.id)
-        };
-        let Some(pipeline) = pipeline else { bail!("{}", tr!("job {id} is not a job run already Prism displays", id = id)) };
+        let Some(pipeline) = Self::job_pipeline(hub, id, crate::forge::JobList::Played) else { bail!("{}", tr!("job {id} is not a job run already Prism displays", id = id)) };
         ci::retry_job(&self.pipeline_project(hub, pipeline)?, id).await?;
-        crate::forge::forget_played(hub, id);
+        crate::forge::forget_job(hub, id, crate::forge::JobList::Played);
         Ok(())
     }
 
     /// Approves the deployment a job Prism displays is waiting for.
     pub async fn play_job(&self, hub: &Hub, id: u64) -> Result<()> {
-        let has = |p: &Pipeline| p.stages.iter().any(|s| s.manual_jobs.iter().any(|j| j.id == id));
-        let pipeline = {
-            let snap = hub.subscribe();
-            let snap = snap.borrow();
-            
-            snap.pipelines.iter().chain(snap.merge_requests.iter().filter_map(|m| m.head_pipeline.as_ref())).find(|p| has(p)).map(|p| p.id)
-        };
-        let Some(pipeline) = pipeline else { bail!("{}", tr!("job {id} is not a job awaiting approval Prism displays", id = id)) };
+        let Some(pipeline) = Self::job_pipeline(hub, id, crate::forge::JobList::Manual) else { bail!("{}", tr!("job {id} is not a job awaiting approval Prism displays", id = id)) };
         ci::approve(&self.pipeline_project(hub, pipeline)?, hub, id).await
     }
 
@@ -978,7 +972,7 @@ enum CheckContext {
         check_suite: Option<CheckSuite>,
         /// The deployment it ran, if any: a job of a protected environment (GitLab's manual one).
         #[serde(default)]
-        deployment: Option<serde_json::Value>,
+        deployment: Option<Deployment>,
     },
     #[serde(rename_all = "camelCase")]
     StatusContext {
@@ -987,6 +981,15 @@ enum CheckContext {
         target_url: Option<String>,
         created_at: Option<DateTime<Utc>>,
     },
+}
+
+/// A check run's deployment: only that there is one matters.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Deployment {
+    #[serde(default)]
+    #[allow(dead_code, reason = "read for its presence")]
+    database_id: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -1048,7 +1051,7 @@ impl From<CheckContext> for Check {
     fn from(c: CheckContext) -> Self {
         match c {
             CheckContext::CheckRun { database_id, name, status, conclusion, started_at, completed_at, details_url, check_suite, deployment } => Check {
-                deployed: deployment.is_some_and(|d| !d.is_null()),
+                deployed: deployment.is_some(),
                 id: database_id,
                 stage: check_suite.and_then(|s| s.workflow_run).map(|r| r.workflow.name).unwrap_or_else(|| "checks".into()),
                 status: run_status(&status, conclusion.as_deref()),
