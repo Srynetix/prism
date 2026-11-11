@@ -6,7 +6,6 @@ pub mod profiles;
 
 use std::sync::Arc;
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 use prism_base::tr;
 use prism_commands::commands::{refused_in_demo, Cmd, DESK};
 use tauri::{AppHandle, State};
@@ -77,20 +76,34 @@ pub async fn font_face(family: String, index: usize) -> Cmd<tauri::ipc::Response
     bytes.map(tauri::ipc::Response::new).map_err(Into::into)
 }
 
+/// How long the system clipboard may take to answer before it is reported unavailable.
+const CLIPBOARD_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Runs `f` on the system clipboard off the main thread, `wait` at most. On Linux, the main
+/// thread blocked on the clipboard cannot answer for the window when the text was copied from it
+/// (its webview): the app froze (the plugin warns of it). Past the wait, an error rather than a
+/// promise that never returns; the call left behind ends on its own, or never.
+async fn on_clipboard<T: Send + 'static, E: std::fmt::Display + Send + 'static>(wait: std::time::Duration, f: impl FnOnce() -> Result<T, E> + Send + 'static) -> Cmd<T> {
+    match tokio::time::timeout(wait, tokio::task::spawn_blocking(f)).await {
+        Ok(done) => done?.map_err(|e| e.to_string().into()),
+        Err(_) => Err(tr!("The clipboard did not answer within {seconds} s", seconds = wait.as_secs().max(1)).into()),
+    }
+}
+
 /// Copies text to the system clipboard: the selection of an agent's terminal, which tmux
 /// sends outside of any user gesture (where the webview would refuse).
 #[tauri::command]
-pub fn copy_text(app: AppHandle, text: String) -> Cmd {
+pub async fn copy_text(app: AppHandle, text: String) -> Cmd {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    app.clipboard().write_text(text).map_err(|e| e.to_string().into())
+    on_clipboard(CLIPBOARD_WAIT, move || app.clipboard().write_text(text)).await
 }
 
-/// Reads the system clipboard: Ctrl+Shift+V in an agent's terminal (Linux, Windows), a
-/// gesture of mine.
+/// Reads the system clipboard: Ctrl+Shift+V in an agent's terminal (Linux, Windows), Paste in
+/// its menu or a field's, a gesture of mine.
 #[tauri::command]
-pub fn paste_text(app: AppHandle) -> Cmd<String> {
+pub async fn paste_text(app: AppHandle) -> Cmd<String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    app.clipboard().read_text().map_err(|e| e.to_string().into())
+    on_clipboard(CLIPBOARD_WAIT, move || app.clipboard().read_text()).await
 }
 
 /// "Audio" block: radios and podcasts from the config.
@@ -220,6 +233,22 @@ pub async fn feedback_capture(state: State<'_, Arc<AppState>>, window: tauri::We
 
 #[cfg(test)]
 mod tests {
+    /// A clipboard that does not answer: an error past the wait, the caller never held.
+    #[tokio::test]
+    async fn a_clipboard_that_does_not_answer_is_an_error() {
+        use std::time::Duration;
+        let slow = super::on_clipboard(Duration::from_millis(50), || {
+            std::thread::sleep(Duration::from_millis(500));
+            Ok::<_, String>("late".to_string())
+        });
+        let started = std::time::Instant::now();
+        let err = format!("{:?}", slow.await.unwrap_err());
+        assert!(started.elapsed() < Duration::from_millis(400), "returned at the wait");
+        assert!(err.contains("did not answer") || err.contains("pas répondu"), "{err}");
+        assert_eq!(super::on_clipboard(Duration::from_secs(1), || Ok::<_, String>("text".to_string())).await.unwrap(), "text");
+        assert!(format!("{:?}", super::on_clipboard(Duration::from_secs(1), || Err::<String, _>("no text".to_string())).await.unwrap_err()).contains("no text"));
+    }
+
     /// The window's own commands, as `prism_commands`' table lists them (`desk`), are this
     /// module's, registered by `handler()`.
     #[test]

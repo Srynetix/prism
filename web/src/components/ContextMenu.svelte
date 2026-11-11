@@ -2,7 +2,7 @@
   import { t } from '../i18n.svelte'
   import { invoke, isDesktop } from '../bridge'
   import { openLink } from '../links'
-  import { writeClipboard } from '../toast.svelte'
+  import { toast, writeClipboard } from '../toast.svelte'
   import { anchored, dismissable } from '../popup'
 
   /**
@@ -84,10 +84,14 @@
       document.execCommand('selectAll')
     }
   }
-  function run(action: () => unknown) {
+  /** A menu's action, once it is closed; its failure told when it says how (`failed`). */
+  function run(action: () => unknown, failed?: (error: string) => string) {
     close()
-    void Promise.resolve(action()).catch(() => {})
+    void Promise.resolve(action()).catch((e) => failed && toast(failed(String(e)), 5000))
   }
+  // The clipboard read or written through the core may fail (Linux: one that does not answer).
+  const notCopied = (error: string) => t('Could not copy: {error}', { error })
+  const notPasted = (error: string) => t('Could not paste: {error}', { error })
 
   /** The point clicked, as the element the menu is placed against. */
   const at = (m: Menu) => ({ getBoundingClientRect: () => new DOMRect(m.x, m.y, 0, 0) }) as HTMLElement
@@ -100,17 +104,17 @@
   <div class="ctxmenu" role="menu" tabindex="-1" onmousedown={(e) => e.preventDefault()} {@attach anchored(() => at(m), { align: 'start', gap: 0 })} {@attach dismissable(close, { resize: true })}>
     {#if m.link}
       <button role="menuitem" onclick={() => run(() => openLink(m.link!))}>{t('Open link')}</button>
-      <button role="menuitem" onclick={() => run(() => writeClipboard(m.link!))}>{t('Copy link')}</button>
+      <button role="menuitem" onclick={() => run(() => writeClipboard(m.link!), notCopied)}>{t('Copy link')}</button>
       {#if m.field || m.selected}<hr />{/if}
     {/if}
     {#if m.field}
-      <button role="menuitem" disabled={!canEdit || !m.selected} onclick={() => run(() => cut(m))}>{t('Cut')}</button>
+      <button role="menuitem" disabled={!canEdit || !m.selected} onclick={() => run(() => cut(m), notCopied)}>{t('Cut')}</button>
     {/if}
     {#if m.field || m.selected}
-      <button role="menuitem" disabled={!m.selected} onclick={() => run(() => writeClipboard(m.selected))}>{t('Copy')}</button>
+      <button role="menuitem" disabled={!m.selected} onclick={() => run(() => writeClipboard(m.selected), notCopied)}>{t('Copy')}</button>
     {/if}
     {#if m.field}
-      <button role="menuitem" disabled={!canEdit} onclick={() => run(() => paste(m))}>{t('Paste')}</button>
+      <button role="menuitem" disabled={!canEdit} onclick={() => run(() => paste(m), notPasted)}>{t('Paste')}</button>
       <hr />
       <button role="menuitem" onclick={() => run(() => selectAll(m))}>{t('Select all')}</button>
     {/if}
