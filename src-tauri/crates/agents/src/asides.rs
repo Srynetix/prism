@@ -186,25 +186,10 @@ impl Agents {
         book.next += 1;
         let id = book.next;
         book.items.push(Aside {
-            id,
-            repo,
-            title,
-            tldr: cut(&s.tldr, 600),
-            prompt: cut(&s.prompt, PROMPT_CHARS),
             files,
             kind: s.kind.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()),
             needs_current_branch: s.needs_current_branch,
-            seen: vec![seen],
-            state: AsideState::Open,
-            at: Utc::now(),
-            changed_at: None,
-            agent: None,
-            agent_title: None,
-            from_branch: None,
-            ticket: None,
-            dismissed_by: None,
-            why: None,
-            files_changed: false,
+            ..new_line(id, repo, title, cut(&s.tldr, 600), cut(&s.prompt, PROMPT_CHARS), seen, Utc::now())
         });
         self.publish_asides(&book);
         Ok(json!({ "task_id": id, "status": "open", "note": "shown to the user in Prism; carry on with your own task. Call dismiss_task with this id if it stops being worth doing (you did it after all, or were wrong)." }))
@@ -246,6 +231,9 @@ impl Agents {
         let line = book.items.iter_mut().find(|a| a.id == id).with_context(|| tr("this proposal is gone"))?;
         let now = Some(Utc::now());
         let mut news: Option<String> = None;
+        // Taken back from its session: its prompt out of the inbox if it still waits there, else
+        // the agent told to leave it.
+        let taken_back = (line.state == AsideState::Session && matches!(action, "reopen" | "done")).then(|| (line.agent.clone(), session_prompt(line))).and_then(|(a, p)| a.map(|a| (a, p)));
         // What each answer may follow: an action on a line dealt with meanwhile (another device) is refused.
         let allowed = match action {
             "later" => line.state == AsideState::Open,
@@ -303,6 +291,12 @@ impl Agents {
                 self.tell(&agent, &format!("Task #{id} you proposed in passing (\"{title}\"): {n}"));
             }
         }
+        if let Some((agent, prompt)) = taken_back
+            && !self.unqueue(&agent, &prompt)
+        {
+            let what = if action == "done" { "the user marked it done: nothing more to do on it" } else { "the user took it back: do not do it, and stop if you started" };
+            self.tell(&agent, &format!("Task #{id} sent to your session (\"{title}\"): {what}."));
+        }
         Ok(())
     }
 
@@ -334,13 +328,7 @@ impl Agents {
             ensure!(line.seen.iter().any(|s| s.agent.is_some()), "{}", tr("no agent of Prism's saw it: launch it instead"));
             (line.seen.clone(), line.title.clone())
         };
-        // The last one that saw it and is still there, as its card shows it.
-        let a = {
-            let snap = self.inner.hub.subscribe();
-            let agents = &snap.borrow().agents;
-            seen.iter().rev().filter_map(|s| s.agent.as_deref()).find_map(|id| agents.iter().find(|a| a.id == id).cloned())
-        };
-        let a = a.context(tr("its agent is closed: launch it instead"))?;
+        let a = self.origin(&seen).context(tr("its agent is closed: launch it instead"))?;
         let agent = a.id.clone();
         let step = state::LaunchStep { kind: state::StepKind::Aside, when: state::StepWhen::Done, command: None, text: Some(id.to_string()) };
         self.add_step(&a, step);
@@ -367,13 +355,15 @@ impl Agents {
             ensure!(line.state.open(), "{}", tr("this proposal was dealt with already"));
             line.seen.clone()
         };
-        let agent = {
-            let snap = self.inner.hub.subscribe();
-            let agents = &snap.borrow().agents;
-            seen.iter().rev().filter_map(|s| s.agent.as_deref()).find_map(|id| agents.iter().find(|a| a.id == id && a.state != state::AgentState::Gone).map(|a| a.id.clone()))
-        };
-        let agent = agent.context(tr("its agent is closed: launch it instead"))?;
-        self.to_session(id, &agent).await
+        let agent = self.origin(&seen).filter(takes_session).context(tr("its agent cannot take it: launch it instead"))?;
+        self.to_session(id, &agent.id).await
+    }
+
+    /// The last Prism agent that saw it and is still listed, as its card shows it (`originOf`).
+    fn origin(&self, seen: &[AsideSeen]) -> Option<state::Agent> {
+        let snap = self.inner.hub.subscribe();
+        let agents = &snap.borrow().agents;
+        seen.iter().rev().filter_map(|s| s.agent.as_deref()).find_map(|id| agents.iter().find(|a| a.id == id).cloned())
     }
 
     /// A subject the user notes from an agent's Chat: a line of its own, in passing, sent to that
@@ -382,41 +372,29 @@ impl Agents {
         ensure!(self.aside_settings().enabled, "{}", tr("[agents.aside] enabled is off"));
         let text = text.trim();
         ensure!(!text.is_empty(), "{}", tr("nothing to note"));
-        let a = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id == agent && a.state != state::AgentState::Gone).cloned().with_context(|| tr("this agent is closed"))?;
+        let a = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id == agent).cloned().filter(takes_session).with_context(|| tr("this agent cannot take it"))?;
         let dir = a.worktree.clone().unwrap_or_else(|| a.cwd.clone());
         let repo = self.repo_of_dir(&dir);
         let first = text.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or(text);
         let title = cut(&first.split_whitespace().collect::<Vec<_>>().join(" "), TITLE_CHARS);
-        let seen = AsideSeen { agent: None, session: None, call: None, name: tr("you").to_string(), cli: "user".into(), branch: a.branch.clone(), cwd: Some(dir), effort: None, tldr: String::new(), at: Utc::now() };
+        // The user's: named in the reader's language where it is shown (`cli` "user").
+        let seen = AsideSeen { agent: None, session: None, call: None, name: String::new(), cli: "user".into(), branch: a.branch.clone(), cwd: Some(dir), effort: None, tldr: String::new(), at: Utc::now() };
         let id = {
             let mut book = self.asides();
             book.next += 1;
             let id = book.next;
-            book.items.push(Aside {
-                id,
-                repo,
-                title,
-                tldr: if text.lines().filter(|l| !l.trim().is_empty()).count() > 1 { cut(text, 600) } else { String::new() },
-                prompt: cut(text, PROMPT_CHARS),
-                files: Vec::new(),
-                kind: None,
-                needs_current_branch: false,
-                seen: vec![seen],
-                state: AsideState::Open,
-                at: Utc::now(),
-                changed_at: None,
-                agent: None,
-                agent_title: None,
-                from_branch: None,
-                ticket: None,
-                dismissed_by: None,
-                why: None,
-                files_changed: false,
-            });
+            let tldr = if text.lines().filter(|l| !l.trim().is_empty()).count() > 1 { cut(text, 600) } else { String::new() };
+            book.items.push(new_line(id, repo, title, tldr, cut(text, PROMPT_CHARS), seen, Utc::now()));
             self.publish_asides(&book);
             id
         };
-        self.to_session(id, agent).await?;
+        // Not sent: no line left behind, the text stays in the box for another try.
+        if let Err(e) = self.to_session(id, agent).await {
+            let mut book = self.asides();
+            book.items.retain(|a| a.id != id);
+            self.publish_asides(&book);
+            return Err(e);
+        }
         Ok(id)
     }
 
@@ -450,7 +428,8 @@ impl Agents {
 
     /// `text` to agent `id`: through its inbox, its session resumed first if its CLI exited.
     async fn deliver(&self, id: &str, text: &str) -> Result<()> {
-        let exited = self.inner.hub.subscribe().borrow().agents.iter().any(|a| a.id == id && a.state == state::AgentState::Exited);
+        // Its CLI exited, or its tmux session lost (the computer restarted): resumed first.
+        let exited = self.inner.hub.subscribe().borrow().agents.iter().any(|a| a.id == id && matches!(a.state, state::AgentState::Exited | state::AgentState::Gone));
         if exited {
             self.resume(id).await?;
             // Its CLI at its prompt again: a prompt typed while it starts could be lost.
@@ -489,7 +468,9 @@ impl Agents {
         let seen = line.seen.iter().rev().find(|s| s.agent.is_some()).or(line.seen.last()).cloned();
         let a = seen.as_ref().and_then(|s| s.agent.as_deref()).and_then(|id| self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id == id).cloned());
         let by = seen.as_ref().map(|s| s.name.clone()).unwrap_or_default();
-        let header = if by.is_empty() { "Spotted in passing by another agent.".to_string() } else { format!("Spotted in passing by the agent \"{by}\", while it worked on something else.") };
+        let header = if seen.as_ref().is_some_and(|s| s.cli == "user") {
+            "Noted in passing by the user, while an agent worked on something else.".to_string()
+        } else if by.is_empty() { "Spotted in passing by another agent.".to_string() } else { format!("Spotted in passing by the agent \"{by}\", while it worked on something else.") };
         let files = if line.files.is_empty() { String::new() } else { format!("\n\nFiles concerned: {}", line.files.join(", ")) };
         let prompt = format!("{header}\n\n{}{files}", line.prompt);
         let cfg = self.aside_settings();
@@ -579,7 +560,7 @@ impl Agents {
                     } else {
                         book.next += 1;
                         let id = book.next;
-                        book.items.push(Aside { id, repo: repo.clone(), title, tldr: cut(&tldr, 600), prompt: cut(&prompt, PROMPT_CHARS), files: Vec::new(), kind: None, needs_current_branch: false, seen: vec![seen], state: AsideState::Open, at: call.at, changed_at: None, agent: None, agent_title: None, from_branch: None, ticket: None, dismissed_by: None, why: None, files_changed: false });
+                        book.items.push(new_line(id, repo.clone(), title, cut(&tldr, 600), cut(&prompt, PROMPT_CHARS), seen, call.at));
                     }
                     changed = true;
                 }
@@ -818,12 +799,23 @@ fn already_note(a: &Aside) -> String {
     }
 }
 
+/// A new open line, seen once.
+fn new_line(id: u64, repo: Option<String>, title: String, tldr: String, prompt: String, seen: AsideSeen, at: chrono::DateTime<Utc>) -> Aside {
+    Aside { id, repo, title, tldr, prompt, files: Vec::new(), kind: None, needs_current_branch: false, seen: vec![seen], state: AsideState::Open, at, changed_at: None, agent: None, agent_title: None, from_branch: None, ticket: None, dismissed_by: None, why: None, files_changed: false }
+}
+
+/// An agent whose session can take a line (`sessionOf`): running, or exited or lost and resumed
+/// first; not one prepared and never started, nor Command Code (no in-passing server: no `done_task`).
+pub(crate) fn takes_session(a: &state::Agent) -> bool {
+    matches!(a.state, state::AgentState::Running | state::AgentState::Exited | state::AgentState::Gone) && a.provider != Provider::CommandCode
+}
+
 /// What the agent is given for a line sent to its session: done there, after its current turn.
 fn session_prompt(a: &Aside) -> String {
     let id = a.id;
     let by = if a.seen.iter().any(|s| s.agent.is_some()) { "You flagged it in passing (suggest_task); the user asks you to do it yourself, here" } else { "The user noted it in passing for you to do here" };
     let files = if a.files.is_empty() { String::new() } else { format!("\n\nFiles concerned: {}", a.files.join(", ")) };
-    format!("In passing, task #{id} (\"{}\"): {by}, in this session and on this branch, once what you are doing now is done.\n\n{}{files}\n\nOnce it is done, call done_task with task_id {id} and one line on what you did.", a.title, a.prompt.trim())
+    format!("In passing, task #{id} (\"{}\"): {by}, in this session and on this branch, once what you are doing now is done.\n\n{}{files}\n\nOnce it is done, call done_task with task_id {id} and one line on what you did (without that tool, say it in your reply).", a.title, a.prompt.trim())
 }
 
 /// An agent's id as Prism makes them: nothing that could step out of the events folder.

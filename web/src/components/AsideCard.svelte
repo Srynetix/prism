@@ -8,7 +8,7 @@
   import { openAgents } from '../agents.svelte'
   import { openTicket } from '../ticket-view.svelte'
   import { toast } from '../toast.svelte'
-  import { agentBranch, asideDismiss, asideDone, asideForget, asideLater, asideReopen, asideSession, asideThen, asideTicket, isOpen, launchAside, mainAction, originOf, sessionOf, STATE_LABEL } from '../asides.svelte'
+  import { agentBranch, asideDismiss, asideDone, asideForget, asideLater, asideReopen, asideSession, asideThen, asideTicket, isOpen, launchAside, mainAction, originOf, seenName, sessionOf, STATE_LABEL } from '../asides.svelte'
   import { ago } from '../time'
   import Icon from './Icon.svelte'
   import KindBadge from './KindBadge.svelte'
@@ -31,8 +31,8 @@
   const canThen = $derived(!!origin && origin.state === 'running')
   /** Its agent's session takes it: running (after its turn), or exited (resumed first). */
   const session = $derived(sessionOf(a, live.snapshot))
-  const sessionLabel = $derived(session?.state === 'exited' ? t('Resume the session') : t('In this session'))
-  const sessionTitle = $derived(session?.state === 'exited' ? t('{agent} resumed, then given it: it does it in its session', { agent: session.title }) : t('{agent} does it in its session, once its current turn is over', { agent: session?.title ?? '' }))
+  const sessionLabel = $derived(session && session.state !== 'running' ? t('Resume the session') : t('In this session'))
+  const sessionTitle = $derived(session && session.state !== 'running' ? t('{agent} resumed, then given it: it does it in its session', { agent: session.title }) : t('{agent} does it in its session, once its current turn is over', { agent: session?.title ?? '' }))
   /** Where it is done: the agent named on the line, as it is now. */
   const doer = $derived(a.agent ? live.snapshot?.agents?.find((x) => x.id === a.agent) : undefined)
   const main = $derived(mainAction(a, canTicket))
@@ -71,7 +71,7 @@
     })
   const toSession = () => run(() => asideSession(a), t('Sent to {agent}: done after its turn', { agent: session?.title ?? '' }))
   const dismiss = () => run(() => asideDismiss(a, why)).then(() => ((dismissing = false), (why = '')))
-  const seenBy = $derived(a.seen.map((s) => s.name).filter(Boolean))
+  const seenBy = $derived(a.seen.map(seenName).filter(Boolean))
 </script>
 
 <div class="aside" class:chat class:struck={withdrawn || byAgent} class:done={!isOpen(a)}>
@@ -81,7 +81,7 @@
     {#if desktop}<span class="pill" title={t('Seen in a Claude Desktop session: its own chip stays in Desktop')}>Desktop</span>{/if}
     {#if a.files_changed}<span class="pill warn" title={t('A commit of another branch changed its files since: maybe done already')}>{t('files changed since')}</span>{/if}
     <span class="grow"></span>
-    {#if !chat && seenBy.length}<span class="by" title={a.seen.map((s) => `${s.name}: ${s.tldr}`).join('\n')}>{seenBy.length > 1 ? tn(seenBy.length, 'seen by {n} agent', 'seen by {n} agents') : t('seen by {name}', { name: seenBy[0] })}</span>{/if}
+    {#if !chat && seenBy.length}<span class="by" title={a.seen.map((s) => `${seenName(s)}${s.tldr ? `: ${s.tldr}` : ''}`).join('\n')}>{seenBy.length > 1 ? tn(seenBy.length, 'seen by {n} agent', 'seen by {n} agents') : t('seen by {name}', { name: seenBy[0] })}</span>{/if}
     <span class="age" title={new Date(a.at).toLocaleString()}>{ago(a.at)}</span>
   </div>
   <b class="title">{a.title}</b>

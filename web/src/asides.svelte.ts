@@ -106,11 +106,16 @@ export const asideSession = (a: Aside) => invoke('aside_session', { id: a.id })
 export const asideDone = (a: Aside) => act(a.id, 'done')
 /** A subject of mine, noted from agent `agent`'s Chat: a line in passing, sent to its session. Its id. */
 export const asideNote = (agent: string, text: string) => invoke<number>('aside_note', { agent, text })
-/** Its session can take it: the agent that saw it is there, running or to resume. */
+/**
+ * Its session can take it (`takes_session` in the core): the agent that saw it, running, or exited
+ * or lost and resumed first; not one prepared and never started, nor Command Code (no `done_task`).
+ */
 export const sessionOf = (a: Aside, s: Snapshot | null | undefined = live.snapshot): Agent | undefined => {
   const o = originOf(a, s)
-  return o && (o.state === 'running' || o.state === 'exited') ? o : undefined
+  return o && o.state !== 'prepared' && o.provider !== 'command-code' ? o : undefined
 }
+/** Who saw it, as shown: the user's own line in the reader's language. */
+export const seenName = (x: Aside['seen'][number]) => (x.cli === 'user' ? t('you') : x.name)
 
 /** A ticket of the tracker; its key. */
 export const asideTicket = (a: Aside) => invoke<string>('aside_ticket', { id: a.id })

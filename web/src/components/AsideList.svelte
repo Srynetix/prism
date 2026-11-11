@@ -14,7 +14,8 @@
   let { block = false }: { block?: boolean } = $props()
   const all = $derived(asidesOf(live.snapshot))
   const agent = $derived(block ? '' : asideView.agent)
-  const mine = $derived(agent ? all.filter((a) => a.seen.some((s) => s.agent === agent)) : all)
+  // Its own: the ones it saw, and those sent to its session (a note of the user's among them).
+  const mine = $derived(agent ? all.filter((a) => a.agent === agent || a.seen.some((s) => s.agent === agent)) : all)
   const shown = $derived(mine.filter((a) => inFilter(a, asideView.filter)))
   const fresh = $derived(shown.filter((a) => !isStale(a)))
   const older = $derived(shown.filter((a) => isStale(a)))

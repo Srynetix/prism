@@ -303,7 +303,7 @@ fn in_agent() -> bool {
 }
 
 /// What the « in passing » tools are for, as the server's instructions.
-const ASIDE_INSTRUCTIONS: &str = "Prism shows the user what you flag with suggest_task: a task worth doing that is OUT of what you were asked (dead code, a stale doc, a missing test, a TODO you confirmed, the same bug elsewhere, a flaw seen in passing). The user launches it in another agent, chains it after you, sends it back to you in this session, makes it a ticket or dismisses it; you are told at your next tool call. A task sent back to you comes as a prompt: do it then, and call done_task once it is done. Do not do such a task yourself, and do not mention it in your final summary instead: call suggest_task, then carry on with your own task.";
+const ASIDE_INSTRUCTIONS: &str = "Prism shows the user what you flag with suggest_task: a task worth doing that is OUT of what you were asked (dead code, a stale doc, a missing test, a TODO you confirmed, the same bug elsewhere, a flaw seen in passing). The user launches it in another agent, chains it after you, sends it back to you in this session, makes it a ticket or dismisses it; you are told at your next tool call. Do not do such a task yourself, and do not mention it in your final summary instead: call suggest_task, then carry on with your own task. One exception: a task the user sends back to you comes as a prompt naming its task_id; do that one when the prompt says, then call done_task.";
 
 /// `suggest_task` and `dismiss_task`, as Claude Desktop's `spawn_task` and `dismiss_task`; and
 /// `done_task`, for one sent back to the agent's session.

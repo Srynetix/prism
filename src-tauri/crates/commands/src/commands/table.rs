@@ -321,8 +321,8 @@ commands! {
     agents::aside_action: Act [phone: state, id: u64, action: String, why: Option<String>, target: Option<String>; sync],
     agents::aside_then: Critical [phone: state, id: u64, from_branch: bool; sync],
     agents::aside_ticket: Act [phone: state, id: u64],
-    // Back to its agent's session: Prism's prompt to an agent already there (resumed if exited).
-    agents::aside_session: Act [phone: state, id: u64],
+    // Back to its agent's session: an agent's prompt run (resumed first if exited), the passkey as After this agent.
+    agents::aside_session: Critical [phone: state, id: u64],
     // Free text sent to an agent: never from a phone (as `agent_send`).
     agents::aside_note: Never [demo: refused],
     // Routines: a row out of "To review"; a run again, or a routine switched, launches an agent
