@@ -92,7 +92,8 @@ pub fn parse(folder: &Path, text: &str) -> Result<Spec> {
     }
     let mut seen = Vec::new();
     for b in &wasm.blocks {
-        for id in std::iter::once(&b.id).chain(&b.parts) {
+        // A part may be named as its own block (Delivery's `shipping`): once.
+        for id in std::iter::once(&b.id).chain(b.parts.iter().filter(|p| **p != b.id)) {
             if !plain(id) {
                 bail!("[[wasm.blocks]] {id}: an id is lowercase letters, digits and _");
             }
@@ -131,7 +132,9 @@ mod tests {
         let bad = |text: &str| parse(&dir, &format!("[wasm]\ncomponent = \"b.wasm\"\n{text}")).unwrap_err().to_string();
         assert!(bad("").contains("no block"));
         assert!(bad("[[wasm.blocks]]\nid = \"Hello\"\n").contains("lowercase"));
-        assert!(bad("[[wasm.blocks]]\nid = \"a\"\nparts = [\"a\"]\n").contains("twice"));
+        assert!(bad("[[wasm.blocks]]\nid = \"a\"\nparts = [\"b\"]\n[[wasm.blocks]]\nid = \"b\"\n").contains("twice"));
+        // A part named as its own block: Delivery's `shipping`.
+        assert!(parse(&dir, "[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\nparts = [\"a\", \"c\"]\n").is_ok());
         assert!(bad("[[wasm.blocks]]\nid = \"a\"\nremote = { x = \"always\" }\n").contains("read, act"));
         assert!(bad("capabilities = { exec = [\"/bin/sh\"] }\n[[wasm.blocks]]\nid = \"a\"\n").contains("program"));
         assert!(parse(&dir, "[wasm]\ncomponent = \"../b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\n").is_err());

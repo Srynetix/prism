@@ -38,7 +38,7 @@ capabilities = { git = true } # git, gitlab, http = ["hôte"], exec = ["programm
 
 [[wasm.blocks]]
 id = "hello"
-parts = ["hello_reads"]       # ses sources lues à part
+parts = ["hello_reads"]       # ses sources lues à part (l'une peut porter le nom du bloc)
 repos = "one"                 # none, one ou many : [hello] repo / repos
 reloads = true
 provides = ["stages", "images"]
@@ -57,7 +57,7 @@ import { moduleConfig } from '@prism/sdk/vite'
 export default moduleConfig('hello', import.meta.dirname)
 ```
 
-- `src/defs.ts` exporte `prism` et `svelte` (donnés par la build : `__PRISM_CONTRACT__`, `__SVELTE__`), `words` (son français) et `blocks()`, les déclarations de ses blocs. Il n'importe que `@prism/sdk/words`.
+- `src/defs.ts` exporte `prism` et `svelte` (donnés par la build : `__PRISM_CONTRACT__`, `__SVELTE__`), `words` (son français) et `blocks()`, les déclarations de ses blocs : leur aide, leur élément de barre d'état, un guide de l'Aide (`guide`) et une page de Réglages pour leurs tables de config (`settings`) s'ils en ont. Il n'importe que `@prism/sdk/words`.
 - `src/components.ts` exporte `components`, par identifiant de bloc (`hello:status` pour son élément de barre d'état). Ils n'atteignent Prism que par `@prism/sdk` : les mots, le snapshot, les commandes d'un bloc (`call`), la mise en page, les actions de Prism, les formats, ses icônes et ses contrôles.
 
 Ce que Prism ne donne pas échoue à la build, pas dans Prism : un autre module de Svelte (Prism donne `svelte` et ses `animate`, `easing`, `motion`, `reactivity`, `store`, `transition`…), les sources de Prism, un fichier hors du dossier du module.
@@ -84,7 +84,7 @@ static BLOCKS: &[&dyn prism_module::Block] = &[&hello::HELLO];
 prism_module::module!(BLOCKS);
 ```
 
-Son collecteur est une boucle lancée dans `start`, comme dans Prism : `loop { lire; ctx.publish(&état); ctx.pause(délai).await }`. Chaque `pause` rend la main à Prism, qui reprend la boucle quand cette partie est de nouveau due ; git, GitLab et les programmes répondent tout de suite. Une panique, ou un appel de plus de deux minutes, arrête le back end : ses blocs le disent, et Prism le relance 30 s plus tard.
+Son collecteur est une boucle lancée dans `start`, comme dans Prism : `loop { lire; ctx.publish(&état); ctx.pause(délai).await }`. Chaque `pause` rend la main à Prism, qui reprend la boucle quand cette partie est de nouveau due ; git, GitLab et les programmes répondent tout de suite. Une panique, ou un appel de plus de deux minutes, arrête le back end : ses blocs le disent, et Prism le relance 30 s plus tard. Ses lignes `tracing` (`tracing::warn!`, avec `tracing` dans ses dépendances) vont au journal de Prism, comme celles d'un bloc de Prism.
 
 Build : `rustup target add wasm32-wasip2` une fois, puis `cargo build --release --target wasm32-wasip2`. `vite build` copie le composant dans `dist/<id>/` avec `module.toml`.
 

@@ -145,6 +145,7 @@ fn block_on<T>(future: impl Future<Output = T>) -> Result<T, String> {
 }
 
 pub fn configure(blocks: &'static [&'static dyn Block], config: String, lang: String, demo: bool) -> Result<Configured, String> {
+    crate::log::install();
     let table: toml::Table = toml::from_str(&config).map_err(|e| format!("config: {e}"))?;
     let lang = crate::Lang::of(&lang);
     crate::i18n::set(blocks.iter().flat_map(|b| b.messages(lang).iter().copied()));
@@ -152,7 +153,13 @@ pub fn configure(blocks: &'static [&'static dyn Block], config: String, lang: St
     for b in blocks {
         b.configure(&table).map_err(|e| format!("[{}]: {e:#}", b.id()))?;
     }
-    let parts: Vec<String> = blocks.iter().flat_map(|b| std::iter::once(b.id()).chain(b.parts().iter().copied())).map(String::from).collect();
+    // A block's own id among its parts once (a part may be named as its block).
+    let mut parts: Vec<String> = Vec::new();
+    for p in blocks.iter().flat_map(|b| std::iter::once(b.id()).chain(b.parts().iter().copied())) {
+        if !parts.iter().any(|q| q == p) {
+            parts.push(p.to_string());
+        }
+    }
     let stages = blocks.iter().find_map(|b| b.stages()).map(|p| serde_json::to_string(&p.stages().0).unwrap_or_default());
     let demo = if demo {
         let now = chrono::Utc::now();

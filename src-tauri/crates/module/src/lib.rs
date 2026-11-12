@@ -19,10 +19,12 @@
 //! - git, GitLab, HTTP and programs go through Prism (`host`), each a capability the module's
 //!   manifest declares;
 //! - a block's settings are the config tables its manifest names (`[wasm] tables`);
-//! - `BlockCtx` has no snapshot (`subscribe`, `snapshot`) nor data folder.
+//! - `BlockCtx` has no snapshot (`subscribe`, `snapshot`) nor data folder;
+//! - its `tracing` lines (the module depends on `tracing` too) go to Prism's log, `module <id>: …`.
 
 mod block;
 mod host;
+mod log;
 #[doc(hidden)]
 pub mod i18n;
 #[doc(hidden)]

@@ -19,6 +19,8 @@ use crate::worker::Module;
 struct WasmBlock {
     id: &'static str,
     parts: &'static [&'static str],
+    /// Its module's config tables.
+    tables: &'static [&'static str],
     spec: BlockSpec,
     module: Arc<Module>,
     stages: Option<&'static Of>,
@@ -34,6 +36,7 @@ struct Of {
 pub fn of(module: &Arc<Module>) -> Vec<&'static dyn Block> {
     module.warm();
     let leak = |s: &str| -> &'static str { Box::leak(s.to_string().into_boxed_str()) };
+    let tables: &'static [&'static str] = Box::leak(module.spec.tables.iter().map(|t| leak(t)).collect::<Vec<_>>().into_boxed_slice());
     module
         .spec
         .blocks
@@ -41,7 +44,7 @@ pub fn of(module: &Arc<Module>) -> Vec<&'static dyn Block> {
         .map(|spec| {
             let of = |what: &str| spec.provides.iter().any(|p| p == what).then(|| &*Box::leak(Box::new(Of { module: module.clone() })));
             let parts: Vec<&'static str> = spec.parts.iter().map(|p| leak(p)).collect();
-            let block = WasmBlock { id: leak(&spec.id), parts: Box::leak(parts.into_boxed_slice()), spec: spec.clone(), module: module.clone(), stages: of("stages"), images: of("images") };
+            let block = WasmBlock { id: leak(&spec.id), parts: Box::leak(parts.into_boxed_slice()), tables, spec: spec.clone(), module: module.clone(), stages: of("stages"), images: of("images") };
             &*Box::leak(Box::new(block)) as &'static dyn Block
         })
         .collect()
@@ -71,6 +74,12 @@ impl Block for WasmBlock {
 
     fn configure(&self, config: &toml::Table) -> Result<()> {
         self.module.configure(config)
+    }
+
+    /// Its module's tables (`[wasm] tables`) as the config has them, so that Settings knows them
+    /// read; their defaults are the module's own, not shown.
+    fn settings(&self, config: &toml::Table) -> Vec<(&'static str, Value)> {
+        self.tables.iter().map(|t| (*t, config.get(*t).and_then(|v| serde_json::to_value(v).ok()).unwrap_or_else(|| json!({})))).collect()
     }
 
     fn repos(&self) -> RepoUse {

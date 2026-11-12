@@ -14,9 +14,9 @@ import type { EnvironmentStage } from './types/bindings/EnvironmentStage'
 import type { ForgeProvider } from './types/bindings/ForgeProvider'
 import type { ManualJob } from './types/bindings/ManualJob'
 import type { PlayedJob } from './types/bindings/PlayedJob'
-import type { IconName } from './types/icons'
+import type { IconName, LogoName } from './types/icons'
 
-export type { Snapshot, Alert, ArgoApp, ArgoCd, ArgoInstance, Conventions, EnvironmentStage, ForgeProvider, IconName, ManualJob, PlayedJob }
+export type { Snapshot, Alert, ArgoApp, ArgoCd, ArgoInstance, Conventions, EnvironmentStage, ForgeProvider, IconName, LogoName, ManualJob, PlayedJob }
 export type { MergeRequest } from './types/bindings/MergeRequest'
 export type { Pipeline } from './types/bindings/Pipeline'
 export type { Vars } from './words'
@@ -48,6 +48,48 @@ export interface BlockDef<S = unknown> {
   /** Shown when Prism publishes no state for it (its settings off). */
   off?: { title: string; logo: string; color: string; section: string; setting: string }
   alerts?: (state: S) => Alert[]
+  /** A guide of Help (`NN-id.md`, the same format as Prism's): its file name, for its order, and its text. */
+  guide?: { file: string; text: string; images?: Record<string, string>; translations?: Partial<Record<string, string>> }
+  /** Its settings page: its config tables' sections, under the Settings node `parent` (`ci`, `infra`…). */
+  settings?: { sections: SettingsSection[]; parent: string; node: SettingsNode }
+}
+
+/** A field of a settings section: a key of its table. */
+export interface SettingsField {
+  key: string
+  label: string
+  hint?: string
+  kind: 'text' | 'longtext' | 'path' | 'number' | 'toggle' | 'list' | 'select' | 'checks' | 'table'
+  unit?: string
+  step?: number
+  placeholder?: string
+  optional?: boolean
+  /** Fixed choices, or a list read from the computer (`stages`, `envs`, `apps`…). */
+  options?: string | string[]
+  labels?: Record<string, string>
+  /** A live check of the value (`gitlab_project`, `gcloud`, `git_repo`, `directory`…). */
+  check?: string
+}
+
+/** A section of Settings: a config table (`[shipping]`, `[shipping.branch]`), its fields. */
+export interface SettingsSection {
+  id: string
+  label: string
+  table: string
+  path: string[]
+  intro?: string
+  /** The source whose last state is shown at its top. */
+  source?: string
+  fields: SettingsField[]
+}
+
+/** A page of Settings: its sections; `toggle` the section whose `enabled` switches it. */
+export interface SettingsNode {
+  id: string
+  label: string
+  sections?: string[]
+  toggle?: string
+  tabs?: boolean
 }
 
 export interface BlockProps<S> {
@@ -128,6 +170,6 @@ export declare function rollout(r: ArgoRef, expected: string | null): { tone: 'o
 
 // Components.
 export declare const Icon: Component<{ name: IconName; size?: string | number; spin?: boolean; stroke?: number; title?: string; class?: string }>
-export declare const Logo: Component<{ name: IconName | 'agent' | 'commandcode' | 'codex' | 'alert'; size?: number; repo?: string }>
+export declare const Logo: Component<{ name: LogoName | 'agent' | 'commandcode' | 'codex' | 'alert'; size?: number; repo?: string }>
 export declare const BlockControls: Component<{ id: string }>
 export declare const StageManualJobs: Component<{ stage: string; jobs: ManualJob[]; played?: PlayedJob[]; button?: string; heading?: string; playedHeading?: string; labelOf?: (j: ManualJob | PlayedJob) => string; risky?: boolean }>

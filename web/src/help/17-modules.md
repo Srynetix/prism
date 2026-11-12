@@ -38,7 +38,7 @@ capabilities = { git = true } # git, gitlab, http = ["host"], exec = ["program"]
 
 [[wasm.blocks]]
 id = "hello"
-parts = ["hello_reads"]       # its sources read apart
+parts = ["hello_reads"]       # its sources read apart (one may be named as the block)
 repos = "one"                 # none, one or many: [hello] repo / repos
 reloads = true
 provides = ["stages", "images"]
@@ -57,7 +57,7 @@ import { moduleConfig } from '@prism/sdk/vite'
 export default moduleConfig('hello', import.meta.dirname)
 ```
 
-- `src/defs.ts` exports `prism` and `svelte` (given by the build: `__PRISM_CONTRACT__`, `__SVELTE__`), `words` (its French) and `blocks()`, its blocks' declarations. It imports `@prism/sdk/words` only.
+- `src/defs.ts` exports `prism` and `svelte` (given by the build: `__PRISM_CONTRACT__`, `__SVELTE__`), `words` (its French) and `blocks()`, its blocks' declarations: their help, their item in the status bar, a guide of Help (`guide`) and a page of Settings for their config tables (`settings`) if they have them. It imports `@prism/sdk/words` only.
 - `src/components.ts` exports `components`, by block id (`hello:status` for its status-bar item). They import Prism through `@prism/sdk` only: words, the snapshot, a block's commands (`call`), layout, Prism's actions, formats, its icons and controls.
 
 What Prism does not give fails at the build, not in Prism: another Svelte module (Prism gives `svelte` and its `animate`, `easing`, `motion`, `reactivity`, `store`, `transition`…), Prism's sources, a file out of the module's folder.
@@ -84,7 +84,7 @@ static BLOCKS: &[&dyn prism_module::Block] = &[&hello::HELLO];
 prism_module::module!(BLOCKS);
 ```
 
-Its collector is a loop spawned in `start`, as inside Prism: `loop { read; ctx.publish(&state); ctx.pause(every).await }`. Each `pause` hands control back to Prism, which resumes the loop when that part is due again; git, GitLab and programs answer at once. A panic, or a call longer than two minutes, stops the back end: its blocks say so, and Prism starts it again 30 s later.
+Its collector is a loop spawned in `start`, as inside Prism: `loop { read; ctx.publish(&state); ctx.pause(every).await }`. Each `pause` hands control back to Prism, which resumes the loop when that part is due again; git, GitLab and programs answer at once. A panic, or a call longer than two minutes, stops the back end: its blocks say so, and Prism starts it again 30 s later. Its `tracing` lines (`tracing::warn!`, `tracing` among its dependencies) go to Prism's log, as a block's inside Prism.
 
 Build: `rustup target add wasm32-wasip2` once, then `cargo build --release --target wasm32-wasip2`. `vite build` copies the component into `dist/<id>/` with `module.toml`.
 
