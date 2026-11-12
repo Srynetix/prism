@@ -164,14 +164,6 @@ pub fn web(path: &str) -> String {
     format!("https://{}/{}", get().gitlab_host, path.trim_start_matches('/'))
 }
 
-/// Image registry of the forge: the GitLab instance's, or GitHub's (`ghcr.io`).
-pub fn registry() -> String {
-    match get().forge {
-        crate::forge::Provider::Gitlab => format!("registry.{}", get().gitlab_host),
-        crate::forge::Provider::Github => "ghcr.io".into(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

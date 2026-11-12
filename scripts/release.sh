@@ -7,8 +7,8 @@
 #                      [--rebuild] [--notes "text" | --notes-file file] [--no-tag] [--dry-run]
 #
 # - --to: where it is published, as [updates] source names it; PRISM_RELEASE_TO (environment or
-#   .env), else Prism's public repository (gh:Srynetix/prism): one build for everyone, a team's
-#   blocks coming as modules with its pack.
+#   .env) by default; none given, it stops (`just release` gives Prism's public repository,
+#   gh:Srynetix/prism). One build for everyone: a team's blocks come as modules with its pack.
 # - The release is tagged prism-v<version>, the version of src-tauri/Cargo.toml: bump it first,
 #   an existing release is refused.
 # - Files: Prism_<version>_macos-universal.dmg (a first install), .app.tar.gz (what an update
@@ -28,11 +28,11 @@
 #   commit subjects), which Settings › General › Updates shows before installing; --notes or
 #   --notes-file replace it.
 # - Once published, the commit is tagged prism-v<version> in this clone (not pushed): the next
-#   changelog starts from it; its message is the changelog, without the line naming the build and
-#   its blocks, so the tag can go to Prism's public repository. --no-tag leaves it out.
+#   changelog starts from it; its message is the changelog, without the line naming the build.
+#   --no-tag leaves it out.
 # - --dry-run builds and prints what would be published, without publishing.
 # - Builds with scripts/dmg.sh, scripts/linux.sh (Docker) and scripts/windows.sh (cargo-xwin):
-#   their checks and refusals apply. A build of this commit (and of these blocks) already in dist/
+#   their checks and refusals apply. A build of this commit already in dist/
 #   is published as is, without building again (`just dmg`, `just linux`, a dry run…); --rebuild
 #   builds anyway.
 set -euo pipefail
@@ -74,7 +74,7 @@ fail() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 if [[ -z "$to" && -z "${PRISM_RELEASE_TO+x}" && -f .env ]]; then
   to=$(sed -n 's/^PRISM_RELEASE_TO=//p' .env | tail -1 | tr -d '"'"'")
 fi
-to=${to:-${PRISM_RELEASE_TO:-gh:Srynetix/prism}}
+to=${to:-${PRISM_RELEASE_TO:-}}
 case "$to" in
   glab:*/*) forge=glab; project=${to#glab:} ;;
   gh:*/*) forge=gh; project=${to#gh:} ;;

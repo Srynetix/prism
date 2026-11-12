@@ -132,8 +132,8 @@ pub struct ActiveProfile {
 }
 
 impl Snapshot {
-    /// Every alert the core knows: its own (`alerts`), then those the window sent of the blocks of
-    /// another repository (`external_alerts`).
+    /// Every alert the core knows: its own (`alerts`), then those the window sent of the modules'
+    /// blocks (`external_alerts`).
     pub fn all_alerts(&self) -> impl Iterator<Item = &crate::alerts::Alert> {
         self.alerts.iter().chain(&self.external_alerts)
     }

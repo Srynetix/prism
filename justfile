@@ -105,15 +105,15 @@ windows-server *args:
 changelog *args:
     scripts/changelog.sh {{args}}
 
-# Publishes a release that installed Prisms update from (macOS; scripts/release.sh --help)
+# Publishes a release that installed Prisms update from, to Prism's public repository (macOS; --to elsewhere; scripts/release.sh --help)
 [macos]
 release *args:
-    scripts/release.sh {{args}}
+    scripts/release.sh --to gh:Srynetix/prism {{args}}
 
 # Publishes a release for macOS, Linux and Windows, prism-server with it (scripts/release.sh --help)
 [macos]
 release-all *args:
-    scripts/release.sh --server --linux --windows {{args}}
+    scripts/release.sh --to gh:Srynetix/prism --server --linux --windows {{args}}
 
 # Starts Tailscale for the remote beside a VPN (userspace tailscaled, no network change) and signs in; `just tailscale down` stops it
 tailscale *args:

@@ -29,7 +29,7 @@ for arg in "$@"; do
     --native) native=true ;;
     --skip-checks) checks=false ;;
     --allow-dirty) dirty=true ;;
-    -h | --help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $arg (see --help)" >&2; exit 2 ;;
   esac
 done

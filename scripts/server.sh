@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --universal) universal=true ;;
     --out) out=${2:-}; shift ;;
-    -h | --help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
   shift

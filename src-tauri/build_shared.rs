@@ -13,7 +13,12 @@ fn prism_commit(prism: &std::path::Path) -> String {
     format!("{commit}{}", if dirty { "+" } else { "" })
 }
 
-/// `PRISM_BUILD`: this build as feedback and the About panel say it, its commit (`5786d86`).
+/// `PRISM_BUILD`: this build as feedback and the About panel say it, its commit (`5786d86`). A
+/// build still given a team's blocks to compile in stops: they are modules now.
 fn build_label(commit: &str) {
+    println!("cargo:rerun-if-env-changed=PRISM_EXTRA_BLOCKS");
+    if std::env::var("PRISM_EXTRA_BLOCKS").is_ok_and(|v| !v.trim().is_empty()) {
+        panic!("PRISM_EXTRA_BLOCKS is set: Prism no longer compiles a team's blocks in, they are modules of its pack (Help › Write a module). Remove it from the environment or .env.");
+    }
     println!("cargo:rustc-env=PRISM_BUILD={commit}");
 }

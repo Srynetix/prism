@@ -250,8 +250,9 @@ update replaces), with `--linux` the `amd64` `.deb`, AppImage and Arch package, 
   its own releases commits its own `update-key.pub`.
 
 - `--to glab:group/project`: the project's generic packages, linked from a GitLab release;
-  `--to gh:owner/repo`: a GitHub release. `PRISM_RELEASE_TO` (environment or `.env`) is the default,
-  else `gh:Srynetix/prism`.
+  `--to gh:owner/repo`: a GitHub release. `PRISM_RELEASE_TO` (environment or `.env`) is the default;
+  none given, the script stops. `just release` and `just release-all` give `gh:Srynetix/prism`
+  (a `--to` after them wins).
 - `--dry-run` builds without publishing. A build of the same commit already in `dist/`
   is published as is; `--rebuild` builds again.
 - The notes are the changelog (`scripts/changelog.sh`): the Conventional commits since the newest

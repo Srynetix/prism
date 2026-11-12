@@ -5127,7 +5127,6 @@ dependencies = [
  "notify",
  "prism-agents",
  "prism-base",
- "prism-blocks",
  "prism-collectors",
  "prism-commands",
  "prism-core",
