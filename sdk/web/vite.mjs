@@ -13,7 +13,7 @@
 // give fails here, at the build, not in Prism: another Svelte module, Prism's sources, a file out
 // of the module's folder. The module is compiled with its own Svelte, whose minor version must be
 // Prism's (`exports.json`).
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -94,7 +94,9 @@ export async function moduleConfig(id, root) {
           mkdirSync(out, { recursive: true })
           copyFileSync(resolve(root, 'module.toml'), resolve(out, 'module.toml'))
           const wasm = resolve(root, 'backend/target/wasm32-wasip2/release', `prism_module_${id.replaceAll('-', '_')}.wasm`)
+          // None built: none in the module either, not one of an earlier build.
           if (existsSync(wasm)) copyFileSync(wasm, resolve(out, 'backend.wasm'))
+          else rmSync(resolve(out, 'backend.wasm'), { force: true })
         },
       },
     ],

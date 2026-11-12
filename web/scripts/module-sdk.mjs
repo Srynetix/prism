@@ -63,7 +63,6 @@ export function expected() {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const files = expected()
   const present = existsSync(join(sdk, 'types/bindings')) ? readdirSync(join(sdk, 'types/bindings')).map((f) => `types/bindings/${f}`) : []
-  mkdirSync(join(sdk, 'types'), { recursive: true })
   if (process.argv.includes('--check')) {
     const wrong = Object.entries(files).filter(([p, text]) => !existsSync(join(sdk, p)) || readFileSync(join(sdk, p), 'utf8') !== text).map(([p]) => p)
     const stale = present.filter((p) => !(p in files))

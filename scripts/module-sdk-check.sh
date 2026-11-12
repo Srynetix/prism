@@ -16,12 +16,13 @@ rsync -a --exclude node_modules --exclude dist --exclude target "$prism/examples
 # The SDK where it is now: next to the module, as a team's repository would pin it.
 sed -i.bak 's|"link:../../../sdk/web"|"link:../sdk/web"|' "$work/hello/package.json"
 sed -i.bak 's|path = "../../../../src-tauri/crates/module"|path = "../../crates/module"|' "$work/hello/backend/Cargo.toml"
-rm -f "$work/hello/package.json.bak" "$work/hello/backend/Cargo.toml.bak"
+# Its lockfile names the SDK where it was: resolved again (`--frozen-lockfile` would refuse it).
+rm -f "$work/hello/package.json.bak" "$work/hello/backend/Cargo.toml.bak" "$work/hello/pnpm-lock.yaml"
 
 echo "== back end (wasm32-wasip2)"
 cargo build --quiet --release --target wasm32-wasip2 --manifest-path "$work/hello/backend/Cargo.toml"
 echo "== web part"
-(cd "$work/hello" && pnpm install --silent && pnpm exec vite build --logLevel warn)
+(cd "$work/hello" && pnpm install --silent --no-frozen-lockfile && pnpm exec vite build --logLevel warn)
 for f in module.toml backend.wasm web/defs.js web/components.js; do
   test -f "$work/hello/dist/hello/$f" || { echo "no dist/hello/$f"; exit 1; }
 done

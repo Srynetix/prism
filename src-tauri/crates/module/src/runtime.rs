@@ -34,7 +34,21 @@ struct Running {
     part: Option<&'static str>,
     /// When it is due again (ms since the epoch).
     at: i64,
-    aborted: Arc<AtomicBool>,
+    flags: Arc<Flags>,
+}
+
+/// What a `JoinHandle` reads of its future: stopped (`abort`), ended (done, stopped or dropped).
+#[derive(Default)]
+pub struct Flags {
+    aborted: AtomicBool,
+    finished: AtomicBool,
+}
+
+impl Drop for Running {
+    /// Done, stopped or dropped (its block started again, its start failed): finished.
+    fn drop(&mut self) {
+        self.flags.finished.store(true, Ordering::Relaxed);
+    }
 }
 
 #[derive(Default)]
@@ -43,8 +57,10 @@ struct State {
     tasks: Vec<Running>,
     /// Spawned while something ran: joined to `tasks` once it is done.
     spawned: Vec<Running>,
-    /// The block whose `start` is running (what it spawns is its).
+    /// The block whose code is running (`start`, a tick, a call): what it spawns is its.
     starting: Option<&'static str>,
+    /// The module's first block: what is spawned outside any block's code.
+    first: Option<&'static str>,
     published: BTreeMap<&'static str, Value>,
     /// Each source's error as it stands (none: it answered).
     errors: HashMap<&'static str, Option<String>>,
@@ -84,14 +100,27 @@ pub(crate) fn paused(source: &'static str, every: Duration) {
     with(|s| s.paused = Some((source, every)));
 }
 
-/// A future spawned by a block: polled when Prism ticks its part.
-pub(crate) fn spawn(future: Task) -> Arc<AtomicBool> {
-    let aborted = Arc::new(AtomicBool::new(false));
+/// A future spawned by a block (in `start`, a tick, a call): polled when Prism ticks one of its
+/// parts. Spawned outside any block's code, it is the first block's.
+pub(crate) fn spawn(future: Task) -> Arc<Flags> {
+    let flags = Arc::new(Flags::default());
     with(|s| {
-        let block = s.starting.unwrap_or("");
-        s.spawned.push(Running { future, block, part: None, at: now_ms(), aborted: aborted.clone() });
+        let block = s.starting.or(s.first).unwrap_or("");
+        s.spawned.push(Running { future, block, part: None, at: now_ms(), flags: flags.clone() });
     });
-    aborted
+    flags
+}
+
+/// `f` run as `block`'s code: what it spawns is that block's, and joins the tasks after it.
+fn as_block<T>(block: &'static str, f: impl FnOnce() -> T) -> T {
+    let before = with(|s| s.starting.replace(block));
+    let out = f();
+    with(|s| {
+        s.starting = before;
+        let spawned = std::mem::take(&mut s.spawned);
+        s.tasks.extend(spawned);
+    });
+    out
 }
 
 fn find(blocks: &'static [&'static dyn Block], id: &str) -> Result<&'static dyn Block, String> {
@@ -119,7 +148,7 @@ pub fn configure(blocks: &'static [&'static dyn Block], config: String, lang: St
     let table: toml::Table = toml::from_str(&config).map_err(|e| format!("config: {e}"))?;
     let lang = crate::Lang::of(&lang);
     crate::i18n::set(blocks.iter().flat_map(|b| b.messages(lang).iter().copied()));
-    with(|s| *s = State { config: table.clone(), ..Default::default() });
+    with(|s| *s = State { config: table.clone(), first: blocks.first().map(|b| b.id()), ..Default::default() });
     for b in blocks {
         b.configure(&table).map_err(|e| format!("[{}]: {e:#}", b.id()))?;
     }
@@ -151,7 +180,10 @@ pub fn start(blocks: &'static [&'static dyn Block], env: String) -> Result<(), S
     with(|s| {
         s.starting = None;
         let spawned = std::mem::take(&mut s.spawned);
-        s.tasks.extend(spawned);
+        // A start that failed runs nothing it spawned before failing: its error stays the block's.
+        if started.is_ok() {
+            s.tasks.extend(spawned);
+        }
     });
     started.map_err(|e| format!("{e:#}"))
 }
@@ -161,13 +193,13 @@ pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
     let block = owner(blocks, &part);
     // The futures due: this part's, and those of its block not yet run.
     let due: Vec<Running> = with(|s| {
-        let (due, rest): (Vec<Running>, Vec<Running>) = std::mem::take(&mut s.tasks).into_iter().partition(|t| (t.part == Some(part.as_str()) && t.at <= now) || (t.part.is_none() && t.block == block));
+        let (due, rest): (Vec<Running>, Vec<Running>) = std::mem::take(&mut s.tasks).into_iter().partition(|t| t.at <= now && (t.part == Some(part.as_str()) || (t.part.is_none() && t.block == block)));
         s.tasks = rest;
         due
     });
     let mut cx = Context::from_waker(Waker::noop());
     for mut t in due {
-        if t.aborted.load(Ordering::Relaxed) {
+        if t.flags.aborted.load(Ordering::Relaxed) {
             continue;
         }
         with(|s| {
@@ -220,25 +252,27 @@ pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
 pub fn call(blocks: &'static [&'static dyn Block], block: String, command: String, args: String, demo: bool) -> Result<String, String> {
     let b = find(blocks, &block)?;
     let args: Value = if args.is_empty() { Value::Null } else { serde_json::from_str(&args).map_err(|e| format!("args: {e}"))? };
-    let answer = if demo {
-        b.demo_call(&command, &args).unwrap_or_else(|| Err(anyhow::anyhow!("The demo profile changes nothing: its data is a sample")))
-    } else {
-        block_on(b.call(command, args))?
-    };
+    let answer = as_block(b.id(), || {
+        if demo {
+            Ok(b.demo_call(&command, &args).unwrap_or_else(|| Err(anyhow::anyhow!("The demo profile changes nothing: its data is a sample"))))
+        } else {
+            block_on(b.call(command, args))
+        }
+    })?;
     answer.map(|v| v.to_string()).map_err(|e| format!("{e:#}"))
 }
 
 pub fn hints(blocks: &'static [&'static dyn Block], repo: String) -> Result<String, String> {
-    let provider = blocks.iter().find_map(|b| b.stages()).ok_or("no block of this module declares stages")?;
-    let hints = block_on(provider.hints(std::path::Path::new(&repo)))?.map_err(|e| format!("{e:#}"))?;
+    let (block, provider) = blocks.iter().find_map(|b| Some((b.id(), b.stages()?))).ok_or("no block of this module declares stages")?;
+    let hints = as_block(block, || block_on(provider.hints(std::path::Path::new(&repo))))?.map_err(|e| format!("{e:#}"))?;
     let expected: Vec<Value> = hints.expected.into_iter().map(|((app, env), version)| json!({ "app": app, "env": env, "version": version })).collect();
     Ok(json!({ "apps": hints.apps, "expected": expected }).to_string())
 }
 
 pub fn images(blocks: &'static [&'static dyn Block], repo: String, project: String, local: String) -> Result<String, String> {
-    let provider = blocks.iter().find_map(|b| b.images()).ok_or("no block of this module names images")?;
+    let (block, provider) = blocks.iter().find_map(|b| Some((b.id(), b.images()?))).ok_or("no block of this module names images")?;
     let local: Vec<crate::block::LocalRepo> = serde_json::from_str(&local).map_err(|e| format!("local: {e}"))?;
-    let targets = block_on(provider.images(std::path::Path::new(&repo), &project, &local))?.map_err(|e| format!("{e:#}"))?;
+    let targets = as_block(block, || block_on(provider.images(std::path::Path::new(&repo), &project, &local)))?.map_err(|e| format!("{e:#}"))?;
     serde_json::to_string(&targets).map_err(|e| e.to_string())
 }
 
@@ -248,20 +282,22 @@ pub(crate) fn stages_of(blocks: &'static [&'static dyn Block]) -> Option<Stages>
     blocks.iter().find_map(|b| b.stages()).map(|p| p.stages())
 }
 
-/// What `spawn` returns: a handle to stop the future.
+/// What `spawn` returns: a handle to stop the future, or know it ended (it cannot be awaited:
+/// nothing waits in a module).
 pub struct JoinHandle<T> {
-    pub(crate) aborted: Arc<AtomicBool>,
+    pub(crate) flags: Arc<Flags>,
     pub(crate) _output: std::marker::PhantomData<fn() -> T>,
 }
 
 impl<T> JoinHandle<T> {
     /// Stops it: it is not polled again.
     pub fn abort(&self) {
-        self.aborted.store(true, Ordering::Relaxed);
+        self.flags.aborted.store(true, Ordering::Relaxed);
     }
 
+    /// It ended: done, stopped, or dropped with its block's former start.
     pub fn is_finished(&self) -> bool {
-        self.aborted.load(Ordering::Relaxed)
+        self.flags.finished.load(Ordering::Relaxed)
     }
 }
 
@@ -287,5 +323,127 @@ impl<T: Send + Sync + 'static> Swap<T> {
 impl<T: Send + Sync + 'static> Default for Swap<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicUsize;
+
+    use anyhow::{anyhow, Result};
+    use futures::future::BoxFuture;
+
+    use super::*;
+    use crate::sdk;
+
+    /// A block of the tests: its parts, and what its `start` and `call` do.
+    struct TestBlock {
+        id: &'static str,
+        parts: &'static [&'static str],
+        start: fn() -> Result<()>,
+        call: fn(),
+    }
+
+    impl Block for TestBlock {
+        fn id(&self) -> &'static str {
+            self.id
+        }
+        fn parts(&self) -> &'static [&'static str] {
+            self.parts
+        }
+        fn start(&self, _: &toml::Table, _: BlockCtx) -> Result<()> {
+            (self.start)()
+        }
+        fn call(&self, _: String, _: Value) -> BoxFuture<'static, Result<Value>> {
+            let call = self.call;
+            Box::pin(async move {
+                call();
+                Ok(Value::Null)
+            })
+        }
+    }
+
+    fn started(blocks: &'static [&'static dyn Block]) {
+        configure(blocks, String::new(), "en".into(), false).unwrap();
+        for b in blocks {
+            let _ = start(blocks, json!({ "block": b.id() }).to_string());
+        }
+    }
+
+    #[test]
+    fn what_a_call_spawns_runs_on_its_blocks_next_tick() {
+        static RAN: AtomicBool = AtomicBool::new(false);
+        static A: TestBlock = TestBlock { id: "a", parts: &["a_reads"], start: || Ok(()), call: || drop(sdk::spawn(async { RAN.store(true, Ordering::Relaxed) })) };
+        static BLOCKS: &[&dyn Block] = &[&A];
+        started(BLOCKS);
+        call(BLOCKS, "a".into(), "go".into(), String::new(), false).unwrap();
+        assert!(!RAN.load(Ordering::Relaxed));
+        tick(BLOCKS, "a_reads".into());
+        assert!(RAN.load(Ordering::Relaxed), "the call's future ran on a tick of its block");
+    }
+
+    #[test]
+    fn a_stalled_future_waits_its_minute_whichever_part_ticks() {
+        static POLLS: AtomicUsize = AtomicUsize::new(0);
+        static B: TestBlock = TestBlock {
+            id: "b",
+            parts: &["b1", "b2"],
+            start: || {
+                // Waits on something Prism does not give, before any pause.
+                sdk::spawn(async {
+                    POLLS.fetch_add(1, Ordering::Relaxed);
+                    std::future::pending::<()>().await
+                });
+                Ok(())
+            },
+            call: || {},
+        };
+        static BLOCKS: &[&dyn Block] = &[&B];
+        started(BLOCKS);
+        let t = tick(BLOCKS, "b1".into());
+        assert_eq!(POLLS.load(Ordering::Relaxed), 1);
+        assert!(t.next >= 59, "due again a minute later: {}", t.next);
+        tick(BLOCKS, "b2".into());
+        tick(BLOCKS, "b1".into());
+        assert_eq!(POLLS.load(Ordering::Relaxed), 1, "not polled again before its minute");
+    }
+
+    #[test]
+    fn a_handle_says_its_future_ended() {
+        static HANDLE: Mutex<Option<sdk::JoinHandle<()>>> = Mutex::new(None);
+        static C: TestBlock = TestBlock {
+            id: "c",
+            parts: &[],
+            start: || {
+                *HANDLE.lock().unwrap() = Some(sdk::spawn(async {}));
+                Ok(())
+            },
+            call: || {},
+        };
+        static BLOCKS: &[&dyn Block] = &[&C];
+        started(BLOCKS);
+        assert!(!HANDLE.lock().unwrap().as_ref().unwrap().is_finished());
+        tick(BLOCKS, "c".into());
+        assert!(HANDLE.lock().unwrap().as_ref().unwrap().is_finished(), "done: finished");
+    }
+
+    #[test]
+    fn a_start_that_fails_runs_nothing_it_spawned() {
+        static RAN: AtomicBool = AtomicBool::new(false);
+        static D: TestBlock = TestBlock {
+            id: "d",
+            parts: &[],
+            start: || {
+                sdk::spawn(async { RAN.store(true, Ordering::Relaxed) });
+                Err(anyhow!("[d] other: unreadable"))
+            },
+            call: || {},
+        };
+        static BLOCKS: &[&dyn Block] = &[&D];
+        configure(BLOCKS, String::new(), "en".into(), false).unwrap();
+        assert!(start(BLOCKS, json!({ "block": "d" }).to_string()).unwrap_err().contains("unreadable"));
+        let t = tick(BLOCKS, "d".into());
+        assert!(!RAN.load(Ordering::Relaxed));
+        assert_eq!(t.next, 0, "nothing left to tick");
     }
 }

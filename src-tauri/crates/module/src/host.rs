@@ -191,47 +191,61 @@ pub mod conventions {
 pub mod ticket {
     use regex::Regex;
 
-    fn patterns() -> (String, Option<Regex>, Option<Regex>) {
+    struct Patterns {
+        prefix: &'static str,
+        ticket: Option<Regex>,
+        session: Option<Regex>,
+    }
+
+    /// The patterns of the current conventions: built again only when they change (a block starts
+    /// with new ones), not at each call.
+    fn patterns() -> std::sync::Arc<Patterns> {
+        static CACHE: std::sync::Mutex<Option<(std::sync::Arc<super::Conventions>, std::sync::Arc<Patterns>)>> = std::sync::Mutex::new(None);
         let c = super::conventions::get();
+        let mut cache = CACHE.lock().unwrap();
+        if let Some((of, p)) = cache.as_ref().filter(|(of, _)| std::sync::Arc::ptr_eq(of, &c)) {
+            let _ = of;
+            return p.clone();
+        }
         let prefix = c.ticket_prefix.to_uppercase();
         let ticket = (!c.ticket_patterns.is_empty()).then(|| Regex::new(&format!(r"(?i)\b(?:{})-\d+", c.ticket_patterns.join("|"))).ok()).flatten();
         let session = (!prefix.is_empty()).then(|| {
             let names = std::iter::once("ticket".to_string()).chain(std::iter::once(regex::escape(&prefix))).chain(c.branch_aliases.iter().map(|a| regex::escape(a))).collect::<Vec<_>>().join("|");
             Regex::new(&format!(r"(?i)\b(?:{names})-(\d{{3,5}})\b")).unwrap()
         });
-        (prefix, ticket, session)
+        let p = std::sync::Arc::new(Patterns { prefix: Box::leak(prefix.into_boxed_str()), ticket, session });
+        *cache = Some((c, p.clone()));
+        p
     }
 
     /// The ticket prefix (`SHOP`), uppercase.
     pub fn prefix() -> &'static str {
-        static LAST: std::sync::Mutex<Option<&'static str>> = std::sync::Mutex::new(None);
-        let now = patterns().0;
-        let mut last = LAST.lock().unwrap();
-        match *last {
-            Some(p) if p == now => p,
-            _ => last.insert(Box::leak(now.into_boxed_str())),
-        }
+        patterns().prefix
     }
 
     pub fn find<'a>(texts: impl IntoIterator<Item = &'a str>) -> Option<String> {
-        let re = patterns().1?;
+        let p = patterns();
+        let re = p.ticket.as_ref()?;
         texts.into_iter().find_map(|t| re.find(t)).map(|m| m.as_str().to_uppercase())
     }
 
     pub fn find_all<'a>(texts: impl IntoIterator<Item = &'a str>) -> Vec<String> {
-        let Some(re) = patterns().1 else { return Vec::new() };
+        let p = patterns();
+        let Some(re) = p.ticket.as_ref() else { return Vec::new() };
         let mut out: Vec<String> = Vec::new();
-        for id in texts.into_iter().flat_map(|t| re.find_iter(t).map(|m| m.as_str().to_uppercase()).collect::<Vec<_>>()) {
-            if !out.contains(&id) {
-                out.push(id);
+        for t in texts {
+            for id in re.find_iter(t).map(|m| m.as_str().to_uppercase()) {
+                if !out.contains(&id) {
+                    out.push(id);
+                }
             }
         }
         out
     }
 
     pub fn find_in_session(title: &str, branch: Option<&str>) -> Option<String> {
-        let (prefix, _, session) = patterns();
-        find([title, branch.unwrap_or_default()]).or_else(|| session?.captures(branch?).map(|c| format!("{prefix}-{}", &c[1])))
+        let p = patterns();
+        find([title, branch.unwrap_or_default()]).or_else(|| p.session.as_ref()?.captures(branch?).map(|c| format!("{}-{}", p.prefix, &c[1])))
     }
 }
 

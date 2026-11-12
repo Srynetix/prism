@@ -65,8 +65,8 @@ where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
 {
-    let aborted = crate::runtime::spawn(Box::pin(async move {
+    let flags = crate::runtime::spawn(Box::pin(async move {
         let _ = future.await;
     }));
-    JoinHandle { aborted, _output: std::marker::PhantomData }
+    JoinHandle { flags, _output: std::marker::PhantomData }
 }
