@@ -98,12 +98,14 @@ async fn the_example_fills_its_block_and_survives_its_panic() {
     let images = module.images(clone.clone(), "g/app".into(), vec![]).await.unwrap();
     assert_eq!(images[0].tags[0].tag, "alpine:3.20");
     // A panic: the block's error says it, Prism goes on; the component starts again later.
+    let before = hub.subscribe().borrow().blocks["hello"]["at"].clone();
     let e = module.call("hello", "panic".into(), json!({}), false).await.unwrap_err().to_string();
     assert!(e.contains("panicked on purpose"), "{e}");
     wait_for(&hub, "the block's error", |s| s.errors.get("hello").is_some_and(|e| e.contains("panicked on purpose")));
     assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap_err().to_string().contains("starting again"));
     // Started again: configured and started as it was, its error gone, reading anew.
-    wait_for(&hub, "its restart", |s| !s.errors.contains_key("hello") && s.blocks.get("hello").is_some_and(|v| v["reads"] == 1));
+    // (Its state read anew: the one before the panic said 1 too.)
+    wait_for(&hub, "its restart", |s| !s.errors.contains_key("hello") && s.blocks.get("hello").is_some_and(|v| v["reads"] == 1 && v["at"] != before));
     assert_eq!(module.call("hello", "ping".into(), json!({}), false).await.unwrap()["pong"], 1);
     std::fs::remove_dir_all(clone).unwrap();
 }
@@ -165,11 +167,14 @@ async fn its_demo_comes_from_the_component() {
 fn the_second_load_comes_from_the_cache() {
     let Some(wasm) = example() else { return };
     let cache = temp("cache");
+    let t0 = Instant::now();
     crate::cache::component_in(&cache, &wasm).unwrap();
+    let compiled = t0.elapsed();
     let t0 = Instant::now();
     crate::cache::component_in(&cache, &wasm).unwrap();
     let took = t0.elapsed();
-    assert!(took < Duration::from_millis(50), "from the cache in {took:?}");
+    // Against its compiling, not a clock: the machine may be busy.
+    assert!(took * 4 < compiled, "from the cache in {took:?}, compiled in {compiled:?}");
     std::fs::remove_dir_all(cache).unwrap();
 }
 
