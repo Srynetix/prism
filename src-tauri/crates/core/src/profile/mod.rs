@@ -105,7 +105,7 @@ pub fn data_dir(base: &Path) -> PathBuf {
     data_dir_of(base, active())
 }
 
-fn data_dir_of(base: &Path, id: &str) -> PathBuf {
+pub fn data_dir_of(base: &Path, id: &str) -> PathBuf {
     if id == DEFAULT { base.to_path_buf() } else { base.join("profiles").join(id) }
 }
 

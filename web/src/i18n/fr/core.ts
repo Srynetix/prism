@@ -603,4 +603,6 @@ export default {
   'its component did not load': 'son composant ne s’est pas chargé',
   'module {name}': 'module {name}',
   '{name}: {error}': '{name} : {error}',
+  'waits for your trust': 'attend votre confiance',
+  'a new version waits for your trust': 'une nouvelle version attend votre confiance',
 } satisfies Dictionary

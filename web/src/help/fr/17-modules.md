@@ -88,6 +88,23 @@ Son collecteur est une boucle lancée dans `start`, comme dans Prism : `loop { l
 
 Build : `rustup target add wasm32-wasip2` une fois, puis `cargo build --release --target wasm32-wasip2`. `vite build` copie le composant dans `dist/<id>/` avec `module.toml`.
 
+## L'apporter avec un pack
+
+Le pack d'une équipe installe ses modules : chaque `[[modules]]` en nomme un et l'endroit où le lire, avec les mêmes sources que le pack lui-même (la connexion glab ou gh de l'utilisateur).
+
+```toml
+[[modules]]
+id = "hello"
+source = "glab:groupe/prism-pack:modules/hello@main"   # un dossier d'un dépôt
+# "gh:owner/repo:dist/hello.zip@v2" (une archive), ou un dossier ou un .zip à côté du pack
+```
+
+Importer ou mettre à jour le pack place chaque module dans `modules/<id>/`, en entier ; retirer le pack, ou un module du pack, retire le dossier. L'alerte de mise à jour des packs signale aussi qu'un de ses modules a changé à sa source.
+
+## Lui faire confiance
+
+Rien d'un module ne tourne avant que vous lui fassiez confiance : sa partie web n'est pas chargée, son back end ne démarre pas, ses blocs disent qu'ils attendent. **Réglages › Packs › Modules** liste ce que son back end peut atteindre (GitLab, git, les hôtes et programmes qu'il nomme) : **Faire confiance** (deux clics), et son back end démarre aussitôt, sa partie web au prochain chargement de la fenêtre. La confiance va à l'empreinte de son dossier : une nouvelle version attend de nouveau, avec ce qu'elle change (une capacité ajoutée, un bloc, une table de config).
+
 ## L'installer et l'essayer
 
-Copie `dist/<id>` dans `modules/` et recharge la fenêtre, puis ajoute ses blocs à une page (**+ Bloc**). Les lignes et les erreurs de son back end sont dans le journal de Prism (`module <id>: …`). Dans le profil de démo, ses blocs montrent l'état de `Block::demo`.
+Sans pack : copiez `dist/<id>` dans `modules/`, faites-lui confiance dans Réglages › Packs › Modules et rechargez la fenêtre, puis ajoutez ses blocs à une page (**+ Bloc**). Les lignes et les erreurs de son back end sont dans le journal de Prism (`module <id>: …`). Dans le profil de démo, ses blocs montrent l'état de `Block::demo`.

@@ -67,7 +67,8 @@ export function current(snap: Snapshot | null): Problem[] {
   }
   // A module Prism did not load (its manifest, its contract, its Svelte, its files), or one of its blocks whose id was taken.
   for (const m of moduleStates()) {
-    if (m.state !== 'on') out.push({ level: 'ko', where: t('module {name}', { name: m.id }), message: m.reason ?? '', count: 1, settings: 'packs' })
+    if (m.state === 'waiting') out.push({ level: 'warn', where: t('module {name}', { name: m.id }), message: m.info?.trusted_version ? t('a new version waits for your trust') : t('waits for your trust'), count: 1, settings: 'packs' })
+    else if (m.state !== 'on') out.push({ level: 'ko', where: t('module {name}', { name: m.id }), message: m.reason ?? '', count: 1, settings: 'packs' })
     for (const block of m.clashes) out.push({ level: 'warn', where: t('module {name}', { name: m.id }), message: t('its block {block} is not shown: that id is already taken', { block }), count: 1, settings: 'packs' })
   }
   if (packUpdates.error) out.push({ level: 'warn', where: t('packs'), message: packUpdates.error, count: 1, settings: 'packs' })

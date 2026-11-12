@@ -30,12 +30,16 @@ fn temp(name: &str) -> PathBuf {
     dir
 }
 
-/// The example module, its manifest as `module.toml` declares it.
+/// The example module, its manifest as `module.toml` declares it, trusted.
 fn module(wasm: &PathBuf, capabilities: &str) -> Arc<Module> {
+    module_trusted(wasm, capabilities, true)
+}
+
+fn module_trusted(wasm: &PathBuf, capabilities: &str, trusted: bool) -> Arc<Module> {
     let folder = temp("module");
     std::fs::copy(wasm, folder.join("backend.wasm")).unwrap();
     let spec = crate::manifest::parse(&folder, &format!("[wasm]\ncomponent = \"backend.wasm\"\ntables = [\"hello\"]\ncapabilities = {capabilities}\n[[wasm.blocks]]\nid = \"hello\"\nparts = [\"hello_reads\"]\nrepos = \"one\"\nreloads = true\nprovides = [\"stages\", \"images\"]\nremote = {{ ping = \"read\" }}\n")).unwrap();
-    let module = Arc::new(Module::new("hello".into(), spec, prism_core::modules::stopped_mark(&folder, "hello")));
+    let module = Arc::new(Module::new("hello".into(), spec, prism_core::modules::stopped_mark(&folder, "hello"), trusted.then(|| std::fs::read(wasm).unwrap())));
     module.warm();
     module
 }
@@ -191,4 +195,64 @@ fn the_sdk_types_read_the_cores_json() {
     same::<_, prism_module::sdk::ChangeEvent>(&change);
     same::<_, prism_module::sdk::Stage>(&prism_core::stages::Stage { role: "production".into(), name: "prod".into(), env: "prod".into() });
     same::<_, prism_module::sdk::conventions::Conventions>(&prism_core::conventions::Conventions::default());
+}
+
+/// Not trusted: its block says it waits, nothing of it runs; trusted, it starts as it waited.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_untrusted_module_waits_then_runs_once_trusted() {
+    let Some(wasm) = example() else { return };
+    let clone = temp("waits");
+    git(&clone, &["init", "-q"]);
+    git(&clone, &["commit", "-q", "--allow-empty", "-m", "Waited"]);
+    let module = module_trusted(&wasm, "{ git = true }", false);
+    let hub = Hub::new();
+    let (m, h, c) = (module.clone(), hub.clone(), clone.clone());
+    tokio::task::spawn_blocking(move || {
+        m.configure(&toml::from_str("[hello]\nevery = 5\n").unwrap()).unwrap();
+        m.start("hello", BlockCtx::new("hello", h, Arc::new(env(&c))), crate::block::env_json("hello", &env(&c))).unwrap();
+    })
+    .await
+    .unwrap();
+    wait_for(&hub, "its waiting", |s| s.errors.get("hello").is_some_and(|e| e.contains("waits for your trust")));
+    assert!(!hub.subscribe().borrow().blocks.contains_key("hello"), "nothing of it ran");
+    assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap_err().to_string().contains("trust"));
+    let m = module.clone();
+    let w = wasm.clone();
+    tokio::task::spawn_blocking(move || assert!(m.trust_as(m.spec.clone(), std::fs::read(w).unwrap()))).await.unwrap();
+    wait_for(&hub, "its first read, trusted", |s| s.blocks.get("hello").is_some_and(|v| v["commit"] == "Waited") && !s.errors.contains_key("hello"));
+    std::fs::remove_dir_all(clone).unwrap();
+}
+
+/// Trusted, it runs as the version trusted: what that one declares it may reach, not what the
+/// manifest read at launch said; a folder that is not that version is not run.
+#[tokio::test(flavor = "multi_thread")]
+async fn it_runs_as_the_version_trusted() {
+    let Some(wasm) = example() else { return };
+    let clone = temp("as-trusted");
+    git(&clone, &["init", "-q"]);
+    git(&clone, &["commit", "-q", "--allow-empty", "-m", "x"]);
+    // At launch, a version that declared git; trusted, the one shown declares nothing.
+    let module = module_trusted(&wasm, "{ git = true }", false);
+    let mut shown = module.spec.clone();
+    shown.capabilities = Default::default();
+    let hub = Hub::new();
+    let (m, h, c, w) = (module.clone(), hub.clone(), clone.clone(), wasm.clone());
+    tokio::task::spawn_blocking(move || {
+        m.configure(&toml::Table::new()).unwrap();
+        m.start("hello", BlockCtx::new("hello", h, Arc::new(env(&c))), crate::block::env_json("hello", &env(&c))).unwrap();
+        assert!(m.trust_as(shown, std::fs::read(w).unwrap()));
+    })
+    .await
+    .unwrap();
+    wait_for(&hub, "git refused: not the trusted version's", |s| s.errors.get("hello_reads").is_some_and(|e| e.contains("not among this module's capabilities")));
+    // Another folder than the version trusted: not read.
+    let folder = temp("other");
+    std::fs::write(folder.join("module.toml"), "[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"hello\"\n").unwrap();
+    std::fs::write(folder.join("b.wasm"), b"x").unwrap();
+    assert!(crate::worker::load_trusted(&folder, "not its fingerprint").unwrap_err().to_string().contains("trust it again"));
+    let f = prism_core::modules::fingerprint_of(&folder);
+    assert!(crate::worker::load_trusted(&folder, &f).is_ok());
+    for d in [clone, folder] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
 }

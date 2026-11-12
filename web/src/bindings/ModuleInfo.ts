@@ -22,6 +22,32 @@ web: boolean,
 backend: boolean, 
 /**
  * Why Prism does not load it (its manifest unreadable, another contract, a newer Prism
- * needed); absent: the window loads it, and checks its files in turn.
+ * needed); absent: the window loads it once trusted, and checks its files in turn.
  */
-refused: string | null, };
+refused: string | null, 
+/**
+ * What it may reach, as its manifest declares (`[wasm] capabilities`): `git`, `gitlab`,
+ * `http:<host>`, `exec:<program>`.
+ */
+capabilities: Array<string>, 
+/**
+ * I trust this version of it (its folder's fingerprint): nothing of it runs otherwise.
+ */
+trusted: boolean, 
+/**
+ * Waiting for trust: what changed since the version trusted before (`+ …`, `- …`), all of
+ * it when none was.
+ */
+changes: Array<string>, 
+/**
+ * The version trusted before, when one was.
+ */
+trusted_version: string | null, 
+/**
+ * Its folder's fingerprint: what trusting it trusts.
+ */
+fingerprint: string, 
+/**
+ * The pack that installed it (`[[modules]]` of a pack); none: put there by hand.
+ */
+pack: string | null, };

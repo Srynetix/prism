@@ -103,6 +103,18 @@ pub fn set_for_webkit(value: Option<&std::ffi::OsStr>) -> bool {
     value.is_some_and(|v| v != "0")
 }
 
+/// Module `id` trusted as I was shown it (`fingerprint`): its web part loads at the window's next
+/// load, its back end starts now (installed after launch: once Prism restarts, said by `false`).
+#[prism_macros::command]
+pub async fn modules_trust(id: String, fingerprint: String) -> Cmd<bool> {
+    tokio::task::spawn_blocking(move || {
+        prism_core::modules::trust(&prism_core::modules::dir(), &prism_core::modules::trust_path_for(prism_core::profile::active()), &id, &fingerprint)?;
+        anyhow::Ok(prism_modules::trusted(&id, &fingerprint) || !prism_core::modules::list().iter().any(|m| m.id == id && m.backend))
+    })
+    .await?
+    .map_err(Into::into)
+}
+
 /// The log file's path, and its size in bytes (absent: none yet).
 #[prism_macros::command]
 pub fn logs_info() -> (String, Option<u64>) {

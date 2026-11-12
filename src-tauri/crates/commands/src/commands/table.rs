@@ -150,6 +150,8 @@ commands! {
     system::restart_app: Act [demo: own],
     // The computer itself: `[remote] power` and the passkey every time (the remote's server).
     system::mac_power: Critical [demo: refused] [phone: action: String, password: Option<String>],
+    // Trusting a module runs its code on this computer: from the computer only.
+    system::modules_trust: Never,
     system::logs_info: Never,
     system::logs_tail: Never,
     system::dependencies: Never,

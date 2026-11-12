@@ -57,6 +57,8 @@ pub struct PackInfo {
     pub too_new: bool,
     /// Listed in `config.toml` but absent from `packs/`.
     pub missing: bool,
+    /// The modules it brings (`[[modules]]`), installed in `modules/` with it.
+    pub modules: Vec<crate::modules::install::PackModule>,
 }
 
 /// Folder of the imported packs: `packs/`, next to `config.toml`.
@@ -87,7 +89,7 @@ pub fn layered(config: &Path, raw: &str) -> Result<(Table, Table, Vec<PackInfo>)
     for name in names {
         let path = file(config, &name);
         let Ok(text) = std::fs::read_to_string(&path) else {
-            infos.push(PackInfo { name, version: None, description: None, source: None, commit: None, requires: None, too_new: false, missing: true });
+            infos.push(PackInfo { name, version: None, description: None, source: None, commit: None, requires: None, too_new: false, missing: true, modules: Vec::new() });
             continue;
         };
         let (info, mut values) = parse(&text).with_context(|| format!("pack {name} ({})", path.display()))?;
@@ -104,6 +106,11 @@ pub fn layered(config: &Path, raw: &str) -> Result<(Table, Table, Vec<PackInfo>)
 fn parse(text: &str) -> Result<(PackInfo, Table)> {
     let mut values: Table = text.parse().context(tr("not valid TOML"))?;
     let meta = values.remove("pack").and_then(|m| m.as_table().cloned()).unwrap_or_default();
+    // Its modules: what it installs, not configuration.
+    let modules: Vec<crate::modules::install::PackModule> = match values.remove("modules") {
+        Some(m) => m.try_into().context("[[modules]]: id and source")?,
+        None => Vec::new(),
+    };
     for key in PERSONAL {
         if values.remove(key).is_some() {
             tracing::warn!("packs: [{key}] is personal, ignored in a pack");
@@ -132,7 +139,7 @@ fn parse(text: &str) -> Result<(PackInfo, Table)> {
     let field = |k: &str| meta.get(k).and_then(|v| v.as_str()).map(String::from);
     let requires = field("requires");
     let too_new = requires.as_deref().is_some_and(|r| !satisfies(PRISM, r));
-    let info = PackInfo { name: field("name").unwrap_or_default(), version: field("version"), description: field("description"), source: field("source"), commit: field("commit"), requires, too_new, missing: false };
+    let info = PackInfo { name: field("name").unwrap_or_default(), version: field("version"), description: field("description"), source: field("source"), commit: field("commit"), requires, too_new, missing: false, modules };
     Ok((info, values))
 }
 
@@ -214,6 +221,18 @@ pub async fn import(config: &Path, source: &str) -> Result<PackInfo> {
     };
     let name: String = name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' }).collect();
     ensure!(!name.is_empty() && !name.starts_with('-'), "invalid pack name");
+    // Its modules read and checked first: one that does not read, or may not be installed,
+    // leaves the pack and the modules as they were.
+    let root = crate::modules::dir_of(config);
+    let mut fetched = Vec::new();
+    for m in &info.modules {
+        let context = || tr!("module {id} of the pack ({source})", id = m.id, source = m.source);
+        let (at, base) = crate::modules::install::resolve(source, &m.source).with_context(context)?;
+        let read = crate::modules::install::PackModule { id: m.id.clone(), source: at };
+        let files = crate::modules::install::fetch(&read.source, base.as_deref()).await.with_context(context)?;
+        crate::modules::install::check_install(&root, &name, &read, &files).with_context(context)?;
+        fetched.push((read, files));
+    }
 
     // The copy remembers where it comes from, for updates.
     let mut doc: toml_edit::DocumentMut = text.parse()?;
@@ -232,6 +251,12 @@ pub async fn import(config: &Path, source: &str) -> Result<PackInfo> {
     if !names.contains(&name) {
         set_list(config, names.into_iter().chain([name.clone()]).collect())?;
     }
+    // Its modules in `modules/`, those it no longer brings out; none trusted for that.
+    for (m, files) in fetched {
+        crate::modules::install::install(&root, &name, &m, files)?;
+    }
+    let keep: Vec<String> = info.modules.iter().map(|m| m.id.clone()).collect();
+    crate::modules::install::remove_others(&root, &modules_trust(config), &name, &keep);
     Ok(PackInfo { source: Some(source.to_string()), commit, missing: false, name, ..info })
 }
 
@@ -265,6 +290,8 @@ pub struct PackCheck {
     pub requires: Option<String>,
     /// The source could not be read.
     pub error: Option<String>,
+    /// Its modules, read again from their sources.
+    pub modules: Vec<crate::modules::install::ModuleCheck>,
 }
 
 /// Reads every pack of `config.toml` with a source again, all at once; nothing is written.
@@ -278,10 +305,23 @@ pub async fn check(config: &Path) -> Result<Vec<PackCheck>> {
 async fn check_one(config: &Path, name: &str) -> Option<PackCheck> {
     let (info, values) = parse(&std::fs::read_to_string(file(config, name)).ok()?).ok()?;
     let source = info.source.clone()?;
-    let mut out = PackCheck { name: name.to_string(), version: info.version.clone(), latest: None, commit: None, changed: false, too_new: false, requires: None, error: None };
+    let mut out = PackCheck { name: name.to_string(), version: info.version.clone(), latest: None, commit: None, changed: false, too_new: false, requires: None, error: None, modules: Vec::new() };
     match fetch(&source).await.and_then(|(text, commit)| Ok((parse(&text)?, commit))) {
         Ok(((latest, new_values), commit)) => {
-            out.changed = new_values != values || latest.version != info.version;
+            // The source's modules, against those installed: one changed, the pack did.
+            let root = crate::modules::dir_of(config);
+            let checks = latest.modules.iter().map(|m| {
+                let root = root.clone();
+                let resolved = crate::modules::install::resolve(&source, &m.source);
+                async move {
+                    match resolved {
+                        Ok((at, base)) => crate::modules::install::check(&root, &crate::modules::install::PackModule { id: m.id.clone(), source: at }, base.as_deref()).await,
+                        Err(e) => crate::modules::install::ModuleCheck { id: m.id.clone(), installed: false, version: None, latest: None, changed: true, error: Some(format!("{e:#}")) },
+                    }
+                }
+            });
+            out.modules = futures::future::join_all(checks).await;
+            out.changed = new_values != values || latest.version != info.version || latest.modules != info.modules || out.modules.iter().any(|m| m.changed);
             out.too_new = latest.too_new;
             out.requires = latest.requires;
             out.latest = latest.version;
@@ -301,13 +341,26 @@ fn at_ref(source: &str, reference: &str) -> Result<String> {
     Ok(if reference.is_empty() { format!("{kind_project}:{path}") } else { format!("{kind_project}:{path}@{reference}") })
 }
 
-/// Takes a pack out of `config.toml` and deletes its copy.
+/// Takes a pack out of `config.toml` and deletes its copy, and the modules it installed.
 pub fn remove(config: &Path, name: &str) -> Result<()> {
     let raw = std::fs::read_to_string(config).unwrap_or_default();
     let names: Vec<String> = listed(&raw)?.into_iter().filter(|n| n != name).collect();
     set_list(config, names)?;
     let _ = std::fs::remove_file(file(config, name));
+    crate::modules::install::remove_others(&crate::modules::dir_of(config), &modules_trust(config), name, &[]);
     Ok(())
+}
+
+/// The trust store of the modules next to `config`: its profile's; a config of no profile (a
+/// test's) keeps its own next to it, never touching a profile's.
+fn modules_trust(config: &Path) -> PathBuf {
+    if config == crate::profile::config_path() {
+        return crate::modules::trust_path_for(crate::profile::active());
+    }
+    match crate::profile::names().into_iter().map(|(id, _)| id).find(|id| crate::profile::config_of(id) == config) {
+        Some(id) => crate::modules::trust_path_for(&id),
+        None => config.parent().unwrap_or(Path::new(".")).join("modules-trust.json"),
+    }
 }
 
 fn listed(raw: &str) -> Result<Vec<String>> {
@@ -325,7 +378,7 @@ fn set_list(config: &Path, names: Vec<String>) -> Result<()> {
 /// the user's glab login, `gh:owner/repo:path/pack.toml@ref` with their gh login; without `@ref`,
 /// the default branch), a pack built into Prism (`prism:starter`), anything else a local file.
 #[derive(Debug, PartialEq)]
-enum Source<'a> {
+pub(crate) enum Source<'a> {
     File(&'a str),
     Builtin(&'static str),
     Gitlab { project: &'a str, path: &'a str, reference: Option<&'a str> },
@@ -338,7 +391,7 @@ pub const STARTER: &str = "prism:starter";
 /// Packs built into Prism, by name: the pages wizard's generic templates live there, not in the code.
 const BUILTIN: [(&str, &str); 1] = [("starter", include_str!("../../../../packs/starter.toml"))];
 
-fn source(text: &str) -> Result<Source<'_>> {
+pub(crate) fn source(text: &str) -> Result<Source<'_>> {
     if let Some(name) = text.strip_prefix("prism:") {
         let names = || BUILTIN.map(|(n, _)| format!("prism:{n}")).join(", ");
         return BUILTIN.iter().find(|(n, _)| *n == name).map(|(_, t)| Source::Builtin(t)).with_context(|| tr!("no pack {text} in Prism: {names}", text = text, names = names()));
@@ -412,6 +465,42 @@ fn decode(content: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+
+    /// A pack that brings a module installs it, its update replaces it, and the pack removed takes
+    /// it out with it; installed, it is not trusted for that.
+    #[tokio::test]
+    async fn a_packs_modules_come_and_go_with_it() {
+        let dir = std::env::temp_dir().join(format!("prism-pack-modules-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("src/hello/web")).unwrap();
+        std::fs::write(dir.join("src/hello/module.toml"), "[module]\nversion = \"1.0.0\"\n[web]\n").unwrap();
+        std::fs::write(dir.join("src/hello/web/defs.js"), "export const prism = 1").unwrap();
+        std::fs::write(dir.join("src/team.toml"), "[pack]\nname = \"team\"\n\n[[modules]]\nid = \"hello\"\nsource = \"hello\"\n").unwrap();
+        let config = dir.join("config.toml");
+        std::fs::write(&config, "").unwrap();
+        let info = import(&config, &dir.join("src/team.toml").display().to_string()).await.unwrap();
+        assert_eq!(info.modules.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["hello"]);
+        let root = crate::modules::dir_of(&config);
+        assert_eq!(crate::modules::install::pack_of(&root.join("hello")).as_deref(), Some("team"));
+        // Not configuration: the merged config has no [[modules]].
+        let (table, _, _) = layered(&config, &std::fs::read_to_string(&config).unwrap()).unwrap();
+        assert!(table.get("modules").is_none());
+        let checked = check(&config).await.unwrap();
+        assert!(!checked[0].changed && !checked[0].modules[0].changed, "{checked:?}");
+        remove(&config, "team").unwrap();
+        assert!(!root.join("hello").exists());
+        // Its trust kept next to that config, not in a profile's store.
+        assert!(!std::fs::read_to_string(dir.join("modules-trust.json")).unwrap_or_default().contains("hello"));
+        // A module that may not be installed (no module.toml): the pack is not imported either.
+        std::fs::create_dir_all(dir.join("src/empty")).unwrap();
+        std::fs::write(dir.join("src/empty/x.js"), "").unwrap();
+        std::fs::write(dir.join("src/bad.toml"), "[pack]\nname = \"bad\"\n\n[[modules]]\nid = \"empty\"\nsource = \"empty\"\n").unwrap();
+        assert!(import(&config, &dir.join("src/bad.toml").display().to_string()).await.is_err());
+        assert!(!file(&config, "bad").exists() && !std::fs::read_to_string(&config).unwrap().contains("bad"));
+        assert!(!root.join("empty").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     use super::*;
 
     /// A file of a public GitHub repository, at its default branch and at a given one.

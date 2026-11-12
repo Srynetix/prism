@@ -88,6 +88,23 @@ Its collector is a loop spawned in `start`, as inside Prism: `loop { read; ctx.p
 
 Build: `rustup target add wasm32-wasip2` once, then `cargo build --release --target wasm32-wasip2`. `vite build` copies the component into `dist/<id>/` with `module.toml`.
 
+## Bring it with a pack
+
+A team's pack installs its modules: each `[[modules]]` names one and where it is read, the same sources as the pack's own (the user's glab or gh login).
+
+```toml
+[[modules]]
+id = "hello"
+source = "glab:group/prism-pack:modules/hello@main"   # a folder of a repository
+# "gh:owner/repo:dist/hello.zip@v2" (an archive), or a folder or .zip next to the pack
+```
+
+Importing or updating the pack puts each module in `modules/<id>/`, whole; removing the pack, or a module from it, removes the folder. The packs' update alert also says when one of its modules changed at its source.
+
+## Trust it
+
+Nothing of a module runs before you trust it: its web part is not loaded, its back end does not start, its blocks say they wait. **Settings › Packs › Modules** lists what its back end may reach (GitLab, git, the hosts and programs it names): **Trust** it (two clicks) and its back end starts at once, its web part with the window's next load. Trust goes by the fingerprint of its folder: a new version waits again, with what it changes (a capability it adds, a block, a config table).
+
 ## Install and try it
 
-Copy `dist/<id>` into `modules/` and reload the window, then add its blocks to a page (**+ Block**). Its back end's lines and errors are in Prism's log (`module <id>: …`). In the demo profile, its blocks show `Block::demo`'s state.
+Without a pack: copy `dist/<id>` into `modules/`, trust it in Settings › Packs › Modules and reload the window, then add its blocks to a page (**+ Block**). Its back end's lines and errors are in Prism's log (`module <id>: …`). In the demo profile, its blocks show `Block::demo`'s state.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addWords, CONTRACT, refusal } from './modules.svelte'
-import core from '../../../src-tauri/crates/core/src/modules.rs?raw'
+import core from '../../../src-tauri/crates/core/src/modules/mod.rs?raw'
 
 describe('a module’s declarations', () => {
   it('are checked against the contract the core gives', () => {

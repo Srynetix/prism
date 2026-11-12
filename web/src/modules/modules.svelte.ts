@@ -34,10 +34,15 @@ export interface ModuleStatus {
   id: string
   version: string | null
   description: string | null
-  /** `on`: its blocks are in; `refused`: Prism did not load it; `failed`: its files did not load. */
-  state: 'on' | 'refused' | 'failed'
+  /**
+   * `on`: its blocks are in; `waiting`: not trusted, nothing of it runs (Settings › Packs);
+   * `refused`: Prism did not load it; `failed`: its files did not load.
+   */
+  state: 'on' | 'waiting' | 'refused' | 'failed'
   reason?: string
   blocks: string[]
+  /** As Prism lists it: its capabilities, what changed since the version trusted, its pack. */
+  info?: ModuleInfo
 }
 
 /** The modules of this window, as it loaded them. */
@@ -102,7 +107,8 @@ async function load(base: string): Promise<void> {
   } catch (e) {
     console.error('modules:', e)
   }
-  const status: ModuleStatus[] = infos.map((m) => ({ id: m.id, version: m.version, description: m.description, state: m.refused ? 'refused' : 'on', reason: m.refused ?? undefined, blocks: [] }))
+  // Not trusted: nothing of it is read (Prism serves none of its files either).
+  const status: ModuleStatus[] = infos.map((m) => ({ id: m.id, version: m.version, description: m.description, state: m.refused ? 'refused' : m.trusted === false ? 'waiting' : 'on', reason: m.refused ?? undefined, blocks: [], info: m }))
   const wanted = status.filter((s) => s.state === 'on' && infos.find((m) => m.id === s.id)?.web)
   if (from && wanted.length) {
     if (isSealed()) console.error('modules: the blocks were read before the modules loaded')

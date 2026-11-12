@@ -54,15 +54,21 @@ fn folder() -> PathBuf {
     dirs::cache_dir().unwrap_or_else(std::env::temp_dir).join(prism_core::profile::IDENTIFIER).join("modules")
 }
 
-/// The component of `file`, from the cache when this engine compiled it before.
-pub fn component(file: &Path) -> Result<Component> {
-    component_in(&folder(), file)
-}
-
+/// The component of `file`, compiled in `cache` (a test's).
+#[cfg(test)]
 pub fn component_in(cache: &Path, file: &Path) -> Result<Component> {
     let bytes = std::fs::read(file).with_context(|| file.display().to_string())?;
+    component_of(cache, file, &bytes)
+}
+
+/// The component of `bytes` (read from `file`, as trusted), from the cache when compiled before.
+pub fn component_bytes(file: &Path, bytes: &[u8]) -> Result<Component> {
+    component_of(&folder(), file, bytes)
+}
+
+fn component_of(cache: &Path, file: &Path, bytes: &[u8]) -> Result<Component> {
     let mut hash = Sha256::new();
-    hash.update(&bytes);
+    hash.update(bytes);
     std::hash::Hash::hash(&engine().precompile_compatibility_hash(), &mut Hasher(&mut hash));
     let key: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
     let cached = cache.join(format!("{key}.cwasm"));
@@ -79,7 +85,7 @@ pub fn component_in(cache: &Path, file: &Path) -> Result<Component> {
             Err(e) => tracing::warn!("module {}: cache unreadable, compiled again: {e:?}", file.display()),
         }
     }
-    let native = w(engine().precompile_component(&bytes)).with_context(|| file.display().to_string())?;
+    let native = w(engine().precompile_component(bytes)).with_context(|| file.display().to_string())?;
     tracing::info!("module {}: compiled in {:?}", file.display(), t0.elapsed());
     // Written apart, then renamed: a Prism reading it meanwhile never sees half of it.
     if std::fs::create_dir_all(cache).is_ok() {
