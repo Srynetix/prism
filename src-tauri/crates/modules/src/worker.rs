@@ -96,6 +96,8 @@ enum Msg {
     Call { block: String, command: String, args: Value, demo: bool, reply: tokio::sync::oneshot::Sender<Result<Value>> },
     Hints { repo: PathBuf, reply: tokio::sync::oneshot::Sender<Result<Hints>> },
     Images { repo: PathBuf, project: String, local: Vec<LocalRepo>, reply: tokio::sync::oneshot::Sender<Result<Vec<ImageTarget>>> },
+    /// A call it started apart finished: the part that started it, ticked again.
+    Woke(String),
 }
 
 fn leak(s: &str) -> &'static str {
@@ -394,7 +396,13 @@ impl Worker {
         w(wasmtime_wasi::p2::add_to_linker_sync(&mut linker))?;
         w(bindings::Block::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |s| s))?;
         let capabilities = self.module.trusted_as().ok_or_else(|| self.module.untrusted())?.capabilities;
-        let host = HostState::new(self.module.id.clone(), capabilities, self.repos.clone(), self.rt.clone());
+        let mut host = HostState::new(self.module.id.clone(), capabilities, self.repos.clone(), self.rt.clone());
+        let me = Arc::downgrade(&self.module);
+        host.woke = Some(Arc::new(move |part: String| {
+            if let Some(tx) = me.upgrade().and_then(|m| m.tx.lock().unwrap().clone()) {
+                let _ = tx.send(Msg::Woke(part));
+            }
+        }));
         let mut store = Store::new(cache::engine(), host);
         store.set_epoch_deadline(deadline());
         // At its deadline, its own time counted (the call's, less what Prism did for it): it traps
@@ -507,6 +515,12 @@ impl Worker {
 
     fn handle(&mut self, msg: Msg) {
         match msg {
+            // Due now, its block started (a call from before a restart: read again anyway).
+            Msg::Woke(part) => {
+                if !part.is_empty() && self.started.contains_key(self.module.owner(&part)) {
+                    self.due.insert(part, Instant::now());
+                }
+            }
             Msg::Configure { config, lang, demo, done } => {
                 // A fresh instance: nothing of the former config stays.
                 self.instance = None;
@@ -617,7 +631,12 @@ impl Worker {
 
     fn tick(&mut self, part: &str) {
         let t0 = Instant::now();
-        let tick = match self.call(|s, b| b.call_tick(s, part)) {
+        let tick = match self.call(|s, b| {
+            s.data_mut().part = part.to_string();
+            let tick = b.call_tick(&mut *s, part);
+            s.data_mut().part.clear();
+            tick
+        }) {
             Ok(t) => t,
             // Said on its blocks (`crashed`); this part is read again once it restarts.
             Err(_) => return,

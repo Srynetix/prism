@@ -144,6 +144,16 @@ impl Block for Hello {
                     }
                     Ok(json!({ "reads": n }))
                 }
+                // Prism's test of calls side by side: `n` programs of `secs` each, joined.
+                "side_by_side" => {
+                    let t0 = std::time::Instant::now();
+                    let n = args["n"].as_u64().unwrap_or(4);
+                    let runs = (0..n).map(|_| async { sdk::command("sleep").arg(secs().as_secs().to_string()).output().await });
+                    for out in futures::future::join_all(runs).await {
+                        anyhow::ensure!(out?.status.success(), "sleep failed");
+                    }
+                    Ok(json!({ "ms": t0.elapsed().as_millis() as u64 }))
+                }
                 other => anyhow::bail!("no command {other}"),
             }
         })

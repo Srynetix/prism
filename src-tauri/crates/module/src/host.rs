@@ -1,6 +1,7 @@
 //! What Prism does for the module (`host` of the WIT world), as `blocks::sdk` names it: GitLab, git,
-//! programs, HTTP, the conventions and the ticket ids. Each answers at once: an `async fn` here
-//! is ready on its first poll, so a collector's loop runs up to its next `pause` in one go.
+//! programs, HTTP, the conventions and the ticket ids. Each one is started apart (`begin-*`) and
+//! awaited (`Call`): the futures a block joins (`join_all`, `buffer_unordered`) run side by side,
+//! as inside Prism.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -15,10 +16,44 @@ pub(crate) fn log(level: u8, message: &str) {
     host::log(level, message);
 }
 
+/// A call Prism runs apart (`begin-*`): ready once it answers (the runtime wakes it, `finished`).
+struct Call(u64);
+
+impl std::future::Future for Call {
+    type Output = Result<Vec<u8>, String>;
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+        match host::take(self.0) {
+            Some(answer) => std::task::Poll::Ready(answer),
+            None => {
+                crate::runtime::waiting(self.0, cx.waker());
+                std::task::Poll::Pending
+            }
+        }
+    }
+}
+
+/// The calls finished since last asked (none outside a component: the SDK's own tests).
+pub(crate) fn finished() -> Vec<u64> {
+    if cfg!(target_family = "wasm") { host::finished() } else { Vec::new() }
+}
+
+/// Until one of its calls finishes.
+pub(crate) fn wait() {
+    if cfg!(target_family = "wasm") {
+        host::wait();
+    }
+}
+
+/// An answer as text.
+fn text(answer: Result<Vec<u8>, String>) -> Result<String> {
+    answer.map(|b| String::from_utf8_lossy(&b).into_owned()).map_err(|e| anyhow!(e))
+}
+
 /// Git in a clone: its standard output. Its blocks' clones only, read subcommands only.
 pub async fn git(dir: impl AsRef<Path>, args: &[&str]) -> Result<String> {
     let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
-    host::git(&dir.as_ref().to_string_lossy(), &args).map_err(|e| anyhow!(e))
+    text(Call(host::begin_git(&dir.as_ref().to_string_lossy(), &args)).await)
 }
 
 /// A clone's default branch (`origin/HEAD`, otherwise the main one).
@@ -36,7 +71,7 @@ pub mod gitlab {
 
     /// GET of `path` (`projects/g%2Fp/pipelines?…`), its JSON.
     pub async fn api<T: DeserializeOwned>(path: &str) -> Result<T> {
-        let body = host::gitlab_api("GET", path, None).map_err(|e| anyhow!(e))?;
+        let body = text(Call(host::begin_gitlab_api("GET", path, None)).await)?;
         serde_json::from_str(&body).context("unreadable glab response")
     }
 
@@ -45,13 +80,13 @@ pub mod gitlab {
     pub async fn glab<T: DeserializeOwned>(args: &[String]) -> Result<T> {
         let (method, path, body) = parse_glab(args)?;
         let body = (!body.is_empty()).then(|| serde_json::Value::Object(body).to_string());
-        let text = host::gitlab_api(&method, &path, body.as_deref()).map_err(|e| anyhow!(e))?;
-        serde_json::from_str(&text).context("unreadable glab response")
+        let answer = text(Call(host::begin_gitlab_api(&method, &path, body.as_deref())).await)?;
+        serde_json::from_str(&answer).context("unreadable glab response")
     }
 
     /// A raw GET (a file, an artifact), as text.
     pub async fn glab_text(path: &str) -> Result<String> {
-        let bytes = host::gitlab_raw(path).map_err(|e| anyhow!(e))?;
+        let bytes = Call(host::begin_gitlab_raw(path)).await.map_err(|e| anyhow!(e))?;
         Ok(String::from_utf8_lossy(&bytes).into_owned())
     }
 
@@ -130,8 +165,8 @@ impl Command {
     }
 
     pub async fn output(&mut self) -> Result<Output> {
-        match host::exec(&self.program, &self.args) {
-            Ok(out) => Ok(Output { status: ExitStatus(true), stdout: out.into_bytes(), stderr: Vec::new() }),
+        match Call(host::begin_exec(&self.program, &self.args)).await {
+            Ok(out) => Ok(Output { status: ExitStatus(true), stdout: out, stderr: Vec::new() }),
             // Not declared: no program at all, as a missing one.
             Err(e) if e.contains("capabilities") => Err(anyhow!(e)),
             Err(e) => Ok(Output { status: ExitStatus(false), stdout: Vec::new(), stderr: e.into_bytes() }),

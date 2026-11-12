@@ -134,6 +134,25 @@ async fn its_deadline_counts_its_own_time() {
     std::fs::remove_dir_all(clone).unwrap();
 }
 
+/// Its calls joined run side by side, as inside Prism: four programs of a second, in about one.
+#[tokio::test(flavor = "multi_thread")]
+async fn its_calls_run_side_by_side() {
+    let Some(wasm) = example() else { return };
+    let clone = temp("side");
+    let module = module(&wasm, "{ exec = [\"sleep\"] }");
+    let (m, h, c) = (module.clone(), Hub::new(), clone.clone());
+    tokio::task::spawn_blocking(move || {
+        m.configure(&toml::Table::new()).unwrap();
+        m.start("hello", BlockCtx::new("hello", h, Arc::new(env(&c))), crate::block::env_json("hello", &env(&c))).unwrap();
+    })
+    .await
+    .unwrap();
+    let ran = module.call("hello", "side_by_side".into(), json!({ "n": 4, "secs": 1 }), false).await.unwrap();
+    let ms = ran["ms"].as_u64().unwrap();
+    assert!((1000..2500).contains(&ms), "{ran}");
+    std::fs::remove_dir_all(clone).unwrap();
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn without_git_its_read_says_so() {
     let Some(wasm) = example() else { return };
