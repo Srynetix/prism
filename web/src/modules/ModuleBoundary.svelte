@@ -10,8 +10,9 @@
    * A module's block, run apart: what it throws (rendering, an effect) stays in its place, said
    * there with Retry, and in the Problems list; the rest of the window goes on. `status`: its
    * status-bar item, a small mark. `missing`: its component did not load (its module's reason).
+   * `active` false: not a module's block, rendered as is (one call site for both).
    */
-  let { id, status = false, missing, children }: { id: string; status?: boolean; missing?: string; children?: Snippet } = $props()
+  let { id, active = true, status = false, missing, children }: { id: string; active?: boolean; status?: boolean; missing?: string; children?: Snippet } = $props()
 
   const module = $derived(OWNER[id] ?? id)
 
@@ -38,7 +39,9 @@
   {/if}
 {/snippet}
 
-{#if missing !== undefined || !children}
+{#if !active}
+  {@render children?.()}
+{:else if missing !== undefined || !children}
   {@render broken(missing || t('its component did not load'))}
 {:else}
   <svelte:boundary onerror={report}>

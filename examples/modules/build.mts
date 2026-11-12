@@ -22,6 +22,8 @@ export const SVELTE: string = (req('svelte/package.json') as { version: string }
 
 const HOST = '\0prism-host:'
 const SDK: Record<string, string> = { '@prism/sdk': 'src/modules/sdk.ts', '@prism/sdk/words': 'src/modules/sdk-words.ts' }
+/** Svelte's modules Prism gives at run time (`SVELTE_MODULES` of host.ts): another one would fail there, so the build refuses it. */
+const GIVEN = new Set([...readFileSync(resolve(web, 'src/modules/host.ts'), 'utf8').matchAll(/^\s+(?:svelte|'(svelte\/[^']+)'):/gm)].map((m) => m[1] ?? 'svelte'))
 
 /** The names a host module gives, for the build to know them (rolldown has no synthetic exports). */
 async function names(spec: string): Promise<string[]> {
@@ -40,7 +42,11 @@ const host: Plugin = {
   name: 'prism-module-host',
   enforce: 'pre',
   resolveId(id) {
-    if (id === 'svelte' || id.startsWith('svelte/') || id in SDK) return `${HOST}${id}.js`
+    if (id === 'svelte' || id.startsWith('svelte/')) {
+      if (!GIVEN.has(id)) this.error(`${id}: Prism gives modules ${[...GIVEN].join(', ')} only`)
+      return `${HOST}${id}.js`
+    }
+    if (id in SDK) return `${HOST}${id}.js`
     if (id.startsWith('$prism/') || id.startsWith('@prism/')) this.error(`${id}: a module reaches Prism through @prism/sdk only`)
   },
   async load(id) {
@@ -67,7 +73,7 @@ export function moduleConfig(id: string, root: string): UserConfig {
       svelte({ configFile: false, compilerOptions: { css: 'injected', runes: true } }),
       {
         name: 'prism-module-manifest',
-        closeBundle() {
+        writeBundle() {
           copyFileSync(resolve(root, 'module.toml'), resolve(out, 'module.toml'))
         },
       },

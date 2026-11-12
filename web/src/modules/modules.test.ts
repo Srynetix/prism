@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { addWords, CONTRACT, refusal } from './modules.svelte'
+import core from '../../../src-tauri/crates/core/src/modules.rs?raw'
 
 describe('a module’s declarations', () => {
+  it('are checked against the contract the core gives', () => {
+    expect(core.match(/pub const CONTRACT: u32 = (\d+);/)?.[1]).toBe(String(CONTRACT))
+  })
+
   const blocks = () => []
   it('are refused for another contract or another Svelte', () => {
     expect(refusal({ prism: CONTRACT, svelte: '5.57.0', blocks }, '5.57.2')).toBeNull()

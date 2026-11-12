@@ -456,7 +456,7 @@
     {:else if view === 'agents'}{#await lazy.RemoteAgents() then { default: RemoteAgents }}<RemoteAgents snap={full} acts={hello ? hello.classes.includes('act') : !hasCore()} />{/await}
     {:else if view === 'notes'}{#await lazy.Notes() then { default: Notes }}<Notes snap={full} phoneTyping={socketState.hello?.typing ?? false} />{/await}
     {:else if view === 'ci'}
-      {#each delivery as id (id)}{@const b = block(id)}{#if b}{#await b.Block then Block}{#if Block}{#if id in OWNER}<ModuleBoundary {id}><Block state={b.state as never} error={full.errors[b.def.source ?? id]} snap={full} /></ModuleBoundary>{:else}<Block state={b.state as never} error={full.errors[b.def.source ?? id]} snap={full} />{/if}{/if}{/await}{/if}{/each}
+      {#each delivery as id (id)}{@const b = block(id)}{#if b}{#await b.Block then Block}{#if Block}<ModuleBoundary {id} active={id in OWNER}><Block state={b.state as never} error={full.errors[b.def.source ?? id]} snap={full} /></ModuleBoundary>{/if}{/await}{/if}{/each}
       {#await lazy.CiHealth() then { default: CiHealth }}<CiHealth health={full.ci_health} error={full.errors.ci_health} />{/await}
     {:else if view === 'infra'}
       {#await Promise.all([lazy.Pods(), lazy.Environments(), lazy.Vulnerabilities()]) then [{ default: Pods }, { default: Environments }, { default: Vulnerabilities }]}
@@ -476,7 +476,7 @@
     {:else if view === 'mail'}{#await lazy.Mail() then { default: Mail }}<Mail mail={full.mail} enabled={!!full.mail} error={full.errors.mail} />{/await}
     {:else}
       {@const b = block(view)}
-      {#if b && (b.state !== undefined || !b.def.off)}{#await b.Block then Block}{#if Block}{#if view in OWNER}<ModuleBoundary id={view}><Block state={b.state as never} error={full.errors[b.def.source ?? view]} snap={full} /></ModuleBoundary>{:else}<Block state={b.state as never} error={full.errors[b.def.source ?? view]} snap={full} />{/if}{/if}{/await}{:else}<p class="empty">{t('{name} is off on the computer.', { name: VIEWS[view]?.label ?? view })}</p>{/if}
+      {#if b && (b.state !== undefined || !b.def.off)}{#await b.Block then Block}{#if Block}<ModuleBoundary id={view} active={view in OWNER}><Block state={b.state as never} error={full.errors[b.def.source ?? view]} snap={full} /></ModuleBoundary>{/if}{/await}{:else}<p class="empty">{t('{name} is off on the computer.', { name: VIEWS[view]?.label ?? view })}</p>{/if}
     {/if}
   </main>
 

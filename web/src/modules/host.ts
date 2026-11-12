@@ -4,6 +4,15 @@ import * as svelte from 'svelte'
 import * as internal from 'svelte/internal/client'
 // @ts-expect-error no declarations
 import * as disclose from 'svelte/internal/disclose-version'
+import * as animate from 'svelte/animate'
+import * as attachments from 'svelte/attachments'
+import * as easing from 'svelte/easing'
+import * as events from 'svelte/events'
+import * as motion from 'svelte/motion'
+import * as reactivity from 'svelte/reactivity'
+import * as reactivityWindow from 'svelte/reactivity/window'
+import * as store from 'svelte/store'
+import * as transition from 'svelte/transition'
 import sveltePackage from 'svelte/package.json'
 import * as words from './sdk-words'
 
@@ -31,14 +40,28 @@ declare global {
 
 const given = new Map<string, unknown>()
 
+/** Svelte's modules a module may import, Prism's instances (its build refuses the others, `examples/modules/build.mts` reads this list). */
+const SVELTE_MODULES: Record<string, unknown> = {
+  svelte,
+  'svelte/internal/client': internal,
+  'svelte/internal/disclose-version': disclose,
+  'svelte/animate': animate,
+  'svelte/attachments': attachments,
+  'svelte/easing': easing,
+  'svelte/events': events,
+  'svelte/motion': motion,
+  'svelte/reactivity': reactivity,
+  'svelte/reactivity/window': reactivityWindow,
+  'svelte/store': store,
+  'svelte/transition': transition,
+}
+
 /** The specifiers a module may import; another one fails its load, said with its name. */
-export const SPECIFIERS = ['svelte', 'svelte/internal/client', 'svelte/internal/disclose-version', '@prism/sdk/words', '@prism/sdk'] as const
+export const SPECIFIERS = [...Object.keys(SVELTE_MODULES), '@prism/sdk/words', '@prism/sdk']
 
 /** Svelte and the words: what a module's declarations may use. */
 export function giveWords(contract: number) {
-  given.set('svelte', svelte)
-  given.set('svelte/internal/client', internal)
-  given.set('svelte/internal/disclose-version', disclose)
+  for (const [spec, m] of Object.entries(SVELTE_MODULES)) given.set(spec, m)
   given.set('@prism/sdk/words', words)
   globalThis.__prismHost = {
     contract,

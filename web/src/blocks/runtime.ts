@@ -38,12 +38,25 @@ export function admitted(taken: readonly { id: string }[]): BlockDef<never>[] {
   for (const b of RUNTIME_DEFS) {
     if (ids.has(b.id) || !/^[a-z][a-z0-9_]{0,39}$/.test(b.id)) {
       CLASHES.push({ block: b.id, module: OWNER[b.id] ?? '?' })
-      delete RUNTIME_COMPONENTS[b.id]
-      delete RUNTIME_COMPONENTS[`${b.id}:status`]
+      // Not a module's block any more: Prism's own keeps its component, outside any boundary.
+      if (!out.some((o) => o.id === b.id)) {
+        delete OWNER[b.id]
+        delete RUNTIME_COMPONENTS[b.id]
+        delete RUNTIME_COMPONENTS[`${b.id}:status`]
+      }
       continue
     }
     ids.add(b.id)
     out.push(b)
   }
   return out
+}
+
+/**
+ * A module's components taken in: those of its own blocks still admitted (`OWNER`), a block or a
+ * block's status-bar item (`<id>:status`). Whichever is read first, `admitted()` or this, a block
+ * whose id is Prism's never gets the module's component.
+ */
+export function takeComponents(module: string, components: Record<string, BlockComponent<never>>) {
+  for (const [id, c] of Object.entries(components)) if (OWNER[id.split(':')[0]] === module) RUNTIME_COMPONENTS[id] = c
 }

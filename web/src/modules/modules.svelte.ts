@@ -1,7 +1,7 @@
 import { hasCore, invoke, isDesktop, machine, profileWindow } from '../bridge'
 import { DICTIONARIES, type Dictionary } from '../i18n'
 import { t } from '../i18n.svelte'
-import { CLASHES, isSealed, OWNER, RUNTIME_COMPONENTS, RUNTIME_DEFS } from '../blocks/runtime'
+import { CLASHES, isSealed, OWNER, RUNTIME_DEFS, takeComponents } from '../blocks/runtime'
 import type { BlockComponent, BlockDef } from '../blocks/block'
 import type { ModuleInfo } from '../bindings/ModuleInfo'
 
@@ -129,14 +129,14 @@ async function load(base: string): Promise<void> {
         Object.assign(s, { state: 'failed', reason: `defs.js: ${e instanceof Error ? e.message : String(e)}` })
       }
     }
+    // The blocks fixed (the SDK reads them anyway): a block whose id is Prism's is out of OWNER
+    // before any component comes in.
+    await import('../blocks')
     if (declared.length) await host.giveSdk()
     for (const s of declared) {
       try {
         const mod = (await import(/* @vite-ignore */ `${from.base(s.id)}components.js`)) as { components?: Record<string, BlockComponent<never>> }
-        for (const [id, c] of Object.entries(mod.components ?? {})) {
-          // Its own blocks only (a block, or a block's status-bar item).
-          if (s.blocks.includes(id.split(':')[0])) RUNTIME_COMPONENTS[id] = c
-        }
+        takeComponents(s.id, mod.components ?? {})
       } catch (e) {
         // Its declarations stay (labels, help); its blocks show as failed.
         Object.assign(s, { state: 'failed', reason: `components.js: ${e instanceof Error ? e.message : String(e)}` })

@@ -233,7 +233,7 @@
 </script>
 
 {#snippet item(id: StatusId)}
-  {#if blockItem(id) && snap}{@const Item = blockItem(id)!}{#if id in OWNER}<ModuleBoundary {id} status><Item {snap} {now} /></ModuleBoundary>{:else}<Item {snap} {now} />{/if}
+  {#if blockItem(id) && snap}{@const Item = blockItem(id)!}<ModuleBoundary {id} status active={id in OWNER}><Item {snap} {now} /></ModuleBoundary>
   {:else if id === 'live'}
     <span class="sbi" title={status} aria-label={status}><span class="ld" class:on={live.connected}></span></span>
   {:else if id === 'alerts'}

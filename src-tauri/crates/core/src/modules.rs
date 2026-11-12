@@ -11,7 +11,7 @@
 //! Prism serves its web files to the window (`prism-module://localhost/<id>/<file>`) and to the
 //! phone (`/modules/<id>/<file>`, behind the session): its web folder only, nothing else of the
 //! module nor of the disk. What the files declare (the contract, the Svelte they were compiled
-//! with, their blocks) is checked by the window as it loads them (`web/src/modules/load.ts`).
+//! with, their blocks) is checked by the window as it loads them (`web/src/modules/modules.svelte.ts`).
 
 use std::path::{Path, PathBuf};
 
@@ -99,35 +99,50 @@ pub fn list() -> Vec<ModuleInfo> {
 }
 
 fn info(id: &str, folder: &Path) -> ModuleInfo {
+    inspect(id, folder).0
+}
+
+/// A module as listed, and its web folder when Prism serves it (not refused, a `defs.js` there).
+fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
     let mut out = ModuleInfo { id: id.to_string(), version: None, description: None, requires: None, web: false, refused: None };
     let manifest: Manifest = match std::fs::read_to_string(folder.join("module.toml")).map_err(|e| e.to_string()).and_then(|t| toml::from_str(&t).map_err(|e| e.message().to_string())) {
         Ok(m) => m,
         Err(e) => {
             out.refused = Some(prism_base::tr!("module.toml does not read: {error}", error = e));
-            return out;
+            return (out, None);
         }
     };
     let m = manifest.module;
     out.version = m.version;
     out.description = m.description;
     out.requires = m.requires;
-    out.web = manifest.web.as_ref().is_some_and(|w| web_root(folder, &w.dir).join("defs.js").is_file());
+    let web = manifest.web.as_ref().map(|w| web_root(folder, &w.dir));
+    out.web = web.as_ref().is_some_and(|w| w.as_ref().is_some_and(|w| w.join("defs.js").is_file()));
     out.refused = if m.id.as_deref().is_some_and(|declared| declared != id) {
         Some(prism_base::tr!("its folder is {folder} but module.toml names it {id}", folder = id, id = m.id.unwrap_or_default()))
     } else if m.contract.is_some_and(|c| c != CONTRACT) {
         Some(prism_base::tr!("built for module contract {theirs}, this Prism gives {ours}", theirs = m.contract.unwrap_or_default(), ours = CONTRACT))
     } else if let Some(need) = out.requires.as_deref().filter(|need| !crate::packs::satisfies(crate::packs::PRISM, need)) {
         Some(prism_base::tr!("needs Prism {version} or later", version = need))
-    } else if manifest.web.is_some() && !out.web {
+    } else if web.as_ref().is_some_and(|w| w.is_none()) {
+        Some(prism_base::tr!("its web folder is not inside the module"))
+    } else if web.is_some() && !out.web {
         Some(prism_base::tr!("no defs.js in its web folder"))
     } else {
         None
     };
-    out
+    let served = if out.refused.is_none() && out.web { web.flatten() } else { None };
+    (out, served)
 }
 
-fn web_root(folder: &Path, dir: &str) -> PathBuf {
-    folder.join(dir.trim_matches('/'))
+/// `[web] dir` in the module's folder: a relative path that stays inside it, links resolved.
+fn web_root(folder: &Path, dir: &str) -> Option<PathBuf> {
+    let rel = Path::new(dir);
+    if rel.components().any(|c| !matches!(c, std::path::Component::Normal(_) | std::path::Component::CurDir)) {
+        return None;
+    }
+    let (Ok(root), Ok(base)) = (folder.join(rel).canonicalize(), folder.canonicalize()) else { return None };
+    root.starts_with(&base).then_some(root)
 }
 
 /// A web file of module `id` in `root`, by its path in the module's web folder: its bytes and
@@ -140,17 +155,10 @@ pub fn web_file_in(root: &Path, id: &str, path: &str) -> Result<(Vec<u8>, &'stat
     if parts.iter().any(|p| p.is_empty() || *p == "." || *p == ".." || p.contains('\\') || p.contains(':')) {
         return Err("no such file".into());
     }
-    let folder = root.join(id);
-    let info = info(id, &folder);
-    if info.refused.is_some() || !info.web {
-        return Err("no such module".into());
-    }
-    let manifest: Manifest = toml::from_str(&std::fs::read_to_string(folder.join("module.toml")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-    let web = web_root(&folder, &manifest.web.map(|w| w.dir).unwrap_or_else(web_dir));
-    let file = web.join(path);
-    // Symbolic links out of the folder are not followed out of it.
-    let (Ok(real), Ok(base)) = (file.canonicalize(), web.canonicalize()) else { return Err("no such file".into()) };
-    if !real.starts_with(&base) || !real.is_file() {
+    let (_, Some(web)) = inspect(id, &root.join(id)) else { return Err("no such module".into()) };
+    // Symbolic links out of the folder are not followed out of it (`web` is resolved already).
+    let Ok(real) = web.join(path).canonicalize() else { return Err("no such file".into()) };
+    if !real.starts_with(&web) || !real.is_file() {
         return Err("no such file".into());
     }
     let bytes = std::fs::read(&real).map_err(|e| e.to_string())?;
@@ -228,6 +236,10 @@ mod tests {
         module(&r, "hello", "[module]\n[web]\n", &[("web/defs.js", "defs"), ("web/chunks/a.js", "chunk"), ("module.toml.bak", "secret")]);
         std::fs::write(r.join("outside.txt"), "outside").unwrap();
         module(&r, "off", "[module]\ncontract = 9\n[web]\n", &[("web/defs.js", "defs")]);
+        // A web folder out of the module: refused, nothing served, not even its defs.js.
+        std::fs::write(r.join("defs.js"), "outside").unwrap();
+        module(&r, "up", "[module]\n[web]\ndir = \"..\"\n", &[]);
+        module(&r, "abs", &format!("[module]\n[web]\ndir = '{}'\n", r.display()), &[]);
         assert_eq!(web_file_in(&r, "hello", "defs.js").unwrap(), (b"defs".to_vec(), "text/javascript; charset=utf-8"));
         assert_eq!(web_file_in(&r, "hello", "chunks/a.js").unwrap().0, b"chunk");
         for bad in ["../module.toml", "../../outside.txt", "chunks/../../module.toml", "/etc/hosts", "", "chunks//a.js", "c:\\x.js"] {
@@ -237,6 +249,11 @@ mod tests {
         assert!(web_file_in(&r, "missing", "defs.js").is_err());
         // A refused module serves nothing.
         assert!(web_file_in(&r, "off", "defs.js").is_err());
+        for id in ["up", "abs"] {
+            assert!(web_file_in(&r, id, "defs.js").is_err(), "{id}");
+            assert!(web_file_in(&r, id, "outside.txt").is_err(), "{id}");
+            assert!(list_in(&r).iter().find(|m| m.id == id).unwrap().refused.as_deref().is_some_and(|why| why.contains("not inside")), "{id}");
+        }
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(r.join("outside.txt"), r.join("hello/web/link.js")).unwrap();

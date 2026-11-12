@@ -286,6 +286,9 @@ modules/hello/
 - `components.js` exports `components`, by block id (`<id>:status` for a status-bar item). They
   reach Prism through `@prism/sdk` (`web/src/modules/sdk.ts`: words, the snapshot, layout,
   Prism's actions, formats, components) and Svelte, both Prism's own instances at run time.
+  Of Svelte, Prism gives `svelte`, `svelte/animate`, `attachments`, `easing`, `events`,
+  `motion`, `reactivity` (and `reactivity/window`), `store` and `transition`: the build refuses
+  another one (`web/src/modules/host.ts`).
 - A module's block runs inside a boundary: what it throws stays in its place, with Retry, and in
   the Problems list. A module that does not load (its manifest, its contract, its Svelte, a newer
   Prism needed, its files) is said in Problems and Settings › Packs, as is a block whose id is

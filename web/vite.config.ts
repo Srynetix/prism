@@ -92,7 +92,12 @@ const previewModules = {
     server.middlewares.use((req, res, next) => {
       const url = req.url?.split('?')[0] ?? ''
       if (!modulesDir || !url.startsWith('/modules/')) return next()
-      const rest = decodeURIComponent(url.slice('/modules/'.length))
+      let rest: string
+      try {
+        rest = decodeURIComponent(url.slice('/modules/'.length))
+      } catch {
+        return ((res.statusCode = 404), res.end())
+      }
       res.setHeader('cache-control', 'no-store')
       if (rest === 'index.json') {
         const ids = readdirSync(modulesDir, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(resolve(modulesDir, e.name, 'module.toml'))).map((e) => e.name)
@@ -100,6 +105,8 @@ const previewModules = {
         return res.end(JSON.stringify(ids.map((id) => ({ id, version: null, description: null, requires: null, web: existsSync(resolve(modulesDir, id, 'web/defs.js')), refused: null }))))
       }
       const [id, ...path] = rest.split('/')
+      // As the core serves them: a plain folder name, a path without `.`, `..` nor empty parts.
+      if (!/^[A-Za-z0-9_-]+$/.test(id) || path.some((p) => p === '' || p === '.' || p === '..' || p.includes('\\'))) return ((res.statusCode = 404), res.end())
       const web = resolve(modulesDir, id, 'web')
       const file = resolve(web, ...path)
       if (!file.startsWith(web + '/') || !existsSync(file)) return ((res.statusCode = 404), res.end())

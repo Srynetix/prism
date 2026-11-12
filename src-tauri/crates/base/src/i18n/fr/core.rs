@@ -155,4 +155,5 @@ pub const TABLE: &[(&str, &str)] = &[
     ("built for module contract {theirs}, this Prism gives {ours}", "construit pour le contrat de module {theirs}, ce Prism donne le {ours}"),
     ("needs Prism {version} or later", "demande Prism {version} ou plus récent"),
     ("no defs.js in its web folder", "pas de defs.js dans son dossier web"),
+    ("its web folder is not inside the module", "son dossier web n’est pas dans le module"),
 ];
