@@ -150,8 +150,6 @@ commands! {
     system::restart_app: Act [demo: own],
     // The computer itself: `[remote] power` and the passkey every time (the remote's server).
     system::mac_power: Critical [demo: refused] [phone: action: String, password: Option<String>],
-    // The modules' list: the phone reads it from its server (`/modules/index.json`).
-    system::modules_list: Never,
     system::logs_info: Never,
     system::logs_tail: Never,
     system::dependencies: Never,

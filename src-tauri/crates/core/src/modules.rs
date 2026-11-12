@@ -69,6 +69,11 @@ pub fn dir() -> PathBuf {
     dir_of(&crate::profile::config_path())
 }
 
+/// `modules/` of profile `id` of this computer (the active one's: `dir()`).
+pub fn dir_for(id: &str) -> PathBuf {
+    if id == crate::profile::active() { dir() } else { dir_of(&crate::profile::config_of(id)) }
+}
+
 /// `modules/` next to `config`.
 pub fn dir_of(config: &Path) -> PathBuf {
     config.parent().unwrap_or(Path::new(".")).join("modules")

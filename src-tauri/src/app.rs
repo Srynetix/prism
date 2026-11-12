@@ -180,13 +180,32 @@ pub fn serve_agent_file(ctx: tauri::UriSchemeContext<'_, tauri::Wry>, request: t
     });
 }
 
-/// A module's web file for the `prism-module:` scheme (`prism-module://localhost/<id>/<path>`;
-/// `http://prism-module.localhost/…` on Windows): its web folder only. Never cached, so a module
-/// replaced shows on the window's next load.
-pub fn serve_module_file(_ctx: tauri::UriSchemeContext<'_, tauri::Wry>, request: tauri::http::Request<Vec<u8>>, responder: tauri::UriSchemeResponder) {
+/// The `prism-module:` scheme (`prism-module://localhost/…`; `http://prism-module.localhost/…` on
+/// Windows): `index.json`, the modules of the asking window's profile (the main window's: the
+/// app's own; a profile's window: that profile's), and `<id>/<path>`, a module's web file, its web
+/// folder only. Another computer's window gets none. Never cached, so a module replaced shows on
+/// the window's next load.
+pub fn serve_module_file(ctx: tauri::UriSchemeContext<'_, tauri::Wry>, request: tauri::http::Request<Vec<u8>>, responder: tauri::UriSchemeResponder) {
     let path = request.uri().path().trim_start_matches('/').to_string();
+    let label = ctx.webview_label();
+    let profile = match crate::profile_windows::of_label(label) {
+        Some(id) => Some(id.to_string()),
+        None if label.starts_with(crate::machines::PREFIX) => None,
+        None => Some(prism_core::profile::active().to_string()),
+    };
     tauri::async_runtime::spawn_blocking(move || {
-        let found = path.split_once('/').ok_or_else(|| "no such file".to_string()).and_then(|(id, file)| prism_core::modules::web_file(id, file));
+        let found = match profile {
+            None => Err("no such file".to_string()),
+            Some(p) if prism_core::profile::exists(&p) || p == prism_core::profile::active() => {
+                let root = prism_core::modules::dir_for(&p);
+                if path == "index.json" {
+                    serde_json::to_vec(&prism_core::modules::list_in(&root)).map(|b| (b, "application/json")).map_err(|e| e.to_string())
+                } else {
+                    path.split_once('/').ok_or_else(|| "no such file".to_string()).and_then(|(id, file)| prism_core::modules::web_file_in(&root, id, file))
+                }
+            }
+            Some(_) => Err("no such profile".to_string()),
+        };
         let response = match found {
             Ok((body, mime)) => tauri::http::Response::builder()
                 .header("Content-Type", mime)

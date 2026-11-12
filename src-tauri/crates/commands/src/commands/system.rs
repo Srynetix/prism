@@ -103,13 +103,6 @@ pub fn set_for_webkit(value: Option<&std::ffi::OsStr>) -> bool {
     value.is_some_and(|v| v != "0")
 }
 
-/// The modules of `modules/` (a team's blocks loaded at run time), and why one is refused: the
-/// window loads the others' web files (`prism-module://`).
-#[prism_macros::command]
-pub fn modules_list() -> Vec<prism_core::modules::ModuleInfo> {
-    prism_core::modules::list()
-}
-
 /// The log file's path, and its size in bytes (absent: none yet).
 #[prism_macros::command]
 pub fn logs_info() -> (String, Option<u64>) {

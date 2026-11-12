@@ -1,4 +1,4 @@
-import { hasCore, invoke, isDesktop, machine, profileWindow } from '../bridge'
+import { isDesktop, machine } from '../bridge'
 import { DICTIONARIES, type Dictionary } from '../i18n'
 import { t } from '../i18n.svelte'
 import { CLASHES, isSealed, OWNER, RUNTIME_DEFS, takeComponents } from '../blocks/runtime'
@@ -65,20 +65,23 @@ interface Source {
   base: (id: string) => string
 }
 
-/** Where this page reads its modules: the window from Prism (`prism-module:`), a phone or the browser preview from its server (`/modules/`). */
+/**
+ * Where this page reads its modules: a window from the app (`prism-module:`, the modules of the
+ * profile it shows), a phone or the browser preview from its server (`/modules/`).
+ */
 function source(base: string): Source | null {
   if (isDesktop()) {
-    // Another computer's window, or another profile's: their modules are not this Prism's files.
-    if (!hasCore() || machine() || profileWindow()) return null
-    const scheme = navigator.userAgent.includes('Windows') ? 'http://prism-module.localhost' : 'prism-module://localhost'
-    return { list: () => invoke<ModuleInfo[]>('modules_list'), base: (id) => `${scheme}/${id}/` }
+    // Another computer's window: its modules are not files of this one.
+    if (machine()) return null
+    base = navigator.userAgent.includes('Windows') ? 'http://prism-module.localhost' : 'prism-module://localhost'
   }
+  const root = isDesktop() ? base : `${base}/modules`
   return {
     list: async () => {
-      const r = await fetch(`${base}/modules/index.json`, { credentials: 'same-origin', cache: 'no-store' })
+      const r = await fetch(`${root}/index.json`, { credentials: 'same-origin', cache: 'no-store' })
       return r.ok ? ((await r.json()) as ModuleInfo[]) : []
     },
-    base: (id) => `${base}/modules/${id}/`,
+    base: (id) => `${root}/${id}/`,
   }
 }
 
