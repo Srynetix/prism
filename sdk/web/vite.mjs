@@ -55,10 +55,13 @@ function host(root, req) {
       if (id.startsWith(HOST)) {
         const spec = id.slice(HOST.length, -'.js'.length)
         const all = await names(spec, req)
+        // Svelte's `window` and `document` are set as Prism mounts its window, after a module is
+        // read: a copy taken then would stay undefined. They are the browser's.
+        const live = spec === 'svelte/internal/client' ? { window: 'globalThis.window', document: 'globalThis.document' } : {}
         return [
           `const m = globalThis.__prismHost.get(${JSON.stringify(spec)});`,
           // Aliased: some of Svelte's are reserved words (`if`, `each`).
-          ...all.filter((n) => n !== 'default').map((n, i) => `const _${i} = m[${JSON.stringify(n)}];\nexport { _${i} as ${n} };`),
+          ...all.filter((n) => n !== 'default').map((n, i) => `const _${i} = m[${JSON.stringify(n)}]${live[n] ? ` ?? ${live[n]}` : ''};\nexport { _${i} as ${n} };`),
         ].join('\n')
       }
       // Its own files and its dependencies: not Prism's sources, nor any file elsewhere.
