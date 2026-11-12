@@ -341,7 +341,7 @@ remote = { ping = "read" }             # its commands from a phone: read | act |
   `call`, `hints`, `images`. Any language that builds a component will do; Rust:
   `cargo build --release --target wasm32-wasip2` (`examples/modules/hello/backend`).
 - It reaches nothing but what Prism gives it, each a **capability** it declares: GitLab's API
-  through glab (`gitlab`), git in its blocks' clones, read subcommands only (`git`), a GET to the
+  through glab (`gitlab`), git in the user's clones (its blocks' repositories and the other `[[repos]]`), read subcommands only (`git`), a GET to the
   hosts it names (`http`), the programs it names (`exec`); WASI gives it clocks and randomness, no
   file, no network, no environment. A capability it did not declare fails, said in its error.
 - Its standard error goes to Prism's log (`host::log` too). A panic, or a call longer than two

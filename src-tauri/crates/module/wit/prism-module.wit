@@ -13,7 +13,7 @@ interface host {
     gitlab-api: func(method: string, path: string, body: option<string>) -> result<string, string>;
     /// A raw GET of GitLab's API (`gitlab = true`): an artifact, a file.
     gitlab-raw: func(path: string) -> result<list<u8>, string>;
-    /// git in one of its repositories' clones (`git = true`), its standard output; another
+    /// git in one of the user's clones Prism gives its blocks (`git = true`), its standard output; another
     /// folder is refused.
     git: func(repo: string, args: list<string>) -> result<string, string>;
     /// A GET of `url` (`http = ["host", …]`): its host one of those declared; its body as text.

@@ -18,13 +18,19 @@ use crate::bindings::prism::module::host::Host;
 use crate::manifest::Capabilities;
 
 /// The git subcommands a module may run: they read.
-const READS: &[&str] = &["log", "show", "rev-parse", "rev-list", "diff", "ls-files", "ls-tree", "cat-file", "status", "branch", "tag", "describe", "for-each-ref", "merge-base", "blame", "shortlog"];
+const READS: &[&str] = &["log", "show", "rev-parse", "rev-list", "cherry", "diff", "ls-files", "ls-tree", "cat-file", "status", "branch", "tag", "describe", "for-each-ref", "merge-base", "blame", "shortlog"];
+
+/// `args` a git command that reads: a subcommand that reads, first (an option there, `-C` or
+/// `-c alias.x=!…`, would leave the clone or run something else), and no `--output` (a file written).
+fn reads(args: &[String]) -> bool {
+    args.first().is_some_and(|c| READS.contains(&c.as_str())) && !args.iter().any(|a| a.starts_with("--output"))
+}
 
 pub struct HostState {
     pub module: String,
     pub caps: Capabilities,
-    /// The clones git may run in: its blocks' repositories, and those Prism asked it about
-    /// (`hints`, `images`).
+    /// The clones git may run in: the user's clones Prism gives its blocks (their repositories
+    /// and every other `[[repos]]` with a clone), and those Prism asked it about (`hints`, `images`).
     pub repos: Arc<Mutex<Vec<PathBuf>>>,
     pub rt: tokio::runtime::Handle,
     pub stderr: Stderr,
@@ -95,11 +101,9 @@ impl Host for HostState {
             return Err(self.refused("git"));
         }
         let Some(clone) = self.its_clone(Path::new(&repo)) else {
-            return Err(self.refused(&format!("git in {repo} (not one of its blocks' repositories)")));
+            return Err(self.refused(&format!("git in {repo} (not one of your clones)")));
         };
-        // A subcommand that reads, first: an option there (`-C`, `-c alias.x=!…`) would leave the
-        // clone, or run something else; `--output` would write a file.
-        if !args.first().is_some_and(|c| READS.contains(&c.as_str())) || args.iter().any(|a| a.starts_with("--output")) {
+        if !reads(&args) {
             return Err(self.refused(&format!("git {} (a subcommand that reads: {})", args.join(" "), READS.join(", "))));
         }
         let args: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -231,7 +235,9 @@ mod tests {
         let mine = std::env::temp_dir().join(format!("prism-host-{}", std::process::id()));
         std::fs::create_dir_all(&mine).unwrap();
         let mut some = state(Capabilities { git: true, gitlab: false, http: vec!["example.org".into()], exec: vec!["true".into()] }, vec![mine.clone()]);
-        assert!(some.git(std::env::temp_dir().display().to_string(), vec!["status".into()]).unwrap_err().contains("not one of its blocks"));
+        assert!(some.git(std::env::temp_dir().display().to_string(), vec!["status".into()]).unwrap_err().contains("not one of your clones"));
+        // `cherry` reads (is an MR's commit in a tag?).
+        assert!(reads(&["cherry".into(), "v1".into(), "abc^2".into(), "abc^1".into()]));
         assert!(some.git(format!("{}/..", mine.display()), vec!["status".into()]).is_err());
         for escape in [vec!["-C", "/"], vec!["-c", "alias.x=!true", "x"], vec!["push"], vec!["log", "--output=/tmp/x"], vec![]] {
             let e = some.git(mine.display().to_string(), escape.iter().map(|a| a.to_string()).collect()).unwrap_err();

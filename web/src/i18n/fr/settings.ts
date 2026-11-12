@@ -1371,7 +1371,7 @@ export default {
   'From the pack {pack}.': 'Du pack {pack}.',
   'GitLab’s API, as you (glab)': 'l’API de GitLab, en votre nom (glab)',
   'HTTP requests to {host}': 'des requêtes HTTP vers {host}',
-  'git, reading, in its blocks’ repositories': 'git, en lecture, dans les dépôts de ses blocs',
+  'git, reading, in your clones': 'git, en lecture, dans vos clones',
   'runs the program {program}': 'lancer le programme {program}',
   'Its back end may reach:': 'Son back end peut atteindre :',
   'Its back end reaches nothing besides its own blocks.': 'Son back end n’atteint rien d’autre que ses propres blocs.',

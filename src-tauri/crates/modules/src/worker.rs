@@ -557,7 +557,9 @@ impl Worker {
         if let Some(clone) = env["clone"].as_str() {
             self.allow(std::path::Path::new(clone));
         }
-        for clone in env["repos"].as_array().into_iter().flatten().filter_map(|r| r["clone"].as_str()) {
+        // Its repositories, and the other clones Prism gives a block (`BlockEnv::clones`: a
+        // team's base images, say), as inside Prism.
+        for clone in ["repos", "clones"].iter().flat_map(|k| env[*k].as_array().into_iter().flatten()).filter_map(|r| r["clone"].as_str()) {
             self.allow(std::path::Path::new(clone));
         }
         let text = env.to_string();

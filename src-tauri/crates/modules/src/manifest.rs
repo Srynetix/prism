@@ -21,7 +21,7 @@ pub struct Spec {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Capabilities {
-    /// git in its blocks' clones.
+    /// git, reading, in the user's clones (its blocks' repositories and the other `[[repos]]`).
     pub git: bool,
     /// GitLab's API, through glab.
     pub gitlab: bool,

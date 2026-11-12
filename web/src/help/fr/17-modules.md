@@ -45,7 +45,7 @@ provides = ["stages", "images"]
 remote = { ping = "read" }    # ses commandes depuis un téléphone : read, act ou critical
 ```
 
-Le back end n'atteint rien qu'il ne déclare pas : GitLab via glab (`gitlab`), git dans les clones de ses blocs, en lecture seulement (`git`), un GET vers les hôtes qu'il nomme (`http`), les programmes qu'il nomme (`exec`). À part ça, ni fichier, ni réseau, ni environnement.
+Le back end n'atteint rien qu'il ne déclare pas : GitLab via glab (`gitlab`), git dans vos clones, en lecture seulement (`git` : les dépôts de ses blocs et les autres de `[[repos]]`), un GET vers les hôtes qu'il nomme (`http`), les programmes qu'il nomme (`exec`). À part ça, ni fichier, ni réseau, ni environnement.
 
 ## La partie web
 
