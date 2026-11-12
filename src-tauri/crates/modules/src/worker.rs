@@ -1,0 +1,517 @@
+//! A module's component on a thread of its own: configured, started for each of its blocks, then
+//! ticked part by part when due; the window's calls, the stages' hints and the images wait their
+//! turn there. A component that traps (a panic, a call past its deadline) is said as its blocks'
+//! error and started again after a while, three times at most in five minutes.
+
+use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
+use anyhow::{anyhow, Result};
+use prism_core::alerts::Alert;
+use prism_core::blocks::BlockCtx;
+use prism_core::changes::ChangeEvent;
+use prism_core::images::{ImageTarget, LocalRepo};
+use prism_core::stages::{Hints, Stage, Stages};
+use serde_json::{json, Value};
+use wasmtime::component::{HasSelf, Linker};
+use wasmtime::Store;
+
+use crate::bindings;
+use crate::cache::{self, w};
+use crate::host::HostState;
+use crate::manifest::Spec;
+
+/// The longest a call may run, host calls (glab, git) included: then it traps.
+const DEADLINE: Duration = Duration::from_secs(120);
+/// The wait before a component that trapped starts again, and how many times in `CRASH_WINDOW`.
+const RESTART_AFTER: Duration = if cfg!(test) { Duration::from_secs(1) } else { Duration::from_secs(30) };
+const CRASHES: usize = 3;
+const CRASH_WINDOW: Duration = Duration::from_secs(300);
+/// How long `configure` is waited for (the first compilation of a component included).
+const CONFIGURE_WAIT: Duration = Duration::from_secs(90);
+
+/// What the blocks read of their module between two calls.
+#[derive(Default)]
+pub struct Shared {
+    pub stages: Option<Stages>,
+    /// In the demo profile: each block's sample state.
+    pub demo: Option<HashMap<String, Value>>,
+    pub alerts: HashMap<String, Vec<Alert>>,
+    pub changes: HashMap<String, Vec<ChangeEvent>>,
+    /// The tables it was last configured with.
+    config: Option<String>,
+    /// A block of it started: a change of its config waits for a restart unless it `reloads`.
+    started: bool,
+}
+
+pub struct Module {
+    pub id: String,
+    pub spec: Spec,
+    /// Every id of its blocks and parts, for their errors (`BlockCtx::part`).
+    pub names: Vec<&'static str>,
+    pub shared: Mutex<Shared>,
+    tx: Mutex<Option<mpsc::Sender<Msg>>>,
+    me: OnceLock<std::sync::Weak<Module>>,
+}
+
+enum Msg {
+    Configure { config: String, lang: String, demo: bool, done: mpsc::Sender<Result<()>> },
+    Start { block: String, ctx: BlockCtx, env: Value },
+    Call { block: String, command: String, args: Value, demo: bool, reply: tokio::sync::oneshot::Sender<Result<Value>> },
+    Hints { repo: PathBuf, reply: tokio::sync::oneshot::Sender<Result<Hints>> },
+    Images { repo: PathBuf, project: String, local: Vec<LocalRepo>, reply: tokio::sync::oneshot::Sender<Result<Vec<ImageTarget>>> },
+}
+
+fn leak(s: &str) -> &'static str {
+    Box::leak(s.to_string().into_boxed_str())
+}
+
+impl Module {
+    pub fn new(id: String, spec: Spec) -> Self {
+        let names = spec.blocks.iter().flat_map(|b| std::iter::once(&b.id).chain(&b.parts)).map(|s| leak(s)).collect();
+        Self { id, spec, names, shared: Default::default(), tx: Mutex::new(None), me: OnceLock::new() }
+    }
+
+    /// Its thread, compiling its component at once (the first `configure` waits less).
+    pub fn warm(self: &Arc<Self>) {
+        let _ = self.me.set(Arc::downgrade(self));
+        let _ = self.sender();
+    }
+
+    /// A change of the config configures it anew: when each of its blocks `reloads`.
+    pub fn reloads(&self) -> bool {
+        self.spec.blocks.iter().all(|b| b.reloads)
+    }
+
+    fn sender(&self) -> Result<mpsc::Sender<Msg>> {
+        let mut tx = self.tx.lock().unwrap();
+        if let Some(tx) = tx.as_ref() {
+            return Ok(tx.clone());
+        }
+        let me = self.me.get().and_then(std::sync::Weak::upgrade).ok_or_else(|| anyhow!("module {}: not running", self.id))?;
+        let (send, recv) = mpsc::channel();
+        let rt = prism_base::rt::handle();
+        std::thread::Builder::new().name(format!("module {}", self.id)).spawn(move || Worker::new(me, rt).run(recv))?;
+        *tx = Some(send.clone());
+        Ok(send)
+    }
+
+    fn send(&self, msg: Msg) -> Result<()> {
+        self.sender()?.send(msg).map_err(|_| anyhow!("module {}: its thread stopped", self.id))
+    }
+
+    /// Its tables of the merged config, as TOML: not the whole config.
+    pub fn config_text(&self, config: &toml::Table) -> String {
+        let mine: toml::Table = config.iter().filter(|(k, _)| self.spec.tables.iter().any(|t| t == *k)).map(|(k, v)| (k.clone(), v.clone())).collect();
+        toml::to_string(&mine).unwrap_or_default()
+    }
+
+    /// Configured with `config` (its tables): once for its blocks, again when they changed and it
+    /// reloads.
+    pub fn configure(&self, config: &toml::Table) -> Result<()> {
+        let text = self.config_text(config);
+        {
+            let shared = self.shared.lock().unwrap();
+            if shared.config.as_deref() == Some(text.as_str()) || (shared.started && shared.config.is_some() && !self.reloads()) {
+                return Ok(());
+            }
+        }
+        let lang = match prism_base::i18n::lang() {
+            prism_base::i18n::Lang::Fr => "fr",
+            prism_base::i18n::Lang::En => "en",
+        };
+        let (done, wait) = mpsc::channel();
+        self.send(Msg::Configure { config: text.clone(), lang: lang.into(), demo: false, done })?;
+        let answer = wait.recv_timeout(CONFIGURE_WAIT).map_err(|_| anyhow!("module {}: configure did not answer", self.id))?;
+        // Kept even when it failed: the same config is not tried again until it changes.
+        self.shared.lock().unwrap().config = Some(text);
+        answer
+    }
+
+    pub fn start(&self, block: &str, ctx: BlockCtx, env: Value) -> Result<()> {
+        self.shared.lock().unwrap().started = true;
+        self.send(Msg::Start { block: block.into(), ctx, env })
+    }
+
+    /// Its blocks' sample states, the component configured for the demo once.
+    pub fn demo(&self, block: &str) -> Option<Value> {
+        if self.shared.lock().unwrap().demo.is_none() {
+            let config = self.shared.lock().unwrap().config.clone().unwrap_or_default();
+            let (done, wait) = mpsc::channel();
+            self.send(Msg::Configure { config, lang: "en".into(), demo: true, done }).ok()?;
+            if let Ok(Err(e)) | Err(e) = wait.recv_timeout(CONFIGURE_WAIT).map_err(|_| anyhow!("no answer")) {
+                tracing::error!("module {}: demo: {e:#}", self.id);
+            }
+        }
+        self.shared.lock().unwrap().demo.as_ref()?.get(block).cloned()
+    }
+
+    pub async fn call(&self, block: &str, command: String, args: Value, demo: bool) -> Result<Value> {
+        let (reply, answer) = tokio::sync::oneshot::channel();
+        self.send(Msg::Call { block: block.into(), command, args, demo, reply })?;
+        answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))?
+    }
+
+    pub async fn hints(&self, repo: PathBuf) -> Result<Hints> {
+        let (reply, answer) = tokio::sync::oneshot::channel();
+        self.send(Msg::Hints { repo, reply })?;
+        answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))?
+    }
+
+    pub async fn images(&self, repo: PathBuf, project: String, local: Vec<LocalRepo>) -> Result<Vec<ImageTarget>> {
+        let (reply, answer) = tokio::sync::oneshot::channel();
+        self.send(Msg::Images { repo, project, local, reply })?;
+        answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))?
+    }
+
+    /// The block a part's error goes under: the one declaring it, or the first.
+    fn owner(&self, part: &str) -> &str {
+        let spec = &self.spec.blocks;
+        spec.iter().find(|b| b.id == part || b.parts.iter().any(|p| p == part)).unwrap_or(&spec[0]).id.as_str()
+    }
+}
+
+struct Instance {
+    store: Store<HostState>,
+    block: bindings::Block,
+}
+
+/// How a module was configured last: to configure it again after a trap.
+#[derive(Clone)]
+struct Configured {
+    config: String,
+    lang: String,
+    demo: bool,
+}
+
+struct Worker {
+    module: Arc<Module>,
+    rt: tokio::runtime::Handle,
+    repos: Arc<Mutex<Vec<PathBuf>>>,
+    instance: Option<Instance>,
+    /// Compiled once (or read from the cache), instantiated anew after a trap or a new config.
+    component: Option<wasmtime::component::Component>,
+    configured: Option<Configured>,
+    parts: Vec<String>,
+    /// Its started blocks: their context, and the environment they were started with.
+    started: BTreeMap<String, (BlockCtx, Value)>,
+    due: HashMap<String, Instant>,
+    crashes: Vec<Instant>,
+    /// Trapped: started again then (none: given up, or running).
+    restart_at: Option<Instant>,
+    given_up: Option<String>,
+}
+
+impl Worker {
+    fn new(module: Arc<Module>, rt: tokio::runtime::Handle) -> Self {
+        Self { module, rt, repos: Default::default(), instance: None, component: None, configured: None, parts: Vec::new(), started: BTreeMap::new(), due: HashMap::new(), crashes: Vec::new(), restart_at: None, given_up: None }
+    }
+
+    fn id(&self) -> &str {
+        &self.module.id
+    }
+
+    fn run(mut self, recv: mpsc::Receiver<Msg>) {
+        // Compiled (or read from the cache) before anything asks.
+        match cache::component(&self.module.spec.component) {
+            Ok(c) => self.component = Some(c),
+            Err(e) => tracing::error!("module {}: {e:#}", self.id()),
+        }
+        loop {
+            let next = self.next();
+            let msg = match next {
+                None => recv.recv().map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+                Some(at) => recv.recv_timeout(at.saturating_duration_since(Instant::now())),
+            };
+            match msg {
+                Ok(msg) => self.handle(msg),
+                Err(mpsc::RecvTimeoutError::Timeout) => self.due_now(),
+                Err(mpsc::RecvTimeoutError::Disconnected) => return,
+            }
+        }
+    }
+
+    /// When something is due: a restart, or the next part of a started block.
+    fn next(&self) -> Option<Instant> {
+        if self.given_up.is_some() {
+            return None;
+        }
+        if let Some(at) = self.restart_at {
+            return Some(at);
+        }
+        self.due.iter().filter(|(part, _)| self.started.contains_key(self.module.owner(part))).map(|(_, at)| *at).min()
+    }
+
+    fn due_now(&mut self) {
+        if self.restart_at.is_some_and(|at| at <= Instant::now()) {
+            self.restart_at = None;
+            self.restart();
+            return;
+        }
+        let now = Instant::now();
+        let due: Option<String> = self.due.iter().filter(|(part, at)| **at <= now && self.started.contains_key(self.module.owner(part))).min_by_key(|(_, at)| **at).map(|(p, _)| p.clone());
+        if let Some(part) = due {
+            self.tick(&part);
+        }
+    }
+
+    fn instantiate(&mut self) -> Result<Instance> {
+        let component = match &self.component {
+            Some(c) => c.clone(),
+            None => self.component.insert(cache::component(&self.module.spec.component)?).clone(),
+        };
+        let mut linker: Linker<HostState> = Linker::new(cache::engine());
+        w(wasmtime_wasi::p2::add_to_linker_sync(&mut linker))?;
+        w(bindings::Block::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |s| s))?;
+        let host = HostState::new(self.module.id.clone(), self.module.spec.capabilities.clone(), self.repos.clone(), self.rt.clone());
+        let mut store = Store::new(cache::engine(), host);
+        store.set_epoch_deadline(deadline());
+        let block = w(bindings::Block::instantiate(&mut store, &component, &linker))?;
+        Ok(Instance { store, block })
+    }
+
+    /// A call to its component; a trap drops the instance, says so on its blocks and plans its
+    /// restart.
+    fn call<T>(&mut self, f: impl FnOnce(&mut Store<HostState>, &bindings::Block) -> wasmtime::Result<T>) -> Result<T> {
+        if let Some(why) = &self.given_up {
+            return Err(anyhow!("{why}"));
+        }
+        if self.instance.is_none() {
+            if self.restart_at.is_some() {
+                return Err(anyhow!("module {}: starting again", self.id()));
+            }
+            self.instance = Some(self.instantiate()?);
+        }
+        let i = self.instance.as_mut().unwrap();
+        i.store.set_epoch_deadline(deadline());
+        match f(&mut i.store, &i.block) {
+            Ok(v) => Ok(v),
+            Err(trap) => Err(self.crashed(trap)),
+        }
+    }
+
+    fn crashed(&mut self, trap: wasmtime::Error) -> anyhow::Error {
+        let said = self.instance.take().map(|i| i.store.data().stderr.take()).unwrap_or_default();
+        // A Rust panic says why on its standard error, before the trap.
+        let why = said.iter().rev().find(|l| l.contains("panicked")).cloned().or_else(|| said.last().cloned());
+        let trap = trap.to_string();
+        let message = match why {
+            Some(why) => format!("the module {} stopped: {why}", self.id()),
+            None => format!("the module {} stopped: {trap}", self.id()),
+        };
+        tracing::error!("{message} ({trap:?})");
+        let now = Instant::now();
+        self.crashes.retain(|at| now.duration_since(*at) < CRASH_WINDOW);
+        self.crashes.push(now);
+        let message = if self.crashes.len() >= CRASHES {
+            let given_up = format!("{message} ({CRASHES} times in {} minutes: no more until Prism restarts)", CRASH_WINDOW.as_secs() / 60);
+            self.given_up = Some(given_up.clone());
+            given_up
+        } else {
+            self.restart_at = Some(now + RESTART_AFTER);
+            message
+        };
+        for (ctx, _) in self.started.values() {
+            ctx.set_error(Some(message.clone()));
+        }
+        anyhow!(message)
+    }
+
+    /// After a trap: configured and started again as it was.
+    fn restart(&mut self) {
+        let Some(c) = self.configured.clone() else { return };
+        if self.configure(c).is_err() {
+            return;
+        }
+        let started: Vec<(String, Value)> = self.started.iter().map(|(b, (_, env))| (b.clone(), env.clone())).collect();
+        for (block, env) in started {
+            self.start_block(&block, env);
+        }
+    }
+
+    fn handle(&mut self, msg: Msg) {
+        match msg {
+            Msg::Configure { config, lang, demo, done } => {
+                // A fresh instance: nothing of the former config stays.
+                self.instance = None;
+                self.restart_at = None;
+                self.started.clear();
+                self.due.clear();
+                let _ = done.send(self.configure(Configured { config, lang, demo }));
+            }
+            Msg::Start { block, ctx, env } => {
+                let same = self.started.get(&block).is_some_and(|(_, e)| *e == env);
+                self.started.insert(block.clone(), (ctx, env.clone()));
+                if !same {
+                    self.start_block(&block, env);
+                }
+            }
+            Msg::Call { block, command, args, demo, reply } => {
+                if demo && !self.configured.as_ref().is_some_and(|c| c.demo) {
+                    let config = self.configured.as_ref().map(|c| c.config.clone()).unwrap_or_default();
+                    if let Err(e) = self.configure(Configured { config, lang: "en".into(), demo: true }) {
+                        let _ = reply.send(Err(e));
+                        return;
+                    }
+                }
+                let args = args.to_string();
+                let answer = self.call(|s, b| b.call_call(s, &block, &command, &args, demo)).and_then(|r| r.map_err(|e| anyhow!(e))).and_then(|text| parse(&text, "call"));
+                let _ = reply.send(answer);
+            }
+            Msg::Hints { repo, reply } => {
+                self.allow(&repo);
+                let text = repo.display().to_string();
+                let answer = self.call(|s, b| b.call_hints(s, &text)).and_then(|r| r.map_err(|e| anyhow!(e))).and_then(|text| hints(&text));
+                let _ = reply.send(answer);
+            }
+            Msg::Images { repo, project, local, reply } => {
+                self.allow(&repo);
+                for l in &local {
+                    self.allow(&l.clone);
+                }
+                let (text, local) = (repo.display().to_string(), json!(local.iter().map(|l| json!({ "name": l.name, "clone": l.clone })).collect::<Vec<_>>()).to_string());
+                let answer = self.call(|s, b| b.call_images(s, &text, &project, &local)).and_then(|r| r.map_err(|e| anyhow!(e))).and_then(|text| serde_json::from_str::<Vec<ImageTarget>>(&text).map_err(|e| anyhow!("images: {e}")));
+                let _ = reply.send(answer);
+            }
+        }
+    }
+
+    fn allow(&self, repo: &std::path::Path) {
+        let mut repos = self.repos.lock().unwrap();
+        if !repos.iter().any(|r| r == repo) {
+            repos.push(repo.to_path_buf());
+        }
+    }
+
+    fn configure(&mut self, c: Configured) -> Result<()> {
+        self.configured = Some(c.clone());
+        let configured = self.call(|s, b| b.call_configure(s, &c.config, &c.lang, c.demo))?.map_err(|e| anyhow!("module {}: {e}", self.id()))?;
+        self.parts = configured.parts.into_iter().filter(|p| !p.is_empty()).collect();
+        let stages = match configured.stages.as_deref().map(serde_json::from_str::<Vec<Stage>>) {
+            Some(Ok(s)) => Some(Stages(s)),
+            Some(Err(e)) => {
+                tracing::error!("module {}: stages: {e}", self.id());
+                None
+            }
+            None => None,
+        };
+        let demo = c.demo.then(|| configured.demo.into_iter().filter_map(|(block, state)| Some((block, serde_json::from_str(&state).ok()?))).collect());
+        let mut shared = self.module.shared.lock().unwrap();
+        shared.stages = stages;
+        if c.demo {
+            shared.demo = demo;
+        }
+        Ok(())
+    }
+
+    fn start_block(&mut self, block: &str, env: Value) {
+        if let Some(clone) = env["clone"].as_str() {
+            self.allow(std::path::Path::new(clone));
+        }
+        for clone in env["repos"].as_array().into_iter().flatten().filter_map(|r| r["clone"].as_str()) {
+            self.allow(std::path::Path::new(clone));
+        }
+        let text = env.to_string();
+        let started = self.call(|s, b| b.call_start(s, &text)).and_then(|r| r.map_err(|e| anyhow!(e)));
+        let ctx = self.started.get(block).map(|(c, _)| c.clone());
+        match started {
+            Ok(()) => {
+                // Started (again, after a trap): its former error goes.
+                if let Some(ctx) = &ctx {
+                    ctx.set_error(None);
+                }
+                let now = Instant::now();
+                let mine: Vec<String> = self.parts.iter().filter(|p| self.module.owner(p) == block).cloned().collect();
+                for part in mine {
+                    self.due.insert(part, now);
+                }
+            }
+            Err(e) => {
+                tracing::error!("module {}: start {block}: {e:#}", self.id());
+                if let Some(ctx) = ctx {
+                    ctx.set_error(Some(format!("{e:#}")));
+                }
+            }
+        }
+    }
+
+    fn tick(&mut self, part: &str) {
+        let t0 = Instant::now();
+        let tick = match self.call(|s, b| b.call_tick(s, part)) {
+            Ok(t) => t,
+            // Said on its blocks (`crashed`); this part is read again once it restarts.
+            Err(_) => return,
+        };
+        tracing::debug!("module {}: {part} in {:?}, next {} s", self.id(), t0.elapsed(), tick.next);
+        for p in tick.published {
+            let Some((ctx, _)) = self.started.get(&p.block) else {
+                tracing::warn!("module {}: a state for {}, not one of its started blocks", self.id(), p.block);
+                continue;
+            };
+            let state: Value = match serde_json::from_str(&p.state) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::error!("module {}: {}'s state: {e}", self.id(), p.block);
+                    continue;
+                }
+            };
+            let alerts = p.alerts.as_deref().map(serde_json::from_str::<Vec<Alert>>).transpose();
+            let changes = p.changes.as_deref().map(serde_json::from_str::<Vec<ChangeEvent>>).transpose();
+            {
+                let mut shared = self.module.shared.lock().unwrap();
+                match alerts {
+                    Ok(a) => drop(shared.alerts.insert(p.block.clone(), a.unwrap_or_default())),
+                    Err(e) => tracing::error!("module {}: {}'s alerts: {e}", self.id(), p.block),
+                }
+                match changes {
+                    Ok(c) => drop(shared.changes.insert(p.block.clone(), c.unwrap_or_default())),
+                    Err(e) => tracing::error!("module {}: {}'s changes: {e}", self.id(), p.block),
+                }
+            }
+            ctx.publish(&state);
+        }
+        let owner = self.module.owner(part).to_string();
+        if let Some((ctx, _)) = self.started.get(&owner) {
+            match self.module.names.iter().find(|n| **n == part) {
+                Some(source) => ctx.part(source).set_error(tick.error),
+                None => ctx.set_error(tick.error),
+            }
+        }
+        if tick.next == 0 {
+            self.due.remove(part);
+        } else {
+            self.due.insert(part.to_string(), Instant::now() + Duration::from_secs(tick.next.into()));
+        }
+    }
+}
+
+fn deadline() -> u64 {
+    (DEADLINE.as_millis() / cache::EPOCH.as_millis()) as u64
+}
+
+fn parse(text: &str, what: &str) -> Result<Value> {
+    if text.is_empty() {
+        return Ok(Value::Null);
+    }
+    serde_json::from_str(text).map_err(|e| anyhow!("{what}: not JSON: {e}"))
+}
+
+/// `{ apps: [...], expected: [{ app, env, version }] }`, the module's hints.
+fn hints(text: &str) -> Result<Hints> {
+    #[derive(serde::Deserialize)]
+    struct Expected {
+        app: String,
+        env: String,
+        version: String,
+    }
+    #[derive(serde::Deserialize, Default)]
+    #[serde(default)]
+    struct Raw {
+        apps: Vec<String>,
+        expected: Vec<Expected>,
+    }
+    let raw: Raw = serde_json::from_str(text).map_err(|e| anyhow!("hints: {e}"))?;
+    Ok(Hints { apps: raw.apps, expected: raw.expected.into_iter().map(|e| ((e.app, e.env), e.version)).collect() })
+}

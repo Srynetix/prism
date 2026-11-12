@@ -26,6 +26,7 @@ prism-remote.workspace = true
 prism-macos.workspace = true
 prism-macros.workspace = true
 prism-sys.workspace = true
+prism-modules.workspace = true
 
 anyhow.workspace = true
 base64.workspace = true

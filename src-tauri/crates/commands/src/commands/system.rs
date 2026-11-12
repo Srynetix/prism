@@ -206,7 +206,7 @@ pub async fn block_call(block: String, command: String, args: Option<serde_json:
     let b = crate::blocks::find(&block).ok_or_else(|| format!("no block {block} in this Prism"))?;
     // The demo profile reads nothing: a block answers from its sample data, or refuses.
     if crate::demo::active() {
-        return b.demo_call(&command, &args.unwrap_or_default()).unwrap_or_else(|| Err(anyhow::anyhow!(crate::demo::READ_ONLY))).map_err(Into::into);
+        return b.call_in_demo(command, args.unwrap_or_default()).await.unwrap_or_else(|| Err(anyhow::anyhow!(crate::demo::READ_ONLY))).map_err(Into::into);
     }
     b.call(command, args.unwrap_or_default()).await.map_err(Into::into)
 }

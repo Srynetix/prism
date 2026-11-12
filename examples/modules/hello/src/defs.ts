@@ -19,6 +19,12 @@ export const words = {
     'It is {time}.': 'Il est {time}.',
     Fail: 'Échouer',
     'This block failed on purpose.': 'Ce bloc a échoué exprès.',
+    'Its back end read {n} times, {when}.': 'Son back end a lu {n} fois, {when}.',
+    'Last commit of {project}: {commit}': 'Dernier commit de {project} : {commit}',
+    'No back end: build it with just module-example.': 'Pas de back end : construis-le avec just module-example.',
+    'Pong: {n} reads': 'Pong : {n} lectures',
+    'Crash the back end': 'Planter le back end',
+    'Its back end, a WebAssembly component, reads its repository’s last commit: Crash the back end panics it on purpose, and Prism starts it again.': 'Son back end, un composant WebAssembly, lit le dernier commit de son dépôt : Planter le back end le fait paniquer exprès, et Prism le relance.',
   },
 }
 
@@ -30,7 +36,7 @@ export const blocks = () => [
     category: 'Fun',
     help: {
       purpose: t('A block loaded at run time, from modules/hello.'),
-      points: [t('It reads the snapshot as Prism does, and keeps its own time.'), t('Fail fails on purpose: the block says so, with Retry, and the rest of the window goes on.')],
+      points: [t('It reads the snapshot as Prism does, and keeps its own time.'), t('Fail fails on purpose: the block says so, with Retry, and the rest of the window goes on.'), t('Its back end, a WebAssembly component, reads its repository’s last commit: Crash the back end panics it on purpose, and Prism starts it again.')],
       source: t('Built with examples/modules/build.mts.'),
     },
     status: { label: t('Hello'), side: 'right' as const },

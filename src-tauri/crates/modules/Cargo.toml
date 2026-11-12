@@ -1,0 +1,34 @@
+[package]
+name = "prism-modules"
+description = "The back ends of a team's modules: WebAssembly components (wasmtime, the `prism:module` WIT world) run as the core's blocks."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# Not the workspace's `forbid`: loading a compiled component from the cache is `unsafe` in
+# wasmtime (`cache.rs`, its only use).
+[lints.rust]
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
+
+[dependencies]
+prism-base.workspace = true
+prism-core.workspace = true
+prism-collectors.workspace = true
+
+anyhow.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+toml.workspace = true
+tracing.workspace = true
+wasmtime = { version = "50", default-features = false, features = ["component-model", "cranelift", "runtime", "std"] }
+wasmtime-wasi = { version = "50", default-features = false }

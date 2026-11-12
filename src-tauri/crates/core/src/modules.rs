@@ -32,6 +32,8 @@ pub struct ModuleInfo {
     pub requires: Option<String>,
     /// It has a web part (`[web]`, its `defs.js` there).
     pub web: bool,
+    /// It has a back end (`[wasm]`, its component there): `prism-modules` runs it.
+    pub backend: bool,
     /// Why Prism does not load it (its manifest unreadable, another contract, a newer Prism
     /// needed); absent: the window loads it, and checks its files in turn.
     pub refused: Option<String>,
@@ -42,6 +44,13 @@ pub struct ModuleInfo {
 struct Manifest {
     module: ModuleTable,
     web: Option<WebTable>,
+    wasm: Option<WasmTable>,
+}
+
+/// `[wasm]`: what the core checks of it (the rest is `prism-modules`').
+#[derive(Deserialize)]
+struct WasmTable {
+    component: String,
 }
 
 #[derive(Deserialize, Default)]
@@ -109,7 +118,7 @@ fn info(id: &str, folder: &Path) -> ModuleInfo {
 
 /// A module as listed, and its web folder when Prism serves it (not refused, a `defs.js` there).
 fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
-    let mut out = ModuleInfo { id: id.to_string(), version: None, description: None, requires: None, web: false, refused: None };
+    let mut out = ModuleInfo { id: id.to_string(), version: None, description: None, requires: None, web: false, backend: false, refused: None };
     let manifest: Manifest = match std::fs::read_to_string(folder.join("module.toml")).map_err(|e| e.to_string()).and_then(|t| toml::from_str(&t).map_err(|e| e.message().to_string())) {
         Ok(m) => m,
         Err(e) => {
@@ -121,7 +130,9 @@ fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
     out.version = m.version;
     out.description = m.description;
     out.requires = m.requires;
-    let web = manifest.web.as_ref().map(|w| web_root(folder, &w.dir));
+    let web = manifest.web.as_ref().map(|w| within(folder, &w.dir));
+    let component = manifest.wasm.as_ref().map(|w| within(folder, &w.component));
+    out.backend = component.as_ref().is_some_and(|c| c.as_ref().is_some_and(|c| c.is_file()));
     out.web = web.as_ref().is_some_and(|w| w.as_ref().is_some_and(|w| w.join("defs.js").is_file()));
     out.refused = if m.id.as_deref().is_some_and(|declared| declared != id) {
         Some(prism_base::tr!("its folder is {folder} but module.toml names it {id}", folder = id, id = m.id.unwrap_or_default()))
@@ -133,6 +144,8 @@ fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
         Some(prism_base::tr!("its web folder is not inside the module"))
     } else if web.is_some() && !out.web {
         Some(prism_base::tr!("no defs.js in its web folder"))
+    } else if component.is_some() && !out.backend {
+        Some(prism_base::tr!("no component at its [wasm] component, inside the module"))
     } else {
         None
     };
@@ -140,8 +153,9 @@ fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
     (out, served)
 }
 
-/// `[web] dir` in the module's folder: a relative path that stays inside it, links resolved.
-fn web_root(folder: &Path, dir: &str) -> Option<PathBuf> {
+/// A path of the module's manifest (`[web] dir`, `[wasm] component`) in its folder: a relative
+/// path that stays inside it, links resolved.
+pub fn within(folder: &Path, dir: &str) -> Option<PathBuf> {
     let rel = Path::new(dir);
     if rel.components().any(|c| !matches!(c, std::path::Component::Normal(_) | std::path::Component::CurDir)) {
         return None;

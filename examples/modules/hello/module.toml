@@ -7,3 +7,21 @@ contract = 1
 
 [web]
 dir = "web"
+
+# Its back end: a WebAssembly component (backend/, built by `just module-example`).
+[wasm]
+component = "backend.wasm"
+# The config tables it is given: `[hello] every = 30` (seconds between reads), `image`.
+tables = ["hello"]
+# git in its block's repository; nothing else (no GitLab, no network, no program).
+capabilities = { git = true }
+
+[[wasm.blocks]]
+id = "hello"
+parts = ["hello_reads"]
+# The repository it reads: `[hello] repo = "…"`, the primary one otherwise.
+repos = "one"
+reloads = true
+# Read when `[clusters] stages = "hello"` / `[vulnerabilities] images = "hello"`.
+provides = ["stages", "images"]
+remote = { ping = "read" }

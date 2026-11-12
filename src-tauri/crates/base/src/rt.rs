@@ -26,6 +26,18 @@ pub fn init(handle: Handle) {
     let _ = HANDLE.set(handle);
 }
 
+/// The app's runtime, for a thread of its own that waits on it (`Handle::block_on`): without one
+/// (tests), the current one, or one of its own.
+pub fn handle() -> Handle {
+    if let Some(h) = HANDLE.get() {
+        return h.clone();
+    }
+    Handle::try_current().unwrap_or_else(|_| {
+        static OWN: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+        OWN.get_or_init(|| tokio::runtime::Runtime::new().expect("a runtime")).handle().clone()
+    })
+}
+
 /// Spawns `future` on the app's runtime; without one (tests), on the current one. Spawned from a
 /// collector (`Generation::current`), it belongs to that collector's generation.
 pub fn spawn<F>(future: F) -> JoinHandle<F::Output>

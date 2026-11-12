@@ -122,6 +122,13 @@ pub trait Block: Send + Sync {
         None
     }
 
+    /// A call in the demo profile, as the core routes it: `demo_call` by default; a module's
+    /// block asks its component (`call` with `demo`), which answers apart.
+    fn call_in_demo(&self, command: String, args: Value) -> BoxFuture<'static, Option<Result<Value>>> {
+        let answer = self.demo_call(&command, &args);
+        Box::pin(async move { answer })
+    }
+
     /// The class of `command` called from a phone (`crate::remote`), its arguments included (an
     /// action may be one of several); `Never` unless the block says otherwise, so a block that
     /// declares nothing is never reached from a phone.
@@ -132,14 +139,37 @@ pub trait Block: Send + Sync {
 
 /// The blocks compiled into this Prism (Prism's own, then a team's), given once at launch
 /// (`register`) before anything reads them: none until then.
+static COMPILED: std::sync::OnceLock<Vec<&'static dyn Block>> = std::sync::OnceLock::new();
+/// The blocks of the profile's modules (`modules/`), read with the first `all()`: the profile is
+/// known by then, not at `register` (before `--profile` is read).
+static LATE: std::sync::OnceLock<fn() -> Vec<&'static dyn Block>> = std::sync::OnceLock::new();
 static ALL: std::sync::OnceLock<Vec<&'static dyn Block>> = std::sync::OnceLock::new();
 
 pub fn register(blocks: Vec<&'static dyn Block>) {
-    let _ = ALL.set(blocks);
+    let _ = COMPILED.set(blocks);
+}
+
+/// The blocks of the modules, after the compiled ones: `found` is called once, as something
+/// first reads the blocks.
+pub fn register_late(found: fn() -> Vec<&'static dyn Block>) {
+    let _ = LATE.set(found);
 }
 
 pub fn all() -> &'static [&'static dyn Block] {
-    ALL.get().map_or(&[], Vec::as_slice)
+    let Some(compiled) = COMPILED.get() else { return &[] };
+    ALL.get_or_init(|| {
+        let mut all = compiled.clone();
+        for b in LATE.get().map(|found| found()).unwrap_or_default() {
+            // Its id, or one of its parts, is already another block's (or one of its sources).
+            let taken = |id: &str| all.iter().any(|o| o.id() == id || o.parts().contains(&id));
+            if let Some(id) = std::iter::once(b.id()).chain(b.parts().iter().copied()).find(|id| taken(id)) {
+                tracing::warn!("module block {}: {id} is already another block's, left out", b.id());
+                continue;
+            }
+            all.push(b);
+        }
+        all
+    })
 }
 
 pub fn find(id: &str) -> Option<&'static dyn Block> {

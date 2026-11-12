@@ -31,8 +31,9 @@ dev:
 web:
     pnpm --dir web dev
 
-# Builds the example module (examples/modules/hello/dist/hello): copy it into modules/ next to config.toml
+# Builds the example module, its back end (rustup target add wasm32-wasip2) then its web part, in examples/modules/hello/dist/hello: copy it into modules/ next to config.toml
 module-example:
+    cargo build --release --target wasm32-wasip2 --manifest-path examples/modules/hello/backend/Cargo.toml
     pnpm --dir web exec vite build --config ../examples/modules/hello/vite.config.mts
 
 # Checks the frontend types (svelte-check, tsc) and compiles the Rust
