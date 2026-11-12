@@ -54,21 +54,47 @@ export interface BlockDef<S = unknown> {
   settings?: { sections: SettingsSection[]; parent: string; node: SettingsNode }
 }
 
+/** The kinds of a settings field. */
+export type SettingsKind = 'text' | 'longtext' | 'path' | 'number' | 'toggle' | 'list' | 'select' | 'checks' | 'table'
+/** The agent CLIs, as `[agents] provider` names them. */
+export type AgentCli = 'claude' | 'command-code' | 'opencode' | 'codex'
+/** Choice lists read from the computer. */
+export type SettingsSource = 'kube' | 'apps' | 'envs' | 'stages' | 'calendars' | 'kinds' | `models:${AgentCli}` | `efforts:${AgentCli}`
+/** A live check of a value; `kube_namespace` takes its context from the neighboring key `context`. */
+export type SettingsCheck = 'gitlab_project' | 'kube_context' | 'git_repo' | 'directory' | 'gcloud' | 'agent_tools' | 'agent_cli' | { kind: 'kube_namespace'; context: string } | { kind: 'agent_bin'; cli: AgentCli }
+
+/** A column of a `table` field: a key of each row. */
+export interface SettingsColumn {
+  key: string
+  label: string
+  kind: Exclude<SettingsKind, 'checks' | 'table'>
+  placeholder?: string
+  /** Empty: the key is removed from the row. */
+  optional?: boolean
+  options?: SettingsSource | string[]
+  width?: string
+  check?: SettingsCheck
+}
+
 /** A field of a settings section: a key of its table. */
 export interface SettingsField {
   key: string
   label: string
   hint?: string
-  kind: 'text' | 'longtext' | 'path' | 'number' | 'toggle' | 'list' | 'select' | 'checks' | 'table'
+  kind: SettingsKind
   unit?: string
+  /** Step of a number; absent: integer. */
   step?: number
   placeholder?: string
   optional?: boolean
-  /** Fixed choices, or a list read from the computer (`stages`, `envs`, `apps`…). */
-  options?: string | string[]
+  /** Fixed choices, or a list read from the computer. */
+  options?: SettingsSource | string[]
+  /** `checks`: the words shown for each option, by value. */
   labels?: Record<string, string>
-  /** A live check of the value (`gitlab_project`, `gcloud`, `git_repo`, `directory`…). */
-  check?: string
+  /** `table`: its columns, and a new row's value. */
+  columns?: SettingsColumn[]
+  blank?: Record<string, unknown>
+  check?: SettingsCheck
 }
 
 /** A section of Settings: a config table (`[shipping]`, `[shipping.branch]`), its fields. */

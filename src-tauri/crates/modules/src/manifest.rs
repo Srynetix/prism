@@ -85,15 +85,19 @@ pub fn read(folder: &Path) -> Result<Spec> {
 }
 
 pub fn parse(folder: &Path, text: &str) -> Result<Spec> {
-    let wasm = toml::from_str::<Manifest>(text).context("module.toml")?.wasm.ok_or_else(|| anyhow!("no [wasm]"))?;
+    let mut wasm = toml::from_str::<Manifest>(text).context("module.toml")?.wasm.ok_or_else(|| anyhow!("no [wasm]"))?;
+    // A part named as its own block (Delivery's `shipping`) is the block's source: not a part apart.
+    for b in &mut wasm.blocks {
+        let id = b.id.clone();
+        b.parts.retain(|p| *p != id);
+    }
     let component = prism_core::modules::within(folder, &wasm.component).filter(|c| c.is_file()).ok_or_else(|| anyhow!("[wasm] component: no {} inside the module", wasm.component))?;
     if wasm.blocks.is_empty() {
         bail!("[wasm] declares no block ([[wasm.blocks]])");
     }
     let mut seen = Vec::new();
     for b in &wasm.blocks {
-        // A part may be named as its own block (Delivery's `shipping`): once.
-        for id in std::iter::once(&b.id).chain(b.parts.iter().filter(|p| **p != b.id)) {
+        for id in std::iter::once(&b.id).chain(&b.parts) {
             if !plain(id) {
                 bail!("[[wasm.blocks]] {id}: an id is lowercase letters, digits and _");
             }
@@ -134,7 +138,7 @@ mod tests {
         assert!(bad("[[wasm.blocks]]\nid = \"Hello\"\n").contains("lowercase"));
         assert!(bad("[[wasm.blocks]]\nid = \"a\"\nparts = [\"b\"]\n[[wasm.blocks]]\nid = \"b\"\n").contains("twice"));
         // A part named as its own block: Delivery's `shipping`.
-        assert!(parse(&dir, "[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\nparts = [\"a\", \"c\"]\n").is_ok());
+        assert_eq!(parse(&dir, "[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\nparts = [\"a\", \"c\"]\n").unwrap().blocks[0].parts, ["c"]);
         assert!(bad("[[wasm.blocks]]\nid = \"a\"\nremote = { x = \"always\" }\n").contains("read, act"));
         assert!(bad("capabilities = { exec = [\"/bin/sh\"] }\n[[wasm.blocks]]\nid = \"a\"\n").contains("program"));
         assert!(parse(&dir, "[wasm]\ncomponent = \"../b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\n").is_err());

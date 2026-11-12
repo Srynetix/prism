@@ -9,8 +9,8 @@
 //
 //   node web/scripts/module-sdk.mjs          writes them
 //   node web/scripts/module-sdk.mjs --check  fails when they are not what Prism's window says (`just check`)
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join, posix, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const web = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -30,9 +30,9 @@ function bindings() {
     const n = todo.pop()
     if (seen.has(n)) continue
     seen.add(n)
-    // Its imports, relative to its own folder (`./serde_json/JsonValue` of `Snapshot`).
-    const dir = n.includes('/') ? n.slice(0, n.lastIndexOf('/') + 1) : ''
-    for (const m of read(`src/bindings/${n}.ts`).matchAll(/from "\.\/([A-Za-z0-9_/]+)"/g)) todo.push(dir + m[1])
+    // Its imports, relative to its own folder (`./serde_json/JsonValue` of `Snapshot`, `../Foo`
+    // of a nested one).
+    for (const m of read(`src/bindings/${n}.ts`).matchAll(/from "(\.\.?\/[A-Za-z0-9_/.]+)"/g)) todo.push(posix.join(posix.dirname(n), m[1]))
   }
   return [...seen].sort()
 }
@@ -78,6 +78,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     }
   } else {
     for (const p of present.filter((p) => !(p in files))) rmSync(join(sdk, p))
+    // The folders left empty.
+    const bindingsDir = join(sdk, 'types/bindings')
+    if (existsSync(bindingsDir)) {
+      const dirs = readdirSync(bindingsDir, { recursive: true }).map((f) => join(bindingsDir, f)).filter((d) => statSync(d).isDirectory()).sort((a, b) => b.length - a.length)
+      for (const d of dirs) if (!readdirSync(d).length) rmSync(d, { recursive: true })
+    }
     for (const [p, text] of Object.entries(files)) {
       mkdirSync(dirname(join(sdk, p)), { recursive: true })
       writeFileSync(join(sdk, p), text)

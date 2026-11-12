@@ -5,10 +5,12 @@
 use std::fmt::Write;
 
 use tracing::field::{Field, Visit};
+use tracing::level_filters::LevelFilter;
 use tracing::span::{Attributes, Id, Record};
 use tracing::{Event, Level, Metadata, Subscriber};
 
-/// Its events to Prism's log, at their level; spans are not followed.
+/// Its events to Prism's log, at their level, info and above (Prism's own default: a debug line
+/// would cross into Prism for nothing). Spans are not followed: none is enabled.
 struct ToHost;
 
 /// An event's message, then its other fields as `name=value`.
@@ -39,11 +41,15 @@ impl Visit for Line {
 }
 
 impl Subscriber for ToHost {
-    /// Debug and above: Prism's log filters them again.
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        *metadata.level() <= Level::DEBUG
+        metadata.is_event() && *metadata.level() <= Level::INFO
     }
 
+    fn max_level_hint(&self) -> Option<LevelFilter> {
+        Some(LevelFilter::INFO)
+    }
+
+    /// Never called: no span is enabled.
     fn new_span(&self, _span: &Attributes<'_>) -> Id {
         Id::from_u64(1)
     }
@@ -58,8 +64,7 @@ impl Subscriber for ToHost {
         let level = match *event.metadata().level() {
             Level::ERROR => 0,
             Level::WARN => 1,
-            Level::INFO => 2,
-            _ => 3,
+            _ => 2,
         };
         crate::host::log(level, &line.0);
     }

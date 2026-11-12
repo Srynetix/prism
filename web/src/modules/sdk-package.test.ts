@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import index from '../../../sdk/web/index.d.ts?raw'
 import words from '../../../sdk/web/words.d.ts?raw'
 import exportsJson from '../../../sdk/web/exports.json?raw'
+import type { SettingsNode, SettingsSection } from '../../../sdk/web/index'
+import type { SectionSpec } from '../settings-schema'
+import type { TreeNode } from '../settings-tree'
+
+/** A module's settings are the window's own: the SDK's types stay assignable to them (svelte-check). */
+export const asWindows = (s: SettingsSection, n: SettingsNode): [SectionSpec, TreeNode] => [s, n]
 
 /**
  * `@prism/sdk` (sdk/web), the package a module is built with, says what this window gives: its

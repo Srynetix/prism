@@ -183,9 +183,14 @@ impl Module {
         self.sender()?.send(msg).map_err(|_| anyhow!("module {}: its thread stopped", self.id))
     }
 
+    /// The config tables it is given: the trusted version's (the manifest's until it is trusted).
+    pub fn tables(&self) -> Vec<String> {
+        self.trusted_as().map_or_else(|| self.spec.tables.clone(), |t| t.tables)
+    }
+
     /// Its tables of the merged config, as TOML: not the whole config.
     pub fn config_text(&self, config: &toml::Table) -> String {
-        let tables = self.trusted_as().map_or_else(|| self.spec.tables.clone(), |t| t.tables);
+        let tables = self.tables();
         let mine: toml::Table = config.iter().filter(|(k, _)| tables.iter().any(|t| t == *k)).map(|(k, v)| (k.clone(), v.clone())).collect();
         toml::to_string(&mine).unwrap_or_default()
     }

@@ -19,8 +19,6 @@ use crate::worker::Module;
 struct WasmBlock {
     id: &'static str,
     parts: &'static [&'static str],
-    /// Its module's config tables.
-    tables: &'static [&'static str],
     spec: BlockSpec,
     module: Arc<Module>,
     stages: Option<&'static Of>,
@@ -32,11 +30,22 @@ struct Of {
     module: Arc<Module>,
 }
 
+/// A table's name for the life of Prism: each one leaked once, whichever version names it.
+fn interned(name: &str) -> &'static str {
+    static NAMES: std::sync::Mutex<Vec<&'static str>> = std::sync::Mutex::new(Vec::new());
+    let mut names = NAMES.lock().unwrap();
+    if let Some(n) = names.iter().find(|n| **n == name) {
+        return n;
+    }
+    let n: &'static str = Box::leak(name.to_string().into_boxed_str());
+    names.push(n);
+    n
+}
+
 /// The blocks of `module`, leaked: the core keeps them for the life of Prism.
 pub fn of(module: &Arc<Module>) -> Vec<&'static dyn Block> {
     module.warm();
     let leak = |s: &str| -> &'static str { Box::leak(s.to_string().into_boxed_str()) };
-    let tables: &'static [&'static str] = Box::leak(module.spec.tables.iter().map(|t| leak(t)).collect::<Vec<_>>().into_boxed_slice());
     module
         .spec
         .blocks
@@ -44,7 +53,7 @@ pub fn of(module: &Arc<Module>) -> Vec<&'static dyn Block> {
         .map(|spec| {
             let of = |what: &str| spec.provides.iter().any(|p| p == what).then(|| &*Box::leak(Box::new(Of { module: module.clone() })));
             let parts: Vec<&'static str> = spec.parts.iter().map(|p| leak(p)).collect();
-            let block = WasmBlock { id: leak(&spec.id), parts: Box::leak(parts.into_boxed_slice()), tables, spec: spec.clone(), module: module.clone(), stages: of("stages"), images: of("images") };
+            let block = WasmBlock { id: leak(&spec.id), parts: Box::leak(parts.into_boxed_slice()), spec: spec.clone(), module: module.clone(), stages: of("stages"), images: of("images") };
             &*Box::leak(Box::new(block)) as &'static dyn Block
         })
         .collect()
@@ -76,10 +85,11 @@ impl Block for WasmBlock {
         self.module.configure(config)
     }
 
-    /// Its module's tables (`[wasm] tables`) as the config has them, so that Settings knows them
-    /// read; their defaults are the module's own, not shown.
+    /// The tables its module is given (the trusted version's) as the config has them, so that
+    /// Settings knows them read; their defaults are the module's own, not shown. Declared by the
+    /// module, not by each block: every block of it names them.
     fn settings(&self, config: &toml::Table) -> Vec<(&'static str, Value)> {
-        self.tables.iter().map(|t| (*t, config.get(*t).and_then(|v| serde_json::to_value(v).ok()).unwrap_or_else(|| json!({})))).collect()
+        self.module.tables().iter().map(|t| (interned(t), config.get(t.as_str()).and_then(|v| serde_json::to_value(v).ok()).unwrap_or_else(|| json!({})))).collect()
     }
 
     fn repos(&self) -> RepoUse {
