@@ -11,6 +11,9 @@ use sha2::{Digest, Sha256};
 use wasmtime::component::Component;
 use wasmtime::{Config, Engine};
 
+/// Components are interpreted (Pulley), not compiled to native code: see `engine`.
+pub const INTERPRETED: bool = cfg!(target_os = "macos");
+
 /// The engine's clock for deadlines (`epoch_interruption`): one tick every 100 ms.
 pub const EPOCH: Duration = Duration::from_millis(100);
 
@@ -26,6 +29,12 @@ pub fn engine() -> &'static Engine {
     ENGINE.get_or_init(|| {
         let mut config = Config::new();
         config.epoch_interruption(true);
+        // macOS: the app runs under the hardened runtime, which kills a process running code it
+        // did not sign (`SIGKILL (Code Signature Invalid)`): components run on Pulley,
+        // wasmtime's interpreter, without executable memory. Elsewhere, native code.
+        if INTERPRETED {
+            config.target("pulley64").expect("pulley64");
+        }
         let engine = Engine::new(&config).expect("wasmtime engine");
         let ticking = engine.clone();
         let _ = std::thread::Builder::new().name("modules epoch".into()).spawn(move || {

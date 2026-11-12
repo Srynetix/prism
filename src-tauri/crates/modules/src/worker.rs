@@ -52,6 +52,9 @@ pub struct Module {
     /// Every id of its blocks and parts, for their errors (`BlockCtx::part`).
     pub names: Vec<&'static str>,
     pub shared: Mutex<Shared>,
+    /// Left while its component runs (`prism_core::modules::stopped_mark`): Prism dying in a call
+    /// leaves it, and the same component is not run at the next launch.
+    mark: PathBuf,
     tx: Mutex<Option<mpsc::Sender<Msg>>>,
     me: OnceLock<std::sync::Weak<Module>>,
 }
@@ -69,9 +72,9 @@ fn leak(s: &str) -> &'static str {
 }
 
 impl Module {
-    pub fn new(id: String, spec: Spec) -> Self {
+    pub fn new(id: String, spec: Spec, mark: PathBuf) -> Self {
         let names = spec.blocks.iter().flat_map(|b| std::iter::once(&b.id).chain(&b.parts)).map(|s| leak(s)).collect();
-        Self { id, spec, names, shared: Default::default(), tx: Mutex::new(None), me: OnceLock::new() }
+        Self { id, spec, names, shared: Default::default(), mark, tx: Mutex::new(None), me: OnceLock::new() }
     }
 
     /// Its thread, compiling its component at once (the first `configure` waits less).
@@ -278,10 +281,17 @@ impl Worker {
         if let Some(why) = &self.given_up {
             return Err(anyhow!("{why}"));
         }
+        if self.instance.is_none() && self.restart_at.is_some() {
+            return Err(anyhow!("module {}: starting again", self.id()));
+        }
+        self.marked(true);
+        let out = self.call_marked(f);
+        self.marked(false);
+        out
+    }
+
+    fn call_marked<T>(&mut self, f: impl FnOnce(&mut Store<HostState>, &bindings::Block) -> wasmtime::Result<T>) -> Result<T> {
         if self.instance.is_none() {
-            if self.restart_at.is_some() {
-                return Err(anyhow!("module {}: starting again", self.id()));
-            }
             self.instance = Some(self.instantiate()?);
         }
         let i = self.instance.as_mut().unwrap();
@@ -290,6 +300,20 @@ impl Worker {
             Ok(v) => Ok(v),
             Err(trap) => Err(self.crashed(trap)),
         }
+    }
+
+    /// Its mark, while its component runs.
+    fn marked(&self, on: bool) {
+        let mark = &self.module.mark;
+        if !on {
+            let _ = std::fs::remove_file(mark);
+            return;
+        }
+        let Some(fingerprint) = prism_core::modules::fingerprint(&self.module.spec.component) else { return };
+        if let Some(dir) = mark.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(mark, fingerprint);
     }
 
     fn crashed(&mut self, trap: wasmtime::Error) -> anyhow::Error {

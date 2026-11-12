@@ -59,7 +59,7 @@ pub fn blocks() -> Vec<&'static dyn Block> {
                 continue;
             }
         };
-        let module = Arc::new(worker::Module::new(info.id.clone(), spec));
+        let module = Arc::new(worker::Module::new(info.id.clone(), spec, prism_core::modules::stopped_mark(&root, &info.id)));
         out.extend(block::of(&module));
         tracing::info!("module {}: back end {}, blocks {}", info.id, module.spec.component.display(), module.spec.blocks.iter().map(|b| b.id.as_str()).collect::<Vec<_>>().join(", "));
     }

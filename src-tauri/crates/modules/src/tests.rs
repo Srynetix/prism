@@ -35,7 +35,7 @@ fn module(wasm: &PathBuf, capabilities: &str) -> Arc<Module> {
     let folder = temp("module");
     std::fs::copy(wasm, folder.join("backend.wasm")).unwrap();
     let spec = crate::manifest::parse(&folder, &format!("[wasm]\ncomponent = \"backend.wasm\"\ntables = [\"hello\"]\ncapabilities = {capabilities}\n[[wasm.blocks]]\nid = \"hello\"\nparts = [\"hello_reads\"]\nrepos = \"one\"\nreloads = true\nprovides = [\"stages\", \"images\"]\nremote = {{ ping = \"read\" }}\n")).unwrap();
-    let module = Arc::new(Module::new("hello".into(), spec));
+    let module = Arc::new(Module::new("hello".into(), spec, prism_core::modules::stopped_mark(&folder, "hello")));
     module.warm();
     module
 }

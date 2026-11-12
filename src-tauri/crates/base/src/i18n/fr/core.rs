@@ -157,4 +157,5 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no defs.js in its web folder", "pas de defs.js dans son dossier web"),
     ("its web folder is not inside the module", "son dossier web n’est pas dans le module"),
     ("no component at its [wasm] component, inside the module", "pas de composant à son [wasm] component, dans le module"),
+    ("its back end stopped Prism the last time it ran: replace it, or delete modules/.stopped/{id} to try it again", "son back end a arrêté Prism la dernière fois qu’il a tourné : remplace-le, ou supprime modules/.stopped/{id} pour le réessayer"),
 ];
