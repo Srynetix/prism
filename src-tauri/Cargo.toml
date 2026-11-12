@@ -37,6 +37,7 @@ prism-remote = { path = "crates/remote" }
 prism-commands = { path = "crates/commands" }
 prism-macros = { path = "crates/macros" }
 prism-dictation = { path = "crates/dictation" }
+prism-modules = { path = "crates/modules" }
 
 anyhow = "1.0.104"
 base64 = "0.23"

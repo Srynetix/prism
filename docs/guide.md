@@ -295,10 +295,46 @@ modules/hello/
   already taken (the core's, Prism's, or a module's before it).
 - The window reads the files through `prism-module://localhost/<id>/…` (`http://prism-module.localhost/…`
   on Windows), the phone through `/modules/<id>/…` behind its session: a module's web folder
-  only. Another computer's window or another profile's loads no module.
+  only. A profile's window loads that profile's modules; another computer's window, none.
 
-`examples/modules/hello` is one (`just module-example` builds it into its `dist/hello/`; copy that
-folder into `modules/`). The browser preview reads `PRISM_MODULES_DIR`:
+### A module's back end
+
+A module may bring its blocks' collector too: a **WebAssembly component** (`[wasm]`), which Prism
+runs in a sandbox (wasmtime) as one of its own blocks: configured with the config, started with
+its repositories, then read part by part when due, called from the window, with its demo data.
+
+```toml
+[wasm]
+component = "backend.wasm"
+tables = ["hello"]                     # the only config tables it is given
+capabilities = { git = true }          # git, gitlab, http = ["host", …], exec = ["program", …]
+
+[[wasm.blocks]]
+id = "hello"
+parts = ["hello_reads"]                # its sources read apart: their errors, their pace
+repos = "one"                          # none | one | many, as a block's [<id>] repo / repos
+reloads = true                         # a change of its tables configures it anew
+provides = ["stages", "images"]        # for [clusters] stages / [vulnerabilities] images
+remote = { ping = "read" }             # its commands from a phone: read | act | critical
+```
+
+- It implements the `prism:module` world (`src-tauri/crates/modules/wit/prism-module.wit`):
+  `configure` (its tables, the language, the demo: its parts, its stages, its demo states),
+  `start` (what Prism resolved for a block: its repositories and their clones), `tick` (a part
+  read: the states it changed, with their alerts and changes, its error, when to read it again),
+  `call`, `hints`, `images`. Any language that builds a component will do; Rust:
+  `cargo build --release --target wasm32-wasip2` (`examples/modules/hello/backend`).
+- It reaches nothing but what Prism gives it, each a **capability** it declares: GitLab's API
+  through glab (`gitlab`), git in its blocks' clones, read subcommands only (`git`), a GET to the
+  hosts it names (`http`), the programs it names (`exec`); WASI gives it clocks and randomness, no
+  file, no network, no environment. A capability it did not declare fails, said in its error.
+- Its standard error goes to Prism's log (`host::log` too). A panic, or a call longer than two
+  minutes, stops it: its blocks say so, and Prism starts it again 30 s later, three times at most
+  in five minutes.
+- Compiled once, its native code is kept in Prism's cache folder: the next launch loads it at once.
+
+`examples/modules/hello` is one, with a back end (`just module-example` builds it into its
+`dist/hello/`, after `rustup target add wasm32-wasip2`; copy that folder into `modules/`). The browser preview reads `PRISM_MODULES_DIR`:
 `PRISM_MODULES_DIR=examples/modules/hello/dist just web`.
 
 ## Blocks of another repository

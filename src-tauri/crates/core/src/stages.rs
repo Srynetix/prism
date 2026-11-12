@@ -8,12 +8,12 @@ use std::{collections::HashMap, path::Path, sync::OnceLock};
 
 use anyhow::Result;
 use futures::future::BoxFuture;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::config::EnvironmentConfig;
 
-/// A stage, as the window sees it too (`Snapshot.stages`).
-#[derive(Debug, Clone, Serialize, PartialEq)]
+/// A stage, as the window sees it too (`Snapshot.stages`), and as a module declares it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(rename = "EnvironmentStage"))]
 pub struct Stage {

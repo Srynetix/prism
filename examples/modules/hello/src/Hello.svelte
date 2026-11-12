@@ -1,9 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { BlockControls, Icon, isCollapsed, locale, t } from '@prism/sdk'
+  import { ago, BlockControls, call, Icon, isCollapsed, locale, t, toast } from '@prism/sdk'
   import type { Snapshot } from '../../../../web/src/types'
 
-  let { snap }: { snap: Snapshot } = $props()
+  /** What its back end publishes (`backend/`, a WebAssembly component); none without one. */
+  interface State {
+    reads: number
+    at: number
+    commit: string | null
+    project: string | null
+  }
+
+  // Not named `state`: `$state` would then read a store of that name, not the rune.
+  let { state: read, error, snap }: { state: State | undefined; error?: string; snap: Snapshot } = $props()
 
   let now = $state(new Date())
   let failing = $state(false)
@@ -28,7 +37,20 @@
   <div class="body">
     <p>{t('{n} agents, {m} sources failing', { n: agents, m: failingSources })}</p>
     <p class="time">{t('It is {time}.', { time })}</p>
-    <button class="btn" onclick={() => (failing = true)}>{t('Fail')}</button>
+    {#if read}
+      <p>{t('Its back end read {n} times, {when}.', { n: read.reads, when: ago(new Date(read.at).toISOString()) })}</p>
+      {#if read.commit}<p class="muted">{t('Last commit of {project}: {commit}', { project: read.project ?? '—', commit: read.commit })}</p>{/if}
+    {:else}
+      <p class="muted">{t('No back end: build it with just module-example.')}</p>
+    {/if}
+    {#if error}<p class="error">{error}</p>{/if}
+    <div class="row">
+      <button class="btn" onclick={() => (failing = true)}>{t('Fail')}</button>
+      {#if read}
+        <button class="btn" onclick={() => call<{ pong: number }>('hello', 'ping').then((r) => toast(t('Pong: {n} reads', { n: r.pong }))).catch((e) => toast(String(e)))}>Ping</button>
+        <button class="btn" onclick={() => call('hello', 'panic').catch((e) => toast(String(e)))}>{t('Crash the back end')}</button>
+      {/if}
+    </div>
   </div>
 </section>
 
@@ -36,4 +58,7 @@
   .body { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; align-items: flex-start; }
   .body p { margin: 0; }
   .time { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  .muted { color: var(--text-muted); }
+  .error { color: var(--ko); overflow-wrap: anywhere; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
 </style>

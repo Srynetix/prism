@@ -75,6 +75,9 @@ export function moduleConfig(id: string, root: string): UserConfig {
         name: 'prism-module-manifest',
         writeBundle() {
           copyFileSync(resolve(root, 'module.toml'), resolve(out, 'module.toml'))
+          // Its back end, when it has one built (`backend/`, a WebAssembly component).
+          const wasm = resolve(root, 'backend/target/wasm32-wasip2/release', `prism_module_${id.replaceAll('-', '_')}.wasm`)
+          if (existsSync(wasm)) copyFileSync(wasm, resolve(out, 'backend.wasm'))
         },
       },
     ],

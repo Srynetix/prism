@@ -17,6 +17,10 @@ requires: string | null,
  */
 web: boolean, 
 /**
+ * It has a back end (`[wasm]`, its component there): `prism-modules` runs it.
+ */
+backend: boolean, 
+/**
  * Why Prism does not load it (its manifest unreadable, another contract, a newer Prism
  * needed); absent: the window loads it, and checks its files in turn.
  */

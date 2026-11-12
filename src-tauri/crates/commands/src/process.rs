@@ -7,6 +7,8 @@ use crate::{config_path, logs, profile};
 /// `PRISM_EXTRA_BLOCKS`), before anything reads them.
 pub fn register_blocks(extra: &[&'static dyn prism_blocks::Block]) {
     prism_core::blocks::register(prism_blocks::builtin().into_iter().chain(extra.iter().copied()).collect());
+    // The profile's modules (`modules/`, WebAssembly back ends), once the profile is known.
+    prism_core::blocks::register_late(prism_modules::blocks);
 }
 
 /// To be called before any thread starts (the runtime's workers among them): the login shell's

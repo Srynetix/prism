@@ -32,6 +32,8 @@ pub struct ModuleInfo {
     pub requires: Option<String>,
     /// It has a web part (`[web]`, its `defs.js` there).
     pub web: bool,
+    /// It has a back end (`[wasm]`, its component there): `prism-modules` runs it.
+    pub backend: bool,
     /// Why Prism does not load it (its manifest unreadable, another contract, a newer Prism
     /// needed); absent: the window loads it, and checks its files in turn.
     pub refused: Option<String>,
@@ -42,6 +44,13 @@ pub struct ModuleInfo {
 struct Manifest {
     module: ModuleTable,
     web: Option<WebTable>,
+    wasm: Option<WasmTable>,
+}
+
+/// `[wasm]`: what the core checks of it (the rest is `prism-modules`').
+#[derive(Deserialize)]
+struct WasmTable {
+    component: String,
 }
 
 #[derive(Deserialize, Default)]
@@ -98,6 +107,19 @@ pub fn list_in(root: &Path) -> Vec<ModuleInfo> {
     out
 }
 
+/// The mark a module's back end leaves while Prism runs it (`prism-modules`): still there at
+/// launch, Prism stopped dead in it (a crash, a kill), and the same component is not run again.
+pub fn stopped_mark(root: &Path, id: &str) -> PathBuf {
+    root.join(".stopped").join(id)
+}
+
+/// What tells a component file from another: its size and when it was written.
+pub fn fingerprint(file: &Path) -> Option<String> {
+    let meta = std::fs::metadata(file).ok()?;
+    let at = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos();
+    Some(format!("{}-{at}", meta.len()))
+}
+
 /// The active profile's modules.
 pub fn list() -> Vec<ModuleInfo> {
     list_in(&dir())
@@ -109,7 +131,7 @@ fn info(id: &str, folder: &Path) -> ModuleInfo {
 
 /// A module as listed, and its web folder when Prism serves it (not refused, a `defs.js` there).
 fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
-    let mut out = ModuleInfo { id: id.to_string(), version: None, description: None, requires: None, web: false, refused: None };
+    let mut out = ModuleInfo { id: id.to_string(), version: None, description: None, requires: None, web: false, backend: false, refused: None };
     let manifest: Manifest = match std::fs::read_to_string(folder.join("module.toml")).map_err(|e| e.to_string()).and_then(|t| toml::from_str(&t).map_err(|e| e.message().to_string())) {
         Ok(m) => m,
         Err(e) => {
@@ -121,7 +143,11 @@ fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
     out.version = m.version;
     out.description = m.description;
     out.requires = m.requires;
-    let web = manifest.web.as_ref().map(|w| web_root(folder, &w.dir));
+    let web = manifest.web.as_ref().map(|w| within(folder, &w.dir));
+    let component = manifest.wasm.as_ref().map(|w| within(folder, &w.component));
+    out.backend = component.as_ref().is_some_and(|c| c.as_ref().is_some_and(|c| c.is_file()));
+    // Its back end stopped Prism the last time it ran, and it is the same one.
+    let stopped = component.as_ref().and_then(|c| c.as_deref()).and_then(fingerprint).is_some_and(|f| folder.parent().is_some_and(|root| std::fs::read_to_string(stopped_mark(root, id)).is_ok_and(|m| m.trim() == f)));
     out.web = web.as_ref().is_some_and(|w| w.as_ref().is_some_and(|w| w.join("defs.js").is_file()));
     out.refused = if m.id.as_deref().is_some_and(|declared| declared != id) {
         Some(prism_base::tr!("its folder is {folder} but module.toml names it {id}", folder = id, id = m.id.unwrap_or_default()))
@@ -133,6 +159,10 @@ fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
         Some(prism_base::tr!("its web folder is not inside the module"))
     } else if web.is_some() && !out.web {
         Some(prism_base::tr!("no defs.js in its web folder"))
+    } else if component.is_some() && !out.backend {
+        Some(prism_base::tr!("no component at its [wasm] component, inside the module"))
+    } else if stopped {
+        Some(prism_base::tr!("its back end stopped Prism the last time it ran: replace it, or delete modules/.stopped/{id} to try it again", id = id))
     } else {
         None
     };
@@ -140,8 +170,9 @@ fn inspect(id: &str, folder: &Path) -> (ModuleInfo, Option<PathBuf>) {
     (out, served)
 }
 
-/// `[web] dir` in the module's folder: a relative path that stays inside it, links resolved.
-fn web_root(folder: &Path, dir: &str) -> Option<PathBuf> {
+/// A path of the module's manifest (`[web] dir`, `[wasm] component`) in its folder: a relative
+/// path that stays inside it, links resolved.
+pub fn within(folder: &Path, dir: &str) -> Option<PathBuf> {
     let rel = Path::new(dir);
     if rel.components().any(|c| !matches!(c, std::path::Component::Normal(_) | std::path::Component::CurDir)) {
         return None;
@@ -202,8 +233,11 @@ mod tests {
         }
     }
 
+    /// A folder of its own: the tests run side by side, at the same instant on a coarse clock.
     fn root() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("prism-modules-{}-{}", std::process::id(), rand_suffix()));
+        static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("prism-modules-{}-{}-{n}", std::process::id(), rand_suffix()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -221,10 +255,17 @@ mod tests {
         module(&r, "named", "[module]\nid = \"else\"\n[web]\n", &[("web/defs.js", "")]);
         module(&r, "empty", "[module]\n[web]\n", &[]);
         module(&r, "broken", "[module\n", &[]);
+        // Its back end stopped Prism: refused while it is the same component.
+        module(&r, "crashed", "[module]\n[wasm]\ncomponent = \"b.wasm\"\n", &[("b.wasm", "wasm")]);
+        std::fs::create_dir_all(r.join(".stopped")).unwrap();
+        std::fs::write(stopped_mark(&r, "crashed"), fingerprint(&r.join("crashed/b.wasm")).unwrap()).unwrap();
         std::fs::create_dir_all(r.join("no-manifest")).unwrap();
         let list = list_in(&r);
         let by = |id: &str| list.iter().find(|m| m.id == id).unwrap().clone();
-        assert_eq!(list.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["broken", "empty", "hello", "later", "named", "other"]);
+        assert_eq!(list.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["broken", "crashed", "empty", "hello", "later", "named", "other"]);
+        assert!(by("crashed").refused.unwrap().contains("stopped Prism"));
+        std::fs::write(r.join("crashed/b.wasm"), "another wasm").unwrap();
+        assert!(list_in(&r).iter().find(|m| m.id == "crashed").unwrap().refused.is_none(), "replaced: tried again");
         assert!(by("hello").refused.is_none() && by("hello").web);
         assert_eq!(by("hello").version.as_deref(), Some("1.0.0"));
         assert!(by("later").refused.unwrap().contains("999.0.0"));

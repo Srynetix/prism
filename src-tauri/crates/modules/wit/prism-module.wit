@@ -1,0 +1,85 @@
+// What a module's back end is to Prism (contract 1): a WebAssembly component Prism runs in a
+// sandbox. Prism gives it `host`, its only ways out (each one a capability its manifest
+// declares); it gives Prism its blocks' states, one `tick` of a part at a time.
+//
+// Every JSON payload is a string: the module's types are its own, Prism's are in its docs.
+package prism:module@1.0.0;
+
+/// What Prism does for a module. Each fails, said in its error, when its capability is not
+/// declared (`[wasm] capabilities` of `module.toml`).
+interface host {
+    /// GitLab's REST API through glab (`gitlab = true`): `method` (GET, POST, PUT, DELETE) on
+    /// `path` (`projects/g%2Fp/pipelines?…`), `body` a JSON one; its JSON answer.
+    gitlab-api: func(method: string, path: string, body: option<string>) -> result<string, string>;
+    /// A raw GET of GitLab's API (`gitlab = true`): an artifact, a file.
+    gitlab-raw: func(path: string) -> result<list<u8>, string>;
+    /// git in one of its repositories' clones (`git = true`), its standard output; another
+    /// folder is refused.
+    git: func(repo: string, args: list<string>) -> result<string, string>;
+    /// A GET of `url` (`http = ["host", …]`): its host one of those declared; its body as text.
+    http-get: func(url: string, headers: list<tuple<string, string>>) -> result<string, string>;
+    /// A program run (`exec = ["gcloud", …]`): one of those declared, found in Prism's PATH; its
+    /// standard output.
+    exec: func(program: string, args: list<string>) -> result<string, string>;
+    /// A GitLab project whose pipelines' job logs the window may then read (a deployment one).
+    allow-log-project: func(project: string);
+    /// A line in Prism's log: 0 error, 1 warn, 2 info, 3 debug.
+    log: func(level: u8, message: string);
+}
+
+interface types {
+    /// What a module answers once configured.
+    record configured {
+        /// The parts Prism ticks (none: the module is off with this config).
+        parts: list<string>,
+        /// The stages it declares, as `prism_core::stages::Stages` (JSON), when its block
+        /// `provides` them.
+        stages: option<string>,
+        /// In the demo profile: each block's sample state (JSON), by block id.
+        demo: list<tuple<string, string>>,
+    }
+
+    /// A block's state as a part's read leaves it.
+    record published {
+        block: string,
+        /// Its whole state (JSON).
+        state: string,
+        /// Its lines in Alerts (JSON list of `prism_core::alerts::Alert`), computed from it.
+        alerts: option<string>,
+        /// Its events in Changes (JSON list of `prism_core::changes::ChangeEvent`).
+        changes: option<string>,
+    }
+
+    /// One read of a part.
+    record tick {
+        /// The states it changed.
+        published: list<published>,
+        /// The part's error; none: it answered.
+        error: option<string>,
+        /// Seconds before Prism ticks it again; 0: never again (until the config changes).
+        next: u32,
+    }
+}
+
+world block {
+    use types.{configured, tick};
+    import host;
+
+    /// Its settings: the config tables its manifest names (TOML), the window's language (`en`,
+    /// `fr`: its messages are its own to translate), the demo profile or not. Called at launch
+    /// and on each change of the config.
+    export configure: func(config: string, lang: string, demo: bool) -> result<configured, string>;
+    /// What Prism resolved for its blocks before the first tick (JSON: by block id, its
+    /// repositories, their projects and clones; the forge; the main branch).
+    export start: func(env: string) -> result<_, string>;
+    /// A read of `part`, when due.
+    export tick: func(part: string) -> tick;
+    /// A call from the window to one of its blocks: its answer (JSON). In the demo profile
+    /// (`demo`), from its sample data, changing nothing.
+    export call: func(block: string, command: string, args: string, demo: bool) -> result<string, string>;
+    /// The stages' hints for a repository's clone (`prism_core::stages::Hints`, JSON).
+    export hints: func(repo: string) -> result<string, string>;
+    /// The images of a repository for Vulnerabilities (JSON list of
+    /// `prism_core::images::ImageTarget`); `local`: the clones Prism knows (JSON).
+    export images: func(repo: string, project: string, local: string) -> result<string, string>;
+}

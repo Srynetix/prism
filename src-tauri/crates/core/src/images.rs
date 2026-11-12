@@ -9,6 +9,8 @@ use anyhow::Result;
 /// folder), its tags newest first (the first published one is scanned), the rules of the
 /// `.trivyignore` that applies, or why it could not be named. `repo`: the repository it is built
 /// from when not the provider's (its CVEs are fixed there); `base`: a base image (Base group).
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
 pub struct ImageTarget {
     pub label: String,
     pub tags: Vec<ImageTag>,
@@ -19,6 +21,8 @@ pub struct ImageTarget {
 }
 
 /// A tag: what is shown of it (`prod/cart-api:0.2.1`), and where its image may be, in order.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
 pub struct ImageTag {
     pub tag: String,
     pub shown: String,
@@ -26,6 +30,8 @@ pub struct ImageTag {
 }
 
 /// An image with its tag; `gcp`: read with a gcloud token.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
 pub struct ImageRef {
     pub image: String,
     pub gcp: bool,
