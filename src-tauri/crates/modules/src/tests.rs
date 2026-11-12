@@ -130,7 +130,7 @@ async fn its_deadline_counts_its_own_time() {
     assert!(waited["reads"].as_u64().unwrap() > 1, "{waited}");
     // Computing 5 s: stopped.
     let e = module.call("hello", "spin".into(), json!({ "secs": 5 }), false).await.unwrap_err().to_string();
-    assert!(e.contains("computing longer than"), "{e}");
+    assert!(e.contains("computing longer than 3 s"), "{e}");
     std::fs::remove_dir_all(clone).unwrap();
 }
 

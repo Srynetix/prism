@@ -34,6 +34,8 @@ struct Running {
     part: Option<&'static str>,
     /// When it is due again (ms since the epoch).
     at: i64,
+    /// Polled once at least: its first read made.
+    ran: bool,
     flags: Arc<Flags>,
 }
 
@@ -106,7 +108,7 @@ pub(crate) fn spawn(future: Task) -> Arc<Flags> {
     let flags = Arc::new(Flags::default());
     with(|s| {
         let block = s.starting.or(s.first).unwrap_or("");
-        s.spawned.push(Running { future, block, part: None, at: now_ms(), flags: flags.clone() });
+        s.spawned.push(Running { future, block, part: None, at: now_ms(), ran: false, flags: flags.clone() });
     });
     flags
 }
@@ -198,8 +200,8 @@ pub fn start(blocks: &'static [&'static dyn Block], env: String) -> Result<(), S
 pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
     let now = now_ms();
     let block = owner(blocks, &part);
-    // The futures due: this part's, and one of its block's not yet run (each its first read in a
-    // tick of its own, the block's state filling source by source). No part (`""`): none, what
+    // The futures due: this part's, its block's stalled ones, and one of its block's never run
+    // (each its first read in a tick of its own, the block's state filling source by source). No part (`""`): none, what
     // was published since (by `start`) only.
     let due: Vec<Running> = with(|s| {
         let mut fresh = false;
@@ -210,9 +212,13 @@ pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
             if t.part == Some(part.as_str()) {
                 return true;
             }
-            let first = t.part.is_none() && t.block == block && !fresh;
+            if t.part.is_some() || t.block != block {
+                return false;
+            }
+            // Run before (stalled, no pause): due as any. Never run: one a tick.
+            let first = !t.ran && !fresh;
             fresh |= first;
-            first
+            t.ran || first
         });
         s.tasks = rest;
         due
@@ -227,6 +233,7 @@ pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
             s.starting = Some(t.block);
         });
         let done = t.future.as_mut().poll(&mut cx).is_ready();
+        t.ran = true;
         let paused = with(|s| {
             s.starting = None;
             s.paused.take()

@@ -45,7 +45,7 @@ provides = ["stages", "images"]
 remote = { ping = "read" }    # its commands from a phone: read, act or critical
 ```
 
-The back end reaches nothing it does not declare: GitLab through glab (`gitlab`), git in your clones, reading only (`git`: its blocks' repositories and the others of `[[repos]]`), a GET to the hosts it names (`http`), the programs it names (`exec`). No file, no network, no environment besides.
+The back end reaches nothing it does not declare: GitLab through glab (`gitlab`), git in your clones, reading only (`git`: its blocks' repositories and the others of `[[repos]]`; `branch` and `tag` only to list), a GET to the hosts it names (`http`), the programs it names (`exec`). No file, no network, no environment besides.
 
 ## The web part
 
@@ -103,7 +103,7 @@ Importing or updating the pack puts each module in `modules/<id>/`, whole; remov
 
 ## Trust it
 
-Nothing of a module runs before you trust it: its web part is not loaded, its back end does not start, its blocks say they wait. **Settings › Packs › Modules** lists what its back end may reach (GitLab, git, the hosts and programs it names): **Trust** it (two clicks) and its back end starts at once, its web part with the window's next load. Trust goes by the fingerprint of its folder: a new version waits again, with what it changes (a capability it adds, a block, a config table).
+Nothing of a module runs before you trust it: its web part is not loaded, its back end does not start, its blocks say they wait. **Settings › Packs › Modules** lists what its back end may reach (GitLab, git, the hosts and programs it names): **Trust** it (two clicks) and its back end starts at once, its web part with the window's next load. Trust goes by the fingerprint of its folder: a new version waits again, with what it changes (a capability it adds, a block, a config table); so does one trusted when a capability reached less than Prism lets it now.
 
 ## Install and try it
 

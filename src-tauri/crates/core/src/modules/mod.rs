@@ -408,7 +408,7 @@ mod tests {
         let info = list_in(&r, &store).remove(0);
         assert!(!info.trusted && info.trusted_version.is_none());
         assert_eq!(info.capabilities, ["git"]);
-        assert!(info.changes.contains(&"+ capability git".to_string()), "{:?}", info.changes);
+        assert!(info.changes.contains(&"+ capability git (reading, in your clones)".to_string()), "{:?}", info.changes);
         // Trusted as shown; changed since, refused.
         assert!(trust(&r, &store, "m", "not what it is").is_err());
         trust(&r, &store, "m", &info.fingerprint).unwrap();
@@ -419,7 +419,26 @@ mod tests {
         assert!(!info.trusted);
         assert_eq!(info.trusted_version.as_deref(), Some("1.0.0"));
         assert!(info.changes.contains(&"+ capability http:example.org".to_string()) && info.changes.contains(&"+ module m 1.1.0".to_string()), "{:?}", info.changes);
-        assert!(!info.changes.contains(&"+ capability git".to_string()), "unchanged lines are not said");
+        assert!(!info.changes.iter().any(|c| c.starts_with("+ capability git")), "unchanged lines are not said");
+        std::fs::remove_dir_all(r).unwrap();
+    }
+
+    /// Trusted when a capability reached less (git: the clones of its blocks), the same files: asked
+    /// again, the line that changed said.
+    #[test]
+    fn a_capability_reaching_further_asks_again() {
+        let r = root();
+        let store = r.join(".trust.json");
+        module(&r, "m", "[module]\nversion = \"1.0.0\"\n[wasm]\ncomponent = \"b.wasm\"\ncapabilities = { git = true }\n[[wasm.blocks]]\nid = \"m\"\n", &[("b.wasm", "v1")]);
+        let info = list_in(&r, &store).remove(0);
+        let mut s = crate::trust::read(&store);
+        s.trust("m", &info.fingerprint, "module m 1.0.0\nback end\nblock m\ncapability git", serde_json::Value::Null);
+        s.write(&store).unwrap();
+        let info = list_in(&r, &store).remove(0);
+        assert!(!info.trusted);
+        assert_eq!(info.changes, ["+ capability git (reading, in your clones)", "- capability git"]);
+        trust(&r, &store, "m", &info.fingerprint).unwrap();
+        assert!(list_in(&r, &store)[0].trusted);
         std::fs::remove_dir_all(r).unwrap();
     }
 

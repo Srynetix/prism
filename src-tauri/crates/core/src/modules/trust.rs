@@ -98,7 +98,12 @@ pub(super) fn text(id: &str, m: &Manifest) -> String {
         lines.push("back end".into());
         lines.extend(w.blocks.iter().map(|b| format!("block {}", b.id)));
         lines.extend(w.tables.iter().map(|t| format!("config table [{t}]")));
-        lines.extend(super::capabilities(&w.capabilities).into_iter().map(|c| format!("capability {c}")));
+        // Worded by what it reaches: worded anew when its reach grows, every module trusted
+        // before is asked again (`apply`).
+        lines.extend(super::capabilities(&w.capabilities).into_iter().map(|c| match c.as_str() {
+            "git" => "capability git (reading, in your clones)".to_string(),
+            _ => format!("capability {c}"),
+        }));
     }
     lines.join("\n")
 }
@@ -107,7 +112,12 @@ pub(super) fn text(id: &str, m: &Manifest) -> String {
 pub(super) fn apply(info: &mut ModuleInfo, folder: &Path, store: &Path, text: &str) {
     info.fingerprint = fingerprint_of(folder);
     let store = crate::trust::read(store);
-    match store.pending(&info.id, &info.fingerprint, text) {
+    // Its files the same, what it is worded otherwise (a capability reaching further): asked again.
+    let pending = store.pending(&info.id, &info.fingerprint, text).or_else(|| {
+        let t = store.trusted.get(&info.id).filter(|t| t.text != text)?;
+        Some(crate::trust::Pending { trusted: Some(t.clone()), seen: None, diff: crate::textdiff::lines(&t.text, text) })
+    });
+    match pending {
         None => info.trusted = true,
         Some(p) => {
             info.trusted_version = p.trusted.as_ref().and_then(|t| t.text.lines().next()).and_then(|l| l.rsplit(' ').next()).map(String::from);

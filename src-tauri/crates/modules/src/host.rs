@@ -20,10 +20,41 @@ use crate::manifest::Capabilities;
 /// The git subcommands a module may run: they read.
 const READS: &[&str] = &["log", "show", "rev-parse", "rev-list", "cherry", "diff", "ls-files", "ls-tree", "cat-file", "status", "branch", "tag", "describe", "for-each-ref", "merge-base", "blame", "shortlog"];
 
+/// `branch` and `tag` list only with these options (any other creates, moves or deletes a ref).
+const LISTS: &[&str] = &["-l", "--list", "-a", "--all", "-r", "--remotes", "--show-current", "-i", "--ignore-case", "--column", "--no-column", "--color", "--no-color", "--omit-empty", "--abbrev", "--no-abbrev", "-n", "--format", "--sort", "--contains", "--no-contains", "--merged", "--no-merged", "--points-at"];
+/// Of those, the ones whose value may come as the next argument.
+const VALUED: &[&str] = &["--format", "--sort", "--contains", "--no-contains", "--merged", "--no-merged", "--points-at"];
+
 /// `args` a git command that reads: a subcommand that reads, first (an option there, `-C` or
-/// `-c alias.x=!…`, would leave the clone or run something else), and no `--output` (a file written).
+/// `-c alias.x=!…`, would leave the clone or run something else), no `--output` (a file written),
+/// no `--no-index` or `--contents` (a file outside the clone read); `branch` and `tag` listing.
 fn reads(args: &[String]) -> bool {
-    args.first().is_some_and(|c| READS.contains(&c.as_str())) && !args.iter().any(|a| a.starts_with("--output"))
+    let Some(sub) = args.first().filter(|c| READS.contains(&c.as_str())) else { return false };
+    if args.iter().any(|a| a.starts_with("--output") || a == "--no-index" || a.starts_with("--contents")) {
+        return false;
+    }
+    !matches!(sub.as_str(), "branch" | "tag") || lists(&args[1..])
+}
+
+/// `branch`/`tag` options listing refs: known listing options (their values with them); a name only
+/// as a pattern, after `--list` (without it, a name is a ref created).
+fn lists(args: &[String]) -> bool {
+    let listing = args.iter().any(|a| a == "-l" || a == "--list");
+    let mut rest = args.iter();
+    while let Some(a) = rest.next() {
+        let name = a.split_once('=').map_or(a.as_str(), |(n, _)| n);
+        if VALUED.contains(&name) && !a.contains('=') {
+            rest.next();
+        } else if a.starts_with('-') {
+            // `-n<lines>` (a tag's message lines).
+            if !(LISTS.contains(&name) || a.strip_prefix("-n").is_some_and(|n| n.bytes().all(|b| b.is_ascii_digit()))) {
+                return false;
+            }
+        } else if !listing {
+            return false;
+        }
+    }
+    true
 }
 
 pub struct HostState {
@@ -55,9 +86,15 @@ impl HostState {
 
     /// What Prism does for it, its time counted apart from the call's own (`waited`).
     fn wait<T>(&mut self, f: impl std::future::Future<Output = T>) -> T {
+        let rt = self.rt.clone();
+        self.aside(|| rt.block_on(f))
+    }
+
+    /// `f`, Prism working for it: its mark lifted meanwhile, its time added to `waited`.
+    fn aside<T>(&mut self, f: impl FnOnce() -> T) -> T {
         let t0 = std::time::Instant::now();
         self.lift(true);
-        let out = self.rt.block_on(f);
+        let out = f();
         self.lift(false);
         self.waited += t0.elapsed();
         out
@@ -154,11 +191,7 @@ impl Host for HostState {
         if !self.caps.exec.contains(&program) {
             return Err(self.refused(&format!("exec {program}")));
         }
-        let t0 = std::time::Instant::now();
-        self.lift(true);
-        let out = std::process::Command::new(&program).args(&args).stdin(std::process::Stdio::null()).output();
-        self.lift(false);
-        self.waited += t0.elapsed();
+        let out = self.aside(|| std::process::Command::new(&program).args(&args).stdin(std::process::Stdio::null()).output());
         let out = out.map_err(|e| format!("{program}: {e}"))?;
         if !out.status.success() {
             return Err(format!("{program}: {}", String::from_utf8_lossy(&out.stderr).trim()));
@@ -266,6 +299,14 @@ mod tests {
         assert!(some.git(std::env::temp_dir().display().to_string(), vec!["status".into()]).unwrap_err().contains("not one of your clones"));
         // `cherry` reads (is an MR's commit in a tag?).
         assert!(reads(&["cherry".into(), "v1".into(), "abc^2".into(), "abc^1".into()]));
+        // `branch` and `tag` list; creating, moving or deleting a ref, reading a file outside: refused.
+        let v = |a: &str| a.split(' ').map(String::from).collect::<Vec<_>>();
+        for ok in ["branch", "branch --show-current", "branch -a --contains abc", "branch --list fix/*", "tag --list v1.* --sort=-v:refname", "tag --points-at HEAD", "tag -n3 -l v1", "branch --merged main --format %(refname)"] {
+            assert!(reads(&v(ok)), "{ok}");
+        }
+        for no in ["branch new", "branch -D main", "branch -f main HEAD~1", "branch -m a b", "branch -a new", "branch --set-upstream-to=x", "tag v9", "tag -d v1", "tag -f v1 HEAD", "tag -a v2 -m x", "diff --no-index /etc/hosts /dev/null", "blame --contents /etc/hosts f", "log --output=x"] {
+            assert!(!reads(&v(no)), "{no}");
+        }
         assert!(some.git(format!("{}/..", mine.display()), vec!["status".into()]).is_err());
         for escape in [vec!["-C", "/"], vec!["-c", "alias.x=!true", "x"], vec!["push"], vec!["log", "--output=/tmp/x"], vec![]] {
             let e = some.git(mine.display().to_string(), escape.iter().map(|a| a.to_string()).collect()).unwrap_err();

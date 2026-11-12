@@ -397,19 +397,19 @@ impl Worker {
         let host = HostState::new(self.module.id.clone(), capabilities, self.repos.clone(), self.rt.clone());
         let mut store = Store::new(cache::engine(), host);
         store.set_epoch_deadline(deadline());
-        // At its deadline, the time it waited for Prism since is given back: it traps once it
-        // computed `DEADLINE` of its own, or lasted `LONGEST`.
-        store.epoch_deadline_callback(|mut ctx| {
-            let host = ctx.data_mut();
-            let waited = std::mem::take(&mut host.waited);
-            if host.started.elapsed() >= LONGEST {
-                return Err(wasmtime::Error::msg(format!("a call longer than {} minutes, what Prism did for it included", LONGEST.as_secs() / 60)));
+        // At its deadline, its own time counted (the call's, less what Prism did for it): it traps
+        // once it computed `DEADLINE` of its own, or lasted `LONGEST`; else, what is left of it.
+        store.epoch_deadline_callback(|ctx| {
+            let host = ctx.data();
+            let lasted = host.started.elapsed();
+            if lasted >= LONGEST {
+                return Err(wasmtime::Error::msg(format!("a call longer than {} s, what Prism did for it included", LONGEST.as_secs())));
             }
-            let back = (waited.as_millis() / cache::EPOCH.as_millis()) as u64;
-            if back == 0 {
-                return Err(wasmtime::Error::msg(format!("a call computing longer than {} minutes", DEADLINE.as_secs() / 60)));
+            let own = lasted.saturating_sub(host.waited);
+            if own >= DEADLINE {
+                return Err(wasmtime::Error::msg(format!("a call computing longer than {} s", DEADLINE.as_secs())));
             }
-            Ok(wasmtime::UpdateDeadline::Continue(back))
+            Ok(wasmtime::UpdateDeadline::Continue(ticks(DEADLINE - own).max(1)))
         });
         let block = w(bindings::Block::instantiate(&mut store, &component, &linker))?;
         Ok(Instance { store, block })
@@ -678,7 +678,12 @@ impl Worker {
 }
 
 fn deadline() -> u64 {
-    (DEADLINE.as_millis() / cache::EPOCH.as_millis()) as u64
+    ticks(DEADLINE)
+}
+
+/// `d` in epochs.
+fn ticks(d: Duration) -> u64 {
+    (d.as_millis() / cache::EPOCH.as_millis()) as u64
 }
 
 fn parse(text: &str, what: &str) -> Result<Value> {

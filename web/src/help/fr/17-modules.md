@@ -45,7 +45,7 @@ provides = ["stages", "images"]
 remote = { ping = "read" }    # ses commandes depuis un téléphone : read, act ou critical
 ```
 
-Le back end n'atteint rien qu'il ne déclare pas : GitLab via glab (`gitlab`), git dans vos clones, en lecture seulement (`git` : les dépôts de ses blocs et les autres de `[[repos]]`), un GET vers les hôtes qu'il nomme (`http`), les programmes qu'il nomme (`exec`). À part ça, ni fichier, ni réseau, ni environnement.
+Le back end n'atteint rien qu'il ne déclare pas : GitLab via glab (`gitlab`), git dans vos clones, en lecture seulement (`git` : les dépôts de ses blocs et les autres de `[[repos]]` ; `branch` et `tag` seulement pour lister), un GET vers les hôtes qu'il nomme (`http`), les programmes qu'il nomme (`exec`). À part ça, ni fichier, ni réseau, ni environnement.
 
 ## La partie web
 
@@ -103,7 +103,7 @@ Importer ou mettre à jour le pack place chaque module dans `modules/<id>/`, en 
 
 ## Lui faire confiance
 
-Rien d'un module ne tourne avant que vous lui fassiez confiance : sa partie web n'est pas chargée, son back end ne démarre pas, ses blocs disent qu'ils attendent. **Réglages › Packs › Modules** liste ce que son back end peut atteindre (GitLab, git, les hôtes et programmes qu'il nomme) : **Faire confiance** (deux clics), et son back end démarre aussitôt, sa partie web au prochain chargement de la fenêtre. La confiance va à l'empreinte de son dossier : une nouvelle version attend de nouveau, avec ce qu'elle change (une capacité ajoutée, un bloc, une table de config).
+Rien d'un module ne tourne avant que vous lui fassiez confiance : sa partie web n'est pas chargée, son back end ne démarre pas, ses blocs disent qu'ils attendent. **Réglages › Packs › Modules** liste ce que son back end peut atteindre (GitLab, git, les hôtes et programmes qu'il nomme) : **Faire confiance** (deux clics), et son back end démarre aussitôt, sa partie web au prochain chargement de la fenêtre. La confiance va à l'empreinte de son dossier : une nouvelle version attend de nouveau, avec ce qu'elle change (une capacité ajoutée, un bloc, une table de config) ; de même un module approuvé quand une capacité atteignait moins que ce que Prism lui permet aujourd'hui.
 
 ## L'installer et l'essayer
 
