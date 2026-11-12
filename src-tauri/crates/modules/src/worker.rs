@@ -424,13 +424,16 @@ impl Worker {
         if self.instance.is_none() && self.restart_at.is_some() {
             return Err(anyhow!("module {}: starting again", self.id()));
         }
-        self.marked(true);
-        let out = self.call_marked(f);
+        let mark = self.marked(true);
+        let out = self.call_marked(f, mark);
         self.marked(false);
+        if let Some(i) = self.instance.as_mut() {
+            i.store.data_mut().mark = None;
+        }
         out
     }
 
-    fn call_marked<T>(&mut self, f: impl FnOnce(&mut Store<HostState>, &bindings::Block) -> wasmtime::Result<T>) -> Result<T> {
+    fn call_marked<T>(&mut self, f: impl FnOnce(&mut Store<HostState>, &bindings::Block) -> wasmtime::Result<T>, mark: Option<String>) -> Result<T> {
         if self.instance.is_none() {
             self.instance = Some(self.instantiate()?);
         }
@@ -439,24 +442,27 @@ impl Worker {
         let host = i.store.data_mut();
         host.started = Instant::now();
         host.waited = Duration::ZERO;
+        host.mark = mark.map(|text| (self.module.mark.clone(), text));
         match f(&mut i.store, &i.block) {
             Ok(v) => Ok(v),
             Err(trap) => Err(self.crashed(trap)),
         }
     }
 
-    /// Its mark, while its component runs.
-    fn marked(&self, on: bool) {
+    /// Its mark, while its component runs (lifted while Prism works for it, `HostState::mark`):
+    /// what it holds, set.
+    fn marked(&self, on: bool) -> Option<String> {
         let mark = &self.module.mark;
         if !on {
             let _ = std::fs::remove_file(mark);
-            return;
+            return None;
         }
-        let Some(fingerprint) = prism_core::modules::fingerprint(&self.module.spec.component) else { return };
+        let fingerprint = prism_core::modules::fingerprint(&self.module.spec.component)?;
         if let Some(dir) = mark.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        let _ = std::fs::write(mark, fingerprint);
+        let _ = std::fs::write(mark, &fingerprint);
+        Some(fingerprint)
     }
 
     fn crashed(&mut self, trap: wasmtime::Error) -> anyhow::Error {

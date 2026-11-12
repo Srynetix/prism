@@ -38,6 +38,9 @@ pub struct HostState {
     pub waited: std::time::Duration,
     /// When the current call started.
     pub started: std::time::Instant,
+    /// Its mark while it computes (`Module::mark`, and what it holds): lifted while Prism works for
+    /// it, so that Prism quitting then is not taken for the module stopping it.
+    pub mark: Option<(std::path::PathBuf, String)>,
     wasi: WasiCtx,
     table: ResourceTable,
 }
@@ -47,15 +50,24 @@ impl HostState {
         let stderr = Stderr { module: module.clone(), lines: Default::default() };
         // No preopened folder, no environment, no socket: clocks and randomness.
         let wasi = WasiCtx::builder().stderr(stderr.clone()).build();
-        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), wasi, table: ResourceTable::new() }
+        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), mark: None, wasi, table: ResourceTable::new() }
     }
 
     /// What Prism does for it, its time counted apart from the call's own (`waited`).
     fn wait<T>(&mut self, f: impl std::future::Future<Output = T>) -> T {
         let t0 = std::time::Instant::now();
+        self.lift(true);
         let out = self.rt.block_on(f);
+        self.lift(false);
         self.waited += t0.elapsed();
         out
+    }
+
+    /// Its mark lifted while Prism works for it, set again after.
+    fn lift(&self, lifted: bool) {
+        if let Some((path, text)) = &self.mark {
+            let _ = if lifted { std::fs::remove_file(path) } else { std::fs::write(path, text) };
+        }
     }
 
     fn refused(&self, what: &str) -> String {
@@ -143,7 +155,9 @@ impl Host for HostState {
             return Err(self.refused(&format!("exec {program}")));
         }
         let t0 = std::time::Instant::now();
+        self.lift(true);
         let out = std::process::Command::new(&program).args(&args).stdin(std::process::Stdio::null()).output();
+        self.lift(false);
         self.waited += t0.elapsed();
         let out = out.map_err(|e| format!("{program}: {e}"))?;
         if !out.status.success() {
