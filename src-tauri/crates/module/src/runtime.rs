@@ -198,9 +198,22 @@ pub fn start(blocks: &'static [&'static dyn Block], env: String) -> Result<(), S
 pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
     let now = now_ms();
     let block = owner(blocks, &part);
-    // The futures due: this part's, and those of its block not yet run.
+    // The futures due: this part's, and one of its block's not yet run (each its first read in a
+    // tick of its own, the block's state filling source by source). No part (`""`): none, what
+    // was published since (by `start`) only.
     let due: Vec<Running> = with(|s| {
-        let (due, rest): (Vec<Running>, Vec<Running>) = std::mem::take(&mut s.tasks).into_iter().partition(|t| t.at <= now && (t.part == Some(part.as_str()) || (t.part.is_none() && t.block == block)));
+        let mut fresh = false;
+        let (due, rest): (Vec<Running>, Vec<Running>) = std::mem::take(&mut s.tasks).into_iter().partition(|t| {
+            if part.is_empty() || t.at > now {
+                return false;
+            }
+            if t.part == Some(part.as_str()) {
+                return true;
+            }
+            let first = t.part.is_none() && t.block == block && !fresh;
+            fresh |= first;
+            first
+        });
         s.tasks = rest;
         due
     });
@@ -249,7 +262,7 @@ pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
         let changed = std::mem::take(&mut s.changed);
         let errors = changed.into_iter().filter(|c| *c != part).map(|c| (c.to_string(), s.errors.get(c).cloned().flatten())).collect();
         // When this part is due again: its soonest future; none left, never (until a new start).
-        let mine = s.tasks.iter().filter(|t| t.part == Some(part.as_str()) || (t.part.is_none() && t.block == block));
+        let mine = s.tasks.iter().filter(|t| !part.is_empty() && (t.part == Some(part.as_str()) || (t.part.is_none() && t.block == block)));
         let next = mine.map(|t| t.at).min().map_or(0, |at| (((at - now_ms()).max(0) + 999) / 1000).max(1) as u32);
         (error, errors, next)
     });

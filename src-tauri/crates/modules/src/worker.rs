@@ -603,6 +603,8 @@ impl Worker {
                 for part in mine {
                     self.due.insert(part, now);
                 }
+                // What it published starting (its state, on before its first read answers).
+                self.tick("");
             }
             Err(e) => {
                 tracing::error!("module {}: start {block}: {e:#}", self.id());
@@ -620,7 +622,7 @@ impl Worker {
             // Said on its blocks (`crashed`); this part is read again once it restarts.
             Err(_) => return,
         };
-        tracing::debug!("module {}: {part} in {:?}, next {} s", self.id(), t0.elapsed(), tick.next);
+        tracing::debug!("module {}: {part:?} in {:?}, next {} s", self.id(), t0.elapsed(), tick.next);
         for p in tick.published {
             let Some((ctx, _)) = self.started.get(&p.block) else {
                 tracing::warn!("module {}: a state for {}, not one of its started blocks", self.id(), p.block);
@@ -648,7 +650,9 @@ impl Worker {
             }
             ctx.publish(&state);
         }
-        for (source, error) in std::iter::once((part.to_string(), tick.error)).chain(tick.errors) {
+        // No part (`""`, after a start): what it published only, its errors besides.
+        let own = Some((part.to_string(), tick.error)).filter(|_| !part.is_empty());
+        for (source, error) in own.into_iter().chain(tick.errors) {
             // A source its manifest does not declare goes nowhere: under another block's id, it
             // would overwrite that one's error.
             let Some(source) = self.module.source(&source) else {
@@ -661,6 +665,9 @@ impl Worker {
             if let Some((ctx, _)) = self.started.get(self.module.owner(source)) {
                 ctx.part(source).set_error(error);
             }
+        }
+        if part.is_empty() {
+            return;
         }
         if tick.next == 0 {
             self.due.remove(part);
