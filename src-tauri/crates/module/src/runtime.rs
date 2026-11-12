@@ -34,7 +34,26 @@ struct Running {
     part: Option<&'static str>,
     /// When it is due again (ms since the epoch).
     at: i64,
+    /// Polled once at least: its first read made.
+    ran: bool,
+    /// Pending on calls Prism runs: polled again once one of them wakes it (`wake`).
+    waiting: bool,
+    wake: Arc<Wake>,
     flags: Arc<Flags>,
+}
+
+/// A task's waker: set when a call it waits on finished.
+#[derive(Default)]
+struct Wake(AtomicBool);
+
+impl std::task::Wake for Wake {
+    fn wake(self: Arc<Self>) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+
+    fn wake_by_ref(self: &Arc<Self>) {
+        self.0.store(true, Ordering::Relaxed);
+    }
 }
 
 /// What a `JoinHandle` reads of its future: stopped (`abort`), ended (done, stopped or dropped).
@@ -67,6 +86,10 @@ struct State {
     /// Sources whose error changed since the last tick.
     changed: Vec<&'static str>,
     paused: Option<(&'static str, Duration)>,
+    /// The calls Prism runs for it, each one's waker (the future awaiting it).
+    calls: HashMap<u64, Waker>,
+    /// What was polled last waits on a call (`Call` pending).
+    waits: bool,
 }
 
 thread_local! {
@@ -100,13 +123,30 @@ pub(crate) fn paused(source: &'static str, every: Duration) {
     with(|s| s.paused = Some((source, every)));
 }
 
+/// Call `id` awaited by the future polled with `waker`: woken once Prism says it finished.
+pub(crate) fn waiting(id: u64, waker: &Waker) {
+    with(|s| {
+        s.calls.insert(id, waker.clone());
+        s.waits = true;
+    });
+}
+
+/// The futures whose calls finished, woken.
+fn wake_finished() {
+    let finished = crate::host::finished();
+    let wakers: Vec<Waker> = with(|s| finished.iter().filter_map(|id| s.calls.remove(id)).collect());
+    for w in wakers {
+        w.wake();
+    }
+}
+
 /// A future spawned by a block (in `start`, a tick, a call): polled when Prism ticks one of its
 /// parts. Spawned outside any block's code, it is the first block's.
 pub(crate) fn spawn(future: Task) -> Arc<Flags> {
     let flags = Arc::new(Flags::default());
     with(|s| {
         let block = s.starting.or(s.first).unwrap_or("");
-        s.spawned.push(Running { future, block, part: None, at: now_ms(), flags: flags.clone() });
+        s.spawned.push(Running { future, block, part: None, at: now_ms(), ran: false, waiting: false, wake: Default::default(), flags: flags.clone() });
     });
     flags
 }
@@ -132,19 +172,33 @@ fn owner(blocks: &'static [&'static dyn Block], part: &str) -> &'static str {
     blocks.iter().find(|b| b.id() == part || b.parts().contains(&part)).or(blocks.first()).map_or("", |b| b.id())
 }
 
-/// `future` run to its end now: what Prism gives answers at once.
+/// `future` run to its end now: polled again each time a call it waits on finishes.
 fn block_on<T>(future: impl Future<Output = T>) -> Result<T, String> {
     let mut future = std::pin::pin!(future);
-    let mut cx = Context::from_waker(Waker::noop());
-    for _ in 0..1000 {
+    let wake = Arc::new(Wake::default());
+    let waker = Waker::from(wake.clone());
+    let mut cx = Context::from_waker(&waker);
+    let mut stalls = 0;
+    loop {
+        wake_finished();
+        with(|s| s.waits = false);
         if let Poll::Ready(v) = future.as_mut().poll(&mut cx) {
             return Ok(v);
         }
+        if with(|s| s.waits) {
+            // Until one of the calls finishes (its own, or another's: polled again then).
+            crate::host::wait();
+        } else {
+            stalls += 1;
+            if stalls > 1000 {
+                return Err("it waited on something Prism does not give a module (a timer, a thread)".into());
+            }
+        }
     }
-    Err("it waited on something Prism does not give a module (a timer, a thread)".into())
 }
 
 pub fn configure(blocks: &'static [&'static dyn Block], config: String, lang: String, demo: bool) -> Result<Configured, String> {
+    crate::log::install();
     let table: toml::Table = toml::from_str(&config).map_err(|e| format!("config: {e}"))?;
     let lang = crate::Lang::of(&lang);
     crate::i18n::set(blocks.iter().flat_map(|b| b.messages(lang).iter().copied()));
@@ -152,7 +206,13 @@ pub fn configure(blocks: &'static [&'static dyn Block], config: String, lang: St
     for b in blocks {
         b.configure(&table).map_err(|e| format!("[{}]: {e:#}", b.id()))?;
     }
-    let parts: Vec<String> = blocks.iter().flat_map(|b| std::iter::once(b.id()).chain(b.parts().iter().copied())).map(String::from).collect();
+    // A block's own id among its parts once (a part may be named as its block).
+    let mut parts: Vec<String> = Vec::new();
+    for p in blocks.iter().flat_map(|b| std::iter::once(b.id()).chain(b.parts().iter().copied())) {
+        if !parts.iter().any(|q| q == p) {
+            parts.push(p.to_string());
+        }
+    }
     let stages = blocks.iter().find_map(|b| b.stages()).map(|p| serde_json::to_string(&p.stages().0).unwrap_or_default());
     let demo = if demo {
         let now = chrono::Utc::now();
@@ -191,34 +251,66 @@ pub fn start(blocks: &'static [&'static dyn Block], env: String) -> Result<(), S
 pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
     let now = now_ms();
     let block = owner(blocks, &part);
-    // The futures due: this part's, and those of its block not yet run.
+    // The futures due: this part's, its block's stalled ones, and one of its block's never run
+    // (each its first read in a tick of its own, the block's state filling source by source). No part (`""`): none, what
+    // was published since (by `start`) only.
+    wake_finished();
     let due: Vec<Running> = with(|s| {
-        let (due, rest): (Vec<Running>, Vec<Running>) = std::mem::take(&mut s.tasks).into_iter().partition(|t| t.at <= now && (t.part == Some(part.as_str()) || (t.part.is_none() && t.block == block)));
+        let mut fresh = false;
+        let (due, rest): (Vec<Running>, Vec<Running>) = std::mem::take(&mut s.tasks).into_iter().partition(|t| {
+            if part.is_empty() {
+                return false;
+            }
+            let mine = t.part == Some(part.as_str()) || (t.part.is_none() && t.block == block);
+            // Waiting on calls: when one of them finished.
+            if t.waiting {
+                return mine && t.wake.0.load(Ordering::Relaxed);
+            }
+            if t.at > now {
+                return false;
+            }
+            if t.part == Some(part.as_str()) {
+                return true;
+            }
+            if !mine {
+                return false;
+            }
+            // Run before (stalled, no pause): due as any. Never run: one a tick.
+            let first = !t.ran && !fresh;
+            fresh |= first;
+            t.ran || first
+        });
         s.tasks = rest;
         due
     });
-    let mut cx = Context::from_waker(Waker::noop());
     for mut t in due {
         if t.flags.aborted.load(Ordering::Relaxed) {
             continue;
         }
         with(|s| {
             s.paused = None;
+            s.waits = false;
             s.starting = Some(t.block);
         });
-        let done = t.future.as_mut().poll(&mut cx).is_ready();
-        let paused = with(|s| {
+        t.wake.0.store(false, Ordering::Relaxed);
+        let waker = Waker::from(t.wake.clone());
+        let done = t.future.as_mut().poll(&mut Context::from_waker(&waker)).is_ready();
+        t.ran = true;
+        let (paused, waits) = with(|s| {
             s.starting = None;
-            s.paused.take()
+            (s.paused.take(), std::mem::take(&mut s.waits))
         });
         if done {
             continue;
         }
+        t.waiting = false;
         match paused {
             Some((source, every)) => {
                 t.part = Some(source);
                 t.at = now_ms() + every.as_millis() as i64;
             }
+            // Its calls running: polled again when one finishes (Prism ticks this part then).
+            None if waits => t.waiting = true,
             None => t.at = now_ms() + STALLED.as_millis() as i64,
         }
         with(|s| s.tasks.push(t));
@@ -242,7 +334,8 @@ pub fn tick(blocks: &'static [&'static dyn Block], part: String) -> Tick {
         let changed = std::mem::take(&mut s.changed);
         let errors = changed.into_iter().filter(|c| *c != part).map(|c| (c.to_string(), s.errors.get(c).cloned().flatten())).collect();
         // When this part is due again: its soonest future; none left, never (until a new start).
-        let mine = s.tasks.iter().filter(|t| t.part == Some(part.as_str()) || (t.part.is_none() && t.block == block));
+        // Those waiting on calls are not: Prism ticks the part when one finishes.
+        let mine = s.tasks.iter().filter(|t| !part.is_empty() && !t.waiting && (t.part == Some(part.as_str()) || (t.part.is_none() && t.block == block)));
         let next = mine.map(|t| t.at).min().map_or(0, |at| (((at - now_ms()).max(0) + 999) / 1000).max(1) as u32);
         (error, errors, next)
     });

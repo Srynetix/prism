@@ -341,11 +341,15 @@ remote = { ping = "read" }             # its commands from a phone: read | act |
   `call`, `hints`, `images`. Any language that builds a component will do; Rust:
   `cargo build --release --target wasm32-wasip2` (`examples/modules/hello/backend`).
 - It reaches nothing but what Prism gives it, each a **capability** it declares: GitLab's API
-  through glab (`gitlab`), git in its blocks' clones, read subcommands only (`git`), a GET to the
+  through glab (`gitlab`), git in the user's clones (its blocks' repositories and the other `[[repos]]`), read subcommands only (`git`), a GET to the
   hosts it names (`http`), the programs it names (`exec`); WASI gives it clocks and randomness, no
   file, no network, no environment. A capability it did not declare fails, said in its error.
-- Its standard error goes to Prism's log (`host::log` too). A panic, or a call longer than two
-  minutes, stops it: its blocks say so, and Prism starts it again 30 s later, three times at most
+- Each call is started apart (`begin-*`, then `finished`, `take`; `wait` when it has nothing
+  else to do): its futures run side by side, eight calls at most at a time, and the part that
+  started one is ticked again when it finishes. The blocking calls (`gitlab-api`, `git`…) stay
+  for components built before.
+- Its standard error goes to Prism's log (`host::log` too). A panic, or a call computing longer
+  than two minutes of its own (ten in all), stops it: its blocks say so, and Prism starts it again 30 s later, three times at most
   in five minutes.
 - Compiled once, it is kept in Prism's cache folder: the next launch loads it at once. On macOS
   it is interpreted (Pulley): the app's hardened runtime runs no code it did not sign.

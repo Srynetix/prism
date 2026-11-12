@@ -21,7 +21,7 @@ pub struct Spec {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Capabilities {
-    /// git in its blocks' clones.
+    /// git, reading, in the user's clones (its blocks' repositories and the other `[[repos]]`).
     pub git: bool,
     /// GitLab's API, through glab.
     pub gitlab: bool,
@@ -85,7 +85,12 @@ pub fn read(folder: &Path) -> Result<Spec> {
 }
 
 pub fn parse(folder: &Path, text: &str) -> Result<Spec> {
-    let wasm = toml::from_str::<Manifest>(text).context("module.toml")?.wasm.ok_or_else(|| anyhow!("no [wasm]"))?;
+    let mut wasm = toml::from_str::<Manifest>(text).context("module.toml")?.wasm.ok_or_else(|| anyhow!("no [wasm]"))?;
+    // A part named as its own block (Delivery's `shipping`) is the block's source: not a part apart.
+    for b in &mut wasm.blocks {
+        let id = b.id.clone();
+        b.parts.retain(|p| *p != id);
+    }
     let component = prism_core::modules::within(folder, &wasm.component).filter(|c| c.is_file()).ok_or_else(|| anyhow!("[wasm] component: no {} inside the module", wasm.component))?;
     if wasm.blocks.is_empty() {
         bail!("[wasm] declares no block ([[wasm.blocks]])");
@@ -131,7 +136,9 @@ mod tests {
         let bad = |text: &str| parse(&dir, &format!("[wasm]\ncomponent = \"b.wasm\"\n{text}")).unwrap_err().to_string();
         assert!(bad("").contains("no block"));
         assert!(bad("[[wasm.blocks]]\nid = \"Hello\"\n").contains("lowercase"));
-        assert!(bad("[[wasm.blocks]]\nid = \"a\"\nparts = [\"a\"]\n").contains("twice"));
+        assert!(bad("[[wasm.blocks]]\nid = \"a\"\nparts = [\"b\"]\n[[wasm.blocks]]\nid = \"b\"\n").contains("twice"));
+        // A part named as its own block: Delivery's `shipping`.
+        assert_eq!(parse(&dir, "[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\nparts = [\"a\", \"c\"]\n").unwrap().blocks[0].parts, ["c"]);
         assert!(bad("[[wasm.blocks]]\nid = \"a\"\nremote = { x = \"always\" }\n").contains("read, act"));
         assert!(bad("capabilities = { exec = [\"/bin/sh\"] }\n[[wasm.blocks]]\nid = \"a\"\n").contains("program"));
         assert!(parse(&dir, "[wasm]\ncomponent = \"../b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\n").is_err());

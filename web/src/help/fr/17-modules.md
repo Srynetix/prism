@@ -38,14 +38,14 @@ capabilities = { git = true } # git, gitlab, http = ["hôte"], exec = ["programm
 
 [[wasm.blocks]]
 id = "hello"
-parts = ["hello_reads"]       # ses sources lues à part
+parts = ["hello_reads"]       # ses sources lues à part (l'une peut porter le nom du bloc)
 repos = "one"                 # none, one ou many : [hello] repo / repos
 reloads = true
 provides = ["stages", "images"]
 remote = { ping = "read" }    # ses commandes depuis un téléphone : read, act ou critical
 ```
 
-Le back end n'atteint rien qu'il ne déclare pas : GitLab via glab (`gitlab`), git dans les clones de ses blocs, en lecture seulement (`git`), un GET vers les hôtes qu'il nomme (`http`), les programmes qu'il nomme (`exec`). À part ça, ni fichier, ni réseau, ni environnement.
+Le back end n'atteint rien qu'il ne déclare pas : GitLab via glab (`gitlab`), git dans vos clones, en lecture seulement (`git` : les dépôts de ses blocs et les autres de `[[repos]]` ; `branch` et `tag` seulement pour lister), un GET vers les hôtes qu'il nomme (`http`), les programmes qu'il nomme (`exec`). À part ça, ni fichier, ni réseau, ni environnement.
 
 ## La partie web
 
@@ -57,7 +57,7 @@ import { moduleConfig } from '@prism/sdk/vite'
 export default moduleConfig('hello', import.meta.dirname)
 ```
 
-- `src/defs.ts` exporte `prism` et `svelte` (donnés par la build : `__PRISM_CONTRACT__`, `__SVELTE__`), `words` (son français) et `blocks()`, les déclarations de ses blocs. Il n'importe que `@prism/sdk/words`.
+- `src/defs.ts` exporte `prism` et `svelte` (donnés par la build : `__PRISM_CONTRACT__`, `__SVELTE__`), `words` (son français) et `blocks()`, les déclarations de ses blocs : leur aide, leur élément de barre d'état, un guide de l'Aide (`guide`) et une page de Réglages pour leurs tables de config (`settings`) s'ils en ont. Il n'importe que `@prism/sdk/words`.
 - `src/components.ts` exporte `components`, par identifiant de bloc (`hello:status` pour son élément de barre d'état). Ils n'atteignent Prism que par `@prism/sdk` : les mots, le snapshot, les commandes d'un bloc (`call`), la mise en page, les actions de Prism, les formats, ses icônes et ses contrôles.
 
 Ce que Prism ne donne pas échoue à la build, pas dans Prism : un autre module de Svelte (Prism donne `svelte` et ses `animate`, `easing`, `motion`, `reactivity`, `store`, `transition`…), les sources de Prism, un fichier hors du dossier du module.
@@ -84,7 +84,7 @@ static BLOCKS: &[&dyn prism_module::Block] = &[&hello::HELLO];
 prism_module::module!(BLOCKS);
 ```
 
-Son collecteur est une boucle lancée dans `start`, comme dans Prism : `loop { lire; ctx.publish(&état); ctx.pause(délai).await }`. Chaque `pause` rend la main à Prism, qui reprend la boucle quand cette partie est de nouveau due ; git, GitLab et les programmes répondent tout de suite. Une panique, ou un appel de plus de deux minutes, arrête le back end : ses blocs le disent, et Prism le relance 30 s plus tard.
+Son collecteur est une boucle lancée dans `start`, comme dans Prism : `loop { lire; ctx.publish(&état); ctx.pause(délai).await }`. Chaque `pause` rend la main à Prism, qui reprend la boucle quand cette partie est de nouveau due. Prism lance git, GitLab et les programmes à part : ce qu'un bloc joint (`join_all`, `buffer_unordered`) avance côte à côte, huit appels au plus à la fois, comme dans Prism ; un module construit avec un `prism-module` plus ancien les fait l'un après l'autre. Une panique, ou un appel qui calcule plus de deux minutes (ce que Prism fait pour lui, git, GitLab, un programme, à part ; dix minutes en tout), arrête le back end : ses blocs le disent, et Prism le relance 30 s plus tard. Ses lignes `tracing` (`tracing::warn!`, avec `tracing` dans ses dépendances) vont au journal de Prism, comme celles d'un bloc de Prism.
 
 Build : `rustup target add wasm32-wasip2` une fois, puis `cargo build --release --target wasm32-wasip2`. `vite build` copie le composant dans `dist/<id>/` avec `module.toml`.
 
@@ -103,7 +103,7 @@ Importer ou mettre à jour le pack place chaque module dans `modules/<id>/`, en 
 
 ## Lui faire confiance
 
-Rien d'un module ne tourne avant que vous lui fassiez confiance : sa partie web n'est pas chargée, son back end ne démarre pas, ses blocs disent qu'ils attendent. **Réglages › Packs › Modules** liste ce que son back end peut atteindre (GitLab, git, les hôtes et programmes qu'il nomme) : **Faire confiance** (deux clics), et son back end démarre aussitôt, sa partie web au prochain chargement de la fenêtre. La confiance va à l'empreinte de son dossier : une nouvelle version attend de nouveau, avec ce qu'elle change (une capacité ajoutée, un bloc, une table de config).
+Rien d'un module ne tourne avant que vous lui fassiez confiance : sa partie web n'est pas chargée, son back end ne démarre pas, ses blocs disent qu'ils attendent. **Réglages › Packs › Modules** liste ce que son back end peut atteindre (GitLab, git, les hôtes et programmes qu'il nomme) : **Faire confiance** (deux clics), et son back end démarre aussitôt, sa partie web au prochain chargement de la fenêtre. La confiance va à l'empreinte de son dossier : une nouvelle version attend de nouveau, avec ce qu'elle change (une capacité ajoutée, un bloc, une table de config) ; de même un module approuvé quand une capacité atteignait moins que ce que Prism lui permet aujourd'hui.
 
 ## L'installer et l'essayer
 

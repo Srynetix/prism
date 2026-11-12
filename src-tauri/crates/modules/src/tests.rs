@@ -98,13 +98,58 @@ async fn the_example_fills_its_block_and_survives_its_panic() {
     let images = module.images(clone.clone(), "g/app".into(), vec![]).await.unwrap();
     assert_eq!(images[0].tags[0].tag, "alpine:3.20");
     // A panic: the block's error says it, Prism goes on; the component starts again later.
+    let before = hub.subscribe().borrow().blocks["hello"]["at"].clone();
     let e = module.call("hello", "panic".into(), json!({}), false).await.unwrap_err().to_string();
     assert!(e.contains("panicked on purpose"), "{e}");
     wait_for(&hub, "the block's error", |s| s.errors.get("hello").is_some_and(|e| e.contains("panicked on purpose")));
     assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap_err().to_string().contains("starting again"));
     // Started again: configured and started as it was, its error gone, reading anew.
-    wait_for(&hub, "its restart", |s| !s.errors.contains_key("hello") && s.blocks.get("hello").is_some_and(|v| v["reads"] == 1));
+    // (Its state read anew: the one before the panic said 1 too.)
+    wait_for(&hub, "its restart", |s| !s.errors.contains_key("hello") && s.blocks.get("hello").is_some_and(|v| v["reads"] == 1 && v["at"] != before));
     assert_eq!(module.call("hello", "ping".into(), json!({}), false).await.unwrap()["pong"], 1);
+    std::fs::remove_dir_all(clone).unwrap();
+}
+
+/// A call's deadline (3 s in tests) counts its own computing, not what Prism does for it.
+#[tokio::test(flavor = "multi_thread")]
+async fn its_deadline_counts_its_own_time() {
+    let Some(wasm) = example() else { return };
+    let clone = temp("deadline");
+    git(&clone, &["init", "-q"]);
+    git(&clone, &["commit", "-q", "--allow-empty", "-m", "First of all"]);
+    let module = module(&wasm, "{ git = true }");
+    let (m, h, c) = (module.clone(), Hub::new(), clone.clone());
+    tokio::task::spawn_blocking(move || {
+        m.configure(&toml::Table::new()).unwrap();
+        m.start("hello", BlockCtx::new("hello", h, Arc::new(env(&c))), crate::block::env_json("hello", &env(&c))).unwrap();
+    })
+    .await
+    .unwrap();
+    // Waiting 5 s for git: past the deadline in time, not in its own.
+    let waited = module.call("hello", "wait".into(), json!({ "repo": clone, "secs": 5 }), false).await.unwrap();
+    assert!(waited["reads"].as_u64().unwrap() > 1, "{waited}");
+    // Computing 5 s: stopped.
+    let e = module.call("hello", "spin".into(), json!({ "secs": 5 }), false).await.unwrap_err().to_string();
+    assert!(e.contains("computing longer than 3 s"), "{e}");
+    std::fs::remove_dir_all(clone).unwrap();
+}
+
+/// Its calls joined run side by side, as inside Prism: four programs of a second, in about one.
+#[tokio::test(flavor = "multi_thread")]
+async fn its_calls_run_side_by_side() {
+    let Some(wasm) = example() else { return };
+    let clone = temp("side");
+    let module = module(&wasm, "{ exec = [\"sleep\"] }");
+    let (m, h, c) = (module.clone(), Hub::new(), clone.clone());
+    tokio::task::spawn_blocking(move || {
+        m.configure(&toml::Table::new()).unwrap();
+        m.start("hello", BlockCtx::new("hello", h, Arc::new(env(&c))), crate::block::env_json("hello", &env(&c))).unwrap();
+    })
+    .await
+    .unwrap();
+    let ran = module.call("hello", "side_by_side".into(), json!({ "n": 4, "secs": 1 }), false).await.unwrap();
+    let ms = ran["ms"].as_u64().unwrap();
+    assert!((1000..2500).contains(&ms), "{ran}");
     std::fs::remove_dir_all(clone).unwrap();
 }
 
@@ -141,11 +186,14 @@ async fn its_demo_comes_from_the_component() {
 fn the_second_load_comes_from_the_cache() {
     let Some(wasm) = example() else { return };
     let cache = temp("cache");
+    let t0 = Instant::now();
     crate::cache::component_in(&cache, &wasm).unwrap();
+    let compiled = t0.elapsed();
     let t0 = Instant::now();
     crate::cache::component_in(&cache, &wasm).unwrap();
     let took = t0.elapsed();
-    assert!(took < Duration::from_millis(50), "from the cache in {took:?}");
+    // Against its compiling, not a clock: the machine may be busy.
+    assert!(took * 4 < compiled, "from the cache in {took:?}, compiled in {compiled:?}");
     std::fs::remove_dir_all(cache).unwrap();
 }
 

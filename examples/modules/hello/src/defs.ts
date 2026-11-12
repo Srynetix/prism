@@ -23,7 +23,7 @@ export const words = {
     'This block failed on purpose.': 'Ce bloc a échoué exprès.',
     'Its back end read {n} times, {when}.': 'Son back end a lu {n} fois, {when}.',
     'Last commit of {project}: {commit}': 'Dernier commit de {project} : {commit}',
-    'No back end: build it with just module-example.': 'Pas de back end : construis-le avec just module-example.',
+    'No back end: build it with just module-example.': 'Pas de back end : construisez-le avec just module-example.',
     'Pong: {n} reads': 'Pong : {n} lectures',
     'Crash the back end': 'Planter le back end',
     'Its back end, a WebAssembly component, reads its repository’s last commit: Crash the back end panics it on purpose, and Prism starts it again.': 'Son back end, un composant WebAssembly, lit le dernier commit de son dépôt : Planter le back end le fait paniquer exprès, et Prism le relance.',

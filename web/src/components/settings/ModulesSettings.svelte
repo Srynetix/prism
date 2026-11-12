@@ -22,7 +22,7 @@
 
   /** What a capability lets a module's back end reach. */
   function capability(c: string): string {
-    if (c === 'git') return t('git, reading, in its blocks’ repositories')
+    if (c === 'git') return t('git, reading, in your clones')
     if (c === 'gitlab') return t('GitLab’s API, as you (glab)')
     if (c.startsWith('http:')) return t('HTTP requests to {host}', { host: c.slice(5) })
     if (c.startsWith('exec:')) return t('runs the program {program}', { program: c.slice(5) })

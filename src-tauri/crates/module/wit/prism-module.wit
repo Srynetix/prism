@@ -13,7 +13,7 @@ interface host {
     gitlab-api: func(method: string, path: string, body: option<string>) -> result<string, string>;
     /// A raw GET of GitLab's API (`gitlab = true`): an artifact, a file.
     gitlab-raw: func(path: string) -> result<list<u8>, string>;
-    /// git in one of its repositories' clones (`git = true`), its standard output; another
+    /// git in one of the user's clones Prism gives its blocks (`git = true`), its standard output; another
     /// folder is refused.
     git: func(repo: string, args: list<string>) -> result<string, string>;
     /// A GET of `url` (`http = ["host", …]`): its host one of those declared; its body as text.
@@ -21,6 +21,21 @@ interface host {
     /// A program run (`exec = ["gcloud", …]`): one of those declared, found in Prism's PATH; its
     /// standard output.
     exec: func(program: string, args: list<string>) -> result<string, string>;
+    /// The same, started apart (what `prism-module` after Prism 0.12.0 calls): its id at
+    /// once, its answer read with `take` once `finished` says so. Several go side by side; the
+    /// capability is checked as it starts (refused: finished at once, with its error).
+    begin-gitlab-api: func(method: string, path: string, body: option<string>) -> u64;
+    begin-gitlab-raw: func(path: string) -> u64;
+    begin-git: func(repo: string, args: list<string>) -> u64;
+    begin-http-get: func(url: string, headers: list<tuple<string, string>>) -> u64;
+    begin-exec: func(program: string, args: list<string>) -> u64;
+    /// The calls finished since it last asked.
+    finished: func() -> list<u64>;
+    /// A call's answer, once finished (as bytes: text is UTF-8), taken: none while it runs.
+    take: func(id: u64) -> option<result<list<u8>, string>>;
+    /// Until one of its calls finishes (at once when one finished unasked, or none runs): what
+    /// it waits for when it has nothing else to do (a window's call).
+    wait: func();
     /// A GitLab project whose pipelines' job logs the window may then read (a deployment one).
     allow-log-project: func(project: string);
     /// A line in Prism's log: 0 error, 1 warn, 2 info, 3 debug.

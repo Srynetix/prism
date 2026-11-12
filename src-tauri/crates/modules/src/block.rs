@@ -30,6 +30,18 @@ struct Of {
     module: Arc<Module>,
 }
 
+/// A table's name for the life of Prism: each one leaked once, whichever version names it.
+fn interned(name: &str) -> &'static str {
+    static NAMES: std::sync::Mutex<Vec<&'static str>> = std::sync::Mutex::new(Vec::new());
+    let mut names = NAMES.lock().unwrap();
+    if let Some(n) = names.iter().find(|n| **n == name) {
+        return n;
+    }
+    let n: &'static str = Box::leak(name.to_string().into_boxed_str());
+    names.push(n);
+    n
+}
+
 /// The blocks of `module`, leaked: the core keeps them for the life of Prism.
 pub fn of(module: &Arc<Module>) -> Vec<&'static dyn Block> {
     module.warm();
@@ -71,6 +83,13 @@ impl Block for WasmBlock {
 
     fn configure(&self, config: &toml::Table) -> Result<()> {
         self.module.configure(config)
+    }
+
+    /// The tables its module is given (the trusted version's) as the config has them, so that
+    /// Settings knows them read; their defaults are the module's own, not shown. Declared by the
+    /// module, not by each block: every block of it names them.
+    fn settings(&self, config: &toml::Table) -> Vec<(&'static str, Value)> {
+        self.module.tables().iter().map(|t| (interned(t), config.get(t.as_str()).and_then(|v| serde_json::to_value(v).ok()).unwrap_or_else(|| json!({})))).collect()
     }
 
     fn repos(&self) -> RepoUse {

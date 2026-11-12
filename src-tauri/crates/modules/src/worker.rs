@@ -23,8 +23,11 @@ use crate::cache::{self, w};
 use crate::host::HostState;
 use crate::manifest::Spec;
 
-/// The longest a call may run, host calls (glab, git) included: then it traps.
-const DEADLINE: Duration = Duration::from_secs(120);
+/// The longest a call may compute, what Prism does for it (git, GitLab, a program) apart: then it
+/// traps (a loop that never ends).
+const DEADLINE: Duration = if cfg!(test) { Duration::from_secs(3) } else { Duration::from_secs(120) };
+/// The longest a call may last, what Prism does for it included (a loop of host calls).
+const LONGEST: Duration = Duration::from_secs(600);
 /// The wait before a component that trapped starts again, and how many times in `CRASH_WINDOW`.
 const RESTART_AFTER: Duration = if cfg!(test) { Duration::from_secs(1) } else { Duration::from_secs(30) };
 const CRASHES: usize = 3;
@@ -93,6 +96,8 @@ enum Msg {
     Call { block: String, command: String, args: Value, demo: bool, reply: tokio::sync::oneshot::Sender<Result<Value>> },
     Hints { repo: PathBuf, reply: tokio::sync::oneshot::Sender<Result<Hints>> },
     Images { repo: PathBuf, project: String, local: Vec<LocalRepo>, reply: tokio::sync::oneshot::Sender<Result<Vec<ImageTarget>>> },
+    /// A call it started apart finished: the part that started it, ticked again.
+    Woke(String),
 }
 
 fn leak(s: &str) -> &'static str {
@@ -183,9 +188,14 @@ impl Module {
         self.sender()?.send(msg).map_err(|_| anyhow!("module {}: its thread stopped", self.id))
     }
 
+    /// The config tables it is given: the trusted version's (the manifest's until it is trusted).
+    pub fn tables(&self) -> Vec<String> {
+        self.trusted_as().map_or_else(|| self.spec.tables.clone(), |t| t.tables)
+    }
+
     /// Its tables of the merged config, as TOML: not the whole config.
     pub fn config_text(&self, config: &toml::Table) -> String {
-        let tables = self.trusted_as().map_or_else(|| self.spec.tables.clone(), |t| t.tables);
+        let tables = self.tables();
         let mine: toml::Table = config.iter().filter(|(k, _)| tables.iter().any(|t| t == *k)).map(|(k, v)| (k.clone(), v.clone())).collect();
         toml::to_string(&mine).unwrap_or_default()
     }
@@ -386,9 +396,29 @@ impl Worker {
         w(wasmtime_wasi::p2::add_to_linker_sync(&mut linker))?;
         w(bindings::Block::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |s| s))?;
         let capabilities = self.module.trusted_as().ok_or_else(|| self.module.untrusted())?.capabilities;
-        let host = HostState::new(self.module.id.clone(), capabilities, self.repos.clone(), self.rt.clone());
+        let mut host = HostState::new(self.module.id.clone(), capabilities, self.repos.clone(), self.rt.clone());
+        let me = Arc::downgrade(&self.module);
+        host.woke = Some(Arc::new(move |part: String| {
+            if let Some(tx) = me.upgrade().and_then(|m| m.tx.lock().unwrap().clone()) {
+                let _ = tx.send(Msg::Woke(part));
+            }
+        }));
         let mut store = Store::new(cache::engine(), host);
         store.set_epoch_deadline(deadline());
+        // At its deadline, its own time counted (the call's, less what Prism did for it): it traps
+        // once it computed `DEADLINE` of its own, or lasted `LONGEST`; else, what is left of it.
+        store.epoch_deadline_callback(|ctx| {
+            let host = ctx.data();
+            let lasted = host.started.elapsed();
+            if lasted >= LONGEST {
+                return Err(wasmtime::Error::msg(format!("a call longer than {} s, what Prism did for it included", LONGEST.as_secs())));
+            }
+            let own = lasted.saturating_sub(host.waited);
+            if own >= DEADLINE {
+                return Err(wasmtime::Error::msg(format!("a call computing longer than {} s", DEADLINE.as_secs())));
+            }
+            Ok(wasmtime::UpdateDeadline::Continue(ticks(DEADLINE - own).max(1)))
+        });
         let block = w(bindings::Block::instantiate(&mut store, &component, &linker))?;
         Ok(Instance { store, block })
     }
@@ -402,46 +432,56 @@ impl Worker {
         if self.instance.is_none() && self.restart_at.is_some() {
             return Err(anyhow!("module {}: starting again", self.id()));
         }
-        self.marked(true);
-        let out = self.call_marked(f);
+        let mark = self.marked(true);
+        let out = self.call_marked(f, mark);
         self.marked(false);
+        if let Some(i) = self.instance.as_mut() {
+            i.store.data_mut().mark = None;
+        }
         out
     }
 
-    fn call_marked<T>(&mut self, f: impl FnOnce(&mut Store<HostState>, &bindings::Block) -> wasmtime::Result<T>) -> Result<T> {
+    fn call_marked<T>(&mut self, f: impl FnOnce(&mut Store<HostState>, &bindings::Block) -> wasmtime::Result<T>, mark: Option<String>) -> Result<T> {
         if self.instance.is_none() {
             self.instance = Some(self.instantiate()?);
         }
         let i = self.instance.as_mut().unwrap();
         i.store.set_epoch_deadline(deadline());
+        let host = i.store.data_mut();
+        host.started = Instant::now();
+        host.waited = Duration::ZERO;
+        host.mark = mark.map(|text| (self.module.mark.clone(), text));
         match f(&mut i.store, &i.block) {
             Ok(v) => Ok(v),
             Err(trap) => Err(self.crashed(trap)),
         }
     }
 
-    /// Its mark, while its component runs.
-    fn marked(&self, on: bool) {
+    /// Its mark, while its component runs (lifted while Prism works for it, `HostState::mark`):
+    /// what it holds, set.
+    fn marked(&self, on: bool) -> Option<String> {
         let mark = &self.module.mark;
         if !on {
             let _ = std::fs::remove_file(mark);
-            return;
+            return None;
         }
-        let Some(fingerprint) = prism_core::modules::fingerprint(&self.module.spec.component) else { return };
+        let fingerprint = prism_core::modules::fingerprint(&self.module.spec.component)?;
         if let Some(dir) = mark.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        let _ = std::fs::write(mark, fingerprint);
+        let _ = std::fs::write(mark, &fingerprint);
+        Some(fingerprint)
     }
 
     fn crashed(&mut self, trap: wasmtime::Error) -> anyhow::Error {
         let said = self.instance.take().map(|i| i.store.data().stderr.take()).unwrap_or_default();
         // A Rust panic says why on its standard error, before the trap.
         let why = said.iter().rev().find(|l| l.contains("panicked")).cloned().or_else(|| said.last().cloned());
-        let trap = trap.to_string();
+        // Why it trapped (a deadline's, its own words), under the wasm backtrace.
+        let cause = trap.root_cause().to_string();
         let message = match why {
             Some(why) => format!("the module {} stopped: {why}", self.id()),
-            None => format!("the module {} stopped: {trap}", self.id()),
+            None => format!("the module {} stopped: {cause}", self.id()),
         };
         tracing::error!("{message} ({trap:?})");
         let now = Instant::now();
@@ -475,6 +515,12 @@ impl Worker {
 
     fn handle(&mut self, msg: Msg) {
         match msg {
+            // Due now, its block started (a call from before a restart: read again anyway).
+            Msg::Woke(part) => {
+                if !part.is_empty() && self.started.contains_key(self.module.owner(&part)) {
+                    self.due.insert(part, Instant::now());
+                }
+            }
             Msg::Configure { config, lang, demo, done } => {
                 // A fresh instance: nothing of the former config stays.
                 self.instance = None;
@@ -552,7 +598,9 @@ impl Worker {
         if let Some(clone) = env["clone"].as_str() {
             self.allow(std::path::Path::new(clone));
         }
-        for clone in env["repos"].as_array().into_iter().flatten().filter_map(|r| r["clone"].as_str()) {
+        // Its repositories, and the other clones Prism gives a block (`BlockEnv::clones`: a
+        // team's base images, say), as inside Prism.
+        for clone in ["repos", "clones"].iter().flat_map(|k| env[*k].as_array().into_iter().flatten()).filter_map(|r| r["clone"].as_str()) {
             self.allow(std::path::Path::new(clone));
         }
         let text = env.to_string();
@@ -569,6 +617,8 @@ impl Worker {
                 for part in mine {
                     self.due.insert(part, now);
                 }
+                // What it published starting (its state, on before its first read answers).
+                self.tick("");
             }
             Err(e) => {
                 tracing::error!("module {}: start {block}: {e:#}", self.id());
@@ -581,12 +631,17 @@ impl Worker {
 
     fn tick(&mut self, part: &str) {
         let t0 = Instant::now();
-        let tick = match self.call(|s, b| b.call_tick(s, part)) {
+        let tick = match self.call(|s, b| {
+            s.data_mut().part = part.to_string();
+            let tick = b.call_tick(&mut *s, part);
+            s.data_mut().part.clear();
+            tick
+        }) {
             Ok(t) => t,
             // Said on its blocks (`crashed`); this part is read again once it restarts.
             Err(_) => return,
         };
-        tracing::debug!("module {}: {part} in {:?}, next {} s", self.id(), t0.elapsed(), tick.next);
+        tracing::debug!("module {}: {part:?} in {:?}, next {} s", self.id(), t0.elapsed(), tick.next);
         for p in tick.published {
             let Some((ctx, _)) = self.started.get(&p.block) else {
                 tracing::warn!("module {}: a state for {}, not one of its started blocks", self.id(), p.block);
@@ -614,7 +669,9 @@ impl Worker {
             }
             ctx.publish(&state);
         }
-        for (source, error) in std::iter::once((part.to_string(), tick.error)).chain(tick.errors) {
+        // No part (`""`, after a start): what it published only, its errors besides.
+        let own = (!part.is_empty()).then(|| (part.to_string(), tick.error));
+        for (source, error) in own.into_iter().chain(tick.errors) {
             // A source its manifest does not declare goes nowhere: under another block's id, it
             // would overwrite that one's error.
             let Some(source) = self.module.source(&source) else {
@@ -628,6 +685,9 @@ impl Worker {
                 ctx.part(source).set_error(error);
             }
         }
+        if part.is_empty() {
+            return;
+        }
         if tick.next == 0 {
             self.due.remove(part);
         } else {
@@ -637,7 +697,12 @@ impl Worker {
 }
 
 fn deadline() -> u64 {
-    (DEADLINE.as_millis() / cache::EPOCH.as_millis()) as u64
+    ticks(DEADLINE)
+}
+
+/// `d` in epochs.
+fn ticks(d: Duration) -> u64 {
+    (d.as_millis() / cache::EPOCH.as_millis()) as u64
 }
 
 fn parse(text: &str, what: &str) -> Result<Value> {
