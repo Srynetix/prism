@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
@@ -79,9 +79,46 @@ const pages = { window: { main: 'index.html' }, remote: { remote: 'remote.html' 
 const inputs = (mode: string): Record<string, string> =>
   Object.fromEntries(Object.entries(mode in pages ? pages[mode as keyof typeof pages] : { ...pages.window, ...pages.remote }).map(([name, file]) => [name, fileURLToPath(new URL(file, import.meta.url))]))
 
+/**
+ * The browser preview's modules (`pnpm dev` only): those of `PRISM_MODULES_DIR`, one folder per
+ * module, served as a phone's server serves them (`/modules/index.json`, `/modules/<id>/<path>` of
+ * its web folder; `prism_core::modules`, simplified: no manifest check).
+ */
+const modulesDir = process.env.PRISM_MODULES_DIR?.trim() ? resolve(prism, process.env.PRISM_MODULES_DIR.trim()) : null
+const previewModules = {
+  name: 'prism-preview-modules',
+  apply: 'serve' as const,
+  configureServer(server: { middlewares: { use: (fn: (req: { url?: string }, res: { statusCode: number; setHeader: (k: string, v: string) => void; end: (b?: string | Buffer) => void }, next: () => void) => void) => void } }) {
+    server.middlewares.use((req, res, next) => {
+      const url = req.url?.split('?')[0] ?? ''
+      if (!modulesDir || !url.startsWith('/modules/')) return next()
+      let rest: string
+      try {
+        rest = decodeURIComponent(url.slice('/modules/'.length))
+      } catch {
+        return ((res.statusCode = 404), res.end())
+      }
+      res.setHeader('cache-control', 'no-store')
+      if (rest === 'index.json') {
+        const ids = readdirSync(modulesDir, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(resolve(modulesDir, e.name, 'module.toml'))).map((e) => e.name)
+        res.setHeader('content-type', 'application/json')
+        return res.end(JSON.stringify(ids.map((id) => ({ id, version: null, description: null, requires: null, web: existsSync(resolve(modulesDir, id, 'web/defs.js')), refused: null }))))
+      }
+      const [id, ...path] = rest.split('/')
+      // As the core serves them: a plain folder name, a path without `.`, `..` nor empty parts.
+      if (!/^[A-Za-z0-9_-]+$/.test(id) || path.some((p) => p === '' || p === '.' || p === '..' || p.includes('\\'))) return ((res.statusCode = 404), res.end())
+      const web = resolve(modulesDir, id, 'web')
+      const file = resolve(web, ...path)
+      if (!file.startsWith(web + '/') || !existsSync(file)) return ((res.statusCode = 404), res.end())
+      res.setHeader('content-type', file.endsWith('.js') ? 'text/javascript' : 'application/octet-stream')
+      res.end(readFileSync(file))
+    })
+  },
+}
+
 // Vite serves the frontend during `tauri dev`; in a build, Tauri bundles `dist/`.
 export default defineConfig(({ mode }) => ({
-  plugins: [svelte(), noDevSnapshot],
+  plugins: [svelte(), noDevSnapshot, previewModules],
   // Tests read the stylesheets as written (`?raw`): vitest otherwise gives it empty.
   test: { css: { include: [/\.css\b/] } },
   resolve: {

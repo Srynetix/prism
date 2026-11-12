@@ -14,6 +14,8 @@
   import { appearance } from '../fun.svelte'
   import { saveEdits } from '../settings.svelte'
   import { BLOCK_COMPONENTS } from '../blocks/components'
+  import { OWNER } from '../blocks/runtime'
+  import ModuleBoundary from '../modules/ModuleBoundary.svelte'
   import type { StatusProps } from '../blocks/block'
   import type { Component } from 'svelte'
   import type { Snapshot } from '../types'
@@ -231,7 +233,7 @@
 </script>
 
 {#snippet item(id: StatusId)}
-  {#if blockItem(id) && snap}{@const Item = blockItem(id)!}<Item {snap} {now} />
+  {#if blockItem(id) && snap}{@const Item = blockItem(id)!}<ModuleBoundary {id} status active={id in OWNER}><Item {snap} {now} /></ModuleBoundary>
   {:else if id === 'live'}
     <span class="sbi" title={status} aria-label={status}><span class="ld" class:on={live.connected}></span></span>
   {:else if id === 'alerts'}

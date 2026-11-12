@@ -31,7 +31,7 @@ pub(crate) struct Open {
     pub(crate) local: Option<String>,
 }
 
-const PREFIX: &str = "machine-";
+pub const PREFIX: &str = "machine-";
 
 /// A window's label for machine `name` (and one of its profiles): Tauri takes letters, digits,
 /// `-` and `_` only, so the name is made of those, and a hash of the very name and profile keeps

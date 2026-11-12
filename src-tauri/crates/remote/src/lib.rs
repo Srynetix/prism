@@ -11,6 +11,7 @@ pub mod away;
 mod awake;
 mod download;
 pub mod machine;
+mod modules;
 mod pages;
 pub mod peers;
 pub use pages::page_csp;

@@ -46,6 +46,7 @@ async function start() {
     return
   }
   if (import.meta.env.DEV && new URLSearchParams(location.search).has('preview')) {
+    await (await import('../modules/modules.svelte')).loadModules()
     const { connect, live } = await import('../live.svelte')
     await connect()
     // `remote.html?preview&profiles`: the switcher and All, on made-up profiles.
@@ -63,6 +64,8 @@ async function start() {
   // The profiles of this computer, and the one this phone shows (`phone-profiles`): its socket at its path.
   const profiles = await import('./phone-profiles.svelte')
   await profiles.loadProfiles()
+  // The modules' blocks of the profile it shows, before the views read the blocks.
+  await (await import('../modules/modules.svelte')).loadModules(profiles.remoteBase())
   useTransport(profiles.routed(openSocket(() => location.replace('/'), { base: profiles.remoteBase() })))
   profiles.openSides()
   const { connect } = await import('../live.svelte')

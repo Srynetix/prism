@@ -14,6 +14,7 @@ pub mod forge;
 pub mod images;
 pub mod logs;
 pub mod mcp;
+pub mod modules;
 pub mod packs;
 pub mod problems;
 pub mod profile;

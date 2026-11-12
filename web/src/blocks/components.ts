@@ -1,5 +1,6 @@
 import { EXTRA_COMPONENTS } from '$extra-components'
 import type { BlockComponent } from './block'
+import { RUNTIME_COMPONENTS } from './runtime'
 import Changes from './changes/Changes.svelte'
 import BigQueryCost from './data/BigQueryCost.svelte'
 import CustomBlocks from './custom/CustomBlocks.svelte'
@@ -44,4 +45,6 @@ export const BLOCK_COMPONENTS: Record<string, BlockComponent<never>> = {
   'pet:status': PetItem as unknown as BlockComponent<never>,
   'custom_blocks:status': CustomItem as unknown as BlockComponent<never>,
   ...EXTRA_COMPONENTS,
+  // The modules' (`modules/load.ts`), run inside a boundary.
+  ...RUNTIME_COMPONENTS,
 }

@@ -31,6 +31,10 @@ dev:
 web:
     pnpm --dir web dev
 
+# Builds the example module (examples/modules/hello/dist/hello): copy it into modules/ next to config.toml
+module-example:
+    pnpm --dir web exec vite build --config ../examples/modules/hello/vite.config.mts
+
 # Checks the frontend types (svelte-check, tsc) and compiles the Rust
 check:
     # The window's types, generated from the Rust ones (web/src/bindings): a change on one side

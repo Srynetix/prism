@@ -592,4 +592,15 @@ export default {
   '{profile} on {name}, in a window of its own': '{profile} sur {name}, dans sa propre fenêtre',
   'Its Prism is closed on {name}, or its remote not relayed there': 'Son Prism est fermé sur {name}, ou son accès à distance n’y est pas relayé',
   'closed there': 'fermé là-bas',
+  // Modules (a team's blocks loaded at run time).
+  'This block of the module {name} failed: {error}': 'Ce bloc du module {name} a échoué : {error}',
+  'built for module contract {theirs}, this Prism gives {ours}': 'construit pour le contrat de module {theirs}, ce Prism donne le {ours}',
+  'compiled with Svelte {theirs}, this Prism runs {ours}: build it again': 'compilé avec Svelte {theirs}, ce Prism utilise {ours} : reconstruisez-le',
+  'defs.js does not say its Svelte (svelte)': 'defs.js ne dit pas son Svelte (svelte)',
+  'defs.js does not say its contract (prism)': 'defs.js ne dit pas son contrat (prism)',
+  'defs.js has no blocks()': 'defs.js n’a pas de blocks()',
+  'its block {block} is not shown: that id is already taken': 'son bloc {block} n’est pas affiché : cet identifiant est déjà pris',
+  'its component did not load': 'son composant ne s’est pas chargé',
+  'module {name}': 'module {name}',
+  '{name}: {error}': '{name} : {error}',
 } satisfies Dictionary

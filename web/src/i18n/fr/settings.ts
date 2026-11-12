@@ -1353,4 +1353,18 @@ export default {
   'Pack {name}': 'Pack {name}',
   'Easter eggs': 'Easter eggs',
   'Transcripts': 'Transcriptions',
+  // Modules (a team's blocks loaded at run time).
+  'Modules': 'Modules',
+  'a team’s blocks loaded without rebuilding Prism, from modules/ next to config.toml': 'les blocs d’une équipe chargés sans reconstruire Prism, depuis modules/ à côté de config.toml',
+  'Its blocks: {names}': 'Ses blocs : {names}',
+  'No block.': 'Aucun bloc.',
+  'Not loaded: {reason}': 'Non chargé : {reason}',
+  'Failed to load: {reason}': 'Échec du chargement : {reason}',
+  'Its block {block} is not shown: that id is already taken.': 'Son bloc {block} n’est pas affiché : cet identifiant est déjà pris.',
+  'Loaded': 'Chargé',
+  'Refused': 'Refusé',
+  'No module: put a module’s folder in modules/, next to config.toml, then reload the window.': 'Aucun module : mettez le dossier d’un module dans modules/, à côté de config.toml, puis rechargez la fenêtre.',
+  'A module added, replaced or removed shows once the window reloads.': 'Un module ajouté, remplacé ou retiré apparaît au rechargement de la fenêtre.',
+  'Load the window again, its modules with it': 'Charger la fenêtre à nouveau, ses modules avec',
+  'Reload the window': 'Recharger la fenêtre',
 } satisfies Dictionary
