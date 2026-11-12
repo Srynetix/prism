@@ -18,7 +18,7 @@
 //! remote = { tags = "read", redeploy = "critical" }   # its commands from a phone (never otherwise)
 //! ```
 //!
-//! The component (the `prism:module` world, `wit/prism-module.wit`) is configured with those
+//! The component (the `prism:module` world, `../module/wit/prism-module.wit`) is configured with those
 //! tables, started with what the core resolved for each of its blocks, then ticked part by part,
 //! each tick saying when the next is due. It runs on a thread of its own (`worker`); the window's
 //! calls, the stages' hints and the images go to that thread. It reaches nothing but `host`, each
@@ -36,12 +36,22 @@ mod worker;
 #[cfg(test)]
 mod tests;
 
+/// The example module's block (`examples/modules/hello/backend/src/hello.rs`), written against
+/// `crate::blocks::sdk`: here Prism's own, as a block compiled into Prism reads it.
+#[cfg(test)]
+mod blocks {
+    pub use prism_blocks::sdk;
+}
+#[cfg(test)]
+#[path = "../../../../examples/modules/hello/backend/src/hello.rs"]
+mod hello_inside_prism;
+
 use std::sync::Arc;
 
 use prism_core::blocks::Block;
 
 mod bindings {
-    wasmtime::component::bindgen!({ world: "block", path: "wit" });
+    wasmtime::component::bindgen!({ world: "block", path: "../module/wit" });
 }
 
 /// The blocks of the active profile's modules that have a back end, those Prism loads (not

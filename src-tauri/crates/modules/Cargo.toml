@@ -32,3 +32,9 @@ toml.workspace = true
 tracing.workspace = true
 wasmtime = { version = "50", default-features = false, features = ["component-model", "cranelift", "runtime", "std", "pulley"] }
 wasmtime-wasi = { version = "50", default-features = false }
+
+[dev-dependencies]
+# The example module's block, compiled against Prism's own `blocks::sdk` (`tests.rs`), and the
+# module SDK's types, read back from the core's JSON.
+prism-blocks.workspace = true
+prism-module.workspace = true

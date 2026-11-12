@@ -57,7 +57,10 @@ pub(crate) fn env_json(block: &str, env: &BlockEnv) -> Value {
         "clone": env.clone,
         "repos": env.repos.iter().map(|r| json!({ "name": r.name, "project": r.project, "clone": r.clone })).collect::<Vec<_>>(),
         "gitlab_host": env.gitlab.host,
+        "gitlab": { "project": env.gitlab.project, "host": env.gitlab.host },
+        "clones": env.clones.iter().map(|c| json!({ "name": c.name, "clone": c.clone })).collect::<Vec<_>>(),
         "main_branch": prism_core::conventions::get().main_branch,
+        "conventions": serde_json::to_value(&*prism_core::conventions::get()).unwrap_or_default(),
     })
 }
 

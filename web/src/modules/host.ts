@@ -40,7 +40,7 @@ declare global {
 
 const given = new Map<string, unknown>()
 
-/** Svelte's modules a module may import, Prism's instances (its build refuses the others, `examples/modules/build.mts` reads this list). */
+/** Svelte's modules a module may import, Prism's instances (the SDK lists them, `web/scripts/module-sdk.mjs`, and its build refuses the others). */
 const SVELTE_MODULES: Record<string, unknown> = {
   svelte,
   'svelte/internal/client': internal,

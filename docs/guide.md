@@ -318,7 +318,7 @@ provides = ["stages", "images"]        # for [clusters] stages / [vulnerabilitie
 remote = { ping = "read" }             # its commands from a phone: read | act | critical
 ```
 
-- It implements the `prism:module` world (`src-tauri/crates/modules/wit/prism-module.wit`):
+- It implements the `prism:module` world (`src-tauri/crates/module/wit/prism-module.wit`):
   `configure` (its tables, the language, the demo: its parts, its stages, its demo states),
   `start` (what Prism resolved for a block: its repositories and their clones), `tick` (a part
   read: the states it changed, with their alerts and changes, its error, when to read it again),
@@ -331,7 +331,29 @@ remote = { ping = "read" }             # its commands from a phone: read | act |
 - Its standard error goes to Prism's log (`host::log` too). A panic, or a call longer than two
   minutes, stops it: its blocks say so, and Prism starts it again 30 s later, three times at most
   in five minutes.
-- Compiled once, its native code is kept in Prism's cache folder: the next launch loads it at once.
+- Compiled once, it is kept in Prism's cache folder: the next launch loads it at once. On macOS
+  it is interpreted (Pulley): the app's hardened runtime runs no code it did not sign.
+- A back end that stopped Prism (a crash in it) leaves `modules/.stopped/<id>`: the same
+  component is refused at the next launch, until it is replaced or the mark deleted.
+
+### The module SDK
+
+A module is written with the **module SDK**, from Prism's repository, nothing else of it:
+
+- `sdk/web` (`@prism/sdk`): the web part's build (`@prism/sdk/vite`, `moduleConfig(id, root)`),
+  the types of what `@prism/sdk` and `@prism/sdk/words` give, and their names (`exports.json`).
+  What Prism does not give fails at the build: another Svelte module, Prism's sources, a file out
+  of the module's folder.
+- `src-tauri/crates/module` (`prism-module`): the back end's crate, `blocks::sdk`'s names for
+  `wasm32-wasip2`. A block's file compiles against both (`examples/modules/hello/backend/src/hello.rs`
+  does, a test of Prism checks it); its loops' `ctx.pause` hand control back to Prism, which
+  resumes them when due.
+- The SDK copies what Prism gives: `scripts/module-sdk-types.py` (the core's data types, into
+  the crate) and `web/scripts/module-sdk.mjs` (the names, the snapshot's types, into the package),
+  each with `--check` in `just check`. `just module-sdk-check` builds the example with the SDK
+  alone, in a folder of its own.
+
+Help › **Write a module** is the author's guide.
 
 `examples/modules/hello` is one, with a back end (`just module-example` builds it into its
 `dist/hello/`, after `rustup target add wasm32-wasip2`; copy that folder into `modules/`). The browser preview reads `PRISM_MODULES_DIR`:

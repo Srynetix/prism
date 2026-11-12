@@ -496,11 +496,12 @@ impl Worker {
             }
             ctx.publish(&state);
         }
-        let owner = self.module.owner(part).to_string();
-        if let Some((ctx, _)) = self.started.get(&owner) {
-            match self.module.names.iter().find(|n| **n == part) {
-                Some(source) => ctx.part(source).set_error(tick.error),
-                None => ctx.set_error(tick.error),
+        for (source, error) in std::iter::once((part.to_string(), tick.error)).chain(tick.errors) {
+            let owner = self.module.owner(&source).to_string();
+            let Some((ctx, _)) = self.started.get(&owner) else { continue };
+            match self.module.names.iter().find(|n| **n == source) {
+                Some(source) => ctx.part(source).set_error(error),
+                None => ctx.set_error(error),
             }
         }
         if tick.next == 0 {

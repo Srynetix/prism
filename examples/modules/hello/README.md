@@ -16,7 +16,17 @@ cp -R examples/modules/hello/dist/hello ~/.config/prism/modules/
 ```
 
 Reload Prism's window (Settings › Packs › Modules › Reload the window), then add **Hello** to a
-page (+ Block › Fun). The browser preview reads modules too: `PRISM_MODULES_DIR=examples/modules/hello/dist just web`.
+page (+ Block › Fun).
+
+It is built with the module SDK alone (Help › Write a module):
+
+- `package.json`, `vite.config.mts`: the web part, with `@prism/sdk` (`sdk/web`; outside Prism's
+  repository, a git dependency on it), Svelte at Prism's minor and Vite;
+- `backend/`: the back end, with `prism-module` (`src-tauri/crates/module`). Its block,
+  `backend/src/hello.rs`, is written as a block of Prism (`impl Block` against
+  `crate::blocks::sdk`): the same file compiles inside Prism, a test of Prism checks it.
+
+`just module-sdk-check` builds it with the SDK alone, in a folder of its own. The browser preview reads modules too: `PRISM_MODULES_DIR=examples/modules/hello/dist just web`.
 
 What a module is made of:
 
@@ -26,7 +36,7 @@ What a module is made of:
   another minor one), `words` (its French), `blocks()` (its blocks' declarations, as Prism's
   `BlockDef`). It may import `@prism/sdk/words` only.
 - `backend.wasm` (`[wasm]`): its back end, built from `backend/` (the `prism:module` world of
-  `src-tauri/crates/modules/wit/prism-module.wit`); `tables`, `capabilities` and `[[wasm.blocks]]`
+  `src-tauri/crates/module/wit/prism-module.wit`); `tables`, `capabilities` and `[[wasm.blocks]]`
   in `module.toml` say what it is given and may reach.
 - `web/components.js`: `components`, by block id (`<id>:status` for a status-bar item). They
   import Prism through `@prism/sdk` (`web/src/modules/sdk.ts`) and Svelte, both Prism's own at
