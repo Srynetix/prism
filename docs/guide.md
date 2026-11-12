@@ -297,6 +297,22 @@ modules/hello/
   on Windows), the phone through `/modules/<id>/…` behind its session: a module's web folder
   only. A profile's window loads that profile's modules; another computer's window, none.
 
+### Packs and trust
+
+A pack brings its modules: `[[modules]]` with an `id` and a `source` (a folder of a repository,
+`glab:group/project:path@ref` or `gh:owner/repo:path@ref`; a `.zip`; or a local folder or archive,
+relative to a local pack). Importing or updating the pack installs each in `modules/<id>/`, whole,
+marked with its pack (`.pack`); removing the pack, or a module from it, removes the folder.
+`pack check` (the packs' update alert) reads their sources again too: the last commit of their
+folder, their version.
+
+Nothing of a module runs before I trust it, by the fingerprint of its folder (every file but
+`.pack`), kept in the profile's data folder (`modules-trust.json`), never next to the modules.
+Until then its files are not served (window, phone), its back end does not start (its blocks say
+they wait), and Settings › Packs › Modules shows what it may reach; **Trust** (two clicks,
+`modules_trust`, never from a phone) starts its back end at once. A new version waits again, the
+lines it changes shown (a capability, a block, a config table).
+
 ### A module's back end
 
 A module may bring its blocks' collector too: a **WebAssembly component** (`[wasm]`), which Prism

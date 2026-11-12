@@ -102,7 +102,7 @@ const previewModules = {
       if (rest === 'index.json') {
         const ids = readdirSync(modulesDir, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(resolve(modulesDir, e.name, 'module.toml'))).map((e) => e.name)
         res.setHeader('content-type', 'application/json')
-        return res.end(JSON.stringify(ids.map((id) => ({ id, version: null, description: null, requires: null, web: existsSync(resolve(modulesDir, id, 'web/defs.js')), backend: false, refused: null }))))
+        return res.end(JSON.stringify(ids.map((id) => ({ id, version: null, description: null, requires: null, web: existsSync(resolve(modulesDir, id, 'web/defs.js')), backend: false, refused: null, capabilities: [], trusted: !existsSync(resolve(modulesDir, id, '.untrusted')), changes: existsSync(resolve(modulesDir, id, '.untrusted')) ? ['+ module ' + id, '+ capability git'] : [], trusted_version: null, fingerprint: 'preview', pack: null }))))
       }
       const [id, ...path] = rest.split('/')
       // As the core serves them: a plain folder name, a path without `.`, `..` nor empty parts.

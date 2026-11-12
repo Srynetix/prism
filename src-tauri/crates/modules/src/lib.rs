@@ -46,7 +46,7 @@ mod blocks {
 #[path = "../../../../examples/modules/hello/backend/src/hello.rs"]
 mod hello_inside_prism;
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use prism_core::blocks::Block;
 
@@ -54,13 +54,18 @@ mod bindings {
     wasmtime::component::bindgen!({ world: "block", path: "../module/wit" });
 }
 
+/// The modules with a back end, as `blocks` found them: `trusted` reaches them.
+static MODULES: OnceLock<Vec<Arc<worker::Module>>> = OnceLock::new();
+
 /// The blocks of the active profile's modules that have a back end, those Prism loads (not
 /// refused: their contract, the Prism they need, their component inside them). Read once, as the
-/// core first reads its blocks (`prism_core::blocks::register_late`).
+/// core first reads its blocks (`prism_core::blocks::register_late`). One not trusted yet is
+/// registered all the same: its blocks wait, said on them, until I trust it (`trusted`).
 pub fn blocks() -> Vec<&'static dyn Block> {
     let root = prism_core::modules::dir();
     let mut out: Vec<&'static dyn Block> = Vec::new();
-    for info in prism_core::modules::list_in(&root).into_iter().filter(|m| m.backend && m.refused.is_none()) {
+    let mut modules = Vec::new();
+    for info in prism_core::modules::list().into_iter().filter(|m| m.backend && m.refused.is_none()) {
         let folder = root.join(&info.id);
         let spec = match manifest::read(&folder) {
             Ok(spec) => spec,
@@ -69,9 +74,20 @@ pub fn blocks() -> Vec<&'static dyn Block> {
                 continue;
             }
         };
-        let module = Arc::new(worker::Module::new(info.id.clone(), spec, prism_core::modules::stopped_mark(&root, &info.id)));
+        let module = Arc::new(worker::Module::new(info.id.clone(), spec, prism_core::modules::stopped_mark(&root, &info.id), info.trusted));
         out.extend(block::of(&module));
-        tracing::info!("module {}: back end {}, blocks {}", info.id, module.spec.component.display(), module.spec.blocks.iter().map(|b| b.id.as_str()).collect::<Vec<_>>().join(", "));
+        tracing::info!("module {}: back end {}, blocks {}{}", info.id, module.spec.component.display(), module.spec.blocks.iter().map(|b| b.id.as_str()).collect::<Vec<_>>().join(", "), if info.trusted { "" } else { ", waiting for trust" });
+        modules.push(module);
     }
+    let _ = MODULES.set(modules);
     out
+}
+
+/// Module `id` trusted (Settings › Packs): its back end configured and started now. Whether it
+/// has one running in this Prism (installed after launch: once Prism restarts).
+pub fn trusted(id: &str) -> bool {
+    let Some(m) = MODULES.get().into_iter().flatten().find(|m| m.id == id) else { return false };
+    m.trust_now();
+    m.warm();
+    true
 }

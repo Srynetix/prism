@@ -197,11 +197,10 @@ pub fn serve_module_file(ctx: tauri::UriSchemeContext<'_, tauri::Wry>, request: 
         let found = match profile {
             None => Err("no such file".to_string()),
             Some(p) if prism_core::profile::exists(&p) || p == prism_core::profile::active() => {
-                let root = prism_core::modules::dir_for(&p);
                 if path == "index.json" {
-                    serde_json::to_vec(&prism_core::modules::list_in(&root)).map(|b| (b, "application/json")).map_err(|e| e.to_string())
+                    serde_json::to_vec(&prism_core::modules::list_for(&p)).map(|b| (b, "application/json")).map_err(|e| e.to_string())
                 } else {
-                    path.split_once('/').ok_or_else(|| "no such file".to_string()).and_then(|(id, file)| prism_core::modules::web_file_in(&root, id, file))
+                    path.split_once('/').ok_or_else(|| "no such file".to_string()).and_then(|(id, file)| prism_core::modules::web_file_for(&p, id, file))
                 }
             }
             Some(_) => Err("no such profile".to_string()),

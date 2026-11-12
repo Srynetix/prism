@@ -30,12 +30,16 @@ fn temp(name: &str) -> PathBuf {
     dir
 }
 
-/// The example module, its manifest as `module.toml` declares it.
+/// The example module, its manifest as `module.toml` declares it, trusted.
 fn module(wasm: &PathBuf, capabilities: &str) -> Arc<Module> {
+    module_trusted(wasm, capabilities, true)
+}
+
+fn module_trusted(wasm: &PathBuf, capabilities: &str, trusted: bool) -> Arc<Module> {
     let folder = temp("module");
     std::fs::copy(wasm, folder.join("backend.wasm")).unwrap();
     let spec = crate::manifest::parse(&folder, &format!("[wasm]\ncomponent = \"backend.wasm\"\ntables = [\"hello\"]\ncapabilities = {capabilities}\n[[wasm.blocks]]\nid = \"hello\"\nparts = [\"hello_reads\"]\nrepos = \"one\"\nreloads = true\nprovides = [\"stages\", \"images\"]\nremote = {{ ping = \"read\" }}\n")).unwrap();
-    let module = Arc::new(Module::new("hello".into(), spec, prism_core::modules::stopped_mark(&folder, "hello")));
+    let module = Arc::new(Module::new("hello".into(), spec, prism_core::modules::stopped_mark(&folder, "hello"), trusted));
     module.warm();
     module
 }
@@ -191,4 +195,29 @@ fn the_sdk_types_read_the_cores_json() {
     same::<_, prism_module::sdk::ChangeEvent>(&change);
     same::<_, prism_module::sdk::Stage>(&prism_core::stages::Stage { role: "production".into(), name: "prod".into(), env: "prod".into() });
     same::<_, prism_module::sdk::conventions::Conventions>(&prism_core::conventions::Conventions::default());
+}
+
+/// Not trusted: its block says it waits, nothing of it runs; trusted, it starts as it waited.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_untrusted_module_waits_then_runs_once_trusted() {
+    let Some(wasm) = example() else { return };
+    let clone = temp("waits");
+    git(&clone, &["init", "-q"]);
+    git(&clone, &["commit", "-q", "--allow-empty", "-m", "Waited"]);
+    let module = module_trusted(&wasm, "{ git = true }", false);
+    let hub = Hub::new();
+    let (m, h, c) = (module.clone(), hub.clone(), clone.clone());
+    tokio::task::spawn_blocking(move || {
+        m.configure(&toml::from_str("[hello]\nevery = 5\n").unwrap()).unwrap();
+        m.start("hello", BlockCtx::new("hello", h, Arc::new(env(&c))), crate::block::env_json("hello", &env(&c))).unwrap();
+    })
+    .await
+    .unwrap();
+    wait_for(&hub, "its waiting", |s| s.errors.get("hello").is_some_and(|e| e.contains("waits for your trust")));
+    assert!(!hub.subscribe().borrow().blocks.contains_key("hello"), "nothing of it ran");
+    assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap_err().to_string().contains("trust"));
+    let m = module.clone();
+    tokio::task::spawn_blocking(move || m.trust_now()).await.unwrap();
+    wait_for(&hub, "its first read, trusted", |s| s.blocks.get("hello").is_some_and(|v| v["commit"] == "Waited") && !s.errors.contains_key("hello"));
+    std::fs::remove_dir_all(clone).unwrap();
 }

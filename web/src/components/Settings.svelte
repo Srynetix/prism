@@ -418,6 +418,11 @@
               {:else if pc?.changed && pc.too_new}<span class="hint warn"><Icon name="warning" /> {pc.latest ? t('Changed at its source ({latest}), but needs Prism {version} or later: update Prism first.', { latest: pc.latest, version: pc.requires ?? '' }) : t('Changed at its source, but needs Prism {version} or later: update Prism first.', { version: pc.requires ?? '' })}</span>
               {:else if pc?.changed}<span class="hint new"><Icon name="up" /> {t('Changed at its source')}{#if pc.latest && pc.latest !== p.version}: v{pc.latest}{/if}{#if pc.commit}{' '}· {pc.commit.slice(0, 8)}{/if}. {t('Update to apply it.')}</span>
               {:else if pc}<small>{t('Up to date with its source.')}</small>{/if}
+              {#if p.modules.length}<small>{t('Brings the modules {names}: Modules, below.', { names: p.modules.map((m) => m.id).join(', ') })}</small>{/if}
+              {#each pc?.modules.filter((m) => m.changed || m.error) ?? [] as m (m.id)}
+                {#if m.error}<span class="hint warn"><Icon name="warning" /> {t('Its module {id} does not read at its source: {error}', { id: m.id, error: m.error })}</span>
+                {:else}<span class="hint new"><Icon name="up" /> {m.version ? t('Its module {id} changed at its source{latest}: update the pack, then trust it again.', { id: m.id, latest: m.latest && m.latest !== m.version ? ` (v${m.version} → v${m.latest})` : '' }) : t('Its module {id} is not installed: update the pack.', { id: m.id })}</span>{/if}
+              {/each}
               {#if p.source}<span class="mono src" title={p.source}>{p.source}{#if p.commit}{' '}· <span title={t('Read at commit {commit}', { commit: p.commit })}>{p.commit.slice(0, 8)}</span>{/if}</span>{/if}
             </div>
             <span class="row">

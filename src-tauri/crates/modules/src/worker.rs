@@ -44,6 +44,9 @@ pub struct Shared {
     config: Option<String>,
     /// A block of it started: a change of its config waits for a restart unless it `reloads`.
     started: bool,
+    /// Not trusted yet: the config it is to be configured with, and its blocks to start, once it is.
+    waiting_config: Option<String>,
+    waiting: Vec<(String, BlockCtx, Value)>,
 }
 
 pub struct Module {
@@ -52,6 +55,8 @@ pub struct Module {
     /// Every id of its blocks and parts, for their errors (`BlockCtx::part`).
     pub names: Vec<&'static str>,
     pub shared: Mutex<Shared>,
+    /// I trust this version of it (`prism_core::modules::trust`): its component runs only then.
+    trusted: std::sync::atomic::AtomicBool,
     /// Left while its component runs (`prism_core::modules::stopped_mark`): Prism dying in a call
     /// leaves it, and the same component is not run at the next launch.
     mark: PathBuf,
@@ -72,15 +77,46 @@ fn leak(s: &str) -> &'static str {
 }
 
 impl Module {
-    pub fn new(id: String, spec: Spec, mark: PathBuf) -> Self {
+    pub fn new(id: String, spec: Spec, mark: PathBuf, trusted: bool) -> Self {
         let names = spec.blocks.iter().flat_map(|b| std::iter::once(&b.id).chain(&b.parts)).map(|s| leak(s)).collect();
-        Self { id, spec, names, shared: Default::default(), mark, tx: Mutex::new(None), me: OnceLock::new() }
+        Self { id, spec, names, shared: Default::default(), trusted: trusted.into(), mark, tx: Mutex::new(None), me: OnceLock::new() }
+    }
+
+    pub fn is_trusted(&self) -> bool {
+        self.trusted.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    fn untrusted(&self) -> anyhow::Error {
+        anyhow!(prism_base::tr!("the module {id} waits for your trust: Settings › Packs › Modules", id = self.id))
+    }
+
+    /// Trusted now: configured and its blocks started, as they were waiting.
+    pub fn trust_now(&self) {
+        if self.trusted.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        let (config, waiting) = {
+            let mut shared = self.shared.lock().unwrap();
+            (shared.waiting_config.take(), std::mem::take(&mut shared.waiting))
+        };
+        if let Some(config) = config
+            && let Err(e) = self.configure_text(config)
+        {
+            tracing::error!("module {}: {e:#}", self.id);
+        }
+        for (block, ctx, env) in waiting {
+            if let Err(e) = self.start(&block, ctx, env) {
+                tracing::error!("module {}: {e:#}", self.id);
+            }
+        }
     }
 
     /// Its thread, compiling its component at once (the first `configure` waits less).
     pub fn warm(self: &Arc<Self>) {
         let _ = self.me.set(Arc::downgrade(self));
-        let _ = self.sender();
+        if self.is_trusted() {
+            let _ = self.sender();
+        }
     }
 
     /// A change of the config configures it anew: when each of its blocks `reloads`.
@@ -115,6 +151,14 @@ impl Module {
     /// reloads.
     pub fn configure(&self, config: &toml::Table) -> Result<()> {
         let text = self.config_text(config);
+        if !self.is_trusted() {
+            self.shared.lock().unwrap().waiting_config = Some(text);
+            return Ok(());
+        }
+        self.configure_text(text)
+    }
+
+    fn configure_text(&self, text: String) -> Result<()> {
         {
             let shared = self.shared.lock().unwrap();
             if shared.config.as_deref() == Some(text.as_str()) || (shared.started && shared.config.is_some() && !self.reloads()) {
@@ -134,12 +178,23 @@ impl Module {
     }
 
     pub fn start(&self, block: &str, ctx: BlockCtx, env: Value) -> Result<()> {
+        if !self.is_trusted() {
+            // Said on its block; started once trusted.
+            ctx.set_error(Some(format!("{:#}", self.untrusted())));
+            let mut shared = self.shared.lock().unwrap();
+            shared.waiting.retain(|(b, _, _)| b != block);
+            shared.waiting.push((block.to_string(), ctx, env));
+            return Ok(());
+        }
         self.shared.lock().unwrap().started = true;
         self.send(Msg::Start { block: block.into(), ctx, env })
     }
 
     /// Its blocks' sample states, the component configured for the demo once.
     pub fn demo(&self, block: &str) -> Option<Value> {
+        if !self.is_trusted() {
+            return None;
+        }
         if self.shared.lock().unwrap().demo.is_none() {
             let config = self.shared.lock().unwrap().config.clone().unwrap_or_default();
             let (done, wait) = mpsc::channel();
@@ -152,18 +207,27 @@ impl Module {
     }
 
     pub async fn call(&self, block: &str, command: String, args: Value, demo: bool) -> Result<Value> {
+        if !self.is_trusted() {
+            return Err(self.untrusted());
+        }
         let (reply, answer) = tokio::sync::oneshot::channel();
         self.send(Msg::Call { block: block.into(), command, args, demo, reply })?;
         answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))?
     }
 
     pub async fn hints(&self, repo: PathBuf) -> Result<Hints> {
+        if !self.is_trusted() {
+            return Err(self.untrusted());
+        }
         let (reply, answer) = tokio::sync::oneshot::channel();
         self.send(Msg::Hints { repo, reply })?;
         answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))?
     }
 
     pub async fn images(&self, repo: PathBuf, project: String, local: Vec<LocalRepo>) -> Result<Vec<ImageTarget>> {
+        if !self.is_trusted() {
+            return Err(self.untrusted());
+        }
         let (reply, answer) = tokio::sync::oneshot::channel();
         self.send(Msg::Images { repo, project, local, reply })?;
         answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))?
@@ -564,7 +628,7 @@ mod tests {
         std::fs::create_dir_all(&folder).unwrap();
         std::fs::write(folder.join("b.wasm"), b"").unwrap();
         let spec = crate::manifest::parse(&folder, "[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\nparts = [\"a_reads\"]\n[[wasm.blocks]]\nid = \"b\"\n").unwrap();
-        let m = Module::new("m".into(), spec, folder.join(".stopped/m"));
+        let m = Module::new("m".into(), spec, folder.join(".stopped/m"), true);
         assert_eq!(m.source("a_reads").map(|s| (s, m.owner(s))), Some(("a_reads", "a")));
         assert_eq!(m.source("b").map(|s| m.owner(s)), Some("b"));
         // Undeclared: not the first block's own error.
