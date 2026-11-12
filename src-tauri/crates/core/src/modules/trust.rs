@@ -19,32 +19,73 @@ pub fn trust_path_for(id: &str) -> PathBuf {
 }
 
 /// The fingerprint of a module's folder: every file but the mark of its pack (`.pack`), by its
-/// path. Links are not followed.
+/// path, and every symbolic link by where it points (not followed: what it points to inside the
+/// folder is a file of it, hashed as such). Kept while no file of it changes (sizes, times, links):
+/// a window's files are served without hashing the component again each time.
 pub fn fingerprint_of(folder: &Path) -> String {
-    fn walk(dir: &Path, base: &Path, out: &mut Vec<(String, PathBuf)>) {
+    enum Entry {
+        File(PathBuf, u64, u128),
+        Link(String),
+    }
+    fn walk(dir: &Path, base: &Path, out: &mut Vec<(String, Entry)>) {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
         for e in entries.flatten() {
             let Ok(kind) = e.file_type() else { continue };
             let path = e.path();
             let rel = path.strip_prefix(base).unwrap_or(&path).to_string_lossy().replace('\\', "/");
-            if kind.is_dir() {
+            if rel == super::install::PACK_MARK {
+                continue;
+            }
+            if kind.is_symlink() {
+                let to = std::fs::read_link(&path).map(|t| t.to_string_lossy().into_owned()).unwrap_or_default();
+                out.push((rel, Entry::Link(to)));
+            } else if kind.is_dir() {
                 walk(&path, base, out);
-            } else if kind.is_file() && rel != super::install::PACK_MARK {
-                out.push((rel, path));
+            } else if kind.is_file() {
+                let meta = e.metadata().ok();
+                let len = meta.as_ref().map_or(0, |m| m.len());
+                let at = meta.and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos());
+                out.push((rel, Entry::File(path, len, at)));
             }
         }
     }
-    let mut files = Vec::new();
-    walk(folder, folder, &mut files);
-    files.sort();
+    let mut entries = Vec::new();
+    walk(folder, folder, &mut entries);
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    // Its files as they stand: the same, the same fingerprint.
+    let mut stamp = Sha256::new();
+    for (rel, e) in &entries {
+        stamp.update(rel.as_bytes());
+        match e {
+            Entry::File(_, len, at) => stamp.update(format!("\0f{len}:{at}\0")),
+            Entry::Link(to) => stamp.update(format!("\0l{to}\0")),
+        }
+    }
+    let stamp: Vec<u8> = stamp.finalize().to_vec();
+    /// By folder: the stamp of its files, its fingerprint.
+    type Kept = std::collections::HashMap<PathBuf, (Vec<u8>, String)>;
+    static CACHE: std::sync::Mutex<Option<Kept>> = std::sync::Mutex::new(None);
+    if let Some((_, f)) = CACHE.lock().unwrap().get_or_insert_with(Default::default).get(folder).filter(|(s, _)| *s == stamp) {
+        return f.clone();
+    }
     let mut hash = Sha256::new();
-    for (rel, path) in files {
+    for (rel, e) in entries {
         hash.update(rel.as_bytes());
-        hash.update([0]);
-        hash.update(std::fs::read(&path).unwrap_or_default());
+        match e {
+            Entry::File(path, _, _) => {
+                hash.update([0]);
+                hash.update(std::fs::read(&path).unwrap_or_default());
+            }
+            Entry::Link(to) => {
+                hash.update([1]);
+                hash.update(to.as_bytes());
+            }
+        }
         hash.update([0]);
     }
-    hash.finalize().iter().map(|b| format!("{b:02x}")).collect()
+    let f: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    CACHE.lock().unwrap().get_or_insert_with(Default::default).insert(folder.to_path_buf(), (stamp, f.clone()));
+    f
 }
 
 /// What a module is, as trusting it shows it: one line each, its capabilities among them.

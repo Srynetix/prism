@@ -421,7 +421,7 @@
               {#if p.modules.length}<small>{t('Brings the modules {names}: Modules, below.', { names: p.modules.map((m) => m.id).join(', ') })}</small>{/if}
               {#each pc?.modules.filter((m) => m.changed || m.error) ?? [] as m (m.id)}
                 {#if m.error}<span class="hint warn"><Icon name="warning" /> {t('Its module {id} does not read at its source: {error}', { id: m.id, error: m.error })}</span>
-                {:else}<span class="hint new"><Icon name="up" /> {m.version ? t('Its module {id} changed at its source{latest}: update the pack, then trust it again.', { id: m.id, latest: m.latest && m.latest !== m.version ? ` (v${m.version} → v${m.latest})` : '' }) : t('Its module {id} is not installed: update the pack.', { id: m.id })}</span>{/if}
+                {:else}<span class="hint new"><Icon name="up" /> {m.installed ? t('Its module {id} changed at its source{latest}: update the pack, then trust it again.', { id: m.id, latest: m.latest && m.latest !== m.version ? ` (v${m.version} → v${m.latest})` : '' }) : t('Its module {id} is not installed: update the pack.', { id: m.id })}</span>{/if}
               {/each}
               {#if p.source}<span class="mono src" title={p.source}>{p.source}{#if p.commit}{' '}· <span title={t('Read at commit {commit}', { commit: p.commit })}>{p.commit.slice(0, 8)}</span>{/if}</span>{/if}
             </div>

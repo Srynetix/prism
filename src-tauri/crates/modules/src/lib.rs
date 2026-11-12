@@ -67,14 +67,17 @@ pub fn blocks() -> Vec<&'static dyn Block> {
     let mut modules = Vec::new();
     for info in prism_core::modules::list().into_iter().filter(|m| m.backend && m.refused.is_none()) {
         let folder = root.join(&info.id);
-        let spec = match manifest::read(&folder) {
-            Ok(spec) => spec,
+        // Trusted: its manifest and component read now, as trusted; it runs those, whatever the
+        // disk holds later.
+        let read = if info.trusted { worker::load_trusted(&folder, &info.fingerprint).map(|(s, b)| (s, Some(b))) } else { manifest::read(&folder).map(|s| (s, None)) };
+        let (spec, bytes) = match read {
+            Ok(r) => r,
             Err(e) => {
                 tracing::error!("module {}: {e:#}", info.id);
                 continue;
             }
         };
-        let module = Arc::new(worker::Module::new(info.id.clone(), spec, prism_core::modules::stopped_mark(&root, &info.id), info.trusted));
+        let module = Arc::new(worker::Module::new(info.id.clone(), spec, prism_core::modules::stopped_mark(&root, &info.id), bytes));
         out.extend(block::of(&module));
         tracing::info!("module {}: back end {}, blocks {}{}", info.id, module.spec.component.display(), module.spec.blocks.iter().map(|b| b.id.as_str()).collect::<Vec<_>>().join(", "), if info.trusted { "" } else { ", waiting for trust" });
         modules.push(module);
@@ -83,11 +86,21 @@ pub fn blocks() -> Vec<&'static dyn Block> {
     out
 }
 
-/// Module `id` trusted (Settings › Packs): its back end configured and started now. Whether it
-/// has one running in this Prism (installed after launch: once Prism restarts).
-pub fn trusted(id: &str) -> bool {
+/// Module `id` trusted as its folder's `fingerprint` (Settings › Packs): its back end, read again
+/// as that version (its manifest, its component's bytes), configured and started now. Whether it
+/// runs in this Prism: installed after launch, or its blocks changed since, once Prism restarts.
+pub fn trusted(id: &str, fingerprint: &str) -> bool {
     let Some(m) = MODULES.get().into_iter().flatten().find(|m| m.id == id) else { return false };
-    m.trust_now();
+    let (spec, bytes) = match worker::load_trusted(&prism_core::modules::dir().join(id), fingerprint) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!("module {id}: {e:#}");
+            return false;
+        }
+    };
+    if !m.trust_as(spec, bytes) {
+        return false;
+    }
     m.warm();
     true
 }

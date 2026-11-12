@@ -64,6 +64,29 @@ fn local(base: Option<&Path>, file: &str) -> PathBuf {
     }
 }
 
+/// Where a pack's module is read: its `source` as written when it names a repository; relative,
+/// next to the pack (a local pack: on the disk; a pack of a repository: in that repository, at
+/// that ref). A pack of a repository names no local file: what it installs stays in repositories.
+pub fn resolve(pack_source: &str, module_source: &str) -> Result<(String, Option<PathBuf>)> {
+    let pack = crate::packs::source(pack_source.trim())?;
+    match crate::packs::source(module_source.trim())? {
+        Source::Gitlab { .. } | Source::Github { .. } => Ok((module_source.trim().to_string(), None)),
+        Source::Builtin(_) => bail!("a module is not built into Prism"),
+        Source::File(file) => match pack {
+            Source::File(p) => Ok((file.to_string(), crate::config::expand_home(Path::new(p)).parent().map(Path::to_path_buf))),
+            Source::Builtin(_) => bail!("a pack built into Prism brings no module"),
+            Source::Gitlab { project, path, reference } | Source::Github { project, path, reference } => {
+                let rel = Path::new(file);
+                ensure!(!file.starts_with('~') && rel.components().all(|c| matches!(c, std::path::Component::Normal(_) | std::path::Component::CurDir)), "module source {file:?}: a pack of a repository reads its modules in a repository (a path next to it, or glab:/gh:)");
+                let kind = if pack_source.trim().starts_with("gh:") { "gh" } else { "glab" };
+                let dir = path.rsplit_once('/').map_or("", |(d, _)| d);
+                let joined = if dir.is_empty() { file.trim_start_matches("./").to_string() } else { format!("{dir}/{}", file.trim_start_matches("./")) };
+                Ok((format!("{kind}:{project}:{joined}{}", reference.map(|r| format!("@{r}")).unwrap_or_default()), None))
+            }
+        },
+    }
+}
+
 /// The module's files at `source`: a folder (of a repository, or local), or a `.zip` archive.
 pub async fn fetch(source: &str, base: Option<&Path>) -> Result<Fetched> {
     let enc = crate::http::encode;
@@ -91,11 +114,8 @@ pub async fn fetch(source: &str, base: Option<&Path>) -> Result<Fetched> {
             let out = Cli::Glab.run(&["api".to_string(), "--paginate".into(), format!("projects/{}/repository/tree?path={}&ref={}&recursive=true&per_page=100", enc(project), enc(path), enc(r))]).await?;
             // `--paginate`: one JSON array per page.
             let entries: Vec<Entry> = serde_json::Deserializer::from_slice(&out).into_iter::<Vec<Entry>>().collect::<Result<Vec<_>, _>>().context("GitLab's tree")?.into_iter().flatten().collect();
-            let mut files = BTreeMap::new();
-            for e in entries.into_iter().filter(|e| e.r#type == "blob") {
-                let rel = e.path.strip_prefix(path).unwrap_or(&e.path).trim_start_matches('/').to_string();
-                files.insert(rel, raw(e.path).await?);
-            }
+            let blobs = entries.into_iter().filter(|e| e.r#type == "blob").map(|e| (e.path.strip_prefix(path).unwrap_or(&e.path).trim_start_matches('/').to_string(), e.path));
+            let files = fetch_all(blobs, raw).await?;
             ensure!(!files.is_empty(), "{project}: no folder {path} at {r}");
             Ok(Fetched { files, revision })
         }
@@ -121,15 +141,38 @@ pub async fn fetch(source: &str, base: Option<&Path>) -> Result<Fetched> {
             let out = Cli::Gh.run(&["api".to_string(), format!("repos/{project}/git/trees/{}?recursive=1", enc(r))]).await?;
             let tree: Tree = serde_json::from_slice(&out).context("GitHub's tree")?;
             let prefix = format!("{}/", path.trim_end_matches('/'));
-            let mut files = BTreeMap::new();
-            for e in tree.tree.into_iter().filter(|e| e.r#type == "blob" && e.path.starts_with(&prefix)) {
-                files.insert(e.path[prefix.len()..].to_string(), raw(e.path).await?);
-            }
+            let blobs = tree.tree.into_iter().filter(|e| e.r#type == "blob" && e.path.starts_with(&prefix)).map(|e| (e.path[prefix.len()..].to_string(), e.path));
+            let files = fetch_all(blobs, raw).await?;
             ensure!(!files.is_empty(), "{project}: no folder {path} at {r}");
             Ok(Fetched { files, revision })
         }
     }
 }
+
+/// A folder's files read from a forge, several at once (each a glab or gh call): their paths in
+/// the module, their bytes.
+async fn fetch_all<F, Fut>(blobs: impl Iterator<Item = (String, String)>, raw: F) -> Result<BTreeMap<String, Vec<u8>>>
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<u8>>>,
+{
+    use futures::StreamExt;
+    let blobs: Vec<(String, String)> = blobs.collect();
+    ensure!(blobs.len() <= MAX_FILES, "more than {MAX_FILES} files in the module");
+    let read = blobs.into_iter().map(|(rel, path)| {
+        let fut = raw(path);
+        async move { fut.await.map(|bytes| (rel, bytes)) }
+    });
+    let files: Vec<(String, Vec<u8>)> = futures::stream::iter(read).buffer_unordered(8).collect::<Vec<_>>().await.into_iter().collect::<Result<_>>()?;
+    let total: usize = files.iter().map(|(_, b)| b.len()).sum();
+    ensure!(total as u64 <= MAX_TOTAL, "module larger than {} MB", MAX_TOTAL >> 20);
+    Ok(files.into_iter().collect())
+}
+
+/// What a module may weigh: a few files of a web build and a component.
+const MAX_FILES: usize = 5_000;
+const MAX_FILE: u64 = 64 << 20;
+const MAX_TOTAL: u64 = 256 << 20;
 
 /// The last commit that touched `path` at `r`.
 async fn gitlab_commit(project: &str, path: &str, r: &str) -> Result<Option<String>> {
@@ -175,21 +218,28 @@ fn read_folder(dir: &Path) -> Result<BTreeMap<String, Vec<u8>>> {
     }
     let mut out = BTreeMap::new();
     walk(dir, dir, &mut out)?;
+    ensure!(out.len() <= MAX_FILES && out.values().map(|b| b.len() as u64).sum::<u64>() <= MAX_TOTAL, "module larger than {} MB", MAX_TOTAL >> 20);
     Ok(out)
 }
 
 /// An archive's files; all in one folder (`delivery/…`), that folder's.
 fn unzip(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>> {
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).context("not a zip archive")?;
+    ensure!(archive.len() <= MAX_FILES, "more than {MAX_FILES} files in the archive");
     let mut files = BTreeMap::new();
+    let mut total = 0u64;
     for i in 0..archive.len() {
-        let mut f = archive.by_index(i)?;
+        let f = archive.by_index(i)?;
         if f.is_dir() {
             continue;
         }
         let name = f.enclosed_name().context("a path out of the archive")?.to_string_lossy().replace('\\', "/");
+        // Read up to its limit, whatever size the archive says: one that inflates past it stops there.
         let mut data = Vec::new();
-        f.read_to_end(&mut data)?;
+        f.take(MAX_FILE + 1).read_to_end(&mut data)?;
+        ensure!(data.len() as u64 <= MAX_FILE, "{name}: larger than {} MB", MAX_FILE >> 20);
+        total += data.len() as u64;
+        ensure!(total <= MAX_TOTAL, "archive larger than {} MB once open", MAX_TOTAL >> 20);
         files.insert(name, data);
     }
     let top: Vec<&str> = files.keys().map(|k| k.split('/').next().unwrap_or_default()).collect();
@@ -200,18 +250,28 @@ fn unzip(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>> {
     Ok(files)
 }
 
-/// Module `m` of pack `pack` put in `root`, replacing the former folder whole.
-pub fn install(root: &Path, pack: &str, m: &PackModule, fetched: Fetched) -> Result<()> {
+/// Whether module `m` of pack `pack` may be put in `root` as `fetched`: checked before anything
+/// is written (the pack's import neither), so that one that may not leaves all as it was.
+pub fn check_install(root: &Path, pack: &str, m: &PackModule, fetched: &Fetched) -> Result<()> {
     ensure!(super::plain(&m.id), "module id {:?}: letters, digits, - and _", m.id);
     ensure!(fetched.files.contains_key("module.toml"), "module {}: no module.toml at {}", m.id, m.source);
-    if let Some(owner) = pack_of(&root.join(&m.id)).filter(|p| p != pack) {
-        bail!("module {}: already installed by the pack {owner}", m.id);
+    let target = root.join(&m.id);
+    match pack_of(&target) {
+        Some(owner) if owner != pack => bail!("module {}: already installed by the pack {owner}", m.id),
+        // A folder put there by hand is not a pack's to replace.
+        None if target.exists() => bail!("module {}: modules/{} is already there, not a pack's: move it away, or the pack names it otherwise", m.id, m.id),
+        _ => {}
     }
-    // Every path checked before anything is written.
     for rel in fetched.files.keys() {
         ensure!(!rel.is_empty() && rel.split('/').all(|p| !p.is_empty() && p != "." && p != ".." && !p.contains(['\\', ':'])), "module {}: a path out of it: {rel}", m.id);
         ensure!(rel != PACK_MARK, "module {}: {PACK_MARK} is Prism's", m.id);
     }
+    Ok(())
+}
+
+/// Module `m` of pack `pack` put in `root`, replacing the former folder whole.
+pub fn install(root: &Path, pack: &str, m: &PackModule, fetched: Fetched) -> Result<()> {
+    check_install(root, pack, m, &fetched)?;
     std::fs::create_dir_all(root)?;
     let incoming = root.join(format!(".incoming-{}", m.id));
     let _ = std::fs::remove_dir_all(&incoming);
@@ -256,6 +316,8 @@ pub fn remove_others(root: &Path, trust: &Path, pack: &str, keep: &[String]) {
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct ModuleCheck {
     pub id: String,
+    /// In `modules/`, from this pack.
+    pub installed: bool,
     /// The installed version, and the source's (when it says).
     pub version: Option<String>,
     pub latest: Option<String>,
@@ -269,7 +331,7 @@ pub async fn check(root: &Path, m: &PackModule, base: Option<&Path>) -> ModuleCh
     let folder = root.join(&m.id);
     let installed = mark(&folder);
     let version = |toml_text: &str| toml::from_str::<toml::Table>(toml_text).ok().and_then(|t| t.get("module")?.get("version")?.as_str().map(String::from));
-    let mut out = ModuleCheck { id: m.id.clone(), version: std::fs::read_to_string(folder.join("module.toml")).ok().and_then(|t| version(&t)), latest: None, changed: false, error: None };
+    let mut out = ModuleCheck { id: m.id.clone(), installed: installed.is_some(), version: std::fs::read_to_string(folder.join("module.toml")).ok().and_then(|t| version(&t)), latest: None, changed: false, error: None };
     let latest = async {
         let enc = crate::http::encode;
         let zip = m.source.split('@').next().unwrap_or(&m.source).ends_with(".zip");
@@ -335,14 +397,30 @@ mod tests {
         assert!(c.changed && c.latest.as_deref() == Some("1.1.0"), "{c:?}");
         install(&root, "team", &m, fetch(&m.source, Some(&src)).await.unwrap()).unwrap();
         assert!(std::fs::read_to_string(root.join("hello/module.toml")).unwrap().contains("1.1.0"));
-        // Another pack may not take it.
+        // Another pack may not take it, nor a pack one put there by hand.
         assert!(install(&root, "other", &m, fetch(&m.source, Some(&src)).await.unwrap()).unwrap_err().to_string().contains("team"));
+        std::fs::create_dir_all(root.join("mine")).unwrap();
+        let mine = PackModule { id: "mine".into(), source: "hello".into() };
+        assert!(install(&root, "team", &mine, fetch(&mine.source, Some(&src)).await.unwrap()).unwrap_err().to_string().contains("not a pack's"));
+        assert!(root.join("mine").exists());
         // Its pack gone (or the module out of it): its folder too.
         remove_others(&root, &trust, "team", &[]);
         assert!(!root.join("hello").exists());
         for d in [src, root] {
             std::fs::remove_dir_all(d).unwrap();
         }
+    }
+
+    #[test]
+    fn a_remote_packs_module_is_read_in_its_repository() {
+        let r = |p: &str, m: &str| resolve(p, m).map(|(s, b)| (s, b.is_some()));
+        assert_eq!(r("glab:g/pack:packs/team.toml@v2", "modules/hello").unwrap(), ("glab:g/pack:packs/modules/hello@v2".into(), false));
+        assert_eq!(r("gh:o/pack:team.toml", "./hello.zip").unwrap(), ("gh:o/pack:hello.zip".into(), false));
+        assert_eq!(r("glab:g/pack:team.toml", "gh:o/x:m@main").unwrap().0, "gh:o/x:m@main");
+        for local in ["/etc", "~/secrets", "../elsewhere", "modules/../../x"] {
+            assert!(r("glab:g/pack:team.toml", local).is_err(), "{local}");
+        }
+        assert_eq!(r("/tmp/team.toml", "hello").unwrap(), ("hello".into(), true));
     }
 
     #[test]

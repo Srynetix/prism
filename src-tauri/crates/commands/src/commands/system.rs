@@ -109,7 +109,7 @@ pub fn set_for_webkit(value: Option<&std::ffi::OsStr>) -> bool {
 pub async fn modules_trust(id: String, fingerprint: String) -> Cmd<bool> {
     tokio::task::spawn_blocking(move || {
         prism_core::modules::trust(&prism_core::modules::dir(), &prism_core::modules::trust_path_for(prism_core::profile::active()), &id, &fingerprint)?;
-        anyhow::Ok(prism_modules::trusted(&id) || !prism_core::modules::list().iter().any(|m| m.id == id && m.backend))
+        anyhow::Ok(prism_modules::trusted(&id, &fingerprint) || !prism_core::modules::list().iter().any(|m| m.id == id && m.backend))
     })
     .await?
     .map_err(Into::into)

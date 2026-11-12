@@ -5,6 +5,10 @@
  */
 export type ModuleCheck = { id: string, 
 /**
+ * In `modules/`, from this pack.
+ */
+installed: boolean, 
+/**
  * The installed version, and the source's (when it says).
  */
 version: string | null, latest: string | null, 

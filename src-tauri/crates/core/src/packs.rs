@@ -221,12 +221,17 @@ pub async fn import(config: &Path, source: &str) -> Result<PackInfo> {
     };
     let name: String = name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' }).collect();
     ensure!(!name.is_empty() && !name.starts_with('-'), "invalid pack name");
-    // Its modules read first: one that does not read leaves the pack as it was.
-    let base = module_base(source);
+    // Its modules read and checked first: one that does not read, or may not be installed,
+    // leaves the pack and the modules as they were.
+    let root = crate::modules::dir_of(config);
     let mut fetched = Vec::new();
     for m in &info.modules {
-        let files = crate::modules::install::fetch(&m.source, base.as_deref()).await.with_context(|| tr!("module {id} of the pack ({source})", id = m.id, source = m.source))?;
-        fetched.push((m.clone(), files));
+        let context = || tr!("module {id} of the pack ({source})", id = m.id, source = m.source);
+        let (at, base) = crate::modules::install::resolve(source, &m.source).with_context(context)?;
+        let read = crate::modules::install::PackModule { id: m.id.clone(), source: at };
+        let files = crate::modules::install::fetch(&read.source, base.as_deref()).await.with_context(context)?;
+        crate::modules::install::check_install(&root, &name, &read, &files).with_context(context)?;
+        fetched.push((read, files));
     }
 
     // The copy remembers where it comes from, for updates.
@@ -247,7 +252,6 @@ pub async fn import(config: &Path, source: &str) -> Result<PackInfo> {
         set_list(config, names.into_iter().chain([name.clone()]).collect())?;
     }
     // Its modules in `modules/`, those it no longer brings out; none trusted for that.
-    let root = crate::modules::dir_of(config);
     for (m, files) in fetched {
         crate::modules::install::install(&root, &name, &m, files)?;
     }
@@ -305,8 +309,18 @@ async fn check_one(config: &Path, name: &str) -> Option<PackCheck> {
     match fetch(&source).await.and_then(|(text, commit)| Ok((parse(&text)?, commit))) {
         Ok(((latest, new_values), commit)) => {
             // The source's modules, against those installed: one changed, the pack did.
-            let (root, base) = (crate::modules::dir_of(config), module_base(&source));
-            out.modules = futures::future::join_all(latest.modules.iter().map(|m| crate::modules::install::check(&root, m, base.as_deref()))).await;
+            let root = crate::modules::dir_of(config);
+            let checks = latest.modules.iter().map(|m| {
+                let root = root.clone();
+                let resolved = crate::modules::install::resolve(&source, &m.source);
+                async move {
+                    match resolved {
+                        Ok((at, base)) => crate::modules::install::check(&root, &crate::modules::install::PackModule { id: m.id.clone(), source: at }, base.as_deref()).await,
+                        Err(e) => crate::modules::install::ModuleCheck { id: m.id.clone(), installed: false, version: None, latest: None, changed: true, error: Some(format!("{e:#}")) },
+                    }
+                }
+            });
+            out.modules = futures::future::join_all(checks).await;
             out.changed = new_values != values || latest.version != info.version || latest.modules != info.modules || out.modules.iter().any(|m| m.changed);
             out.too_new = latest.too_new;
             out.requires = latest.requires;
@@ -337,17 +351,15 @@ pub fn remove(config: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
-/// The trust store of the modules next to `config`: its profile's.
+/// The trust store of the modules next to `config`: its profile's; a config of no profile (a
+/// test's) keeps its own next to it, never touching a profile's.
 fn modules_trust(config: &Path) -> PathBuf {
-    let profile = crate::profile::names().into_iter().map(|(id, _)| id).find(|id| crate::profile::config_of(id) == config).unwrap_or_else(|| crate::profile::active().to_string());
-    crate::modules::trust_path_for(&profile)
-}
-
-/// Where a local module's source is read from: next to its pack, when that is a local file.
-fn module_base(pack_source: &str) -> Option<PathBuf> {
-    match source(pack_source).ok()? {
-        Source::File(f) => crate::config::expand_home(Path::new(f)).parent().map(Path::to_path_buf),
-        _ => None,
+    if config == crate::profile::config_path() {
+        return crate::modules::trust_path_for(crate::profile::active());
+    }
+    match crate::profile::names().into_iter().map(|(id, _)| id).find(|id| crate::profile::config_of(id) == config) {
+        Some(id) => crate::modules::trust_path_for(&id),
+        None => config.parent().unwrap_or(Path::new(".")).join("modules-trust.json"),
     }
 }
 
@@ -477,6 +489,15 @@ mod tests {
         assert!(!checked[0].changed && !checked[0].modules[0].changed, "{checked:?}");
         remove(&config, "team").unwrap();
         assert!(!root.join("hello").exists());
+        // Its trust kept next to that config, not in a profile's store.
+        assert!(!std::fs::read_to_string(dir.join("modules-trust.json")).unwrap_or_default().contains("hello"));
+        // A module that may not be installed (no module.toml): the pack is not imported either.
+        std::fs::create_dir_all(dir.join("src/empty")).unwrap();
+        std::fs::write(dir.join("src/empty/x.js"), "").unwrap();
+        std::fs::write(dir.join("src/bad.toml"), "[pack]\nname = \"bad\"\n\n[[modules]]\nid = \"empty\"\nsource = \"empty\"\n").unwrap();
+        assert!(import(&config, &dir.join("src/bad.toml").display().to_string()).await.is_err());
+        assert!(!file(&config, "bad").exists() && !std::fs::read_to_string(&config).unwrap().contains("bad"));
+        assert!(!root.join("empty").exists());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

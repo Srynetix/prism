@@ -422,4 +422,21 @@ mod tests {
         assert!(!info.changes.contains(&"+ capability git".to_string()), "unchanged lines are not said");
         std::fs::remove_dir_all(r).unwrap();
     }
+
+    /// A link re-pointed inside the folder is another module: not trusted any more.
+    #[cfg(unix)]
+    #[test]
+    fn a_link_repointed_is_another_version() {
+        let r = root();
+        let store = r.join(".trust.json");
+        module(&r, "m", "[module]\n[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"m\"\n", &[("v1.wasm", "one"), ("v2.wasm", "two")]);
+        std::os::unix::fs::symlink("v1.wasm", r.join("m/b.wasm")).unwrap();
+        let info = list_in(&r, &store).remove(0);
+        trust(&r, &store, "m", &info.fingerprint).unwrap();
+        assert!(list_in(&r, &store)[0].trusted);
+        std::fs::remove_file(r.join("m/b.wasm")).unwrap();
+        std::os::unix::fs::symlink("v2.wasm", r.join("m/b.wasm")).unwrap();
+        assert!(!list_in(&r, &store)[0].trusted, "the link points elsewhere: not the version trusted");
+        std::fs::remove_dir_all(r).unwrap();
+    }
 }
