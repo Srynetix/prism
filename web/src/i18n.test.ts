@@ -25,7 +25,7 @@ describe('dictionaries', () => {
   /**
    * A word the code no longer says leaves the dictionary with it: each key is written as a literal
    * somewhere in the code. Those `DYNAMIC` reach `t()` from data (a container's state, an ArgoCD
-   * health, a pod's). The blocks of another repository keep their words in their own dictionary.
+   * health, a pod's). A module keeps its words in its own dictionary.
    */
   it('hold only words the code says', () => {
     const DYNAMIC = ['removing', 'update_failed', 'Suspended', 'terminating']

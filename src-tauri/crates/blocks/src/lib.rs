@@ -1,5 +1,5 @@
-//! Prism's own blocks (their contract: `prism_core::blocks`, re-exported here), and what a block
-//! of another repository may use of Prism (`sdk`). The app registers them, a team's after them.
+//! Prism's own blocks (their contract: `prism_core::blocks`, re-exported here). The app registers
+//! them; a team's blocks are modules, loaded at run time (`prism-modules`).
 
 pub use prism_core::blocks::*;
 
@@ -7,7 +7,6 @@ mod alerts;
 pub mod changes;
 pub mod custom;
 pub mod data;
-pub mod sdk;
 pub mod dev_servers;
 pub mod disk_usage;
 pub mod docker;
@@ -19,7 +18,7 @@ pub mod tokens;
 pub mod trail;
 
 use prism_base::{git, http, platform};
-use prism_core::{config, profile, stages, state, ticket, tracker};
+use prism_core::{profile, state, ticket, tracker};
 use prism_collectors::{self as collectors, forge};
 use prism_agents as agents;
 

@@ -13,7 +13,6 @@ mod profile_windows;
 mod dictation;
 mod setup;
 
-mod blocks;
 
 use prism_agents as agents;
 use prism_base::{fonts, platform};
@@ -31,8 +30,8 @@ pub use prism_commands::config_path;
 use tauri::{Manager, WindowEvent};
 
 fn main() {
-    // Prism's own blocks, then a team's (`PRISM_EXTRA_BLOCKS`).
-    blocks::register();
+    // Prism's own blocks; the profile's modules once it is known.
+    prism_commands::process::register_blocks();
 
     // `prism <subcommand>`, `--help`, `--version`: run, then quit; none opens the window. The
     // profile (`--profile`) is set before anything reads it.
@@ -327,7 +326,7 @@ fn export_bindings() {
 #[test]
 #[ignore]
 fn dump_for_preview() {
-    blocks::register();
+    prism_commands::process::register_blocks();
     let path = std::env::var("PRISM_DEMO_SNAPSHOT").expect("PRISM_DEMO_SNAPSHOT=<file>");
     std::fs::write(path, serde_json::to_vec(&demo::preview(chrono::Utc::now())).unwrap()).unwrap();
 }

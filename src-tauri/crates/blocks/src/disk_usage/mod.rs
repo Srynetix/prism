@@ -15,7 +15,8 @@ use prism_base::tr;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use super::{sdk::RemoteClass, Block, BlockCtx};
+use super::{Block, BlockCtx};
+use prism_core::remote::Class as RemoteClass;
 
 mod clean;
 mod demo;

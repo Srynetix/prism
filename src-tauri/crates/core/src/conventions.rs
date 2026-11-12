@@ -165,7 +165,6 @@ pub fn web(path: &str) -> String {
 }
 
 /// Image registry of the forge: the GitLab instance's, or GitHub's (`ghcr.io`).
-#[allow(dead_code, reason = "for the blocks of another repository (`blocks::sdk`)")]
 pub fn registry() -> String {
     match get().forge {
         crate::forge::Provider::Gitlab => format!("registry.{}", get().gitlab_host),

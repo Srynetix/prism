@@ -86,8 +86,6 @@ objc2-event-kit = { version = "0.3", features = ["EKEventStore", "EKEvent", "EKC
 objc2-foundation = { version = "0.3", features = ["NSData", "NSArray", "NSDate", "NSString", "NSError", "NSURL", "NSPredicate", "NSEnumerator"] }
 keyring = "3"
 
-# A team's blocks (`PRISM_EXTRA_BLOCKS`) are compiled into the app's crate: they use its crates
-# (serde, tokio, chrono, futures, regex, toml…) as their own.
 [dependencies]
 base64.workspace = true
 prism-base.workspace = true

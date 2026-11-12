@@ -24,7 +24,7 @@ It is built with the module SDK alone (Help › Write a module):
   repository, a git dependency on it), Svelte at Prism's minor and Vite;
 - `backend/`: the back end, with `prism-module` (`src-tauri/crates/module`). Its block,
   `backend/src/hello.rs`, is written as a block of Prism (`impl Block` against
-  `crate::blocks::sdk`): the same file compiles inside Prism, a test of Prism checks it.
+  `crate::blocks::sdk`, `prism-module`'s).
 
 `just module-sdk-check` builds it with the SDK alone, in a folder of its own. The browser preview reads modules too: `PRISM_MODULES_DIR=examples/modules/hello/dist just web`.
 

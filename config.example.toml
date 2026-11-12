@@ -737,8 +737,7 @@ calendars = ["Calendar", "Work"]
 # music, data. Colors: accent, orange, purple, blue, coral, gold, ocean (they follow the theme;
 # the former gitlab, clickup, k8s, claude, alert, calendar still read).
 # Blocks: todo, sessions, worktrees, notes, mrs, sprint, pods, ci, vulns, envs,
-# renovate, refinement, agenda, pickup, data, bqcost, docker, mail; with a team's blocks
-# (PRISM_EXTRA_BLOCKS), theirs.
+# renovate, refinement, agenda, pickup, data, bqcost, docker, mail; with modules, theirs.
 # [[views]]
 # name = "Dashboard"
 # id = "dashboard"

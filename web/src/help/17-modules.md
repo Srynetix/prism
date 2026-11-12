@@ -64,7 +64,7 @@ What Prism does not give fails at the build, not in Prism: another Svelte module
 
 ## The back end
 
-A Rust crate built for WebAssembly, its blocks written as Prism's own: `impl Block`, against the same names as Prism's `blocks::sdk`.
+A Rust crate built for WebAssembly, its blocks written as Prism's own: `impl Block`, against `prism-module`'s `sdk`.
 
 ```toml
 # backend/Cargo.toml

@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # Runs in scripts/linux/Dockerfile's image, started by scripts/linux.sh: /src the sources (read
-# only), /extra a team's blocks (optional), /cache what is kept between builds, /out the bundles
+# only), /cache what is kept between builds, /out the bundles
 # (SERVER=1: and prism-server).
 set -euo pipefail
 
 # A copy of the sources, updated in place, so that cargo and pnpm rebuild only what changed.
 rsync -a --delete --exclude /web/node_modules --exclude /src-tauri/target --exclude /web/dist --exclude /dist --exclude /.env /src/ /cache/work/
 cd /cache/work
-# A team's blocks find Prism next to them (their tsconfig extends ../prism/web/…): from /extra, /prism.
-[[ -e /prism ]] || ln -s /cache/work /prism
 
 export CARGO_HOME=/cache/cargo CARGO_TARGET_DIR=/cache/target
 # linuxdeploy (the AppImage) is an AppImage itself: without FUSE in a container, it unpacks itself.

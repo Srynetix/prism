@@ -1,4 +1,4 @@
-//! What Prism does for the module (`host` of the WIT world), as `blocks::sdk` names it: GitLab, git,
+//! What Prism does for the module (`host` of the WIT world), as `sdk` names it: GitLab, git,
 //! programs, HTTP, the conventions and the ticket ids. Each one is started apart (`begin-*`) and
 //! awaited (`Call`): the futures a block joins (`join_all`, `buffer_unordered`) run side by side,
 //! as inside Prism.

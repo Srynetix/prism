@@ -549,7 +549,7 @@ impl Agents {
             (b.kept.slots.get(&r.name).and_then(|s| s.ok), b.workspace.clone(), b.retro.clone())
         };
         let since = since.map_or_else(|| tr("never: this is its first run").to_string(), |s| s.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string());
-        // The core's, and those the window sent of the blocks of another repository.
+        // The core's, and those the window sent of the modules' blocks.
         let open_alerts = alerts_text(self.inner.hub.subscribe().borrow().all_alerts());
         let alerts = || chains::untrusted("My open alerts", if open_alerts.trim().is_empty() { "(none)" } else { &open_alerts });
         let mut launch = Launch {

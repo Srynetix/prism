@@ -237,7 +237,7 @@ pub struct Snapshot {
     pub alerts_settings: crate::config::AlertsConfig,
     /// The alerts, computed from the rest shortly after each change (`crate::alerts`).
     pub alerts: Vec<crate::alerts::Alert>,
-    /// The alerts of the blocks of another repository, which say theirs in TypeScript only: as the
+    /// The alerts of the modules' blocks, which say theirs in TypeScript only: as the
     /// window sent them last (`Hub::set_external_alerts`), for the routines and the Changes block
     /// (`all_alerts`). Absent without the window. Not sent: the window and a phone have their own.
     #[serde(skip)]

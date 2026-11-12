@@ -37,7 +37,7 @@ Read freely (nothing secret, nothing of the user's work):
 - `prism_layout()`: the pages and their blocks.
 - Resources: `prism://config/current`, `prism://config/merged` (with the packs),
   `prism://config/schema`, `prism://config/example`, `prism://blocks`, `prism://packs`,
-  `prism://help/<page>`, `prism://guide/blocks-of-another-repository`.
+  `prism://help/<page>`, `prism://guide/modules`.
 
 Change only through proposals:
 
@@ -63,7 +63,7 @@ Conventions: one setting per feature (no presets); no secret in the config (toke
 system keychain: `prism clickup-token` and the like); a key a pack sets is overridden in
 `config.toml`, said so in the reason.
 
-## A new block: custom or Rust?
+## A new block: custom or module?
 
 A **custom block** is enough when a command can print the state as JSON (`{"kind": "list",
 "items": [...]}`, or `stats`, `table`, `markdown`; `alerts` and `status` beside it), read every so often, with optional actions on its
@@ -71,7 +71,8 @@ lines: a certificate expiry, a queue length, a service's health. Write the scrip
 `prism_run_custom_block` until its JSON follows the `kind`, then `prism_create_custom_block`.
 A block that needs the home folder or a token fails in the sandbox: say so, it runs once trusted.
 
-A **Rust block** (in a team's repository, `PRISM_EXTRA_BLOCKS`) is needed for state kept between
-reads, a continuous collector (a watch, a stream), commands of its own, or its own component.
-Read `prism://guide/blocks-of-another-repository`, the `blocks::sdk` signatures and the example
-block (`prism://guide/example-block/…`); check with `just check`.
+A **module** (a team's blocks loaded at run time: a Rust back end built to WebAssembly, Svelte
+components) is needed for state kept between reads, a continuous collector, commands of its own, or
+its own component. Read `prism://guide/modules`, the SDKs (`prism://guide/sdk` for the back end,
+`prism://guide/web-sdk` for the window side) and the example module
+(`prism://guide/example-block/…`); Help › Write a module is the author's guide.

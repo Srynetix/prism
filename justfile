@@ -1,16 +1,10 @@
 # Prism's basic commands. `just` (or `just --list`) to see them.
 
-# `.env` (git-ignored), if any: PRISM_EXTRA_BLOCKS, the folder of a team's blocks (docs/guide.md ›
-# Blocks of another repository), for every recipe. `NO_EXTRA=1` leaves them out: Prism alone, as
-# without the .env (`NO_EXTRA=1 just build`, `NO_EXTRA=1 just deploy`, `NO_EXTRA=1 just dmg`…).
+# `.env` (git-ignored), if any: the release's settings (PRISM_RELEASE_TO, PRISM_SIGN_KEY…), for
+# every recipe.
 set dotenv-load
 set ignore-comments
 
-NO_EXTRA := env("NO_EXTRA", "")
-# A command left out the blocks starts with this: emptied, the build reads them as none, build.rs
-# and vite.config.ts.
-no_extra := if NO_EXTRA != "" { "PRISM_EXTRA_BLOCKS= PRISM_EXTRA_NAME= PRISM_EXTRA_LABEL= " } else { "" }
-no_extra_flag := if NO_EXTRA != "" { "--no-extra " } else { "" }
 
 # macOS only: deploy and open; Linux and Windows install their bundle (deb, AppImage, NSIS).
 APP := "src-tauri/target/release/bundle/macos/Prism.app"
@@ -25,7 +19,7 @@ install:
 
 # Runs the app in development (Vite + Tauri window, hot reload)
 dev:
-    {{no_extra}}pnpm dev
+    pnpm dev
 
 # Runs the frontend alone in a browser (without Tauri)
 web:
@@ -45,11 +39,9 @@ module-sdk-check:
 check:
     # The window's types, generated from the Rust ones (web/src/bindings): a change on one side
     # the other does not follow fails svelte-check.
-    {{no_extra}}cargo test --quiet --manifest-path src-tauri/Cargo.toml export_bindings
-    {{no_extra}}pnpm --dir web check
-    # A team's blocks (PRISM_EXTRA_BLOCKS): their window side against Prism's.
-    {{ if NO_EXTRA == "" { 'if [ -n "$PRISM_EXTRA_BLOCKS" ]; then extra="$(cd "$PRISM_EXTRA_BLOCKS" && pwd)/web"; pnpm --dir web exec svelte-check --workspace "$extra" --tsconfig "$extra/tsconfig.json"; fi' } else { "true" } }}
-    {{no_extra}}cargo check --workspace --manifest-path src-tauri/Cargo.toml
+    cargo test --quiet --manifest-path src-tauri/Cargo.toml export_bindings
+    pnpm --dir web check
+    cargo check --workspace --manifest-path src-tauri/Cargo.toml
     # The module SDK copies what Prism gives a module: in step with Prism's core and window.
     python3 scripts/module-sdk-types.py --check
     node web/scripts/module-sdk.mjs --check
@@ -59,26 +51,26 @@ test:
     pnpm --dir web test
     cargo test --workspace --manifest-path src-tauri/Cargo.toml
 
-# Builds the release bundle of this system (Prism.app, deb + AppImage, NSIS installer); NO_EXTRA=1 without the .env's blocks
+# Builds the release bundle of this system (Prism.app, deb + AppImage, NSIS installer)
 build:
-    {{no_extra}}pnpm build
+    pnpm build
 
-# Builds prism-server, Prism without a window, for this system (scripts/server.sh --help); NO_EXTRA=1 without the .env's blocks
+# Builds prism-server, Prism without a window, for this system (scripts/server.sh --help)
 server *args:
-    scripts/server.sh {{no_extra_flag}}{{args}}
+    scripts/server.sh {{args}}
 
 # Runs Prism as on a new machine (empty home, no config) to try the first-launch screen; your own setup is untouched
 first-launch:
     #!/usr/bin/env bash
     set -euo pipefail
     # The release binary, frontend included, without the bundles: faster than `build`.
-    {{no_extra}}web/node_modules/.bin/tauri build --no-bundle
+    web/node_modules/.bin/tauri build --no-bundle
     # A fresh home: no config, no profiles, its own data folder (what was created stays there).
     home=$(mktemp -d "${TMPDIR:-/tmp}/prism-first-launch.XXXXXX")
     echo "home: $home (rm -rf it when done)"
     HOME="$home" src-tauri/target/release/prism
 
-# Builds the release app, replaces the one in /Applications and relaunches it (macOS); NO_EXTRA=1 without the .env's blocks
+# Builds the release app, replaces the one in /Applications and relaunches it (macOS)
 [macos]
 deploy: build
     # Every profile open is quit, then reopened on the new app (scripts/deploy.sh).
@@ -87,11 +79,11 @@ deploy: build
 # Builds a .dmg to install Prism on another Mac (universal; scripts/dmg.sh --help)
 [macos]
 dmg *args:
-    scripts/dmg.sh {{no_extra_flag}}{{args}}
+    scripts/dmg.sh {{args}}
 
 # Builds Linux packages (.deb, AppImage; .rpm, Arch) in Docker, from any system (scripts/linux.sh --help)
 linux *args:
-    scripts/linux.sh {{no_extra_flag}}{{args}}
+    scripts/linux.sh {{args}}
 
 # Runs the Linux .deb (--distro arch: the Arch package) on a desktop in a container, seen in the browser (scripts/linux-desktop.sh --help)
 linux-desktop *args:
@@ -99,15 +91,15 @@ linux-desktop *args:
 
 # Checks that Prism compiles for Windows, from macOS or Linux (cargo xwin; WINDOWS_ARCH=arm64 for ARM)
 windows-check *args:
-    {{no_extra}}scripts/windows.sh check {{args}}
+    scripts/windows.sh check {{args}}
 
 # Builds the Windows installer (NSIS, unsigned) from macOS or Linux: x64, WINDOWS_ARCH=arm64 for ARM
 windows-build *args:
-    {{no_extra}}scripts/windows.sh build {{args}}
+    scripts/windows.sh build {{args}}
 
 # Builds prism-server.exe, Prism without a window, for Windows from macOS or Linux (cargo xwin; WINDOWS_ARCH=arm64 for ARM)
 windows-server *args:
-    {{no_extra}}scripts/windows.sh server {{args}}
+    scripts/windows.sh server {{args}}
 
 # Prints the changelog since the previous release, the notes `just release` publishes
 changelog *args:
@@ -116,12 +108,12 @@ changelog *args:
 # Publishes a release that installed Prisms update from (macOS; scripts/release.sh --help)
 [macos]
 release *args:
-    scripts/release.sh {{no_extra_flag}}{{args}}
+    scripts/release.sh {{args}}
 
-# Publishes Prism alone (no team blocks) for macOS, Linux and Windows, prism-server with it, to the public repository (scripts/release.sh --help)
+# Publishes a release for macOS, Linux and Windows, prism-server with it (scripts/release.sh --help)
 [macos]
-release-oss *args:
-    PRISM_EXTRA_BLOCKS= PRISM_EXTRA_NAME= PRISM_EXTRA_LABEL= scripts/release.sh --to gh:Srynetix/prism --no-extra --server --linux --windows {{args}}
+release-all *args:
+    scripts/release.sh --server --linux --windows {{args}}
 
 # Starts Tailscale for the remote beside a VPN (userspace tailscaled, no network change) and signs in; `just tailscale down` stops it
 tailscale *args:

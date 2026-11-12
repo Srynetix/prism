@@ -37,7 +37,7 @@ export const BLOCK_LABELS: Record<BlockId, string> = {
   todo: 'Alerts', sessions: 'Agents', worktrees: 'Worktrees', notes: 'Notes', mrs: 'Merge requests', queue: 'Merge queue', renovate: 'Renovate', sprint: 'Sprint',
   agenda: 'Today', refinement: 'Refinement', pickup: 'To pick', pods: 'Pods', ci: 'CI health', vulns: 'Vulnerabilities', envs: 'Environments', argocd: 'ArgoCD',
   mail: 'Mail', retro: 'My sprint', wip: 'In progress', routines: 'Routines', aside: 'In passing',
-  // The blocks of `blocks/`, those of another repository included (`BLOCK_DEFS`).
+  // The blocks of `blocks/`, the modules' included (`BLOCK_DEFS`).
   ...(Object.fromEntries(BLOCK_DEFS.map((b) => [b.id, b.label])) as Record<PluginBlockId, string>),
 }
 export const ALL_BLOCKS = Object.keys(BLOCK_LABELS) as BlockId[]

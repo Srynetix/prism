@@ -124,7 +124,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let about = AboutMetadata {
         name: Some("Prism".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
-        // The commit, and the team's blocks built in (`+ acme 5786d86`), if any.
+        // The commit it was built from.
         short_version: Some(env!("PRISM_BUILD").to_string()).filter(|c| !c.is_empty()),
         credits: Some("A local dashboard of a team's work: merge requests and pipelines, tickets, clusters, coding agents. Everything runs on this machine.".into()),
         icon: Some(tauri::include_image!("icons/128x128@2x.png")),

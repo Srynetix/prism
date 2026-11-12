@@ -9,7 +9,6 @@ use super::*;
 static LOG_PROJECTS: std::sync::Mutex<Vec<&'static str>> = std::sync::Mutex::new(Vec::new());
 
 /// Lets the window read the logs of another project's pipelines, which a block shows.
-#[allow(dead_code, reason = "for the blocks of another repository (`blocks::sdk`)")]
 pub fn allow_log_project(project: &str) {
     let mut list = LOG_PROJECTS.lock().expect("log projects");
     if !list.contains(&project) {

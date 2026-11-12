@@ -7,7 +7,7 @@
 //! A block absent from `Snapshot.blocks` is off; present (even with an empty state), it is on.
 //!
 //! This is the blocks' contract; the blocks themselves are in `prism-blocks` (Prism's own) and in
-//! the app's crate (a team's, `PRISM_EXTRA_BLOCKS`), which registers them all at launch.
+//! the profile's modules (a team's, `prism-modules`), registered at launch.
 
 use std::time::Duration;
 
@@ -46,8 +46,8 @@ pub trait Block: Send + Sync {
 
     /// The JSON schema of its settings, by table (as `settings`): what `prism mcp` gives an agent
     /// and validates against. By default inferred from its settings' defaults (`settings` of an
-    /// empty config: the types of the values); a block with a struct gives `schemars`'s
-    /// (`blocks::sdk::schemars`), its doc comments as descriptions.
+    /// empty config: the types of the values); a block with a struct gives `schemars`'s, its doc
+    /// comments as descriptions.
     fn schema(&self) -> Vec<(&'static str, Value)> {
         let inferred = |v: &Value| {
             let mut s = infer_schema(v);
@@ -187,7 +187,6 @@ pub enum RepoUse {
 }
 
 /// A repository a block reads: its `[[repos]]` name, project and local clone.
-#[allow(dead_code, reason = "for the blocks of another repository (`blocks::sdk`)")]
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockRepo {
     pub name: String,
@@ -196,7 +195,6 @@ pub struct BlockRepo {
 }
 
 /// What the core resolved for a block as it starts: the forge, and the repositories it reads.
-#[allow(dead_code, reason = "for the blocks of another repository (`blocks::sdk`)")]
 #[derive(Debug, Clone)]
 pub struct BlockEnv {
     /// `[forge] provider`.
@@ -294,7 +292,6 @@ pub struct BlockCtx {
     /// The source its errors and answers go under: its id, or one of its parts (`part`).
     source: &'static str,
     hub: Hub,
-    #[allow(dead_code, reason = "for the blocks of another repository (`blocks::sdk`)")]
     env: std::sync::Arc<BlockEnv>,
 }
 
@@ -303,14 +300,12 @@ impl BlockCtx {
         Self { id, source: id, hub, env }
     }
 
-    #[allow(dead_code, reason = "for the blocks of another repository (`blocks::sdk`)")]
     /// The same block, its errors under `source`: one per source a block reads apart (a delivery
     /// block's deployments and rollouts), each answering on its own.
     pub fn part(&self, source: &'static str) -> Self {
         Self { source, ..self.clone() }
     }
 
-    #[allow(dead_code, reason = "for the blocks of another repository (`blocks::sdk`)")]
     pub fn env(&self) -> &BlockEnv {
         &self.env
     }

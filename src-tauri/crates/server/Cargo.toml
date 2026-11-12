@@ -12,8 +12,6 @@ workspace = true
 name = "prism-server"
 path = "src/main.rs"
 
-# A team's blocks (`PRISM_EXTRA_BLOCKS`) are compiled into this crate as into the app's: they use
-# its crates (serde, tokio, chrono, futures, regex, toml…) as their own.
 [dependencies]
 prism-base.workspace = true
 prism-core.workspace = true

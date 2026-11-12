@@ -1,6 +1,5 @@
-//! What a block may use of Prism: `blocks::sdk`'s names, for a module's back end. A block's files
-//! written against Prism's `crate::blocks::sdk` compile against this one (`pub mod blocks { pub use
-//! prism_module::sdk; }`), within what a module is given (see the crate's docs).
+//! What a module's block may use of Prism, within what a module is given (see the crate's docs).
+//! Its files may read it as `crate::blocks::sdk` (`pub mod blocks { pub use prism_module::sdk; }`).
 
 // A facade: what a block may use, whether a block uses it yet or not.
 #![allow(unused_imports)]

@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
-import { basename, dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vite'
@@ -22,39 +22,7 @@ const git = (args: string) => {
 const commit = git('rev-parse --short HEAD')
 const dirty = !!commit && git('status --porcelain --untracked-files=no') !== ''
 
-/**
- * The blocks of another repository (`PRISM_EXTRA_BLOCKS`: its folder, absolute or relative to
- * Prism's, as for the Rust side in `src-tauri/build.rs`): its `web/index.ts` is `$extra-blocks`,
- * the declarations, and its `web/components.ts` `$extra-components`, their components. Apart: the
- * components import Prism's code, which reads the declarations (`BLOCK_DEFS`) first; together, the
- * window would start on a module not yet initialized. Its `web/i18n.ts`, if any, is `$extra-i18n`,
- * its words in Prism's other languages (`EXTRA_DICTIONARIES`), apart too: the declarations' words
- * go through `t()`, which reads them. Its code reaches Prism's as `$prism/…` and shares its
- * dependencies (svelte, Tauri's API).
- */
 const prism = fileURLToPath(new URL('..', import.meta.url))
-const extraDir = process.env.PRISM_EXTRA_BLOCKS?.trim()
-const extra = extraDir ? resolve(prism, extraDir, 'web/index.ts') : null
-const extraComponents = extraDir ? resolve(prism, extraDir, 'web/components.ts') : null
-for (const f of [extra, extraComponents]) if (f && !existsSync(f)) throw new Error(`PRISM_EXTRA_BLOCKS: no ${f}`)
-const extraI18n = extraDir ? resolve(prism, extraDir, 'web/i18n.ts') : null
-
-/**
- * What a build with a team's blocks says after its version, as `src-tauri/build.rs`:
- * `PRISM_EXTRA_LABEL` as is, otherwise their name (`PRISM_EXTRA_NAME`, else their repository's
- * folder) and their commit, `+` with uncommitted changes: `acme 5786d86`.
- */
-function extraLabel(dir: string): string {
-  const label = process.env.PRISM_EXTRA_LABEL?.trim()
-  if (label) return label
-  const at = (cmd: string) => git(`-C ${JSON.stringify(dir)} ${cmd}`)
-  const top = at('rev-parse --show-toplevel')
-  const name = process.env.PRISM_EXTRA_NAME?.trim() || basename(top || dir)
-  const sha = at('rev-parse --short HEAD')
-  const changed = !!sha && at('status --porcelain --untracked-files=no .') !== ''
-  return [name, sha ? `${sha}${changed ? '+' : ''}` : ''].filter(Boolean).join(' ')
-}
-const extraTag = extraDir ? extraLabel(resolve(prism, extraDir)) : ''
 
 /**
  * The browser preview's snapshot (`public/dev-snapshot.json`, real data when dumped from a running
@@ -121,23 +89,12 @@ export default defineConfig(({ mode }) => ({
   plugins: [svelte(), noDevSnapshot, previewModules],
   // Tests read the stylesheets as written (`?raw`): vitest otherwise gives it empty.
   test: { css: { include: [/\.css\b/] } },
-  resolve: {
-    alias: {
-      '$extra-blocks': extra ?? fileURLToPath(new URL('src/blocks/extra-none.ts', import.meta.url)),
-      '$extra-components': extraComponents ?? fileURLToPath(new URL('src/blocks/extra-none.ts', import.meta.url)),
-      '$extra-i18n': extraI18n && existsSync(extraI18n) ? extraI18n : fileURLToPath(new URL('src/i18n/extra-none.ts', import.meta.url)),
-      '$prism': fileURLToPath(new URL('src', import.meta.url)),
-    },
-    // An extra repository has no node_modules of its own: Prism's.
-    dedupe: ['svelte', '@tauri-apps/api'],
-  },
   define: {
     __PRISM_VERSION__: JSON.stringify(version),
     __PRISM_COMMIT__: JSON.stringify(commit ? `${commit}${dirty ? '+' : ''}` : ''),
-    __PRISM_EXTRA__: JSON.stringify(extraTag),
   },
   clearScreen: false,
-  server: { host: '127.0.0.1', port: 5173, strictPort: true, fs: { allow: [prism, ...(extra ? [dirname(dirname(extra))] : [])] } },
+  server: { host: '127.0.0.1', port: 5173, strictPort: true, fs: { allow: [prism] } },
   // The window, and the remote's page a phone opens (`remote.html`, served by `prism-remote`).
   // The second page builds next to the first one.
   // The window's chunk (1.9 MB) is read from the app's bundle, not a network: evaluating 430 KB

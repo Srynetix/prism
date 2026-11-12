@@ -11,7 +11,8 @@ use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{sdk::RemoteClass, Block, BlockCtx};
+use super::{Block, BlockCtx};
+use prism_core::remote::Class as RemoteClass;
 
 mod collector;
 mod demo;

@@ -93,7 +93,7 @@
   /**
    * Prism on a phone: one view at a time, the bottom tabs chosen in `[remote] tabs`, the others
    * under More, by group as in the window's "+ Block" menu. The views are the window's blocks, fed
-   * by the same snapshot: Prism's own here, every block of `blocks/` (another repository's
+   * by the same snapshot: Prism's own here, every block of `blocks/` (the modules'
    * included) by its id, those of CI & delivery together under CI.
    */
   type ViewId = string

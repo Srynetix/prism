@@ -3,12 +3,12 @@
 # `[updates] source`): the macOS app, with --linux the Linux packages, with --windows the Windows
 # installers.
 #
-#   scripts/release.sh --to glab:group/project|gh:owner/repo [--linux] [--windows] [--no-extra] [--server] [--skip-checks]
+#   scripts/release.sh --to glab:group/project|gh:owner/repo [--linux] [--windows] [--server] [--skip-checks]
 #                      [--rebuild] [--notes "text" | --notes-file file] [--no-tag] [--dry-run]
 #
 # - --to: where it is published, as [updates] source names it; PRISM_RELEASE_TO (environment or
-#   .env) by default. A team's build (its blocks, PRISM_EXTRA_BLOCKS) goes to the team's private
-#   repository, the one its pack names; Prism alone (--no-extra) to the public one.
+#   .env), else Prism's public repository (gh:Srynetix/prism): one build for everyone, a team's
+#   blocks coming as modules with its pack.
 # - The release is tagged prism-v<version>, the version of src-tauri/Cargo.toml: bump it first,
 #   an existing release is refused.
 # - Files: Prism_<version>_macos-universal.dmg (a first install), .app.tar.gz (what an update
@@ -18,7 +18,7 @@
 #   and its .minisig: signed with minisign (brew install minisign), with the key PRISM_SIGN_KEY
 #   names (environment or .env; ~/.minisign/prism.key by default), whose public half is
 #   src-tauri/update-key.pub. An installed Prism installs only a file signed with it.
-#   With --server (Prism alone only: --no-extra), prism-server too, Prism without a window:
+#   With --server, prism-server too, Prism without a window:
 #   prism-server_<version>_macos-universal.tar.gz, with --linux prism-server_<version>_amd64.tar.gz,
 #   with --windows prism-server_<version>_windows-x64.zip and windows-arm64.zip.
 #   Installed Prisms never pick them (the updater reads Prism_<version>_… only).
@@ -43,7 +43,6 @@ to=""
 linux=false
 windows=false
 server=false
-extra=true
 checks=true
 dry=false
 rebuild=false
@@ -55,7 +54,6 @@ while [[ $# -gt 0 ]]; do
     --to) to=${2:-}; shift ;;
     --linux) linux=true ;;
     --windows) windows=true ;;
-    --no-extra) extra=false ;;
     --server) server=true ;;
     --skip-checks) checks=false ;;
     --notes) notes=${2:-}; shift ;;
@@ -73,12 +71,10 @@ step() { printf '\n\033[1m▸ %s\033[0m\n' "$*"; }
 fail() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
 [[ "$(uname -s)" == Darwin ]] || fail "a release is built on macOS (the app; Linux in Docker)"
-# A team's blocks are the team's: a server built with them goes nowhere public, nor through here.
-! $server || ! $extra || fail "--server: Prism alone only (--no-extra); a team's server: just server, kept within the team"
 if [[ -z "$to" && -z "${PRISM_RELEASE_TO+x}" && -f .env ]]; then
   to=$(sed -n 's/^PRISM_RELEASE_TO=//p' .env | tail -1 | tr -d '"'"'")
 fi
-to=${to:-${PRISM_RELEASE_TO:-}}
+to=${to:-${PRISM_RELEASE_TO:-gh:Srynetix/prism}}
 case "$to" in
   glab:*/*) forge=glab; project=${to#glab:} ;;
   gh:*/*) forge=gh; project=${to#gh:} ;;
@@ -115,22 +111,12 @@ fi
 # A release is a commit: the builds name it (dmg.sh, linux.sh), and are reused for it.
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail "uncommitted changes: commit them first"
 commit=$(git rev-parse --short HEAD)
-label=""
-if $extra; then
-  source scripts/extra.sh
-  extra_from_env
-  [[ -z "${PRISM_EXTRA_BLOCKS:-}" ]] || label=$(extra_label "$PRISM_EXTRA_BLOCKS")
-else
-  export PRISM_EXTRA_BLOCKS=""
-fi
-
 opts=()
-$extra || opts+=(--no-extra)
 $checks || opts+=(--skip-checks)
 
 step "macOS"
-# The name dmg.sh gives this commit and these blocks.
-dmg="dist/Prism_${version}_${commit}${label:+_$(echo "$label" | sed 's/+$/-dirty/; s/ /-/g')}_universal.dmg"
+# The name dmg.sh gives this commit.
+dmg="dist/Prism_${version}_${commit}_universal.dmg"
 if [[ -f "$dmg" ]] && ! $rebuild; then
   echo "$dmg already built: reused (--rebuild to build again)"
 else
@@ -163,16 +149,16 @@ pack_server() {
 if $server; then
   step "prism-server, macOS"
   # Built every time: a few crates on top of the app's, the page of this commit (web/dist).
-  scripts/server.sh --universal --no-extra
+  scripts/server.sh --universal
   pack_server src-tauri/target/universal-apple-darwin/release/prism-server "prism-server_${version}_macos-universal.tar.gz"
 fi
 
 if $linux; then
   step "Linux"
-  # linux.sh notes which commit and blocks its packages are of.
+  # linux.sh notes which commit its packages are of.
   stamp=dist/Prism_${version}_amd64.build
   server_bin=dist/prism-server_${version}_amd64
-  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit|$label" && -f dist/Prism_${version}_amd64.deb && -f dist/Prism_${version}_amd64.AppImage && -f dist/Prism_${version}_amd64.pkg.tar.zst ]] && { ! $server || [[ -f "$server_bin" ]]; } && ! $rebuild; then
+  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit" && -f dist/Prism_${version}_amd64.deb && -f dist/Prism_${version}_amd64.AppImage && -f dist/Prism_${version}_amd64.pkg.tar.zst ]] && { ! $server || [[ -f "$server_bin" ]]; } && ! $rebuild; then
     echo "dist/Prism_${version}_amd64.{deb,AppImage,pkg.tar.zst}$($server && echo " and $server_bin") already built: reused (--rebuild to build again)"
   else
     lopts=()
@@ -192,14 +178,14 @@ fi
 
 if $windows; then
   step "Windows"
-  # Built here, noted as linux.sh notes its packages: which commit and blocks they are of.
+  # Built here, noted as linux.sh notes its packages: which commit they are of.
   stamp=dist/Prism_${version}_windows.build
   built=true
   for arch in x64 arm64; do
     [[ -f dist/Prism_${version}_windows-${arch}-setup.exe ]] || built=false
     ! $server || [[ -f dist/prism-server_${version}_windows-${arch}.exe ]] || built=false
   done
-  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit|$label" ]] && $built && ! $rebuild; then
+  if [[ -f "$stamp" && "$(cat "$stamp")" == "$commit" ]] && $built && ! $rebuild; then
     echo "dist/Prism_${version}_windows-{x64,arm64}-setup.exe$($server && echo " and prism-server") already built: reused (--rebuild to build again)"
   else
     export XWIN_ACCEPT_LICENSE=${XWIN_ACCEPT_LICENSE:-1}
@@ -212,7 +198,7 @@ if $windows; then
         cp "src-tauri/target/$target/release/prism-server.exe" "dist/prism-server_${version}_windows-${arch}.exe"
       fi
     done
-    echo "$commit|$label" > "$stamp"
+    echo "$commit" > "$stamp"
   fi
   for arch in x64 arm64; do
     cp "dist/Prism_${version}_windows-${arch}-setup.exe" "$out/"
@@ -246,7 +232,7 @@ elif [[ -z "$notes" ]]; then
   changes=$(scripts/changelog.sh)
   notes="$changes
 
-Prism $version, built from $commit${label:+ with the blocks of $label}."
+Prism $version, built from $commit."
 fi
 
 step "Files"
@@ -281,7 +267,7 @@ if $tag_it; then
     echo "$tag already tagged here: left as is"
   else
     # Verbatim: the changelog's headings start with #, which git would take for comments. The
-    # changelog without its build line: a tag is pushed with the code, a team's blocks stay with the team.
+    # changelog without its build line.
     git tag -a --cleanup=verbatim "$tag" -m "Prism $version" -m "${changes:-$notes}"
     echo "$tag on $commit, in this clone only (git push origin $tag to share it)"
   fi

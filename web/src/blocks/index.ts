@@ -1,4 +1,3 @@
-import { EXTRA_BLOCKS } from '$extra-blocks'
 import type { BlockDef } from './block'
 import { admitted, seal } from './runtime'
 import { changes } from './changes'
@@ -21,14 +20,14 @@ import { trail } from './trail'
 export const BLOCKS = [trail, changes, devServers, docker, data, bqcost, status, system, diskUsage, sound, tokens, customBlocks, shipit, quotes, pet] as const
 
 /**
- * Prism's own; those of another repository (`$extra-blocks`) are not in the type: the core never
- * names them, it reads them in `BLOCK_DEFS`.
+ * Prism's own; the modules' are not in the type: the core never names them, it reads them in
+ * `BLOCK_DEFS`.
  */
 export type PluginBlockId = (typeof BLOCKS)[number]['id']
 
 /**
- * Prism's own, the extra ones, then the modules' loaded at run time (`modules/load.ts`, before
- * this is read), as the core reads them (a state it does not know).
+ * Prism's own, then the modules' loaded at run time (`modules/load.ts`, before this is read), as
+ * the core reads them (a state it does not know).
  */
-export const BLOCK_DEFS: readonly BlockDef<never>[] = [...BLOCKS, ...EXTRA_BLOCKS, ...admitted([...BLOCKS, ...EXTRA_BLOCKS])]
+export const BLOCK_DEFS: readonly BlockDef<never>[] = [...BLOCKS, ...admitted(BLOCKS)]
 seal()

@@ -13,7 +13,8 @@ use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{sdk::RemoteClass, Block, BlockCtx};
+use super::{Block, BlockCtx};
+use prism_core::remote::Class as RemoteClass;
 pub use prism_core::changes::{ChangeEvent, ChangeKind, ChangeLink, ChangeMr, ChangeSeverity};
 
 mod collector;
@@ -175,7 +176,7 @@ pub struct EnvAlert {
     pub url: Option<String>,
 }
 
-/// The alerts of an environment (`Snapshot::all_alerts`: the window's of the blocks of another repository too), by key: Argo CD's and the clusters', those an
+/// The alerts of an environment (`Snapshot::all_alerts`: the window's of the modules' blocks too), by key: Argo CD's and the clusters', those an
 /// agent can investigate; one that names none is left out. `None` before the clusters or Argo CD
 /// have been read: their alerts would look gone.
 pub fn env_alerts(s: &crate::state::Snapshot) -> Option<Vec<EnvAlert>> {

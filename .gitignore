@@ -9,7 +9,7 @@
 # Snapshot of the browser preview mode: real data, never committed.
 /web/public/dev-snapshot.json
 
-# Local settings of the tasks (PRISM_EXTRA_BLOCKS).
+# Local settings of the tasks (PRISM_RELEASE_TO, PRISM_SIGN_KEY).
 /.env
 
 # Mockups: kept out of the repository.

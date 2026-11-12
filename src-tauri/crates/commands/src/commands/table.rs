@@ -143,7 +143,7 @@ commands! {
     // demo themselves.
     system::block_call: Never [demo: own] [phone: block: String, command: String, args: Option<Value>],
     system::shared_load: Read [phone: state, name: String; sync],
-    // The window's alerts of the blocks of another repository, for the routines and Changes.
+    // The window's alerts of the modules' blocks, for the routines and Changes.
     system::alerts_external: Never,
     system::shared_save: Act [demo: own] [phone: state, name: String, value: Value; sync],
     // Agents and stores outlive it: nothing is lost.

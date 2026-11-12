@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 # Builds Prism for distribution on macOS: a .dmg to install it on another Mac.
 #
-#   scripts/dmg.sh [--native] [--no-extra] [--skip-checks] [--allow-dirty]
+#   scripts/dmg.sh [--native] [--skip-checks] [--allow-dirty]
 #
 # - Universal by default (Apple silicon and Intel); --native builds for this Mac only, faster.
-# - A team's blocks (PRISM_EXTRA_BLOCKS, from the environment or .env) are built in, as by
-#   `just build`; --no-extra builds Prism alone, to share outside the team.
 # - Checks first (frontend types, Rust tests); --skip-checks to go straight to the build.
 # - Refuses uncommitted changes, so that the app says which commit it is; --allow-dirty to
 #   build anyway (the app's commit then ends with `+`).
 #
-# Out: dist/Prism_<version>_<commit>[_<blocks>-<commit>]_<arch>.dmg and its .sha256, say
-# Prism_0.1.0_2cac323_acme-b2717e7_universal.dmg (`-dirty`: uncommitted changes). The .dmg,
+# Out: dist/Prism_<version>_<commit>_<arch>.dmg and its .sha256, say
+# Prism_0.1.0_2cac323_universal.dmg (`-dirty`: uncommitted changes). The .dmg,
 # its volume named the same way, holds Prism.app and a link to /Applications: drag one onto the other.
 #
 # Signing: ad hoc by default (no Apple account). On another Mac, macOS then refuses the first
@@ -24,21 +22,18 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 native=false
-extra=true
 checks=true
 dirty=false
 for arg in "$@"; do
   case "$arg" in
     --native) native=true ;;
-    --no-extra) extra=false ;;
     --skip-checks) checks=false ;;
     --allow-dirty) dirty=true ;;
-    -h | --help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $arg (see --help)" >&2; exit 2 ;;
   esac
 done
 
-source scripts/extra.sh
 step() { printf '\n\033[1m▸ %s\033[0m\n' "$*"; }
 fail() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
@@ -58,19 +53,7 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   commit+="-dirty"
 fi
 
-# A team's blocks, as `just` reads them (.env): the app and the .dmg name them the same way.
-extra_from_env
-label=""
-if $extra && [[ -n "${PRISM_EXTRA_BLOCKS:-}" ]]; then
-  blocks=$(cd "$PRISM_EXTRA_BLOCKS" 2>/dev/null && pwd) || fail "PRISM_EXTRA_BLOCKS: no folder $PRISM_EXTRA_BLOCKS"
-  label=$(extra_label "$blocks")
-  export PRISM_EXTRA_BLOCKS="$blocks" PRISM_EXTRA_LABEL="$label"
-else
-  # Without: none, even if `just` read some from .env.
-  export PRISM_EXTRA_BLOCKS=""
-fi
-# In a file name: `acme b2717e7+` → `acme-b2717e7-dirty`.
-tag="$commit${label:+_$(echo "$label" | sed 's/+$/-dirty/; s/ /-/g')}"
+tag="$commit"
 
 if $native; then
   target=""
@@ -85,7 +68,7 @@ else
   done
 fi
 
-step "Prism $version ($commit${label:+ + $label}), $arch"
+step "Prism $version ($commit), $arch"
 
 if $checks; then
   step "Checks: frontend types, Rust tests"
@@ -116,7 +99,7 @@ trap 'rm -rf "$stage"' EXIT
 cp -R "$app" "$stage/"
 ln -s /Applications "$stage/Applications"
 rm -f "$dmg"
-hdiutil create -volname "Prism $version ($commit${label:+ + $label})" -srcfolder "$stage" -fs HFS+ -format UDZO -ov "$dmg" >/dev/null
+hdiutil create -volname "Prism $version ($commit)" -srcfolder "$stage" -fs HFS+ -format UDZO -ov "$dmg" >/dev/null
 if [[ -n "${PRISM_SIGN_IDENTITY:-}" ]]; then
   codesign --force --timestamp --sign "$PRISM_SIGN_IDENTITY" "$dmg"
 fi
