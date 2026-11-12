@@ -651,7 +651,7 @@ impl Worker {
             ctx.publish(&state);
         }
         // No part (`""`, after a start): what it published only, its errors besides.
-        let own = Some((part.to_string(), tick.error)).filter(|_| !part.is_empty());
+        let own = (!part.is_empty()).then(|| (part.to_string(), tick.error));
         for (source, error) in own.into_iter().chain(tick.errors) {
             // A source its manifest does not declare goes nowhere: under another block's id, it
             // would overwrite that one's error.
