@@ -34,7 +34,12 @@ web:
 # Builds the example module, its back end (rustup target add wasm32-wasip2) then its web part, in examples/modules/hello/dist/hello: copy it into modules/ next to config.toml
 module-example:
     cargo build --release --target wasm32-wasip2 --manifest-path examples/modules/hello/backend/Cargo.toml
-    pnpm --dir web exec vite build --config ../examples/modules/hello/vite.config.mts
+    pnpm --dir examples/modules/hello install
+    pnpm --dir examples/modules/hello exec vite build
+
+# Checks that the module SDK alone (sdk/web, src-tauri/crates/module) builds the example module, and refuses what a module may not import
+module-sdk-check:
+    scripts/module-sdk-check.sh
 
 # Checks the frontend types (svelte-check, tsc) and compiles the Rust
 check:
@@ -45,6 +50,9 @@ check:
     # A team's blocks (PRISM_EXTRA_BLOCKS): their window side against Prism's.
     {{ if NO_EXTRA == "" { 'if [ -n "$PRISM_EXTRA_BLOCKS" ]; then extra="$(cd "$PRISM_EXTRA_BLOCKS" && pwd)/web"; pnpm --dir web exec svelte-check --workspace "$extra" --tsconfig "$extra/tsconfig.json"; fi' } else { "true" } }}
     {{no_extra}}cargo check --workspace --manifest-path src-tauri/Cargo.toml
+    # The module SDK copies what Prism gives a module: in step with Prism's core and window.
+    python3 scripts/module-sdk-types.py --check
+    node web/scripts/module-sdk.mjs --check
 
 # Runs the tests, Rust (cargo test) and frontend (vitest)
 test:

@@ -169,6 +169,11 @@ impl Module {
         answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))?
     }
 
+    /// A source of its manifest (a block's id, a part), as the core keeps it.
+    fn source(&self, name: &str) -> Option<&'static str> {
+        self.names.iter().copied().find(|n| *n == name)
+    }
+
     /// The block a part's error goes under: the one declaring it, or the first.
     fn owner(&self, part: &str) -> &str {
         let spec = &self.spec.blocks;
@@ -205,11 +210,13 @@ struct Worker {
     /// Trapped: started again then (none: given up, or running).
     restart_at: Option<Instant>,
     given_up: Option<String>,
+    /// The undeclared sources already said in the log (once each).
+    unknown: Vec<String>,
 }
 
 impl Worker {
     fn new(module: Arc<Module>, rt: tokio::runtime::Handle) -> Self {
-        Self { module, rt, repos: Default::default(), instance: None, component: None, configured: None, parts: Vec::new(), started: BTreeMap::new(), due: HashMap::new(), crashes: Vec::new(), restart_at: None, given_up: None }
+        Self { module, rt, repos: Default::default(), instance: None, component: None, configured: None, parts: Vec::new(), started: BTreeMap::new(), due: HashMap::new(), crashes: Vec::new(), restart_at: None, given_up: None, unknown: Vec::new() }
     }
 
     fn id(&self) -> &str {
@@ -496,11 +503,18 @@ impl Worker {
             }
             ctx.publish(&state);
         }
-        let owner = self.module.owner(part).to_string();
-        if let Some((ctx, _)) = self.started.get(&owner) {
-            match self.module.names.iter().find(|n| **n == part) {
-                Some(source) => ctx.part(source).set_error(tick.error),
-                None => ctx.set_error(tick.error),
+        for (source, error) in std::iter::once((part.to_string(), tick.error)).chain(tick.errors) {
+            // A source its manifest does not declare goes nowhere: under another block's id, it
+            // would overwrite that one's error.
+            let Some(source) = self.module.source(&source) else {
+                if !self.unknown.contains(&source) {
+                    tracing::warn!("module {}: an error for {source}, not one of its manifest's blocks or parts ([[wasm.blocks]] parts)", self.id());
+                    self.unknown.push(source);
+                }
+                continue;
+            };
+            if let Some((ctx, _)) = self.started.get(self.module.owner(source)) {
+                ctx.part(source).set_error(error);
             }
         }
         if tick.next == 0 {
@@ -538,4 +552,23 @@ fn hints(text: &str) -> Result<Hints> {
     }
     let raw: Raw = serde_json::from_str(text).map_err(|e| anyhow!("hints: {e}"))?;
     Ok(Hints { apps: raw.apps, expected: raw.expected.into_iter().map(|e| ((e.app, e.env), e.version)).collect() })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_error_goes_under_a_source_its_manifest_declares_only() {
+        let folder = std::env::temp_dir().join(format!("prism-worker-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("b.wasm"), b"").unwrap();
+        let spec = crate::manifest::parse(&folder, "[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\nparts = [\"a_reads\"]\n[[wasm.blocks]]\nid = \"b\"\n").unwrap();
+        let m = Module::new("m".into(), spec, folder.join(".stopped/m"));
+        assert_eq!(m.source("a_reads").map(|s| (s, m.owner(s))), Some(("a_reads", "a")));
+        assert_eq!(m.source("b").map(|s| m.owner(s)), Some("b"));
+        // Undeclared: not the first block's own error.
+        assert_eq!(m.source("undeclared"), None);
+        std::fs::remove_dir_all(folder).unwrap();
+    }
 }

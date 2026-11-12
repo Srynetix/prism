@@ -1,0 +1,33 @@
+{
+  "name": "@prism/sdk",
+  "version": "1.0.0",
+  "description": "Build a Prism module's web part: its blocks' Svelte components and declarations, loaded by Prism at run time.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts"
+    },
+    "./words": {
+      "types": "./words.d.ts"
+    },
+    "./vite": {
+      "types": "./vite.d.mts",
+      "default": "./vite.mjs"
+    },
+    "./exports.json": "./exports.json"
+  },
+  "files": [
+    "index.d.ts",
+    "words.d.ts",
+    "vite.mjs",
+    "vite.d.mts",
+    "exports.json",
+    "types"
+  ],
+  "peerDependencies": {
+    "@sveltejs/vite-plugin-svelte": ">=7",
+    "svelte": "~5.57.0",
+    "vite": ">=8"
+  }
+}

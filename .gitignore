@@ -22,3 +22,4 @@ docs/mockups/
 .DS_Store
 examples/modules/*/dist/
 examples/modules/*/backend/target/
+examples/modules/*/node_modules/

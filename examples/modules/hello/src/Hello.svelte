@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { ago, BlockControls, call, Icon, isCollapsed, locale, t, toast } from '@prism/sdk'
-  import type { Snapshot } from '../../../../web/src/types'
+  import type { Snapshot } from '@prism/sdk'
 
   /** What its back end publishes (`backend/`, a WebAssembly component); none without one. */
   interface State {

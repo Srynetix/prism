@@ -56,6 +56,9 @@ interface types {
         published: list<published>,
         /// The part's error; none: it answered.
         error: option<string>,
+        /// Its other sources' errors, as they stand (a block's own id, another part): none, it
+        /// answered.
+        errors: list<tuple<string, option<string>>>,
         /// Seconds before Prism ticks it again; 0: never again (until the config changes).
         next: u32,
     }
