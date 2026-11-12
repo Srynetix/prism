@@ -23,8 +23,11 @@ use crate::cache::{self, w};
 use crate::host::HostState;
 use crate::manifest::Spec;
 
-/// The longest a call may run, host calls (glab, git) included: then it traps.
-const DEADLINE: Duration = Duration::from_secs(120);
+/// The longest a call may compute, what Prism does for it (git, GitLab, a program) apart: then it
+/// traps (a loop that never ends).
+const DEADLINE: Duration = if cfg!(test) { Duration::from_secs(3) } else { Duration::from_secs(120) };
+/// The longest a call may last, what Prism does for it included (a loop of host calls).
+const LONGEST: Duration = Duration::from_secs(600);
 /// The wait before a component that trapped starts again, and how many times in `CRASH_WINDOW`.
 const RESTART_AFTER: Duration = if cfg!(test) { Duration::from_secs(1) } else { Duration::from_secs(30) };
 const CRASHES: usize = 3;
@@ -394,6 +397,20 @@ impl Worker {
         let host = HostState::new(self.module.id.clone(), capabilities, self.repos.clone(), self.rt.clone());
         let mut store = Store::new(cache::engine(), host);
         store.set_epoch_deadline(deadline());
+        // At its deadline, the time it waited for Prism since is given back: it traps once it
+        // computed `DEADLINE` of its own, or lasted `LONGEST`.
+        store.epoch_deadline_callback(|mut ctx| {
+            let host = ctx.data_mut();
+            let waited = std::mem::take(&mut host.waited);
+            if host.started.elapsed() >= LONGEST {
+                return Err(wasmtime::Error::msg(format!("a call longer than {} minutes, what Prism did for it included", LONGEST.as_secs() / 60)));
+            }
+            let back = (waited.as_millis() / cache::EPOCH.as_millis()) as u64;
+            if back == 0 {
+                return Err(wasmtime::Error::msg(format!("a call computing longer than {} minutes", DEADLINE.as_secs() / 60)));
+            }
+            Ok(wasmtime::UpdateDeadline::Continue(back))
+        });
         let block = w(bindings::Block::instantiate(&mut store, &component, &linker))?;
         Ok(Instance { store, block })
     }
@@ -419,6 +436,9 @@ impl Worker {
         }
         let i = self.instance.as_mut().unwrap();
         i.store.set_epoch_deadline(deadline());
+        let host = i.store.data_mut();
+        host.started = Instant::now();
+        host.waited = Duration::ZERO;
         match f(&mut i.store, &i.block) {
             Ok(v) => Ok(v),
             Err(trap) => Err(self.crashed(trap)),
@@ -443,10 +463,11 @@ impl Worker {
         let said = self.instance.take().map(|i| i.store.data().stderr.take()).unwrap_or_default();
         // A Rust panic says why on its standard error, before the trap.
         let why = said.iter().rev().find(|l| l.contains("panicked")).cloned().or_else(|| said.last().cloned());
-        let trap = trap.to_string();
+        // Why it trapped (a deadline's, its own words), under the wasm backtrace.
+        let cause = trap.root_cause().to_string();
         let message = match why {
             Some(why) => format!("the module {} stopped: {why}", self.id()),
-            None => format!("the module {} stopped: {trap}", self.id()),
+            None => format!("the module {} stopped: {cause}", self.id()),
         };
         tracing::error!("{message} ({trap:?})");
         let now = Instant::now();

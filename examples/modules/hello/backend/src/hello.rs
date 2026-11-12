@@ -118,12 +118,32 @@ impl Block for Hello {
         true
     }
 
-    fn call(&self, command: String, _args: Value) -> BoxFuture<'static, Result<Value>> {
+    fn call(&self, command: String, args: Value) -> BoxFuture<'static, Result<Value>> {
         Box::pin(async move {
+            let secs = || std::time::Duration::from_secs(args["secs"].as_u64().unwrap_or(1));
             match command.as_str() {
                 "ping" => Ok(json!({ "pong": READS.load(Ordering::Relaxed), "demo": false })),
                 // On purpose: Prism says so on the block, and starts the component again.
                 "panic" => panic!("hello panicked on purpose"),
+                // Prism's tests of a call's deadline: computing for `secs` (stopped past its
+                // deadline), or waiting as long for git in `repo` (not its own time).
+                "spin" => {
+                    let t0 = std::time::Instant::now();
+                    let mut n = 0u64;
+                    while t0.elapsed() < secs() {
+                        n = std::hint::black_box(n.wrapping_add(1));
+                    }
+                    Ok(json!({ "spun": n }))
+                }
+                "wait" => {
+                    let (t0, repo) = (std::time::Instant::now(), PathBuf::from(args["repo"].as_str().unwrap_or_default()));
+                    let mut n = 0u64;
+                    while t0.elapsed() < secs() {
+                        git(&repo, &["log", "-1", "--format=%s"]).await?;
+                        n += 1;
+                    }
+                    Ok(json!({ "reads": n }))
+                }
                 other => anyhow::bail!("no command {other}"),
             }
         })

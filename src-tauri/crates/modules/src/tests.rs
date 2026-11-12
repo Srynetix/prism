@@ -108,6 +108,30 @@ async fn the_example_fills_its_block_and_survives_its_panic() {
     std::fs::remove_dir_all(clone).unwrap();
 }
 
+/// A call's deadline (3 s in tests) counts its own computing, not what Prism does for it.
+#[tokio::test(flavor = "multi_thread")]
+async fn its_deadline_counts_its_own_time() {
+    let Some(wasm) = example() else { return };
+    let clone = temp("deadline");
+    git(&clone, &["init", "-q"]);
+    git(&clone, &["commit", "-q", "--allow-empty", "-m", "First of all"]);
+    let module = module(&wasm, "{ git = true }");
+    let (m, h, c) = (module.clone(), Hub::new(), clone.clone());
+    tokio::task::spawn_blocking(move || {
+        m.configure(&toml::Table::new()).unwrap();
+        m.start("hello", BlockCtx::new("hello", h, Arc::new(env(&c))), crate::block::env_json("hello", &env(&c))).unwrap();
+    })
+    .await
+    .unwrap();
+    // Waiting 5 s for git: past the deadline in time, not in its own.
+    let waited = module.call("hello", "wait".into(), json!({ "repo": clone, "secs": 5 }), false).await.unwrap();
+    assert!(waited["reads"].as_u64().unwrap() > 1, "{waited}");
+    // Computing 5 s: stopped.
+    let e = module.call("hello", "spin".into(), json!({ "secs": 5 }), false).await.unwrap_err().to_string();
+    assert!(e.contains("computing longer than"), "{e}");
+    std::fs::remove_dir_all(clone).unwrap();
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn without_git_its_read_says_so() {
     let Some(wasm) = example() else { return };

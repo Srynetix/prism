@@ -34,6 +34,10 @@ pub struct HostState {
     pub repos: Arc<Mutex<Vec<PathBuf>>>,
     pub rt: tokio::runtime::Handle,
     pub stderr: Stderr,
+    /// The time the current call spent waiting for Prism (git, GitLab, a program): not its own.
+    pub waited: std::time::Duration,
+    /// When the current call started.
+    pub started: std::time::Instant,
     wasi: WasiCtx,
     table: ResourceTable,
 }
@@ -43,7 +47,15 @@ impl HostState {
         let stderr = Stderr { module: module.clone(), lines: Default::default() };
         // No preopened folder, no environment, no socket: clocks and randomness.
         let wasi = WasiCtx::builder().stderr(stderr.clone()).build();
-        Self { module, caps, repos, rt, stderr, wasi, table: ResourceTable::new() }
+        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), wasi, table: ResourceTable::new() }
+    }
+
+    /// What Prism does for it, its time counted apart from the call's own (`waited`).
+    fn wait<T>(&mut self, f: impl std::future::Future<Output = T>) -> T {
+        let t0 = std::time::Instant::now();
+        let out = self.rt.block_on(f);
+        self.waited += t0.elapsed();
+        out
     }
 
     fn refused(&self, what: &str) -> String {
@@ -81,10 +93,10 @@ impl Host for HostState {
             return Err(format!("gitlab: method {method}"));
         }
         let answer: anyhow::Result<Value> = if method == "GET" && body.is_none() {
-            self.rt.block_on(prism_collectors::gitlab::api::<Value>(&path))
+            self.wait(prism_collectors::gitlab::api::<Value>(&path))
         } else {
             let body: Value = body.as_deref().map(serde_json::from_str).transpose().map_err(|e| format!("gitlab: body: {e}"))?.unwrap_or_else(|| Value::Object(Default::default()));
-            self.rt.block_on(prism_collectors::gitlab::glab_input::<Value>(&method, &path, &body))
+            self.wait(prism_collectors::gitlab::glab_input::<Value>(&method, &path, &body))
         };
         answer.map(|v| v.to_string()).map_err(err)
     }
@@ -93,7 +105,7 @@ impl Host for HostState {
         if !self.caps.gitlab {
             return Err(self.refused("gitlab"));
         }
-        self.rt.block_on(prism_core::forge::cli::Cli::Glab.run(&["api", path.as_str()])).map_err(err)
+        self.wait(prism_core::forge::cli::Cli::Glab.run(&["api", path.as_str()])).map_err(err)
     }
 
     fn git(&mut self, repo: String, args: Vec<String>) -> Result<String, String> {
@@ -107,7 +119,7 @@ impl Host for HostState {
             return Err(self.refused(&format!("git {} (a subcommand that reads: {})", args.join(" "), READS.join(", "))));
         }
         let args: Vec<&str> = args.iter().map(String::as_str).collect();
-        self.rt.block_on(prism_base::git::run(&clone, &args)).map_err(err)
+        self.wait(prism_base::git::run(&clone, &args)).map_err(err)
     }
 
     fn http_get(&mut self, url: String, headers: Vec<(String, String)>) -> Result<String, String> {
@@ -119,19 +131,21 @@ impl Host for HostState {
         for (k, v) in headers {
             request = request.header(k, v);
         }
-        self.rt
-            .block_on(async move {
-                let r = request.send().await?.error_for_status()?;
-                r.text().await
-            })
-            .map_err(|e| format!("{host}: {e}"))
+        self.wait(async move {
+            let r = request.send().await?.error_for_status()?;
+            r.text().await
+        })
+        .map_err(|e| format!("{host}: {e}"))
     }
 
     fn exec(&mut self, program: String, args: Vec<String>) -> Result<String, String> {
         if !self.caps.exec.contains(&program) {
             return Err(self.refused(&format!("exec {program}")));
         }
-        let out = std::process::Command::new(&program).args(&args).stdin(std::process::Stdio::null()).output().map_err(|e| format!("{program}: {e}"))?;
+        let t0 = std::time::Instant::now();
+        let out = std::process::Command::new(&program).args(&args).stdin(std::process::Stdio::null()).output();
+        self.waited += t0.elapsed();
+        let out = out.map_err(|e| format!("{program}: {e}"))?;
         if !out.status.success() {
             return Err(format!("{program}: {}", String::from_utf8_lossy(&out.stderr).trim()));
         }

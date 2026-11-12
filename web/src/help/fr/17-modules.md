@@ -84,7 +84,7 @@ static BLOCKS: &[&dyn prism_module::Block] = &[&hello::HELLO];
 prism_module::module!(BLOCKS);
 ```
 
-Son collecteur est une boucle lancée dans `start`, comme dans Prism : `loop { lire; ctx.publish(&état); ctx.pause(délai).await }`. Chaque `pause` rend la main à Prism, qui reprend la boucle quand cette partie est de nouveau due ; git, GitLab et les programmes répondent tout de suite. Une panique, ou un appel de plus de deux minutes, arrête le back end : ses blocs le disent, et Prism le relance 30 s plus tard. Ses lignes `tracing` (`tracing::warn!`, avec `tracing` dans ses dépendances) vont au journal de Prism, comme celles d'un bloc de Prism.
+Son collecteur est une boucle lancée dans `start`, comme dans Prism : `loop { lire; ctx.publish(&état); ctx.pause(délai).await }`. Chaque `pause` rend la main à Prism, qui reprend la boucle quand cette partie est de nouveau due ; git, GitLab et les programmes répondent tout de suite. Une panique, ou un appel qui calcule plus de deux minutes (ce que Prism fait pour lui, git, GitLab, un programme, à part ; dix minutes en tout), arrête le back end : ses blocs le disent, et Prism le relance 30 s plus tard. Ses lignes `tracing` (`tracing::warn!`, avec `tracing` dans ses dépendances) vont au journal de Prism, comme celles d'un bloc de Prism.
 
 Build : `rustup target add wasm32-wasip2` une fois, puis `cargo build --release --target wasm32-wasip2`. `vite build` copie le composant dans `dist/<id>/` avec `module.toml`.
 
