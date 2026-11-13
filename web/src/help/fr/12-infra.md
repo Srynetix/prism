@@ -93,6 +93,8 @@ Trois groupes sont scannés, chacun avec sa case sous **Afficher** :
 - **Images** : les images qu’un bloc de votre équipe nomme (`[vulnerabilities] images`), ses propres réglages disant lesquelles et où elles sont.
 - **Base** : les images de base que ce bloc nomme aussi, construites dans un autre dépôt (un Dockerfile par image), scannées avec leur `.trivyignore`.
 
+Sous chaque image, ce qui a été analysé exactement : le début de son digest (un clic le copie en entier ; au survol, sa référence complète, sa plateforme, sa date de construction et l’heure de l’analyse) et son chemin dans le registre. Une image publiée pour arm64 en plus d’amd64 est analysée pour les deux, sa ligne arm64 à côté (`cart-api · prod · arm64`). **Vérifier sur le registre** demande au registre, sans rien télécharger, vers quoi pointe chaque tag analysé : **changée depuis l’analyse** quand c’est un autre digest, **0.2.149 publiée** quand un tag plus récent de la liste du bloc est sorti, **à jour** sinon. **Réanalyser** analyse cette image seule à nouveau, pas tout le reste. Le registre est lu par `buildx imagetools` de Docker (votre `docker login`), ou par gcloud pour une image sur GCP.
+
 **Masquer les ignorées** masque partout les résultats acceptés ; **Masquer les sains** masque les projets et images sans rien à signaler. Cliquez sur un projet pour voir ses propres résultats. Chaque résultat donne le paquet, la CVE (avec son lien), la version installée et la version qui la corrige.
 
 ## Corriger une CVE

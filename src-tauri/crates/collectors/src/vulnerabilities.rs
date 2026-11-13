@@ -23,7 +23,7 @@
 
 use prism_base::tr;
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     path::{Path, PathBuf},
     sync::LazyLock,
     time::Duration,
@@ -38,7 +38,7 @@ use super::repos::default_branch;
 use crate::git::run as git;
 use crate::{
     config::VulnerabilitiesConfig,
-    state::{Hub, VulnFinding, VulnProject, Vulnerabilities},
+    state::{Hub, RemoteImage, ScannedImage, VulnFinding, VulnProject, Vulnerabilities},
 };
 
 const SOURCE: &str = "vulnerabilities";
@@ -98,39 +98,116 @@ struct Target {
     image: Option<String>,
     /// Image read from the GCP registry, or newer tags without an image.
     note: Option<String>,
+    /// The image exactly as scanned.
+    scanned: Option<ScannedImage>,
     error: Option<String>,
     vulns: Vec<(RawVuln, bool)>,
 }
 
-static RESCAN: LazyLock<Notify> = LazyLock::new(Notify::new);
+static WAKE: LazyLock<Notify> = LazyLock::new(Notify::new);
+/// What was asked of the scan meanwhile, done in the order asked.
+static ASKED: LazyLock<std::sync::Mutex<Vec<Asked>>> = LazyLock::new(Default::default);
+
+#[derive(Debug, Clone, PartialEq)]
+enum Asked {
+    /// Everything again.
+    Scan,
+    /// Each scanned image against its registry: its tag's digest now, a newer tag published.
+    Check,
+    /// One image again (its line's label).
+    Image(String),
+}
+
+/// The hub the scan writes to: what is asked shows at once (`scanning`, `checking`), even while
+/// a scan runs and the request waits for it.
+static HUB: std::sync::OnceLock<Hub> = std::sync::OnceLock::new();
+
+fn ask(what: Asked) {
+    if let Some(hub) = HUB.get() {
+        let scan = what == Asked::Scan;
+        hub.update(|s| s.vulnerabilities.as_mut().is_some_and(|v| if scan { !std::mem::replace(&mut v.scanning, true) } else { !std::mem::replace(&mut v.checking, true) }));
+    }
+    let mut asked = ASKED.lock().unwrap();
+    if !asked.contains(&what) {
+        asked.push(what);
+    }
+    WAKE.notify_one();
+}
 
 /// Requests a scan without waiting for the next day.
 pub fn rescan() {
-    RESCAN.notify_one();
+    ask(Asked::Scan);
+}
+
+/// Asks the registry about each scanned image: changed since, or a newer tag published.
+pub fn check_registry() {
+    ask(Asked::Check);
+}
+
+/// Scans one image again (`project`: its line, `cart-api · prod`), not the whole lot.
+pub fn rescan_image(project: &str) {
+    ask(Asked::Image(project.to_string()));
 }
 
 pub async fn run(repos: Vec<ScanRepo>, cfg: VulnerabilitiesConfig, images: Option<Images>, hub: Hub) {
     let cache = crate::profile::cache_dir();
     let saved = cache.join("vulnerabilities.json");
+    let save = |v: &Vulnerabilities| {
+        if let Err(e) = std::fs::create_dir_all(&cache).and_then(|_| std::fs::write(&saved, serde_json::to_vec(v).unwrap_or_default())) {
+            tracing::warn!("vulnerabilities: save: {e}");
+        }
+    };
     let mut last: Option<Vulnerabilities> = std::fs::read(&saved).ok().and_then(|b| serde_json::from_slice(&b).ok());
     if let Some(v) = &last {
-        set(&hub, Vulnerabilities { scanning: false, ..v.clone() });
+        set(&hub, Vulnerabilities { scanning: false, checking: false, ..v.clone() });
     }
+    let _ = HUB.set(hub.clone());
+    // After a failed scan: not again before then, unless asked.
+    let mut retry_at: Option<tokio::time::Instant> = None;
     loop {
         // The kept result is valid until the next day.
         let age = last.as_ref().and_then(|v| v.scanned_at).map(|at| (Utc::now() - at).to_std().unwrap_or_default());
-        if let Some(age) = age.filter(|a| *a < EVERY) {
-            let _ = tokio::time::timeout(EVERY - age, RESCAN.notified()).await;
+        let wait = match retry_at {
+            Some(at) => Some(at.saturating_duration_since(tokio::time::Instant::now())),
+            None => age.filter(|a| *a < EVERY).map(|a| EVERY - a),
+        };
+        if let Some(wait) = wait.filter(|w| !w.is_zero()) {
+            let _ = tokio::time::timeout(wait, WAKE.notified()).await;
         }
+        let asked = std::mem::take(&mut *ASKED.lock().unwrap());
+        // Only a check or an image: done on the last result, the day's scan still to come.
+        if let Some(v) = last.as_mut().filter(|_| !asked.is_empty() && !asked.contains(&Asked::Scan)) {
+            hub.update(|s| s.vulnerabilities.as_mut().is_some_and(|v| !std::mem::replace(&mut v.checking, true)));
+            for what in asked {
+                match what {
+                    Asked::Check => check(v, images.as_ref()).await,
+                    Asked::Image(project) => {
+                        if let Err(e) = rescan_one(v, &project, images.as_ref(), &cfg, &cache).await {
+                            tracing::warn!("vulnerabilities: {project}: {e:#}");
+                            if let Some(p) = v.projects.iter_mut().find(|p| p.project == project) {
+                                p.error = Some(first_line(&format!("{e:#}")));
+                            }
+                        }
+                    }
+                    Asked::Scan => {}
+                }
+            }
+            save(v);
+            set(&hub, Vulnerabilities { scanning: false, checking: false, ..v.clone() });
+            continue;
+        }
+        // Woken for nothing while a failed scan waits: it keeps waiting.
+        if !asked.contains(&Asked::Scan) && retry_at.is_some_and(|at| at > tokio::time::Instant::now()) {
+            continue;
+        }
+        retry_at = None;
         hub.update(|s| match s.vulnerabilities.as_mut() {
             Some(v) => !std::mem::replace(&mut v.scanning, true),
             None => false,
         });
         match scan(&repos, &cfg, images.as_ref(), &cache, last.as_ref()).await {
             Ok(v) => {
-                if let Err(e) = std::fs::create_dir_all(&cache).and_then(|_| std::fs::write(&saved, serde_json::to_vec(&v).unwrap_or_default())) {
-                    tracing::warn!("vulnerabilities: save: {e}");
-                }
+                save(&v);
                 set(&hub, v.clone());
                 hub.set_error(SOURCE, None);
                 last = Some(v);
@@ -138,12 +215,104 @@ pub async fn run(repos: Vec<ScanRepo>, cfg: VulnerabilitiesConfig, images: Optio
             Err(e) => {
                 tracing::warn!("vulnerabilities: {e:#}");
                 hub.set_error(SOURCE, Some(format!("{e:#}")));
-                hub.update(|s| s.vulnerabilities.as_mut().is_some_and(|v| std::mem::take(&mut v.scanning)));
-                // No new attempt for an hour, unless requested.
-                let _ = tokio::time::timeout(Duration::from_secs(3600), RESCAN.notified()).await;
+                hub.update(|s| s.vulnerabilities.as_mut().is_some_and(|v| std::mem::take(&mut v.scanning) | std::mem::take(&mut v.checking)));
+                // No new attempt for an hour, unless a scan is asked.
+                retry_at = Some(tokio::time::Instant::now() + Duration::from_secs(3600));
             }
         }
     }
+}
+
+/// The line of an image's platform besides amd64 (`cart-api · prod · arm64`) belongs to it.
+fn image_of(project: &str) -> &str {
+    project.strip_suffix(" · arm64").unwrap_or(project)
+}
+
+/// Each scanned image against its registry, without pulling it: the digest its tag points to
+/// now, and the newest tag the provider names that is published, when newer than the scanned one.
+async fn check(v: &mut Vulnerabilities, images: Option<&Images>) {
+    let named = match images {
+        Some(Images { provider, clone, project, local }) => provider.images(clone, project, local).await.unwrap_or_else(|e| {
+            tracing::warn!("vulnerabilities: images: {e:#}");
+            Vec::new()
+        }),
+        None => Vec::new(),
+    };
+    // Each place asked once: an image's amd64 and arm64 lines share theirs.
+    let mut asked: HashMap<(String, bool), std::result::Result<String, String>> = HashMap::new();
+    let mut ask = async |image: &str, gcp: bool| -> std::result::Result<String, String> {
+        if let Some(r) = asked.get(&(image.to_string(), gcp)) {
+            return r.clone();
+        }
+        let r = published(image, gcp).await.map(|p| p.digest).map_err(|e| first_line(&format!("{e:#}")));
+        asked.insert((image.to_string(), gcp), r.clone());
+        r
+    };
+    for p in v.projects.iter_mut() {
+        let Some(scanned) = p.scanned.clone() else { continue };
+        let now = ask(&scanned.reference, scanned.gcp).await;
+        // Newer: the tags listed before the scanned one, when it is still listed.
+        let mut newer = None;
+        if let Some(target) = named.iter().find(|t| t.label == image_of(&p.project))
+            && let Some(at) = target.tags.iter().position(|t| Some(&t.shown) == p.image.as_ref())
+        {
+            'tags: for tag in &target.tags[..at] {
+                for place in &tag.at {
+                    if ask(&place.image, place.gcp).await.is_ok() {
+                        newer = Some(tag.shown.clone());
+                        break 'tags;
+                    }
+                }
+            }
+        }
+        let (digest, error) = match now {
+            Ok(d) => (Some(d), None),
+            Err(e) => (None, Some(e)),
+        };
+        p.remote = Some(RemoteImage { at: Utc::now(), digest, newer, error });
+    }
+}
+
+/// One image scanned again, its lines and their CVEs put in place of the former ones; « new »
+/// against those.
+async fn rescan_one(v: &mut Vulnerabilities, project: &str, images: Option<&Images>, cfg: &VulnerabilitiesConfig, cache: &Path) -> Result<()> {
+    let Images { provider, clone, project: forge_project, local } = images.context("no image provider")?;
+    let label = image_of(project);
+    let target = provider.images(clone, forge_project, local).await?.into_iter().find(|t| t.label == label).with_context(|| tr!("{name} is no longer named", name = label))?;
+    let dir = cache.join("trivy-image");
+    std::fs::create_dir_all(&dir)?;
+    let targets = scan_image(target, &mut Gcp::default(), &dir, &cfg.skip_dirs).await;
+    let _ = std::fs::remove_dir_all(&dir);
+    let fresh = summarize(v.branch.clone(), v.sha.clone(), v.trivy.clone(), targets, Some(v));
+    merge(v, label, fresh);
+    Ok(())
+}
+
+/// `fresh` (one image's lines) in place of that image's lines in `v`.
+fn merge(v: &mut Vulnerabilities, label: &str, fresh: Vulnerabilities) {
+    let mine = |p: &str| image_of(p) == label;
+    let at = v.projects.iter().position(|p| mine(&p.project)).unwrap_or(v.projects.len());
+    v.projects.retain(|p| !mine(&p.project));
+    for (i, p) in fresh.projects.into_iter().enumerate() {
+        v.projects.insert((at + i).min(v.projects.len()), p);
+    }
+    for f in &mut v.findings {
+        f.projects.retain(|p| !mine(p));
+        f.new_in.retain(|p| !mine(p));
+        f.new = !f.new_in.is_empty();
+    }
+    v.findings.retain(|f| !f.projects.is_empty());
+    for f in fresh.findings {
+        match v.findings.iter_mut().find(|x| (&x.id, &x.package, &x.installed, x.accepted) == (&f.id, &f.package, &f.installed, f.accepted)) {
+            Some(x) => {
+                x.projects.extend(f.projects);
+                x.new_in.extend(f.new_in);
+                x.new = !x.new_in.is_empty();
+            }
+            None => v.findings.push(f),
+        }
+    }
+    sort_findings(&mut v.findings);
 }
 
 fn set(hub: &Hub, v: Vulnerabilities) {
@@ -188,7 +357,7 @@ async fn scan(repos: &[ScanRepo], cfg: &VulnerabilitiesConfig, images: Option<&I
         std::fs::create_dir_all(&dir)?;
         let mut gcp = Gcp::default();
         for image in provider.images(clone, project, local).await? {
-            targets.push(scan_image(image, &mut gcp, &dir, &cfg.skip_dirs).await);
+            targets.extend(scan_image(image, &mut gcp, &dir, &cfg.skip_dirs).await);
         }
     }
     let _ = std::fs::remove_dir_all(&dir);
@@ -249,7 +418,7 @@ async fn dependencies(r: &ScanRepo, branch: &str, cfg: &VulnerabilitiesConfig, d
         )
         .await
         .with_context(|| tr!("trivy on {p}", p = p))?;
-        targets.push(Target { label: name(p, &components), repo: None, base: false, image: None, note: None, error: None, vulns: findings(&out).with_context(|| format!("trivy report of {p}"))? });
+        targets.push(Target { label: name(p, &components), repo: None, base: false, image: None, note: None, error: None, scanned: None, vulns: findings(&out).with_context(|| format!("trivy report of {p}"))?.0 });
     }
     let _ = std::fs::remove_dir_all(dir);
     Ok((sha, targets))
@@ -297,7 +466,7 @@ async fn dependabot(project: &str) -> Option<Target> {
                 tracing::info!("vulnerabilities: no Dependabot alerts ({e})");
                 return None;
             }
-            return Some(Target { label, repo: None, base: false, image: None, note: None, error: Some(format!("Dependabot: {e}")), vulns: Vec::new() });
+            return Some(Target { label, repo: None, base: false, image: None, note: None, error: Some(format!("Dependabot: {e}")), scanned: None, vulns: Vec::new() });
         }
     };
     let vulns = alerts
@@ -316,7 +485,7 @@ async fn dependabot(project: &str) -> Option<Target> {
             (v, false)
         })
         .collect();
-    Some(Target { label, repo: None, base: false, image: None, note: None, error: None, vulns })
+    Some(Target { label, repo: None, base: false, image: None, note: None, error: None, scanned: None, vulns })
 }
 
 /// GCP registry access token, requested from gcloud when the scan first needs it.
@@ -335,11 +504,16 @@ impl Gcp {
     }
 }
 
-/// An image: its most recent tag that has one, from the first place that has it.
-async fn scan_image(target: ImageTarget, gcp: &mut Gcp, dir: &Path, skip_dirs: &[String]) -> Target {
+/// The platforms scanned when the image is published for them: amd64 first, which decides
+/// whether a tag is published; arm64 besides, on a line of its own.
+const PLATFORMS: [&str; 2] = ["linux/amd64", "linux/arm64"];
+
+/// An image: its most recent tag that has one, from the first place that has it; for each
+/// platform it is published for (`PLATFORMS`), one target.
+async fn scan_image(target: ImageTarget, gcp: &mut Gcp, dir: &Path, skip_dirs: &[String]) -> Vec<Target> {
     let (label, repo, base) = (target.label, target.repo, target.base);
     if let Some(error) = target.error {
-        return Target { label, repo: repo.clone(), base, image: None, note: None, error: Some(error), vulns: Vec::new() };
+        return vec![Target { label, repo: repo.clone(), base, image: None, note: None, error: Some(error), scanned: None, vulns: Vec::new() }];
     }
     // Its `.trivyignore` rules, in a file of their own for Trivy.
     let ignore = match target.ignore {
@@ -358,25 +532,42 @@ async fn scan_image(target: ImageTarget, gcp: &mut Gcp, dir: &Path, skip_dirs: &
         let mut result = Err(anyhow::anyhow!(tr!("nowhere to read {tag}", tag = tag.shown)));
         let mut place = None;
         for at in &tag.at {
-            result = if at.gcp {
+            let token = if at.gcp {
                 match gcp.token().await {
-                    Ok(token) => trivy_image(&at.image, &ignore, Some(&token), skip_dirs).await,
-                    Err(e) => Err(anyhow::anyhow!("{e}")),
+                    Ok(token) => Some(token),
+                    Err(e) => {
+                        result = Err(anyhow::anyhow!("{e}"));
+                        continue;
+                    }
                 }
             } else {
-                trivy_image(&at.image, &ignore, None, skip_dirs).await
+                None
             };
+            result = trivy_image(&at.image, &ignore, token.as_deref(), skip_dirs, PLATFORMS[0]).await.map(|r| (r, at, token));
             if result.is_ok() {
-                place = at.gcp.then_some("on GCP");
+                place = Some(at);
                 break;
             }
         }
         let image = Some(tag.shown.clone());
         match result {
-            Ok(vulns) => {
+            Ok(((vulns, meta), at, token)) => {
                 let skipped = (!unpublished.is_empty()).then(|| tr!("{tags} not published", tags = unpublished.join(", ")));
-                let note = [place.map(String::from), skipped].into_iter().flatten().collect::<Vec<_>>().join(" · ");
-                return Target { label, repo: repo.clone(), base, image, note: (!note.is_empty()).then_some(note), error: None, vulns };
+                let note = [place.filter(|p| p.gcp).map(|_| String::from("on GCP")), skipped].into_iter().flatten().collect::<Vec<_>>().join(" · ");
+                let note = (!note.is_empty()).then_some(note);
+                // What the registry publishes: the tag's digest (an index's), its platforms.
+                let published = published(&at.image, at.gcp).await.ok();
+                let digest = published.as_ref().map(|p| p.digest.clone());
+                let scanned = |platform: &str, meta: ImageMeta| ScannedImage { reference: at.image.clone(), digest: digest.clone(), pulled: meta.digest, created: meta.created, scanned_at: Utc::now(), platform: platform.into(), gcp: at.gcp };
+                let mut out = vec![Target { label: label.clone(), repo: repo.clone(), base, image: image.clone(), note: note.clone(), error: None, scanned: Some(scanned(PLATFORMS[0], meta)), vulns }];
+                if published.as_ref().is_some_and(|p| p.platforms.iter().any(|x| x == PLATFORMS[1])) {
+                    let label = format!("{label} · arm64");
+                    out.push(match trivy_image(&at.image, &ignore, token.as_deref(), skip_dirs, PLATFORMS[1]).await {
+                        Ok((vulns, meta)) => Target { label, repo: repo.clone(), base, image, note, error: None, scanned: Some(scanned(PLATFORMS[1], meta)), vulns },
+                        Err(e) => Target { label, repo: repo.clone(), base, image, note, error: Some(first_line(&format!("{e:#}"))), scanned: None, vulns: Vec::new() },
+                    });
+                }
+                return out;
             }
             Err(e) if missing(&format!("{e:#}")) => {
                 unpublished.push(tag.tag.clone());
@@ -384,18 +575,25 @@ async fn scan_image(target: ImageTarget, gcp: &mut Gcp, dir: &Path, skip_dirs: &
             }
             Err(e) => {
                 tracing::warn!("vulnerabilities: {label}: {e:#}");
-                return Target { label, repo: repo.clone(), base, image, note: None, error: Some(first_line(&format!("{e:#}"))), vulns: Vec::new() };
+                return vec![Target { label, repo: repo.clone(), base, image, note: None, error: Some(first_line(&format!("{e:#}"))), scanned: None, vulns: Vec::new() }];
             }
         }
     }
     let error = format!("{}{}", tr!("no published image for {tags}", tags = unpublished.join(", ")), last_error.map(|e| format!(" ({})", first_line(&format!("{e:#}")))).unwrap_or_default());
-    Target { label, repo: repo.clone(), base, image: None, note: None, error: Some(error), vulns: Vec::new() }
+    vec![Target { label, repo: repo.clone(), base, image: None, note: None, error: Some(error), scanned: None, vulns: Vec::new() }]
 }
 
-async fn trivy_image(image: &str, ignore: &Path, token: Option<&str>, skip_dirs: &[String]) -> Result<Vec<(RawVuln, bool)>> {
+/// What Trivy says of the image it read: the digest it was pulled by, when it was built.
+#[derive(Debug, Default)]
+struct ImageMeta {
+    digest: Option<String>,
+    created: Option<chrono::DateTime<Utc>>,
+}
+
+async fn trivy_image(image: &str, ignore: &Path, token: Option<&str>, skip_dirs: &[String], platform: &str) -> Result<(Vec<(RawVuln, bool)>, ImageMeta)> {
     let mut cmd = crate::platform::command("trivy");
     cmd.args(["image", "--quiet", "--format", "json", "--scanners", "vuln", "--severity", "HIGH,CRITICAL", "--ignore-unfixed", "--show-suppressed"])
-        .args(["--image-src", "remote", "--platform", "linux/amd64"]);
+        .args(["--image-src", "remote", "--platform", platform]);
     if !skip_dirs.is_empty() {
         cmd.arg("--skip-dirs").arg(skip_dirs.join(","));
     }
@@ -413,23 +611,79 @@ async fn trivy_image(image: &str, ignore: &Path, token: Option<&str>, skip_dirs:
     }
 }
 
+/// What the registry publishes under a tag now: the digest it points to (a multi-platform
+/// image's index) and the platforms it is published for (none known: a single image, or GCP).
+#[derive(Debug, PartialEq)]
+struct Published {
+    digest: String,
+    platforms: Vec<String>,
+}
+
+/// Asked without pulling anything: Docker's `buildx imagetools` (its logins), or gcloud for an
+/// image on GCP's registry.
+async fn published(image: &str, gcp: bool) -> Result<Published> {
+    let ask = async {
+        if gcp {
+            let out = run_ok(crate::platform::command("gcloud").args(["artifacts", "docker", "images", "describe", image, "--format=json"])).await?;
+            let v: serde_json::Value = serde_json::from_str(&out)?;
+            let digest = v.pointer("/image_summary/digest").and_then(|d| d.as_str()).context("gcloud: no digest")?;
+            Ok(Published { digest: digest.to_string(), platforms: Vec::new() })
+        } else {
+            let out = run_ok(crate::platform::command("docker").args(["buildx", "imagetools", "inspect", image, "--format", "{{json .Manifest}}"])).await?;
+            manifest(&out)
+        }
+    };
+    match tokio::time::timeout(Duration::from_secs(60), ask).await {
+        Ok(r) => r,
+        Err(_) => bail!("{}", tr!("timed out after {n} min", n = 1)),
+    }
+}
+
+/// A manifest as `docker buildx imagetools inspect --format '{{json .Manifest}}'` writes it.
+fn manifest(json: &str) -> Result<Published> {
+    let v: serde_json::Value = serde_json::from_str(json)?;
+    let digest = v.get("digest").and_then(|d| d.as_str()).context("no digest")?.to_string();
+    let platforms = v
+        .get("manifests")
+        .and_then(|m| m.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|m| {
+            let p = m.get("platform")?;
+            let (os, arch) = (p.get("os")?.as_str()?, p.get("architecture")?.as_str()?);
+            // Attestations come as `unknown/unknown`.
+            (os != "unknown").then(|| match p.get("variant").and_then(|v| v.as_str()) {
+                Some(variant) => format!("{os}/{arch}/{variant}"),
+                None => format!("{os}/{arch}"),
+            })
+        })
+        .collect();
+    Ok(Published { digest, platforms })
+}
+
 /// The registry does not know this image or this tag.
 fn missing(error: &str) -> bool {
     let e = error.to_lowercase();
     ["manifest_unknown", "manifest unknown", "name_unknown", "not found", "404"].iter().any(|m| e.contains(m))
 }
 
-/// Vulnerabilities of a Trivy report, and those a `.trivyignore` dismisses (accepted).
-fn findings(report: &str) -> Result<Vec<(RawVuln, bool)>> {
+/// Vulnerabilities of a Trivy report, and those a `.trivyignore` dismisses (accepted); for an
+/// image, what it says of it.
+fn findings(report: &str) -> Result<(Vec<(RawVuln, bool)>, ImageMeta)> {
     let report: Report = serde_json::from_str(report)?;
-    Ok(report
+    let meta = ImageMeta {
+        digest: report.metadata.repo_digests.first().and_then(|d| d.split_once('@')).map(|(_, d)| d.to_string()),
+        created: report.metadata.image_config.created,
+    };
+    let vulns = report
         .results
         .into_iter()
         .flat_map(|r| {
             let accepted = r.suppressed.into_iter().filter(|m| m.status == "ignored").map(|m| (m.finding, true));
             r.vulnerabilities.into_iter().map(|v| (v, false)).chain(accepted)
         })
-        .collect())
+        .collect();
+    Ok((vulns, meta))
 }
 
 /// Last useful line of a Trivy error (the cause), shortened.
@@ -464,10 +718,16 @@ fn name(dir: &str, components: &str) -> String {
 fn summarize(branch: String, sha: String, trivy: String, targets: Vec<Target>, previous: Option<&Vulnerabilities>) -> Vulnerabilities {
     let known: Option<HashSet<(String, String)>> = previous
         .map(|p| p.findings.iter().filter(|f| !f.accepted).flat_map(|f| f.projects.iter().map(move |pr| (f.id.clone(), pr.clone()))).collect());
-    let is_new = |id: &str, project: &str| known.as_ref().is_some_and(|k| !k.contains(&(id.to_string(), project.to_string())));
+    // A line the previous scan did not have (an image's arm64, scanned since) compares with its
+    // image's: its CVEs are not all new.
+    let had: HashSet<&str> = previous.map(|p| p.projects.iter().map(|x| x.project.as_str()).collect()).unwrap_or_default();
+    let is_new = |id: &str, project: &str| {
+        let project = if had.contains(project) { project } else { image_of(project) };
+        known.as_ref().is_some_and(|k| !k.contains(&(id.to_string(), project.to_string())))
+    };
     let mut findings: BTreeMap<(String, String, String, bool), VulnFinding> = BTreeMap::new();
     let mut projects = Vec::new();
-    for Target { label: project, repo, base, image, note, error, vulns } in &targets {
+    for Target { label: project, repo, base, image, note, error, scanned, vulns } in &targets {
         let mut seen = HashSet::new();
         let (mut critical, mut high, mut new, mut accepted_count) = (0, 0, 0, 0);
         for (v, accepted) in vulns {
@@ -495,18 +755,27 @@ fn summarize(branch: String, sha: String, trivy: String, targets: Vec<Target>, p
                 url: v.url.clone(),
                 projects: Vec::new(),
                 new: false,
+                new_in: Vec::new(),
                 accepted,
             });
             f.projects.push(project.clone());
             f.new |= fresh;
+            if fresh {
+                f.new_in.push(project.clone());
+            }
         }
-        projects.push(VulnProject { project: project.clone(), repo: repo.clone(), base: *base, image: image.clone(), note: note.clone(), error: error.clone(), critical, high, new, accepted: accepted_count });
+        projects.push(VulnProject { project: project.clone(), repo: repo.clone(), base: *base, image: image.clone(), note: note.clone(), error: error.clone(), critical, high, new, accepted: accepted_count, scanned: scanned.clone(), remote: None });
     }
     let mut findings: Vec<VulnFinding> = findings.into_values().collect();
+    sort_findings(&mut findings);
+    Vulnerabilities { branch, sha, trivy, scanned_at: Some(Utc::now()), scanning: false, checking: false, projects, other_branches: Vec::new(), findings }
+}
+
+/// To fix first (critical, then new), then the accepted ones.
+fn sort_findings(findings: &mut [VulnFinding]) {
     findings.sort_by(|a, b| {
         a.accepted.cmp(&b.accepted).then((a.severity != "critical").cmp(&(b.severity != "critical"))).then(b.new.cmp(&a.new)).then(a.package.cmp(&b.package))
     });
-    Vulnerabilities { branch, sha, trivy, scanned_at: Some(Utc::now()), scanning: false, projects, other_branches: Vec::new(), findings }
 }
 
 /// Output of a command, or its error.
@@ -523,6 +792,23 @@ async fn run_ok(cmd: &mut Command) -> Result<String> {
 struct Report {
     #[serde(rename = "Results", default)]
     results: Vec<RawResult>,
+    #[serde(rename = "Metadata", default)]
+    metadata: RawMetadata,
+}
+
+/// An image's: the digests it is known by (`repo@sha256:…`), its build date.
+#[derive(Deserialize, Default)]
+struct RawMetadata {
+    #[serde(rename = "RepoDigests", default)]
+    repo_digests: Vec<String>,
+    #[serde(rename = "ImageConfig", default)]
+    image_config: RawImageConfig,
+}
+
+#[derive(Deserialize, Default)]
+struct RawImageConfig {
+    #[serde(default)]
+    created: Option<chrono::DateTime<Utc>>,
 }
 
 #[derive(Deserialize)]
@@ -570,7 +856,7 @@ mod tests {
     }
 
     fn deps(label: &str, vulns: Vec<(RawVuln, bool)>) -> Target {
-        Target { label: label.into(), repo: None, base: false, image: None, note: None, error: None, vulns }
+        Target { label: label.into(), repo: None, base: false, image: None, note: None, error: None, scanned: None, vulns }
     }
 
     #[test]
@@ -615,5 +901,63 @@ mod tests {
         let new: Vec<_> = second.findings.iter().filter(|f| f.new).map(|f| f.id.as_str()).collect();
         assert_eq!(new, ["CVE-3"]);
         assert_eq!(second.projects[0].new, 1);
+    }
+
+    #[test]
+    fn a_registry_manifest_its_digest_and_platforms() {
+        let index = r#"{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","digest":"sha256:aa","manifests":[
+            {"digest":"sha256:1","platform":{"architecture":"amd64","os":"linux"}},
+            {"digest":"sha256:2","platform":{"architecture":"arm64","os":"linux","variant":"v8"}},
+            {"digest":"sha256:3","platform":{"architecture":"unknown","os":"unknown"}}]}"#;
+        assert_eq!(manifest(index).unwrap(), Published { digest: "sha256:aa".into(), platforms: vec!["linux/amd64".into(), "linux/arm64/v8".into()] });
+        let single = r#"{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:bb"}"#;
+        assert_eq!(manifest(single).unwrap(), Published { digest: "sha256:bb".into(), platforms: Vec::new() });
+        assert!(manifest("{}").is_err());
+    }
+
+    #[test]
+    fn trivy_says_how_the_image_was_read() {
+        let report = r#"{"ArtifactName":"r/x:1","Metadata":{"RepoDigests":["r/x@sha256:cc"],"ImageConfig":{"created":"2026-11-12T08:00:00Z"}},"Results":[]}"#;
+        let (vulns, meta) = findings(report).unwrap();
+        assert!(vulns.is_empty());
+        assert_eq!(meta.digest.as_deref(), Some("sha256:cc"));
+        assert_eq!(meta.created.map(|c| c.to_rfc3339()), Some("2026-11-12T08:00:00+00:00".into()));
+        assert!(findings(r#"{"Results":[]}"#).unwrap().1.digest.is_none(), "a project's report has none");
+    }
+
+    #[test]
+    fn one_image_rescanned_takes_its_lines_place() {
+        let by = vec![
+            deps("cart-api", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false)]),
+            deps("api · prod", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false), (vuln("CVE-5", "openssl", "CRITICAL"), false)]),
+            deps("api · prod · arm64", vec![(vuln("CVE-5", "openssl", "CRITICAL"), false)]),
+            deps("worker", Vec::new()),
+        ];
+        let mut v = summarize("main".into(), "abc".into(), "0.74".into(), by, None);
+        // The new image: openssl fixed, a new CVE, no arm64 any more.
+        let fresh = summarize(v.branch.clone(), v.sha.clone(), v.trivy.clone(), vec![deps("api · prod", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false), (vuln("CVE-7", "zlib", "HIGH"), false)])], Some(&v));
+        merge(&mut v, "api · prod", fresh);
+        assert_eq!(v.projects.iter().map(|p| p.project.as_str()).collect::<Vec<_>>(), ["cart-api", "api · prod", "worker"]);
+        let ids: Vec<(&str, Vec<&str>, bool)> = v.findings.iter().map(|f| (f.id.as_str(), f.projects.iter().map(String::as_str).collect(), f.new)).collect();
+        assert_eq!(ids, [("CVE-7", vec!["api · prod"], true), ("CVE-1", vec!["cart-api", "api · prod"], false)], "new first");
+    }
+
+    #[test]
+    fn new_only_where_it_is_and_an_arm64_line_against_its_image() {
+        let first = summarize("main".into(), "a".into(), "0.74".into(), vec![deps("cart-api", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false)]), deps("api · prod", vec![(vuln("CVE-5", "openssl", "HIGH"), false)])], None);
+        // CVE-1 now in the image too (new there), and an arm64 line seen for the first time.
+        let by = vec![
+            deps("cart-api", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false)]),
+            deps("api · prod", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false), (vuln("CVE-5", "openssl", "HIGH"), false)]),
+            deps("api · prod · arm64", vec![(vuln("CVE-5", "openssl", "HIGH"), false)]),
+        ];
+        let mut v = summarize("main".into(), "b".into(), "0.74".into(), by, Some(&first));
+        assert_eq!(v.projects[2].new, 0, "the arm64 line compares with its image");
+        assert_eq!(v.findings.iter().find(|f| f.id == "CVE-1").map(|f| f.new_in.clone()), Some(vec!["api · prod".to_string()]));
+        // The image rescanned without CVE-1: no longer new anywhere.
+        let fresh = summarize("main".into(), "b".into(), "0.74".into(), vec![deps("api · prod", vec![(vuln("CVE-5", "openssl", "HIGH"), false)])], Some(&v));
+        merge(&mut v, "api · prod", fresh);
+        let cve1 = v.findings.iter().find(|f| f.id == "CVE-1").unwrap();
+        assert_eq!((cve1.projects.clone(), cve1.new), (vec!["cart-api".to_string()], false));
     }
 }

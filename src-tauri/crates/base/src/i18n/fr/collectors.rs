@@ -91,6 +91,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no repository for bare MR references ([forge] bare_mr_repo)", "pas de dépôt pour les références de MR sans dépôt ([forge] bare_mr_repo)"),
     ("no repository for Renovate ([renovate] repo, or a primary repository)", "pas de dépôt pour Renovate ([renovate] repo, ou un dépôt principal)"),
     ("no published image for {tags}", "aucune image publiée pour {tags}"),
+    ("{name} is no longer named", "{name} n’est plus nommée"),
     ("no Renovate pipeline schedule found", "aucune planification de pipeline Renovate trouvée"),
     ("no Renovate workflow nor \"{issue}\" issue found", "ni workflow Renovate ni issue « {issue} » trouvés"),
     ("no Renovate workflow, and the dashboard has no unticked \"run again\" box", "pas de workflow Renovate, et le dashboard n’a pas de case « run again » décochée"),

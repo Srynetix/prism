@@ -506,7 +506,7 @@ impl Demo {
     }
 
     fn vulnerabilities(&self) -> Vulnerabilities {
-        let project = |p: &str, image: Option<&str>, critical: u32, high: u32, new: u32| VulnProject { project: p.into(), repo: None, base: false, image: image.map(String::from), note: None, error: None, critical, high, new, accepted: 0 };
+        let project = |p: &str, image: Option<&str>, critical: u32, high: u32, new: u32| VulnProject { project: p.into(), repo: None, base: false, image: image.map(String::from), note: None, error: None, critical, high, new, accepted: 0, scanned: None, remote: None };
         let finding = |id: &str, severity: &str, package: &str, installed: &str, fixed: &str, title: &str, projects: &[&str], new: bool| VulnFinding {
             id: id.into(),
             severity: severity.into(),
@@ -517,6 +517,7 @@ impl Demo {
             url: Some(format!("https://avd.aquasec.com/nvd/{}", id.to_lowercase())),
             projects: projects.iter().map(|p| p.to_string()).collect(),
             new,
+            new_in: if new { projects.iter().map(|p| p.to_string()).collect() } else { Vec::new() },
             accepted: false,
         };
         Vulnerabilities {
@@ -526,11 +527,25 @@ impl Demo {
             trivy: "Version: 0.58.1".into(),
             scanned_at: Some(self.ago(240)),
             scanning: false,
+            checking: false,
             projects: vec![
                 project("catalog-api", None, 0, 1, 1),
                 project("orders-api", None, 0, 0, 0),
                 project("storefront-webapp", None, 1, 0, 0),
-                project("orders-api · prod", Some("prod/orders-api:1.7.3"), 0, 2, 0),
+                VulnProject {
+                    scanned: Some(ScannedImage {
+                        reference: "registry.example.org/example-org/orders-api:1.7.3".into(),
+                        digest: Some("sha256:3f2a9c1e7b4d5a6c8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f".into()),
+                        pulled: None,
+                        created: Some(self.ago(60 * 26)),
+                        scanned_at: self.ago(240),
+                        platform: "linux/amd64".into(),
+                        gcp: false,
+                    }),
+                    // Asked the registry since: the tag points elsewhere, and a newer one is out.
+                    remote: Some(RemoteImage { at: self.ago(5), digest: Some("sha256:9b1c0d2e3f405162738495a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f80".into()), newer: Some("prod/orders-api:1.7.4".into()), error: None }),
+                    ..project("orders-api · prod", Some("prod/orders-api:1.7.3"), 0, 2, 0)
+                },
             ],
             findings: vec![
                 finding("CVE-2025-27152", "high", "axios", "1.7.4", "1.8.2", "Possible SSRF and credential leakage via absolute URL", &["catalog-api"], true),

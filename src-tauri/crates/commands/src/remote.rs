@@ -202,6 +202,19 @@ async fn dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Val
             inf::rescan_vulnerabilities();
             Ok(Value::Null)
         }
+        "vulnerabilities_check" => {
+            inf::vulnerabilities_check();
+            Ok(Value::Null)
+        }
+        "vulnerabilities_rescan_image" => {
+            #[derive(serde::Deserialize)]
+            struct A {
+                project: String,
+            }
+            let A { project } = args(a)?;
+            inf::vulnerabilities_rescan_image(project);
+            Ok(Value::Null)
+        }
         "agent_spawn" => {
             #[derive(serde::Deserialize)]
             struct A {
