@@ -517,6 +517,7 @@ impl Demo {
             url: Some(format!("https://avd.aquasec.com/nvd/{}", id.to_lowercase())),
             projects: projects.iter().map(|p| p.to_string()).collect(),
             new,
+            new_in: if new { projects.iter().map(|p| p.to_string()).collect() } else { Vec::new() },
             accepted: false,
         };
         Vulnerabilities {
@@ -535,6 +536,7 @@ impl Demo {
                     scanned: Some(ScannedImage {
                         reference: "registry.example.org/example-org/orders-api:1.7.3".into(),
                         digest: Some("sha256:3f2a9c1e7b4d5a6c8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f".into()),
+                        pulled: None,
                         created: Some(self.ago(60 * 26)),
                         scanned_at: self.ago(240),
                         platform: "linux/amd64".into(),

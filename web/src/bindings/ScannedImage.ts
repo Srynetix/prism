@@ -9,9 +9,15 @@ export type ScannedImage = {
  */
 reference: string, 
 /**
- * The digest its tag pointed to (`sha256:…`): a multi-platform image's index.
+ * The digest its tag pointed to in the registry (`sha256:…`): a multi-platform image's index,
+ * what « Check the registry » compares with. Absent when the registry could not be read then.
  */
 digest: string | null, 
+/**
+ * The digest Trivy pulled (a platform's manifest for a multi-platform image), shown when the
+ * registry's is unknown.
+ */
+pulled: string | null, 
 /**
  * When it was built.
  */

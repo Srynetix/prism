@@ -23,7 +23,7 @@
 
 use prism_base::tr;
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     path::{Path, PathBuf},
     sync::LazyLock,
     time::Duration,
@@ -118,7 +118,15 @@ enum Asked {
     Image(String),
 }
 
+/// The hub the scan writes to: what is asked shows at once (`scanning`, `checking`), even while
+/// a scan runs and the request waits for it.
+static HUB: std::sync::OnceLock<Hub> = std::sync::OnceLock::new();
+
 fn ask(what: Asked) {
+    if let Some(hub) = HUB.get() {
+        let scan = what == Asked::Scan;
+        hub.update(|s| s.vulnerabilities.as_mut().is_some_and(|v| if scan { !std::mem::replace(&mut v.scanning, true) } else { !std::mem::replace(&mut v.checking, true) }));
+    }
     let mut asked = ASKED.lock().unwrap();
     if !asked.contains(&what) {
         asked.push(what);
@@ -153,11 +161,18 @@ pub async fn run(repos: Vec<ScanRepo>, cfg: VulnerabilitiesConfig, images: Optio
     if let Some(v) = &last {
         set(&hub, Vulnerabilities { scanning: false, checking: false, ..v.clone() });
     }
+    let _ = HUB.set(hub.clone());
+    // After a failed scan: not again before then, unless asked.
+    let mut retry_at: Option<tokio::time::Instant> = None;
     loop {
         // The kept result is valid until the next day.
         let age = last.as_ref().and_then(|v| v.scanned_at).map(|at| (Utc::now() - at).to_std().unwrap_or_default());
-        if let Some(age) = age.filter(|a| *a < EVERY) {
-            let _ = tokio::time::timeout(EVERY - age, WAKE.notified()).await;
+        let wait = match retry_at {
+            Some(at) => Some(at.saturating_duration_since(tokio::time::Instant::now())),
+            None => age.filter(|a| *a < EVERY).map(|a| EVERY - a),
+        };
+        if let Some(wait) = wait.filter(|w| !w.is_zero()) {
+            let _ = tokio::time::timeout(wait, WAKE.notified()).await;
         }
         let asked = std::mem::take(&mut *ASKED.lock().unwrap());
         // Only a check or an image: done on the last result, the day's scan still to come.
@@ -181,6 +196,11 @@ pub async fn run(repos: Vec<ScanRepo>, cfg: VulnerabilitiesConfig, images: Optio
             set(&hub, Vulnerabilities { scanning: false, checking: false, ..v.clone() });
             continue;
         }
+        // Woken for nothing while a failed scan waits: it keeps waiting.
+        if !asked.contains(&Asked::Scan) && retry_at.is_some_and(|at| at > tokio::time::Instant::now()) {
+            continue;
+        }
+        retry_at = None;
         hub.update(|s| match s.vulnerabilities.as_mut() {
             Some(v) => !std::mem::replace(&mut v.scanning, true),
             None => false,
@@ -195,9 +215,9 @@ pub async fn run(repos: Vec<ScanRepo>, cfg: VulnerabilitiesConfig, images: Optio
             Err(e) => {
                 tracing::warn!("vulnerabilities: {e:#}");
                 hub.set_error(SOURCE, Some(format!("{e:#}")));
-                hub.update(|s| s.vulnerabilities.as_mut().is_some_and(|v| std::mem::take(&mut v.scanning)));
-                // No new attempt for an hour, unless requested.
-                let _ = tokio::time::timeout(Duration::from_secs(3600), WAKE.notified()).await;
+                hub.update(|s| s.vulnerabilities.as_mut().is_some_and(|v| std::mem::take(&mut v.scanning) | std::mem::take(&mut v.checking)));
+                // No new attempt for an hour, unless a scan is asked.
+                retry_at = Some(tokio::time::Instant::now() + Duration::from_secs(3600));
             }
         }
     }
@@ -218,23 +238,36 @@ async fn check(v: &mut Vulnerabilities, images: Option<&Images>) {
         }),
         None => Vec::new(),
     };
+    // Each place asked once: an image's amd64 and arm64 lines share theirs.
+    let mut asked: HashMap<(String, bool), std::result::Result<String, String>> = HashMap::new();
+    let mut ask = async |image: &str, gcp: bool| -> std::result::Result<String, String> {
+        if let Some(r) = asked.get(&(image.to_string(), gcp)) {
+            return r.clone();
+        }
+        let r = published(image, gcp).await.map(|p| p.digest).map_err(|e| first_line(&format!("{e:#}")));
+        asked.insert((image.to_string(), gcp), r.clone());
+        r
+    };
     for p in v.projects.iter_mut() {
         let Some(scanned) = p.scanned.clone() else { continue };
-        let now = published(&scanned.reference, scanned.gcp).await;
+        let now = ask(&scanned.reference, scanned.gcp).await;
+        // Newer: the tags listed before the scanned one, when it is still listed.
         let mut newer = None;
-        if let Some(target) = named.iter().find(|t| t.label == image_of(&p.project)) {
-            for tag in target.tags.iter().take_while(|t| Some(&t.shown) != p.image.as_ref()) {
-                if let Some(at) = tag.at.first()
-                    && published(&at.image, at.gcp).await.is_ok()
-                {
-                    newer = Some(tag.shown.clone());
-                    break;
+        if let Some(target) = named.iter().find(|t| t.label == image_of(&p.project))
+            && let Some(at) = target.tags.iter().position(|t| Some(&t.shown) == p.image.as_ref())
+        {
+            'tags: for tag in &target.tags[..at] {
+                for place in &tag.at {
+                    if ask(&place.image, place.gcp).await.is_ok() {
+                        newer = Some(tag.shown.clone());
+                        break 'tags;
+                    }
                 }
             }
         }
         let (digest, error) = match now {
-            Ok(n) => (Some(n.digest), None),
-            Err(e) => (None, Some(first_line(&format!("{e:#}")))),
+            Ok(d) => (Some(d), None),
+            Err(e) => (None, Some(e)),
         };
         p.remote = Some(RemoteImage { at: Utc::now(), digest, newer, error });
     }
@@ -265,13 +298,16 @@ fn merge(v: &mut Vulnerabilities, label: &str, fresh: Vulnerabilities) {
     }
     for f in &mut v.findings {
         f.projects.retain(|p| !mine(p));
+        f.new_in.retain(|p| !mine(p));
+        f.new = !f.new_in.is_empty();
     }
     v.findings.retain(|f| !f.projects.is_empty());
     for f in fresh.findings {
         match v.findings.iter_mut().find(|x| (&x.id, &x.package, &x.installed, x.accepted) == (&f.id, &f.package, &f.installed, f.accepted)) {
             Some(x) => {
                 x.projects.extend(f.projects);
-                x.new |= f.new;
+                x.new_in.extend(f.new_in);
+                x.new = !x.new_in.is_empty();
             }
             None => v.findings.push(f),
         }
@@ -521,13 +557,13 @@ async fn scan_image(target: ImageTarget, gcp: &mut Gcp, dir: &Path, skip_dirs: &
                 let note = (!note.is_empty()).then_some(note);
                 // What the registry publishes: the tag's digest (an index's), its platforms.
                 let published = published(&at.image, at.gcp).await.ok();
-                let digest = published.as_ref().map(|p| p.digest.clone()).or(meta.digest);
-                let scanned = |platform: &str, created| ScannedImage { reference: at.image.clone(), digest: digest.clone(), created, scanned_at: Utc::now(), platform: platform.into(), gcp: at.gcp };
-                let mut out = vec![Target { label: label.clone(), repo: repo.clone(), base, image: image.clone(), note: note.clone(), error: None, scanned: Some(scanned(PLATFORMS[0], meta.created)), vulns }];
+                let digest = published.as_ref().map(|p| p.digest.clone());
+                let scanned = |platform: &str, meta: ImageMeta| ScannedImage { reference: at.image.clone(), digest: digest.clone(), pulled: meta.digest, created: meta.created, scanned_at: Utc::now(), platform: platform.into(), gcp: at.gcp };
+                let mut out = vec![Target { label: label.clone(), repo: repo.clone(), base, image: image.clone(), note: note.clone(), error: None, scanned: Some(scanned(PLATFORMS[0], meta)), vulns }];
                 if published.as_ref().is_some_and(|p| p.platforms.iter().any(|x| x == PLATFORMS[1])) {
                     let label = format!("{label} · arm64");
                     out.push(match trivy_image(&at.image, &ignore, token.as_deref(), skip_dirs, PLATFORMS[1]).await {
-                        Ok((vulns, meta)) => Target { label, repo: repo.clone(), base, image, note, error: None, scanned: Some(scanned(PLATFORMS[1], meta.created)), vulns },
+                        Ok((vulns, meta)) => Target { label, repo: repo.clone(), base, image, note, error: None, scanned: Some(scanned(PLATFORMS[1], meta)), vulns },
                         Err(e) => Target { label, repo: repo.clone(), base, image, note, error: Some(first_line(&format!("{e:#}"))), scanned: None, vulns: Vec::new() },
                     });
                 }
@@ -682,7 +718,13 @@ fn name(dir: &str, components: &str) -> String {
 fn summarize(branch: String, sha: String, trivy: String, targets: Vec<Target>, previous: Option<&Vulnerabilities>) -> Vulnerabilities {
     let known: Option<HashSet<(String, String)>> = previous
         .map(|p| p.findings.iter().filter(|f| !f.accepted).flat_map(|f| f.projects.iter().map(move |pr| (f.id.clone(), pr.clone()))).collect());
-    let is_new = |id: &str, project: &str| known.as_ref().is_some_and(|k| !k.contains(&(id.to_string(), project.to_string())));
+    // A line the previous scan did not have (an image's arm64, scanned since) compares with its
+    // image's: its CVEs are not all new.
+    let had: HashSet<&str> = previous.map(|p| p.projects.iter().map(|x| x.project.as_str()).collect()).unwrap_or_default();
+    let is_new = |id: &str, project: &str| {
+        let project = if had.contains(project) { project } else { image_of(project) };
+        known.as_ref().is_some_and(|k| !k.contains(&(id.to_string(), project.to_string())))
+    };
     let mut findings: BTreeMap<(String, String, String, bool), VulnFinding> = BTreeMap::new();
     let mut projects = Vec::new();
     for Target { label: project, repo, base, image, note, error, scanned, vulns } in &targets {
@@ -713,10 +755,14 @@ fn summarize(branch: String, sha: String, trivy: String, targets: Vec<Target>, p
                 url: v.url.clone(),
                 projects: Vec::new(),
                 new: false,
+                new_in: Vec::new(),
                 accepted,
             });
             f.projects.push(project.clone());
             f.new |= fresh;
+            if fresh {
+                f.new_in.push(project.clone());
+            }
         }
         projects.push(VulnProject { project: project.clone(), repo: repo.clone(), base: *base, image: image.clone(), note: note.clone(), error: error.clone(), critical, high, new, accepted: accepted_count, scanned: scanned.clone(), remote: None });
     }
@@ -894,5 +940,24 @@ mod tests {
         assert_eq!(v.projects.iter().map(|p| p.project.as_str()).collect::<Vec<_>>(), ["cart-api", "api · prod", "worker"]);
         let ids: Vec<(&str, Vec<&str>, bool)> = v.findings.iter().map(|f| (f.id.as_str(), f.projects.iter().map(String::as_str).collect(), f.new)).collect();
         assert_eq!(ids, [("CVE-7", vec!["api · prod"], true), ("CVE-1", vec!["cart-api", "api · prod"], false)], "new first");
+    }
+
+    #[test]
+    fn new_only_where_it_is_and_an_arm64_line_against_its_image() {
+        let first = summarize("main".into(), "a".into(), "0.74".into(), vec![deps("cart-api", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false)]), deps("api · prod", vec![(vuln("CVE-5", "openssl", "HIGH"), false)])], None);
+        // CVE-1 now in the image too (new there), and an arm64 line seen for the first time.
+        let by = vec![
+            deps("cart-api", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false)]),
+            deps("api · prod", vec![(vuln("CVE-1", "pyjwt", "HIGH"), false), (vuln("CVE-5", "openssl", "HIGH"), false)]),
+            deps("api · prod · arm64", vec![(vuln("CVE-5", "openssl", "HIGH"), false)]),
+        ];
+        let mut v = summarize("main".into(), "b".into(), "0.74".into(), by, Some(&first));
+        assert_eq!(v.projects[2].new, 0, "the arm64 line compares with its image");
+        assert_eq!(v.findings.iter().find(|f| f.id == "CVE-1").map(|f| f.new_in.clone()), Some(vec!["api · prod".to_string()]));
+        // The image rescanned without CVE-1: no longer new anywhere.
+        let fresh = summarize("main".into(), "b".into(), "0.74".into(), vec![deps("api · prod", vec![(vuln("CVE-5", "openssl", "HIGH"), false)])], Some(&v));
+        merge(&mut v, "api · prod", fresh);
+        let cve1 = v.findings.iter().find(|f| f.id == "CVE-1").unwrap();
+        assert_eq!((cve1.projects.clone(), cve1.new), (vec!["cart-api".to_string()], false));
     }
 }

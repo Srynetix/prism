@@ -218,13 +218,14 @@
 <!-- An image as scanned: its digest (copied in a click), its platform, what the registry says now. -->
 {#snippet imageLine(p: VulnProject, img: ScannedImage)}
   {@const st = imageState(p)}
+  {@const digest = img.digest ?? img.pulled}
   <div class="img">
-    <button class="digest" onclick={() => img.digest && copy(img.digest, t('Digest copied'))} title={[img.reference, img.digest ?? t('digest unknown'), img.platform, img.created ? t('built {ago}', { ago: ago(img.created) }) : '', t('scanned {ago}', { ago: ago(img.scanned_at) }), img.gcp ? t('read from GCP') : ''].filter(Boolean).join('\n')}>{img.digest ? img.digest.replace(/^sha256:/, '').slice(0, 12) : t('no digest')}</button>
+    <button class="digest" onclick={() => digest && copy(digest, t('Digest copied'))} title={[img.reference, digest ?? t('digest unknown'), img.platform, img.created ? t('built {ago}', { ago: ago(img.created) }) : '', t('scanned {ago}', { ago: ago(img.scanned_at) }), img.gcp ? t('read from GCP') : ''].filter(Boolean).join('\n')}>{digest ? digest.replace(/^sha256:/, '').slice(0, 12) : t('no digest')}</button>
     {#if img.platform !== 'linux/amd64'}<span class="tag">{img.platform.replace(/^linux\//, '')}</span>{/if}
     <span class="muted" title={img.reference}>{img.reference.replace(/:[^:/]+$/, '')}</span>
     {#if st.kind === 'changed'}<span class="warn-pill" title={t('The registry’s {tag} now points to {digest}', { tag: p.image ?? '', digest: p.remote?.digest ?? '' })}>{t('changed since the scan')}</span>{/if}
     {#if p.remote?.newer}<span class="warn-pill" title={t('Scanned: {tag}', { tag: p.image ?? '' })}>{t('{tag} published', { tag: p.remote.newer.split(':').pop() ?? p.remote.newer })}</span>{/if}
-    {#if st.kind === 'same'}<span class="ok-pill" title={t('Checked {ago}', { ago: ago(p.remote?.at) })}>{t('up to date')}</span>{/if}
+    {#if st.kind === 'same' && !p.remote?.newer}<span class="ok-pill" title={t('Checked {ago}', { ago: ago(p.remote?.at) })}>{t('up to date')}</span>{/if}
     {#if st.kind === 'unknown'}<span class="muted" title={p.remote?.error ?? ''}>{t('registry unreadable')}</span>{/if}
     <span class="grow"></span>
     {#if hasCore()}<button class="again" class:lit={st.kind === 'changed' || !!p.remote?.newer} disabled={busy || checking} onclick={() => ask('vulnerabilities_rescan_image', { project: p.project })} title={t('Scan this image again, not the others')}><Icon name="refresh" />{t('Rescan')}</button>{/if}

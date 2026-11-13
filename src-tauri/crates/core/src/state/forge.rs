@@ -391,8 +391,13 @@ pub struct VulnProject {
 pub struct ScannedImage {
     /// Registry, repository and tag, as read (`registry.example.org/team/cart-api:0.2.147`).
     pub reference: String,
-    /// The digest its tag pointed to (`sha256:…`): a multi-platform image's index.
+    /// The digest its tag pointed to in the registry (`sha256:…`): a multi-platform image's index,
+    /// what « Check the registry » compares with. Absent when the registry could not be read then.
     pub digest: Option<String>,
+    /// The digest Trivy pulled (a platform's manifest for a multi-platform image), shown when the
+    /// registry's is unknown.
+    #[serde(default)]
+    pub pulled: Option<String>,
     /// When it was built.
     pub created: Option<DateTime<Utc>>,
     pub scanned_at: DateTime<Utc>,
@@ -431,6 +436,9 @@ pub struct VulnFinding {
     pub projects: Vec<String>,
     /// To fix, and absent from the previous scan in at least one of its projects.
     pub new: bool,
+    /// The projects it is new in (`new`): one image rescanned alone takes its own out.
+    #[serde(default)]
+    pub new_in: Vec<String>,
     /// Dismissed by a `.trivyignore`: accepted risk.
     #[serde(default)]
     pub accepted: bool,

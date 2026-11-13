@@ -10,6 +10,10 @@ severity: 'critical' | 'high', package: string, installed: string, fixed: string
  */
 new: boolean, 
 /**
+ * The projects it is new in (`new`): one image rescanned alone takes its own out.
+ */
+new_in: Array<string>, 
+/**
  * Dismissed by a `.trivyignore`: accepted risk.
  */
 accepted: boolean, };
