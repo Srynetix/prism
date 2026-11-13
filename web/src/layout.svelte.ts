@@ -2,7 +2,7 @@ import { read, write } from './persist'
 import { isDesktop } from './bridge'
 import { live } from './live.svelte'
 import { onShared, shareSave } from './shared.svelte'
-import { agentsView, closeAgents, projectsView } from './agents.svelte'
+import { agentsView, closeAgents, openProjects, projectsView } from './agents.svelte'
 import { pageTransition } from './page-transition'
 import { untrack } from 'svelte'
 import { closeHelp } from './help-view.svelte'
@@ -184,6 +184,8 @@ export function setView(id: string): Promise<void> {
 export function showBlock(id: BlockId | (string & {})) {
   const block = id as BlockId
   const v = views().find((x) => columnsOf(x).flat().includes(block))
+  // The Worktrees block on no page: the Projects page's Cleanup tab shows it.
+  if (!v && block === 'worktrees' && live.snapshot?.repositories?.length) return openProjects(null, true)
   if (!v) return toast(t('{block} is on no page: add it with Edit layout', { block: blockLabel(block) }))
   closeSettings()
   closeAgents()

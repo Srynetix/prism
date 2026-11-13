@@ -46,7 +46,9 @@ export function implement(t: Ticket) {
  */
 export async function startWorkstream(repo: string, from: { prompt: string } | { ticket: Ticket }, direct = true): Promise<string | null> {
   const path = live.snapshot?.repos?.find((r) => r.name === repo)?.path ?? ''
-  const worktree = hasWorktrees(repo) || !path
+  // A worktree where agents make them; the clone otherwise; nothing without a clone.
+  const worktree = hasWorktrees(repo)
+  if (!path) return null
   if ('ticket' in from) {
     const a = ticketActions(from.ticket).find((x) => x.id === 'implement')
     if (!a?.launch) return null

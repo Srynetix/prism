@@ -1,5 +1,5 @@
 import type { Agent, LeftSession, MergeRequest, Pipeline, Repo, RepoInfo, Snapshot, Ticket } from './types'
-import { describeWorktrees, isDone, mrForSession, ticketIndex, waitsForYou, type WorktreeInfo } from './rules'
+import { describeWorktrees, isDone, latest, mrForSession, ticketIndex, waitsForYou, type WorktreeInfo } from './rules'
 import { agentRepo, repoName } from './repositories'
 import { ticketRef } from './tracker'
 
@@ -42,12 +42,14 @@ export interface Workstream {
   activity: string | null
   ahead: number
   behind: number
+  /** Files changed, when counted (a worktree's). */
   changes: number
+  /** Local changes, counted or not (a clone whose worktrees are not listed says only that). */
+  dirty: boolean
 }
 
 const live = (a: Agent) => a.state === 'running' || a.state === 'prepared'
 export const waitingAgent = (a: Agent) => a.state === 'running' && waitsForYou(a.status) && !a.read
-const latest = (xs: (string | null | undefined)[]) => xs.filter((x): x is string => !!x).sort().at(-1) ?? null
 
 export function stageOf(o: { agents: Agent[]; mr: MergeRequest | undefined; clone: boolean; upstreamGone?: boolean; ticket?: Ticket }): Stage {
   if (o.agents.some(live)) return 'active'
@@ -73,9 +75,21 @@ function mrOf(s: Snapshot, repo: string, branch: string | null, agents: Agent[],
  * clone while an agent works in it or it has changes. The agents of the repository no worktree
  * claims make theirs (a worktree not listed: its own; none: the clone's).
  */
-export function workstreamsOf(s: Snapshot, repo: string, o: { infos?: WorktreeInfo[]; hidden?: (i: WorktreeInfo) => boolean } = {}): Workstream[] {
-  const index = ticketIndex(s)
-  const lookup = (id: string | null | undefined) => (id ? (index.get(ticketRef(id, repo))?.t ?? [...index.values()].find((x) => x.t.id === id)?.t) : undefined)
+/** The tickets Prism knows, by `ticketRef` and by id: built once for every project. */
+export interface TicketLookup {
+  byRef: ReturnType<typeof ticketIndex>
+  byId: Map<string, Ticket>
+}
+export function ticketLookup(s: Snapshot): TicketLookup {
+  const byRef = ticketIndex(s)
+  const byId = new Map<string, Ticket>()
+  for (const { t } of byRef.values()) if (!byId.has(t.id)) byId.set(t.id, t)
+  return { byRef, byId }
+}
+
+export function workstreamsOf(s: Snapshot, repo: string, o: { infos?: WorktreeInfo[]; tickets?: TicketLookup; hidden?: (i: WorktreeInfo) => boolean } = {}): Workstream[] {
+  const tickets = o.tickets ?? ticketLookup(s)
+  const lookup = (id: string | null | undefined) => (id ? (tickets.byRef.get(ticketRef(id, repo))?.t ?? tickets.byId.get(id)) : undefined)
   const clone = s.repos?.find((r) => r.name === repo)
   const infos = (o.infos ?? describeWorktrees(s)).filter((i) => i.w.repo === repo)
   const claimed = new Set(infos.flatMap((i) => i.agents.map((a) => a.id)))
@@ -102,7 +116,7 @@ export function workstreamsOf(s: Snapshot, repo: string, o: { infos?: WorktreeIn
     if (i.w.is_main && !agents.length && !i.w.changes && !i.w.untracked) continue
     out.push(make({
       branch: i.w.branch, path: i.w.path, clone: i.w.is_main, info: i, agents, ticketId: i.w.ticket, ticket: i.ticket, mr: i.mr,
-      activity: latest([i.activity, ...agents.map((a) => a.last_activity ?? a.created_at)]), ahead: i.w.ahead, behind: i.w.behind, changes: i.w.changes + (i.w.untracked ?? 0), upstreamGone: i.w.upstream_gone,
+      activity: latest([i.activity, ...agents.map((a) => a.last_activity ?? a.created_at)]), ahead: i.w.ahead, behind: i.w.behind, changes: i.w.changes + (i.w.untracked ?? 0), dirty: !!(i.w.changes || i.w.untracked), upstreamGone: i.w.upstream_gone,
     }))
   }
   const hasMain = infos.some((i) => i.w.is_main)
@@ -120,7 +134,7 @@ export function workstreamsOf(s: Snapshot, repo: string, o: { infos?: WorktreeIn
     const isClone = inClone(dir)
     out.push(make({
       branch: isClone ? clone!.branch : (agents.find((a) => a.branch)?.branch ?? null), path: dir, clone: isClone, info: null, agents, ticketId: null,
-      activity: latest(agents.map((a) => a.last_activity ?? a.created_at)), ahead: isClone ? clone!.ahead : 0, behind: isClone ? clone!.behind : 0, changes: isClone && clone!.dirty ? 1 : 0,
+      activity: latest(agents.map((a) => a.last_activity ?? a.created_at)), ahead: isClone ? clone!.ahead : 0, behind: isClone ? clone!.behind : 0, changes: 0, dirty: isClone && clone!.dirty,
     }))
   }
   return out
@@ -162,11 +176,12 @@ export function mainPipelineOf(s: Snapshot, repo: string, base: string | undefin
  */
 export function projectSummaries(s: Snapshot, o: { hidden?: (i: WorktreeInfo) => boolean } = {}): ProjectSummary[] {
   const infos = describeWorktrees(s)
+  const tickets = ticketLookup(s)
   const names = [...new Set([...(s.repositories ?? []).map((r) => r.name), ...(s.repos ?? []).map((r) => r.name)])]
   const list = names.map((name): ProjectSummary => {
     const repo = s.repos?.find((r) => r.name === name)
     const info = s.repositories?.find((r) => r.name === name)
-    const workstreams = workstreamsOf(s, name, { infos, hidden: o.hidden })
+    const workstreams = workstreamsOf(s, name, { infos, tickets, hidden: o.hidden })
     const mainPipeline = mainPipelineOf(s, name, repo?.base)
     const mrs = s.merge_requests.filter((m) => m.state === 'opened' && repoName(m.repo, s) === name)
     return {

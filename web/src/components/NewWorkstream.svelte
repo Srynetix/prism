@@ -24,7 +24,7 @@
   const where = $derived(hasWorktrees(repo) ? t('a new worktree, its agent launched') : t('in its clone, its agent launched'))
 
   async function start(now: boolean) {
-    if (busy || (now && !ready)) return
+    if (busy || (now && !ready) || !agentsAvailable()) return
     busy = true
     try {
       const id = await startWorkstream(repo, chosen ? { ticket: chosen } : { prompt }, now && direct)

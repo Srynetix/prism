@@ -61,7 +61,7 @@ describe('workstreamsOf', () => {
     expect(w.agents.map((a) => a.id)).toEqual(['a2'])
   })
   it('shows a clone whose worktrees are not listed while it has changes', () => {
-    expect(workstreamsOf(snapshot({ dirty: true }), 'shop')).toHaveLength(1)
+    expect(workstreamsOf(snapshot({ dirty: true }), 'shop')).toMatchObject([{ clone: true, dirty: true, changes: 0 }])
     expect(workstreamsOf(snapshot(), 'shop')).toHaveLength(0)
   })
   it('leaves out the worktrees hidden and those whose folder is gone', () => {

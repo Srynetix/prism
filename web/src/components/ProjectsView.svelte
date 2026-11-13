@@ -74,7 +74,8 @@
     setPref('notes.repo', name)
     openQuickNotes()
   }
-  const portsOf = (p: ProjectSummary) => p.workstreams.flatMap((w) => w.agents.filter((a) => a.state === 'running').flatMap((a) => agentPorts(a.id)))
+  /** Its agents' open ports, each once (an agent can belong to two workstreams: its `adopted`, its `also`). */
+  const portsOf = (p: ProjectSummary) => [...new Set(p.workstreams.flatMap((w) => w.agents.filter((a) => a.state === 'running').flatMap((a) => agentPorts(a.id).map((x) => x.port))))]
   const pipeIcon = (status: string | null | undefined) => (status === 'success' ? 'check' : status === 'failed' ? 'fail' : status === 'running' || status === 'pending' ? 'running' : status === 'canceled' ? 'canceled' : 'none')
   const pipeTone = (status: string | null | undefined) => (status === 'success' ? 'ok' : status === 'failed' ? 'ko' : status === 'running' || status === 'pending' ? 'info' : '')
 
@@ -119,7 +120,7 @@
     <p class="where mono" title={w.path}>
       {tildePath(w.path)}{#if w.branch && !w.clone}{' '}· {w.branch}{/if}
       {#if w.ahead}<span class="ahead">↑{w.ahead}</span>{/if}{#if w.behind}<span class="behind">↓{w.behind}</span>{/if}
-      {#if w.changes}{' '}· {tn(w.changes, '{n} file changed', '{n} files changed')}{/if}
+      {#if w.changes}{' '}· {tn(w.changes, '{n} file changed', '{n} files changed')}{:else if w.dirty}{' '}· {t('local changes')}{/if}
     </p>
     {#each w.agents as a (a.id)}
       <div class="agent">
@@ -219,10 +220,10 @@
         {#if p.mainPipeline}<span class="sig {pipeTone(p.mainPipeline.status)}"><Icon name={pipeIcon(p.mainPipeline.status)} size={11} />{t('{base} pipeline', { base: p.mainPipeline.target })}</span>{/if}
         {#if p.mrs.length}<span class="sig">{tn(p.mrs.length, '{n} open MR', '{n} open MRs')}</span>{/if}
         <button class="sig link" onclick={() => showNotes(p.name)} title={notes ? tn(notes, 'Its {n} open note, and a new one', 'Its {n} open notes, and a new one') : t('A note about it')}><Icon name="pin" size={11} />{notes ? tn(notes, '{n} note', '{n} notes') : t('A note')}</button>
-        {#each ports as { port } (port)}<span class="sig ok">:{port} {t('online')}</span>{/each}
+        {#each ports as port (port)}<span class="sig ok">:{port} {t('online')}</span>{/each}
       </div>
 
-      <NewWorkstream repo={p.name} tickets={snap ? ticketsFor(snap, p.name, p.workstreams, next) : []} />
+      {#if p.repo}{#key p.name}<NewWorkstream repo={p.name} tickets={ticketsFor(snap, p.name, p.workstreams, next)} />{/key}{:else}<p class="muted">{t('No clone on this computer: its MRs and pipelines only.')}</p>{/if}
       {#if next || quick.length}
         <div class="extra">
           {#if next}<span class="muted">{tc('project', 'Next')}</span><button class="tk" onclick={() => openTicket(next.id)} title={next.name}>{next.id}</button><span class="nm">{next.name}</span><button onclick={() => implement(next)} disabled={!agentsAvailable()} title={t('Implement {ticket}', { ticket: next.id })}><Icon name="play" size={10} />{t('Implement')}</button>{/if}

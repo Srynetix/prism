@@ -41,7 +41,7 @@
         {#each items as w (w.key)}
           <section class="ws">
             <div class="h"><span class="dot {tone(w)}"></span><b class="ttl">{w.title}</b>{#if w.ticketId}<code class="tk">{w.ticketId}</code>{/if}</div>
-            <p class="where">{w.clone ? t('on {branch}', { branch: w.branch ?? '?' }) : tildePath(w.path)}{#if w.ahead}{' '}↑{w.ahead}{/if}{#if w.changes}{' '}· {tn(w.changes, '{n} file changed', '{n} files changed')}{/if}</p>
+            <p class="where">{w.clone ? t('on {branch}', { branch: w.branch ?? '?' }) : tildePath(w.path)}{#if w.ahead}{' '}↑{w.ahead}{/if}{#if w.changes}{' '}· {tn(w.changes, '{n} file changed', '{n} files changed')}{:else if w.dirty}{' '}· {t('local changes')}{/if}</p>
             {#each w.agents as a (a.id)}
               <button class="agent" onclick={() => openAgents(a.id)}>
                 <span class="who">{cliOf(a.provider).name}{a.model ? ` · ${modelName(a.model)}` : ''}</span>
@@ -55,7 +55,7 @@
       {/if}
     {/each}
     {#if !p.workstreams.length}<p class="empty">{t('Nothing in progress.')}</p>{/if}
-    {#if acts}
+    {#if acts && p.repo}
       <div class="new"><NewWorkstream repo={p.name} tickets={ticketsFor(snap, p.name, p.workstreams, nextOf(p.name))} direct={false} /></div>
     {/if}
   {/if}

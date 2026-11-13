@@ -355,6 +355,11 @@ fn resolve_accounts(list: &mut Vec<crate::config::AgentAccount>) {
     });
 }
 
+/// The working folder holding `path`, the deepest one when they nest.
+fn workspace_holding<'a>(list: &'a [Workspace], path: &Path) -> Option<&'a Workspace> {
+    list.iter().filter(|w| path.starts_with(&w.dir)).max_by_key(|w| w.dir.components().count())
+}
+
 /// The working folders, read: those without a folder dropped, folders expanded, each named (its
 /// folder's name by default), names unique.
 fn resolve_workspaces(list: &mut Vec<Workspace>) -> Result<()> {
@@ -386,7 +391,7 @@ fn resolve_repos(cfg: &mut Config) -> Result<()> {
         r.project = r.project.take().map(|p| p.trim().to_string()).filter(|p| !p.is_empty());
         // No forge of its own: its working folder's, if its clone is in one.
         if r.forge.is_none() {
-            r.forge = r.path.as_deref().and_then(|p| cfg.workspaces.iter().find(|w| p.starts_with(&w.dir))).and_then(|w| w.forge);
+            r.forge = r.path.as_deref().and_then(|p| workspace_holding(&cfg.workspaces, p)).and_then(|w| w.forge);
         }
         // On another forge than the profile's: only its MRs are read there, by that forge's collector.
         r.forge = r.forge.filter(|f| *f != cfg.forge.provider);
@@ -580,8 +585,7 @@ impl Config {
 
     /// The working folder a repository's clone is in, the deepest one when they nest.
     pub fn workspace_of(&self, r: &RepoConfig) -> Option<&Workspace> {
-        let path = r.path.as_deref()?;
-        self.workspaces.iter().filter(|w| path.starts_with(&w.dir)).max_by_key(|w| w.dir.components().count())
+        workspace_holding(&self.workspaces, r.path.as_deref()?)
     }
 
     /// `[gitlab]` with the primary repository's project (empty without one).

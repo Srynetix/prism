@@ -114,7 +114,7 @@
   import { closeSettings, quitApp, settingsView, toggleFullscreen, toggleSettings } from './settings.svelte'
   import AgentsView from './components/AgentsView.svelte'
   import ProjectsView from './components/ProjectsView.svelte'
-  import { waitingAgent } from './workstreams'
+  import { projectSummaries } from './workstreams'
   import { agentsEnabled, agentsView, closeAgents, openAgents, openProjects, projectsView, terminalKeeps } from './agents.svelte'
   import { BLOCK_HELP } from './block-help'
   import { chord, chordKey, extraShift, inTerminal, isMac, keys, pageDigit } from './platform'
@@ -451,8 +451,10 @@
     return [...sources.values()]
   }
   const agentsWaiting = $derived(full?.agents?.filter((a) => waitsForYou(a.status)).length ?? 0)
-  /** Projects badge: the workstreams (one per folder) with an agent waiting for me. */
-  const workstreamsWaiting = $derived(new Set(full?.agents?.filter(waitingAgent).map((a) => a.worktree ?? a.cwd) ?? []).size)
+  /** Projects badge: the workstreams with an agent waiting for me, as the page counts them. */
+  const workstreamsWaiting = $derived(projectsOn && full ? projectSummaries(full, { hidden: isHidden }).reduce((n, p) => n + p.waiting, 0) : 0)
+  /** The stale worktrees, on the Projects entry when no page of the rail shows the Worktrees block. */
+  const staleOnProjects = $derived(!views().some((v) => columnsOf(v).flat().includes('worktrees')) ? staleWorktrees : 0)
   /** The routines' runs waiting in "To review": a badge of their own on the Agents tab. */
   const toReview = $derived(reviewPile(full).length)
   const syncs = $derived(alerts.filter((a) => a.kind === 'Sync' && !isSeen(a)))
@@ -543,7 +545,7 @@
     <button class="v" class:on={projectsView.open && !settingsView.open && !helpView.open} style:--tint="var(--src-gitlab)" onclick={() => openProjects()} title={keys(t('Projects (⌘{digit}): each repository and its workstreams', { digit: projectsDigit }))} aria-current={projectsView.open ? 'page' : undefined}>
       {@render icon('worktrees')}
       <span>{t('Projects')}</span>
-      {#if workstreamsWaiting}<span class="count" title={tn(workstreamsWaiting, '{n} workstream waits for you', '{n} workstreams wait for you')}>{workstreamsWaiting}</span>{/if}
+      {#if workstreamsWaiting}<span class="count" title={tn(workstreamsWaiting, '{n} workstream waits for you', '{n} workstreams wait for you')}>{workstreamsWaiting}</span>{:else if staleOnProjects}<span class="count stale" title={tn(staleOnProjects, '{n} stale worktree', '{n} stale worktrees')}>{staleOnProjects}</span>{/if}
     </button>
     {/if}
     {#if assistantOn()}

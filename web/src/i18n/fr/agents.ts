@@ -1196,6 +1196,7 @@ export default {
   'More options…': 'Plus d’options…',
   'New workstream': 'Nouveau chantier',
   'No MR open.': 'Aucune MR ouverte.',
+  'No clone on this computer: its MRs and pipelines only.': 'Pas de clone sur cet ordinateur : ses MRs et pipelines seulement.',
   'No agent at work.': 'Aucun agent au travail.',
   'No repository yet: add one in Settings › Repositories.': 'Pas encore de dépôt : ajoutez-en un dans Réglages › Dépôts.',
   'Nothing in progress.': 'Rien en cours.',

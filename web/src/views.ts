@@ -265,8 +265,9 @@ export function views(): View[] {
   if (!configured.length) return [EMPTY_VIEW]
   const taken = new Set<string>()
   const all = configured.filter((c) => c.name?.trim()).map((c) => fromConfig(c, taken))
-  // A page of the Worktrees block alone left the rail: the Projects page's Cleanup tab is it now.
-  const kept = all.filter((v) => !onlyWorktrees(v))
+  // A page of the Worktrees block alone left the rail: the Projects page's Cleanup tab is it now
+  // (shown once a repository is configured; without one, the page stays).
+  const kept = live.snapshot?.repositories?.length ? all.filter((v) => !onlyWorktrees(v)) : all
   return kept.length ? kept : all
 }
 
