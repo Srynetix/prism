@@ -137,6 +137,7 @@ pub async fn feedback_draft_start(state: State<'_, AppState>, target: String, ki
         then: Vec::new(),
         from: None,
         prism_mcp: false,
+        assistant: false,
     };
     // Hours: it may ask me what I have in mind first. One at a time, the window's or a phone's: a
     // new one gives up the one before (its agent stays, its conversation mine; its own file).

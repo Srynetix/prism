@@ -236,6 +236,7 @@ fn export_bindings() {
     prism_core::deps::Dependency::export_all(&cfg).unwrap();
     // Settings › Agents › Prism MCP: the agent CLIs outside Prism.
     prism_commands::mcp::install::Installed::export_all(&cfg).unwrap();
+    prism_commands::commands::assistant::AssistantMemory::export_all(&cfg).unwrap();
     // Settings › General › Command line: `prism` on the PATH.
     prism_commands::cli::command::Status::export_all(&cfg).unwrap();
     forge::MrDetail::export_all(&cfg).unwrap();

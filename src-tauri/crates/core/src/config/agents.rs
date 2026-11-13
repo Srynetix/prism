@@ -81,6 +81,10 @@ pub struct AgentsConfig {
     /// What an agent sees in passing, out of its task: proposed with `suggest_task`, kept in a
     /// list, launched, chained or made a ticket in a click (`[agents.aside]`).
     pub aside: AsideConfig,
+    /// Prism's assistant (`[agents.assistant]`): an agent you ask in your own words (the palette's
+    /// « Ask Prism »), which finds the repository, reads its tickets and code, and proposes a
+    /// ticket or an agent to launch, applied in a click.
+    pub assistant: AssistantConfig,
     /// Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
     /// to Prism, as everywhere else.
     pub terminal_keys: Vec<String>,
@@ -151,6 +155,43 @@ pub struct AsideConfig {
 impl Default for AsideConfig {
     fn default() -> Self {
         Self { enabled: true, desktop: true, default_action: "launch".into(), worktree: true, stale_days: 14, statusbar: false }
+    }
+}
+
+/// Prism's assistant (`[agents.assistant]`): an agent of the configured CLI, launched in a folder
+/// of its own with Prism's MCP server and its assistant tools (repositories, tickets, MRs, agents,
+/// exploring a repository read-only, proposals applied in a click) and a memory per profile.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct AssistantConfig {
+    /// « Ask Prism » in the palette and the Assistant panel.
+    pub enabled: bool,
+    /// Its CLI (`claude`, `codex`, `opencode`). Absent: `[agents] provider`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub provider: Option<crate::agents::provider::Provider>,
+    /// Its model. Absent: its CLI's (`[agents.<cli>] model`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub model: Option<String>,
+    /// Its reasoning effort. Absent: its CLI's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub effort: Option<String>,
+    /// The folder it works in, its memory under `memory/`. Absent: `assistant/` in the profile's
+    /// folder (`~/.config/prism/assistant` for the default profile).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional, type = "string"))]
+    pub dir: Option<std::path::PathBuf>,
+    /// How long an exploration of a repository (its read-only subagent) may take, in seconds.
+    pub explore_seconds: u32,
+}
+
+impl Default for AssistantConfig {
+    fn default() -> Self {
+        Self { enabled: true, provider: None, model: None, effort: None, dir: None, explore_seconds: 240 }
     }
 }
 
@@ -621,6 +662,7 @@ impl Default for AgentsConfig {
             routines: Vec::new(),
             overlaps: OverlapsConfig::default(),
             aside: AsideConfig::default(),
+            assistant: AssistantConfig::default(),
             terminal_keys: vec!["Cmd+K".into()],
             view: "chat".into(),
             fold_steps: true,

@@ -37,6 +37,7 @@ import { recentPanels, reopenLastPanel, reopenPanel } from './recent-panels.svel
 import type { Agent, MergeRequest, Snapshot, StatusOption, Ticket } from './types'
 import type { ChangesState } from './blocks/changes/changes'
 import { openChanges } from './changes-view.svelte'
+import { askPrism, assistantOn, isAssistant, openAssistant } from './assistant.svelte'
 import { t, tc } from './i18n.svelte'
 
 export { KIND_LABEL, KIND_ONE, type Entry, type Group, type Kind, type PaletteAction, type Row }
@@ -119,7 +120,7 @@ function agentEntries(s: Snapshot): Entry[] {
       words: [a.ticket, a.branch, ...a.tags, a.category].filter(Boolean).join(' '),
       pill: { label, tone },
       waiting: live && waitsForYou(a.status),
-      run: () => openAgents(a.id),
+      run: () => (isAssistant(a) ? openAssistant(a.id) : openAgents(a.id)),
       actions: () => agentActions(a),
     } satisfies Entry
   })
@@ -268,7 +269,11 @@ function addRepo(mode: AddMode) {
 function commandEntries(): Entry[] {
   const own: Entry[] = phone() ? [] : [
     ...(agentsEnabled() ? [{ id: 'cmd:new-agent', kind: 'command' as const, title: t('New agent'), words: 'new agent', keys: keys('⌘N'), run: newAgent }] : []),
-    ...(ticketBoards().length ? [{ id: 'cmd:new-ticket', kind: 'command' as const, title: t('New ticket…'), hint: t('On one of the sprint\'s boards'), words: 'new ticket create task card issue', run: openNewTicket }] : []),
+    ...(ticketBoards().length ? [{ id: 'cmd:new-ticket', kind: 'command' as const, title: t('New ticket…'), hint: t('On one of the sprint\'s boards'), words: 'new ticket create task card issue', run: () => openNewTicket() }] : []),
+    ...(assistantOn() ? [
+      { id: 'cmd:assistant', kind: 'command' as const, title: t('Assistant'), hint: t('Its conversations and its memory'), words: 'assistant ask prism conversations memory brain', run: () => openAssistant() },
+      { id: 'cmd:assistant-memory', kind: 'command' as const, title: t('Assistant memory'), hint: t('What the assistant remembers'), words: 'assistant memory remember forget facts', run: () => openAssistant(undefined, 'memory') },
+    ] : []),
     { id: 'cmd:reopen', kind: 'command', title: t('Reopen the last closed panel'), words: 'reopen closed panel undo restore', keys: keys('⌘⇧T'), run: reopenLastPanel },
     { id: 'cmd:zen', kind: 'command', title: t('Zen mode'), words: 'zen', keys: keys('⌘⇧F'), run: toggleZen },
     { id: 'cmd:edit-layout', kind: 'command', title: t('Edit layout'), words: 'edit layout', run: toggleEditing },
@@ -432,8 +437,36 @@ export function entries(): Entry[] {
   return [...objects, ...(phone() ? [] : backEntries()), ...pageEntries(), ...(s ? quickEntries(s) : []), ...commandEntries(), ...settingEntries(), ...helpEntries()]
 }
 
-/** What the query finds (`palette-search.ts`), among everything the palette can find now. */
-export const search = (query: string, all: Entry[] = entries()): Group[] => searchEntries(query, [...all, ...foundEntries(query, all)], recent())
+/** What the query finds (`palette-search.ts`), among everything the palette can find now; and « Ask Prism ». */
+export function search(query: string, all: Entry[] = entries()): Group[] {
+  const groups = searchEntries(query, [...all, ...foundEntries(query, all)], recent())
+  const ask = askGroup(query, groups)
+  if (!ask) return groups
+  return ask.first ? [ask.group, ...groups] : [...groups, ask.group]
+}
+
+/**
+ * « Ask Prism: … », the query sent to the assistant as it is typed: first when it reads as a
+ * sentence (three words or more) or nothing else answers it, last otherwise. ⌥↵ asks whatever the
+ * line chosen.
+ */
+function askGroup(query: string, groups: Group[]): { group: Group; first: boolean } | null {
+  const q = query.trim()
+  if (!q || !assistantOn() || phone()) return null
+  // A command and its words (`note buy milk`) is not a request.
+  if (groups.length === 1 && groups[0].rows[0]?.words) return null
+  const entry: Entry = { id: 'ask:prism', kind: 'ask', title: t('Ask Prism: “{query}”', { query: q.length > 70 ? `${q.slice(0, 69)}…` : q }), hint: t('A new conversation with the assistant'), keys: keys('⌥↵'), run: () => void askPrism(q) }
+  return { group: { title: KIND_LABEL.ask, rows: [{ entry, at: [] }] }, first: q.split(/\s+/).length >= 3 || !groups.length }
+}
+
+/** ⌥↵: the query asked of the assistant, whatever the line chosen. */
+export function askFromPalette() {
+  const q = palette.query.trim()
+  if (!q || !assistantOn()) return false
+  closePalette()
+  void askPrism(q)
+  return true
+}
 
 /** ↵ on a line: a command waiting for its words gets them typed; anything else runs, and closes. */
 export async function choose(row: Row) {

@@ -253,6 +253,19 @@ impl Fold {
     /// A call of Prism's « in passing » tools: what it is about (its title, or the task withdrawn).
     /// A call proposing a change of Prism: flagged for its card.
     pub(super) fn aside_call(tool: &mut Tool, input: &Value) {
+        // A proposal of Prism's assistant: its card, tied to its proposal by its action and title.
+        if let Some(action) = assistant_tool(&tool.tool) {
+            let parsed = input.as_str().and_then(|s| serde_json::from_str::<Value>(s).ok());
+            let input = parsed.as_ref().unwrap_or(input);
+            let first = |k: &str| input.get(k).and_then(Value::as_str).map(|t| t.lines().next().unwrap_or_default().trim().to_string()).filter(|t| !t.is_empty());
+            tool.kind = "other";
+            tool.assistant = Some(action.to_string());
+            tool.what = match input.get("id").and_then(Value::as_u64) {
+                Some(id) => Some(format!("#{id}")),
+                None => first("title").or_else(|| first("ticket")).or_else(|| first("source")).or_else(|| first("text")).or_else(|| first("prompt")),
+            };
+            return;
+        }
         if propose_tool(&tool.tool) {
             // What ties it to its proposal: the reason it gave (the proposal keeps it), or the
             // proposal's id it waits for (`prism_wait_proposal`). Codex gives its arguments as a
@@ -290,7 +303,7 @@ impl Fold {
             tool.state = if failed { "failed" } else { "ok" };
             tool.ms = tool.at.as_deref().zip(at).and_then(|(from, to)| millis(from, to));
             // A task flagged in passing: its answer gives its id, which its Chat card follows.
-            if tool.propose {
+            if tool.propose || tool.assistant.is_some() {
                 tool.output = output.as_deref().and_then(propose_answer).or_else(|| output.map(|o| tail(&o)).filter(|o| !o.is_empty()));
             } else if failed || tool.kind == "command" || tool.aside {
                 tool.output = output.map(|o| tail(&o)).filter(|o| !o.is_empty());
@@ -504,6 +517,17 @@ pub(super) fn propose_answer(output: &str) -> Option<String> {
     if let Some(e) = v.get("errors").filter(|e| e.as_array().is_some_and(|a| !a.is_empty())) {
         out["errors"] = e.clone();
     }
+    // What an assistant's proposal became: the ticket created, the agent launched, the repository
+    // added, the fact kept.
+    // A proposal still waiting past its call: its id, which its card follows.
+    if let Some(id) = v.get("id").and_then(Value::as_u64) {
+        out["id"] = Value::from(id);
+    }
+    for k in ["key", "url", "agent", "repo", "title", "fact"] {
+        if let Some(x) = v.get(k).and_then(Value::as_str).filter(|x| !x.trim().is_empty()) {
+            out[k] = Value::from(cut(x.trim(), 300));
+        }
+    }
     Some(out.to_string())
 }
 
@@ -527,6 +551,15 @@ fn answer_in(v: &Value, depth: u8) -> Option<Value> {
         Value::Object(o) => o.values().find_map(|x| answer_in(x, depth - 1)),
         _ => None,
     }
+}
+
+/// A proposal of Prism's assistant (`assistant_propose_ticket`…, `assistant_wait`), as each CLI
+/// names it: what it proposes (`ticket`, `launch`, `note`, `repo`, `memory`, `wait`).
+pub(super) fn assistant_tool(name: &str) -> Option<&'static str> {
+    if !name.contains("prism") && !name.starts_with("assistant_") {
+        return None;
+    }
+    ["ticket", "launch", "note", "repo", "memory"].into_iter().find(|a| name.ends_with(&format!("assistant_propose_{a}"))).or_else(|| name.ends_with("assistant_wait").then_some("wait"))
 }
 
 /// Prism's « in passing » tools, as each CLI names them (`mcp__prism__suggest_task`,

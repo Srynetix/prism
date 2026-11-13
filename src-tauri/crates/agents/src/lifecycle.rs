@@ -575,6 +575,10 @@ impl Agents {
     /// given (`launch`), not a default declared since.
     pub(crate) fn env(&self, id: &str, provider: Provider, mode: Option<&str>, launch: Option<&state::LaunchSpec>) -> Vec<String> {
         let mut env = vec![format!("PRISM_AGENT={id}"), format!("PRISM_EVENTS={}", self.inner.events.display())];
+        // Prism's MCP server gives it the assistant's tools (`prism mcp`, its other end checks it).
+        if launch.is_some_and(|l| l.assistant) {
+            env.push("PRISM_ASSISTANT=1".into());
+        }
         let account = launch.and_then(|l| l.account.as_deref());
         if let (Some(var), Some(name)) = (provider.home_var(), account) {
             match self.inner.settings.lock().unwrap().account(provider, Some(name)) {

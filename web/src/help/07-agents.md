@@ -259,6 +259,26 @@ The agent learns what became of it at its next step (launched elsewhere: it leav
 
 [Open Settings › Agents › In passing](prism:settings/aside)
 
+## The assistant: ask Prism in your own words
+
+Ask without knowing in advance which repository, tracker or agent your request will end in: « create a ticket for the shop app to export orders as CSV », « implement ticket SHOP-214 on the back », « where are we on the Postgres migration? ». Type it in the palette (`⌘K`): a sentence brings **Ask Prism** first, and **⌥↵** asks it whatever line is chosen. The **Assistant** button of the rail opens its panel.
+
+The assistant is an agent like the others — Claude Code, Codex or OpenCode, from **Settings › Agents › Assistant** — launched in a folder of its own with Prism's MCP server and tools of its own. It **finds the repository** (its memory first, then the names, **aliases** and **descriptions** of Settings › Code › Repositories), reads the tickets, MRs, agents and sprint, and **reads code through a read-only subagent** that explores a repository's clone and gives back only its synthesis. It never writes in a repository and never codes: it **proposes**, and you apply each proposal in one click.
+
+- **A ticket**: its title, board and lane, and a description written after reading the code (goal, leads, criteria). **Create the ticket**, or **Edit…** for the New ticket form, prefilled.
+- **An agent to launch**: its kind (Implement for a ticket, taken on launch as the ticket's own Implement does), its worktree named after the ticket, its chain, its prompt. **Launch**, or **Open in the launcher…** to change the model, the base or add a repository.
+- **A note**, **a repository to add** (Settings › Repositories' Add panel opens prefilled: nothing is cloned without your click; the request carries on once it is saved), **a fact to remember**.
+
+**Dismiss** sends a reason back, if you give one. When a name could mean two repositories, it asks — a choice card, as an agent's questions — and never guesses; after a question it offers to remember the answer.
+
+Each request is a **new conversation**, listed by day in the panel with where it stands (*Proposal to validate*, *Working…*, *Answered*); a click reopens one, **Resume** picks up an ended one. Its conversations stay out of the Agents list.
+
+**Its memory** (the panel's **Memory** tab): one Markdown file per fact in the profile's `assistant/memory/`, and an index it reads at the start of each conversation — what an app is and its repository, conventions, decisions, your preferences. « Remember that… » writes one; each can be changed, forgotten, or added by hand; **Forget everything…** empties it. Work and personal profiles keep their own.
+
+**Out of its reach**: a repository whose **Seen by the assistant** is off (`[[repos]] assistant = false`) is never listed, read, explored nor remembered; its tickets and MRs neither. The assistant only says it has no access. No agent can change that, nor `[agents.assistant]`, through a proposal.
+
+[Open Settings › Agents › Assistant](prism:settings/assistant)
+
 ## Settings and console
 In Settings › Agents › Agent (`[agents]`):
 

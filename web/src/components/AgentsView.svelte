@@ -42,6 +42,7 @@
   import { setPollsShown } from '../polls.svelte'
   import { settingsView } from '../settings.svelte'
   import { helpView } from '../help-view.svelte'
+  import { isAssistant } from '../assistant.svelte'
   import { agentEntry, desktopEntry, groupEntries, groupLabel, GROUP_BY, shortOf, SORTS, tagsOf, taskOf, TASK_ICON, where, type Entry, type Filter, type GroupBy, type SortBy } from '../agents-list'
   import { t, tn, tc } from '../i18n.svelte'
   import { projectsOf, type Project } from '../projects'
@@ -69,7 +70,8 @@
   /** Claude Desktop sessions, unless hidden (`[agents.claude] show_desktop`, only with Claude Code). */
   const withDesktop = $derived(desktopShown(live.snapshot?.agents_settings))
   const desktop = $derived(withDesktop ? (live.snapshot?.sessions ?? []).filter((c) => c.origin !== 'agent') : [])
-  const entries = $derived<Entry[]>([...agents.map(agentEntry), ...desktop.map(desktopEntry)])
+  // The assistant's conversations are in its own panel (assistant.svelte.ts).
+  const entries = $derived<Entry[]>([...agents.filter((a) => !isAssistant(a)).map(agentEntry), ...desktop.map(desktopEntry)])
 
   let filter = $state<Filter>(pref<Filter>('agents.filter', 'all'))
   const setFilter = (f: Filter) => setPref('agents.filter', (filter = f))

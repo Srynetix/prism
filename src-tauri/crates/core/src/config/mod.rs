@@ -475,6 +475,9 @@ impl Config {
             base_branch: None,
             agent: None,
             forge: None,
+            aliases: Vec::new(),
+            description: None,
+            assistant: true,
         })
     }
 

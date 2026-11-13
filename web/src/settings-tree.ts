@@ -108,6 +108,7 @@ export const TREE: TreeNode[] = [
       { id: 'routines', label: t('Routines'), sections: ['routines'] },
       { id: 'overlaps', label: t('Overlaps'), sections: ['agents-overlaps'], toggle: 'agents-overlaps' },
       { id: 'aside', label: t('In passing'), sections: ['agents-aside'], toggle: 'agents-aside' },
+      { id: 'assistant', label: t('Assistant'), sections: ['agents-assistant'], toggle: 'agents-assistant' },
       { id: 'dictation', label: t('Dictation'), sections: ['agents-dictation', 'dictation-panel'], toggle: 'agents-dictation' },
       { id: 'prism-mcp', label: t('Prism MCP'), sections: ['mcp', 'agents-mcp', 'mcp-agents'], toggle: 'mcp' },
       { id: 'files', label: t('Files'), sections: ['files'] },

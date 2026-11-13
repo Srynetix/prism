@@ -3,6 +3,7 @@
 //! a phone's.
 
 pub mod agents;
+pub mod assistant;
 pub mod system;
 pub mod infra;
 pub mod tracker;

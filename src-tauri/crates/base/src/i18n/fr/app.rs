@@ -142,4 +142,5 @@ pub const TABLE: &[(&str, &str)] = &[
     ("The download stalled", "Le téléchargement est bloqué"),
     ("The microphone did not answer", "Le micro n’a pas répondu"),
     ("The system’s dictation is macOS’s only: choose whisper", "La dictée du système n’existe que sur macOS : choisissez whisper"),
+    ("ask something", "demandez quelque chose"),
 ];

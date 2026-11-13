@@ -3,6 +3,7 @@
 //! installation into the agent CLIs outside Prism (`install`). The skill, the socket's path and
 //! what the window shows of it are in `prism_core::mcp`.
 
+pub mod assistant;
 pub mod docs;
 pub mod host;
 pub mod install;

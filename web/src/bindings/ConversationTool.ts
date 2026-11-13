@@ -44,6 +44,12 @@ aside?: boolean,
  */
 propose?: boolean, 
 /**
+ * A proposal of Prism's assistant (`assistant_propose_*`, `assistant_wait`): what it proposes
+ * (`ticket`, `launch`, `note`, `repo`, `memory`, `wait`); its Chat shows its card while it
+ * waits, then what became of it (`output`: `{"status", "key"?, "agent"?, "reason"?}`).
+ */
+assistant?: 'ticket' | 'launch' | 'note' | 'repo' | 'memory' | 'wait', 
+/**
  * When it was called (ISO 8601), and once done, how long it took.
  */
 at: string | null, ms: number | null, 

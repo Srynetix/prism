@@ -157,8 +157,12 @@ pub fn codex_args(command: &[String]) -> Vec<String> {
     let quoted = |s: &str| toml::Value::String(s.to_string()).to_string();
     let list = format!("[{}]", args.iter().map(|a| quoted(a)).collect::<Vec<_>>().join(", "));
     // A proposal waits for the user: longer than Codex's 60 s by default.
-    vec!["-c".into(), format!("mcp_servers.{SERVER}.command={}", quoted(program)), "-c".into(), format!("mcp_servers.{SERVER}.args={list}"), "-c".into(), format!("mcp_servers.{SERVER}.tool_timeout_sec=300")]
+    vec!["-c".into(), format!("mcp_servers.{SERVER}.command={}", quoted(program)), "-c".into(), format!("mcp_servers.{SERVER}.args={list}"), "-c".into(), format!("mcp_servers.{SERVER}.tool_timeout_sec={CODEX_TOOL_SECONDS}")]
 }
+
+/// How long Codex waits for one of Prism's tools (a proposal waits for the user): longer than its
+/// 60 s by default.
+pub const CODEX_TOOL_SECONDS: u32 = 300;
 
 /// OpenCode's `mcp` entry for it (`OPENCODE_CONFIG_CONTENT`, or its config file).
 pub fn opencode_server(command: &[String]) -> serde_json::Value {

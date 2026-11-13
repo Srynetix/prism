@@ -3,6 +3,7 @@ import type { AgentAccount } from "./AgentAccount";
 import type { AgentKind } from "./AgentKind";
 import type { AgentProvider } from "./AgentProvider";
 import type { AsideConfig } from "./AsideConfig";
+import type { AssistantConfig } from "./AssistantConfig";
 import type { ClaudeConfig } from "./ClaudeConfig";
 import type { CliConfig } from "./CliConfig";
 import type { OverlapsConfig } from "./OverlapsConfig";
@@ -128,6 +129,12 @@ overlaps: OverlapsConfig,
  * list, launched, chained or made a ticket in a click (`[agents.aside]`).
  */
 aside: AsideConfig, 
+/**
+ * Prism's assistant (`[agents.assistant]`): an agent you ask in your own words (the palette's
+ * « Ask Prism »), which finds the repository, reads its tickets and code, and proposes a
+ * ticket or an agent to launch, applied in a click.
+ */
+assistant: AssistantConfig, 
 /**
  * Prism's shortcuts an agent's terminal keeps for itself (`Cmd+K` clears it): the others go up
  * to Prism, as everywhere else.

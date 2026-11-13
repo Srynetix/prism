@@ -111,6 +111,10 @@ enabled = true
 # is not the profile's (a personal project on GitHub): its MRs (`merge_requests`) join the same
 # block, read with that forge's tool and login (gh or glab); no pipelines, merge queue nor bare
 # references. Absent: its working folder's ([[workspaces]] below), if its clone is in one.
+# For Prism's assistant ([agents.assistant]): `description` (what it is, in a sentence) and `aliases`
+# (other names it goes by: "the shop app", "the front") help it find the repository a request is
+# about; `assistant = false` keeps it out of its reach (it neither lists, reads, explores nor
+# remembers anything of it, its tickets nor its MRs; your own agents work there as before).
 # A pack's [[repos]] merge by name: the pack can name the repository and its project, your
 # config.toml adds its `path` (a pack's `path` is ignored: everyone keeps their clones where they
 # like; Settings › Code › Repositories finds them in a folder you pick, or clones them).
@@ -136,6 +140,9 @@ project = "example-org/helm"
 merge_requests = true   # its MRs in the Merge requests block, as helm!12, next to app's (!1294)
 worktrees = true        # agents can work there too
 # agent = "claude"      # its agents run Claude Code, whatever [agents] provider
+# description = "The Helm charts of every service"   # for the assistant
+# aliases = ["the charts", "the deploy"]             # for the assistant
+# assistant = false     # out of the assistant's reach
 
 [[repos]]
 name = "infrastructure"
@@ -450,6 +457,27 @@ default_action = "launch"
 worktree = true
 stale_days = 14
 statusbar = false
+
+# Prism's assistant: ask in your own words from the palette (type the request, then ⌥↵ or « Ask
+# Prism ») — « create a ticket for the shop app to export orders as CSV », « implement ticket
+# SHOP-214 on the back », « what awaits me this morning? ». An agent of the CLI below, launched in
+# a folder of its own (`dir`; absent, assistant/ in the profile's folder), with Prism's MCP server
+# and its assistant tools: it finds the repository (its memory, then [[repos]] name, aliases,
+# description), reads the tickets, MRs and agents, explores a repository's code through a read-only
+# subagent (`explore_seconds` at most; Codex: 280 s, its own limit for a tool), and proposes a ticket, an agent to launch, a note, a
+# repository to add or a fact to remember: a card in its Chat, applied in a click. It never writes
+# in a repository nor launches anything itself (Claude Code goes without its file and shell tools,
+# Codex runs in its read-only sandbox). One conversation per request, in the Assistant panel. Its
+# memory: one Markdown file per fact and an index, MEMORY.md, in `dir`/memory, per profile;
+# readable, editable and emptied from the panel's Memory tab. provider: claude, codex or opencode
+# (absent: [agents] provider); model, effort: absent, the CLI's.
+[agents.assistant]
+enabled = true
+# provider = "claude"
+# model = "sonnet"
+# effort = "high"
+# dir = "~/.config/prism/assistant"
+explore_seconds = 240
 
 # Each CLI's own keys, wherever it runs (by default or for a repository): [agents.claude],
 # [agents.command-code], [agents.opencode], [agents.codex]. bin: the executable (a name in the

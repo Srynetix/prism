@@ -1,9 +1,10 @@
 <script lang="ts">
   import { baseName } from '../../platform'
+  import { untrack } from 'svelte'
   import Icon from '../Icon.svelte'
   import { t } from '../../i18n.svelte'
   import { canPick, pickPath } from '../../pick'
-  import { cloneRepo, createProject, initRepo, inspectFolder, publishRepo, repoAdd, type AddMode, type Folder } from '../../clones.svelte'
+  import { cloneRepo, createProject, initRepo, inspectFolder, publishRepo, repoAdd, sourceToAdd, type AddMode, type Folder } from '../../clones.svelte'
   import { pref, setPref } from '../../layout.svelte'
   import { forgeLabel, forgeName, profileForge } from '../../forge'
   import type { ForgeProvider } from '../../bindings/ForgeProvider'
@@ -124,6 +125,19 @@
     const p = await pickPath(current || '~')
     if (p) set(p)
   }
+
+  // A source given by Prism's assistant (its « Add the repository » card): the panel prefilled once.
+  $effect(() => {
+    const source = repoAdd.source
+    if (!source) return
+    untrack(() => {
+      repoAdd.source = ''
+      const { mode, value } = sourceToAdd(source)
+      repoAdd.mode = mode
+      if (mode === 'folder') void readFolder(value)
+      else cloneProject = value
+    })
+  })
 
   // ---- Folder ----
   const readFolder = (p: string) =>

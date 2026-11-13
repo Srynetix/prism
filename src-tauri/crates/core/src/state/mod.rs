@@ -331,6 +331,8 @@ pub struct Snapshot {
     pub waiting_restart: Vec<String>,
     /// Prism's MCP server: the agents connected, the proposals waiting for an answer (`mcp`).
     pub mcp: crate::mcp::McpState,
+    /// Prism's assistant: its proposals waiting for a click (`assistant`).
+    pub assistant: crate::assistant::AssistantState,
     /// Sources that have responded at least once (success or error): the startup screen waits for them.
     pub answered: std::collections::BTreeSet<&'static str>,
     pub updated_at: Option<DateTime<Utc>>,

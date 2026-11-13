@@ -44,6 +44,7 @@ impl Bench {
             then: Vec::new(),
             from: None,
             prism_mcp: false,
+            assistant: false,
         }
     }
 
@@ -333,6 +334,21 @@ async fn the_agents_get_the_aside_tools() {
     assert!(codex.contains("mcp_servers.prism.args=") && codex.contains(r#""mcp", "aside"]"#), "{codex}");
     let whole = b.agents.command_line(preview(Provider::Claude, true)).unwrap();
     assert!(whole.contains("--plugin-dir") && !whole.contains("--mcp-config") && whole.contains("--allowedTools="), "{whole}");
+}
+
+/// Prism's assistant: the whole MCP server, its tools without asking, none that writes, runs or
+/// reads a file; told it is the assistant (`PRISM_ASSISTANT`), unlike the other agents.
+#[tokio::test]
+async fn the_assistant_gets_its_tools_and_none_that_writes() {
+    let b = Bench::new();
+    b.agents.inner.settings.lock().unwrap().aside.enabled = true;
+    let spec = state::LaunchSpec { assistant: true, ..Default::default() };
+    let args = b.agents.cli(Provider::Claude, Some(&spec)).args.join(" ");
+    assert!(args.contains("--plugin-dir") && args.contains("--allowedTools=mcp__prism,mcp__plugin_prism_prism") && args.contains("--disallowedTools=Bash,Edit,"), "{args}");
+    assert!(!args.contains("suggest_task"), "its server's tools allowed whole: {args}");
+    assert!(b.agents.env("a1", Provider::Claude, None, Some(&spec)).contains(&"PRISM_ASSISTANT=1".to_string()));
+    assert!(!b.agents.env("a1", Provider::Claude, None, None).iter().any(|e| e.starts_with("PRISM_ASSISTANT")));
+    assert!(b.agents.cli(Provider::Codex, Some(&spec)).args.iter().any(|a| a.contains(r#""mcp"]"#)), "Codex: the whole server, not « in passing » alone");
 }
 
 /// « In passing »: one line per subject; only its agent withdraws it; an answer to a line dealt

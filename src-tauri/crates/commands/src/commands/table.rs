@@ -64,6 +64,14 @@ commands! {
     // An agent's proposal applied from the window only (a custom block is trusted at the desk).
     config::mcp_proposal_answer: Never,
     config::mcp_installs: Never,
+    // Prism's assistant: asked, its cards answered and its memory changed at the desk.
+    assistant::assistant_ask: Never,
+    assistant::assistant_answer: Never,
+    assistant::assistant_memory: Never,
+    assistant::assistant_memory_save: Never,
+    assistant::assistant_memory_forget: Never,
+    assistant::assistant_memory_clear: Never,
+    assistant::assistant_open: Never,
     config::mcp_install: Never [demo: refused],
     // A worktree's shell: typed in at the desk only.
     agents::worktree_shells: Never,
