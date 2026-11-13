@@ -240,6 +240,21 @@ pub async fn agent_allow(state: State<'_, AppState>, id: String) -> Cmd {
     state.agents.allow(&id).await.map_err(Into::into)
 }
 
+/// Marks an agent or a Claude Desktop session read: its turn over, it waits for me no more until it
+/// moves again. A permission or a question being asked is refused: it waits for an answer.
+#[prism_macros::command]
+pub fn session_read(state: State<'_, AppState>, id: String) -> Cmd {
+    let snap = state.hub.subscribe().borrow().clone();
+    let found = snap.agents.iter().find(|a| a.id == id).map(|a| (a.status, a.needs_action.clone(), a.last_activity)).or_else(|| snap.sessions.iter().find(|c| c.id == id).map(|c| (c.status, c.needs_action.clone(), c.last_activity)));
+    let Some((status, needs, last)) = found else { return Err(tr("unknown agent").into()) };
+    if !prism_core::read_marks::can_mark(status, needs.as_deref()) {
+        return Err(tr("it waits for an answer: answer it rather").into());
+    }
+    prism_core::read_marks::mark(&id, last);
+    prism_core::read_marks::apply_now(&state.hub);
+    Ok(())
+}
+
 /// Renames an agent in Prism.
 #[prism_macros::command]
 pub fn agent_rename(state: State<'_, AppState>, id: String, title: String) -> Cmd {

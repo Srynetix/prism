@@ -11,7 +11,7 @@
   import Icon from './Icon.svelte'
   import ArmedLabel from './ArmedLabel.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
-  import { behindLimit, SESSION_LABEL, describeWorktrees, type WorktreeInfo, type WorktreeOrigin, type WorktreeState } from '../rules'
+  import { behindLimit, sessionLabel, describeWorktrees, type WorktreeInfo, type WorktreeOrigin, type WorktreeState } from '../rules'
   import { agentsEnabled, desktopUrl, openAgents, openLauncher } from '../agents.svelte'
   import { deleteWorktree, openWorktree, pruneWorktrees, pullWorktree, size, switchWorktree } from '../worktrees'
   import BranchPicker from './BranchPicker.svelte'
@@ -178,9 +178,9 @@
   /** `agent`: the linked Prism agent, which the row opens in the Agents view. */
   function claude(i: WorktreeInfo): { dot: string; text: string; agent?: string } | null {
     const a = i.agents.find((a) => a.state === 'running') ?? i.agents[0]
-    if (a) return { dot: a.state === 'running' ? a.status : 'gone', text: `${a.title} · ${a.state === 'running' ? SESSION_LABEL[a.status] : t('agent stopped')}`, agent: a.id }
+    if (a) return { dot: a.state === 'running' ? a.status : 'gone', text: `${a.title} · ${a.state === 'running' ? sessionLabel(a) : t('agent stopped')}`, agent: a.id }
     const c = i.sessions[0]
-    if (c) return { dot: c.status, text: `${i.sessions.length > 1 ? t('{n} sessions', { n: i.sessions.length }) : c.title} · ${SESSION_LABEL[c.status]}` }
+    if (c) return { dot: c.status, text: `${i.sessions.length > 1 ? t('{n} sessions', { n: i.sessions.length }) : c.title} · ${sessionLabel(c)}` }
     if (i.archived.length) return { dot: 'gone', text: t('archived') }
     return null
   }
@@ -403,7 +403,7 @@
       <div class="sec">
         <span class="cap">{agentName()}</span>
         {#each i.agents as a (a.id)}
-          <button class="sess" onclick={() => openAgents(a.id)} title={t('Open in the Agents view')}><span class="st {a.state === 'running' ? a.status : 'gone'}"></span><span class="t">{a.title}</span><span class="pill cl">{t('agent')}</span><span class="muted">{a.state === 'running' ? SESSION_LABEL[a.status] : t('stopped')}</span></button>
+          <button class="sess" onclick={() => openAgents(a.id)} title={t('Open in the Agents view')}><span class="st {a.state === 'running' ? a.status : 'gone'}"></span><span class="t">{a.title}</span><span class="pill cl">{t('agent')}</span><span class="muted">{a.state === 'running' ? sessionLabel(a) : t('stopped')}</span></button>
         {/each}
         {#each i.sessions as c (c.id)}
           <a class="sess" href={desktopUrl(c.id) ?? undefined}><span class="st {c.status}"></span><span class="t">{c.title}</span><span class="pill">Desktop</span><span class="muted">{ago(c.last_activity)}</span></a>

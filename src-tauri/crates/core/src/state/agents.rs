@@ -277,6 +277,10 @@ pub struct Agent {
     /// From Claude Code's hooks, like the desktop sessions.
     pub status: SessionStatus,
     pub needs_action: Option<String>,
+    /// Marked read (`read_marks`): its turn over, it waits for me no more (status `Idle`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<bool>", optional))]
+    pub read: bool,
     /// At its prompt, the next prompt Claude Code suggests (dimmed in its input), read off its screen.
     pub suggestion: Option<String>,
     /// What its CLI asks before it starts, read off its screen (it sends no hook until answered):
@@ -403,6 +407,10 @@ pub struct ClaudeSession {
     pub ticket: Option<String>,
     pub status: SessionStatus,
     pub needs_action: Option<String>,
+    /// Marked read (`read_marks`): its turn over, it waits for me no more (status `Idle`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<bool>", optional))]
+    pub read: bool,
     pub last_activity: Option<DateTime<Utc>>,
     /// Desktop sidebar group, its rank, and the session's rank within the group.
     pub group: Option<String>,

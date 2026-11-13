@@ -10,7 +10,7 @@
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
   import type { Agent, Snapshot } from '../types'
-  import { behindLimit, isWorking, SESSION_LABEL, SESSION_RANK, waitsForYou } from '../rules'
+  import { behindLimit, isWorking, sessionLabel, SESSION_RANK, waitsForYou } from '../rules'
   import { ago } from '../time'
   import { setQuery } from '../filter.svelte'
   import { agentsEnabled, openAgents } from '../agents.svelte'
@@ -41,7 +41,7 @@
   const worktreeOf = (a: Agent) => snap.worktrees.find((w) => w.path === (a.worktree ?? a.cwd))
   /** Row tooltip: what no longer fits on a compact row. */
   const tooltip = (a: Agent) =>
-    [a.title, `${a.state === 'running' ? SESSION_LABEL[a.status] : STOPPED[a.state]} · ${a.branch ?? a.cwd}`, a.needs_action ? `→ ${a.needs_action}` : '', t('Open in the Agents view')]
+    [a.title, `${a.state === 'running' ? sessionLabel(a) : STOPPED[a.state]} · ${a.branch ?? a.cwd}`, a.needs_action ? `→ ${a.needs_action}` : '', t('Open in the Agents view')]
       .filter(Boolean)
       .join('\n')
 </script>
@@ -64,10 +64,10 @@
       {@const wt = worktreeOf(a)}
       {@const status = a.state === 'running' ? a.status : 'completed'}
       <div class="s" class:dim={status === 'completed' || status === 'idle'} data-thread={threadAttr({ agent: a.id })}>
-        <span class="st {status}" title={a.state === 'running' ? SESSION_LABEL[a.status] : STOPPED[a.state]}></span>
+        <span class="st {status}" title={a.state === 'running' ? sessionLabel(a) : STOPPED[a.state]}></span>
         <button class="t" onclick={() => openAgents(a.id)} title={tooltip(a)}><Icon name="terminal" />{a.title}</button>
         {#if isWaiting(a) || a.status === 'review_ready'}<span class="qa"><QuickAnswers agent={a} compact /></span>{/if}
-        {#if isWaiting(a)}<span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'} asks" title={a.needs_action ?? SESSION_LABEL[a.status]}>{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span>{/if}
+        {#if isWaiting(a)}<span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'} asks" title={a.needs_action ?? sessionLabel(a)}>{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span>{/if}
         <ProposalChip agent={a} />
         {#if a.state !== 'running'}<span class="pill">{STOPPED[a.state]}</span>{/if}
         {#if overlapsOfAgent(snap, a).length}<OverlapChip seen={overlapsOfAgent(snap, a)} short />{/if}

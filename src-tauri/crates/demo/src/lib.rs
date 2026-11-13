@@ -953,6 +953,7 @@ impl Demo {
             ticket: branch.and_then(|b| crate::ticket::find([b])),
             status,
             needs_action: needs.map(String::from),
+            read: false,
             last_activity: Some(self.ago(minutes)),
             group: None,
             group_order: None,
@@ -1051,6 +1052,7 @@ impl Demo {
             exit_code: (status == SessionStatus::Completed).then_some(0),
             status,
             needs_action: needs.map(String::from),
+            read: false,
             last_activity: Some(self.ago(minutes)),
             // The longer it has worked, the fuller its window.
             context: Some(crate::agents::context::ContextUse { used: 40_000 + 1_100 * (90 + minutes as u64).min(150), size: Some(200_000) }),
@@ -1195,6 +1197,7 @@ impl Demo {
             ticket: a.ticket.clone(),
             status: a.status,
             needs_action: a.needs_action.clone(),
+            read: false,
             last_activity: a.last_activity,
             group: None,
             group_order: None,

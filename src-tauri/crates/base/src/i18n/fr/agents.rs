@@ -26,6 +26,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("only Claude Code and Codex agents {what} from Prism", "seuls les agents Claude Code et Codex peuvent {what} depuis Prism"),
     ("the agent is working: {what} it once its turn is over", "l’agent travaille : attendez la fin de son tour pour {what}"),
     ("unknown agent", "agent inconnu"),
+    ("it waits for an answer: answer it rather", "il attend une réponse : répondez-lui plutôt"),
     ("no quick answer “{label}” any more", "plus de réponse rapide « {label} »"),
     ("this answer is not offered to this agent", "cette réponse n’est pas proposée à cet agent"),
     ("no conversation to read", "aucune conversation à lire"),

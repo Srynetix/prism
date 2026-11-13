@@ -430,6 +430,10 @@ impl Agents {
             a.suggestion = screens.get(&a.id).and_then(|s| suggestion::read(s));
         }
         self.apply_gates(&mut list, &screens);
+        // Those marked read wait for me no more, until they move again.
+        for a in &mut list {
+            prism_core::read_marks::apply(&a.id, &mut a.status, &mut a.needs_action, a.last_activity, &mut a.read);
+        }
         // Agents also appear among the Claude sessions: Claude block, menu bar,
         // notifications and alerts see them like the desktop ones.
         let sessions: Vec<ClaudeSession> = list.iter().filter(|a| a.state != AgentState::Prepared).map(as_session).collect();
@@ -537,6 +541,7 @@ fn read_agent(r: Record, home: Option<&Path>, folds: &mut HashMap<String, Fold>,
         exit_code,
         status,
         needs_action,
+        read: false,
         last_activity: fold.last_activity.or(Some(r.created_at)),
         context: fold.context,
         model: usage.as_ref().and_then(|u| u.model.clone()).or_else(|| fold.model.clone()),
@@ -662,6 +667,7 @@ fn as_session(a: &Agent) -> ClaudeSession {
         ticket: a.ticket.clone(),
         status: a.status,
         needs_action: a.needs_action.clone(),
+        read: a.read,
         last_activity: a.last_activity,
         group: Some(a.category.clone().unwrap_or_else(|| "Prism agents".into())),
         group_order: None,

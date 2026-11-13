@@ -46,6 +46,11 @@ pub async fn run(cfg: SessionsConfig, scope: crate::profile::SessionScope, hub: 
         transcripts = cache;
         match result {
             Ok((list, archived)) => {
+                let mut list = list;
+                // Those marked read wait for me no more, until they move again.
+                for c in &mut list {
+                    prism_core::read_marks::apply(&c.id, &mut c.status, &mut c.needs_action, c.last_activity, &mut c.read);
+                }
                 hub.update(|s| {
                     let changed = s.archived_sessions != archived;
                     s.archived_sessions = archived;
@@ -159,6 +164,7 @@ fn summarize(m: RawSession, transcript: Option<&Path>) -> ClaudeSession {
         title,
         status,
         needs_action: summary.needs_action.filter(|s| !s.trim().is_empty()),
+        read: false,
         last_activity: m.last_activity_at.and_then(DateTime::from_timestamp_millis),
         group: None,
         group_order: None,

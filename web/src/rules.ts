@@ -206,6 +206,8 @@ export const SESSION_LABEL: Record<ClaudeSession['status'], string> = {
   idle: tr('Idle'),
   completed: tr('Completed'),
 }
+/** A session's status in words: one marked read (`session-read.ts`) shows as stopped. */
+export const sessionLabel = (x: { status: ClaudeSession['status']; read?: boolean }) => (x.read ? tr('Stopped') : SESSION_LABEL[x.status])
 /** A status waiting for an answer or a permission. */
 export const waitsForYou = (s: ClaudeSession['status']) => s === 'needs_you' || s === 'waiting_tool'
 /** Working: on its turn, or its turn over while its subagents or background tasks go on. */
@@ -215,7 +217,7 @@ export const AGENT_STATE: Record<Agent['state'], string> = { running: '', exited
 /** An agent's state in words: its CLI's while it runs, otherwise why it stopped; `short` in the phone's header. */
 export const agentStateLabel = (a: Agent, short = false) =>
   (a.state === 'running' && a.gate ? (short ? tr('Your trust') : tr('Waits for your trust')) : '') ||
-  (a.state === 'running' ? (a.status === 'waiting_tool' ? (short ? tr('Permission') : tr('Permission requested')) : SESSION_LABEL[a.status]) : AGENT_STATE[a.state]) + (a.state === 'exited' && a.exit_code ? ` (${a.exit_code})` : '')
+  (a.state === 'running' ? (a.status === 'waiting_tool' ? (short ? tr('Permission') : tr('Permission requested')) : sessionLabel(a)) : AGENT_STATE[a.state]) + (a.state === 'exited' && a.exit_code ? ` (${a.exit_code})` : '')
 /**
  * The Claude sessions counted in Prism's figures (header, status bar, menu bar,
  * Alerts, notifications): Prism's agents, and Claude Desktop's with
