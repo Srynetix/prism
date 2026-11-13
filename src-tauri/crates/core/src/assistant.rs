@@ -340,7 +340,7 @@ pub fn remembered(cfg: &Config, text: &str) -> Vec<Fact> {
         })
         .filter(|(n, _)| *n > 0)
         .collect();
-    hits.sort_by(|a, b| b.0.cmp(&a.0));
+    hits.sort_by_key(|h| std::cmp::Reverse(h.0));
     hits.into_iter().map(|(_, f)| f).take(8).collect()
 }
 

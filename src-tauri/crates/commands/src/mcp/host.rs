@@ -517,7 +517,7 @@ fn guarded_changes(a: &str, b: &str) -> Vec<String> {
     };
     let mut paths: Vec<Vec<String>> = ["open_with", "remote", "machines", "mcp", "packs", "profile", "updates"].iter().map(|k| vec![k.to_string()]).collect();
     paths.push(vec!["workspaces".to_string()]);
-    paths.extend([["agents", "permission_mode"], ["agents", "handoff_review"], ["agents", "quick_actions"], ["agents", "routines"], ["worktrees", "repo"], ["feedback", "repo"]].map(|p| p.map(String::from).to_vec()));
+    paths.extend([["agents", "permission_mode"], ["agents", "handoff_review"], ["agents", "quick_actions"], ["agents", "routines"], ["agents", "assistant"], ["worktrees", "repo"], ["feedback", "repo"]].map(|p| p.map(String::from).to_vec()));
     // Each CLI's table, one added later too.
     let clis: std::collections::BTreeSet<String> = [&ta, &tb].iter().filter_map(|t| t.get("agents")?.as_table()).flat_map(|a| a.iter().filter(|(_, v)| v.is_table()).map(|(k, _)| k.clone())).collect();
     for cli in clis {
@@ -532,7 +532,17 @@ fn guarded_changes(a: &str, b: &str) -> Vec<String> {
         .map(|p| if p.len() == 1 { format!("[{}]", p[0]) } else { format!("[{}] {}", p[..p.len() - 1].join("."), p[p.len() - 1]) })
         // Each repository's folder: a pack names the repository, this computer where it is.
         .chain((repo_paths(&ta) != repo_paths(&tb)).then(|| "[[repos]] path".to_string()))
+        // What Prism's assistant may see: an agent never widens it.
+        .chain((hidden_repos(&ta) != hidden_repos(&tb)).then(|| "[[repos]] assistant".to_string()))
         .collect()
+}
+
+/// The `[[repos]]` entries kept out of the assistant's reach (`assistant = false`), by name.
+fn hidden_repos(t: &toml::Table) -> Vec<String> {
+    let repos = t.get("repos").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+    let mut out: Vec<String> = repos.iter().filter_map(|r| r.as_table()).filter(|r| r.get("assistant").and_then(|v| v.as_bool()) == Some(false)).map(|r| r.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string()).collect();
+    out.sort();
+    out
 }
 
 /// Each `[[repos]]` entry's `path`, by name.
@@ -781,6 +791,9 @@ mod tests {
         let repos = "[[repos]]\nname = \"app\"\npath = \"~/dev/app\"\n";
         assert!(guarded_changes(repos, &repos.replace("[[repos]]", "[[repos]]\nbranch = \"main\"")).is_empty(), "a repository's other keys");
         assert_eq!(guarded_changes(repos, &repos.replace("~/dev/app", "/tmp/evil")), ["[[repos]] path"]);
+        let hidden = repos.replace("[[repos]]", "[[repos]]\nassistant = false");
+        assert_eq!(guarded_changes(&hidden, repos), ["[[repos]] assistant"], "an agent never shows the assistant a hidden repository");
+        assert_eq!(guarded_changes(file, &format!("{file}[agents.assistant]\nenabled = false\n")), ["[agents] assistant"]);
     }
 
     #[test]

@@ -82,4 +82,15 @@ export type AddMode = 'folder' | 'clone' | 'new' | 'publish'
  * The Add panel's mode, the repository to publish, the working folder a header opened it on, and
  * the working folder whose keys are being edited in its header (its index in `[[workspaces]]`).
  */
-export const repoAdd = $state({ mode: null as AddMode | null, publish: '', workspace: '', editing: null as number | null })
+export const repoAdd = $state({ mode: null as AddMode | null, publish: '', workspace: '', editing: null as number | null, source: '' })
+
+/**
+ * A source as Prism's assistant gives it — a folder, a forge project (`group/project`) or a clone
+ * URL — as the Add panel takes it: its mode, and the folder or the project.
+ */
+export function sourceToAdd(source: string): { mode: AddMode; value: string } {
+  const s = source.trim()
+  if (/^(~|\/|\.{1,2}\/|[A-Za-z]:\\)/.test(s)) return { mode: 'folder', value: s }
+  const url = s.match(/^(?:https?:\/\/|git@)[^/:]+[/:](.+?)(?:\.git)?\/?$/)
+  return { mode: 'clone', value: url ? url[1] : s.replace(/\.git$/, '') }
+}

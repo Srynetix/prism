@@ -1,5 +1,5 @@
 import { live } from './live.svelte'
-import { isDone } from './rules'
+import { isDone, ticketIndex } from './rules'
 import { conventions, mrTickets, namesTicket } from './conventions'
 import { hasWorktrees, primaryRepo, repoName, repoOf, worktreeRepos } from './repositories'
 import { mrKey } from './mr-ref'
@@ -225,6 +225,17 @@ function takeImplementation(t: Ticket): { onLaunch?: () => Promise<void>; note?:
   const assign = !!me && !t.assignees.some((a) => a.id === me.id)
   if (!target && !assign) return {}
   return { onLaunch: takeTicket(t, target), note: [target && `→ ${target}`, assign && tr('assign me')].filter(Boolean).join(', ') }
+}
+
+/**
+ * What implementing ticket `id` takes on launch (Prism's assistant proposing it), when Prism shows
+ * the ticket: its status and assignee, as the ticket's own Implement does.
+ */
+export function takeImplementationOf(id: string): (() => Promise<void>) | undefined {
+  const s = live.snapshot
+  if (!s) return undefined
+  const found = [...ticketIndex(s).values()].find((x) => x.t.id.toLowerCase() === id.toLowerCase())
+  return found ? takeImplementation(found.t).onLaunch : undefined
 }
 
 /**

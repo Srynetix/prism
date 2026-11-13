@@ -174,4 +174,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("it took too long", "il a mis trop longtemps"),
     ("another draft replaced it", "un autre brouillon l’a remplacé"),
     ("it asks before it starts: answer from its card","il demande avant de démarrer : répondez depuis sa carte"),
+    ("the exploration took more than {s} s: ask a narrower question", "l’exploration a pris plus de {s} s : posez une question plus précise"),
+    ("the exploration failed: {why}", "l’exploration a échoué : {why}"),
+    ("Command Code cannot explore a repository on its own: pick another CLI for the assistant ([agents.assistant] provider)", "Command Code ne sait pas explorer un repo seul : choisissez un autre CLI pour l’assistant ([agents.assistant] provider)"),
 ];

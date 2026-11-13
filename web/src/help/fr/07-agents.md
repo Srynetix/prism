@@ -259,6 +259,26 @@ L’agent apprend ce qu’elle est devenue à son étape suivante (lancée aille
 
 [Ouvrir Réglages › Agents › Au passage](prism:settings/aside)
 
+## L’assistant : demander à Prism avec vos mots
+
+Demandez sans savoir d’avance dans quel repo, quel tracker ou quel agent votre demande va finir : « crée un ticket pour l’app shop pour exporter les commandes en CSV », « implémente le ticket SHOP-214 sur le back », « où en est la migration Postgres ? ». Tapez-la dans la palette (`⌘K`) : une phrase fait apparaître **Demander à Prism** en tête, et **⌥↵** la pose quelle que soit la ligne choisie. Le bouton **Assistant** du rail ouvre son panneau.
+
+L’assistant est un agent comme les autres — Claude Code, Codex ou OpenCode, choisi dans **Réglages › Agents › Assistant** — lancé dans un dossier à lui, avec le serveur MCP de Prism et des outils à lui. Il **retrouve le repo** (sa mémoire d’abord, puis les noms, **alias** et **descriptions** de Réglages › Code › Repositories), lit les tickets, les MR, les agents et le sprint, et **lit le code par un sous-agent en lecture seule** qui explore le clone d’un repo et ne lui rend que sa synthèse. Il n’écrit jamais dans un repo et ne code jamais : il **propose**, et vous appliquez chaque proposition d’un clic.
+
+- **Un ticket** : son titre, son tableau et sa colonne, et une description écrite après lecture du code (objectif, pistes, critères). **Créer le ticket**, ou **Modifier…** pour le formulaire de nouveau ticket, pré-rempli.
+- **Un agent à lancer** : son kind (Implement pour un ticket, pris au lancement comme le fait l’Implement du ticket), son worktree au nom du ticket, sa chaîne, son prompt. **Lancer**, ou **Ouvrir dans le lanceur…** pour changer le modèle, la base ou ajouter un repo.
+- **Une note**, **un repo à ajouter** (le panneau d’ajout de Réglages › Repositories s’ouvre pré-rempli : rien n’est cloné sans votre clic ; la demande reprend une fois enregistré), **un fait à retenir**.
+
+**Écarter** renvoie une raison, si vous en donnez une. Quand un nom peut désigner deux repos, il demande — une carte à choix, comme les questions d’un agent — sans jamais deviner ; après une question, il propose de retenir la réponse.
+
+Chaque demande ouvre une **nouvelle conversation**, rangée par jour dans le panneau avec où elle en est (*Proposition à valider*, *Travaille…*, *Répondu*) ; un clic en rouvre une, **Reprendre** relance une conversation terminée. Ses conversations restent hors de la liste des Agents.
+
+**Sa mémoire** (l’onglet **Mémoire** du panneau) : un fichier Markdown par fait dans `assistant/memory/` du profil, et un index qu’il relit au début de chaque conversation — à quoi sert une app et son repo, les conventions, les décisions, vos préférences. « Retiens que… » en écrit un ; chacun se modifie, s’oublie, ou s’ajoute à la main ; **Tout oublier…** la vide. Les profils travail et perso gardent chacun la leur.
+
+**Hors de sa portée** : un repo dont **Visible par l’assistant** est décoché (`[[repos]] assistant = false`) n’est jamais listé, lu, exploré ni retenu ; ses tickets et ses MR non plus. L’assistant dit seulement qu’il n’y a pas accès. Aucun agent ne peut changer cela, ni `[agents.assistant]`, par une proposition.
+
+[Ouvrir Réglages › Agents › Assistant](prism:settings/assistant)
+
 ## Réglages et console
 Dans Réglages › Agents › Agent (`[agents]`) :
 

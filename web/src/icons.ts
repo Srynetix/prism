@@ -102,6 +102,7 @@ import Send from '@lucide/svelte/icons/send'
 import Square from '@lucide/svelte/icons/square'
 import SquareTerminal from '@lucide/svelte/icons/square-terminal'
 import SquareCheck from '@lucide/svelte/icons/square-check'
+import Sparkles from '@lucide/svelte/icons/sparkles'
 import Star from '@lucide/svelte/icons/star'
 import Tag from '@lucide/svelte/icons/tag'
 import Timer from '@lucide/svelte/icons/timer'
@@ -230,6 +231,7 @@ export const ICONS = {
   shield: Shield, // a folder's trust asked by an agent's CLI (🛡)
   key: KeyRound, // done with the passkey (🔑)
   star: Star, // organizer (★)
+  sparkles: Sparkles, // Prism's assistant (✦)
   // Audio
   music: Music, // ♪
   volume: Volume1, // 🔉

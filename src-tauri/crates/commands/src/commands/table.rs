@@ -71,6 +71,7 @@ commands! {
     assistant::assistant_memory_save: Never,
     assistant::assistant_memory_forget: Never,
     assistant::assistant_memory_clear: Never,
+    assistant::assistant_open: Never,
     config::mcp_install: Never [demo: refused],
     // A worktree's shell: typed in at the desk only.
     agents::worktree_shells: Never,

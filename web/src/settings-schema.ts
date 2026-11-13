@@ -231,6 +231,18 @@ export const SCHEMA: SectionSpec[] = [
     ],
   },
   {
+    id: 'agents-assistant', label: t('Assistant'), table: '[agents.assistant]', path: ['agents', 'assistant'],
+    intro: t('Ask Prism in your own words — « create a ticket for the shop app to… », « implement ticket SHOP-214 on the back », « what awaits me this morning? » — from the palette (type the request, then ⌥↵ or « Ask Prism »). An agent of the CLI below, in a folder of its own, finds the repository (its memory, then the names, aliases and descriptions of Repositories), reads the tickets, explores the code through a read-only subagent, and proposes a ticket, an agent to launch, a note or a repository to add: a card in its Chat, applied in a click. It never writes in a repository nor launches anything itself. One conversation per request, in the Assistant panel, with its memory (one Markdown file per fact, per profile). A repository can be kept out of its reach in Repositories.'),
+    fields: [
+      { key: 'enabled', label: t('Assistant'), hint: t('« Ask Prism » in the palette and the Assistant panel.'), kind: 'toggle' },
+      { key: 'provider', label: t('Agent CLI'), hint: t('claude, codex or opencode (Command Code cannot explore a repository on its own). Empty: [agents] provider.'), kind: 'select', options: ['', 'claude', 'codex', 'opencode'], optional: true },
+      { key: 'model', label: t('Model'), hint: t('Its model, in its CLI’s names. Empty: the CLI’s ([agents.<cli>] model).'), kind: 'text', optional: true, placeholder: t('the CLI’s default') },
+      { key: 'effort', label: t('Effort'), hint: t('Its reasoning effort. Empty: the CLI’s.'), kind: 'text', optional: true, placeholder: t('the CLI’s default') },
+      { key: 'dir', label: t('Folder'), hint: t('Where it works, its memory in memory/. Empty: assistant/ in the profile’s folder (~/.config/prism/assistant for the default profile).'), kind: 'text', optional: true, placeholder: '~/.config/prism/assistant' },
+      { key: 'explore_seconds', label: t('Exploration time'), hint: t('How long its read-only subagent may take to explore a repository.'), kind: 'number', unit: 'seconds' },
+    ],
+  },
+  {
     id: 'agents-dictation', label: t('Dictation'), table: '[dictation]', path: ['dictation'],
     intro: t('A prompt spoken rather than typed, at the computer: the microphone beside an agent’s Chat box, a plan’s comments, a question’s own words and the launcher’s prompt. Held, it records while held; clicked, it starts and the next click stops. The text goes in at the cursor, never sent on its own: you read it over and send it. Esc cancels. Transcribed on this computer only, never online: macOS’s speech recognition on the Mac, or whisper.cpp built into Prism (its model downloaded below). The audio stays in memory and is dropped once read.'),
     fields: [

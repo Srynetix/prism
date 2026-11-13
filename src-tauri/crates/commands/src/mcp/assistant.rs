@@ -46,7 +46,7 @@ pub async fn handle(ask: Ask<'_>, method: &str, params: Value) -> Result<Value> 
     ensure!(ask.cfg.agents.assistant.enabled, "[agents.assistant] enabled is off in this Prism");
     let snap = ask.state.hub.subscribe().borrow().clone();
     // Its tools answer its own conversations only: not any agent given Prism's MCP server.
-    let mine = ask.agent.as_deref().is_some_and(|a| snap.agents.iter().any(|x| x.id == a && x.launch.as_ref().is_some_and(|l| l.assistant)));
+    let mine = ask.agent.as_deref().is_some_and(|a| ask.state.agents.is_assistant(a));
     ensure!(mine, "these tools are the assistant's: ask Prism from its palette (« Ask Prism »)");
     let s = |k: &str| params.get(k).and_then(Value::as_str).map(str::trim).filter(|v| !v.is_empty()).map(str::to_string);
     let cfg = ask.cfg;
@@ -179,7 +179,14 @@ pub async fn handle(ask: Ask<'_>, method: &str, params: Value) -> Result<Value> 
                 title: title.clone(),
                 cwd: if worktree { None } else { repo.path.as_ref().map(|p| p.display().to_string()) },
                 prompt: Some(prompt.clone()),
-                worktree: worktree.then(|| prism_core::state::WorktreeRequest { repo: Some(repo.name.clone()), name: s("branch").or_else(|| ticket.clone()), branch: None, base: s("base"), also: Vec::new() }),
+                // Named after its ticket and title, as a ticket's own Implement names it.
+                worktree: worktree.then(|| prism_core::state::WorktreeRequest {
+                    repo: Some(repo.name.clone()),
+                    name: s("branch").or_else(|| ticket.as_ref().map(|t| if title.starts_with(t.as_str()) { title.clone() } else { format!("{t} {title}") })),
+                    branch: None,
+                    base: s("base"),
+                    also: Vec::new(),
+                }),
                 category,
                 then,
                 from: None,

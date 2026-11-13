@@ -2,14 +2,14 @@ import { fuzzy } from './fuzzy'
 import { t, tc } from './i18n.svelte'
 
 /** The palette's lines and their search (palette.svelte.ts gathers them from the snapshot). */
-export type Kind = 'agent' | 'mr' | 'ticket' | 'file' | 'page' | 'block' | 'pipeline' | 'env' | 'pod' | 'shell' | 'closed' | 'command' | 'setting' | 'help'
+export type Kind = 'ask' | 'agent' | 'mr' | 'ticket' | 'file' | 'page' | 'block' | 'pipeline' | 'env' | 'pod' | 'shell' | 'closed' | 'command' | 'setting' | 'help'
 
 export const KIND_LABEL: Record<Kind, string> = {
-  agent: t('Agents'), mr: t('Merge requests'), ticket: t('Tickets'), file: t('Files'), page: t('Pages'), block: t('Blocks'), pipeline: t('Pipelines'), env: t('Environments'), pod: t('Pods'), shell: t('Open shells'), closed: t('Closed lately'), command: t('Commands'), setting: t('Settings'), help: t('Help'),
+  ask: t('Assistant'), agent: t('Agents'), mr: t('Merge requests'), ticket: t('Tickets'), file: t('Files'), page: t('Pages'), block: t('Blocks'), pipeline: t('Pipelines'), env: t('Environments'), pod: t('Pods'), shell: t('Open shells'), closed: t('Closed lately'), command: t('Commands'), setting: t('Settings'), help: t('Help'),
 }
 /** One of a kind: the header of an entry's actions. */
 export const KIND_ONE: Record<Kind, string> = {
-  agent: t('Agent'), mr: t('Merge request'), ticket: t('Ticket'), file: t('File'), page: t('Page'), block: t('Block'), pipeline: t('Pipeline'), env: t('Environment'), pod: t('Pod'), shell: t('Shell'), closed: t('Closed panel'), command: t('Command'), setting: t('Setting'), help: t('Help'),
+  ask: t('Assistant'), agent: t('Agent'), mr: t('Merge request'), ticket: t('Ticket'), file: t('File'), page: t('Page'), block: t('Block'), pipeline: t('Pipeline'), env: t('Environment'), pod: t('Pod'), shell: t('Shell'), closed: t('Closed panel'), command: t('Command'), setting: t('Setting'), help: t('Help'),
 }
 
 /** An action of an entry (⌘↵): a menu's item, a quick answer. */

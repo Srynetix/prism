@@ -457,6 +457,11 @@ impl Agents {
         self.inner.hub.set_error(SOURCE, None);
     }
 
+    /// A conversation of Prism's assistant (launched as one, `LaunchSpec.assistant`).
+    pub fn is_assistant(&self, id: &str) -> bool {
+        self.record(id).is_ok_and(|r| r.launch.is_some_and(|l| l.assistant))
+    }
+
     /// The agent's record, as registered.
     fn record(&self, id: &str) -> Result<Record> {
         self.inner.registry.lock().unwrap().get(id).cloned().context(tr("unknown agent"))

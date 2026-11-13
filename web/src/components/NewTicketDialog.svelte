@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../i18n.svelte'
   import { trackerLogo } from '../tracker'
-  import { closeNewTicket, ticketBoards } from '../new-ticket.svelte'
+  import { closeNewTicket, newTicketDialog, ticketBoards } from '../new-ticket.svelte'
   import NewTicketForm from './NewTicketForm.svelte'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
@@ -23,7 +23,7 @@
     </header>
     <div class="body">
       {#if none}<p class="muted">{t('The tracker offers no board to create a ticket on.')}</p>
-      {:else}<NewTicketForm wide onclose={closeNewTicket} />{/if}
+      {:else}<NewTicketForm wide onclose={closeNewTicket} draft={newTicketDialog.draft} oncreated={newTicketDialog.created} />{/if}
     </div>
   </div>
 </div>

@@ -99,3 +99,13 @@ pub fn assistant_memory_clear() -> Cmd<usize> {
     crate::mcp::assistant::refresh_home(&cfg);
     Ok(n)
 }
+
+/// The memory's folder opened in the file manager (`finder`) or the `[open_with]` editor.
+#[prism_macros::command]
+pub async fn assistant_open(state: State<'_, AppState>, with: String) -> Cmd {
+    let cfg = config()?;
+    let dir = core::memory_dir(&cfg);
+    std::fs::create_dir_all(&dir).map_err(anyhow::Error::from)?;
+    let apps = state.hub.subscribe().borrow().open_with.clone();
+    super::system::open_folder(&dir.display().to_string(), &with, apps).await
+}

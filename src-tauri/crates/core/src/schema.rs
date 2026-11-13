@@ -92,6 +92,7 @@ pub fn settings_page(table: &str, key: Option<&str>) -> String {
         ("agents", Some("routines")) => "Agents › Routines",
         ("agents", Some("overlaps")) => "Agents › Overlaps",
         ("agents", Some("aside")) => "Agents › In passing",
+        ("agents", Some("assistant")) => "Agents › Assistant",
         ("agents", Some("quick_answers")) => "Agents › Quick answers",
         ("agents", Some("claude")) => "Agents › Agent › Claude Code",
         ("agents", Some("codex")) => "Agents › Agent › Codex",

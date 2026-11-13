@@ -19,6 +19,9 @@
   import { proposals as mcpProposals } from '../../mcp-view.svelte'
   import PlanCard from './PlanCard.svelte'
   import AsideCard from '../AsideCard.svelte'
+  import AssistantCard from '../assistant/AssistantCard.svelte'
+  import { proposalsOf as assistantProposals } from '../../assistant.svelte'
+  import type { AssistantProposal } from '../../bindings/AssistantProposal'
   import { asideOfCall, isDoneCall, isSuggest } from '../../asides.svelte'
   import CommentedAnswer from './CommentedAnswer.svelte'
   import PromptImages, { type PromptImage } from './PromptImages.svelte'
@@ -209,7 +212,7 @@
     const entries = convo?.turns.at(-1)?.entries ?? []
     for (let i = entries.length - 1; i >= 0; i--) {
       const e = entries[i]
-      if (e.type === 'tool' && e.state === 'running' && !e.ask && !e.proposal && !e.propose) return e
+      if (e.type === 'tool' && e.state === 'running' && !e.ask && !e.proposal && !e.propose && !e.assistant) return e
     }
     return null
   })
@@ -289,7 +292,17 @@
     })
   }
   /** A call shown as a line of its own (`entryRow`'s last case), not as a card. */
-  const plainCall = (t: ConversationTool) => !t.proposal && !proposalCard({ type: 'tool', ...t }) && !t.ask && !t.aside && t.kind !== 'agent'
+  const plainCall = (t: ConversationTool) => !t.proposal && !proposalCard({ type: 'tool', ...t }) && !t.ask && !t.aside && !t.assistant && t.kind !== 'agent'
+  /** Prism's assistant's proposal a running call waits for: by its id (`assistant_wait`), else its title, else the oldest of its kind. */
+  function assistantProposalOf(call: ConversationTool): AssistantProposal | undefined {
+    if (call.state !== 'running' || !call.assistant) return undefined
+    const mineAll = assistantProposals(shared.snapshot, id)
+    const what = call.what?.trim() ?? ''
+    if (call.assistant === 'wait') return mineAll.find((p) => `#${p.id}` === what)
+    const same = mineAll.filter((p) => p.action === call.assistant)
+    const head = (s: string) => s.split('\n')[0].trim().toLowerCase()
+    return same.find((p) => !!what && [p.title, p.text, p.ticket ?? '', p.source ?? ''].some((x) => x && (head(x).startsWith(what.toLowerCase().replace(/…$/, '')) || what.toLowerCase().startsWith(head(x).replace(/…$/, ''))))) ?? same[0]
+  }
   /** A reminder longer than this folds, a click shows it whole. */
   const REMINDER_LINES = 6
   const LIVE_SHOWN = 3
@@ -448,6 +461,8 @@
     <ProposalCard call={row.entry} proposal={proposalOf(row.entry)} old={!lastEntries.includes(row.entry)} />
   {:else if row.entry.ask}
     <QuestionCard {id} ask={row.entry.ask} status={row.entry.state} {acts} {typing} {passkey} />
+  {:else if row.entry.assistant}
+    <AssistantCard call={row.entry} proposal={assistantProposalOf(row.entry)} />
   {:else if row.entry.aside}
     <!-- A task flagged in passing (suggest_task): its card, where the agent saw it; done in its session (done_task): one line under it, not its card again; withdrawn (dismiss_task): struck out. -->
     {@const call = row.entry}

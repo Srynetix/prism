@@ -82,6 +82,8 @@
   import ChangesDrawer from './blocks/changes/ChangesDrawer.svelte'
   import McpProposal from './components/McpProposal.svelte'
   import { watchProposals } from './mcp-view.svelte'
+  import { assistantOn, assistantView, proposalsOf as assistantProposals, toggleAssistant, watchRepoAdds } from './assistant.svelte'
+  import AssistantPanel from './components/assistant/AssistantPanel.svelte'
   import ShellDrawer from './components/ShellDrawer.svelte'
   import MrPanel from './components/MrPanel.svelte'
   import MrChoice from './components/MrChoice.svelte'
@@ -152,6 +154,9 @@
   // Several profiles: the Dock icon carries this one's letter.
   // An agent's proposal (`prism mcp`) arriving: a toast to open it.
   $effect(() => watchProposals(live.snapshot))
+  $effect(() => watchRepoAdds(live.snapshot))
+  /** The assistant's proposals waiting for a click: a count on its rail button. */
+  const assistantWaiting = $derived(assistantProposals(live.snapshot).length)
   const focus = $derived(full ? resolve(full, filter.query) : null)
   /** All blocks read the filtered view; the alerts, the core's on the full state, are filtered. */
   const snap = $derived(full ? apply(filter.mine ? applyMine(full) : full, focus) : null)
@@ -522,6 +527,9 @@
       {#if agentsWaiting}<span class="count" title={t('{n} waiting for you', { n: agentsWaiting })}>{agentsWaiting}</span>{:else if toReview}<span class="count rv" title={t('{n} to review', { n: toReview })}>{toReview}</span>{/if}
     </button>
     {/if}
+    {#if assistantOn()}
+    <button class="v" class:on={assistantView.open} style:--tint="var(--info)" onclick={toggleAssistant} title={t('Assistant: ask Prism in your own words (or from the palette, ⌥↵)')} aria-pressed={assistantView.open}><Icon name="sparkles" /><span>{t('Assistant')}</span>{#if assistantWaiting}<span class="count" title={t('{n} proposals to validate', { n: assistantWaiting })}>{assistantWaiting}</span>{/if}</button>
+    {/if}
     <span class="grow"></span>
     <button class="v" class:on={helpView.open} onclick={toggleHelp} title={keys(t('Help (⌘? or F1)'))} aria-pressed={helpView.open}><Icon name="help" /><span>{t('Help')}</span></button>
     <ThemeMenu />
@@ -660,6 +668,7 @@
   {#if clonesPrompt.open}<ClonesPrompt />{/if}
   {#if newTicketDialog.open}<NewTicketDialog />{/if}
   <!-- Before the other drawers: its Escape is heard first. -->
+  {#if assistantView.open}<AssistantPanel />{/if}
   <LauncherDrawer />
   <!-- Create a quick action… from a session: loaded the first time it opens. -->
   {#if qaDraft.open}{#await import('./components/QuickActionDraft.svelte') then { default: QuickActionDraft }}<QuickActionDraft />{/await}{/if}

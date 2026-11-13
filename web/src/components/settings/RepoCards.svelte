@@ -75,6 +75,11 @@
   function clean(r: Row): Row {
     return Object.fromEntries(Object.entries(r).filter(([, v]) => v !== null && v !== undefined && v !== ''))
   }
+  /** `the shop app, the front` as `[[repos]] aliases`; empty: none. */
+  const aliasesOf = (v: unknown) => {
+    const list = typeof v === 'string' ? v.split(',').map((a) => a.trim()).filter(Boolean) : []
+    return list.length ? list : null
+  }
   function update(name: unknown, patch: Row) {
     setMergedRows(REPOS, rows.map((r) => (r.name === name ? clean({ ...r, ...patch }) : r)))
   }
@@ -183,6 +188,14 @@
             <div class="id"><span>{t('Forge')}</span>
               <Control kind="select" value={(r.forge as string | undefined) ?? null} onchange={(v) => update(r.name, { forge: v })} options={['gitlab', 'github']} optional placeholder={workspaceOf(r) ? t('{forge} · from {folder}', { forge: forgeLabel(forgeOf(r)), folder: wsName(workspaceOf(r)!) }) : t('{forge} · the profile’s', { forge: forgeLabel(profileForge()) })} compact />
             </div>
+            <!-- Prism's assistant: what it finds the repository by, and whether it may see it. -->
+            <div class="id"><span>{t('What it is')}</span>
+              <Control kind="text" value={(r.description as string | undefined) ?? null} onchange={(v) => update(r.name, { description: v })} optional placeholder={t('The online shop: Svelte front, Rust server')} compact />
+            </div>
+            <div class="id"><span>{t('Also called')}</span>
+              <Control kind="text" value={Array.isArray(r.aliases) ? (r.aliases as string[]).join(', ') : null} onchange={(v) => update(r.name, { aliases: aliasesOf(v) })} optional placeholder={t('the shop app, the front')} compact />
+            </div>
+            <div class="sw"><Control kind="toggle" value={r.assistant !== false} onchange={(v) => update(r.name, { assistant: v ? null : false })} /><span><b>{t('Seen by the assistant')}</b><small>{t('Off: Prism’s assistant neither lists, reads, explores nor remembers anything of it, its tickets nor its MRs. Your own agents work there as before.')}</small></span></div>
           </section>
 
           <section class:locked={!path}>

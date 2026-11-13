@@ -456,6 +456,10 @@ fn codex_hooks(file: &Path) -> Vec<String> {
     pairs.into_iter().filter(|p| p.starts_with("hooks.")).flat_map(|p| ["-c".to_string(), p]).collect()
 }
 
+/// Claude Code's tools the assistant goes without: it never writes, runs a command nor reads a
+/// file itself, nor starts a subagent that would.
+pub const ASSISTANT_DENIED: &[&str] = &["Bash", "Edit", "MultiEdit", "Write", "NotebookEdit", "Read", "Grep", "Glob", "LS", "Task", "Agent"];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -590,7 +594,3 @@ mod tests {
         let _ = std::fs::remove_file(file);
     }
 }
-
-/// Claude Code's tools the assistant goes without: it never writes, runs a command nor reads a
-/// file itself, nor starts a subagent that would.
-pub const ASSISTANT_DENIED: &[&str] = &["Bash", "Edit", "MultiEdit", "Write", "NotebookEdit", "Read", "Grep", "Glob", "LS", "Task", "Agent"];

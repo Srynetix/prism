@@ -5,7 +5,8 @@
   import { openTicket } from '../ticket-view.svelte'
   import { toast } from '../toast.svelte'
   import { keys } from '../platform'
-  import { createTicket, ticketBoards } from '../new-ticket.svelte'
+  import { untrack } from 'svelte'
+  import { createTicket, ticketBoards, type TicketDraft } from '../new-ticket.svelte'
   import Icon from './Icon.svelte'
 
   /**
@@ -13,15 +14,17 @@
    * its title, a description in Markdown (plain text on Jira; folded until asked) and Assign me (the trackers with
    * assignees). Enter in the title creates it, ⌘↵ creates and opens it; Escape closes.
    */
-  let { onclose, wide = false }: { onclose: () => void; wide?: boolean } = $props()
+  let { onclose, wide = false, draft = null, oncreated = null }: { onclose: () => void; wide?: boolean; draft?: Partial<TicketDraft> | null; oncreated?: ((key: string, d: TicketDraft) => void) | null } = $props()
 
   const boards = $derived(ticketBoards())
-  let board = $state('')
-  let status = $state('')
-  let title = $state('')
-  let description = $state('')
-  let described = $state(false)
-  let assignMe = $state(false)
+  // Prefilled once, as it opens (Prism's assistant's proposal).
+  const first = untrack(() => draft)
+  let board = $state(first?.board ?? '')
+  let status = $state(first?.status ?? '')
+  let title = $state(first?.title ?? '')
+  let description = $state(first?.description ?? '')
+  let described = $state(!!first?.description)
+  let assignMe = $state(first?.assignMe ?? false)
   let saving = $state(false)
   let error = $state('')
   const lanes = $derived((boards.find((b) => b.id === board) ?? boards[0])?.statuses.filter((s) => !s.closed) ?? [])
@@ -37,7 +40,9 @@
     saving = true
     error = ''
     try {
-      const key = await createTicket({ board: board || boards[0].id, status, title, description: described ? description : '', assignMe })
+      const d: TicketDraft = { board: board || boards[0].id, status, title, description: described ? description : '', assignMe }
+      const key = await createTicket(d)
+      oncreated?.(key, d)
       title = ''
       description = ''
       described = false

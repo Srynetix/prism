@@ -2,7 +2,7 @@
   import { tick, untrack } from 'svelte'
   import Icon from './Icon.svelte'
   import type { IconName } from '../icons'
-  import { KIND_ONE, choose, closePalette, found, lookUp, palette, paletteKey, runAction, search, showActions, type Kind, type Row } from '../palette.svelte'
+  import { KIND_ONE, askFromPalette, choose, closePalette, found, lookUp, palette, paletteKey, runAction, search, showActions, type Kind, type Row } from '../palette.svelte'
   import { keys } from '../platform'
   import { matches } from '../shortcut'
   import { t, tn, tc } from '../i18n.svelte'
@@ -15,7 +15,7 @@
    */
   let { phone = false }: { phone?: boolean } = $props()
 
-  const ICON: Record<Kind, IconName> = { agent: 'claude', mr: 'mr', ticket: 'kanban', file: 'files', page: 'web', block: 'blockNormal', pipeline: 'running', env: 'helm', pod: 'kube', shell: 'terminal', closed: 'undo', command: 'terminal', setting: 'settings', help: 'help' }
+  const ICON: Record<Kind, IconName> = { ask: 'sparkles', agent: 'claude', mr: 'mr', ticket: 'kanban', file: 'files', page: 'web', block: 'blockNormal', pipeline: 'running', env: 'helm', pod: 'kube', shell: 'terminal', closed: 'undo', command: 'terminal', setting: 'settings', help: 'help' }
 
   let input: HTMLInputElement | undefined = $state()
   let list: HTMLDivElement | undefined = $state()
@@ -64,6 +64,7 @@
       } else if (rows.length) palette.selected = (Math.min(palette.selected, rows.length - 1) + step + rows.length) % rows.length
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      if (e.altKey && !acts && askFromPalette()) return
       if (acts) void runAction(acts.list[acts.selected])
       else if (current && (e.metaKey || e.ctrlKey)) showActions(current)
       else if (current) void choose(current)
