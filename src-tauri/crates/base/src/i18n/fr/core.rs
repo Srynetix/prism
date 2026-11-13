@@ -166,4 +166,5 @@ pub const TABLE: &[(&str, &str)] = &[
     ("the pack {pack} brings a module {id}: it is that one, or none", "le pack {pack} apporte un module {id} : c’est celui-là, ou aucun"),
     ("the module {id} was not installed by Prism (its folder put there): nothing to read it again from", "le module {id} n’a pas été installé par Prism (son dossier a été posé là) : rien d’où le relire"),
     ("no module {id} in modules/", "pas de module {id} dans modules/"),
+    ("a module {id} is already installed by hand from {source}: remove it first", "un module {id} est déjà installé à la main depuis {source} : supprimez-le d’abord"),
 ];

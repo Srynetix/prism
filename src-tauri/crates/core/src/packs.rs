@@ -355,6 +355,12 @@ pub fn remove(config: &Path, name: &str) -> Result<()> {
     set_list(config, names)?;
     let _ = std::fs::remove_file(file(config, name));
     crate::modules::install::remove_others(&crate::modules::dir_of(config), &modules_trust(config), name, &[]);
+    // The modules I removed that no pack brings any more: nothing left to leave out.
+    let removed = own_modules(config).removed;
+    let kept: Vec<String> = removed.iter().filter(|id| pack_module(config, id).is_ok()).cloned().collect();
+    if kept != removed {
+        set_removed(config, kept)?;
+    }
     Ok(())
 }
 
@@ -408,6 +414,10 @@ pub async fn module_install(config: &Path, source: &str) -> Result<String> {
     // One id, one module: a pack's is not replaced by hand (removed, it is put back from its pack).
     if let Ok((pack, _, _)) = pack_module(config, &id) {
         bail!(tr!("the pack {pack} brings a module {id}: it is that one, or none", pack = pack, id = id));
+    }
+    // Another module installed by hand under that id is not replaced by this one: removed first.
+    if let Some(before) = crate::modules::install::mark(&root.join(&id)).filter(|m| m.pack == crate::modules::install::BY_HAND && m.source != source) {
+        bail!(tr!("a module {id} is already installed by hand from {source}: remove it first", id = id, source = before.source));
     }
     crate::modules::install::install(&root, crate::modules::install::BY_HAND, &crate::modules::install::PackModule { id: id.clone(), source }, files)?;
     Ok(id)
@@ -463,6 +473,12 @@ pub async fn module_restore(config: &Path, id: &str) -> Result<bool> {
     let trusted = install_from_pack(config, id).await?;
     set_removed(config, own_modules(config).removed.into_iter().filter(|r| r != id).collect())?;
     Ok(trusted)
+}
+
+/// A module I removed out of `[modules] removed`: a pack bringing it installs it again at its next
+/// update (`module_restore` installs it at once).
+pub fn module_forget(config: &Path, id: &str) -> Result<()> {
+    set_removed(config, own_modules(config).removed.into_iter().filter(|r| r != id).collect())
 }
 
 /// A pack's module I removed (`[modules] removed`), and the pack that brings it (none: no pack
@@ -665,6 +681,12 @@ mod tests {
         import(&config, &pack).await.unwrap();
         assert!(!info().trusted, "reaching more: waits");
         crate::modules::trust(&root, &store, "m", &info().fingerprint).unwrap();
+        std::fs::create_dir_all(dir.join("src/m/web")).unwrap();
+        std::fs::write(dir.join("src/m/web/defs.js"), "export const prism = 1").unwrap();
+        std::fs::write(dir.join("src/m/module.toml"), "[module]\nversion = \"1.2.1\"\n[web]\n[wasm]\ncomponent = \"b.wasm\"\ncapabilities = { git = true, http = [\"example.org\"] }\n[[wasm.blocks]]\nid = \"m\"\n").unwrap();
+        import(&config, &pack).await.unwrap();
+        assert!(!info().trusted, "a web part added: waits");
+        crate::modules::trust(&root, &store, "m", &info().fingerprint).unwrap();
         crate::settings::save(&config, &[crate::settings::Edit { path: vec!["modules".into(), "trust_pack_updates".into()], value: Some(serde_json::json!(false)) }]).unwrap();
         module("1.3.0", "{ git = true, http = [\"example.org\"] }");
         import(&config, &pack).await.unwrap();
@@ -696,8 +718,17 @@ mod tests {
         // A pack does not take a module installed by hand either.
         std::fs::write(dir.join("src/team.toml"), "[pack]\nname = \"team\"\n\n[[modules]]\nid = \"m\"\nsource = \"m\"\n\n[[modules]]\nid = \"mine\"\nsource = \"../mine\"\n").unwrap();
         assert!(format!("{:#}", import(&config, &pack).await.unwrap_err()).contains("by hand"));
+        std::fs::create_dir_all(dir.join("other/web")).unwrap();
+        std::fs::write(dir.join("other/module.toml"), "[module]\nid = \"mine\"\n[web]\n").unwrap();
+        std::fs::write(dir.join("other/web/defs.js"), "").unwrap();
+        assert!(module_install(&config, &dir.join("other").display().to_string()).await.unwrap_err().to_string().contains("already installed by hand"), "another source, the same id");
         module_remove(&config, "mine").unwrap();
         assert!(!root.join("mine").exists() && modules_removed(&config).is_empty(), "by hand: nothing to leave out");
+        // Its pack gone, a module removed from it is forgotten too.
+        module_remove(&config, "m").unwrap();
+        assert_eq!(modules_removed(&config).len(), 1);
+        remove(&config, "team").unwrap();
+        assert!(modules_removed(&config).is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

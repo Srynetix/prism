@@ -155,11 +155,8 @@ pub async fn modules_reset(id: String) -> Cmd<bool> {
 #[prism_macros::command]
 pub async fn modules_reinstall(id: String) -> Cmd<bool> {
     let trusted = prism_core::packs::module_reinstall(&prism_core::profile::config_path(), &id).await?;
-    tokio::task::spawn_blocking(move || {
-        prism_modules::refresh();
-        prism_modules::reset(&id);
-    })
-    .await?;
+    // Started again on the version trusted on the disk; none trusted: nothing of it runs.
+    tokio::task::spawn_blocking(move || prism_modules::reset(&id)).await?;
     Ok(trusted)
 }
 
@@ -183,15 +180,18 @@ pub async fn modules_install(source: String) -> Cmd<String> {
     prism_core::packs::module_install(&prism_core::profile::config_path(), &source).await.map_err(Into::into)
 }
 
+/// A module out of `[modules] removed` (no pack brings it any more).
+#[prism_macros::command]
+pub fn modules_forget(id: String) -> Cmd<()> {
+    prism_core::packs::module_forget(&prism_core::profile::config_path(), &id).map_err(Into::into)
+}
+
 /// A pack's module I removed, put back from its pack. Whether it is trusted.
 #[prism_macros::command]
 pub async fn modules_restore(id: String) -> Cmd<bool> {
     let trusted = prism_core::packs::module_restore(&prism_core::profile::config_path(), &id).await?;
-    tokio::task::spawn_blocking(move || {
-        prism_modules::refresh();
-        prism_modules::reset(&id);
-    })
-    .await?;
+    // Started again on the version trusted on the disk; none trusted: nothing of it runs.
+    tokio::task::spawn_blocking(move || prism_modules::reset(&id)).await?;
     Ok(trusted)
 }
 

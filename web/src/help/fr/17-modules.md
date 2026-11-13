@@ -105,7 +105,7 @@ Importer ou mettre à jour le pack place chaque module dans `modules/<id>/`, en 
 
 Rien d'un module ne tourne avant que vous lui fassiez confiance : sa partie web n'est pas chargée, son back end ne démarre pas, ses blocs disent qu'ils attendent. **Réglages › Packs › Modules** liste ce que son back end peut atteindre (GitLab, git, les hôtes et programmes qu'il nomme) : **Faire confiance** (deux clics), et son back end démarre aussitôt, sa partie web au prochain chargement de la fenêtre. La confiance va à l'empreinte de son dossier : une nouvelle version attend de nouveau, avec ce qu'elle change (une capacité ajoutée, un bloc, une table de config) ; de même un module approuvé quand une capacité atteignait moins que ce que Prism lui permet aujourd'hui.
 
-Une nouvelle version qu'apporte un pack, d'un module auquel vous avez fait confiance depuis ce pack, reçoit votre confiance quand elle n'atteint rien de plus : les mêmes capacités et tables de config, ou moins. Au-delà (un hôte, un programme, une table de config, un back end), elle attend votre confiance comme plus haut. **Faire confiance aux mises à jour d'un pack** (`[modules] trust_pack_updates`, activé par défaut) le coupe ; un module installé à la main demande toujours.
+Une nouvelle version qu'apporte un pack, d'un module auquel vous avez fait confiance depuis ce pack, reçoit votre confiance quand elle n'atteint rien de plus : les mêmes capacités et tables de config, ou moins. Au-delà (un hôte, un programme, une table de config, une partie web, un back end), elle attend votre confiance comme plus haut. **Faire confiance aux mises à jour d'un pack** (`[modules] trust_pack_updates`, activé par défaut) le coupe ; un module installé à la main demande toujours.
 
 ## L'installer et l'essayer
 

@@ -50,7 +50,8 @@
   }
   onMount(() => {
     void refresh()
-    void checkModules()
+    // As the periodic check: nothing read with `[updates] packs` off (Check now in Packs reads them).
+    void checkModules(true)
   })
 
   /** What a capability lets a module's back end reach. */
@@ -77,6 +78,19 @@
   }
 
   /** Started again, read again from its source, removed or put back: two clicks each. */
+  /** A pack module removed that no pack brings any more: out of `[modules] removed`. */
+  async function forget(id: string) {
+    busy = id
+    try {
+      await invoke('modules_forget', { id })
+      await refresh()
+    } catch (e) {
+      toast(String(e))
+    } finally {
+      busy = ''
+    }
+  }
+
   async function act(kind: 'reset' | 'reinstall' | 'remove' | 'restore', id: string) {
     if (!armed.confirm(`${kind}:${id}`)) return
     busy = id
@@ -89,7 +103,7 @@
         : t('Installed again: reload the window, then trust it.')
       toast(kind === 'reset' ? t('Module {id} started again', { id }) : kind === 'remove' ? t('Module {id} removed', { id }) : t('Module {id} installed', { id }))
       await refresh()
-      void checkModules()
+      void checkModules(true)
     } catch (e) {
       toast(String(e))
     } finally {
@@ -106,7 +120,7 @@
       source = ''
       installed = t('Module {id} installed: reload the window to look at what it reaches and trust it; its back end runs once Prism restarts.', { id })
       toast(t('Module {id} installed', { id }))
-      void checkModules()
+      void checkModules(true)
     } catch (e) {
       toast(String(e))
     } finally {
@@ -163,7 +177,7 @@
         {#if m.state === 'waiting' && m.info && !trusted[m.id] && local()}
           <button class="btn" class:armed={armed.is(m.id)} disabled={busy === m.id} onclick={() => trust(m.id, m.info!.fingerprint)} title={t('Run this module’s web part and back end on this computer (click twice)')}><ArmedLabel label={t('Trust')} armedLabel={t('Trust it?')} armed={armed.is(m.id)} /></button>
         {:else}
-          <span class="state" class:on={m.state === 'on' && !m.clashes.length && !run?.held} class:wait={m.state === 'waiting'}>{run?.held || m.info?.stopped ? t('Held') : m.state === 'on' ? t('Loaded') : m.state === 'waiting' ? (trusted[m.id] ? t('Trusted') : t('Waiting')) : m.state === 'refused' ? t('Refused') : t('Failed')}</span>
+          <span class="state" class:on={m.state === 'on' && !m.clashes.length && !run?.held} class:wait={m.state === 'waiting'}>{run?.held || m.info?.stopped ? t('On hold') : m.state === 'on' ? t('Loaded') : m.state === 'waiting' ? (trusted[m.id] ? t('Trusted') : t('Waiting')) : m.state === 'refused' ? t('Refused') : t('Failed')}</span>
         {/if}
         {#if local() && m.info && !done[m.id]}
           <span class="acts">
@@ -188,9 +202,13 @@
         <small>{r.pack ? t('Removed: the pack {pack} brings it, its updates leave it out ([modules] removed).', { pack: r.pack }) : t('Removed, and no pack brings it any more ([modules] removed).')}</small>
         {#if done[r.id]}<span class="hint new"><Icon name="check" /> {done[r.id]}</span>{/if}
       </div>
-      {#if r.pack && local() && !done[r.id]}
+      {#if local() && !done[r.id]}
         <div class="side">
-          <button class="btn" class:armed={armed.is(`restore:${r.id}`)} disabled={busy === r.id} onclick={() => act('restore', r.id)} title={t('Install it again from the pack {pack} (click twice)', { pack: r.pack })}><ArmedLabel label={t('Put back')} armedLabel={t('Put it back?')} armed={armed.is(`restore:${r.id}`)} /></button>
+          {#if r.pack}
+            <button class="btn" class:armed={armed.is(`restore:${r.id}`)} disabled={busy === r.id} onclick={() => act('restore', r.id)} title={t('Install it again from the pack {pack} (click twice)', { pack: r.pack })}><ArmedLabel label={t('Put back')} armedLabel={t('Put it back?')} armed={armed.is(`restore:${r.id}`)} /></button>
+          {:else}
+            <button class="btn" disabled={busy === r.id} onclick={() => forget(r.id)} title={t('Take it out of [modules] removed: a pack bringing it later installs it')}>{t('Forget')}</button>
+          {/if}
         </div>
       {/if}
     </div>

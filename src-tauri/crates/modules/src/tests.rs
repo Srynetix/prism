@@ -134,6 +134,8 @@ async fn given_up_or_held_it_starts_again_when_reset() {
         .unwrap();
         if held.is_some() {
             wait_for(&hub, "its block saying it is held", |s| s.errors.get("hello").is_some_and(|e| e.contains("held")));
+            // A new version trusted does not lift it: only a reset does.
+            module.restart_version();
             assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap_err().to_string().contains("held"));
             assert!(module.run().held.is_some());
         } else {
@@ -156,6 +158,12 @@ async fn given_up_or_held_it_starts_again_when_reset() {
         assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap()["pong"].is_u64());
         wait_for(&hub, "its block filled again", |s| s.blocks.get("hello").is_some_and(|v| v["commit"] == "First of all" && v["reads"] == 1));
         assert_eq!(module.run(), prism_core::modules::ModuleRun { id: "hello".into(), ..Default::default() });
+        // Removed, its trust forgotten: a reset runs nothing of it.
+        module.hold("removed".into());
+        module.untrust();
+        let m = module.clone();
+        tokio::task::spawn_blocking(move || m.reset()).await.unwrap();
+        assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap_err().to_string().contains("trust"));
     }
     std::fs::remove_dir_all(clone).unwrap();
 }

@@ -105,7 +105,7 @@ Importing or updating the pack puts each module in `modules/<id>/`, whole; remov
 
 Nothing of a module runs before you trust it: its web part is not loaded, its back end does not start, its blocks say they wait. **Settings › Packs › Modules** lists what its back end may reach (GitLab, git, the hosts and programs it names): **Trust** it (two clicks) and its back end starts at once, its web part with the window's next load. Trust goes by the fingerprint of its folder: a new version waits again, with what it changes (a capability it adds, a block, a config table); so does one trusted when a capability reached less than Prism lets it now.
 
-A new version a pack brings, of a module you trusted from that pack, is trusted for you when it reaches nothing more: the same capabilities and config tables, or fewer. Anything more (a host, a program, a config table, a back end), and it waits for your trust as above. **Trust a pack's updates** (`[modules] trust_pack_updates`, on by default) turns this off; a module installed by hand always asks.
+A new version a pack brings, of a module you trusted from that pack, is trusted for you when it reaches nothing more: the same capabilities and config tables, or fewer. Anything more (a host, a program, a config table, a web part, a back end), and it waits for your trust as above. **Trust a pack's updates** (`[modules] trust_pack_updates`, on by default) turns this off; a module installed by hand always asks.
 
 ## Install and try it
 

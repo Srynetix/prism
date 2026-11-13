@@ -150,14 +150,15 @@ fn data(pack: Option<&str>) -> serde_json::Value {
     pack.map_or(serde_json::Value::Null, |p| serde_json::json!({ "pack": p }))
 }
 
-/// What a module may reach, in its text: a back end at all, its capabilities, its config tables.
+/// What a module may reach, in its text: a web part or a back end at all, its capabilities, its
+/// config tables.
 fn reach(text: &str) -> std::collections::BTreeSet<&str> {
-    text.lines().filter(|l| *l == "back end" || l.starts_with("capability ") || l.starts_with("config table ")).collect()
+    text.lines().filter(|l| *l == "web" || *l == "back end" || l.starts_with("capability ") || l.starts_with("config table ")).collect()
 }
 
 /// Module `id`, a new version pack `pack` just installed in `root`: trusted for me when a version
-/// of it was trusted before, from that pack (or from none said: trusted before packs kept it), and
-/// this one reaches nothing more. Whether it is trusted now; otherwise it waits, as any other.
+/// of it was trusted before, from that same pack (one trusted by hand, or before the pack was
+/// kept, asks once), and this one reaches nothing more. Whether it is trusted now; otherwise it waits, as any other.
 pub fn update(root: &Path, store: &Path, pack: &str, id: &str) -> bool {
     let folder = root.join(id);
     let (info, _) = super::inspect(id, &folder, store);
@@ -172,7 +173,7 @@ pub fn update(root: &Path, store: &Path, pack: &str, id: &str) -> bool {
     let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut s = crate::trust::read(store);
     let Some(before) = s.trusted.get(id) else { return false };
-    if before.data.get("pack").and_then(|p| p.as_str()).is_some_and(|p| p != pack) || !reach(&new).is_subset(&reach(&before.text)) {
+    if before.data.get("pack").and_then(|p| p.as_str()) != Some(pack) || !reach(&new).is_subset(&reach(&before.text)) {
         return false;
     }
     s.trust(id, &info.fingerprint, &new, data(Some(pack)));

@@ -196,6 +196,25 @@ impl Module {
         self.release();
     }
 
+    /// A new version trusted while it ran: started again on it, unless it is held (it stopped Prism,
+    /// or was removed), which only `reset` lifts.
+    pub fn restart_version(&self) {
+        if self.held.lock().unwrap().is_some() || !self.is_trusted() {
+            return;
+        }
+        if self.running() {
+            let _ = self.send(Msg::Reset);
+        }
+        self.release();
+    }
+
+    /// Not trusted any more (its trust forgotten on the disk): nothing of it runs until trusted again.
+    pub fn untrust(&self) {
+        self.trusted.store(false, std::sync::atomic::Ordering::Relaxed);
+        *self.trusted_as.lock().unwrap() = None;
+        *self.version.lock().unwrap() = None;
+    }
+
     /// Held: nothing of it runs, its blocks say `why` (removed: until Prism restarts).
     pub fn hold(&self, why: String) {
         *self.held.lock().unwrap() = Some(why.clone());
@@ -207,12 +226,14 @@ impl Module {
     /// How it runs, for Settings › Packs › Modules.
     pub fn run(&self) -> prism_core::modules::ModuleRun {
         let shared = self.shared.lock().unwrap();
+        // Its crashes of the last minutes only: older ones are not said any more.
+        let recent = shared.last_crash.as_ref().filter(|(at, _)| chrono::Utc::now().timestamp_millis() - at < CRASH_WINDOW.as_millis() as i64);
         prism_core::modules::ModuleRun {
             id: self.id.clone(),
             held: self.held.lock().unwrap().clone().or_else(|| shared.given_up.clone()),
-            crashes: shared.crashes,
-            last_crash: shared.last_crash.as_ref().map(|(_, m)| m.clone()),
-            last_crash_at: shared.last_crash.as_ref().map(|(at, _)| *at),
+            crashes: if recent.is_some() { shared.crashes } else { 0 },
+            last_crash: recent.map(|(_, m)| m.clone()),
+            last_crash_at: recent.map(|(at, _)| *at),
         }
     }
 

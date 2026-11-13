@@ -161,6 +161,7 @@ commands! {
     system::modules_remove: Never,
     system::modules_install: Never,
     system::modules_restore: Never,
+    system::modules_forget: Never,
     system::logs_info: Never,
     system::logs_tail: Never,
     system::dependencies: Never,
