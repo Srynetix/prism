@@ -306,6 +306,12 @@ pub struct Tool {
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     #[cfg_attr(feature = "ts", ts(as = "Option<bool>", optional))]
     pub propose: bool,
+    /// A proposal of Prism's assistant (`assistant_propose_*`, `assistant_wait`): what it proposes
+    /// (`ticket`, `launch`, `note`, `repo`, `memory`, `wait`); its Chat shows its card while it
+    /// waits, then what became of it (`output`: `{"status", "key"?, "agent"?, "reason"?}`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional, type = "'ticket' | 'launch' | 'note' | 'repo' | 'memory' | 'wait'"))]
+    pub assistant: Option<String>,
     /// When it was called (ISO 8601), and once done, how long it took.
     pub at: Option<String>,
     pub ms: Option<u64>,

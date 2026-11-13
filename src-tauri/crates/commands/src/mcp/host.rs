@@ -132,6 +132,7 @@ impl Host {
             });
         }
         // Gone: its proposals with it, nobody waits for their answer any more.
+        super::assistant::gone(&self.state, id);
         self.clients.lock().unwrap().retain(|c| c.id != id);
         self.proposals.lock().unwrap().retain(|p| p.view.client_id != Some(id));
         self.publish();
@@ -177,10 +178,12 @@ impl Host {
         let str_param = |k: &str| params.get(k).and_then(Value::as_str).map(str::to_string);
         // « In passing » answers by its own switch, whatever `[mcp] enabled` says.
         let aside = matches!(method, "suggest_task" | "dismiss_task" | "done_task");
-        if method != "hello" && !aside {
+        // The assistant's, by `[agents.assistant] enabled` (checked in `assistant::handle`).
+        let assistant = method.starts_with("assistant_");
+        if method != "hello" && !aside && !assistant {
             anyhow::ensure!(cfg.as_ref().is_none_or(|c| c.mcp.enabled), "[mcp] enabled is off in this Prism");
         }
-        let proposal = method.starts_with("propose") || method == "create_custom_block";
+        let proposal = method.starts_with("propose") || method == "create_custom_block" || method.starts_with("assistant_propose");
         if method != "hello" {
             self.count(client, proposal);
         }
@@ -196,7 +199,11 @@ impl Host {
                     "demo": crate::demo::active(),
                     "version": crate::packs::PRISM,
                     "language": c.as_ref().map(|c| c.appearance.language.clone()).unwrap_or_default(),
-                    "enabled": if str_param("mode").as_deref() == Some("aside") { c.as_ref().is_none_or(|c| c.agents.aside.enabled) } else { c.as_ref().is_none_or(|c| c.mcp.enabled) },
+                    "enabled": match str_param("mode").as_deref() {
+                        Some("aside") => c.as_ref().is_none_or(|c| c.agents.aside.enabled),
+                        Some("assistant") => c.as_ref().is_none_or(|c| c.agents.assistant.enabled),
+                        _ => c.as_ref().is_none_or(|c| c.mcp.enabled),
+                    },
                     "proposals": c.as_ref().is_none_or(|c| c.mcp.proposals),
                 }))
             }
@@ -250,6 +257,11 @@ impl Host {
                     answer["news"] = json!(news);
                 }
                 Ok(answer)
+            }
+            m if assistant => {
+                let cfg = cfg.as_ref().context("the config does not read: fix it first")?;
+                let agent = self.clients.lock().unwrap().iter().find(|c| c.id == client).and_then(|c| c.agent.clone());
+                super::assistant::handle(super::assistant::Ask { state: &self.state, cfg, client, agent }, m, params).await
             }
             other => bail!("no method {other}"),
         }

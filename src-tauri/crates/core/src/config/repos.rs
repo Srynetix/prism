@@ -25,6 +25,14 @@ pub struct Workspace {
     pub forge: Option<crate::forge::Provider>,
 }
 
+fn seen() -> bool {
+    true
+}
+
+fn is_seen(b: &bool) -> bool {
+    *b
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct RepoConfig {
@@ -86,6 +94,18 @@ pub struct RepoConfig {
     /// forge's own login): no pipelines, merge queue, nor primary. Absent (or the profile's): the profile's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub forge: Option<crate::forge::Provider>,
+    /// Other names it goes by, for Prism's assistant (« the shop app », « the front »): it finds the
+    /// repository a request is about by its name, these, its description and its memory.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
+    /// What it is, in a sentence, for Prism's assistant (« the online shop: Svelte front, Rust server »).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Seen by Prism's assistant (`[agents.assistant]`). Off: it neither lists, reads, explores nor
+    /// remembers anything of this repository, its tickets nor its MRs; the agents you launch there
+    /// yourself work as before.
+    #[serde(default = "seen", skip_serializing_if = "is_seen")]
+    pub assistant: bool,
 }
 
 /// A repository whose worktrees Prism lists and creates, with its branches resolved.

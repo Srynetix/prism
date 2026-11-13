@@ -351,6 +351,17 @@ impl Provider {
         vec![format!("--allowedTools=mcp__{s}__suggest_task,mcp__{s}__dismiss_task,mcp__plugin_{s}_{s}__suggest_task,mcp__plugin_{s}_{s}__dismiss_task,mcp__{s}__done_task,mcp__plugin_{s}_{s}__done_task")]
     }
 
+    /// Prism's assistant's options: Prism's tools allowed without asking, those that write, run
+    /// or read files taken away (Claude Code). The others: Codex runs it in its read-only sandbox
+    /// (its permission mode, `plan`); OpenCode and Command Code take no such option.
+    pub fn assistant_args(self) -> Vec<String> {
+        if self != Self::Claude {
+            return Vec::new();
+        }
+        let s = crate::mcp::SERVER;
+        vec![format!("--allowedTools=mcp__{s},mcp__plugin_{s}_{s}"), format!("--disallowedTools={}", ASSISTANT_DENIED.join(","))]
+    }
+
     /// The files `mcp_args` reads, written in `work` for the executable as it is now (its path
     /// follows Prism's): Claude Code's plugin and its « in passing » `--mcp-config`. The others need none.
     /// Each written whatever became of the other: one failed, the other still serves.
@@ -579,3 +590,7 @@ mod tests {
         let _ = std::fs::remove_file(file);
     }
 }
+
+/// Claude Code's tools the assistant goes without: it never writes, runs a command nor reads a
+/// file itself, nor starts a subagent that would.
+pub const ASSISTANT_DENIED: &[&str] = &["Bash", "Edit", "MultiEdit", "Write", "NotebookEdit", "Read", "Grep", "Glob", "LS", "Task", "Agent"];

@@ -50,7 +50,14 @@ impl Link {
             waiting.lock().unwrap().clear();
         });
         let mut link = Self { write: Mutex::new(write), pending, next: AtomicU64::new(1), hello: Value::Null, closed };
-        link.hello = link.call("hello", json!({ "client": client, "agent": std::env::var("PRISM_AGENT").unwrap_or_default(), "mode": if aside { "aside" } else { "" } })).await?;
+        let mode = if aside {
+            "aside"
+        } else if in_assistant() {
+            "assistant"
+        } else {
+            ""
+        };
+        link.hello = link.call("hello", json!({ "client": client, "agent": std::env::var("PRISM_AGENT").unwrap_or_default(), "mode": mode })).await?;
         Ok(link)
     }
 
@@ -106,7 +113,16 @@ impl Server {
         let client = self.client.lock().unwrap().clone();
         let l = Arc::new(Link::open(&client, self.aside).await?);
         if l.hello.get("enabled") == Some(&Value::Bool(false)) {
-            bail!("{}", if self.aside { "[agents.aside] enabled is off in this Prism" } else { "[mcp] enabled is off in this Prism: prism mcp answers nothing" });
+            bail!(
+                "{}",
+                if self.aside {
+                    "[agents.aside] enabled is off in this Prism"
+                } else if in_assistant() {
+                    "[agents.assistant] enabled is off in this Prism"
+                } else {
+                    "[mcp] enabled is off in this Prism: prism mcp answers nothing"
+                }
+            );
         }
         *link = Some(l.clone());
         Ok(l)
@@ -180,11 +196,16 @@ impl Server {
                     "protocolVersion": version,
                     "capabilities": { "tools": {}, "resources": {} },
                     "serverInfo": { "name": "prism", "title": "Prism", "version": prism_core::packs::PRISM },
-                    "instructions": format!("{}{}", prism_core::mcp::skill_body(), if in_agent() { format!("\n\n{ASIDE_INSTRUCTIONS}") } else { String::new() }),
+                    "instructions": format!(
+                        "{}{}{}",
+                        if in_assistant() { format!("{}\n\n", super::assistant::INSTRUCTIONS) } else { String::new() },
+                        prism_core::mcp::skill_body(),
+                        if in_agent() { format!("\n\n{ASIDE_INSTRUCTIONS}") } else { String::new() }
+                    ),
                 }))
             }
             "ping" => Ok(json!({})),
-            "tools/list" => Ok(json!({ "tools": if self.aside { aside_tools() } else { let mut t = tools(); if in_agent() && let (Value::Array(t), Value::Array(a)) = (&mut t, aside_tools()) { t.extend(a); } t } })),
+            "tools/list" => Ok(json!({ "tools": if self.aside { aside_tools() } else { listed() } })),
             "resources/list" => Ok(json!({ "resources": if self.aside { json!([]) } else { resources() } })),
             "resources/templates/list" => Ok(json!({ "resourceTemplates": [{ "uriTemplate": "prism://help/{page}", "name": "help", "description": "A page of Prism's help (prism://help/05-mrs), in Prism's language", "mimeType": "text/markdown" }] })),
             "resources/read" => {
@@ -247,8 +268,12 @@ impl Server {
         if !self.aside && !in_agent() && matches!(name, "suggest_task" | "dismiss_task" | "done_task") {
             bail!("no tool {name}");
         }
+        if name.starts_with("assistant_") && (self.aside || !in_assistant()) {
+            bail!("no tool {name}");
+        }
         match name {
             "suggest_task" | "dismiss_task" | "done_task" => self.live(name, args).await,
+            n if n.starts_with("assistant_") => self.live(n, args).await,
             "prism_search_docs" => {
                 let query = s("query").context("query")?;
                 let found = docs::search(&query, &self.language().await, super::schema(), 8);
@@ -295,6 +320,31 @@ fn text_of(v: &Value) -> String {
         Value::String(s) => s.clone(),
         v => serde_json::to_string_pretty(v).unwrap_or_default(),
     }
+}
+
+/// Every tool of the whole server: Prism's, the « in passing » ones in an agent of Prism's, the
+/// assistant's in its conversations.
+fn listed() -> Value {
+    let mut all = tools();
+    if let Value::Array(t) = &mut all {
+        if in_agent()
+            && let Value::Array(a) = aside_tools()
+        {
+            t.extend(a);
+        }
+        if in_assistant()
+            && let Value::Array(a) = super::assistant::tools()
+        {
+            t.extend(a);
+        }
+    }
+    all
+}
+
+/// A conversation of Prism's assistant (`PRISM_ASSISTANT`, set by Prism as it launches one): its
+/// tools listed (the running Prism checks the agent is one).
+fn in_assistant() -> bool {
+    in_agent() && std::env::var("PRISM_ASSISTANT").is_ok_and(|v| v == "1")
 }
 
 /// Launched by Prism: an agent of its own (`PRISM_AGENT`), which may flag tasks in passing.

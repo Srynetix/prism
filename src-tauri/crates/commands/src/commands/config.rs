@@ -194,6 +194,8 @@ fn apply(state: &AppState, path: &std::path::Path, force: bool) {
     };
     state.hub.set_error("config", None);
     crate::logs::apply(path);
+    // The assistant's instructions name the repositories it may see.
+    crate::mcp::assistant::refresh_home(&cfg);
     prism_base::git::trust(cfg.repositories().into_iter().filter_map(|r| r.path));
     // The remote starts, restarts or stops as `[remote]` now says.
     let (remote, remote_cfg) = (state.remote.clone(), cfg.remote.clone());

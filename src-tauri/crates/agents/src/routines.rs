@@ -567,6 +567,7 @@ impl Agents {
             then: Vec::new(),
             from: Some(format!("routine:{}", r.name.trim())),
             prism_mcp: false,
+            assistant: false,
         };
         let mut dirty = BTreeMap::new();
         if let Some(qa) = &qa {

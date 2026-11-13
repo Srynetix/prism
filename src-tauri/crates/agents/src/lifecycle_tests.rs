@@ -44,6 +44,7 @@ impl Bench {
             then: Vec::new(),
             from: None,
             prism_mcp: false,
+            assistant: false,
         }
     }
 

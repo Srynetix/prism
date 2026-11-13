@@ -51,15 +51,20 @@ impl Agents {
         if whole || self.aside_mcp() {
             cli.args.extend(provider.mcp_args(&self.inner.work, whole));
         }
-        if self.aside_mcp() {
+        // The assistant: Prism's tools without asking, no tool that writes, runs or reads files
+        // (it reads code through `assistant_explore`, its read-only subagent).
+        if launch.is_some_and(|l| l.assistant) {
+            cli.args.extend(provider.assistant_args());
+        } else if self.aside_mcp() {
             cli.args.extend(provider.aside_allowed());
         }
         cli
     }
 
-    /// The agent gets Prism's MCP server: `[agents] prism_mcp`, or its launch asked for it.
+    /// The agent gets Prism's MCP server: `[agents] prism_mcp`, or its launch asked for it (the
+    /// assistant always does).
     pub(crate) fn prism_mcp(&self, launch: Option<&state::LaunchSpec>) -> bool {
-        launch.is_some_and(|l| l.prism_mcp) || self.inner.settings.lock().unwrap().prism_mcp
+        launch.is_some_and(|l| l.prism_mcp || l.assistant) || self.inner.settings.lock().unwrap().prism_mcp
     }
 
     /// The agent gets the « in passing » tools (`[agents.aside] enabled`): with the whole server,

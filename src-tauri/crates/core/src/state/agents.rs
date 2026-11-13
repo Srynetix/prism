@@ -60,6 +60,11 @@ pub struct LaunchSpec {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     #[cfg_attr(feature = "ts", ts(optional, as = "Option<bool>"))]
     pub prism_mcp: bool,
+    /// A conversation of Prism's assistant (`[agents.assistant]`): launched in its folder, with its
+    /// tools and its memory, shown in the Assistant panel rather than among the agents.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(optional, as = "Option<bool>"))]
+    pub assistant: bool,
 }
 
 /// A new worktree as asked at launch: its repository, its folder name, the existing branch to

@@ -486,6 +486,7 @@ impl Agents {
             then: Vec::new(),
             from: Some(format!("aside:{id}")),
             prism_mcp: false,
+            assistant: false,
         })
     }
 

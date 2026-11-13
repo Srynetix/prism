@@ -654,6 +654,25 @@ fn the_aside_tools_are_flagged() {
 }
 
 #[test]
+fn the_assistant_proposals_are_flagged_and_answered() {
+    let mut t = Tool { tool: "mcp__plugin_prism_prism__assistant_propose_ticket".into(), ..Tool::default() };
+    Fold::aside_call(&mut t, &serde_json::json!({ "title": "Export the orders as CSV\nmore", "description": "…" }));
+    assert_eq!(t.assistant.as_deref(), Some("ticket"));
+    assert_eq!(t.what.as_deref(), Some("Export the orders as CSV"));
+    let mut l = Tool { tool: "prism__assistant_propose_launch".into(), ..Tool::default() };
+    Fold::aside_call(&mut l, &Value::String(r#"{"repo": "shop", "ticket": "SHOP-214", "prompt": "Implement"}"#.into()));
+    assert_eq!((l.assistant.as_deref(), l.what.as_deref()), (Some("launch"), Some("SHOP-214")));
+    let mut w = Tool { tool: "mcp__prism__assistant_wait".into(), ..Tool::default() };
+    Fold::aside_call(&mut w, &serde_json::json!({ "id": 4 }));
+    assert_eq!((w.assistant.as_deref(), w.what.as_deref()), (Some("wait"), Some("#4")));
+    let mut read = Tool { tool: "mcp__prism__assistant_repos".into(), ..Tool::default() };
+    Fold::aside_call(&mut read, &serde_json::json!({}));
+    assert!(read.assistant.is_none());
+    let answer = super::fold::propose_answer(r#"[{"type":"text","text":"{\"status\":\"created\",\"key\":\"SHOP-215\",\"url\":\"https://x/SHOP-215\"}"}]"#).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&answer).unwrap(), serde_json::json!({ "status": "created", "key": "SHOP-215", "url": "https://x/SHOP-215" }));
+}
+
+#[test]
 fn takes_the_reminders_out_of_a_text() {
     let none = reminders("add the CSV export");
     assert_eq!((none.0.as_ref(), none.1.len()), ("add the CSV export", 0));

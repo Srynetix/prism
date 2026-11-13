@@ -11,6 +11,7 @@ mod chains;
 pub mod conversation;
 mod costs;
 pub mod draft;
+pub mod explore;
 pub mod files;
 mod gate;
 pub mod hook;
@@ -130,6 +131,9 @@ pub struct Launch {
     /// Prism's MCP server and skill given to it whatever `[agents] prism_mcp` says ("Configure Prism").
     #[serde(default)]
     pub prism_mcp: bool,
+    /// A conversation of Prism's assistant: its folder, its tools, its memory.
+    #[serde(default)]
+    pub assistant: bool,
 }
 
 impl From<state::LaunchSpec> for Launch {
@@ -149,6 +153,7 @@ impl From<state::LaunchSpec> for Launch {
             then: s.then,
             from: s.from,
             prism_mcp: s.prism_mcp,
+            assistant: s.assistant,
         }
     }
 }
@@ -177,6 +182,7 @@ impl Launch {
             then: self.then.clone(),
             from: some(&self.from),
             prism_mcp: self.prism_mcp,
+            assistant: self.assistant,
         }
     }
 }

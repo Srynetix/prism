@@ -4,6 +4,7 @@
 
 pub mod agents;
 pub mod alerts;
+pub mod assistant;
 pub mod blocks;
 pub mod changes;
 pub mod config;
