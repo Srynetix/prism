@@ -1161,9 +1161,9 @@ impl Demo {
             Repo { name: "helm".into(), path: "/demo/helm".into(), project: Some(HELM.into()), branch: Some("main".into()), base: "main".into(), behind: 3, ahead: 0, dirty: false, is_main: false, error: None, forge: None },
         ];
         s.repositories = vec![
-            RepoInfo { name: "shop".into(), project: Some(PROJECT.into()), primary: true, clone: true, clone_missing: false, worktrees: true, merge_queue: true, ticket_required: true, pipelines: true, agent: None, forge: None },
-            RepoInfo { name: "helm".into(), project: Some(HELM.into()), primary: false, clone: true, clone_missing: false, worktrees: false, merge_queue: false, ticket_required: false, pipelines: false, agent: None, forge: None },
-            RepoInfo { name: "toolkit".into(), project: None, primary: false, clone: false, clone_missing: false, worktrees: false, merge_queue: false, ticket_required: false, pipelines: false, agent: None, forge: Some(crate::forge::Provider::Github) },
+            RepoInfo { name: "shop".into(), project: Some(PROJECT.into()), primary: true, clone: true, clone_missing: false, worktrees: true, merge_queue: true, ticket_required: true, pipelines: true, agent: None, forge: None, mr_web: Some(format!("{HOST}/{PROJECT}/-/merge_requests/")) },
+            RepoInfo { name: "helm".into(), project: Some(HELM.into()), primary: false, clone: true, clone_missing: false, worktrees: false, merge_queue: false, ticket_required: false, pipelines: false, agent: None, forge: None, mr_web: Some(format!("{HOST}/{HELM}/-/merge_requests/")) },
+            RepoInfo { name: "toolkit".into(), project: None, primary: false, clone: false, clone_missing: false, worktrees: false, merge_queue: false, ticket_required: false, pipelines: false, agent: None, forge: Some(crate::forge::Provider::Github), mr_web: Some("https://github.com/example-org/toolkit/pull/".into()) },
         ];
         s.features = Features { vulnerabilities: true, renovate: true, ci_health: true };
         // CI health and Renovate read the shop, Vulnerabilities the shop and the Helm charts; a

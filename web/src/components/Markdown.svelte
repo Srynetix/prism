@@ -4,9 +4,11 @@
   import CustomEmoji from './CustomEmoji.svelte'
   import { inline, parse, slug, withMentions, type Block, type MdMarks, type MentionMarks, type Span } from '../markdown'
   import { canPreview, openTicket } from '../ticket-view.svelte'
-  import { openMr } from '../mr-view.svelte'
   import { hasCore } from '../bridge'
-  import { withMrs } from '../linkify'
+  import { withMrs, type MrOption, type MrPlace } from '../linkify'
+  import { live } from '../live.svelte'
+  import { openMrOptions } from '../mr-choice.svelte'
+  import { mrKey } from '../mr-ref'
   import RemoteImage from './RemoteImage.svelte'
   import Icon from './Icon.svelte'
   import { t, tn } from '../i18n.svelte'
@@ -25,11 +27,12 @@
    * images of in-app Help; without it, or for a path it lacks, such an image stays its alt text.
    * With `onimage`, a click on such an image calls it with its URL.
    * `mrs`: an agent's words — the MRs they name (`!1957`) open their panel, as in its Terminal;
-   * their images are links, never fetched.
+   * their images are links, never fetched. `scope`: the repositories that agent works in
+   * (`mrScopeOf`), whose MRs its `!1957` are.
    * `mention`: a comment's mentions drawn as chips, mine lit (see `MentionMarks`).
    */
   let {
-    text, plain = false, onimage, forge, parsed, marks, onaction, anchors = false, images, reading = false, mrs = false, mention,
+    text, plain = false, onimage, forge, parsed, marks, onaction, anchors = false, images, reading = false, mrs = false, scope = null, mention,
   }: {
     text: string
     plain?: boolean
@@ -43,6 +46,7 @@
     /** Long reading (Help, a page of an agent's folder): larger text, more room; otherwise the panels' size. */
     reading?: boolean
     mrs?: boolean
+    scope?: MrPlace[] | null
     mention?: MentionMarks
   } = $props()
 
@@ -69,17 +73,25 @@
       },
     }
   }
+
+  /** One MR: its key and title, or where it opens; several: the choice to come. */
+  function mrTitle(options: MrOption[], text: string): string {
+    if (options.length > 1) return t('{mr}: in which repository?', { mr: text })
+    const o = options[0]
+    if (o.title) return `${mrKey(o.ref)} · ${o.title}`
+    return o.url ? t('Open {name} on its forge', { name: mrKey(o.ref) }) : t('Open {name}', { name: text })
+  }
 </script>
 
 {#snippet spans(list: Span[])}
-  {@const shown = forge ? withEmoji(list, onGithubWeb(forge), projectOf(forge)) : mrs && hasCore() ? withMrs(list) : list}
+  {@const shown = forge ? withEmoji(list, onGithubWeb(forge), projectOf(forge)) : mrs && hasCore() ? withMrs(list, scope, live.snapshot) : list}
   {#each mention ? withMentions(shown, mention) : shown as s, i (i)}
     {#if s.mention}<span class="mention" class:me={s.mention === 'me'} class:b={s.bold} class:i={s.italic}>{s.text}</span>
     {:else if s.emoji}<CustomEmoji url={s.emoji} name={s.text} />
     {:else if s.local}{#if images?.[s.image!] && onimage}<button class="local zoom" onclick={() => onimage(images[s.image!], s.text)} title={t('{text} · click to enlarge', { text: s.text })} style:max-width={s.width ? `min(${s.width}px, 100%)` : undefined}><img src={images[s.image!]} alt={s.text} /></button>{:else if images?.[s.image!]}<img class="local" src={images[s.image!]} alt={s.text} title={s.text} style:max-width={s.width ? `min(${s.width}px, 100%)` : undefined} />{:else}<span><Icon name="image" /> {s.text}</span>{/if}
     {:else if s.image}<span class="inline-img"><RemoteImage url={s.image} alt={s.text} width={s.width} {forge} fetched={!mrs} onopen={onimage ? () => onimage(s.image!, s.text) : undefined} /></span>
     {:else if s.action && onaction}<button class="action" onclick={() => onaction(s.action!)}>{s.text}</button>
-    {:else if s.mr !== undefined}<button class="ticket" onclick={() => openMr({ iid: s.mr!, repo: null })} title={t('Open {name}', { name: s.text })}>{s.text}</button>
+    {:else if s.mr !== undefined}<button class="ticket" onclick={(e) => openMrOptions(s.mr!, e)} title={mrTitle(s.mr, s.text)}>{s.text}</button>
     {:else if s.ticket && canPreview()}<button class="ticket" onclick={() => openTicket(s.ticket!)} title={t('Preview {ticket}', { ticket: s.ticket })}>{s.text}</button>
     {:else if s.href && resolve(s.href)}<a href={resolve(s.href)} target="_blank" rel="noreferrer" title={resolve(s.href)} class:b={s.bold} class:i={s.italic} class:s={s.strike} class:c={s.code}>{#if s.icon}<Icon name={s.icon} /> {/if}{s.text}</a>
     {:else if s.code}<code>{s.text}</code>

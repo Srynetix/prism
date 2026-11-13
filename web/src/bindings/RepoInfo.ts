@@ -21,4 +21,9 @@ agent: AgentProvider | null,
 /**
  * The forge its project is on, when not the profile's: its MRs' vocabulary (`#12`, `!12`).
  */
-forge: ForgeProvider | null, };
+forge: ForgeProvider | null, 
+/**
+ * Where its MRs are on the forge (`https://gitlab.com/g/p/-/merge_requests/`), when Prism
+ * reads them: an agent working there names them `!12`, a link to one Prism does not know.
+ */
+mr_web?: string, };

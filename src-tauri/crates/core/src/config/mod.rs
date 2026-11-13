@@ -570,6 +570,11 @@ impl Config {
         self.primary().into_iter().chain(self.repos.iter().filter(|r| !r.primary).cloned()).collect()
     }
 
+    /// What the frontend knows of the repositories, the primary one first.
+    pub fn repo_infos(&self) -> Vec<RepoInfo> {
+        self.repositories().iter().map(|r| r.info_on(self.forge.enabled, self.forge.provider, &self.gitlab.host)).collect()
+    }
+
     /// `[gitlab]` with the primary repository's project (empty without one).
     pub fn gitlab_of_primary(&self) -> GitlabConfig {
         GitlabConfig { project: self.primary().and_then(|r| r.project).unwrap_or_default(), ..self.gitlab.clone() }
@@ -845,6 +850,16 @@ pub mod tests {
         assert_eq!((h.main_branch.as_str(), h.release_prefix.as_str(), h.base_branch.as_str()), ("master", "", "auto"), "its own over [forge]'s");
         let infos: Vec<RepoInfo> = cfg.repositories().iter().map(RepoConfig::info).collect();
         assert!(infos[0].merge_queue && infos[0].ticket_required && !infos[1].merge_queue && !infos[1].ticket_required);
+    }
+
+    /// Where a repository's MRs are: only when Prism reads them, on its own forge.
+    #[test]
+    fn repository_mr_web() {
+        let cfg = resolved("[gitlab]\nhost = \"git.acme.io\"\n[[repos]]\nname = \"app\"\nproject = \"g/app\"\nprimary = true\n[[repos]]\nname = \"helm\"\nproject = \"g/helm\"\nmerge_requests = true\n[[repos]]\nname = \"site\"\nproject = \"me/site\"\nforge = \"github\"\nmerge_requests = true\n[[repos]]\nname = \"infra\"\nproject = \"g/infra\"\n").unwrap();
+        let web: Vec<Option<String>> = cfg.repo_infos().into_iter().map(|r| r.mr_web).collect();
+        assert_eq!(web, [Some("https://git.acme.io/g/app/-/merge_requests/".into()), Some("https://git.acme.io/g/helm/-/merge_requests/".into()), Some("https://github.com/me/site/pull/".into()), None]);
+        let off = resolved("[forge]\nenabled = false\n[[repos]]\nname = \"app\"\nproject = \"g/app\"\nprimary = true\n").unwrap();
+        assert_eq!(off.repo_infos()[0].mr_web, None, "the forge not read");
     }
 
     /// A repository's agent CLI: only the clones that name one, the others follow `[agents] provider`.

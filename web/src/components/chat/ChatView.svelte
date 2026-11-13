@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mrScopeOf } from '../../linkify'
   import { untrack } from 'svelte'
   import { pollsShown } from '../../polls.svelte'
   import { clock } from '../../clock.svelte'
@@ -74,6 +75,8 @@
     /** Opens its Plan tab. */
     onplan?: () => void
   } = $props()
+  /** The repositories it works in, whose MRs its `!12` name. */
+  const mrScope = $derived(mrScopeOf(id, shared.snapshot))
 
   const PAGE = 30
   /** All its turns (the backend's limit too): Prism reads its transcript further back for them. */
@@ -426,7 +429,7 @@
     {#if commentAnswers && acts && commentable(row.entry.text)}
       <div class="ai"><CommentedAnswer {id} text={row.entry.text} {acts} {typing} /></div>
     {:else}
-      <div class="ai"><Markdown text={row.entry.text} reading mrs /></div>
+      <div class="ai"><Markdown text={row.entry.text} reading mrs scope={mrScope} /></div>
     {/if}
   {:else if row.entry.type === 'note'}
     <div class="note">{row.entry.text}</div>

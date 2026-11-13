@@ -144,6 +144,11 @@ pub struct RepoInfo {
     pub agent: Option<crate::agents::provider::Provider>,
     /// The forge its project is on, when not the profile's: its MRs' vocabulary (`#12`, `!12`).
     pub forge: Option<crate::forge::Provider>,
+    /// Where its MRs are on the forge (`https://gitlab.com/g/p/-/merge_requests/`), when Prism
+    /// reads them: an agent working there names them `!12`, a link to one Prism does not know.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub mr_web: Option<String>,
 }
 
 impl RepoConfig {
@@ -171,7 +176,19 @@ impl RepoConfig {
             pipelines: self.pipelines && self.project.is_some(),
             agent: self.agent,
             forge: self.forge,
+            mr_web: None,
         }
+    }
+
+    /// `info`, with where its MRs are when Prism reads them (`forge`: the forge is read at all;
+    /// `profile`: the profile's forge, `gitlab_host` its instance on GitLab).
+    pub fn info_on(&self, forge: bool, profile: crate::forge::Provider, gitlab_host: &str) -> RepoInfo {
+        let read = forge && (self.primary || self.merge_requests);
+        let mr_web = self.project.as_deref().filter(|p| read && !p.is_empty()).map(|p| match self.forge.unwrap_or(profile) {
+            crate::forge::Provider::Github => format!("https://github.com/{p}/pull/"),
+            crate::forge::Provider::Gitlab => format!("https://{gitlab_host}/{p}/-/merge_requests/"),
+        });
+        RepoInfo { mr_web, ..self.info() }
     }
 
     /// Name and project of a non-primary repository whose MRs are followed on the profile's forge

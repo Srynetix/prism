@@ -10,6 +10,7 @@
  * nested or not, whose content is read like the rest.
  */
 
+import type { MrOption } from './linkify'
 import { ticketRegex } from './conventions'
 import { t } from './i18n.svelte'
 
@@ -25,8 +26,8 @@ export interface Span {
   href?: string
   /** `ABC-1234`: opens this ticket's preview. */
   ticket?: string
-  /** `!1957` (`#1957` on GitHub), the primary repository's MR: opens its panel (an agent's words, see linkify's `withMrs`). */
-  mr?: number
+  /** `!1957` (`#1957` on GitHub) in an agent's words: the MRs it may name (linkify's `withMrs`), opened on a click. */
+  mr?: MrOption[]
   /** Image (http(s)): displayed inline, `text` is its alt text. */
   image?: string
   /** `image` is a relative path (`images/x.png`): a file shipped with the app, see Markdown's `images`. */

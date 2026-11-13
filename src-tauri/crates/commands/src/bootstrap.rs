@@ -395,7 +395,7 @@ fn start(hub: &state::Hub, time: &collectors::time::TimeService, team_id: collec
     // The repositories whose worktrees are listed, where agents create theirs.
     let worktree_repos = if code { cfg.worktree_repos() } else { Vec::new() };
     hub.update(|s| {
-        s.repositories = cfg.repositories().iter().map(config::RepoConfig::info).collect();
+        s.repositories = cfg.repo_infos();
         s.repo_blocks = blocks::repo_blocks(&cfg);
         // Kept through a reload until read again: none to read any more.
         if worktree_repos.is_empty() {
@@ -553,7 +553,7 @@ fn start_code(cfg: &config::Config, primary: &Primary, worktree_repos: &[config:
     let mr_repos: Vec<(String, String)> = repositories.iter().filter_map(config::RepoConfig::mr_project).collect();
     // With the protected branches' pipelines of the repositories with `[[repos]] pipelines`.
     if on_gitlab {
-        forges.gitlab.configure(gitlab_cfg, mr_repos.clone(), repositories.iter().map(config::RepoConfig::info).collect());
+        forges.gitlab.configure(gitlab_cfg, mr_repos.clone(), cfg.repo_infos());
         let (label, priority) = (cfg.gitlab.merge_queue_label.clone(), cfg.gitlab.merge_priority_prefix.clone());
         hub.update(|s| {
             (s.merge_queue_label, s.merge_priority_prefix) = (Some(label), Some(priority));
