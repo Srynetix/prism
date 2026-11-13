@@ -199,12 +199,18 @@ pin_drawers = false             # a pin in the side panes (MR, ticket, logs, she
 statusbar_hidden = []           # items not shown (right-click on the bar)
 
 # Prism's own updates: the releases of a repository (prism-v… tags, scripts/release.sh), read
-# with glab or gh. A team's pack names its private repository, whose builds carry its blocks.
+# with glab or gh: Prism's public ones at gh:Srynetix/prism, or the repository a team's pack names.
 # Settings › General › Updates checks and installs; a newer Prism shows in the status bar.
 # [updates]
 # enabled = true                # check at launch and every 6 hours
-# source = "glab:group/project" # or gh:owner/repo; empty: no updates
-# packs = true                  # the packs' sources too: a pack changed there shows in the status bar
+# source = "gh:Srynetix/prism"  # or glab:group/project; empty: no updates
+# packs = true                  # the packs' and modules' sources too: a change there shows in the status bar
+
+# The modules (a team's blocks loaded at run time), from config.toml alone: Settings › Packs ›
+# Modules installs one without a pack, starts one that crashed again, reinstalls or removes one.
+# [modules]
+# trust_pack_updates = true     # a pack's new version of a module trusted before, reaching nothing more: trusted
+# removed = []                  # the pack modules removed: their packs' updates leave them out
 
 # Feedback: an issue opened from Prism (console `feedback`, Help › Send Feedback…, the status bar,
 # a block's ?) on Prism's repository or on a pack's (its [pack] source), with glab or gh. Only what

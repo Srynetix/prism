@@ -100,6 +100,7 @@ pub fn settings_page(table: &str, key: Option<&str>) -> String {
         ("agents", Some("prism_mcp")) => "Agents › Prism MCP",
         ("profile" | "demo", _) => "General › Profiles",
         ("packs", _) => "General › Packs",
+        ("modules", _) => "General › Packs (Modules)",
         ("logs", _) => "General › Logs",
         ("updates", _) => "General › Updates",
         ("feedback", _) => "General › Feedback",

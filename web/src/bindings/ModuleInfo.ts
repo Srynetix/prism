@@ -48,6 +48,15 @@ trusted_version: string | null,
  */
 fingerprint: string, 
 /**
- * The pack that installed it (`[[modules]]` of a pack); none: put there by hand.
+ * The pack that installed it (`[[modules]]` of a pack); none: installed by hand, or put there.
  */
-pack: string | null, };
+pack: string | null, 
+/**
+ * Where it was installed from (a pack's or by hand); none: its folder put there.
+ */
+source: string | null, 
+/**
+ * Its back end stopped Prism the last time it ran (`stopped_mark`), and it is the same one:
+ * held, its blocks say so, until I start it again (Settings › Packs › Modules) or it is replaced.
+ */
+stopped: boolean, };

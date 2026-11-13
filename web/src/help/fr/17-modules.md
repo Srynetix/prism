@@ -99,12 +99,18 @@ source = "glab:groupe/prism-pack:modules/hello@main"   # un dossier d'un dépôt
 # "gh:owner/repo:dist/hello.zip@v2" (une archive), ou un dossier ou un .zip à côté du pack
 ```
 
-Importer ou mettre à jour le pack place chaque module dans `modules/<id>/`, en entier ; retirer le pack, ou un module du pack, retire le dossier. L'alerte de mise à jour des packs signale aussi qu'un de ses modules a changé à sa source.
+Importer ou mettre à jour le pack place chaque module dans `modules/<id>/`, en entier ; retirer le pack, ou un module du pack, retire le dossier. L'alerte de mise à jour des packs signale aussi qu'un de ses modules a changé à sa source. Un module du pack que vous supprimez dans les Réglages reste à l'écart de ses mises à jour (`[modules] removed`) jusqu'à ce que vous le **Remettiez**.
 
 ## Lui faire confiance
 
 Rien d'un module ne tourne avant que vous lui fassiez confiance : sa partie web n'est pas chargée, son back end ne démarre pas, ses blocs disent qu'ils attendent. **Réglages › Packs › Modules** liste ce que son back end peut atteindre (GitLab, git, les hôtes et programmes qu'il nomme) : **Faire confiance** (deux clics), et son back end démarre aussitôt, sa partie web au prochain chargement de la fenêtre. La confiance va à l'empreinte de son dossier : une nouvelle version attend de nouveau, avec ce qu'elle change (une capacité ajoutée, un bloc, une table de config) ; de même un module approuvé quand une capacité atteignait moins que ce que Prism lui permet aujourd'hui.
 
+Une nouvelle version qu'apporte un pack, d'un module auquel vous avez fait confiance depuis ce pack, reçoit votre confiance quand elle n'atteint rien de plus : les mêmes capacités et tables de config, ou moins. Au-delà (un hôte, un programme, une table de config, une partie web, un back end), elle attend votre confiance comme plus haut. **Faire confiance aux mises à jour d'un pack** (`[modules] trust_pack_updates`, activé par défaut) le coupe ; un module installé à la main demande toujours.
+
 ## L'installer et l'essayer
 
-Sans pack : copiez `dist/<id>` dans `modules/`, faites-lui confiance dans Réglages › Packs › Modules et rechargez la fenêtre, puis ajoutez ses blocs à une page (**+ Bloc**). Les lignes et les erreurs de son back end sont dans le journal de Prism (`module <id>: …`). Dans le profil de démo, ses blocs montrent l'état de `Block::demo`.
+Sans pack : **Installer un module** dans Réglages › Packs › Modules (ou `prism modules install <source>`) depuis son dossier ou son `.zip` (`dist/<id>`), ou le dossier d'un dépôt à une ref (`gh:owner/repo:dist/hello@v1`). Rechargez la fenêtre, faites-lui confiance, redémarrez Prism pour son back end, puis ajoutez ses blocs à une page (**+ Bloc**). Sa source est gardée : **Réinstaller** la relit, et un changement là-bas apparaît dans la barre d'état comme pour un pack. Les lignes et les erreurs de son back end sont dans le journal de Prism (`module <id>: …`). Dans le profil de démo, ses blocs montrent l'état de `Block::demo`.
+
+## Quand il plante
+
+Un back end qui panique, ou calcule au-delà de son délai, le dit sur ses blocs et redémarre 30 secondes plus tard. Après trois plantages en cinq minutes, Prism abandonne : Réglages › Packs › Modules dit quand et pourquoi il a planté la dernière fois. **Relancer** (deux clics) le fait repartir de zéro, ses plantages oubliés. Un module qui a arrêté Prism lui-même (Prism tué au milieu d'un appel) est mis en attente au lancement suivant, ses blocs le disent, jusqu'à ce que vous le relanciez. **Réinstaller** le relit depuis son pack ou sa source et le remet en entier ; **Supprimer** l'efface et oublie sa confiance. `prism modules list | reinstall | remove | restore | reset` font de même depuis un terminal ; un Prism lancé les voit à son redémarrage.

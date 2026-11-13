@@ -413,6 +413,12 @@ keep-running job): not in the help.
 | `pack import <source>` | Add a pack: a file, a repository's file at a ref, or a starter | ✓ | ✓ |
 | `pack update <name> [ref]` | Update a repository's pack, from its ref or the one given | ✓ | ✓ |
 | `pack remove <name>` | Remove a pack | ✓ | ✓ |
+| `modules list` | The modules in modules/: their version, where they come from, trusted or not | ✓ | ✓ |
+| `modules install <source>` | Install a module without a pack: a folder or .zip, or a repository's folder at a ref | ✓ | ✓ |
+| `modules reinstall <id>` | Read a module again from its pack or its source, and put it back whole | ✓ | ✓ |
+| `modules remove <id>` | Remove a module (a pack's stays out of that pack's updates until put back) | ✓ | ✓ |
+| `modules restore <id>` | Put back a pack's module you removed | ✓ | ✓ |
+| `modules reset <id>` | Let a module that stopped Prism run again (its back end restarts with Prism, or from Settings) | ✓ | ✓ |
 | `mcp` | Prism's MCP server for an agent CLI (on stdin/stdout), or its installation into one | ✓ | ✓ |
 | `mcp install <claude\|codex\|opencode>` | Add Prism's MCP server and skill to an agent CLI's user config | ✓ | ✓ |
 | `mcp uninstall <claude\|codex\|opencode>` | Take them out | ✓ | ✓ |

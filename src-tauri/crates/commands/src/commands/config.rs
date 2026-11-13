@@ -113,6 +113,8 @@ pub fn quick_action_add(state: State<'_, AppState>, action: crate::config::Quick
 pub async fn pack_import(state: State<'_, AppState>, source: String) -> Cmd<crate::settings::FileView> {
     let path = crate::config_path();
     crate::packs::import(&path, &source).await?;
+    // A module of it trusted for me in a new version: run in that one.
+    tokio::task::spawn_blocking(prism_modules::refresh).await.ok();
     apply_live(&state, &path);
     crate::settings::read(&path).map_err(Into::into)
 }
@@ -122,6 +124,8 @@ pub async fn pack_import(state: State<'_, AppState>, source: String) -> Cmd<crat
 pub async fn pack_update(state: State<'_, AppState>, name: String, reference: Option<String>) -> Cmd<crate::settings::FileView> {
     let path = crate::config_path();
     crate::packs::update(&path, &name, reference.as_deref()).await?;
+    // A module of it trusted for me in a new version: run in that one.
+    tokio::task::spawn_blocking(prism_modules::refresh).await.ok();
     apply_live(&state, &path);
     crate::settings::read(&path).map_err(Into::into)
 }

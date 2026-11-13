@@ -147,6 +147,9 @@ pub struct Config {
     /// Prism's own updates (`[updates]`): where its releases are published, and their check.
     #[serde(default)]
     pub updates: UpdatesConfig,
+    /// The modules (`[modules]`): what a pack may trust for me, the pack modules I removed.
+    #[serde(default)]
+    pub modules: ModulesConfig,
     /// Feedback to the repositories Prism and its packs come from (`[feedback]`): on by default.
     #[serde(default)]
     pub feedback: FeedbackConfig,
@@ -234,6 +237,25 @@ pub struct UpdatesConfig {
 impl Default for UpdatesConfig {
     fn default() -> Self {
         Self { enabled: true, source: String::new(), packs: true }
+    }
+}
+
+/// The modules (`[modules]`, see `crate::modules`): from `config.toml` alone, a pack never sets
+/// them (its `[[modules]]` are what it installs).
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[serde(default)]
+pub struct ModulesConfig {
+    /// A new version of a module a pack installed, trusted before, runs without asking again when
+    /// it reaches nothing more (its capabilities and config tables those trusted, or fewer).
+    pub trust_pack_updates: bool,
+    /// The modules of a pack I removed: its imports and updates leave them out.
+    pub removed: Vec<String>,
+}
+
+impl Default for ModulesConfig {
+    fn default() -> Self {
+        Self { trust_pack_updates: true, removed: Vec::new() }
     }
 }
 

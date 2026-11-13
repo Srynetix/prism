@@ -160,5 +160,11 @@ pub const TABLE: &[(&str, &str)] = &[
     ("module {id} changed since it was shown: look at it again", "le module {id} a changé depuis qu’il a été montré : regardez-le de nouveau"),
     ("the module {id} waits for your trust: Settings › Packs › Modules", "le module {id} attend votre confiance : Réglages › Packs › Modules"),
     ("module {id} of the pack ({source})", "module {id} du pack ({source})"),
-    ("its back end stopped Prism the last time it ran: replace it, or delete modules/.stopped/{id} to try it again", "son back end a arrêté Prism la dernière fois qu’il a tourné : remplace-le, ou supprime modules/.stopped/{id} pour le réessayer"),
+    ("the module {id} is held: its back end stopped Prism the last time it ran. Start it again from Settings › Packs › Modules", "le module {id} est en attente : son back end a arrêté Prism la dernière fois qu’il a tourné. Relancez-le depuis Réglages › Packs › Modules"),
+    ("the module {id} was removed: its blocks go once Prism restarts", "le module {id} a été supprimé : ses blocs partent au redémarrage de Prism"),
+    ("no pack brings the module {id}", "aucun pack n’apporte le module {id}"),
+    ("the pack {pack} brings a module {id}: it is that one, or none", "le pack {pack} apporte un module {id} : c’est celui-là, ou aucun"),
+    ("the module {id} was not installed by Prism (its folder put there): nothing to read it again from", "le module {id} n’a pas été installé par Prism (son dossier a été posé là) : rien d’où le relire"),
+    ("no module {id} in modules/", "pas de module {id} dans modules/"),
+    ("a module {id} is already installed by hand from {source}: remove it first", "un module {id} est déjà installé à la main depuis {source} : supprimez-le d’abord"),
 ];
