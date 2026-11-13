@@ -959,6 +959,7 @@ impl Demo {
             group_order: None,
             order_in_group: None,
             origin: SessionOrigin::Desktop,
+            repo: None,
             transcript: None,
             path: None,
         };
@@ -1203,6 +1204,7 @@ impl Demo {
             group_order: None,
             order_in_group: None,
             origin: SessionOrigin::Agent,
+            repo: None,
             transcript: None,
             path: None,
         }));

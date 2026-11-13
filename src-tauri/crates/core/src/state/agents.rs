@@ -417,6 +417,10 @@ pub struct ClaudeSession {
     pub group_order: Option<u32>,
     pub order_in_group: Option<u32>,
     pub origin: SessionOrigin,
+    /// The repository a Desktop session works in (`[[repos]]`): its whole folder is never sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub repo: Option<String>,
     /// A Desktop session's transcript and whole folder, kept for Prism (« in passing » reads its
     /// `spawn_task` calls), never sent.
     #[serde(skip)]

@@ -58,7 +58,7 @@ fn sprint(tickets: Vec<Ticket>) -> Sprint {
 }
 
 fn session(f: impl FnOnce(&mut ClaudeSession)) -> ClaudeSession {
-    let mut c = ClaudeSession { id: "s".into(), title: "t".into(), folder: String::new(), worktree: None, branch: None, ticket: None, status: SessionStatus::NeedsYou, needs_action: None, read: false, last_activity: Some(ago(30)), group: None, group_order: None, order_in_group: None, origin: SessionOrigin::Agent, transcript: None, path: None };
+    let mut c = ClaudeSession { id: "s".into(), title: "t".into(), folder: String::new(), worktree: None, branch: None, ticket: None, status: SessionStatus::NeedsYou, needs_action: None, read: false, last_activity: Some(ago(30)), group: None, group_order: None, order_in_group: None, origin: SessionOrigin::Agent, repo: None, transcript: None, path: None };
     f(&mut c);
     c
 }

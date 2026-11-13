@@ -58,6 +58,9 @@ pub async fn run(cfg: SessionsConfig, scope: crate::profile::SessionScope, hub: 
                 });
                 // Prism's agents share the list: only the desktop sessions are replaced.
                 hub.update(|s| {
+                    for c in &mut list {
+                        c.repo = c.path.as_deref().and_then(|p| s.repo_of_dir(p));
+                    }
                     let changed = !s.sessions.iter().filter(|c| c.origin == SessionOrigin::Desktop).eq(list.iter());
                     s.sessions.retain(|c| c.origin != SessionOrigin::Desktop);
                     s.sessions.extend(list);
@@ -170,6 +173,7 @@ fn summarize(m: RawSession, transcript: Option<&Path>) -> ClaudeSession {
         group_order: None,
         order_in_group: None,
         origin: SessionOrigin::Desktop,
+        repo: None,
         transcript: transcript.map(|t| t.display().to_string()),
         path,
     }

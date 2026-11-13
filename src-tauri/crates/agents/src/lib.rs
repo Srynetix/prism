@@ -673,6 +673,7 @@ fn as_session(a: &Agent) -> ClaudeSession {
         group_order: None,
         order_in_group: None,
         origin: SessionOrigin::Agent,
+        repo: None,
         transcript: None,
         path: None,
     }

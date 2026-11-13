@@ -13,4 +13,8 @@ read?: boolean, last_activity: string | null,
 /**
  * Desktop sidebar group, its rank, and the session's rank within the group.
  */
-group: string | null, group_order: number | null, order_in_group: number | null, origin: SessionOrigin, };
+group: string | null, group_order: number | null, order_in_group: number | null, origin: SessionOrigin, 
+/**
+ * The repository a Desktop session works in (`[[repos]]`): its whole folder is never sent.
+ */
+repo?: string, };
