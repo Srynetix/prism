@@ -699,6 +699,11 @@ impl<'a> Ctx<'a> {
             let rule = if waiting.iter().all(|c| your_turn_only(c)) { AlertRule::YourTurn } else { AlertRule::Question };
             let mut alert = Alert::new("Claude", Severity::Info, text).rule(rule).since(waiting.iter().filter_map(|c| c.last_activity).min());
             alert.answer = answer.map(|a| a.id.clone());
+            // Seen, and nothing to answer: out of the way until their next turn.
+            let read: Vec<String> = waiting.iter().filter(|c| crate::read_marks::can_mark(c.status, c.needs_action.as_deref())).map(|c| c.id.clone()).collect();
+            if !read.is_empty() {
+                alert = alert.fixes(vec![Fix::Read { sessions: read }]);
+            }
             out.push(alert);
         }
         // A Claude Code agent costing more than `[agents.claude] cost_alert` (its conversation, at the API prices).

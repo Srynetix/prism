@@ -240,6 +240,30 @@ pub async fn agent_allow(state: State<'_, AppState>, id: String) -> Cmd {
     state.agents.allow(&id).await.map_err(Into::into)
 }
 
+/// Marks agents or Claude Desktop sessions read: their turn over, they wait for me no more until
+/// they move again. One already read is left as it is; one asking something or gone is refused,
+/// the others marked all the same.
+#[prism_macros::command]
+pub fn session_read(state: State<'_, AppState>, ids: Vec<String>) -> Cmd {
+    let snap = state.hub.subscribe().borrow().clone();
+    let mut refused = Vec::new();
+    for id in &ids {
+        let agent = snap.agents.iter().find(|a| &a.id == id).map(|a| (a.status, a.needs_action.clone(), a.moved_at.or(a.last_activity), a.read));
+        let found = agent.or_else(|| snap.sessions.iter().find(|c| &c.id == id).map(|c| (c.status, c.needs_action.clone(), c.last_activity, c.read)));
+        match found {
+            Some((.., true)) => {}
+            Some((status, needs, at, false)) if prism_core::read_marks::can_mark(status, needs.as_deref()) => prism_core::read_marks::mark(id, at),
+            Some(_) => refused.push(tr("it waits for an answer: answer it rather")),
+            None => refused.push(tr("unknown agent")),
+        }
+    }
+    prism_core::read_marks::apply_now(&state.hub);
+    match refused.first() {
+        Some(why) if refused.len() == ids.len() => Err((*why).into()),
+        _ => Ok(()),
+    }
+}
+
 /// Renames an agent in Prism.
 #[prism_macros::command]
 pub fn agent_rename(state: State<'_, AppState>, id: String, title: String) -> Cmd {

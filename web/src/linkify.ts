@@ -53,8 +53,10 @@ export function mrScopeOf(id: string, s: Snapshot | null): MrPlace[] | null {
   if (!s) return null
   const a = s.agents.find((x) => x.id === id)
   const d = a ? undefined : s.sessions.find((x) => x.id === id)
-  const dirs = a ? [{ cwd: a.cwd, worktree: a.worktree }, ...(a.also ?? []).map((p) => ({ cwd: p, worktree: p }))] : d ? [{ cwd: d.folder, worktree: d.worktree }] : []
-  const names = [...new Set(dirs.map((x) => agentRepo(x, s)).filter((n): n is string => !!n))]
+  const dirs = a ? [{ cwd: a.cwd, worktree: a.worktree }, ...(a.also ?? []).map((p) => ({ cwd: p, worktree: p }))] : []
+  // A Desktop session's repository, found by the core: its folder is never sent.
+  const found = a ? dirs.map((x) => agentRepo(x, s)) : [d?.repo ?? (d?.worktree ? agentRepo({ cwd: d.worktree, worktree: d.worktree }, s) : null)]
+  const names = [...new Set(found.filter((n): n is string => !!n))]
   const repos = names.map((n) => s.repositories.find((r) => r.name === n)).filter((r) => !!r)
   const value = repos.length ? repos.flatMap((r) => (r.mr_web ? [{ repo: r.primary ? null : r.name, forge: r.forge, web: r.mr_web }] : [])) : null
   const key = JSON.stringify(value)

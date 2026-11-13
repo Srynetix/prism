@@ -1094,4 +1094,10 @@ export default {
   '{cli} exits': '{cli} quitte',
   '{cli} waits for an answer in its terminal': '{cli} attend une réponse dans son terminal',
   'Chain it after this agent': 'L’enchaîner après cet agent',
+  'Mark as read': 'Marquer comme lue',
+  'Mark them read': 'Les marquer comme lues',
+  'it waits for you no more, until its next turn': 'elle ne vous attend plus, jusqu’à son prochain tour',
+  'Seen: it waits for you no more until its next turn (⌘E)': 'Vue : elle ne vous attend plus jusqu’à son prochain tour (⌘E)',
+  'Seen: it waits for you no more until its next turn': 'Vue : elle ne vous attend plus jusqu’à son prochain tour',
+  'Seen: out of the way until their next turn': 'Vues : elles ne vous attendent plus jusqu’à leur prochain tour',
 } satisfies Dictionary

@@ -125,14 +125,7 @@ impl Agents {
 
     /// The repository of a folder: a worktree's, or the clone it is in.
     fn repo_of_dir(&self, dir: &str) -> Option<String> {
-        let snap = self.inner.hub.subscribe().borrow().clone();
-        if let Some(w) = snap.worktrees.iter().find(|w| w.path == dir) {
-            return Some(w.repo.clone());
-        }
-        let inside = |root: &str| dir == root || dir.starts_with(&format!("{root}/")) || dir.starts_with(&format!("{root}.worktrees/"));
-        let mut repos: Vec<_> = snap.repos.iter().collect();
-        repos.sort_by_key(|r| std::cmp::Reverse(r.path.len()));
-        repos.into_iter().find(|r| inside(&r.path)).map(|r| r.name.clone())
+        self.inner.hub.subscribe().borrow().repo_of_dir(dir)
     }
 
     /// `[agents.aside]`, as configured now.

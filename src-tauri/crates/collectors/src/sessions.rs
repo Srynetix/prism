@@ -46,6 +46,12 @@ pub async fn run(cfg: SessionsConfig, scope: crate::profile::SessionScope, hub: 
         transcripts = cache;
         match result {
             Ok((list, archived)) => {
+                let mut list = list;
+                // Those marked read wait for me no more, until they move again.
+                for c in &mut list {
+                    prism_core::read_marks::apply(&c.id, &mut c.status, &mut c.needs_action, c.last_activity, &mut c.read);
+                }
+                prism_core::read_marks::flush();
                 hub.update(|s| {
                     let changed = s.archived_sessions != archived;
                     s.archived_sessions = archived;
@@ -53,6 +59,9 @@ pub async fn run(cfg: SessionsConfig, scope: crate::profile::SessionScope, hub: 
                 });
                 // Prism's agents share the list: only the desktop sessions are replaced.
                 hub.update(|s| {
+                    for c in &mut list {
+                        c.repo = c.path.as_deref().and_then(|p| s.repo_of_dir(p));
+                    }
                     let changed = !s.sessions.iter().filter(|c| c.origin == SessionOrigin::Desktop).eq(list.iter());
                     s.sessions.retain(|c| c.origin != SessionOrigin::Desktop);
                     s.sessions.extend(list);
@@ -159,11 +168,13 @@ fn summarize(m: RawSession, transcript: Option<&Path>) -> ClaudeSession {
         title,
         status,
         needs_action: summary.needs_action.filter(|s| !s.trim().is_empty()),
+        read: false,
         last_activity: m.last_activity_at.and_then(DateTime::from_timestamp_millis),
         group: None,
         group_order: None,
         order_in_group: None,
         origin: SessionOrigin::Desktop,
+        repo: None,
         transcript: transcript.map(|t| t.display().to_string()),
         path,
     }

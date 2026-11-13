@@ -345,6 +345,7 @@ commands! {
     agents::routine_enable: Critical [phone: state, name: String, on: bool],
     agents::routine_trust: Never,
     agents::routine_remove: Never,
+    agents::session_read: Act [phone: state, ids: Vec<String>; sync],
     agents::agent_rename: Act [phone: state, id: String, title: String; sync],
     agents::agent_set_tags: Act [phone: state, id: String, tags: Vec<String>; sync],
     agents::agent_set_category: Act [phone: state, id: String, category: Option<String>; sync],

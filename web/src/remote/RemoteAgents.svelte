@@ -10,6 +10,7 @@
   import { cliOf } from '../agent-cli'
   import { isWorking, waitsForYou } from '../rules'
   import { isArchived, setArchived } from '../agent-archive.svelte'
+  import { canMarkRead, markRead } from '../session-read'
   import Usage from '../components/Usage.svelte'
   import Icon from '../components/Icon.svelte'
   import { hasWindows, peak, planSections, sectionKey, sectionName, usageLevel } from '../usage'
@@ -81,7 +82,7 @@
   const elsewhere = $derived(agents.filter((a) => !agentRepo(a, snap)))
   let showResting = $state(false)
 
-  const label = (a: Agent) => (a.state === 'running' && a.gate ? [t('Waits for your trust'), 'trust'] : a.state === 'running' ? (STATE[a.status] ?? ['', '']) : [a.state === 'prepared' ? t('Prepared') : t('Stopped'), ''])
+  const label = (a: Agent) => (a.state === 'running' && a.gate ? [t('Waits for your trust'), 'trust'] : a.state === 'running' && a.read ? [t('Stopped'), ''] : a.state === 'running' ? (STATE[a.status] ?? ['', '']) : [a.state === 'prepared' ? t('Prepared') : t('Stopped'), ''])
   const ctx = (a: Agent) => (a.context?.size ? `ctx ${Math.round((100 * a.context.used) / a.context.size)} %` : '')
 
   let busy = $state<string | null>(null)
@@ -144,7 +145,7 @@
           <button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => interruptAgent(a.id))} title={t('Refuse and interrupt its turn (Esc): the agent stays')}><Icon name="pause" /> {t('Interrupt')}</button>
         </div>
       {:else if a.status !== 'running'}
-        <div class="chips"><QuickAnswers agent={a} /></div>
+        <div class="chips"><QuickAnswers agent={a} />{#if canMarkRead(a)}<button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => markRead([a.id]))} title={t('Seen: it waits for you no more until its next turn')}><Icon name="check" /> {t('Mark as read')}</button>{/if}</div>
       {/if}
     {:else if acts && a.state === 'prepared'}
       <!-- Its Then steps: started by the computer with it (remote.rs, agent_start). -->

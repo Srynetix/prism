@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { markRead } from '../session-read'
   import { openOverlap } from '../overlap-view.svelte'
   import { openWhatChanged } from '../changes-view.svelte'
   import { forgeName, mrWord } from '../forge'
@@ -125,6 +126,8 @@
           const now = waitsForPrompt(agent)
           return [{ key: 'dev-server', label: t('Tell {agent}', { agent: agentName() }), title: now ? t('Send its agent the error, to fix it:\n\n{text}', { text }) : t('Its agent is busy: the error is typed in its prompt, for you to send.\n\n{text}', { text }), run: async () => { await promptAgent(agent.id, text, now); openAgents(agent.id) } }]
         }
+        case 'read':
+          return app ? [{ key: 'read', label: f.sessions.length > 1 ? t('Mark them read') : t('Mark as read'), title: t('Seen: out of the way until their next turn'), run: () => markRead(f.sessions) }] : []
         case 'switch': {
           const agent = live.snapshot?.agents?.find((x) => x.id === f.agent)
           const to = agent ? suggestedFor(agent) : null

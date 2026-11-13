@@ -218,6 +218,10 @@ pub enum Fix {
     Switch {
         agent: String,
     },
+    /// Sessions whose turn is over, asking nothing: marked read in one click (`read_marks`).
+    Read {
+        sessions: Vec<String>,
+    },
     Overlap {
         id: String,
         side: Side,

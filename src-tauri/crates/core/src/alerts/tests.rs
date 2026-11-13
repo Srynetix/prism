@@ -58,7 +58,7 @@ fn sprint(tickets: Vec<Ticket>) -> Sprint {
 }
 
 fn session(f: impl FnOnce(&mut ClaudeSession)) -> ClaudeSession {
-    let mut c = ClaudeSession { id: "s".into(), title: "t".into(), folder: String::new(), worktree: None, branch: None, ticket: None, status: SessionStatus::NeedsYou, needs_action: None, last_activity: Some(ago(30)), group: None, group_order: None, order_in_group: None, origin: SessionOrigin::Agent, transcript: None, path: None };
+    let mut c = ClaudeSession { id: "s".into(), title: "t".into(), folder: String::new(), worktree: None, branch: None, ticket: None, status: SessionStatus::NeedsYou, needs_action: None, read: false, last_activity: Some(ago(30)), group: None, group_order: None, order_in_group: None, origin: SessionOrigin::Agent, repo: None, transcript: None, path: None };
     f(&mut c);
     c
 }
@@ -87,9 +87,11 @@ fn agent(id: &str, f: impl FnOnce(&mut Agent)) -> Agent {
         exit_code: None,
         status: SessionStatus::Running,
         needs_action: None,
+        read: false,
         suggestion: None,
         gate: None,
         last_activity: Some(ago(5)),
+        moved_at: None,
         context: None,
         looping: None,
         planned: false,
@@ -177,6 +179,18 @@ fn lets_an_agents_plain_turn_end_go_after_a_short_while() {
     assert!(x.waiting_alert(&session(|c| c.needs_action = Some("Answer its question".into()))));
     assert!(x.waiting_alert(&session(|c| c.status = SessionStatus::WaitingTool)));
     assert!(x.waiting_alert(&session(|c| c.origin = SessionOrigin::Desktop)));
+}
+
+/// A turn over offers to mark it read; a question waits for its answer; one marked read is quiet.
+#[test]
+fn a_turn_over_is_marked_read_from_its_alert() {
+    let mut s = snap();
+    s.sessions = vec![session(|c| c.last_activity = Some(ago(2))), session(|c| (c.id, c.last_activity, c.needs_action) = ("q".into(), Some(ago(2)), Some("Answer its question".into())))];
+    let prefs = Prefs::default();
+    let alerts = Ctx::new(&s, &prefs, now()).session_alerts();
+    assert_eq!(alerts[0].fixes, Some(vec![Fix::Read { sessions: vec!["s".into()] }]), "not the question");
+    s.sessions = vec![session(|c| (c.last_activity, c.status, c.read) = (Some(ago(2)), SessionStatus::Idle, true))];
+    assert!(Ctx::new(&s, &prefs, now()).session_alerts().is_empty());
 }
 
 #[test]

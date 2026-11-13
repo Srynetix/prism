@@ -78,7 +78,7 @@ describe("an agent's `!12` in the repositories it works in", () => {
     ],
     repos: [{ name: 'app', path: '/c/app' }, { name: 'helm', path: '/c/helm' }, { name: 'site', path: '/c/site' }, { name: 'infra', path: '/c/infra' }],
     worktrees: [],
-    sessions: [{ id: 'd1', folder: '/c/helm/charts', worktree: null }],
+    sessions: [{ id: 'd1', folder: 'charts', worktree: null, repo: 'helm' }, { id: 'd2', folder: 'x', worktree: null }],
     agents: [agent('a-app', '/c/app'), agent('a-helm', '/c/helm.worktrees/fix'), agent('a-site', '/c/site'), agent('a-infra', '/c/infra'), agent('a-out', '/tmp/x'), agent('a-two', '/c/helm', ['/c/app.worktrees/fix']), agent('a-gh', '/c/site', ['/c/helm'])],
   } as unknown as Snapshot
   const scope = (id: string) => mrScopeOf(id, s)
@@ -87,6 +87,7 @@ describe("an agent's `!12` in the repositories it works in", () => {
 
   it('in a folder of no repository, the primary one’s, as before', () => {
     expect(scope('a-out')).toBeNull()
+    expect(scope('d2')).toBeNull()
     expect(refsIn('see !1288').map((r) => r.ref)).toEqual([{ mr: { iid: 1288, repo: null } }])
   })
 

@@ -132,6 +132,18 @@ pub struct ActiveProfile {
 }
 
 impl Snapshot {
+    /// The repository a folder is in: a worktree's, failing that the clone it is in (or the
+    /// `<clone>.worktrees` folder next to it), the deepest one first.
+    pub fn repo_of_dir(&self, dir: &str) -> Option<String> {
+        if let Some(w) = self.worktrees.iter().find(|w| w.path == dir) {
+            return Some(w.repo.clone());
+        }
+        let inside = |root: &str| dir == root || dir.starts_with(&format!("{root}/")) || dir.starts_with(&format!("{root}.worktrees/"));
+        let mut repos: Vec<_> = self.repos.iter().collect();
+        repos.sort_by_key(|r| std::cmp::Reverse(r.path.len()));
+        repos.into_iter().find(|r| inside(&r.path)).map(|r| r.name.clone())
+    }
+
     /// Every alert the core knows: its own (`alerts`), then those the window sent of the modules'
     /// blocks (`external_alerts`).
     pub fn all_alerts(&self) -> impl Iterator<Item = &crate::alerts::Alert> {
