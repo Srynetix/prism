@@ -21,24 +21,25 @@ fn main() {
         format!("include_str!({:?})", p.display().to_string())
     };
     let example_block: String = [
-        "src-tauri/crates/blocks/src/docker/mod.rs",
-        "src-tauri/crates/blocks/src/docker/collector.rs",
-        "src-tauri/crates/blocks/src/docker/demo.rs",
-        "web/src/blocks/docker/index.ts",
-        "web/src/blocks/docker/types.ts",
-        "web/src/blocks/docker/Docker.svelte",
+        "examples/modules/hello/module.toml",
+        "examples/modules/hello/backend/src/lib.rs",
+        "examples/modules/hello/backend/src/hello.rs",
+        "examples/modules/hello/src/defs.ts",
+        "examples/modules/hello/src/components.ts",
+        "examples/modules/hello/src/Hello.svelte",
+        "examples/modules/hello/src/HelloItem.svelte",
     ]
     .iter()
     .map(|rel| format!("    ({rel:?}, {}),\n", file(rel)))
     .collect();
     let code = format!(
-        "/// The help pages: language, name, text.\npub static HELP: &[(&str, &str, &str)] = &[\n{}];\npub static EXAMPLE: &str = {};\npub static PACK_EXAMPLE: &str = {};\npub static GUIDE: &str = {};\npub static SDK: &str = {};\npub static EXTRA_NONE: &str = {};\n/// The Docker block, whole: its Rust, its window side.\npub static EXAMPLE_BLOCK: &[(&str, &str)] = &[\n{}];\n",
+        "/// The help pages: language, name, text.\npub static HELP: &[(&str, &str, &str)] = &[\n{}];\npub static EXAMPLE: &str = {};\npub static PACK_EXAMPLE: &str = {};\npub static GUIDE: &str = {};\npub static SDK: &str = {};\npub static WEB_SDK: &str = {};\n/// The example module, whole: its manifest, its back end, its window side.\npub static EXAMPLE_BLOCK: &[(&str, &str)] = &[\n{}];\n",
         help.concat(),
         file("config.example.toml"),
         file("packs/example.toml"),
         file("docs/guide.md"),
-        file("src-tauri/crates/blocks/src/sdk.rs"),
-        file("web/src/blocks/extra-none.ts"),
+        file("src-tauri/crates/module/src/sdk.rs"),
+        file("sdk/web/index.d.ts"),
         example_block,
     );
     let out = std::path::PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("mcp_docs.rs");

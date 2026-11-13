@@ -8,7 +8,6 @@
 #   scripts/windows.sh server [cargo args]  prism-server.exe, Prism without a window (the phone's
 #                                           page, web/dist, built first and carried in it):
 #                                           src-tauri/target/<target>/release/prism-server.exe
-#                                           A team's blocks (PRISM_EXTRA_BLOCKS) in it, as `build`.
 #
 # Needs clang-cl, lld-link, ninja and cmake (macOS: `brew install llvm lld ninja cmake`), makensis
 # to build (`brew install makensis`), cargo-xwin (`cargo install --locked cargo-xwin`) and the Rust

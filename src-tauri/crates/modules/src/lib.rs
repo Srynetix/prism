@@ -36,15 +36,6 @@ mod worker;
 #[cfg(test)]
 mod tests;
 
-/// The example module's block (`examples/modules/hello/backend/src/hello.rs`), written against
-/// `crate::blocks::sdk`: here Prism's own, as a block compiled into Prism reads it.
-#[cfg(test)]
-mod blocks {
-    pub use prism_blocks::sdk;
-}
-#[cfg(test)]
-#[path = "../../../../examples/modules/hello/backend/src/hello.rs"]
-mod hello_inside_prism;
 
 use std::sync::{Arc, OnceLock};
 

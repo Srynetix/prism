@@ -47,7 +47,7 @@ a layer that depends only on the ones below it, and none on Tauri:
 | `prism-core` | the config (packs, profiles, settings), the snapshot and its hub, conventions, the forge and tracker types, the blocks' contract |
 | `prism-collectors` | the sources (forge, tracker, CI, clusters, calendar, mail, usage, vulnerabilities…), and `Forge` / `Tracker` over the providers |
 | `prism-agents` | the coding agents: tmux sessions, worktrees, hooks, files, tasks, chains |
-| `prism-blocks` | Prism's own blocks, and the SDK a team's blocks use |
+| `prism-blocks` | Prism's own blocks |
 | `prism-demo` | the demo profile's data |
 | `prism-ops` | checks, clones and new projects, feedback, updates |
 | `prism-remote` | Prism from a phone: its server, pairing, passkeys, the tunnel |
@@ -121,8 +121,8 @@ just install && just server   # scripts/server.sh: pnpm --dir web build, then ca
 install src-tauri/target/release/prism-server ~/.local/bin/
 ```
 
-A team's blocks (`PRISM_EXTRA_BLOCKS`) are built in as in the app (`NO_EXTRA=1 just server`:
-without). A release carries the server of Prism alone only (`scripts/release.sh --no-extra --server`).
+A team's blocks are modules, loaded at run time as in the app. A release carries the server with
+`--server`.
 The Linux one is built on Ubuntu 22.04: glibc 2.35 or newer, and `libdbus-1-3`. The config is the same file
 (`~/.config/prism/config.toml`, profiles, packs), written by hand: no wizard. The remote must be
 on, behind Tailscale (`tailscale serve` needs `sudo tailscale set --operator=$USER` once):
@@ -250,8 +250,10 @@ update replaces), with `--linux` the `amd64` `.deb`, AppImage and Arch package, 
   its own releases commits its own `update-key.pub`.
 
 - `--to glab:group/project`: the project's generic packages, linked from a GitLab release;
-  `--to gh:owner/repo`: a GitHub release. `PRISM_RELEASE_TO` (environment or `.env`) is the default.
-- `--dry-run` builds without publishing. A build of the same commit and blocks already in `dist/`
+  `--to gh:owner/repo`: a GitHub release. `PRISM_RELEASE_TO` (environment or `.env`) is the default;
+  none given, the script stops. `just release` and `just release-all` give `gh:Srynetix/prism`
+  (a `--to` after them wins).
+- `--dry-run` builds without publishing. A build of the same commit already in `dist/`
   is published as is; `--rebuild` builds again.
 - The notes are the changelog (`scripts/changelog.sh`): the Conventional commits since the newest
   `prism-v*` tag, `feat` under Features, `fix` under Fixes, `perf` under Performance, `!` or
@@ -262,8 +264,8 @@ Installed Prisms follow `[updates] source` (the same `glab:`/`gh:` form, read wi
 they check at launch and every 6 hours, and Settings › General › Updates installs the new
 version. On Windows, the installer of the computer's architecture is downloaded and checked, then
 runs as Prism restarts, without a question, and starts the new Prism; the agents go on in
-`prism sessions`, which runs from a copy of `prism.exe` the installer leaves alone. A team's build (with its blocks) goes to the team's private repository, Prism alone
-(`--no-extra`) to the public one: one channel each.
+`prism sessions`, which runs from a copy of `prism.exe` the installer leaves alone. One build for everyone: a team's
+blocks come as modules, with its pack, whichever Prism release it runs.
 
 ## Modules
 
@@ -356,6 +358,12 @@ remote = { ping = "read" }             # its commands from a phone: read | act |
 - A back end that stopped Prism (a crash in it) leaves `modules/.stopped/<id>`: the same
   component is refused at the next launch, until it is replaced or the mark deleted.
 
+A block that reads a repository declares it (`repos` in its `[[wasm.blocks]]`: `"one"`, or
+`"many"`): its table's `repo` (or `repos`) names it among the `[[repos]]`, otherwise the one bare
+MR references name (`[forge] bare_mr_repo`); `ctx.env()` gives them (`repos`, the first one's
+`project`, `clone` and `gitlab`), and Settings › Code › Repositories lists the block under *Blocks
+that read a repository*.
+
 ### The module SDK
 
 A module is written with the **module SDK**, from Prism's repository, nothing else of it:
@@ -364,10 +372,8 @@ A module is written with the **module SDK**, from Prism's repository, nothing el
   the types of what `@prism/sdk` and `@prism/sdk/words` give, and their names (`exports.json`).
   What Prism does not give fails at the build: another Svelte module, Prism's sources, a file out
   of the module's folder.
-- `src-tauri/crates/module` (`prism-module`): the back end's crate, `blocks::sdk`'s names for
-  `wasm32-wasip2`. A block's file compiles against both (`examples/modules/hello/backend/src/hello.rs`
-  does, a test of Prism checks it); its loops' `ctx.pause` hand control back to Prism, which
-  resumes them when due.
+- `src-tauri/crates/module` (`prism-module`): the back end's crate (`sdk`), for `wasm32-wasip2`;
+  its blocks' loops' `ctx.pause` hand control back to Prism, which resumes them when due.
 - The SDK copies what Prism gives: `scripts/module-sdk-types.py` (the core's data types, into
   the crate) and `web/scripts/module-sdk.mjs` (the names, the snapshot's types, into the package),
   each with `--check` in `just check`. `just module-sdk-check` builds the example with the SDK
@@ -378,42 +384,6 @@ Help › **Write a module** is the author's guide.
 `examples/modules/hello` is one, with a back end (`just module-example` builds it into its
 `dist/hello/`, after `rustup target add wasm32-wasip2`; copy that folder into `modules/`). The browser preview reads `PRISM_MODULES_DIR`:
 `PRISM_MODULES_DIR=examples/modules/hello/dist just web`.
-
-## Blocks of another repository
-
-A team can keep its own blocks in a repository of its own, compiled into Prism when
-`PRISM_EXTRA_BLOCKS` names its folder (absolute, or relative to Prism's), in the environment or
-in a git-ignored `.env` at Prism's root, read by `task`:
-
-```bash
-PRISM_EXTRA_BLOCKS=../team-blocks just build
-```
-
-`NO_EXTRA=1` leaves the `.env`'s blocks out of one command, to build Prism alone without touching
-the `.env` (`NO_EXTRA=1 just build`, `NO_EXTRA=1 just dmg`…; `--no-extra` for the scripts). A
-build with them says so after its version: `0.1.0 · 29f0690 + team-blocks 5786d86`, their name
-(`PRISM_EXTRA_NAME`, otherwise their folder's) and the commit they were built from; packages
-carry them too (`Prism_0.1.0_2cac323_team-blocks-b2717e7_universal.dmg`).
-
-Such a repository holds:
-
-- `src-tauri/mod.rs`: becomes the module `blocks::extra` of the app's crate and lists its blocks
-  (`BLOCKS`, implementations of `blocks::Block`); its Rust reaches Prism through `blocks::sdk`
-  only, and uses the app's crates only;
-- `web/index.ts`: their declarations for the window (`EXTRA_BLOCKS`), importing nothing of Prism
-  at run time (types aside);
-- `web/components.ts`: their components (`EXTRA_COMPONENTS`), which reach Prism's code through
-  `$prism/…`.
-
-`web/src/blocks/extra-none.ts` shows the shape. A block brings everything of its own (config
-table, collector, state, commands, Settings page, help, alerts, status item, demo data): the core
-names none of them. `just check` also type-checks their window side against Prism's.
-
-A block that reads a repository declares it (`Block::repos`: `RepoUse::One`, or `Many`): its
-table's `repo` (or `repos`) names it among the `[[repos]]`, otherwise the one bare MR references
-name (`[forge] bare_mr_repo`); `ctx.env()` gives them (`repos`, the first one's `project`, `clone`
-and `gitlab`), and Settings › Code › Repositories lists the block under *Blocks that read a
-repository*. A block that declares none gets the bare references' repository in `ctx.env()`.
 
 ## Command line
 

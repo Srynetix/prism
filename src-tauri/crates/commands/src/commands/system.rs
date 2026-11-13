@@ -272,7 +272,7 @@ pub fn shared_save(state: State<'_, AppState>, name: String, value: serde_json::
     Ok(shared_written(&state.hub, &name))
 }
 
-/// The alerts of the blocks of another repository (`BlockDef.alerts`, TypeScript only), as the
+/// The alerts of the modules' blocks (`BlockDef.alerts`, TypeScript only), as the
 /// window computes them: the routines (`{alerts}`) and the Changes block read them with the core's.
 /// Sent by the window only when it has such blocks; without the window they are absent.
 #[prism_macros::command]

@@ -22,7 +22,7 @@ impl Bin {
     }
 }
 
-/// What `--version` says: the binary's version, then its build (its commit, a team's blocks').
+/// What `--version` says: the binary's version, then its build (its commit).
 #[derive(Debug, Clone, Copy)]
 pub struct Info {
     pub bin: Bin,

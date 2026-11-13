@@ -2,10 +2,8 @@
 # Builds prism-server, Prism without its window (docs/guide.md › Without a window), for this
 # system: the phone's page first (web/dist, carried in the binary), then the binary.
 #
-#   scripts/server.sh [--universal] [--no-extra] [--out file]
+#   scripts/server.sh [--universal] [--out file]
 #
-# - A team's blocks (PRISM_EXTRA_BLOCKS, from the environment or .env) are built in, as by
-#   `just build`; --no-extra builds Prism alone.
 # - --universal (macOS): Apple silicon and Intel in one binary, as the .dmg.
 # - Out: src-tauri/target/release/prism-server (--universal:
 #   src-tauri/target/universal-apple-darwin/release/prism-server); --out copies it there too.
@@ -14,14 +12,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 universal=false
-extra=true
 out=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --universal) universal=true ;;
-    --no-extra) extra=false ;;
     --out) out=${2:-}; shift ;;
-    -h | --help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
   shift
@@ -39,21 +35,8 @@ if $universal; then
   command -v lipo >/dev/null || fail "lipo not found"
 fi
 
-# A team's blocks, as `just` reads them (.env), the page and the binary built with the same ones.
-source scripts/extra.sh
-extra_from_env
-label=""
-if $extra && [[ -n "${PRISM_EXTRA_BLOCKS:-}" ]]; then
-  blocks=$(cd "$PRISM_EXTRA_BLOCKS" 2>/dev/null && pwd) || fail "PRISM_EXTRA_BLOCKS: no folder $PRISM_EXTRA_BLOCKS"
-  label=$(extra_label "$blocks")
-  export PRISM_EXTRA_BLOCKS="$blocks" PRISM_EXTRA_LABEL="$label"
-else
-  # Without: none, even if `just` read some from .env.
-  export PRISM_EXTRA_BLOCKS="" PRISM_EXTRA_NAME="" PRISM_EXTRA_LABEL=""
-fi
-
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
-step "prism-server $version ($(git rev-parse --short HEAD)${label:+ + $label})$($universal && echo ', universal')"
+step "prism-server $version ($(git rev-parse --short HEAD))$($universal && echo ', universal')"
 
 step "The phone's page (web/dist)"
 pnpm --dir web build
@@ -84,4 +67,3 @@ fi
 step "Done"
 echo "$bin ($(du -h "$bin" | cut -f1))"
 echo "install it: install $bin ~/.local/bin/ (docs/guide.md › Without a window)"
-[[ -z "$label" ]] || echo "Built with the blocks of $label: keep it within the team (NO_EXTRA=1 / --no-extra for Prism alone)."

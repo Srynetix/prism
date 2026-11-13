@@ -156,7 +156,7 @@
   const snap = $derived(full ? apply(filter.mine ? applyMine(full) : full, focus) : null)
   /** Every alert of the full state (the core's, `Snapshot.alerts`), for the view and the menu bar. */
   const allAlerts = $derived(full ? computeAlerts(full) : [])
-  // The alerts of the blocks of another repository, told to the core as they change (its routines
+  // The alerts of the modules' blocks, told to the core as they change (its routines
   // and Changes read them): only with such blocks, from this computer's window.
   let externalSent = ''
   $effect(() => {

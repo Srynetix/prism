@@ -218,9 +218,9 @@ impl Server {
             "prism://blocks" => ("application/json", serde_json::to_string_pretty(&self.live("blocks", json!({})).await?)?),
             "prism://packs" => ("application/json", serde_json::to_string_pretty(&self.live("packs", json!({})).await?)?),
             "prism://skill" => (md, prism_core::mcp::SKILL.to_string()),
-            "prism://guide/blocks-of-another-repository" => (md, docs::guide_blocks()),
+            "prism://guide/modules" => (md, docs::guide_modules()),
             "prism://guide/sdk" => ("text/x-rust", docs::SDK.to_string()),
-            "prism://guide/extra-none" => ("text/typescript", docs::EXTRA_NONE.to_string()),
+            "prism://guide/web-sdk" => ("text/typescript", docs::WEB_SDK.to_string()),
             other => {
                 if let Some(page) = other.strip_prefix("prism://help/") {
                     let (lang, page) = match page.split_once('/') {
@@ -229,7 +229,7 @@ impl Server {
                     };
                     (md, docs::help(&lang, page).with_context(|| format!("no help page {page}: {}", docs::help_pages().join(", ")))?.to_string())
                 } else if let Some(file) = other.strip_prefix("prism://guide/example-block/") {
-                    let (_, text) = docs::EXAMPLE_BLOCK.iter().find(|(p, _)| p.ends_with(&format!("/{file}"))).with_context(|| format!("no file {file} in the example block"))?;
+                    let (_, text) = docs::EXAMPLE_BLOCK.iter().find(|(p, _)| p.ends_with(&format!("/{file}"))).with_context(|| format!("no file {file} in the example module"))?;
                     ("text/plain", text.to_string())
                 } else {
                     bail!("no resource {other}")
@@ -370,14 +370,14 @@ fn resources() -> Value {
         r("prism://config/merged", "merged config", "config.toml over its packs, as Prism reads it (Prism running)", "application/toml"),
         r("prism://blocks", "blocks", "The blocks known, their state and the pages placing them (Prism running)", "application/json"),
         r("prism://packs", "packs", "The packs installed, their source and the tables they set (Prism running)", "application/json"),
-        r("prism://guide/blocks-of-another-repository", "guide: blocks", "Writing a Rust/Svelte block in a team's repository", "text/markdown"),
-        r("prism://guide/sdk", "blocks::sdk", "What a Rust block may use of Prism", "text/x-rust"),
-        r("prism://guide/extra-none", "extra-none.ts", "The window side's shape of a team's blocks", "text/typescript"),
+        r("prism://guide/modules", "guide: modules", "Writing a module: a team's blocks loaded at run time", "text/markdown"),
+        r("prism://guide/sdk", "prism-module sdk", "What a module's back end (Rust, WebAssembly) may use of Prism", "text/x-rust"),
+        r("prism://guide/web-sdk", "@prism/sdk", "What a module's window side may use of Prism", "text/typescript"),
     ];
     for (path, _) in docs::EXAMPLE_BLOCK {
         let file = path.rsplit('/').next().unwrap_or(path);
         let uri = format!("prism://guide/example-block/{file}");
-        list.push(r(&uri, &format!("example block: {path}"), "The Docker block, a whole block as a model", "text/plain"));
+        list.push(r(&uri, &format!("example block: {path}"), "The example module hello, a whole module as a model", "text/plain"));
     }
     for page in docs::help_pages() {
         list.push(r(&format!("prism://help/{page}"), &format!("help: {page}"), "A page of Prism's help", "text/markdown"));
@@ -405,7 +405,7 @@ mod tests {
         assert!(example["contents"][0]["text"].as_str().unwrap().contains("[agents]"));
         let mrs = s.request("resources/read", json!({ "uri": "prism://help/fr/05-mrs" })).await.ok().unwrap();
         assert!(!mrs["contents"][0]["text"].as_str().unwrap().is_empty());
-        let block = s.request("resources/read", json!({ "uri": "prism://guide/example-block/mod.rs" })).await.ok().unwrap();
+        let block = s.request("resources/read", json!({ "uri": "prism://guide/example-block/hello.rs" })).await.ok().unwrap();
         assert!(block["contents"][0]["text"].as_str().unwrap().contains("impl Block"));
         assert!(s.request("nope", json!({})).await.is_err());
     }

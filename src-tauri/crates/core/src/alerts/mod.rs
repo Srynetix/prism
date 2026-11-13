@@ -2,7 +2,7 @@
 //! `Hub::update`, the changes of a moment taken together), and once a minute for what depends on
 //! the time: `Snapshot.alerts`, which the window, a phone, the routines and the Changes block read.
 //! Prism's rules are here (`rules`, `worktrees`), a block's own in its `Block::alerts`; the window
-//! adds those of the blocks of another repository that only say theirs in TypeScript, and tells the
+//! adds those of the modules' blocks that only say theirs in TypeScript, and tells the
 //! core (`Hub::set_external_alerts`) for the routines and the Changes block. Its texts follow
 //! `[appearance] language`.
 

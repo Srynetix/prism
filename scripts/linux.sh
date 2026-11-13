@@ -3,7 +3,7 @@
 # a .deb (Debian, Ubuntu and their derivatives: installs tmux with it) and an AppImage (any other
 # distribution: a single executable file).
 #
-#   scripts/linux.sh [--arch amd64|arm64] [--bundles deb,appimage,rpm,pacman] [--server] [--no-extra] [--skip-checks] [--allow-dirty]
+#   scripts/linux.sh [--arch amd64|arm64] [--bundles deb,appimage,rpm,pacman] [--server] [--skip-checks] [--allow-dirty]
 #
 # - amd64 (x86_64 PCs) by default; on an Apple silicon Mac it runs emulated, slower: arm64 builds
 #   natively for ARM machines.
@@ -11,14 +11,12 @@
 #   Arch Linux and its derivatives (amd64: the .deb repackaged in an archlinux container).
 # - --server: prism-server too (Prism without a window, the phone's page in it), built after the
 #   bundles in the same container: dist/prism-server_<version>_<arch>.
-# - A team's blocks (PRISM_EXTRA_BLOCKS, from the environment or .env) are built in, as by
-#   `just build`; --no-extra builds Prism alone, to share outside the team.
 # - Checks first on this machine (frontend types, Rust tests); --skip-checks to go straight on.
 # - Refuses uncommitted changes, so that the app says which commit it is; --allow-dirty to
 #   build anyway (the app's commit then ends with `+`).
 #
 # Out: dist/Prism_<version>_<arch>.deb, .AppImage (.rpm, .pkg.tar.zst), each with its .sha256,
-# (prism-server_<version>_<arch>) and Prism_<version>_<arch>.build: the commit and blocks they are of (release.sh reuses them).
+# (prism-server_<version>_<arch>) and Prism_<version>_<arch>.build: the commit they are of (release.sh reuses them).
 # The first build takes a while (the image, then every crate); the next ones reuse a Docker
 # volume, prism-linux-<arch>. `docker volume rm prism-linux-<arch>` starts over.
 set -euo pipefail
@@ -27,7 +25,6 @@ cd "$(dirname "$0")/.."
 
 arch=amd64
 bundles=deb,appimage
-extra=true
 server=false
 checks=true
 dirty=false
@@ -36,10 +33,9 @@ while [[ $# -gt 0 ]]; do
     --arch) arch=${2:-}; shift ;;
     --bundles) bundles=${2:-}; shift ;;
     --server) server=true ;;
-    --no-extra) extra=false ;;
     --skip-checks) checks=false ;;
     --allow-dirty) dirty=true ;;
-    -h | --help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
   shift
@@ -72,21 +68,7 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo "uncommitted changes: building anyway (--allow-dirty)"
 fi
 
-# A team's blocks, as `just` reads them (.env), unless the environment says otherwise.
-source scripts/extra.sh
-extra_from_env
-mounts=()
-blocks=""
-if $extra && [[ -n "${PRISM_EXTRA_BLOCKS:-}" ]]; then
-  blocks=$(cd "$PRISM_EXTRA_BLOCKS" 2>/dev/null && pwd) || fail "PRISM_EXTRA_BLOCKS: no folder $PRISM_EXTRA_BLOCKS"
-  # Their name and commit, read here: the container has their folder, not their git.
-  extra_label=$(extra_label "$blocks")
-  mounts=(-v "$blocks:/extra:ro" -e PRISM_EXTRA_BLOCKS=/extra -e "PRISM_EXTRA_LABEL=$extra_label")
-fi
-# Without them, the checks on this machine build Prism alone too (cargo reads them from the environment).
-$extra || unset PRISM_EXTRA_BLOCKS PRISM_EXTRA_NAME PRISM_EXTRA_LABEL
-
-step "Prism $version ($commit), linux $arch, $bundles$($server && echo ', prism-server')${blocks:+, with the blocks of $blocks ($extra_label)}"
+step "Prism $version ($commit), linux $arch, $bundles$($server && echo ', prism-server')"
 
 if $checks; then
   step "Checks: frontend types, Rust tests"
@@ -104,7 +86,7 @@ mkdir -p dist
 out=$(mktemp -d "${TMPDIR:-/tmp}/prism-linux.XXXXXX")
 trap 'rm -rf "$out"' EXIT
 docker run --rm --platform "linux/$arch" \
-  -v "$PWD:/src:ro" -v "prism-linux-$arch:/cache" -v "$out:/out" ${mounts[@]+"${mounts[@]}"} \
+  -v "$PWD:/src:ro" -v "prism-linux-$arch:/cache" -v "$out:/out" \
   -e BUNDLES="$tauri_bundles" -e SERVER="$($server && echo 1 || true)" \
   "$image" /src/scripts/linux/build.sh
 
@@ -140,8 +122,8 @@ for f in "$out"/*; do
   (cd dist && shasum -a 256 "$name" > "$name.sha256")
   echo "dist/$name ($(du -h "dist/$name" | cut -f1))"
 done
-# Which commit and blocks they are of, for release.sh to reuse them (`|`: none; `-dirty`: uncommitted changes).
-echo "$commit$([[ -n "$(git status --porcelain --untracked-files=no)" ]] && echo -dirty)|${extra_label:-}" > "dist/Prism_${version}_${arch}.build"
+# Which commit they are of, for release.sh to reuse them (`-dirty`: uncommitted changes).
+echo "$commit$([[ -n "$(git status --porcelain --untracked-files=no)" ]] && echo -dirty)" > "dist/Prism_${version}_${arch}.build"
 cat <<'TXT'
 
 On the Linux machine:
@@ -150,4 +132,3 @@ On the Linux machine:
              (needs libfuse2: sudo apt install libfuse2, or libfuse2t64 on Ubuntu 24.04)
   Arch       sudo pacman -U Prism_<version>_amd64.pkg.tar.zst
 TXT
-[[ -z "$blocks" ]] || echo "Built with the blocks of $blocks: keep these packages within the team (--no-extra for Prism alone)."

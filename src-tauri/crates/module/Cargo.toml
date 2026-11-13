@@ -1,4 +1,4 @@
-# What a module's back end is written with: Prism's `blocks::sdk`, the same names, for a
+# What a module's back end is written with (`sdk`), for a
 # WebAssembly component (`cargo build --target wasm32-wasip2`). Used from Prism's repository:
 #   prism-module = { git = "https://github.com/Srynetix/prism", tag = "module-v1.0.0" }
 # Its fields are its own (not the workspace's): it builds apart from Prism.

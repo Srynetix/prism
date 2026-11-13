@@ -22,7 +22,8 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::sync::Notify;
 
-use super::{sdk::RemoteClass, Block, BlockCtx};
+use super::{Block, BlockCtx};
+use prism_core::remote::Class as RemoteClass;
 
 mod config;
 mod demo;

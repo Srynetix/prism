@@ -36,7 +36,7 @@
   import { pref, setPref } from '../layout.svelte'
   import { THEMES } from '../theme.svelte'
   import { LANGUAGES, t, tc, tn } from '../i18n.svelte'
-  import { COMMIT, EXTRA, versionLabel } from '../version'
+  import { COMMIT, versionLabel } from '../version'
   import { ensureFont, installed, MONO_FONTS, monoStack, SANS_FONTS, sansStack, terminalStack } from '../fonts.svelte'
   import { parseShortcut, worksWhileTyping } from '../shortcut'
   import { FILE_MANAGER, isMac, keys } from '../platform'
@@ -372,7 +372,7 @@
     {/snippet}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <nav class="tree" onkeydown={onTreeKey}>{@render branch(TREE, 0)}</nav>
-    <span class="ver" title="{t('Prism version, and the commit it was built from')}{COMMIT.endsWith('+') ? t(' (+: with uncommitted changes)') : ''}{EXTRA ? t('; built with the blocks of {extra}', { extra: EXTRA }) : ''}">Prism {versionLabel()}</span>
+    <span class="ver" title="{t('Prism version, and the commit it was built from')}{COMMIT.endsWith('+') ? t(' (+: with uncommitted changes)') : ''}">Prism {versionLabel()}</span>
   </aside>
 
   <section class="body">
@@ -707,7 +707,7 @@
       </div>
     {/if}
     {#if cfg.file?.error}<p class="note err">{t('config.toml does not load: {error}', { error: cfg.file.error })}</p>{/if}
-    {#if cfg.file?.unread?.length}<p class="note warn">{t('Read by nothing in this Prism: {tables}. A block built without it (PRISM_EXTRA_BLOCKS), or a typo.', { tables: cfg.file.unread.map((tb) => `[${tb}]`).join(', ') })}</p>{/if}
+    {#if cfg.file?.unread?.length}<p class="note warn">{t('Read by nothing in this Prism: {tables}. A module not installed, or a typo.', { tables: cfg.file.unread.map((tb) => `[${tb}]`).join(', ') })}</p>{/if}
 
     {#if changes().length || saved || waiting.length}
       <div class="savebar" class:done={!changes().length}>

@@ -17,9 +17,8 @@ word asked before that (a constant of a module the entry imports itself) stays i
 the dev build warns about once in the console. The help guides are translated whole: `help/<lang>/NN-id.md`, the same header with
 `group` kept in English (Help shows it translated); a block's guide gives `guide.translations`.
 
-The blocks of another repository (`PRISM_EXTRA_BLOCKS`) bring their words in its `web/i18n.ts`
-(`$extra-i18n`, `EXTRA_DICTIONARIES` by language), and their Rust messages with `Block::messages`
-(`sdk::tr!`); Prism's own translations win over theirs.
+A module brings its words in its `defs.js` (`words`, by language), and its back end's messages with
+`Block::messages` (`sdk::tr!`); Prism's own translations win over theirs.
 
 What stays in English: config keys and values, ids, what is compared in code (tracker statuses,
 saved names), the prompts sent to agents (they follow `[agents] prompt_language`), logs, tests.

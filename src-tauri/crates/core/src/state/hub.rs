@@ -144,7 +144,7 @@ impl Hub {
         });
     }
 
-    /// The alerts of the blocks of another repository, as the window computes them (they say
+    /// The alerts of the modules' blocks, as the window computes them (they say
     /// theirs in TypeScript only): kept for the routines and the Changes block (`Snapshot::all_alerts`).
     pub fn set_external_alerts(&self, alerts: Vec<crate::alerts::Alert>) {
         self.update(|s| {

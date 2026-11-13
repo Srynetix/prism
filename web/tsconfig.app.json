@@ -15,14 +15,7 @@
      */
     "allowJs": true,
     "checkJs": true,
-    "moduleDetection": "force",
-    /** `$extra-blocks`, `$extra-components`, `$extra-i18n`: none here; vite.config.ts points them at `PRISM_EXTRA_BLOCKS`'s, if any. */
-    "paths": {
-      "$extra-blocks": ["./src/blocks/extra-none.ts"],
-      "$extra-components": ["./src/blocks/extra-none.ts"],
-      "$extra-i18n": ["./src/i18n/extra-none.ts"],
-      "$prism/*": ["./src/*"]
-    }
+    "moduleDetection": "force"
   },
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
 }

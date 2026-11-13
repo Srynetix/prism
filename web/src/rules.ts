@@ -253,7 +253,7 @@ export function mrForSession(s: Snapshot, c: Pick<ClaudeSession, 'worktree' | 'b
 }
 
 /**
- * The alerts shown: the core's (`Snapshot.alerts`), and those of the blocks of another repository
+ * The alerts shown: the core's (`Snapshot.alerts`), and those of the modules' blocks
  * that say theirs in TypeScript only (`BlockDef.alerts`: Prism's own blocks say theirs in Rust,
  * `Block::alerts`). A snapshot from an older Prism (`alerts` its thresholds then) has none.
  */
@@ -270,11 +270,11 @@ export const podDown = (p: PodView) => !p.healthy && p.status !== 'Pending'
 /** A pod's key in `pod_usage`. */
 export const usageKey = (p: PodView) => `${p.target}/${p.namespace}/${p.name}`
 
-/** Blocks of another repository that say their alerts in TypeScript: without them, none to tell the core. */
+/** Modules' blocks that say their alerts in TypeScript: without them, none to tell the core. */
 export const hasExternalAlerts = (): boolean => BLOCK_DEFS.some((b) => b.alerts)
 
 /**
- * The alerts of the blocks of another repository that define them in TypeScript, from their state:
+ * The alerts of the modules' blocks that define them in TypeScript, from their state:
  * the window tells the core (`alerts_external`) for the routines and the Changes block.
  */
 export function blockAlerts(s: Snapshot): Alert[] {

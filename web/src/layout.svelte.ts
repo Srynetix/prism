@@ -180,7 +180,7 @@ export function setView(id: string): Promise<void> {
  * the Agents view, Settings or Help close, as from the rail. Once there, the block is scrolled
  * into view and pointed out a moment. On no page: says so.
  */
-/** Shows a block's page and scrolls to it; a block of another repository (`$extra-blocks`) by its id. */
+/** Shows a block's page and scrolls to it; a module's block by its id. */
 export function showBlock(id: BlockId | (string & {})) {
   const block = id as BlockId
   const v = views().find((x) => columnsOf(x).flat().includes(block))

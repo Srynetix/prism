@@ -1,5 +1,5 @@
-//! Write a Prism module's back end: its blocks as Prism's own, `impl Block` against the same
-//! names as Prism's `blocks::sdk`, built into a WebAssembly component Prism runs in a sandbox.
+//! Write a Prism module's back end: its blocks as Prism's own, `impl Block` against `sdk`, built
+//! into a WebAssembly component Prism runs in a sandbox.
 //!
 //! ```ignore
 //! // Cargo.toml: crate-type = ["cdylib"]; build: cargo build --release --target wasm32-wasip2

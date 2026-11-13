@@ -1,11 +1,10 @@
-import { EXTRA_COMPONENTS } from '$extra-components'
 import type { BlockComponent } from './block'
 import { RUNTIME_COMPONENTS } from './runtime'
 
 /**
  * The components of `BLOCK_DEFS`' blocks for the phone, each loaded the first time its view
- * opens (`components.ts` imports them all, for the window's grid). A team's (`$extra-components`)
- * come as their repository gives them, all at once.
+ * opens (`components.ts` imports them all, for the window's grid). The modules' come as they
+ * were loaded.
  */
 const OWN: Record<string, () => Promise<{ default: unknown }>> = {
   trail: () => import('./trail/Trail.svelte'),
@@ -33,7 +32,7 @@ export function blockComponent(id: string): Promise<BlockComponent<never> | unde
   if (!p) {
     const own = OWN[id]
     // A block of Prism's missing from `OWN`: all of `components.ts`, rather than nothing.
-    p = own ? own().then((m) => m.default as BlockComponent<never>) : id in RUNTIME_COMPONENTS ? Promise.resolve(RUNTIME_COMPONENTS[id]) : id in EXTRA_COMPONENTS ? Promise.resolve(EXTRA_COMPONENTS[id]) : import('./components').then((m) => m.BLOCK_COMPONENTS[id])
+    p = own ? own().then((m) => m.default as BlockComponent<never>) : id in RUNTIME_COMPONENTS ? Promise.resolve(RUNTIME_COMPONENTS[id]) : import('./components').then((m) => m.BLOCK_COMPONENTS[id])
     loaded.set(id, p)
   }
   return p

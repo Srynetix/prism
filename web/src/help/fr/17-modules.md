@@ -64,7 +64,7 @@ Ce que Prism ne donne pas échoue à la build, pas dans Prism : un autre module 
 
 ## Le back end
 
-Un crate Rust construit pour WebAssembly, ses blocs écrits comme ceux de Prism : `impl Block`, avec les mêmes noms que le `blocks::sdk` de Prism.
+Un crate Rust construit pour WebAssembly, ses blocs écrits comme ceux de Prism : `impl Block`, avec le `sdk` de `prism-module`.
 
 ```toml
 # backend/Cargo.toml

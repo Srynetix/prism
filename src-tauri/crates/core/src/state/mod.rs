@@ -132,8 +132,8 @@ pub struct ActiveProfile {
 }
 
 impl Snapshot {
-    /// Every alert the core knows: its own (`alerts`), then those the window sent of the blocks of
-    /// another repository (`external_alerts`).
+    /// Every alert the core knows: its own (`alerts`), then those the window sent of the modules'
+    /// blocks (`external_alerts`).
     pub fn all_alerts(&self) -> impl Iterator<Item = &crate::alerts::Alert> {
         self.alerts.iter().chain(&self.external_alerts)
     }
@@ -237,7 +237,7 @@ pub struct Snapshot {
     pub alerts_settings: crate::config::AlertsConfig,
     /// The alerts, computed from the rest shortly after each change (`crate::alerts`).
     pub alerts: Vec<crate::alerts::Alert>,
-    /// The alerts of the blocks of another repository, which say theirs in TypeScript only: as the
+    /// The alerts of the modules' blocks, which say theirs in TypeScript only: as the
     /// window sent them last (`Hub::set_external_alerts`), for the routines and the Changes block
     /// (`all_alerts`). Absent without the window. Not sent: the window and a phone have their own.
     #[serde(skip)]

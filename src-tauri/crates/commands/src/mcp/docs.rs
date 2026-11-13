@@ -14,10 +14,10 @@ pub fn help_pages() -> Vec<&'static str> {
     HELP.iter().filter(|(l, _, _)| *l == "en").map(|(_, n, _)| *n).collect()
 }
 
-/// The guide's section about the blocks of another repository: from its heading to the next one
+/// The guide's section about modules: from its heading to the next one
 /// of the same level.
-pub fn guide_blocks() -> String {
-    section(GUIDE, "## Blocks of another repository").unwrap_or_default()
+pub fn guide_modules() -> String {
+    section(GUIDE, "## Modules").unwrap_or_default()
 }
 
 /// The text of `heading` (a whole line) up to the next heading of its level or above.
@@ -62,7 +62,7 @@ pub fn search(query: &str, lang: &str, schema: &serde_json::Value, max: usize) -
         all.extend(markdown_passages(&prefix, text));
     }
     all.extend(example_passages(EXAMPLE));
-    all.extend(markdown_passages("docs/guide.md", &guide_blocks()));
+    all.extend(markdown_passages("docs/guide.md", &guide_modules()));
     all.extend(schema_passages(schema));
     for p in &mut all {
         p.score = score(&terms, &p.source, &p.text);
@@ -216,8 +216,8 @@ mod tests {
         assert!(help_pages().contains(&"05-mrs"));
         assert!(help("fr", "05-mrs").is_some());
         assert!(EXAMPLE.contains("[agents]"));
-        assert!(guide_blocks().starts_with("## Blocks of another repository") && !guide_blocks().contains("## Runtime files"));
-        assert!(EXAMPLE_BLOCK.iter().any(|(p, t)| p.ends_with("docker/mod.rs") && t.contains("impl Block")));
+        assert!(guide_modules().starts_with("## Modules") && guide_modules().contains("### The module SDK") && !guide_modules().contains("## Command line"));
+        assert!(EXAMPLE_BLOCK.iter().any(|(p, t)| p.ends_with("hello/backend/src/hello.rs") && t.contains("impl Block")));
     }
 
     #[test]

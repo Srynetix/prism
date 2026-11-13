@@ -1,6 +1,5 @@
-//! The block Hello, written as a block of Prism (`impl Block`) against `crate::blocks::sdk` only:
-//! the same file compiles inside Prism (`prism_blocks::sdk`, a test of Prism checks it) and in
-//! this module (`prism_module::sdk`).
+//! The block Hello, written as a block of Prism (`impl Block`) against `crate::blocks::sdk` only
+//! (`prism_module::sdk`).
 //!
 //! It reads its repository's last commit with git, every `[hello] every` seconds, answers `ping`
 //! and, on purpose, panics on `panic`; it declares stages and names an image.

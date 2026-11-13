@@ -34,7 +34,5 @@ wasmtime = { version = "50", default-features = false, features = ["component-mo
 wasmtime-wasi = { version = "50", default-features = false }
 
 [dev-dependencies]
-# The example module's block, compiled against Prism's own `blocks::sdk` (`tests.rs`), and the
-# module SDK's types, read back from the core's JSON.
-prism-blocks.workspace = true
+# The module SDK's types, read back from the core's JSON.
 prism-module.workspace = true

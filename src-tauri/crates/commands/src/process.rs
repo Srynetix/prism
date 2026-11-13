@@ -3,10 +3,9 @@
 
 use crate::{config_path, logs, profile};
 
-/// Gives the core every block, Prism's own then a team's (`extra`, compiled into the binary from
-/// `PRISM_EXTRA_BLOCKS`), before anything reads them.
-pub fn register_blocks(extra: &[&'static dyn prism_blocks::Block]) {
-    prism_core::blocks::register(prism_blocks::builtin().into_iter().chain(extra.iter().copied()).collect());
+/// Gives the core every block, Prism's own (a team's are modules), before anything reads them.
+pub fn register_blocks() {
+    prism_core::blocks::register(prism_blocks::builtin().to_vec());
     // The profile's modules (`modules/`, WebAssembly back ends), once the profile is known.
     prism_core::blocks::register_late(prism_modules::blocks);
 }
