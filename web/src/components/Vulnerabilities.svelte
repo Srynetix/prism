@@ -8,8 +8,10 @@
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import { claudeClick, cveAction } from '../claude-actions'
   import { ago } from '../time'
-  import type { VulnFinding, VulnProject, Vulnerabilities } from '../types'
+  import type { ScannedImage, VulnFinding, VulnProject, Vulnerabilities } from '../types'
   import { keys } from '../platform'
+  import { copy } from '../toast.svelte'
+  import { imageState } from '../vuln-images'
 
   /**
    * Vulnerabilities in the dependencies of the main branch (or of `branches`: release and main, each
@@ -85,6 +87,19 @@
       setTimeout(() => (asked = false), 1500)
     }
   }
+
+  /** « Check the registry » or one image rescanned: shown through `checking` in the snapshot. */
+  let checkAsked = $state(false)
+  const checking = $derived(checkAsked || !!vulns?.checking)
+  async function ask(command: string, args?: Record<string, unknown>) {
+    checkAsked = true
+    try {
+      await invoke(command, args)
+    } finally {
+      setTimeout(() => (checkAsked = false), 1500)
+    }
+  }
+  const hasImages = $derived(!!vulns?.projects.some((p) => p.scanned))
 
   const open = $derived(vulns?.findings.filter((f) => !f.accepted) ?? [])
   const accepted = $derived(vulns?.findings.filter((f) => f.accepted) ?? [])
@@ -200,6 +215,22 @@
   {/if}
 {/snippet}
 
+<!-- An image as scanned: its digest (copied in a click), its platform, what the registry says now. -->
+{#snippet imageLine(p: VulnProject, img: ScannedImage)}
+  {@const st = imageState(p)}
+  <div class="img">
+    <button class="digest" onclick={() => img.digest && copy(img.digest, t('Digest copied'))} title={[img.reference, img.digest ?? t('digest unknown'), img.platform, img.created ? t('built {ago}', { ago: ago(img.created) }) : '', t('scanned {ago}', { ago: ago(img.scanned_at) }), img.gcp ? t('read from GCP') : ''].filter(Boolean).join('\n')}>{img.digest ? img.digest.replace(/^sha256:/, '').slice(0, 12) : t('no digest')}</button>
+    {#if img.platform !== 'linux/amd64'}<span class="tag">{img.platform.replace(/^linux\//, '')}</span>{/if}
+    <span class="muted" title={img.reference}>{img.reference.replace(/:[^:/]+$/, '')}</span>
+    {#if st.kind === 'changed'}<span class="warn-pill" title={t('The registry’s {tag} now points to {digest}', { tag: p.image ?? '', digest: p.remote?.digest ?? '' })}>{t('changed since the scan')}</span>{/if}
+    {#if p.remote?.newer}<span class="warn-pill" title={t('Scanned: {tag}', { tag: p.image ?? '' })}>{t('{tag} published', { tag: p.remote.newer.split(':').pop() ?? p.remote.newer })}</span>{/if}
+    {#if st.kind === 'same'}<span class="ok-pill" title={t('Checked {ago}', { ago: ago(p.remote?.at) })}>{t('up to date')}</span>{/if}
+    {#if st.kind === 'unknown'}<span class="muted" title={p.remote?.error ?? ''}>{t('registry unreadable')}</span>{/if}
+    <span class="grow"></span>
+    {#if hasCore()}<button class="again" class:lit={st.kind === 'changed' || !!p.remote?.newer} disabled={busy || checking} onclick={() => ask('vulnerabilities_rescan_image', { project: p.project })} title={t('Scan this image again, not the others')}><Icon name="refresh" />{t('Rescan')}</button>{/if}
+  </div>
+{/snippet}
+
 <section class="panel" style="--src: var(--src-alert)" class:collapsed={isCollapsed('vulns')}>
   <h2>
     <span class="title"><Logo name="alert" />{t('Vulnerabilities')}<RepoChip id="vulnerabilities" /></span>
@@ -207,6 +238,7 @@
       {vulns ? `Trivy · ${[[vulns.branch, vulns.sha], ...(vulns.other_branches ?? [])].map(([b, sha]) => `${b} @ ${sha}`).join(' + ')} · ${vulns.scanning ? t('scanning…') : t('scanned {ago}', { ago: ago(vulns.scanned_at) })}` : t('local Trivy scan')}
     </small>
     {#if fresh}<span class="badge">+{fresh} new</span>{/if}
+    {#if hasCore() && hasImages}<button class="check" disabled={busy || checking} onclick={() => ask('vulnerabilities_check')} title={t('Ask the registry whether each scanned image changed since, or a newer tag is out: nothing is pulled nor scanned')}>{checking ? t('Checking…') : t('Check the registry')}</button>{/if}
     {#if hasCore()}<button class="refresh" class:busy disabled={busy} onclick={rescan} title={busy ? t('Scanning…') : t('Scan again now')} aria-label={t('Scan again')}><Icon name="refresh" spin={busy} /></button>{/if}
     <BlockControls id="vulns" />
   </h2>
@@ -263,6 +295,7 @@
                 {#if p.new}<span class="new">+{p.new} new</span>{:else}<span></span>{/if}
               {/if}
             </div>
+            {#if p.scanned}{@render imageLine(p, p.scanned)}{/if}
             {#if open && own.length}
               <div class="detail" role="group" aria-label={t('Vulnerabilities of {project}', { project: p.project })}>
                 {#each byPackage(own) as g (g.package)}{@render pkgRow(g, `p:${p.project}`, p.project)}{/each}
@@ -292,6 +325,7 @@
   .refresh { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; margin-left: auto; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
   .refresh:hover { background: var(--surface-muted); color: var(--text); }
   .refresh.busy { cursor: progress; }
+  .check + .refresh { margin-left: 4px; }
   .warn-line { padding: 4px 12px; background: var(--warn-bg); color: var(--warn); font-size: var(--fs-tag); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
   .kpi { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 6px 12px; background: var(--surface); }
@@ -316,6 +350,17 @@
   .tag { margin-left: 6px; padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); font-weight: 400; }
   .note { margin-left: 6px; color: var(--text-muted); font-size: var(--fs-tag); font-weight: 400; }
   .err { grid-column: span 3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--warn); font-size: var(--fs-tag); }
+  .img { display: flex; align-items: center; gap: 6px; padding: 1px 12px 3px 26px; border-bottom: 1px solid var(--border); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; }
+  .img .muted { overflow: hidden; text-overflow: ellipsis; }
+  .img .grow { flex: 1; }
+  .digest { padding: 0 4px; border: 1px solid var(--border); border-radius: var(--r4); background: var(--surface); color: var(--text); font-family: var(--mono); font-size: var(--fs-tag); cursor: copy; }
+  .warn-pill, .ok-pill { padding: 0 6px; border-radius: var(--r6); font-weight: 600; }
+  .warn-pill { background: color-mix(in srgb, var(--warn) 16%, var(--surface)); color: var(--warn); }
+  .ok-pill { background: color-mix(in srgb, var(--ok) 14%, var(--surface)); color: var(--ok); }
+  .again { display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; border: 1px solid transparent; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
+  .again:hover:not(:disabled), .again.lit { border-color: var(--border); color: var(--text); }
+  .check { margin-left: auto; padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; white-space: nowrap; }
+  .check:hover:not(:disabled) { color: var(--text); }
   .tb { display: flex; align-items: center; gap: 10px; padding: 4px 12px; border-bottom: 1px solid var(--border); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; }
   .tb .lbl { text-transform: uppercase; letter-spacing: 0.4px; }
   .tb .grow { flex: 1; }

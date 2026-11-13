@@ -93,6 +93,8 @@ Three groups are scanned, each with its checkbox under **Show**:
 - **Images**: the images a block of your team names (`[vulnerabilities] images`), its own settings saying which and where they are.
 - **Base**: the base images that block names too, built from another repository (a Dockerfile per image), scanned with their `.trivyignore`.
 
+Under each image, what was scanned exactly: the start of its digest (click to copy it whole; hover for its full reference, platform, build date and scan time) and its registry path. An image published for arm64 as well as amd64 is scanned for both, its arm64 line beside (`cart-api · prod · arm64`). **Check the registry** asks the registry, without pulling anything, where each scanned tag points now: **changed since the scan** when another digest, **0.2.149 published** when a newer tag of the block's list is out, **up to date** otherwise. **Rescan** scans that image alone again, not the whole lot. Docker's `buildx imagetools` (your `docker login`) reads the registry, gcloud an image on GCP's.
+
 **Hide ignored** hides accepted findings everywhere; **Hide clean** hides projects and images with nothing to report. Click a project to see its own findings. Each finding gives the package, the CVE (linked), the installed version and the version that fixes it.
 
 ## Fixing a CVE

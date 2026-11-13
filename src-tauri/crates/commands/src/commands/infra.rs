@@ -110,3 +110,22 @@ pub fn rescan_vulnerabilities() {
     }
     crate::collectors::vulnerabilities::rescan();
 }
+
+/// Asks the registry about each scanned image: its tag's digest now (changed since the scan),
+/// a newer tag published. Nothing is pulled nor scanned.
+#[prism_macros::command]
+pub fn vulnerabilities_check() {
+    if crate::demo::active() {
+        return;
+    }
+    crate::collectors::vulnerabilities::check_registry();
+}
+
+/// Scans one image again (its line, `cart-api · prod`), not the whole lot.
+#[prism_macros::command]
+pub fn vulnerabilities_rescan_image(project: String) {
+    if crate::demo::active() {
+        return;
+    }
+    crate::collectors::vulnerabilities::rescan_image(&project);
+}

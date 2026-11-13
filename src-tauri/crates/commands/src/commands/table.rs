@@ -288,6 +288,8 @@ commands! {
     forge::cancel_pipeline: Act [phone: state, id: u64],
     forge::play_renovate: Act [phone: state],
     infra::rescan_vulnerabilities: Act [demo: own],
+    infra::vulnerabilities_check: Act [demo: own],
+    infra::vulnerabilities_rescan_image: Act [demo: own],
     // Agents: their permission rules still apply to what they do.
     agents::agent_spawn: Act,
     agents::agent_prepare: Act,

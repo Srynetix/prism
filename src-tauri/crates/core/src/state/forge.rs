@@ -338,6 +338,9 @@ pub struct Vulnerabilities {
     pub scanned_at: Option<DateTime<Utc>>,
     /// A scan is running (the results shown are from the previous one).
     pub scanning: bool,
+    /// Asking the registry about the scanned images (« Check the registry »), or rescanning one.
+    #[serde(default)]
+    pub checking: bool,
     /// All scanned projects, clean ones included.
     pub projects: Vec<VulnProject>,
     /// The other branches scanned (`[vulnerabilities] branches`), each with its short commit.
@@ -374,6 +377,43 @@ pub struct VulnProject {
     /// Dismissed by the project's `.trivyignore`.
     #[serde(default)]
     pub accepted: u32,
+    /// The image exactly as scanned: its reference, digest, build date, platform.
+    #[serde(default)]
+    pub scanned: Option<ScannedImage>,
+    /// What the registry said of it when last asked (« Check the registry »).
+    #[serde(default)]
+    pub remote: Option<RemoteImage>,
+}
+
+/// An image as Trivy read it.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct ScannedImage {
+    /// Registry, repository and tag, as read (`registry.example.org/team/cart-api:0.2.147`).
+    pub reference: String,
+    /// The digest its tag pointed to (`sha256:…`): a multi-platform image's index.
+    pub digest: Option<String>,
+    /// When it was built.
+    pub created: Option<DateTime<Utc>>,
+    pub scanned_at: DateTime<Utc>,
+    /// `linux/amd64`, `linux/arm64`.
+    pub platform: String,
+    /// Read from GCP's registry with a gcloud token.
+    #[serde(default)]
+    pub gcp: bool,
+}
+
+/// What the registry says of a scanned image now.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct RemoteImage {
+    pub at: DateTime<Utc>,
+    /// The digest its tag points to now: another than the scanned one, the image changed since.
+    pub digest: Option<String>,
+    /// A newer tag published than the one scanned (`prod/cart-api:0.2.149`).
+    pub newer: Option<String>,
+    /// The registry could not be read.
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq)]

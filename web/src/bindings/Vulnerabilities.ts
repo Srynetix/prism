@@ -20,6 +20,10 @@ trivy: string, scanned_at: string | null,
  */
 scanning: boolean, 
 /**
+ * Asking the registry about the scanned images (« Check the registry »), or rescanning one.
+ */
+checking: boolean, 
+/**
  * All scanned projects, clean ones included.
  */
 projects: Array<VulnProject>, 
