@@ -169,6 +169,10 @@ pub struct RepoInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub mr_web: Option<String>,
+    /// The working folder its clone is in (`[[workspaces]] name`): the Projects page groups by it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub workspace: Option<String>,
 }
 
 impl RepoConfig {
@@ -197,6 +201,7 @@ impl RepoConfig {
             agent: self.agent,
             forge: self.forge,
             mr_web: None,
+            workspace: None,
         }
     }
 

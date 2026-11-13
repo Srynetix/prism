@@ -11,7 +11,7 @@
   import KindBadge from './KindBadge.svelte'
   import Gutter from './Gutter.svelte'
   import { live } from '../live.svelte'
-  import { TERMINAL_FONT, zoomTerminal, zoomChat, agentsAvailable, agentsSettings, agentsView, allowAgent, modelName, desktopUrl, interruptAgent, justLaunched, allTags, renameAgent, startPrepared, launchAgain, openLauncher, resumeAgent, setAgentCategory, setAgentTags, kindNames, kindColor, linkAgentTicket, linkAgentMr, stopAgent, attachFiles, mention, draggedFiles, insertInAgent, filesOf, layoutKey, paneArrow, terminalKeeps, plans, type AgentsLayout, type SideTab } from '../agents.svelte'
+  import { TERMINAL_FONT, zoomTerminal, zoomChat, agentsAvailable, agentsSettings, agentsView, allowAgent, modelName, desktopUrl, interruptAgent, justLaunched, allTags, renameAgent, startPrepared, launchAgain, openLauncher, resumeAgent, setAgentCategory, setAgentTags, kindNames, kindColor, linkAgentTicket, linkAgentMr, stopAgent, openProjects, attachFiles, mention, draggedFiles, insertInAgent, filesOf, layoutKey, paneArrow, terminalKeeps, plans, type AgentsLayout, type SideTab } from '../agents.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { filter as query, resolve } from '../filter.svelte'
   import { canMarkRead, markRead } from '../session-read'
@@ -537,6 +537,7 @@
 {/snippet}
 
 {#snippet plus(repo: string)}
+  <button class="padd" onclick={() => openProjects(repo)} title={t('Open the project: its workstreams, its MRs, its clone')} aria-label={t('Open the project {repo}', { repo })}><Icon name="folder" size={11} /></button>
   <button class="padd" onclick={() => newAgentIn(repo)} disabled={!agentsAvailable()} title={t('New agent in {repo}', { repo })} aria-label={t('New agent in {repo}', { repo })}><Icon name="plus" size={11} stroke={2.5} /></button>
 {/snippet}
 

@@ -14,10 +14,11 @@
   import { repoNotes } from '../notes.svelte'
   import { setPref } from '../layout.svelte'
   import { openQuickNotes } from '../quick-notes.svelte'
+  import { openProjects } from '../agents.svelte'
 
   /**
    * Status bar Repos menu: the repositories with a clone (`[[repos]]`), the primary one first, with their
-   * branch, their local changes and their gap with the default branch; for each,
+   * branch, their local changes and their gap with the default branch; for each, its page in Projects first,
    * a Claude session in its folder, the editor, the terminal, Finder and GitLab, and its notes (the
    * Notes block over the view, filtered on it: a note written there is filed under it).
    */
@@ -79,6 +80,7 @@
           {/if}
         </div>
         <div class="acts">
+          <button class="act proj" onclick={() => { open = false; openProjects(r.name) }} title={t('Its page in Projects: its workstreams, its agents, its MRs')}>{t('Open the project')}</button>
           <button class="act" class:has={count > 0} onclick={() => showNotes(r.name)} title={count ? tn(count, 'Its {n} open note, and a new one', 'Its {n} open notes, and a new one') : t('A note about it')}><Icon name="pin" />{count || ''}</button>
           <a class="act claude" href={repoAction(r.name, r.path).href} onclick={claudeClick(repoAction(r.name, r.path))} title={t('New {agent} agent in {path}', { agent: actorName(r.name), path: r.path })}><Logo name="agent" size={10} repo={r.name} />{actorName(r.name)}</a>
           {#if isDesktop()}
@@ -126,6 +128,7 @@
   .act { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; cursor: pointer; }
   .act:hover { background: var(--surface-muted); text-decoration: none; }
   .act.has { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); }
+  .act.proj { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); font-weight: 600; }
   .act.claude { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); }
   .foot { display: flex; gap: 4px; padding: 6px 8px 3px; border-top: 1px solid var(--border); margin-top: 2px; }
   .error { margin: 4px 8px; color: var(--ko); font-size: var(--fs-tag); }

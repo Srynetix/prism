@@ -26,4 +26,8 @@ forge: ForgeProvider | null,
  * Where its MRs are on the forge (`https://gitlab.com/g/p/-/merge_requests/`), when Prism
  * reads them: an agent working there names them `!12`, a link to one Prism does not know.
  */
-mr_web?: string, };
+mr_web?: string, 
+/**
+ * The working folder its clone is in (`[[workspaces]] name`): the Projects page groups by it.
+ */
+workspace?: string, };

@@ -113,7 +113,9 @@
   import { openHelp, seeTour, toggleHelp, tour } from './help.svelte'
   import { closeSettings, quitApp, settingsView, toggleFullscreen, toggleSettings } from './settings.svelte'
   import AgentsView from './components/AgentsView.svelte'
-  import { agentsEnabled, agentsView, closeAgents, openAgents, terminalKeeps } from './agents.svelte'
+  import ProjectsView from './components/ProjectsView.svelte'
+  import { waitingAgent } from './workstreams'
+  import { agentsEnabled, agentsView, closeAgents, openAgents, openProjects, projectsView, terminalKeeps } from './agents.svelte'
   import { BLOCK_HELP } from './block-help'
   import { chord, chordKey, extraShift, inTerminal, isMac, keys, pageDigit } from './platform'
   import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
@@ -283,6 +285,9 @@
   const typing = (e: KeyboardEvent) => !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')
   /** The Agents view comes after the grid views: ⌘5 with four views. */
   const agentsDigit = $derived(String(views().length + 1))
+  /** The Projects page, after the Agents view: shown once a repository is configured. */
+  const projectsOn = $derived((full?.repositories?.length ?? 0) > 0)
+  const projectsDigit = $derived(String(views().length + (agentsEnabled() ? 2 : 1)))
 
   /** Zen mode: the filter shown while `/` puts the cursor in it, until it loses it. */
   let filterPeek = $state(false)
@@ -371,6 +376,11 @@
       openAgents()
       return
     }
+    if (digit === projectsDigit && projectsOn) {
+      e.preventDefault()
+      openProjects()
+      return
+    }
     if (chord(e) && chordKey(e) === 'n' && !(e.shiftKey && !extraShift(e)) && agentsEnabled()) {
       e.preventDefault()
       keyedAction('new-agent')
@@ -441,6 +451,8 @@
     return [...sources.values()]
   }
   const agentsWaiting = $derived(full?.agents?.filter((a) => waitsForYou(a.status)).length ?? 0)
+  /** Projects badge: the workstreams (one per folder) with an agent waiting for me. */
+  const workstreamsWaiting = $derived(new Set(full?.agents?.filter(waitingAgent).map((a) => a.worktree ?? a.cwd) ?? []).size)
   /** The routines' runs waiting in "To review": a badge of their own on the Agents tab. */
   const toReview = $derived(reviewPile(full).length)
   const syncs = $derived(alerts.filter((a) => a.kind === 'Sync' && !isSeen(a)))
@@ -506,13 +518,13 @@
 <div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!(machine() || profileWindow()) && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={view.color}>
   <div class="shell">
   <!-- Two fingers up or down on the rail: the next or previous page, while one is shown. -->
-  <nav class="rail" aria-label={t('Views')} {@attach pageSwipe(stepView, () => appearance().page_swipe && !editing.on && !zoomed && !agentsView.open && !settingsView.open && !helpView.open)}>
+  <nav class="rail" aria-label={t('Views')} {@attach pageSwipe(stepView, () => appearance().page_swipe && !editing.on && !zoomed && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open)}>
     <span class="edge" aria-hidden="true"></span>
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
     <span class="brand" title="Prism" onclick={logoClick}>{#key rainbow}<span class:spin={rainbow > 0}><PrismLogo size={30} animated pulse={live.snapshot?.updated_at} /></span>{/key}</span>
     {#key rainbow}{#if rainbow}<span class="rainbow" aria-hidden="true"></span>{/if}{/key}
     {#each views() as v, i (v.id)}
-      <button class="v" class:on={v.id === view.id && !settingsView.open && !agentsView.open && !helpView.open} style:--tint={v.color} onclick={() => { closeSettings(); closeHelp(); setView(v.id) }} title="{t(v.label)} ({keys(`⌘${i + 1}`)})" aria-current={v.id === view.id ? 'page' : undefined}>
+      <button class="v" class:on={v.id === view.id && !settingsView.open && !agentsView.open && !projectsView.open && !helpView.open} style:--tint={v.color} onclick={() => { closeSettings(); closeHelp(); setView(v.id) }} title="{t(v.label)} ({keys(`⌘${i + 1}`)})" aria-current={v.id === view.id ? 'page' : undefined}>
         {@render icon(v.icon)}
         <span>{t(v.label)}</span>
         {#if viewAlert(v)}<span class="alert-dot" aria-label={t('Pod down')}></span>{/if}
@@ -525,6 +537,13 @@
       {@render icon('agents')}
       <span>{t('Agents')}</span>
       {#if agentsWaiting}<span class="count" title={t('{n} waiting for you', { n: agentsWaiting })}>{agentsWaiting}</span>{:else if toReview}<span class="count rv" title={t('{n} to review', { n: toReview })}>{toReview}</span>{/if}
+    </button>
+    {/if}
+    {#if projectsOn}
+    <button class="v" class:on={projectsView.open && !settingsView.open && !helpView.open} style:--tint="var(--src-gitlab)" onclick={() => openProjects()} title={keys(t('Projects (⌘{digit}): each repository and its workstreams', { digit: projectsDigit }))} aria-current={projectsView.open ? 'page' : undefined}>
+      {@render icon('worktrees')}
+      <span>{t('Projects')}</span>
+      {#if workstreamsWaiting}<span class="count" title={tn(workstreamsWaiting, '{n} workstream waits for you', '{n} workstreams wait for you')}>{workstreamsWaiting}</span>{/if}
     </button>
     {/if}
     {#if assistantOn()}
@@ -552,6 +571,8 @@
     <Settings />
     {:else if agentsView.open && agentsEnabled()}
     <!-- The Agents view, above. -->
+    {:else if projectsView.open && projectsOn}
+    <ProjectsView />
     {:else}
     {#if !tour.seen && !wizard.open && !clonesPrompt.open}
       <!-- First launch: an invitation to the Welcome guide, until Help is opened or this is dismissed. -->

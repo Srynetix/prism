@@ -172,6 +172,7 @@ export const OPS_VIEWS: View[] = [
   },
   {
     // The primary repository's worktrees: what they are for, who works in them, which to clean up.
+    // Out of the rail now (the Projects page's Cleanup tab); kept for the layouts saved with it.
     id: 'worktrees',
     icon: 'worktrees',
     color: 'var(--src-gitlab)',
@@ -263,8 +264,14 @@ export function views(): View[] {
   const configured = live.snapshot?.views ?? []
   if (!configured.length) return [EMPTY_VIEW]
   const taken = new Set<string>()
-  return configured.filter((c) => c.name?.trim()).map((c) => fromConfig(c, taken))
+  const all = configured.filter((c) => c.name?.trim()).map((c) => fromConfig(c, taken))
+  // A page of the Worktrees block alone left the rail: the Projects page's Cleanup tab is it now.
+  const kept = all.filter((v) => !onlyWorktrees(v))
+  return kept.length ? kept : all
 }
+
+/** A page holding the Worktrees block and nothing else. */
+const onlyWorktrees = (v: View) => v.columns.flat().length === 1 && v.columns.flat()[0] === 'worktrees'
 
 /**
  * `[[views]]` as "Edit layout" writes it back: the pages of `blocks` get those blocks, in their

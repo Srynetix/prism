@@ -163,7 +163,7 @@ fn queued_actions() -> Actions {
     let cfg = GitlabConfig { project: PROJECT.into(), merge_queue_label: "merge-queue".into(), merge_priority_prefix: "merge-priority::".into(), ..Default::default() };
     let shop = crate::config::RepoInfo {
         name: "shop".into(), project: Some(PROJECT.into()), primary: true, clone: true, clone_missing: false, worktrees: true,
-        merge_queue: true, ticket_required: false, pipelines: true, agent: None, forge: None, mr_web: None,
+        merge_queue: true, ticket_required: false, pipelines: true, agent: None, forge: None, mr_web: None, workspace: None,
     };
     actions.configure(&cfg, Vec::new(), vec![shop]);
     actions

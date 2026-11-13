@@ -575,7 +575,13 @@ impl Config {
 
     /// What the frontend knows of the repositories, the primary one first.
     pub fn repo_infos(&self) -> Vec<RepoInfo> {
-        self.repositories().iter().map(|r| r.info_on(self.forge.enabled, self.forge.provider, &self.gitlab.host)).collect()
+        self.repositories().iter().map(|r| RepoInfo { workspace: self.workspace_of(r).map(|w| w.name.clone()), ..r.info_on(self.forge.enabled, self.forge.provider, &self.gitlab.host) }).collect()
+    }
+
+    /// The working folder a repository's clone is in, the deepest one when they nest.
+    pub fn workspace_of(&self, r: &RepoConfig) -> Option<&Workspace> {
+        let path = r.path.as_deref()?;
+        self.workspaces.iter().filter(|w| path.starts_with(&w.dir)).max_by_key(|w| w.dir.components().count())
     }
 
     /// `[gitlab]` with the primary repository's project (empty without one).
@@ -909,6 +915,14 @@ pub mod tests {
         let cfg = resolved("[[workspaces]]\nname = \"Personal\"\ndir = \"/perso\"\nforge = \"github\"\n[[repos]]\nname = \"blog\"\npath = \"/perso/blog\"\nproject = \"me/blog\"\nmerge_requests = true\n[[repos]]\nname = \"mine\"\npath = \"/perso/mine\"\nproject = \"g/mine\"\nforge = \"gitlab\"\n[[repos]]\nname = \"app\"\npath = \"/dev/app\"\n").unwrap();
         let forge = |n: &str| cfg.repos.iter().find(|r| r.name == n).unwrap().forge;
         assert_eq!((forge("blog"), forge("mine"), forge("app")), (Some(crate::forge::Provider::Github), None, None));
+    }
+
+    /// A repository says its working folder (the Projects page groups by it): the deepest that holds its clone.
+    #[test]
+    fn repository_working_folder() {
+        let cfg = resolved("[[workspaces]]\nname = \"Code\"\ndir = \"/code\"\n[[workspaces]]\nname = \"Work\"\ndir = \"/code/work\"\n[[repos]]\nname = \"shop\"\npath = \"/code/work/shop\"\n[[repos]]\nname = \"blog\"\npath = \"/code/blog\"\n[[repos]]\nname = \"app\"\npath = \"/dev/app\"\n[[repos]]\nname = \"remote\"\nproject = \"g/remote\"\n").unwrap();
+        let ws: Vec<(String, Option<String>)> = cfg.repo_infos().into_iter().map(|r| (r.name, r.workspace)).collect();
+        assert_eq!(ws, [("shop".into(), Some("Work".into())), ("blog".into(), Some("Code".into())), ("app".into(), None), ("remote".into(), None)]);
     }
 
     /// `[forge] bare_mr_repo` names the primary repository, over a pack's `primary = true`; a name no

@@ -82,12 +82,44 @@ export function openAgents(id?: string) {
   const apply = () => {
     closeSettings()
     closeHelp()
+    projectsView.open = false
     agentsView.open = true
   }
   if (fromPage) void pageTransition(apply, 'down')
   else apply()
 }
-export const closeAgents = () => (agentsView.open = false)
+/** Closes the Agents view, and the Projects page: a page of the rail, Settings or Help takes their place. */
+export const closeAgents = () => {
+  agentsView.open = false
+  projectsView.open = false
+}
+
+/**
+ * The Projects page (`ProjectsView.svelte`): every repository and its workstreams, one project shown
+ * (`repo`), or the Cleanup tab over them all. Like the Agents view, it takes the grid's place.
+ */
+export const projectsView = $state({
+  open: false,
+  repo: null as string | null,
+  tab: 'project' as 'project' | 'cleanup',
+})
+
+/** Opens the Projects page, on `repo` when given, on its Cleanup tab with `cleanup`. */
+export function openProjects(repo?: string | null, cleanup = false) {
+  if (repo) projectsView.repo = repo
+  projectsView.tab = cleanup ? 'cleanup' : 'project'
+  if (projectsView.open && !settingsView.open && !helpView.open) return
+  const fromPage = !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open
+  used('projects:view')
+  const apply = () => {
+    closeSettings()
+    closeHelp()
+    agentsView.open = false
+    projectsView.open = true
+  }
+  if (fromPage) void pageTransition(apply, 'down')
+  else apply()
+}
 /** Opens the agent on its shell `n` (the Shell panel). */
 export function openAgentShell(id: string, n: number) {
   shellTabs[id] = n

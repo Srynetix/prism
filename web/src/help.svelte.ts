@@ -1,6 +1,6 @@
 import { closeHelp, helpView } from './help-view.svelte'
 import { closeSettings, openSettings } from './settings.svelte'
-import { closeAgents, openAgents } from './agents.svelte'
+import { closeAgents, openAgents, openProjects } from './agents.svelte'
 import { showBlock, pref, setPref } from './layout.svelte'
 import type { BlockId } from './views'
 import { keys } from './keys.svelte'
@@ -18,7 +18,7 @@ export function openHelp(guide?: string, query?: string) {
 }
 export const toggleHelp = () => (helpView.open ? closeHelp() : openHelp())
 
-/** A `prism:` link of a guide: `block/<id>`, `help/<id>`, `settings/<section>`, `agents`, `wizard`, `keys`, `console`. */
+/** A `prism:` link of a guide: `block/<id>`, `help/<id>`, `settings/<section>`, `agents`, `projects[/<repo>]`, `projects/cleanup`… */
 export function runAction(target: string) {
   const [what, arg] = target.split('/')
   if (what === 'help') return openHelp(arg)
@@ -26,6 +26,7 @@ export function runAction(target: string) {
   if (what === 'block') showBlock(arg as BlockId)
   else if (what === 'settings') openSettings(arg)
   else if (what === 'agents') openAgents()
+  else if (what === 'projects') openProjects(arg === 'cleanup' ? null : arg, arg === 'cleanup')
   else if (what === 'wizard') wizard.open = true
   else if (what === 'keys') keys.help = true
   else if (what === 'console') toggleConsole(true)
