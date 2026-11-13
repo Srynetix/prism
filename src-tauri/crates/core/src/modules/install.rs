@@ -1,7 +1,11 @@
 //! The modules a pack brings (`[[modules]]` of a pack): read from where the pack says, put in
 //! `modules/<id>/` as a whole (an update replaces the folder), with the mark of their pack
 //! (`.pack`): removing the pack, or a module from it, removes the folder. What is installed is not
-//! trusted for that: it waits in Settings › Packs (`trust`).
+//! trusted for that: it waits in Settings › Packs (`trust`), unless a version of it was trusted
+//! before and this one reaches nothing more (`[modules] trust_pack_updates`, `trust::update`).
+//!
+//! A module is also installed by hand, from Settings › Packs › Modules or `prism modules install`:
+//! its mark then names no pack (`BY_HAND`), its source kept for its updates and a reinstall.
 //!
 //! ```toml
 //! [[modules]]
@@ -23,6 +27,9 @@ use crate::packs::Source;
 /// The mark of a module's pack, in its folder.
 pub const PACK_MARK: &str = ".pack";
 
+/// The pack a module installed by hand names in its mark: none.
+pub const BY_HAND: &str = "";
+
 /// A module a pack declares.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -40,9 +47,14 @@ pub struct Mark {
     pub revision: Option<String>,
 }
 
-/// The pack that installed the module in `folder`.
+/// The pack that installed the module in `folder` (none: installed by hand, or put there).
 pub fn pack_of(folder: &Path) -> Option<String> {
-    mark(folder).map(|m| m.pack)
+    mark(folder).map(|m| m.pack).filter(|p| p != BY_HAND)
+}
+
+/// Where the module in `folder` was installed from, by a pack or by hand (none: put there).
+pub fn source_of(folder: &Path) -> Option<String> {
+    mark(folder).map(|m| m.source)
 }
 
 pub fn mark(folder: &Path) -> Option<Mark> {
@@ -256,11 +268,13 @@ pub fn check_install(root: &Path, pack: &str, m: &PackModule, fetched: &Fetched)
     ensure!(super::plain(&m.id), "module id {:?}: letters, digits, - and _", m.id);
     ensure!(fetched.files.contains_key("module.toml"), "module {}: no module.toml at {}", m.id, m.source);
     let target = root.join(&m.id);
-    match pack_of(&target) {
-        Some(owner) if owner != pack => bail!("module {}: already installed by the pack {owner}", m.id),
-        // A folder put there by hand is not a pack's to replace.
-        None if target.exists() => bail!("module {}: modules/{} is already there, not a pack's: move it away, or the pack names it otherwise", m.id, m.id),
-        _ => {}
+    match mark(&target).map(|m| m.pack) {
+        Some(owner) if owner == pack => {}
+        Some(owner) if owner == BY_HAND => bail!("module {}: already installed by hand: remove it first", m.id),
+        Some(owner) => bail!("module {}: already installed by the pack {owner}", m.id),
+        // A folder put there by hand is not Prism's to replace.
+        None if target.exists() => bail!("module {}: modules/{} is already there, not installed by Prism: move it away, or name it otherwise", m.id, m.id),
+        None => {}
     }
     for rel in fetched.files.keys() {
         ensure!(!rel.is_empty() && rel.split('/').all(|p| !p.is_empty() && p != "." && p != ".." && !p.contains(['\\', ':'])), "module {}: a path out of it: {rel}", m.id);
@@ -308,7 +322,50 @@ pub fn remove_others(root: &Path, trust: &Path, pack: &str, keep: &[String]) {
             tracing::warn!("module {id}: not removed: {e}");
         }
         super::trust::forget(trust, &id);
+        let _ = std::fs::remove_file(super::stopped_mark(root, &id));
     }
+}
+
+/// The modules installed by hand in `root`, as their marks say (their id, their source).
+pub fn by_hand(root: &Path) -> Vec<PackModule> {
+    let Ok(entries) = std::fs::read_dir(root) else { return Vec::new() };
+    let mut out: Vec<PackModule> = entries
+        .flatten()
+        .filter_map(|e| Some(e.file_name().to_str()?.to_string()))
+        .filter(|id| super::plain(id))
+        .filter_map(|id| mark(&root.join(&id)).filter(|m| m.pack == BY_HAND).map(|m| PackModule { id, source: m.source }))
+        .collect();
+    out.sort_by(|a, b| a.id.cmp(&b.id));
+    out
+}
+
+/// A module's source as typed (by hand): a local one made absolute, `~` expanded; a repository's
+/// as it is.
+pub fn typed_source(source: &str) -> Result<String> {
+    let source = source.trim();
+    ensure!(!source.is_empty(), "no source");
+    Ok(match crate::packs::source(source)? {
+        Source::Gitlab { .. } | Source::Github { .. } => source.to_string(),
+        Source::Builtin(_) => bail!("a module is not built into Prism"),
+        Source::File(file) => {
+            let p = crate::config::expand_home(Path::new(file));
+            std::path::absolute(&p).unwrap_or(p).to_string_lossy().into_owned()
+        }
+    })
+}
+
+/// The id a module's files give it (`[module] id`), or else its source's last name (`…/hello`,
+/// `hello.zip`).
+pub fn id_of(fetched: &Fetched, source: &str) -> Result<String> {
+    let declared = fetched.files.get("module.toml").and_then(|b| toml::from_str::<toml::Table>(&String::from_utf8_lossy(b)).ok()).and_then(|t| t.get("module")?.get("id")?.as_str().map(String::from));
+    let from_source = || {
+        let path = source.split('@').next().unwrap_or(source).trim_end_matches(['/', '\\']);
+        let last = path.rsplit(['/', '\\', ':']).next().unwrap_or(path);
+        last.strip_suffix(".zip").unwrap_or(last).to_string()
+    };
+    let id = declared.unwrap_or_else(from_source);
+    ensure!(super::plain(&id), "module id {id:?}: letters, digits, - and _ (its module.toml [module] id)");
+    Ok(id)
 }
 
 /// A pack's module read again from its source: whether it changed there.
@@ -401,7 +458,7 @@ mod tests {
         assert!(install(&root, "other", &m, fetch(&m.source, Some(&src)).await.unwrap()).unwrap_err().to_string().contains("team"));
         std::fs::create_dir_all(root.join("mine")).unwrap();
         let mine = PackModule { id: "mine".into(), source: "hello".into() };
-        assert!(install(&root, "team", &mine, fetch(&mine.source, Some(&src)).await.unwrap()).unwrap_err().to_string().contains("not a pack's"));
+        assert!(install(&root, "team", &mine, fetch(&mine.source, Some(&src)).await.unwrap()).unwrap_err().to_string().contains("not installed by Prism"));
         assert!(root.join("mine").exists());
         // Its pack gone (or the module out of it): its folder too.
         remove_others(&root, &trust, "team", &[]);

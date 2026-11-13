@@ -152,6 +152,15 @@ commands! {
     system::mac_power: Critical [demo: refused] [phone: action: String, password: Option<String>],
     // Trusting a module runs its code on this computer: from the computer only.
     system::modules_trust: Never,
+    system::modules_runs: Never,
+    system::modules_removed: Never,
+    system::modules_check: Never,
+    // Each runs, replaces or removes a module's code on this computer: from the computer only.
+    system::modules_reset: Never,
+    system::modules_reinstall: Never,
+    system::modules_remove: Never,
+    system::modules_install: Never,
+    system::modules_restore: Never,
     system::logs_info: Never,
     system::logs_tail: Never,
     system::dependencies: Never,

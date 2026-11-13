@@ -51,7 +51,8 @@ static MODULES: OnceLock<Vec<Arc<worker::Module>>> = OnceLock::new();
 /// The blocks of the active profile's modules that have a back end, those Prism loads (not
 /// refused: their contract, the Prism they need, their component inside them). Read once, as the
 /// core first reads its blocks (`prism_core::blocks::register_late`). One not trusted yet is
-/// registered all the same: its blocks wait, said on them, until I trust it (`trusted`).
+/// registered all the same: its blocks wait, said on them, until I trust it (`trusted`); one that
+/// stopped Prism the last time is held until I start it again (`reset`).
 pub fn blocks() -> Vec<&'static dyn Block> {
     let root = prism_core::modules::dir();
     let mut out: Vec<&'static dyn Block> = Vec::new();
@@ -68,7 +69,11 @@ pub fn blocks() -> Vec<&'static dyn Block> {
                 continue;
             }
         };
-        let module = Arc::new(worker::Module::new(info.id.clone(), spec, prism_core::modules::stopped_mark(&root, &info.id), bytes));
+        let held = info.stopped.then(|| prism_base::tr!("the module {id} is held: its back end stopped Prism the last time it ran. Start it again from Settings › Packs › Modules", id = info.id));
+        let module = Arc::new(worker::Module::new(info.id.clone(), spec, prism_core::modules::stopped_mark(&root, &info.id), bytes, held));
+        if info.trusted {
+            module.set_version(&info.fingerprint);
+        }
         out.extend(block::of(&module));
         tracing::info!("module {}: back end {}, blocks {}{}", info.id, module.spec.component.display(), module.spec.blocks.iter().map(|b| b.id.as_str()).collect::<Vec<_>>().join(", "), if info.trusted { "" } else { ", waiting for trust" });
         modules.push(module);
@@ -89,9 +94,49 @@ pub fn trusted(id: &str, fingerprint: &str) -> bool {
             return false;
         }
     };
+    let before = m.is_trusted();
     if !m.trust_as(spec, bytes) {
         return false;
     }
+    m.set_version(fingerprint);
+    // Running another version already: started again on this one.
+    if before {
+        m.reset();
+    }
     m.warm();
     true
+}
+
+/// Module `id` started again from nothing (Settings › Packs › Modules): its crashes forgotten, the
+/// mark it left stopping Prism lifted. Whether it runs in this Prism (one installed after launch,
+/// or refused at launch, once Prism restarts).
+pub fn reset(id: &str) -> bool {
+    prism_core::modules::release(&prism_core::modules::dir(), id);
+    let Some(m) = MODULES.get().into_iter().flatten().find(|m| m.id == id) else { return false };
+    m.reset();
+    m.warm();
+    true
+}
+
+/// Module `id` removed: held, its blocks saying so, until Prism restarts without it.
+pub fn removed(id: &str) {
+    if let Some(m) = MODULES.get().into_iter().flatten().find(|m| m.id == id) {
+        m.hold(prism_base::tr!("the module {id} was removed: its blocks go once Prism restarts", id = id));
+    }
+}
+
+/// The modules trusted on the disk in another version than the one they run (a pack's update
+/// trusted for me, a reinstall): run in that one now. Those whose blocks changed wait for a restart.
+pub fn refresh() {
+    for info in prism_core::modules::list().into_iter().filter(|i| i.trusted && i.refused.is_none()) {
+        let Some(m) = MODULES.get().into_iter().flatten().find(|m| m.id == info.id) else { continue };
+        if m.version().as_deref() != Some(info.fingerprint.as_str()) && trusted(&info.id, &info.fingerprint) {
+            tracing::info!("module {}: runs its version trusted now", info.id);
+        }
+    }
+}
+
+/// How the modules' back ends run in this Prism: held or not, their crashes.
+pub fn runs() -> Vec<prism_core::modules::ModuleRun> {
+    MODULES.get().into_iter().flatten().map(|m| m.run()).collect()
 }

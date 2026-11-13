@@ -224,8 +224,9 @@ pub async fn import(config: &Path, source: &str) -> Result<PackInfo> {
     // Its modules read and checked first: one that does not read, or may not be installed,
     // leaves the pack and the modules as they were.
     let root = crate::modules::dir_of(config);
+    let own = own_modules(config);
     let mut fetched = Vec::new();
-    for m in &info.modules {
+    for m in info.modules.iter().filter(|m| !own.removed.contains(&m.id)) {
         let context = || tr!("module {id} of the pack ({source})", id = m.id, source = m.source);
         let (at, base) = crate::modules::install::resolve(source, &m.source).with_context(context)?;
         let read = crate::modules::install::PackModule { id: m.id.clone(), source: at };
@@ -251,12 +252,17 @@ pub async fn import(config: &Path, source: &str) -> Result<PackInfo> {
     if !names.contains(&name) {
         set_list(config, names.into_iter().chain([name.clone()]).collect())?;
     }
-    // Its modules in `modules/`, those it no longer brings out; none trusted for that.
+    // Its modules in `modules/`, those it no longer brings out (or I removed); none trusted for
+    // that, but a new version of one trusted before that reaches nothing more, when I let it.
+    let store = modules_trust(config);
     for (m, files) in fetched {
         crate::modules::install::install(&root, &name, &m, files)?;
+        if own.trust_pack_updates && crate::modules::trust_update(&root, &store, &name, &m.id) {
+            tracing::info!("module {}: trusted, a new version of the pack {name} reaching nothing more", m.id);
+        }
     }
-    let keep: Vec<String> = info.modules.iter().map(|m| m.id.clone()).collect();
-    crate::modules::install::remove_others(&root, &modules_trust(config), &name, &keep);
+    let keep: Vec<String> = info.modules.iter().map(|m| m.id.clone()).filter(|id| !own.removed.contains(id)).collect();
+    crate::modules::install::remove_others(&root, &store, &name, &keep);
     Ok(PackInfo { source: Some(source.to_string()), commit, missing: false, name, ..info })
 }
 
@@ -310,7 +316,8 @@ async fn check_one(config: &Path, name: &str) -> Option<PackCheck> {
         Ok(((latest, new_values), commit)) => {
             // The source's modules, against those installed: one changed, the pack did.
             let root = crate::modules::dir_of(config);
-            let checks = latest.modules.iter().map(|m| {
+            let removed = own_modules(config).removed;
+            let checks = latest.modules.iter().filter(|m| !removed.contains(&m.id)).map(|m| {
                 let root = root.clone();
                 let resolved = crate::modules::install::resolve(&source, &m.source);
                 async move {
@@ -349,6 +356,133 @@ pub fn remove(config: &Path, name: &str) -> Result<()> {
     let _ = std::fs::remove_file(file(config, name));
     crate::modules::install::remove_others(&crate::modules::dir_of(config), &modules_trust(config), name, &[]);
     Ok(())
+}
+
+/// `[modules]` of `config` itself (a pack never sets it).
+fn own_modules(config: &Path) -> crate::config::ModulesConfig {
+    let raw = std::fs::read_to_string(config).unwrap_or_default();
+    raw.parse::<Table>().ok().and_then(|t| t.get("modules").cloned()).and_then(|m| m.try_into().ok()).unwrap_or_default()
+}
+
+/// `[modules] removed` of `config` set to `ids`, the rest of the file as it is.
+fn set_removed(config: &Path, ids: Vec<String>) -> Result<()> {
+    let value = (!ids.is_empty()).then(|| serde_json::json!(ids));
+    crate::settings::save(config, &[crate::settings::Edit { path: vec!["modules".into(), "removed".into()], value }]).map(|_| ())
+}
+
+/// Module `id` as a pack of `config` declares it: that pack's name, and where its files are read.
+fn pack_module(config: &Path, id: &str) -> Result<(String, crate::modules::install::PackModule, Option<PathBuf>)> {
+    let raw = std::fs::read_to_string(config).unwrap_or_default();
+    for name in listed(&raw)? {
+        let Ok(text) = std::fs::read_to_string(file(config, &name)) else { continue };
+        let (info, _) = parse(&text)?;
+        if let Some(m) = info.modules.iter().find(|m| m.id == id) {
+            let source = info.source.clone().context(tr("this pack does not say where it comes from: import it again"))?;
+            let (at, base) = crate::modules::install::resolve(&source, &m.source)?;
+            return Ok((name, crate::modules::install::PackModule { id: id.to_string(), source: at }, base));
+        }
+    }
+    bail!(tr!("no pack brings the module {id}", id = id))
+}
+
+/// A module removed from `modules/` and its trust forgotten (I removed it, or its pack did).
+fn take_out(config: &Path, id: &str) -> Result<()> {
+    let root = crate::modules::dir_of(config);
+    let folder = root.join(id);
+    if folder.exists() {
+        std::fs::remove_dir_all(&folder).with_context(|| folder.display().to_string())?;
+    }
+    crate::modules::release(&root, id);
+    crate::modules::forget(&modules_trust(config), id);
+    Ok(())
+}
+
+/// Installs a module by hand from `source` (a folder or `.zip` on this computer, or
+/// `glab:`/`gh:group/project:path@ref`): its id, its module.toml's. Not trusted for that: it waits
+/// in Settings › Packs › Modules.
+pub async fn module_install(config: &Path, source: &str) -> Result<String> {
+    let source = crate::modules::install::typed_source(source)?;
+    let files = crate::modules::install::fetch(&source, None).await?;
+    let id = crate::modules::install::id_of(&files, &source)?;
+    let root = crate::modules::dir_of(config);
+    // One id, one module: a pack's is not replaced by hand (removed, it is put back from its pack).
+    if let Ok((pack, _, _)) = pack_module(config, &id) {
+        bail!(tr!("the pack {pack} brings a module {id}: it is that one, or none", pack = pack, id = id));
+    }
+    crate::modules::install::install(&root, crate::modules::install::BY_HAND, &crate::modules::install::PackModule { id: id.clone(), source }, files)?;
+    Ok(id)
+}
+
+/// Module `id` read again from where it was installed from (its pack's source, or the one given by
+/// hand) and put back whole: trusted again only as an update of its pack would be. Whether it is
+/// trusted.
+pub async fn module_reinstall(config: &Path, id: &str) -> Result<bool> {
+    let root = crate::modules::dir_of(config);
+    let mark = crate::modules::install::mark(&root.join(id)).with_context(|| tr!("the module {id} was not installed by Prism (its folder put there): nothing to read it again from", id = id))?;
+    if mark.pack == crate::modules::install::BY_HAND {
+        let m = crate::modules::install::PackModule { id: id.to_string(), source: mark.source };
+        let files = crate::modules::install::fetch(&m.source, None).await?;
+        crate::modules::install::install(&root, crate::modules::install::BY_HAND, &m, files)?;
+        crate::modules::release(&root, id);
+        return Ok(crate::modules::list_in(&root, &modules_trust(config)).iter().any(|i| i.id == id && i.trusted));
+    }
+    install_from_pack(config, id).await
+}
+
+/// Module `id` of a pack put in `modules/` from that pack's source, trusted as a pack's update.
+async fn install_from_pack(config: &Path, id: &str) -> Result<bool> {
+    let root = crate::modules::dir_of(config);
+    let (pack, m, base) = pack_module(config, id)?;
+    let files = crate::modules::install::fetch(&m.source, base.as_deref()).await?;
+    crate::modules::install::install(&root, &pack, &m, files)?;
+    crate::modules::release(&root, id);
+    let store = modules_trust(config);
+    Ok((own_modules(config).trust_pack_updates && crate::modules::trust_update(&root, &store, &pack, id)) || crate::modules::list_in(&root, &store).iter().any(|i| i.id == id && i.trusted))
+}
+
+/// Module `id` removed, its trust forgotten; a pack's stays out of that pack's imports and updates
+/// (`[modules] removed`) until I put it back (`module_restore`).
+pub fn module_remove(config: &Path, id: &str) -> Result<()> {
+    let root = crate::modules::dir_of(config);
+    ensure!(crate::modules::plain(id), "no such module");
+    let folder = root.join(id);
+    ensure!(folder.exists(), tr!("no module {id} in modules/", id = id));
+    if crate::modules::install::pack_of(&folder).is_some() {
+        let mut removed = own_modules(config).removed;
+        if !removed.iter().any(|r| r == id) {
+            removed.push(id.to_string());
+            set_removed(config, removed)?;
+        }
+    }
+    take_out(config, id)
+}
+
+/// A pack's module I removed, put back: out of `[modules] removed`, installed from its pack.
+pub async fn module_restore(config: &Path, id: &str) -> Result<bool> {
+    pack_module(config, id)?;
+    let trusted = install_from_pack(config, id).await?;
+    set_removed(config, own_modules(config).removed.into_iter().filter(|r| r != id).collect())?;
+    Ok(trusted)
+}
+
+/// A pack's module I removed (`[modules] removed`), and the pack that brings it (none: no pack
+/// does any more).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct RemovedModule {
+    pub id: String,
+    pub pack: Option<String>,
+}
+
+pub fn modules_removed(config: &Path) -> Vec<RemovedModule> {
+    own_modules(config).removed.into_iter().map(|id| RemovedModule { pack: pack_module(config, &id).ok().map(|(p, _, _)| p), id }).collect()
+}
+
+/// The modules installed by hand, read again from their sources: whether they changed there.
+pub async fn modules_check(config: &Path) -> Vec<crate::modules::install::ModuleCheck> {
+    let root = crate::modules::dir_of(config);
+    let hand = crate::modules::install::by_hand(&root);
+    futures::future::join_all(hand.iter().map(|m| crate::modules::install::check(&root, m, None))).await
 }
 
 /// The trust store of the modules next to `config`: its profile's; a config of no profile (a
@@ -498,6 +632,72 @@ mod tests {
         assert!(import(&config, &dir.join("src/bad.toml").display().to_string()).await.is_err());
         assert!(!file(&config, "bad").exists() && !std::fs::read_to_string(&config).unwrap().contains("bad"));
         assert!(!root.join("empty").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// A pack's module trusted once: its next version reaching nothing more is trusted for me, one
+    /// reaching more waits, and none with the switch off; removed, the pack's updates leave it out
+    /// until it is put back. One installed by hand is read again from its source; a pack's id is not
+    /// taken by hand.
+    #[tokio::test]
+    async fn a_packs_module_updated_removed_put_back_and_one_by_hand() {
+        let dir = std::env::temp_dir().join(format!("prism-pack-modules-more-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("src/m")).unwrap();
+        let module = |v: &str, caps: &str| {
+            std::fs::write(dir.join("src/m/module.toml"), format!("[module]\nversion = \"{v}\"\n[wasm]\ncomponent = \"b.wasm\"\ncapabilities = {caps}\n[[wasm.blocks]]\nid = \"m\"\n")).unwrap();
+            std::fs::write(dir.join("src/m/b.wasm"), format!("wasm {v} {caps}")).unwrap();
+        };
+        module("1.0.0", "{ git = true }");
+        let pack = dir.join("src/team.toml").display().to_string();
+        std::fs::write(&pack, "[pack]\nname = \"team\"\n\n[[modules]]\nid = \"m\"\nsource = \"m\"\n").unwrap();
+        let config = dir.join("config.toml");
+        std::fs::write(&config, "").unwrap();
+        import(&config, &pack).await.unwrap();
+        let (root, store) = (crate::modules::dir_of(&config), dir.join("modules-trust.json"));
+        let info = || crate::modules::list_in(&root, &store).into_iter().find(|m| m.id == "m").unwrap();
+        assert!(!info().trusted, "a first version waits");
+        crate::modules::trust(&root, &store, "m", &info().fingerprint).unwrap();
+        module("1.1.0", "{ git = true }");
+        import(&config, &pack).await.unwrap();
+        assert!(info().trusted && info().version.as_deref() == Some("1.1.0"), "the same reach: trusted");
+        module("1.2.0", "{ git = true, http = [\"example.org\"] }");
+        import(&config, &pack).await.unwrap();
+        assert!(!info().trusted, "reaching more: waits");
+        crate::modules::trust(&root, &store, "m", &info().fingerprint).unwrap();
+        crate::settings::save(&config, &[crate::settings::Edit { path: vec!["modules".into(), "trust_pack_updates".into()], value: Some(serde_json::json!(false)) }]).unwrap();
+        module("1.3.0", "{ git = true, http = [\"example.org\"] }");
+        import(&config, &pack).await.unwrap();
+        assert!(!info().trusted, "the switch off: waits");
+
+        module_remove(&config, "m").unwrap();
+        assert!(!root.join("m").exists());
+        assert_eq!(modules_removed(&config), [RemovedModule { id: "m".into(), pack: Some("team".into()) }]);
+        import(&config, &pack).await.unwrap();
+        assert!(!root.join("m").exists(), "removed: its pack's update leaves it out");
+        let checked = check(&config).await.unwrap();
+        assert!(!checked[0].changed && checked[0].modules.is_empty(), "{checked:?}");
+        module_restore(&config, "m").await.unwrap();
+        assert!(root.join("m").exists() && modules_removed(&config).is_empty());
+
+        std::fs::create_dir_all(dir.join("mine/web")).unwrap();
+        std::fs::write(dir.join("mine/module.toml"), "[module]\nid = \"mine\"\nversion = \"1.0.0\"\n[web]\n").unwrap();
+        std::fs::write(dir.join("mine/web/defs.js"), "export const prism = 1").unwrap();
+        assert_eq!(module_install(&config, &dir.join("mine").display().to_string()).await.unwrap(), "mine");
+        let mine = crate::modules::list_in(&root, &store).into_iter().find(|m| m.id == "mine").unwrap();
+        assert!(mine.pack.is_none() && mine.source.as_deref() == Some(dir.join("mine").to_str().unwrap()) && !mine.trusted);
+        assert!(!modules_check(&config).await[0].changed);
+        std::fs::write(dir.join("mine/module.toml"), "[module]\nid = \"mine\"\nversion = \"1.1.0\"\n[web]\n").unwrap();
+        let checked = modules_check(&config).await;
+        assert!(checked[0].changed && checked[0].latest.as_deref() == Some("1.1.0"), "{checked:?}");
+        module_reinstall(&config, "mine").await.unwrap();
+        assert!(std::fs::read_to_string(root.join("mine/module.toml")).unwrap().contains("1.1.0"));
+        assert!(module_install(&config, &dir.join("src/m").display().to_string()).await.unwrap_err().to_string().contains("team"), "a pack's id, by hand");
+        // A pack does not take a module installed by hand either.
+        std::fs::write(dir.join("src/team.toml"), "[pack]\nname = \"team\"\n\n[[modules]]\nid = \"m\"\nsource = \"m\"\n\n[[modules]]\nid = \"mine\"\nsource = \"../mine\"\n").unwrap();
+        assert!(format!("{:#}", import(&config, &pack).await.unwrap_err()).contains("by hand"));
+        module_remove(&config, "mine").unwrap();
+        assert!(!root.join("mine").exists() && modules_removed(&config).is_empty(), "by hand: nothing to leave out");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

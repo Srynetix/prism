@@ -8,7 +8,7 @@ pub mod command;
 use std::ffi::OsString;
 
 pub use args::{Bin, Info};
-use args::{Cmd, McpAction, Pack, Parsed, Peer, Service};
+use args::{Cmd, McpAction, Modules, Pack, Parsed, Peer, Service};
 
 /// What the binary does after its arguments are read.
 #[derive(Debug, PartialEq, Eq)]
@@ -77,6 +77,7 @@ fn subcommand(info: &Info, cmd: &Cmd) -> i32 {
         Cmd::Watch => crate::profile::watch(),
         Cmd::Sessions => crate::agents::tmux::daemon::main().map(|()| None),
         Cmd::Pack(action) => pack(action).map(Some),
+        Cmd::Modules(action) => modules(action).map(Some),
         Cmd::Mcp(mcp) => match &mcp.action {
             None => crate::mcp::serve_stdio(false).map(|()| None),
             Some(McpAction::Aside) => crate::mcp::serve_stdio(true).map(|()| None),
@@ -115,6 +116,36 @@ fn pack(action: &Pack) -> anyhow::Result<String> {
             Pack::Import { source } => crate::packs::import(&path, source).await.map(|p| format!("pack {} imported", p.name)),
             Pack::Update { name, reference } => crate::packs::update(&path, name, reference.as_deref()).await.map(|p| format!("pack {} updated{}", p.name, p.commit.map(|c| format!(" at {}", &c[..c.len().min(8)])).unwrap_or_default())),
             Pack::Remove { name } => crate::packs::remove(&path, name).map(|()| format!("pack {name} removed")),
+        }
+    })
+}
+
+/// `prism modules list | install | reinstall | remove | restore | reset`: the profile's modules, as
+/// in Settings › General › Packs › Modules. A running Prism sees a module installed, reinstalled
+/// or removed here once it restarts (`prism restart`).
+fn modules(action: &Modules) -> anyhow::Result<String> {
+    let path = crate::config_path();
+    let trusted = |t: bool| if t { "trusted" } else { "waiting for your trust in Settings › General › Packs › Modules" };
+    block_on(async {
+        match action {
+            Modules::List => Ok(prism_core::modules::list()
+                .iter()
+                .map(|m| {
+                    let from = m.pack.as_ref().map(|p| format!("pack {p}")).or_else(|| m.source.as_ref().map(|s| format!("by hand, {s}"))).unwrap_or_else(|| "put there".into());
+                    let state = m.refused.clone().map(|r| format!("refused: {r}")).unwrap_or_else(|| if m.stopped { "held: it stopped Prism the last time".into() } else if m.trusted { "trusted".into() } else { "waiting for your trust".into() });
+                    format!("{}\t{}\t{from}\t{state}", m.id, m.version.as_deref().unwrap_or("?"))
+                })
+                .chain(prism_core::packs::modules_removed(&path).into_iter().map(|r| format!("{}\t-\t{}\tremoved", r.id, r.pack.map(|p| format!("pack {p}")).unwrap_or_default())))
+                .collect::<Vec<_>>()
+                .join("\n")),
+            Modules::Install { source } => prism_core::packs::module_install(&path, source).await.map(|id| format!("module {id} installed, {}", trusted(false))),
+            Modules::Reinstall { id } => prism_core::packs::module_reinstall(&path, id).await.map(|t| format!("module {id} reinstalled, {}", trusted(t))),
+            Modules::Remove { id } => prism_core::packs::module_remove(&path, id).map(|()| format!("module {id} removed")),
+            Modules::Restore { id } => prism_core::packs::module_restore(&path, id).await.map(|t| format!("module {id} put back, {}", trusted(t))),
+            Modules::Reset { id } => {
+                prism_core::modules::release(&prism_core::modules::dir(), id);
+                Ok(format!("module {id}: runs again once Prism restarts (prism restart), or now from Settings › General › Packs › Modules"))
+            }
         }
     })
 }

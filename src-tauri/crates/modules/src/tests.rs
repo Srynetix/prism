@@ -36,10 +36,14 @@ fn module(wasm: &PathBuf, capabilities: &str) -> Arc<Module> {
 }
 
 fn module_trusted(wasm: &PathBuf, capabilities: &str, trusted: bool) -> Arc<Module> {
+    module_as(wasm, capabilities, trusted, None)
+}
+
+fn module_as(wasm: &PathBuf, capabilities: &str, trusted: bool, held: Option<String>) -> Arc<Module> {
     let folder = temp("module");
     std::fs::copy(wasm, folder.join("backend.wasm")).unwrap();
     let spec = crate::manifest::parse(&folder, &format!("[wasm]\ncomponent = \"backend.wasm\"\ntables = [\"hello\"]\ncapabilities = {capabilities}\n[[wasm.blocks]]\nid = \"hello\"\nparts = [\"hello_reads\"]\nrepos = \"one\"\nreloads = true\nprovides = [\"stages\", \"images\"]\nremote = {{ ping = \"read\" }}\n")).unwrap();
-    let module = Arc::new(Module::new("hello".into(), spec, prism_core::modules::stopped_mark(&folder, "hello"), trusted.then(|| std::fs::read(wasm).unwrap())));
+    let module = Arc::new(Module::new("hello".into(), spec, prism_core::modules::stopped_mark(&folder, "hello"), trusted.then(|| std::fs::read(wasm).unwrap()), held));
     module.warm();
     module
 }
@@ -107,6 +111,52 @@ async fn the_example_fills_its_block_and_survives_its_panic() {
     // (Its state read anew: the one before the panic said 1 too.)
     wait_for(&hub, "its restart", |s| !s.errors.contains_key("hello") && s.blocks.get("hello").is_some_and(|v| v["reads"] == 1 && v["at"] != before));
     assert_eq!(module.call("hello", "ping".into(), json!({}), false).await.unwrap()["pong"], 1);
+    std::fs::remove_dir_all(clone).unwrap();
+}
+
+/// Given up after three crashes, or held as it stopped Prism the last time: started again from
+/// Settings (`reset`), its crashes forgotten, its block filled again.
+#[tokio::test(flavor = "multi_thread")]
+async fn given_up_or_held_it_starts_again_when_reset() {
+    let Some(wasm) = example() else { return };
+    let clone = temp("reset");
+    git(&clone, &["init", "-q"]);
+    git(&clone, &["commit", "-q", "--allow-empty", "-m", "First of all"]);
+    for held in [None, Some("held: it stopped Prism".to_string())] {
+        let module = module_as(&wasm, "{ git = true }", true, held.clone());
+        let hub = Hub::new();
+        let (m, h, c) = (module.clone(), hub.clone(), clone.clone());
+        tokio::task::spawn_blocking(move || {
+            m.configure(&toml::Table::new()).unwrap();
+            m.start("hello", BlockCtx::new("hello", h, Arc::new(env(&c))), crate::block::env_json("hello", &env(&c))).unwrap();
+        })
+        .await
+        .unwrap();
+        if held.is_some() {
+            wait_for(&hub, "its block saying it is held", |s| s.errors.get("hello").is_some_and(|e| e.contains("held")));
+            assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap_err().to_string().contains("held"));
+            assert!(module.run().held.is_some());
+        } else {
+            wait_for(&hub, "its state", |s| s.blocks.get("hello").is_some_and(|v| v["commit"] == "First of all"));
+            for n in 1..=3 {
+                let _ = module.call("hello", "panic".into(), json!({}), false).await;
+                assert_eq!(module.run().crashes, n);
+                if n < 3 {
+                    wait_for(&hub, "its restart", |s| !s.errors.contains_key("hello"));
+                }
+            }
+            let run = module.run();
+            assert!(run.held.as_deref().is_some_and(|h| h.contains("3 times")) && run.last_crash.as_deref().is_some_and(|c| c.contains("panicked on purpose")), "{run:?}");
+            assert!(module.call("hello", "ping".into(), json!({}), false).await.is_err(), "given up");
+        }
+        let m = module.clone();
+        tokio::task::spawn_blocking(move || m.reset()).await.unwrap();
+        wait_for(&hub, "its block's error gone", |s| !s.errors.contains_key("hello"));
+        // A fresh instance: running again, its block read anew.
+        assert!(module.call("hello", "ping".into(), json!({}), false).await.unwrap()["pong"].is_u64());
+        wait_for(&hub, "its block filled again", |s| s.blocks.get("hello").is_some_and(|v| v["commit"] == "First of all" && v["reads"] == 1));
+        assert_eq!(module.run(), prism_core::modules::ModuleRun { id: "hello".into(), ..Default::default() });
+    }
     std::fs::remove_dir_all(clone).unwrap();
 }
 

@@ -265,6 +265,9 @@ fn export_bindings() {
     // Settings, packs, profiles, the forge's people, labels and logs, a pod, an event.
     packs::PackInfo::export_all(&cfg).unwrap();
     prism_core::modules::ModuleInfo::export_all(&cfg).unwrap();
+    prism_core::modules::ModuleRun::export_all(&cfg).unwrap();
+    prism_core::modules::install::ModuleCheck::export_all(&cfg).unwrap();
+    packs::RemovedModule::export_all(&cfg).unwrap();
     packs::PackCheck::export_all(&cfg).unwrap();
     settings::PackFile::export_all(&cfg).unwrap();
     settings::FileView::export_all(&cfg).unwrap();

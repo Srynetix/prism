@@ -538,7 +538,7 @@ export const SCHEMA: SectionSpec[] = [
   },
   {
     id: 'updates', label: t('Updates'), table: '[updates]', path: ['updates'],
-    intro: t('Prism updates itself from the releases of a repository (prism-v… tags, scripts/release.sh), read with glab or gh: the access you already have, no token. A team’s pack names its private repository, whose builds carry the team’s blocks; the open-source Prism, its public one. On macOS and from an AppImage, Install replaces Prism and restarts it; a .deb or an Arch package is downloaded, for sudo apt install or sudo pacman -U.'),
+    intro: t('Prism updates itself from the releases of a repository (prism-v… tags, scripts/release.sh), read with glab or gh: the access you already have, no token. Prism’s public releases are at gh:Srynetix/prism; a team’s pack may name it, or another repository, for its members (a team’s blocks come as modules of its pack, not in a build). On macOS and from an AppImage, Install replaces Prism and restarts it; a .deb or an Arch package is downloaded, for sudo apt install or sudo pacman -U.'),
     fields: [
       { key: 'enabled', label: t('Check for updates'), hint: t('At launch and every 6 hours; a newer Prism shows in the status bar. Off: only Check now reads the releases.'), kind: 'toggle' },
       { key: 'source', label: t('Source'), hint: t('Where the releases are published: glab:group/project or gh:owner/repo. Empty: no updates. Checked once saved.'), kind: 'text', placeholder: 'glab:group/project', optional: true },

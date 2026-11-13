@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-pub use trust::{fingerprint_of, trust, trust_path_for};
+pub use trust::{fingerprint_of, forget, trust, trust_path_for, update as trust_update};
 
 /// The module contract this Prism gives: a module built for another major one is refused.
 pub const CONTRACT: u32 = 1;
@@ -58,8 +58,28 @@ pub struct ModuleInfo {
     pub trusted_version: Option<String>,
     /// Its folder's fingerprint: what trusting it trusts.
     pub fingerprint: String,
-    /// The pack that installed it (`[[modules]]` of a pack); none: put there by hand.
+    /// The pack that installed it (`[[modules]]` of a pack); none: installed by hand, or put there.
     pub pack: Option<String>,
+    /// Where it was installed from (a pack's or by hand); none: its folder put there.
+    pub source: Option<String>,
+    /// Its back end stopped Prism the last time it ran (`stopped_mark`), and it is the same one:
+    /// held, its blocks say so, until I start it again (Settings › Packs › Modules) or it is replaced.
+    pub stopped: bool,
+}
+
+/// A module's back end as it runs in this Prism (`prism-modules`): held or not, its crashes.
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct ModuleRun {
+    pub id: String,
+    /// Why it does not run now: held (it stopped Prism), given up after its crashes, removed.
+    pub held: Option<String>,
+    /// Its crashes of the last minutes.
+    pub crashes: u32,
+    /// The last one: what it said, and when (milliseconds since 1970).
+    pub last_crash: Option<String>,
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+    pub last_crash_at: Option<i64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -157,6 +177,11 @@ pub fn stopped_mark(root: &Path, id: &str) -> PathBuf {
     root.join(".stopped").join(id)
 }
 
+/// Its back end may run again: the mark it left stopping Prism removed (`stopped_mark`).
+pub fn release(root: &Path, id: &str) {
+    let _ = std::fs::remove_file(stopped_mark(root, id));
+}
+
 /// What tells a component file from another: its size and when it was written.
 pub fn fingerprint(file: &Path) -> Option<String> {
     let meta = std::fs::metadata(file).ok()?;
@@ -195,6 +220,8 @@ fn inspect(id: &str, folder: &Path, trust: &Path) -> (ModuleInfo, Option<PathBuf
         trusted_version: None,
         fingerprint: String::new(),
         pack: install::pack_of(folder),
+        source: install::source_of(folder),
+        stopped: false,
     };
     let manifest: Manifest = match std::fs::read_to_string(folder.join("module.toml")).map_err(|e| e.to_string()).and_then(|t| toml::from_str(&t).map_err(|e| e.message().to_string())) {
         Ok(m) => m,
@@ -213,7 +240,7 @@ fn inspect(id: &str, folder: &Path, trust: &Path) -> (ModuleInfo, Option<PathBuf
     let component = manifest.wasm.as_ref().map(|w| within(folder, &w.component));
     out.backend = component.as_ref().is_some_and(|c| c.as_ref().is_some_and(|c| c.is_file()));
     // Its back end stopped Prism the last time it ran, and it is the same one.
-    let stopped = component.as_ref().and_then(|c| c.as_deref()).and_then(fingerprint).is_some_and(|f| folder.parent().is_some_and(|root| std::fs::read_to_string(stopped_mark(root, id)).is_ok_and(|m| m.trim() == f)));
+    out.stopped = component.as_ref().and_then(|c| c.as_deref()).and_then(fingerprint).is_some_and(|f| folder.parent().is_some_and(|root| std::fs::read_to_string(stopped_mark(root, id)).is_ok_and(|m| m.trim() == f)));
     out.web = web.as_ref().is_some_and(|w| w.as_ref().is_some_and(|w| w.join("defs.js").is_file()));
     out.refused = if m.id.as_deref().is_some_and(|declared| declared != id) {
         Some(prism_base::tr!("its folder is {folder} but module.toml names it {id}", folder = id, id = m.id.unwrap_or_default()))
@@ -227,8 +254,6 @@ fn inspect(id: &str, folder: &Path, trust: &Path) -> (ModuleInfo, Option<PathBuf
         Some(prism_base::tr!("no defs.js in its web folder"))
     } else if component.is_some() && !out.backend {
         Some(prism_base::tr!("no component at its [wasm] component, inside the module"))
-    } else if stopped {
-        Some(prism_base::tr!("its back end stopped Prism the last time it ran: replace it, or delete modules/.stopped/{id} to try it again", id = id))
     } else {
         None
     };
@@ -352,9 +377,12 @@ mod tests {
         let list = list_in(&r, &r.join(".trust.json"));
         let by = |id: &str| list.iter().find(|m| m.id == id).unwrap().clone();
         assert_eq!(list.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["broken", "crashed", "empty", "hello", "later", "named", "other"]);
-        assert!(by("crashed").refused.unwrap().contains("stopped Prism"));
+        assert!(by("crashed").stopped && by("crashed").refused.is_none(), "held, not refused: started again from Settings");
+        release(&r, "crashed");
+        assert!(!list_in(&r, &r.join(".trust.json")).iter().find(|m| m.id == "crashed").unwrap().stopped, "released");
+        std::fs::write(stopped_mark(&r, "crashed"), fingerprint(&r.join("crashed/b.wasm")).unwrap()).unwrap();
         std::fs::write(r.join("crashed/b.wasm"), "another wasm").unwrap();
-        assert!(list_in(&r, &r.join(".trust.json")).iter().find(|m| m.id == "crashed").unwrap().refused.is_none(), "replaced: tried again");
+        assert!(!list_in(&r, &r.join(".trust.json")).iter().find(|m| m.id == "crashed").unwrap().stopped, "replaced: tried again");
         assert!(by("hello").refused.is_none() && by("hello").web);
         assert_eq!(by("hello").version.as_deref(), Some("1.0.0"));
         assert!(by("later").refused.unwrap().contains("999.0.0"));

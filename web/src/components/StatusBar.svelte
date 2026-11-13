@@ -34,7 +34,7 @@
   import type { Alert } from '../rules'
   import Icon from './Icon.svelte'
   import { isDue, pendingReminders } from '../notes.svelte'
-  import { packsReady, updateReady, updates } from '../updates.svelte'
+  import { modulesReady, packsReady, updateReady, updates } from '../updates.svelte'
   import { openSettings } from '../settings.svelte'
   import { feedbackOn, newlyShipped, openFeedback } from '../feedback.svelte'
   import { t, tn, tc } from '../i18n.svelte'
@@ -301,9 +301,11 @@
     <AudioControl />
   {:else if id === 'update' && updateReady()}
     <button class="sbi update" onclick={() => openSettings('updates')} title={t('Prism {version} is out (this one: {current}) · Settings › Updates', { version: updates.info!.latest!.version, current: updates.info!.current })}><span class="g"><Icon name="up" /></span>Prism <b>{updates.info!.latest!.version}</b></button>
-  {:else if id === 'packs' && packsReady().length}
+  {:else if id === 'packs' && (packsReady().length || modulesReady().length)}
     {@const ps = packsReady()}
-    <button class="sbi update" onclick={() => openSettings('packs')} title={tn(ps.length, '{packs} changed at its source · Settings › Packs', '{packs} changed at their sources · Settings › Packs', { packs: ps.map((p) => `${p.name}${p.latest ? ` ${p.latest}` : ''}`).join(', ') })}><span class="g"><Icon name="up" /></span>{#if ps.length > 1}<b>{ps.length}</b> {t('packs')}{:else}Pack <b>{ps[0].name}{#if ps[0].latest} {ps[0].latest}{/if}</b>{/if}</button>
+    {@const ms = modulesReady()}
+    {@const names = [...ps.map((p) => `${p.name}${p.latest ? ` ${p.latest}` : ''}`), ...ms.map((m) => `${m.id}${m.latest ? ` ${m.latest}` : ''}`)]}
+    <button class="sbi update" onclick={() => openSettings('packs')} title={tn(names.length, '{packs} changed at its source · Settings › Packs', '{packs} changed at their sources · Settings › Packs', { packs: names.join(', ') })}><span class="g"><Icon name="up" /></span>{#if names.length > 1}<b>{names.length}</b> {ms.length ? t('updates') : t('packs')}{:else if ps.length}Pack <b>{ps[0].name}{#if ps[0].latest} {ps[0].latest}{/if}</b>{:else}{t('Module')} <b>{ms[0].id}{#if ms[0].latest} {ms[0].latest}{/if}</b>{/if}</button>
   {:else if id === 'feedback' && feedbackOn()}
     {@const done = newlyShipped()}
     {#if done.length}

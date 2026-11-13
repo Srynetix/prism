@@ -140,11 +140,46 @@ pub fn trust(root: &Path, store: &Path, id: &str, fingerprint: &str) -> Result<(
     let manifest: Manifest = toml::from_str(&std::fs::read_to_string(folder.join("module.toml"))?).context("module.toml")?;
     let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut s = crate::trust::read(store);
-    s.trust(id, fingerprint, &text(id, &manifest), serde_json::Value::Null);
+    s.trust(id, fingerprint, &text(id, &manifest), data(info.pack.as_deref()));
     s.write(store)
 }
 
-/// Module `id` forgotten (its pack removed it).
+/// What a trust keeps besides the text: the pack the module came from, the one whose next versions
+/// may be trusted for me (`update`).
+fn data(pack: Option<&str>) -> serde_json::Value {
+    pack.map_or(serde_json::Value::Null, |p| serde_json::json!({ "pack": p }))
+}
+
+/// What a module may reach, in its text: a back end at all, its capabilities, its config tables.
+fn reach(text: &str) -> std::collections::BTreeSet<&str> {
+    text.lines().filter(|l| *l == "back end" || l.starts_with("capability ") || l.starts_with("config table ")).collect()
+}
+
+/// Module `id`, a new version pack `pack` just installed in `root`: trusted for me when a version
+/// of it was trusted before, from that pack (or from none said: trusted before packs kept it), and
+/// this one reaches nothing more. Whether it is trusted now; otherwise it waits, as any other.
+pub fn update(root: &Path, store: &Path, pack: &str, id: &str) -> bool {
+    let folder = root.join(id);
+    let (info, _) = super::inspect(id, &folder, store);
+    if info.refused.is_some() || info.pack.as_deref() != Some(pack) {
+        return false;
+    }
+    if info.trusted {
+        return true;
+    }
+    let Ok(manifest) = std::fs::read_to_string(folder.join("module.toml")).map_err(anyhow::Error::from).and_then(|t| toml::from_str::<Manifest>(&t).map_err(Into::into)) else { return false };
+    let new = text(id, &manifest);
+    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut s = crate::trust::read(store);
+    let Some(before) = s.trusted.get(id) else { return false };
+    if before.data.get("pack").and_then(|p| p.as_str()).is_some_and(|p| p != pack) || !reach(&new).is_subset(&reach(&before.text)) {
+        return false;
+    }
+    s.trust(id, &info.fingerprint, &new, data(Some(pack)));
+    s.write(store).is_ok()
+}
+
+/// Module `id` forgotten (its pack removed it, or I did).
 pub fn forget(store: &Path, id: &str) {
     let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut s = crate::trust::read(store);

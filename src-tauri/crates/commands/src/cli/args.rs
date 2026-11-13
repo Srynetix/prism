@@ -63,6 +63,9 @@ pub enum Cmd {
     /// The packs of config.toml, as in Settings › General › Packs
     #[command(subcommand)]
     Pack(Pack),
+    /// The modules of the profile, as in Settings › General › Packs › Modules
+    #[command(subcommand)]
+    Modules(Modules),
     /// Prism's MCP server for an agent CLI (on stdin/stdout), or its installation into one
     Mcp(Mcp),
     /// Store a token in the keychain: typed hidden on a terminal, read from stdin otherwise
@@ -134,6 +137,26 @@ pub enum Pack {
     },
     /// Remove a pack
     Remove { name: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Modules {
+    /// The modules in modules/: their version, where they come from, trusted or not
+    List,
+    /// Install a module without a pack: a folder or .zip, or a repository's folder at a ref
+    #[command(after_help = "Examples:\n  prism modules install ~/code/hello/dist/hello\n  prism modules install gh:owner/repo:dist/hello@v1\n  prism modules install glab:group/project:modules/hello.zip@main\n\nIt waits for your trust in Settings › General › Packs › Modules.")]
+    Install {
+        /// A folder or .zip, glab:group/project:path@ref or gh:owner/repo:path@ref
+        source: String,
+    },
+    /// Read a module again from its pack or its source, and put it back whole
+    Reinstall { id: String },
+    /// Remove a module (a pack's stays out of that pack's updates until put back)
+    Remove { id: String },
+    /// Put back a pack's module you removed
+    Restore { id: String },
+    /// Let a module that stopped Prism run again (its back end restarts with Prism, or from Settings)
+    Reset { id: String },
 }
 
 #[derive(Debug, Args)]
@@ -411,6 +434,8 @@ mod tests {
         assert_eq!(exit_of(&SERVER, &["engine"]), Some(2), "the app's alone");
         assert!(matches!(cmd_of(&APP, &["pack", "update", "team"]), Some(Cmd::Pack(Pack::Update { name, reference: None })) if name == "team"));
         assert!(matches!(cmd_of(&APP, &["pack", "update", "team", "v3"]), Some(Cmd::Pack(Pack::Update { reference: Some(r), .. })) if r == "v3"));
+        assert!(matches!(cmd_of(&APP, &["modules", "install", "gh:o/r:dist/hello@v1"]), Some(Cmd::Modules(Modules::Install { source })) if source == "gh:o/r:dist/hello@v1"));
+        assert!(matches!(cmd_of(&APP, &["modules", "reset", "delivery"]), Some(Cmd::Modules(Modules::Reset { id })) if id == "delivery"));
         assert!(matches!(cmd_of(&APP, &["mcp"]), Some(Cmd::Mcp(Mcp { action: None }))));
         assert!(matches!(cmd_of(&APP, &["mcp", "aside"]), Some(Cmd::Mcp(Mcp { action: Some(McpAction::Aside) }))));
         assert!(matches!(cmd_of(&APP, &["mcp", "install", "codex"]), Some(Cmd::Mcp(Mcp { action: Some(McpAction::Install { cli: AgentCli::Codex }) }))));

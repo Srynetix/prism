@@ -1,7 +1,8 @@
 //! A module's component on a thread of its own: configured, started for each of its blocks, then
 //! ticked part by part when due; the window's calls, the stages' hints and the images wait their
 //! turn there. A component that traps (a panic, a call past its deadline) is said as its blocks'
-//! error and started again after a while, three times at most in five minutes.
+//! error and started again after a while, three times at most in five minutes; then it waits for
+//! me to start it again (`Module::reset`, Settings › Packs › Modules).
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -50,6 +51,11 @@ pub struct Shared {
     /// Not trusted yet: the config it is to be configured with, and its blocks to start, once it is.
     waiting_config: Option<String>,
     waiting: Vec<(String, BlockCtx, Value)>,
+    /// Its crashes of the last minutes, the last one (when, in milliseconds since 1970, and what
+    /// it said), and why it was given up after them.
+    crashes: u32,
+    last_crash: Option<(i64, String)>,
+    given_up: Option<String>,
 }
 
 /// A module's version as trusted (`load_trusted`).
@@ -86,6 +92,11 @@ pub struct Module {
     /// Left while its component runs (`prism_core::modules::stopped_mark`): Prism dying in a call
     /// leaves it, and the same component is not run at the next launch.
     mark: PathBuf,
+    /// Held: nothing of it runs, its blocks say why (it stopped Prism the last time, or I removed
+    /// it), until `reset`.
+    held: Mutex<Option<String>>,
+    /// The fingerprint of the version trusted it runs, when said (`trusted`).
+    version: Mutex<Option<String>>,
     tx: Mutex<Option<mpsc::Sender<Msg>>>,
     me: OnceLock<std::sync::Weak<Module>>,
 }
@@ -98,6 +109,10 @@ enum Msg {
     Images { repo: PathBuf, project: String, local: Vec<LocalRepo>, reply: tokio::sync::oneshot::Sender<Result<Vec<ImageTarget>>> },
     /// A call it started apart finished: the part that started it, ticked again.
     Woke(String),
+    /// Started again from nothing: its component read again, its crashes forgotten.
+    Reset,
+    /// Stopped, its blocks saying why, until a `Reset`.
+    Hold(String),
 }
 
 fn leak(s: &str) -> &'static str {
@@ -106,10 +121,10 @@ fn leak(s: &str) -> &'static str {
 
 impl Module {
     /// `trusted`: the version trusted, its bytes read (`load_trusted`); none, it waits.
-    pub fn new(id: String, spec: Spec, mark: PathBuf, trusted: Option<Vec<u8>>) -> Self {
+    pub fn new(id: String, spec: Spec, mark: PathBuf, trusted: Option<Vec<u8>>, held: Option<String>) -> Self {
         let names = spec.blocks.iter().flat_map(|b| std::iter::once(&b.id).chain(&b.parts)).map(|s| leak(s)).collect();
         let trusted_as = trusted.map(|bytes| Trusted { capabilities: spec.capabilities.clone(), tables: spec.tables.clone(), bytes: Arc::new(bytes) });
-        Self { id, names, shared: Default::default(), trusted: trusted_as.is_some().into(), trusted_as: Mutex::new(trusted_as), spec, mark, tx: Mutex::new(None), me: OnceLock::new() }
+        Self { id, names, shared: Default::default(), trusted: trusted_as.is_some().into(), trusted_as: Mutex::new(trusted_as), spec, mark, held: Mutex::new(held), version: Mutex::new(None), tx: Mutex::new(None), me: OnceLock::new() }
     }
 
     /// The version trusted, as it is to run.
@@ -137,9 +152,81 @@ impl Module {
         anyhow!(prism_base::tr!("the module {id} waits for your trust: Settings › Packs › Modules", id = self.id))
     }
 
-    /// Trusted now: configured and its blocks started, as they were waiting.
+    /// Why nothing of it runs now: not trusted, or held.
+    fn blocked(&self) -> Option<anyhow::Error> {
+        if !self.is_trusted() {
+            return Some(self.untrusted());
+        }
+        self.held.lock().unwrap().clone().map(|why| anyhow!(why))
+    }
+
+    /// The fingerprint of the version it runs.
+    pub fn version(&self) -> Option<String> {
+        self.version.lock().unwrap().clone()
+    }
+
+    pub fn set_version(&self, fingerprint: &str) {
+        *self.version.lock().unwrap() = Some(fingerprint.to_string());
+    }
+
+    /// Its thread is there: it was configured or started.
+    fn running(&self) -> bool {
+        self.tx.lock().unwrap().is_some()
+    }
+
+    /// Started again from nothing (Settings › Packs › Modules): the mark it left stopping Prism
+    /// lifted, its crashes forgotten, its component read again from the version trusted (a new
+    /// one trusted since included), configured and its blocks started again; held before, what
+    /// waited starts.
+    pub fn reset(&self) {
+        let _ = std::fs::remove_file(&self.mark);
+        *self.held.lock().unwrap() = None;
+        {
+            let mut shared = self.shared.lock().unwrap();
+            shared.crashes = 0;
+            shared.last_crash = None;
+            shared.given_up = None;
+        }
+        if !self.is_trusted() {
+            return;
+        }
+        if self.running() {
+            let _ = self.send(Msg::Reset);
+        }
+        self.release();
+    }
+
+    /// Held: nothing of it runs, its blocks say `why` (removed: until Prism restarts).
+    pub fn hold(&self, why: String) {
+        *self.held.lock().unwrap() = Some(why.clone());
+        if self.running() {
+            let _ = self.send(Msg::Hold(why));
+        }
+    }
+
+    /// How it runs, for Settings › Packs › Modules.
+    pub fn run(&self) -> prism_core::modules::ModuleRun {
+        let shared = self.shared.lock().unwrap();
+        prism_core::modules::ModuleRun {
+            id: self.id.clone(),
+            held: self.held.lock().unwrap().clone().or_else(|| shared.given_up.clone()),
+            crashes: shared.crashes,
+            last_crash: shared.last_crash.as_ref().map(|(_, m)| m.clone()),
+            last_crash_at: shared.last_crash.as_ref().map(|(at, _)| *at),
+        }
+    }
+
+    /// Trusted now: configured and its blocks started, as they were waiting (held: once started again).
     pub fn trust_now(&self) {
         if self.trusted.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        self.release();
+    }
+
+    /// What waited for it (its config, its blocks), given to it: trusted and not held.
+    fn release(&self) {
+        if self.blocked().is_some() {
             return;
         }
         let (config, waiting) = {
@@ -161,7 +248,7 @@ impl Module {
     /// Its thread, compiling its component at once (the first `configure` waits less).
     pub fn warm(self: &Arc<Self>) {
         let _ = self.me.set(Arc::downgrade(self));
-        if self.is_trusted() {
+        if self.blocked().is_none() {
             let _ = self.sender();
         }
     }
@@ -204,7 +291,7 @@ impl Module {
     /// reloads.
     pub fn configure(&self, config: &toml::Table) -> Result<()> {
         let text = self.config_text(config);
-        if !self.is_trusted() {
+        if self.blocked().is_some() {
             self.shared.lock().unwrap().waiting_config = Some(text);
             return Ok(());
         }
@@ -231,9 +318,9 @@ impl Module {
     }
 
     pub fn start(&self, block: &str, ctx: BlockCtx, env: Value) -> Result<()> {
-        if !self.is_trusted() {
-            // Said on its block; started once trusted.
-            ctx.set_error(Some(format!("{:#}", self.untrusted())));
+        if let Some(why) = self.blocked() {
+            // Said on its block; started once trusted, or started again.
+            ctx.set_error(Some(format!("{why:#}")));
             let mut shared = self.shared.lock().unwrap();
             shared.waiting.retain(|(b, _, _)| b != block);
             shared.waiting.push((block.to_string(), ctx, env));
@@ -245,7 +332,7 @@ impl Module {
 
     /// Its blocks' sample states, the component configured for the demo once.
     pub fn demo(&self, block: &str) -> Option<Value> {
-        if !self.is_trusted() {
+        if self.blocked().is_some() {
             return None;
         }
         if self.shared.lock().unwrap().demo.is_none() {
@@ -260,8 +347,8 @@ impl Module {
     }
 
     pub async fn call(&self, block: &str, command: String, args: Value, demo: bool) -> Result<Value> {
-        if !self.is_trusted() {
-            return Err(self.untrusted());
+        if let Some(why) = self.blocked() {
+            return Err(why);
         }
         let (reply, answer) = tokio::sync::oneshot::channel();
         self.send(Msg::Call { block: block.into(), command, args, demo, reply })?;
@@ -269,8 +356,8 @@ impl Module {
     }
 
     pub async fn hints(&self, repo: PathBuf) -> Result<Hints> {
-        if !self.is_trusted() {
-            return Err(self.untrusted());
+        if let Some(why) = self.blocked() {
+            return Err(why);
         }
         let (reply, answer) = tokio::sync::oneshot::channel();
         self.send(Msg::Hints { repo, reply })?;
@@ -278,8 +365,8 @@ impl Module {
     }
 
     pub async fn images(&self, repo: PathBuf, project: String, local: Vec<LocalRepo>) -> Result<Vec<ImageTarget>> {
-        if !self.is_trusted() {
-            return Err(self.untrusted());
+        if let Some(why) = self.blocked() {
+            return Err(why);
         }
         let (reply, answer) = tokio::sync::oneshot::channel();
         self.send(Msg::Images { repo, project, local, reply })?;
@@ -487,14 +574,21 @@ impl Worker {
         let now = Instant::now();
         self.crashes.retain(|at| now.duration_since(*at) < CRASH_WINDOW);
         self.crashes.push(now);
+        let said = message.clone();
         let message = if self.crashes.len() >= CRASHES {
-            let given_up = format!("{message} ({CRASHES} times in {} minutes: no more until Prism restarts)", CRASH_WINDOW.as_secs() / 60);
+            let given_up = format!("{message} ({CRASHES} times in {} minutes: start it again from Settings › Packs › Modules)", CRASH_WINDOW.as_secs() / 60);
             self.given_up = Some(given_up.clone());
             given_up
         } else {
             self.restart_at = Some(now + RESTART_AFTER);
             message
         };
+        {
+            let mut shared = self.module.shared.lock().unwrap();
+            shared.crashes = self.crashes.len() as u32;
+            shared.last_crash = Some((chrono::Utc::now().timestamp_millis(), said));
+            shared.given_up = self.given_up.clone();
+        }
         for (ctx, _) in self.started.values() {
             ctx.set_error(Some(message.clone()));
         }
@@ -520,6 +614,22 @@ impl Worker {
                 if !part.is_empty() && self.started.contains_key(self.module.owner(&part)) {
                     self.due.insert(part, Instant::now());
                 }
+            }
+            Msg::Reset => {
+                self.instance = None;
+                self.component = None;
+                self.crashes.clear();
+                self.given_up = None;
+                self.restart_at = None;
+                self.restart();
+            }
+            Msg::Hold(why) => {
+                self.instance = None;
+                self.restart_at = None;
+                for (ctx, _) in self.started.values() {
+                    ctx.set_error(Some(why.clone()));
+                }
+                self.given_up = Some(why);
             }
             Msg::Configure { config, lang, demo, done } => {
                 // A fresh instance: nothing of the former config stays.
@@ -740,7 +850,7 @@ mod tests {
         std::fs::create_dir_all(&folder).unwrap();
         std::fs::write(folder.join("b.wasm"), b"").unwrap();
         let spec = crate::manifest::parse(&folder, "[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"a\"\nparts = [\"a_reads\"]\n[[wasm.blocks]]\nid = \"b\"\n").unwrap();
-        let m = Module::new("m".into(), spec, folder.join(".stopped/m"), Some(Vec::new()));
+        let m = Module::new("m".into(), spec, folder.join(".stopped/m"), Some(Vec::new()), None);
         assert_eq!(m.source("a_reads").map(|s| (s, m.owner(s))), Some(("a_reads", "a")));
         assert_eq!(m.source("b").map(|s| m.owner(s)), Some("b"));
         // Undeclared: not the first block's own error.

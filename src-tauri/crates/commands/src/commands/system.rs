@@ -115,6 +115,86 @@ pub async fn modules_trust(id: String, fingerprint: String) -> Cmd<bool> {
     .map_err(Into::into)
 }
 
+/// How the modules' back ends run in this Prism (held, their crashes), the pack modules I removed,
+/// and the modules installed by hand read again from their sources when `check` (Settings › Packs
+/// › Modules, the status bar).
+#[prism_macros::command]
+pub fn modules_runs() -> Vec<prism_core::modules::ModuleRun> {
+    prism_modules::runs()
+}
+
+#[prism_macros::command]
+pub fn modules_removed() -> Vec<prism_core::packs::RemovedModule> {
+    prism_core::packs::modules_removed(&prism_core::profile::config_path())
+}
+
+/// The modules installed by hand, read again from their sources. `auto`: the periodic check, which
+/// reads nothing with `[updates] enabled` or `packs` off.
+#[prism_macros::command]
+pub async fn modules_check(auto: bool) -> Cmd<Vec<prism_core::modules::install::ModuleCheck>> {
+    if crate::demo::active() {
+        return Ok(Vec::new());
+    }
+    let path = prism_core::profile::config_path();
+    let cfg = prism_core::config::load(&path)?;
+    if auto && !(cfg.updates.enabled && cfg.updates.packs) {
+        return Ok(Vec::new());
+    }
+    Ok(prism_core::packs::modules_check(&path).await)
+}
+
+/// Module `id` started again from nothing: its crashes forgotten, the mark it left stopping Prism
+/// lifted. Whether it runs again now (otherwise: once Prism restarts).
+#[prism_macros::command]
+pub async fn modules_reset(id: String) -> Cmd<bool> {
+    Ok(tokio::task::spawn_blocking(move || prism_modules::reset(&id)).await?)
+}
+
+/// Module `id` read again from where it came from (its pack, or its source given by hand), then
+/// started again. Whether it is trusted (a pack's update reaching nothing more, as I let it).
+#[prism_macros::command]
+pub async fn modules_reinstall(id: String) -> Cmd<bool> {
+    let trusted = prism_core::packs::module_reinstall(&prism_core::profile::config_path(), &id).await?;
+    tokio::task::spawn_blocking(move || {
+        prism_modules::refresh();
+        prism_modules::reset(&id);
+    })
+    .await?;
+    Ok(trusted)
+}
+
+/// Module `id` removed, its trust forgotten (a pack's, kept out of its pack's updates); its blocks
+/// go once Prism restarts.
+#[prism_macros::command]
+pub async fn modules_remove(id: String) -> Cmd<()> {
+    tokio::task::spawn_blocking(move || {
+        prism_core::packs::module_remove(&prism_core::profile::config_path(), &id)?;
+        prism_modules::removed(&id);
+        anyhow::Ok(())
+    })
+    .await?
+    .map_err(Into::into)
+}
+
+/// A module installed by hand from `source` (a folder or `.zip`, `glab:`/`gh:…:path@ref`): its id.
+/// It waits for my trust, its back end for a restart.
+#[prism_macros::command]
+pub async fn modules_install(source: String) -> Cmd<String> {
+    prism_core::packs::module_install(&prism_core::profile::config_path(), &source).await.map_err(Into::into)
+}
+
+/// A pack's module I removed, put back from its pack. Whether it is trusted.
+#[prism_macros::command]
+pub async fn modules_restore(id: String) -> Cmd<bool> {
+    let trusted = prism_core::packs::module_restore(&prism_core::profile::config_path(), &id).await?;
+    tokio::task::spawn_blocking(move || {
+        prism_modules::refresh();
+        prism_modules::reset(&id);
+    })
+    .await?;
+    Ok(trusted)
+}
+
 /// The log file's path, and its size in bytes (absent: none yet).
 #[prism_macros::command]
 pub fn logs_info() -> (String, Option<u64>) {
