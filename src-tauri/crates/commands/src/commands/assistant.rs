@@ -36,9 +36,10 @@ pub async fn assistant_ask(state: State<'_, AppState>, text: String) -> Cmd<Stri
         cwd: Some(home),
         prompt: Some(text),
         worktree: None,
-        // Codex in its read-only sandbox: the assistant writes nowhere (Claude Code goes without
-        // the tools that would, `assistant_args`).
-        permission_mode: (provider == crate::agents::provider::Provider::Codex).then(|| "plan".to_string()),
+        // The assistant writes nowhere: Claude Code goes without the tools that would
+        // (`assistant_args`); the others in their plan mode (Codex's read-only sandbox, OpenCode's
+        // plan agent, Command Code's plan mode).
+        permission_mode: (provider != crate::agents::provider::Provider::Claude).then(|| "plan".to_string()),
         category: None,
         tags: Vec::new(),
         provider: Some(provider),

@@ -670,6 +670,8 @@ fn the_assistant_proposals_are_flagged_and_answered() {
     assert!(read.assistant.is_none());
     let answer = super::fold::propose_answer(r#"[{"type":"text","text":"{\"status\":\"created\",\"key\":\"SHOP-215\",\"url\":\"https://x/SHOP-215\"}"}]"#).unwrap();
     assert_eq!(serde_json::from_str::<Value>(&answer).unwrap(), serde_json::json!({ "status": "created", "key": "SHOP-215", "url": "https://x/SHOP-215" }));
+    let waiting = super::fold::propose_answer(r#"{"status":"waiting","id":7,"note":"call assistant_wait"}"#).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&waiting).unwrap(), serde_json::json!({ "status": "waiting", "id": 7 }), "its card follows the id");
 }
 
 #[test]

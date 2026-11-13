@@ -464,7 +464,7 @@ statusbar = false
 # a folder of its own (`dir`; absent, assistant/ in the profile's folder), with Prism's MCP server
 # and its assistant tools: it finds the repository (its memory, then [[repos]] name, aliases,
 # description), reads the tickets, MRs and agents, explores a repository's code through a read-only
-# subagent (`explore_seconds` at most), and proposes a ticket, an agent to launch, a note, a
+# subagent (`explore_seconds` at most; Codex: 280 s, its own limit for a tool), and proposes a ticket, an agent to launch, a note, a
 # repository to add or a fact to remember: a card in its Chat, applied in a click. It never writes
 # in a repository nor launches anything itself (Claude Code goes without its file and shell tools,
 # Codex runs in its read-only sandbox). One conversation per request, in the Assistant panel. Its

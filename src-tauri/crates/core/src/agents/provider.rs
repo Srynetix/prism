@@ -352,8 +352,8 @@ impl Provider {
     }
 
     /// Prism's assistant's options: Prism's tools allowed without asking, those that write, run
-    /// or read files taken away (Claude Code). The others: Codex runs it in its read-only sandbox
-    /// (its permission mode, `plan`); OpenCode and Command Code take no such option.
+    /// or read files taken away (Claude Code). The others run it in their plan mode (Codex's
+    /// read-only sandbox, OpenCode's plan agent, Command Code's): they take no such option.
     pub fn assistant_args(self) -> Vec<String> {
         if self != Self::Claude {
             return Vec::new();

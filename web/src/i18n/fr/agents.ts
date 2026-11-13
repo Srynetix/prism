@@ -1126,7 +1126,7 @@ export default {
   'Exploration time': 'Durée d’exploration',
   'Fact': 'Fait',
   'Forget everything…': 'Tout oublier…',
-  'How long its read-only subagent may take to explore a repository.': 'Le temps que son sous-agent en lecture seule peut prendre pour explorer un repo.',
+  'How long its read-only subagent may take to explore a repository. Codex: 280 s at most, its own limit for a tool.': 'Le temps que son sous-agent en lecture seule peut prendre pour explorer un repo. Codex : 280 s au plus, sa propre limite pour un outil.',
   'Implement ticket SHOP-214 on the back': 'Implémente le ticket SHOP-214 sur le back',
   'In your own words: it finds the repository, reads the tickets and the code, and proposes a ticket or an agent to launch. Nothing is created nor launched without your click.': 'Avec vos mots : il retrouve le repo, lit les tickets et le code, et propose un ticket ou un agent à lancer. Rien n’est créé ni lancé sans votre clic.',
   'Its conversations and its memory': 'Ses conversations et sa mémoire',

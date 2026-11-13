@@ -239,7 +239,7 @@ export const SCHEMA: SectionSpec[] = [
       { key: 'model', label: t('Model'), hint: t('Its model, in its CLI’s names. Empty: the CLI’s ([agents.<cli>] model).'), kind: 'text', optional: true, placeholder: t('the CLI’s default') },
       { key: 'effort', label: t('Effort'), hint: t('Its reasoning effort. Empty: the CLI’s.'), kind: 'text', optional: true, placeholder: t('the CLI’s default') },
       { key: 'dir', label: t('Folder'), hint: t('Where it works, its memory in memory/. Empty: assistant/ in the profile’s folder (~/.config/prism/assistant for the default profile).'), kind: 'text', optional: true, placeholder: '~/.config/prism/assistant' },
-      { key: 'explore_seconds', label: t('Exploration time'), hint: t('How long its read-only subagent may take to explore a repository.'), kind: 'number', unit: 'seconds' },
+      { key: 'explore_seconds', label: t('Exploration time'), hint: t('How long its read-only subagent may take to explore a repository. Codex: 280 s at most, its own limit for a tool.'), kind: 'number', unit: 'seconds' },
     ],
   },
   {

@@ -110,7 +110,9 @@ fn parse_fact(id: &str, text: &str) -> Option<Fact> {
         Some((head, body)) => {
             for line in head.lines() {
                 let Some((k, v)) = line.split_once(':') else { continue };
-                let v = v.trim().trim_matches('"').to_string();
+                // `source` is written as a JSON string (`fact_file`): read back as one.
+                let v = v.trim();
+                let v = if v.starts_with('"') { serde_json::from_str::<String>(v).unwrap_or_else(|_| v.trim_matches('"').to_string()) } else { v.to_string() };
                 match k.trim() {
                     "kind" => fact.kind = FactKind::parse(&v),
                     "source" => fact.source = v,
@@ -171,7 +173,9 @@ pub fn save(cfg: &Config, mut fact: Fact) -> Result<Fact> {
         bail!("the repository {repo} is out of the assistant's reach ([[repos]] assistant = false): nothing of it is remembered");
     }
     fact.id = if fact.id.trim().is_empty() { new_id(&dir, &fact.text) } else { checked_id(&fact.id)?.to_string() };
-    fact.at = fact.at.or_else(|| Some(Utc::now().date_naive()));
+    // A fact changed keeps when it was remembered.
+    let before = std::fs::read_to_string(dir.join(format!("{}.md", fact.id))).ok().and_then(|t| parse_fact(&fact.id, &t)).and_then(|f| f.at);
+    fact.at = fact.at.or(before).or_else(|| Some(Utc::now().date_naive()));
     std::fs::write(dir.join(format!("{}.md", fact.id)), fact_file(&fact))?;
     write_index(cfg)?;
     Ok(fact)
@@ -273,9 +277,13 @@ pub struct Candidate {
 /// The repositories `text` may be about, the likeliest first: by its memory first, then their
 /// name, aliases, project and description. Those out of its reach are never listed.
 pub fn find_repo(cfg: &Config, text: &str) -> Vec<Candidate> {
+    find_repo_in(cfg, text, &visible_facts(cfg))
+}
+
+/// `find_repo`, with its memory read already (`visible_facts`).
+pub fn find_repo_in(cfg: &Config, text: &str, facts: &[Fact]) -> Vec<Candidate> {
     let lower = text.to_lowercase();
     let words: Vec<&str> = lower.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-').filter(|w| w.chars().count() >= 3 && !STOP.contains(w)).collect();
-    let facts = visible_facts(cfg);
     let mut out = Vec::new();
     for r in visible(cfg) {
         let mut score: f32 = 0.0;
@@ -299,7 +307,7 @@ pub fn find_repo(cfg: &Config, text: &str) -> Vec<Candidate> {
         }
         // A fact naming this repository alone and words of the request (one naming several is
         // read by the assistant, `remembered`).
-        for f in &facts {
+        for f in facts {
             let ft = f.text.to_lowercase();
             if contains_word(&ft, &name) && repos_named(cfg, &ft) == 1 && words.iter().any(|w| *w != name && contains_word(&ft, w)) {
                 score = score.max(0.95);
@@ -330,9 +338,14 @@ fn repos_named(cfg: &Config, lower: &str) -> usize {
 /// The facts that share words with `text`, the most shared first: what the assistant reads before
 /// it decides, or asks.
 pub fn remembered(cfg: &Config, text: &str) -> Vec<Fact> {
+    remembered_in(text, visible_facts(cfg))
+}
+
+/// `remembered`, among `facts` (`visible_facts`).
+pub fn remembered_in(text: &str, facts: Vec<Fact>) -> Vec<Fact> {
     let lower = text.to_lowercase();
     let words: Vec<&str> = lower.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-').filter(|w| w.chars().count() >= 3 && !STOP.contains(w)).collect();
-    let mut hits: Vec<(usize, Fact)> = visible_facts(cfg)
+    let mut hits: Vec<(usize, Fact)> = facts
         .into_iter()
         .map(|f| {
             let ft = f.text.to_lowercase();
@@ -532,6 +545,14 @@ mod tests {
         assert_eq!(all[0].kind, FactKind::Convention);
         assert_eq!(all[0].source, "remember that…");
         assert!(std::fs::read_to_string(memory_dir(&c).join(INDEX)).unwrap().contains("[convention] Tickets of shop"));
+        // Quotes in its source come back as written, however often it is saved; its date stays.
+        let quoted = save(&c, Fact { text: "The cart talk.".into(), source: r#"the "cart" talk"#.into(), at: NaiveDate::from_ymd_opt(2026, 11, 2), ..Default::default() }).unwrap();
+        let read = facts(&c).into_iter().find(|f| f.id == quoted.id).unwrap();
+        assert_eq!(read.source, r#"the "cart" talk"#);
+        let edited = save(&c, Fact { id: read.id.clone(), text: "The cart talk, edited.".into(), source: read.source.clone(), ..Default::default() }).unwrap();
+        let read = facts(&c).into_iter().find(|f| f.id == edited.id).unwrap();
+        assert_eq!((read.source.as_str(), read.at), (r#"the "cart" talk"#, NaiveDate::from_ymd_opt(2026, 11, 2)));
+        forget(&c, &quoted.id).unwrap();
         forget(&c, &again.id).unwrap();
         assert_eq!(facts(&c).len(), 1);
         assert!(forget(&c, "../config").is_err());

@@ -519,6 +519,10 @@ pub(super) fn propose_answer(output: &str) -> Option<String> {
     }
     // What an assistant's proposal became: the ticket created, the agent launched, the repository
     // added, the fact kept.
+    // A proposal still waiting past its call: its id, which its card follows.
+    if let Some(id) = v.get("id").and_then(Value::as_u64) {
+        out["id"] = Value::from(id);
+    }
     for k in ["key", "url", "agent", "repo", "title", "fact"] {
         if let Some(x) = v.get(k).and_then(Value::as_str).filter(|x| !x.trim().is_empty()) {
             out[k] = Value::from(cut(x.trim(), 300));

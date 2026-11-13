@@ -293,15 +293,42 @@
   }
   /** A call shown as a line of its own (`entryRow`'s last case), not as a card. */
   const plainCall = (t: ConversationTool) => !t.proposal && !proposalCard({ type: 'tool', ...t }) && !t.ask && !t.aside && !t.assistant && t.kind !== 'agent'
-  /** Prism's assistant's proposal a running call waits for: by its id (`assistant_wait`), else its title, else the oldest of its kind. */
+  /** Prism's assistant's calls of `action` under way, in the conversation's order. */
+  const assistantCalls = (action: string) => (convo?.turns ?? []).flatMap((t) => t.entries).filter((e): e is ConversationEntry & ConversationTool => e.type === 'tool' && e.state === 'running' && e.assistant === action)
+  const headOf = (s: string) => s.split('\n')[0].trim().toLowerCase().replace(/…$/, '')
+  /** A call names a proposal: its title (or ticket, source, text, prompt) as the call gave it. */
+  const names = (c: ConversationTool, p: AssistantProposal) => {
+    const what = headOf(c.what ?? '')
+    return !!what && [p.title, p.text, p.ticket ?? '', p.source ?? ''].some((x) => !!x && (headOf(x).startsWith(what) || what.startsWith(headOf(x))))
+  }
+  /**
+   * Prism's assistant's proposal a call shows: one still waiting past its call (`waiting`, its id),
+   * unless an `assistant_wait` shows it since; a running one by its id (`assistant_wait`), else the
+   * one its title names, else paired in order with the other calls of its kind no title names.
+   */
   function assistantProposalOf(call: ConversationTool): AssistantProposal | undefined {
-    if (call.state !== 'running' || !call.assistant) return undefined
+    if (!call.assistant) return undefined
     const mineAll = assistantProposals(shared.snapshot, id)
-    const what = call.what?.trim() ?? ''
-    if (call.assistant === 'wait') return mineAll.find((p) => `#${p.id}` === what)
-    const same = mineAll.filter((p) => p.action === call.assistant)
-    const head = (s: string) => s.split('\n')[0].trim().toLowerCase()
-    return same.find((p) => !!what && [p.title, p.text, p.ticket ?? '', p.source ?? ''].some((x) => x && (head(x).startsWith(what.toLowerCase().replace(/…$/, '')) || what.toLowerCase().startsWith(head(x).replace(/…$/, ''))))) ?? same[0]
+    if (call.state !== 'running') {
+      let waiting: number | undefined
+      try {
+        const o = call.output ? JSON.parse(call.output) : null
+        if (o?.status === 'waiting' && typeof o.id === 'number') waiting = o.id
+      } catch {
+        // not JSON: no proposal
+      }
+      if (waiting === undefined || assistantCalls('wait').some((c) => c.what === `#${waiting}`)) return undefined
+      return mineAll.find((p) => p.id === waiting)
+    }
+    if (call.assistant === 'wait') return mineAll.find((p) => `#${p.id}` === call.what?.trim())
+    const same = mineAll.filter((p) => p.action === call.assistant).sort((a, b) => a.id - b.id)
+    const named = same.find((p) => names(call, p))
+    if (named) return named
+    const calls = assistantCalls(call.assistant)
+    const unnamed = same.filter((p) => !calls.some((c) => names(c, p)))
+    const others = calls.filter((c) => !same.some((p) => names(c, p)))
+    const at = others.findIndex((c) => c === call || (c.at === call.at && c.what === call.what))
+    return at >= 0 ? unnamed[at] : undefined
   }
   /** A reminder longer than this folds, a click shows it whole. */
   const REMINDER_LINES = 6

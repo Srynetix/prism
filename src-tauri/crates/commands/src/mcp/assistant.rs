@@ -44,18 +44,21 @@ pub struct Ask<'a> {
 /// One of the assistant's methods (`assistant_…`).
 pub async fn handle(ask: Ask<'_>, method: &str, params: Value) -> Result<Value> {
     ensure!(ask.cfg.agents.assistant.enabled, "[agents.assistant] enabled is off in this Prism");
-    let snap = ask.state.hub.subscribe().borrow().clone();
+    // The state, read by the arms that need it only.
+    let snap = || ask.state.hub.subscribe().borrow().clone();
     // Its tools answer its own conversations only: not any agent given Prism's MCP server.
     let mine = ask.agent.as_deref().is_some_and(|a| ask.state.agents.is_assistant(a));
     ensure!(mine, "these tools are the assistant's: ask Prism from its palette (« Ask Prism »)");
     let s = |k: &str| params.get(k).and_then(Value::as_str).map(str::trim).filter(|v| !v.is_empty()).map(str::to_string);
     let cfg = ask.cfg;
     match method {
-        "assistant_repos" => Ok(repos(cfg, &snap)),
+        "assistant_repos" => Ok(repos(cfg, &snap())),
         "assistant_find_repo" => {
             let text = s("text").context("text")?;
-            let found = core::find_repo(cfg, &text);
-            let remembered: Vec<Value> = core::remembered(cfg, &text).into_iter().map(|f| json!({ "id": f.id, "kind": f.kind, "text": f.text })).collect();
+            // Its memory read once for both.
+            let facts = core::visible_facts(cfg);
+            let found = core::find_repo_in(cfg, &text, &facts);
+            let remembered: Vec<Value> = core::remembered_in(&text, facts).into_iter().map(|f| json!({ "id": f.id, "kind": f.kind, "text": f.text })).collect();
             let excluded = core::excluded_in(cfg, &text);
             let mut out = json!({ "candidates": found, "remembered": remembered });
             if let Some(r) = excluded {
@@ -76,6 +79,11 @@ pub async fn handle(ask: Ask<'_>, method: &str, params: Value) -> Result<Value> 
             if let Some(r) = core::excluded_in(cfg, &text) {
                 bail!("this ticket is about {r}, a repository out of your reach: it may not be read");
             }
+            // Its repository as the tracker files it, which its text may not name.
+            let filed = ask.state.tracker().search(&view.id).await.unwrap_or_default().into_iter().find(|t| t.id.eq_ignore_ascii_case(&view.id)).and_then(|t| t.repo);
+            if let Some(r) = filed.filter(|r| !visible(cfg, r)) {
+                bail!("this ticket is about {r}, a repository out of your reach: it may not be read");
+            }
             Ok(pick(&v, &["id", "name", "status", "task_type", "priority", "assignees", "tags", "list", "parent", "url", "description"]))
         }
         "assistant_search_tickets" => {
@@ -88,13 +96,13 @@ pub async fn handle(ask: Ask<'_>, method: &str, params: Value) -> Result<Value> 
                 .collect();
             Ok(json!({ "tickets": list, "note": if list.is_empty() { "nothing found: try other words" } else { "" } }))
         }
-        "assistant_agents" => Ok(agents(cfg, &snap)),
+        "assistant_agents" => Ok(agents(cfg, &snap())),
         "assistant_mrs" => {
             let repo = s("repo");
             if let Some(r) = &repo {
                 core::repo(cfg, r)?;
             }
-            let list: Vec<Value> = snap
+            let list: Vec<Value> = snap()
                 .merge_requests
                 .iter()
                 .filter(|m| m.repo.as_deref().is_none_or(|r| visible(cfg, r)))
@@ -104,6 +112,7 @@ pub async fn handle(ask: Ask<'_>, method: &str, params: Value) -> Result<Value> 
             Ok(json!({ "merge_requests": list }))
         }
         "assistant_sprint" => {
+            let snap = snap();
             let Some(sprint) = &snap.sprint else { return Ok(json!({ "sprint": null, "note": "no sprint read (no tracker, or not yet)" })) };
             let me = snap.tracker_me.as_ref().map(|p| p.name.clone());
             let tickets: Vec<Value> = sprint
@@ -137,7 +146,9 @@ pub async fn handle(ask: Ask<'_>, method: &str, params: Value) -> Result<Value> 
             let question = s("question").context("question")?;
             let dir = repo.path.as_deref().map(prism_core::config::expand_home).context("this repository has no local clone ([[repos]] path): nothing to explore")?;
             let provider = cfg.agents.assistant.provider.unwrap_or(cfg.agents.provider);
-            let limit = std::time::Duration::from_secs(u64::from(cfg.agents.assistant.explore_seconds.clamp(30, 1800)));
+            // Under the CLI's own timeout for a tool (Codex's for Prism's server), past which nobody reads the answer.
+            let most = if provider == prism_core::agents::provider::Provider::Codex { prism_core::mcp::CODEX_TOOL_SECONDS - 20 } else { 1800 };
+            let limit = std::time::Duration::from_secs(u64::from(cfg.agents.assistant.explore_seconds.clamp(30, most)));
             let answer = ask.state.agents.explore(provider, None, &repo.name, &dir, &question, limit).await?;
             Ok(json!({ "repo": repo.name, "synthesis": answer }))
         }
@@ -273,18 +284,10 @@ fn agents(cfg: &Config, snap: &prism_core::state::Snapshot) -> Value {
         .agents
         .iter()
         .filter(|a| !a.launch.as_ref().is_some_and(|l| l.assistant))
-        .filter(|a| core::excluded_in(cfg, &format!("{} {}", a.cwd, a.worktree.as_deref().unwrap_or_default())).is_none() && !in_excluded(cfg, &a.cwd))
+        .filter(|a| [Some(a.cwd.as_str()), a.worktree.as_deref()].into_iter().flatten().all(|dir| snap.repo_of_dir(dir).is_none_or(|r| visible(cfg, &r))))
         .map(|a| json!({ "id": a.id, "title": a.title, "status": a.status, "kind": a.category, "folder": a.worktree.as_deref().unwrap_or(&a.cwd), "branch": a.branch, "ticket": a.ticket, "since": a.created_at }))
         .collect();
     json!({ "agents": list })
-}
-
-/// `dir` is in a repository out of reach (its clone, or its worktrees beside it).
-fn in_excluded(cfg: &Config, dir: &str) -> bool {
-    cfg.repos.iter().filter(|r| !r.assistant).filter_map(|r| r.path.as_deref()).map(prism_core::config::expand_home).any(|p| {
-        let p = p.display().to_string();
-        dir.starts_with(&p)
-    })
 }
 
 fn proposal(ask: &Ask<'_>, action: ProposalAction, repo: Option<String>, title: String, text: String, why: Option<String>) -> AssistantProposal {
@@ -334,9 +337,13 @@ fn publish(state: &AppState) {
 
 /// The connection `client` came by is gone: its proposals with it.
 pub fn gone(state: &AppState, client: u64) {
-    let before = PENDING.lock().unwrap().len();
-    PENDING.lock().unwrap().retain(|p| p.client != client);
-    if PENDING.lock().unwrap().len() != before {
+    let removed = {
+        let mut list = PENDING.lock().unwrap();
+        let before = list.len();
+        list.retain(|p| p.client != client);
+        list.len() != before
+    };
+    if removed {
         publish(state);
     }
 }

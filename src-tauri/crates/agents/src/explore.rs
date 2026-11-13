@@ -64,6 +64,15 @@ pub fn command(provider: Provider, cli: &config::CliConfig, prompt: &str, out: &
     Ok(provider.with_cli(argv, &cli))
 }
 
+/// Codex's answer file, removed whatever happens (a synthesis of private code).
+struct Removed(std::path::PathBuf);
+
+impl Drop for Removed {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
 impl Agents {
     /// Explores `dir` (repository `repo`) on `question` with `provider` (its `account`), read-only;
     /// gives up after `limit`. Its synthesis.
@@ -72,8 +81,8 @@ impl Agents {
             bail!(tr!("{path} is not a directory", path = dir.display()));
         }
         let cli = self.inner.settings.lock().unwrap().cli(provider).clone();
-        let out = std::env::temp_dir().join(format!("prism-explore-{}.txt", uuid::Uuid::new_v4()));
-        let argv = command(provider, &cli, &prompt(repo, question), &out)?;
+        let out = Removed(std::env::temp_dir().join(format!("prism-explore-{}.txt", uuid::Uuid::new_v4())));
+        let argv = command(provider, &cli, &prompt(repo, question), &out.0)?;
         let (program, args) = argv.split_first().context("no executable")?;
         let mut cmd = platform::command(program);
         cmd.args(args).current_dir(dir).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
@@ -96,13 +105,7 @@ impl Agents {
             Ok(r) => r,
             Err(_) => bail!(tr!("the exploration took more than {s} s: ask a narrower question", s = limit.as_secs())),
         };
-        let answer = match std::fs::read_to_string(&out) {
-            Ok(text) => {
-                let _ = std::fs::remove_file(&out);
-                text
-            }
-            Err(_) => stdout,
-        };
+        let answer = std::fs::read_to_string(&out.0).unwrap_or(stdout);
         let answer = answer.trim();
         if !status.is_ok_and(|s| s.success()) || answer.is_empty() {
             let why = stderr.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("no answer").trim().to_string();
