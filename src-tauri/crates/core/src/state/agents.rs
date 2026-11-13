@@ -287,6 +287,11 @@ pub struct Agent {
     /// to trust its folder, to approve Prism's hooks. Its status is then `WaitingTool`.
     pub gate: Option<AgentGate>,
     pub last_activity: Option<DateTime<Utc>>,
+    /// When it last moved — a prompt, a tool, a permission — not a mere notification: what a mark
+    /// read (`read_marks`) is compared with. Kept for Prism, never sent.
+    #[serde(skip)]
+    #[cfg_attr(feature = "ts", ts(skip))]
+    pub moved_at: Option<DateTime<Utc>>,
     /// How much of its context window the conversation fills (Claude Code); absent before its
     /// first reply, and after a compaction until the next one.
     pub context: Option<crate::agents::context::ContextUse>,

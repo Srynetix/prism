@@ -275,7 +275,7 @@ export function agentMenu(a: Agent, rename: () => void): MenuSection[] {
   // A session that went well, kept as a quick action (not one still prepared, nor a draft's own agent).
   const reusable = a.state !== 'prepared' && a.launch?.from !== DRAFTER
   const session: MenuItem[] = [
-    ...(a.state === 'running' && canMarkRead(a) ? [{ key: 'read', icon: 'check', label: tr('Mark as read'), hint: tr('it waits for you no more, until its next turn'), run: () => markRead(a.id) } satisfies MenuItem] : []),
+    ...(a.state === 'running' && canMarkRead(a) ? [{ key: 'read', icon: 'check', label: tr('Mark as read'), hint: tr('it waits for you no more, until its next turn'), run: () => markRead([a.id]) } satisfies MenuItem] : []),
     ...(reusable ? [{ key: 'quick-action', icon: 'quick', label: tr('Create a quick action…'), hint: tr('from this session'), run: () => openQuickActionDraft({ agent: a.id }) } satisfies MenuItem] : []),
     hidden
       ? { key: 'unarchive', icon: 'show', label: tr('Unarchive'), hint: tr('back in the list'), run: () => setArchived(a, false) }

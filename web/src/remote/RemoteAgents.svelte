@@ -145,7 +145,7 @@
           <button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => interruptAgent(a.id))} title={t('Refuse and interrupt its turn (Esc): the agent stays')}><Icon name="pause" /> {t('Interrupt')}</button>
         </div>
       {:else if a.status !== 'running'}
-        <div class="chips"><QuickAnswers agent={a} />{#if canMarkRead(a)}<button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => markRead(a.id))} title={t('Seen: it waits for you no more until its next turn')}><Icon name="check" /> {t('Mark as read')}</button>{/if}</div>
+        <div class="chips"><QuickAnswers agent={a} />{#if canMarkRead(a)}<button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => markRead([a.id]))} title={t('Seen: it waits for you no more until its next turn')}><Icon name="check" /> {t('Mark as read')}</button>{/if}</div>
       {/if}
     {:else if acts && a.state === 'prepared'}
       <!-- Its Then steps: started by the computer with it (remote.rs, agent_start). -->

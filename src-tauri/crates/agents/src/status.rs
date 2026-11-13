@@ -292,6 +292,11 @@ impl Fold {
 
     /// Its active time so far, in milliseconds: the turns over, and the one under way up to its
     /// last line.
+    /// When it last moved: its last prompt, tool or permission (not a notification).
+    pub fn moved_at(&self) -> Option<DateTime<Utc>> {
+        self.turn_at
+    }
+
     pub fn active_ms(&self) -> u64 {
         self.active_ms + self.working_since.map_or(0, |since| (self.now - since).clamp(0, LONGEST_STRETCH_MS) as u64)
     }

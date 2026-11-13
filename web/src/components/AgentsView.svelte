@@ -267,7 +267,7 @@
     }
     if (k === 'e' && current && (current.kind === 'desktop' || current.a.state === 'running') && canMarkRead(current.kind === 'agent' ? current.a : current.c)) {
       e.preventDefault()
-      void act(() => markRead(current!.id))
+      void act(() => markRead([current!.id]))
       return
     }
     if (k === '[' || k === ']') {
@@ -661,7 +661,7 @@
         <span class="pill dk">Claude Desktop</span>
         {#if c.group}<span class="muted">{c.group}</span>{/if}
         <span class="path">{c.branch ?? c.folder}</span>
-        {#if canMarkRead(c)}<button class="quiet" onclick={() => act(() => markRead(c.id))} title={keys(t('Seen: it waits for you no more until its next turn (⌘E)'))}><Icon name="check" />{t('Mark as read')}</button>{/if}
+        {#if canMarkRead(c)}<button class="quiet" onclick={() => act(() => markRead([c.id]))} title={keys(t('Seen: it waits for you no more until its next turn (⌘E)'))}><Icon name="check" />{t('Mark as read')}</button>{/if}
         <button class="quiet" onclick={() => void openQuickActionDraft({ desktop: c.id })} title={t('A quick action from this session: its prompt and settings, to read over')}><Icon name="quick" />{t('Quick action…')}</button>
         <button class="quiet" onclick={() => setArchived(c, !hidden)} title={hidden ? t('Back in the list') : t('Out of the list until it waits for you; Desktop keeps it as it is')}><Icon name={hidden ? 'show' : 'hide'} />{hidden ? t('Unarchive') : t('Archive')}</button>
       </header>
@@ -692,7 +692,7 @@
           {:else if a.status === 'waiting_tool' && !chatting(a.id)}
             <button class="allow" onclick={() => act(() => allowAgent(a.id))} title="{t('Answers {answer} to {agent}’s permission prompt', { answer: cliOf(a.provider).allow, agent: nameOf(a) })}{a.needs_action ? `: ${a.needs_action}` : ''}"><Icon name="check" />{t('Allow once')}</button>
           {:else if a.state === 'running' && canMarkRead(a)}
-            <button class="quiet" onclick={() => act(() => markRead(a.id))} title={keys(t('Seen: it waits for you no more until its next turn (⌘E)'))}><Icon name="check" />{t('Mark as read')}</button>
+            <button class="quiet" onclick={() => act(() => markRead([a.id]))} title={keys(t('Seen: it waits for you no more until its next turn (⌘E)'))}><Icon name="check" />{t('Mark as read')}</button>
           {:else if a.state === 'prepared'}
             <button class="primary" onclick={() => act(() => start(a))} title={t('Start it now, as prepared (its worktree is made then)')}><Icon name="play" />{t('Start')}</button>
             <button class="quiet" onclick={() => edit(a)} title={t('Change its launch in the launcher')}><Icon name="edit" />{t('Edit…')}</button>

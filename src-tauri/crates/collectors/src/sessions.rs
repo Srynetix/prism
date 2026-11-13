@@ -51,6 +51,7 @@ pub async fn run(cfg: SessionsConfig, scope: crate::profile::SessionScope, hub: 
                 for c in &mut list {
                     prism_core::read_marks::apply(&c.id, &mut c.status, &mut c.needs_action, c.last_activity, &mut c.read);
                 }
+                prism_core::read_marks::flush();
                 hub.update(|s| {
                     let changed = s.archived_sessions != archived;
                     s.archived_sessions = archived;

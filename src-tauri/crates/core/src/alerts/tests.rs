@@ -91,6 +91,7 @@ fn agent(id: &str, f: impl FnOnce(&mut Agent)) -> Agent {
         suggestion: None,
         gate: None,
         last_activity: Some(ago(5)),
+        moved_at: None,
         context: None,
         looping: None,
         planned: false,
@@ -184,7 +185,7 @@ fn lets_an_agents_plain_turn_end_go_after_a_short_while() {
 #[test]
 fn a_turn_over_is_marked_read_from_its_alert() {
     let mut s = snap();
-    s.sessions = vec![session(|c| c.last_activity = Some(ago(2))), session(|c| (c.id, c.last_activity, c.needs_action) = ("q".into(), Some(ago(2)), Some(crate::read_marks::QUESTION.into())))];
+    s.sessions = vec![session(|c| c.last_activity = Some(ago(2))), session(|c| (c.id, c.last_activity, c.needs_action) = ("q".into(), Some(ago(2)), Some("Answer its question".into())))];
     let prefs = Prefs::default();
     let alerts = Ctx::new(&s, &prefs, now()).session_alerts();
     assert_eq!(alerts[0].fixes, Some(vec![Fix::Read { sessions: vec!["s".into()] }]), "not the question");
