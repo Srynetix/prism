@@ -3,6 +3,7 @@ import { openLink } from './links'
 import { refOfUrl, type Ref } from './linkify'
 import { live } from './live.svelte'
 import { openMr } from './mr-view.svelte'
+import { openMrOptions } from './mr-choice.svelte'
 import { canPreview, openTicket } from './ticket-view.svelte'
 
 /**
@@ -11,15 +12,19 @@ import { canPreview, openTicket } from './ticket-view.svelte'
  * local server (`http://portfolio.localhost:3000`), docs… — in the browser.
  */
 
-/** Its panel, if Prism can show it there. */
-export function openRef(ref: Ref): boolean {
+/**
+ * Its panel, if Prism can show it there; an agent's `!12` that may name several MRs, their choice
+ * where `at` was clicked.
+ */
+export function openRef(ref: Ref, at?: MouseEvent): boolean {
   if ('ticket' in ref) {
     if (!canPreview()) return false
     openTicket(ref.ticket)
     return true
   }
   if (!hasCore()) return false
-  openMr(ref.mr)
+  if ('mrs' in ref) openMrOptions(ref.mrs, at && { x: at.clientX, y: at.clientY })
+  else openMr(ref.mr)
   return true
 }
 

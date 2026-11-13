@@ -84,6 +84,7 @@
   import { watchProposals } from './mcp-view.svelte'
   import ShellDrawer from './components/ShellDrawer.svelte'
   import MrPanel from './components/MrPanel.svelte'
+  import MrChoice from './components/MrChoice.svelte'
   import LauncherDrawer from './components/LauncherDrawer.svelte'
   import { qaDraft } from './quick-action-draft.svelte'
   import NewTicketDialog from './components/NewTicketDialog.svelte'
@@ -663,6 +664,7 @@
   <!-- Create a quick action… from a session: loaded the first time it opens. -->
   {#if qaDraft.open}{#await import('./components/QuickActionDraft.svelte') then { default: QuickActionDraft }}<QuickActionDraft />{/await}{/if}
   <MrPanel />
+  <MrChoice />
   <TicketPanel />
   <LogPanel />
   <PodLogPanel />

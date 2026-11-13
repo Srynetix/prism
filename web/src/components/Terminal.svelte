@@ -5,7 +5,8 @@
   import { WebglAddon } from '@xterm/addon-webgl'
   import { ClipboardAddon, type IClipboardProvider } from '@xterm/addon-clipboard'
   import { WebLinksAddon } from '@xterm/addon-web-links'
-  import { refsIn } from '../linkify'
+  import { mrScopeOf, refsIn } from '../linkify'
+  import { live } from '../live.svelte'
   import { openRef, openUrlOrRef } from '../ref-links'
   import { invoke } from '../bridge'
   import { toast } from '../toast.svelte'
@@ -22,6 +23,8 @@
    */
   /** `active`: the displayed terminal; a hidden terminal stays attached but does not take the keyboard. */
   let { id, onend, active = true }: { id: string; onend?: () => void; active?: boolean } = $props()
+  /** The repositories it works in, whose MRs its `!12` name: once per snapshot, not per hovered line. */
+  const mrScope = $derived(mrScopeOf(id, live.snapshot))
 
   /**
    * Terminal clipboard (OSC 52): a mouse selection in tmux arrives here and goes
@@ -150,13 +153,13 @@
     xt.registerLinkProvider({
       provideLinks(y, done) {
         const line = xt.buffer.active.getLine(y - 1)?.translateToString(true) ?? ''
-        const refs = refsIn(line)
+        const refs = refsIn(line, mrScope)
         done(refs.length ? refs.map((r) => ({
           range: { start: { x: r.start + 1, y }, end: { x: r.end, y } },
           text: r.text,
           decorations: { pointerCursor: true, underline: true },
           activate: (e: MouseEvent) => {
-            if (modifier(e)) openRef(r.ref)
+            if (modifier(e)) openRef(r.ref, e)
           },
         })) : undefined)
       },

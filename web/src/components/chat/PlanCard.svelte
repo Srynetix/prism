@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { mrScopeOf } from '../../linkify'
+  import { live } from '../../live.svelte'
   import Icon from '../Icon.svelte'
   import { t, tn, tc } from '../../i18n.svelte'
   import Markdown from '../Markdown.svelte'
@@ -36,6 +38,8 @@
     /** Opens it in the Plan tab. */
     onwide?: () => void
   } = $props()
+  /** The repositories it works in, whose MRs its `!12` name. */
+  const mrScope = $derived(mrScopeOf(id, live.snapshot))
 
   const waiting = $derived(plan.verdict === 'waiting' && latest)
   let unfolded = $state<boolean | null>(null)
@@ -109,7 +113,7 @@
       {:else if latest}
         <CommentableText {id} target="plan" text={plan.text} {editable} reading={wide} />
       {:else}
-        <Markdown text={plan.text} reading={wide} mrs />
+        <Markdown text={plan.text} reading={wide} mrs scope={mrScope} />
       {/if}
       {#if plan.feedback}
         <div class="said"><small>{plan.verdict === 'approved' ? t('Approved with your words') : t('Your words')}</small>{plan.feedback}</div>

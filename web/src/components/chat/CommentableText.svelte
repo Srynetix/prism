@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { mrScopeOf } from '../../linkify'
+  import { live } from '../../live.svelte'
   import Icon from '../Icon.svelte'
   import { t } from '../../i18n.svelte'
   import Markdown from '../Markdown.svelte'
@@ -23,6 +25,8 @@
     editable: boolean
     reading?: boolean
   } = $props()
+  /** The repositories it works in, whose MRs its `!12` name. */
+  const mrScope = $derived(mrScopeOf(id, live.snapshot))
 
   const ps = $derived(passages(text))
   const shown = $derived(commentsOf(id, target).filter((c) => c.status !== 'addressed'))
@@ -139,7 +143,7 @@
     {@const picked = !!range && range[0] <= i && i <= range[1]}
     <div class="ps" class:has={on.length > 0} class:picked class:cont={on.length > 0 && !starting.length} data-at={i}>
       {#if editable}<button class="add" onpointerdown={(e) => press(e, i)} onclick={(e) => click(e, i)} title={writing ? t('Comment on this passage (shift-click: up to it)') : t('Comment on this passage')} aria-label={t('Comment on this passage')}>{#if starting.length}{numberOf(starting[0].id)}{:else}+{/if}</button>{/if}
-      <Markdown text={p.source} parsed={[p.block]} {reading} mrs />
+      <Markdown text={p.source} parsed={[p.block]} {reading} mrs scope={mrScope} />
     </div>
     {#each ending as c (c.id)}{@render comment(c)}{/each}
     {#if range && range[1] === i}{@render box()}{/if}
