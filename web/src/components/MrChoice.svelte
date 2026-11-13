@@ -3,13 +3,14 @@
   import { closeMrChoice, mrChoice, openMrOption } from '../mr-choice.svelte'
   import { mrKey } from '../mr-ref'
   import { repoName } from '../repositories'
-  import type { MrOption } from '../linkify'
+  import { knownMr, type MrOption } from '../linkify'
+  import { live } from '../live.svelte'
   import Icon from './Icon.svelte'
   import { t } from '../i18n.svelte'
 
   /**
-   * The repositories an agent's `!12` may name (it works in several): one line each, its title
-   * when Prism knows the MR, otherwise « on its forge ».
+   * The repositories an agent's `!12` may name (it works in several): one line each, those Prism
+   * knows first with their title, the others « on its forge ».
    */
   const at = () => ({ getBoundingClientRect: () => new DOMRect(mrChoice.x, mrChoice.y, 0, 0) }) as HTMLElement
   function pick(o: MrOption) {
@@ -22,12 +23,13 @@
   <div class="mrchoice" role="menu" tabindex="-1" {@attach anchored(at, { align: 'start', gap: 2 })} {@attach dismissable(closeMrChoice, { resize: true })}>
     <div class="hd">{t('Which repository?')}</div>
     {#each options as o (mrKey(o.ref))}
-      <button role="menuitem" onclick={() => pick(o)} title={o.url ?? mrKey(o.ref)}>
+      {@const known = knownMr(o, live.snapshot)}
+      <button role="menuitem" onclick={() => pick(o)} title={known ? mrKey(o.ref) : o.url}>
         <Icon name="mr" size={11} />
         <b>{repoName(o.ref.repo)}</b>
         <span class="k">{mrKey(o.ref)}</span>
-        <span class="what">{o.title ?? t('on its forge')}</span>
-        {#if o.url}<Icon name="external" size={10} />{/if}
+        <span class="what">{known?.title ?? t('on its forge')}</span>
+        {#if !known}<Icon name="external" size={10} />{/if}
       </button>
     {/each}
   </div>

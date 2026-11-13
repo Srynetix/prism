@@ -28,18 +28,26 @@ export interface MrPlace {
   web: string
 }
 
-/** One MR a `!12` may name: its panel when Prism knows it, otherwise `url` on its forge. */
+/**
+ * One MR a `!12` may name: its panel when Prism knows it (`knownMr`, read at the click: the
+ * snapshot changes all the time), otherwise `url`, its page on the forge.
+ */
 export interface MrOption {
   ref: MrRef
-  title?: string
   url?: string
 }
 
+/** The MR Prism shows for `o`, if it knows it. */
+export const knownMr = (o: MrOption, s: Snapshot | null | undefined) => s?.merge_requests.find((m) => sameMr(m, o.ref))
+
+/** Each agent's last scope: the same array while its content stays, so the Chat is not redrawn for nothing. */
+const scopes = new Map<string, { key: string; value: MrPlace[] | null }>()
+
 /**
  * The repositories an agent (or a Claude Desktop session) works in, where its `!12` point: its
- * folder's, then those it was launched in too (`also`), each when Prism reads its MRs. Null when
- * it works in the primary repository only, or in a folder of no repository: the primary one's
- * `!12`, as everywhere else. Empty: in repositories whose MRs Prism does not read, no MR link.
+ * folder's, then those it was launched in too (`also`), each when Prism reads its MRs. Null in a
+ * folder of no repository: the primary one's `!12`, as everywhere else. Empty: in repositories
+ * whose MRs Prism does not read, no MR link.
  */
 export function mrScopeOf(id: string, s: Snapshot | null): MrPlace[] | null {
   if (!s) return null
@@ -48,26 +56,23 @@ export function mrScopeOf(id: string, s: Snapshot | null): MrPlace[] | null {
   const dirs = a ? [{ cwd: a.cwd, worktree: a.worktree }, ...(a.also ?? []).map((p) => ({ cwd: p, worktree: p }))] : d ? [{ cwd: d.folder, worktree: d.worktree }] : []
   const names = [...new Set(dirs.map((x) => agentRepo(x, s)).filter((n): n is string => !!n))]
   const repos = names.map((n) => s.repositories.find((r) => r.name === n)).filter((r) => !!r)
-  if (!repos.length || repos.every((r) => r.primary)) return null
-  return repos.flatMap((r) => (r.mr_web ? [{ repo: r.primary ? null : r.name, forge: r.forge, web: r.mr_web }] : []))
+  const value = repos.length ? repos.flatMap((r) => (r.mr_web ? [{ repo: r.primary ? null : r.name, forge: r.forge, web: r.mr_web }] : [])) : null
+  const key = JSON.stringify(value)
+  const last = scopes.get(id)
+  if (last?.key === key) return last.value
+  scopes.set(id, { key, value })
+  return value
 }
 
 const signsOf = (scope: MrPlace[] | null | undefined) => (scope ? [...new Set(scope.map((p) => mrSign(p.forge)))].join('') : mrSign())
 
 /**
- * The MRs `sign` + `iid` may name: the primary repository's without a scope; otherwise each
- * repository of the scope written with that sign, only the one that has it when Prism knows a
- * single one.
+ * The MRs `sign` + `iid` may name: the primary repository's without a scope; otherwise that of
+ * each repository of the scope written with that sign (several: the choice is offered).
  */
-export function mrOptions(iid: number, sign: string, scope: MrPlace[] | null | undefined, s: Snapshot | null): MrOption[] {
+export function mrOptions(iid: number, sign: string, scope: MrPlace[] | null | undefined): MrOption[] {
   if (!scope) return [{ ref: { iid, repo: null } }]
-  const all = scope.filter((p) => mrSign(p.forge) === sign).map((p): MrOption => {
-    const ref: MrRef = { iid, repo: p.repo, ...(p.forge ? { forge: p.forge } : {}) }
-    const known = s?.merge_requests.find((m) => sameMr(m, ref))
-    return known ? { ref, title: known.title } : { ref, url: `${p.web}${iid}` }
-  })
-  const known = all.filter((o) => !o.url)
-  return all.length > 1 && known.length === 1 ? known : all
+  return scope.filter((p) => mrSign(p.forge) === sign).map((p) => ({ ref: { iid, repo: p.repo, ...(p.forge ? { forge: p.forge } : {}) }, url: `${p.web}${iid}` }))
 }
 
 /** Base of the project's MRs (`https://gitlab.com/<group>/<project>/-/merge_requests/`, `https://github.com/<owner>/<repo>/pull/`), deduced from a known MR. */
@@ -122,7 +127,7 @@ const knownTickets = (s: Snapshot | null): Ticket[] => [...(s?.sprint?.tickets ?
  * URL are left to the URL. An MR's number is the primary repository's; with a `scope` (an agent's,
  * `mrScopeOf`), that of the repositories it works in.
  */
-export function refsIn(text: string, scope?: MrPlace[] | null, s: Snapshot | null = null): { start: number; end: number; text: string; ref: Ref }[] {
+export function refsIn(text: string, scope?: MrPlace[] | null): { start: number; end: number; text: string; ref: Ref }[] {
   const out: { start: number; end: number; text: string; ref: Ref }[] = []
   for (const m of text.matchAll(token(signsOf(scope)))) {
     const [whole, ticket, sign, mr] = m
@@ -131,7 +136,7 @@ export function refsIn(text: string, scope?: MrPlace[] | null, s: Snapshot | nul
     if (ticket) out.push({ ...at, ref: { ticket: ticket.toUpperCase() } })
     else if (!scope) out.push({ ...at, ref: { mr: { iid: Number(mr), repo: null } } })
     else {
-      const mrs = mrOptions(Number(mr), sign, scope, s)
+      const mrs = mrOptions(Number(mr), sign, scope)
       if (mrs.length) out.push({ ...at, ref: { mrs } })
     }
   }
@@ -163,12 +168,12 @@ export function refOfUrl(url: string, s: Snapshot | null): Ref | null {
  * it may be, `mrOptions`), as its Terminal links them; never inside code, a link, a ticket or an
  * image. `scope`: the repositories the agent works in (`mrScopeOf`).
  */
-export function withMrs(list: Span[], scope?: MrPlace[] | null, snap: Snapshot | null = null): Span[] {
+export function withMrs(list: Span[], scope?: MrPlace[] | null): Span[] {
   return list.flatMap((s) => {
     if (s.code || s.href || s.ticket || s.action || s.image || s.mr !== undefined) return [s]
     const out: Span[] = []
     let at = 0
-    for (const r of refsIn(s.text, scope, snap)) {
+    for (const r of refsIn(s.text, scope)) {
       const mr = 'mr' in r.ref ? [{ ref: r.ref.mr }] : 'mrs' in r.ref ? r.ref.mrs : null
       if (!mr) continue
       if (r.start > at) out.push({ ...s, text: s.text.slice(at, r.start) })

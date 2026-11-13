@@ -553,7 +553,7 @@ fn start_code(cfg: &config::Config, primary: &Primary, worktree_repos: &[config:
     let mr_repos: Vec<(String, String)> = repositories.iter().filter_map(config::RepoConfig::mr_project).collect();
     // With the protected branches' pipelines of the repositories with `[[repos]] pipelines`.
     if on_gitlab {
-        forges.gitlab.configure(gitlab_cfg, mr_repos.clone(), cfg.repo_infos());
+        forges.gitlab.configure(gitlab_cfg, mr_repos.clone(), repositories.iter().map(|r| r.info_on(cfg.forge.enabled, cfg.forge.provider, &cfg.gitlab.host)).collect());
         let (label, priority) = (cfg.gitlab.merge_queue_label.clone(), cfg.gitlab.merge_priority_prefix.clone());
         hub.update(|s| {
             (s.merge_queue_label, s.merge_priority_prefix) = (Some(label), Some(priority));

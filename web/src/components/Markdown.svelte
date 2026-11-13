@@ -5,7 +5,7 @@
   import { inline, parse, slug, withMentions, type Block, type MdMarks, type MentionMarks, type Span } from '../markdown'
   import { canPreview, openTicket } from '../ticket-view.svelte'
   import { hasCore } from '../bridge'
-  import { withMrs, type MrOption, type MrPlace } from '../linkify'
+  import { knownMr, withMrs, type MrOption, type MrPlace } from '../linkify'
   import { live } from '../live.svelte'
   import { openMrOptions } from '../mr-choice.svelte'
   import { mrKey } from '../mr-ref'
@@ -74,24 +74,31 @@
     }
   }
 
+  /** Under a link, its left edge: where its choice of MRs opens, by mouse or keyboard. */
+  const below = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    return { x: r.left, y: r.bottom }
+  }
+
   /** One MR: its key and title, or where it opens; several: the choice to come. */
   function mrTitle(options: MrOption[], text: string): string {
     if (options.length > 1) return t('{mr}: in which repository?', { mr: text })
     const o = options[0]
-    if (o.title) return `${mrKey(o.ref)} · ${o.title}`
+    const known = knownMr(o, live.snapshot)
+    if (known) return `${mrKey(o.ref)} · ${known.title}`
     return o.url ? t('Open {name} on its forge', { name: mrKey(o.ref) }) : t('Open {name}', { name: text })
   }
 </script>
 
 {#snippet spans(list: Span[])}
-  {@const shown = forge ? withEmoji(list, onGithubWeb(forge), projectOf(forge)) : mrs && hasCore() ? withMrs(list, scope, live.snapshot) : list}
+  {@const shown = forge ? withEmoji(list, onGithubWeb(forge), projectOf(forge)) : mrs && hasCore() ? withMrs(list, scope) : list}
   {#each mention ? withMentions(shown, mention) : shown as s, i (i)}
     {#if s.mention}<span class="mention" class:me={s.mention === 'me'} class:b={s.bold} class:i={s.italic}>{s.text}</span>
     {:else if s.emoji}<CustomEmoji url={s.emoji} name={s.text} />
     {:else if s.local}{#if images?.[s.image!] && onimage}<button class="local zoom" onclick={() => onimage(images[s.image!], s.text)} title={t('{text} · click to enlarge', { text: s.text })} style:max-width={s.width ? `min(${s.width}px, 100%)` : undefined}><img src={images[s.image!]} alt={s.text} /></button>{:else if images?.[s.image!]}<img class="local" src={images[s.image!]} alt={s.text} title={s.text} style:max-width={s.width ? `min(${s.width}px, 100%)` : undefined} />{:else}<span><Icon name="image" /> {s.text}</span>{/if}
     {:else if s.image}<span class="inline-img"><RemoteImage url={s.image} alt={s.text} width={s.width} {forge} fetched={!mrs} onopen={onimage ? () => onimage(s.image!, s.text) : undefined} /></span>
     {:else if s.action && onaction}<button class="action" onclick={() => onaction(s.action!)}>{s.text}</button>
-    {:else if s.mr !== undefined}<button class="ticket" onclick={(e) => openMrOptions(s.mr!, e)} title={mrTitle(s.mr, s.text)}>{s.text}</button>
+    {:else if s.mr !== undefined}<button class="ticket" onclick={(e) => openMrOptions(s.mr!, below(e.currentTarget))} title={mrTitle(s.mr, s.text)}>{s.text}</button>
     {:else if s.ticket && canPreview()}<button class="ticket" onclick={() => openTicket(s.ticket!)} title={t('Preview {ticket}', { ticket: s.ticket })}>{s.text}</button>
     {:else if s.href && resolve(s.href)}<a href={resolve(s.href)} target="_blank" rel="noreferrer" title={resolve(s.href)} class:b={s.bold} class:i={s.italic} class:s={s.strike} class:c={s.code}>{#if s.icon}<Icon name={s.icon} /> {/if}{s.text}</a>
     {:else if s.code}<code>{s.text}</code>

@@ -5,7 +5,7 @@ import type { Snapshot } from './types'
 const page = globalThis as { location?: unknown; addEventListener?: unknown }
 page.location ??= { hash: '' }
 page.addEventListener ??= () => {}
-const { mrScopeOf, refOfUrl, refsIn, withMrs } = await import('./linkify')
+const { knownMr, mrScopeOf, refOfUrl, refsIn, withMrs } = await import('./linkify')
 const { live } = await import('./live.svelte')
 
 const snap = {
@@ -82,20 +82,27 @@ describe("an agent's `!12` in the repositories it works in", () => {
     agents: [agent('a-app', '/c/app'), agent('a-helm', '/c/helm.worktrees/fix'), agent('a-site', '/c/site'), agent('a-infra', '/c/infra'), agent('a-out', '/tmp/x'), agent('a-two', '/c/helm', ['/c/app.worktrees/fix']), agent('a-gh', '/c/site', ['/c/helm'])],
   } as unknown as Snapshot
   const scope = (id: string) => mrScopeOf(id, s)
-  const refs = (line: string, id: string) => refsIn(line, scope(id), s).map((r) => [r.text, r.ref])
+  const refs = (line: string, id: string) => refsIn(line, scope(id)).map((r) => [r.text, r.ref])
+  const at = (name: string, iid: number) => `https://gitlab.example.org/shop/${name}/-/merge_requests/${iid}`
 
-  it('in the primary repository or a folder of none, the primary one’s, as before', () => {
-    expect(scope('a-app')).toBeNull()
+  it('in a folder of no repository, the primary one’s, as before', () => {
     expect(scope('a-out')).toBeNull()
-    expect(refs('see !1288', 'a-app')).toEqual([['!1288', { mr: { iid: 1288, repo: null } }]])
+    expect(refsIn('see !1288').map((r) => r.ref)).toEqual([{ mr: { iid: 1288, repo: null } }])
   })
 
-  it("another repository's: its panel when Prism knows the MR, else its forge", () => {
+  it('in the primary repository, its MR: the panel when Prism knows it, else the forge', () => {
+    expect(refs('see !1288', 'a-app')).toEqual([['!1288', { mrs: [{ ref: { iid: 1288, repo: null }, url: at('app', 1288) }] }]])
+    expect(knownMr({ ref: { iid: 1288, repo: null } }, s)?.iid).toBe(1288)
+    expect(knownMr({ ref: { iid: 9, repo: null } }, s)).toBeUndefined()
+  })
+
+  it("another repository's, from an agent or a Claude Desktop session", () => {
     expect(refs('see !214 and !215', 'a-helm')).toEqual([
-      ['!214', { mrs: [{ ref: { iid: 214, repo: 'helm' }, title: undefined }] }],
-      ['!215', { mrs: [{ ref: { iid: 215, repo: 'helm' }, url: 'https://gitlab.example.org/shop/helm/-/merge_requests/215' }] }],
+      ['!214', { mrs: [{ ref: { iid: 214, repo: 'helm' }, url: at('helm', 214) }] }],
+      ['!215', { mrs: [{ ref: { iid: 215, repo: 'helm' }, url: at('helm', 215) }] }],
     ])
-    expect(refs('!9', 'd1')).toEqual([['!9', { mrs: [{ ref: { iid: 9, repo: 'helm' }, url: 'https://gitlab.example.org/shop/helm/-/merge_requests/9' }] }]])
+    expect(knownMr({ ref: { iid: 214, repo: 'helm' } }, s)?.iid).toBe(214)
+    expect(refs('!9', 'd1')).toEqual([['!9', { mrs: [{ ref: { iid: 9, repo: 'helm' }, url: at('helm', 9) }] }]])
   })
 
   it('a repository whose MRs Prism does not read: no link, never the primary one', () => {
@@ -103,20 +110,20 @@ describe("an agent's `!12` in the repositories it works in", () => {
     expect(refs('fixed in !1288, SHOP-433', 'a-infra')).toEqual([['SHOP-433', { ticket: 'SHOP-433' }]])
   })
 
-  it("a repository on GitHub writes `#12`, even in a GitLab profile", () => {
+  it('a repository on GitHub writes `#12`, even in a GitLab profile', () => {
     expect(refs('see #31 and !31', 'a-site')).toEqual([['#31', { mrs: [{ ref: { iid: 31, repo: 'site', forge: 'github' }, url: 'https://github.com/me/site/pull/31' }] }]])
     expect(refs('#4 !214', 'a-gh').map(([t]) => t)).toEqual(['#4', '!214'])
   })
 
-  it('several repositories: each, unless Prism knows the MR in one only', () => {
-    expect(refs('!214', 'a-two')).toEqual([['!214', { mrs: [{ ref: { iid: 214, repo: 'helm' }, title: undefined }] }]])
-    expect(refs('!77', 'a-two')).toEqual([['!77', { mrs: [
-      { ref: { iid: 77, repo: 'helm' }, url: 'https://gitlab.example.org/shop/helm/-/merge_requests/77' },
-      { ref: { iid: 77, repo: null }, url: 'https://gitlab.example.org/shop/app/-/merge_requests/77' },
-    ] }]])
+  it('several repositories: each, even when Prism knows the MR in one only', () => {
+    expect(refs('!214', 'a-two')).toEqual([['!214', { mrs: [{ ref: { iid: 214, repo: 'helm' }, url: at('helm', 214) }, { ref: { iid: 214, repo: null }, url: at('app', 214) }] }]])
+  })
+
+  it('the same scope while it stays the same: the Chat is not redrawn for nothing', () => {
+    expect(scope('a-two')).toBe(scope('a-two'))
   })
 
   it('in the Chat, as spans of their own', () => {
-    expect(withMrs([{ text: 'in !215' }], scope('a-helm'), s)).toEqual([{ text: 'in ' }, { text: '!215', mr: [{ ref: { iid: 215, repo: 'helm' }, url: 'https://gitlab.example.org/shop/helm/-/merge_requests/215' }] }])
+    expect(withMrs([{ text: 'in !215' }], scope('a-helm'))).toEqual([{ text: 'in ' }, { text: '!215', mr: [{ ref: { iid: 215, repo: 'helm' }, url: at('helm', 215) }] }])
   })
 })

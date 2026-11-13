@@ -23,7 +23,7 @@ export function openRef(ref: Ref, at?: MouseEvent): boolean {
     return true
   }
   if (!hasCore()) return false
-  if ('mrs' in ref) openMrOptions(ref.mrs, at)
+  if ('mrs' in ref) openMrOptions(ref.mrs, at && { x: at.clientX, y: at.clientY })
   else openMr(ref.mr)
   return true
 }
