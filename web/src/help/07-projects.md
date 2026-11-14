@@ -27,7 +27,7 @@ On the left, the projects, grouped by working folder (`[[workspaces]]`). Each on
 ## Cleaning up
 A workstream done shows the same verdict as the Worktrees block: **Nothing to lose**, or what a removal would lose. **Remove the worktree** takes two clicks; when work would be lost, the second click says what. **Archive** takes it out of the list until a new commit or change.
 
-The **Cleanup** tab, at the top of the list, is the Worktrees block over every project: sizes, verdicts, removal and archiving in bulk. The Worktrees page has left the rail for it (a page holding only the Worktrees block is no longer shown); the Worktrees block itself stays on the pages that use it.
+The **Cleanup** tab, at the top of the list, is the Worktrees block over every project: sizes, verdicts, removal and archiving in bulk. It replaces a page holding only the Worktrees block: such a page can go (**Edit layout**); the Worktrees block itself stays on the pages that use it.
 
 [Open the Cleanup tab](prism:projects/cleanup)
 

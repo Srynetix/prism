@@ -264,15 +264,8 @@ export function views(): View[] {
   const configured = live.snapshot?.views ?? []
   if (!configured.length) return [EMPTY_VIEW]
   const taken = new Set<string>()
-  const all = configured.filter((c) => c.name?.trim()).map((c) => fromConfig(c, taken))
-  // A page of the Worktrees block alone left the rail: the Projects page's Cleanup tab is it now
-  // (shown once a repository is configured; without one, the page stays).
-  const kept = live.snapshot?.repositories?.length ? all.filter((v) => !onlyWorktrees(v)) : all
-  return kept.length ? kept : all
+  return configured.filter((c) => c.name?.trim()).map((c) => fromConfig(c, taken))
 }
-
-/** A page holding the Worktrees block and nothing else. */
-const onlyWorktrees = (v: View) => v.columns.flat().length === 1 && v.columns.flat()[0] === 'worktrees'
 
 /**
  * `[[views]]` as "Edit layout" writes it back: the pages of `blocks` get those blocks, in their

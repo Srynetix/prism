@@ -1,4 +1,4 @@
-import type { Agent, LeftSession, MergeRequest, Pipeline, Repo, RepoInfo, Snapshot, Ticket } from './types'
+import type { Agent, LeftSession, MergeRequest, Pipeline, Repo, RepoInfo, Snapshot, Ticket, Worktree } from './types'
 import { describeWorktrees, isDone, latest, mrForSession, ticketIndex, waitsForYou, type WorktreeInfo } from './rules'
 import { agentRepo, repoName } from './repositories'
 import { ticketRef } from './tracker'
@@ -70,11 +70,6 @@ function mrOf(s: Snapshot, repo: string, branch: string | null, agents: Agent[],
   return s.merge_requests.find((m) => mine(m) && m.state === 'opened') ?? s.merge_requests.find(mine) ?? (agents[0] ? mrForSession(s, { worktree: agents[0].worktree, branch }) : undefined)
 }
 
-/**
- * The workstreams of repository `repo`: its worktrees (not archived: `hidden`, nor gone), and its
- * clone while an agent works in it or it has changes. The agents of the repository no worktree
- * claims make theirs (a worktree not listed: its own; none: the clone's).
- */
 /** The tickets Prism knows, by `ticketRef` and by id: built once for every project. */
 export interface TicketLookup {
   byRef: ReturnType<typeof ticketIndex>
@@ -87,6 +82,11 @@ export function ticketLookup(s: Snapshot): TicketLookup {
   return { byRef, byId }
 }
 
+/**
+ * The workstreams of repository `repo`: its worktrees (not archived: `hidden`, nor gone), and its
+ * clone while an agent works in it or it has changes. The agents of the repository no worktree
+ * claims make theirs (a worktree not listed: its own; none: the clone's).
+ */
 export function workstreamsOf(s: Snapshot, repo: string, o: { infos?: WorktreeInfo[]; tickets?: TicketLookup; hidden?: (i: WorktreeInfo) => boolean } = {}): Workstream[] {
   const tickets = o.tickets ?? ticketLookup(s)
   const lookup = (id: string | null | undefined) => (id ? (tickets.byRef.get(ticketRef(id, repo))?.t ?? tickets.byId.get(id)) : undefined)
@@ -138,6 +138,24 @@ export function workstreamsOf(s: Snapshot, repo: string, o: { infos?: WorktreeIn
     }))
   }
   return out
+}
+
+/**
+ * How many workstreams have an agent waiting for me, without building them (the rail's badge, on
+ * every snapshot): one per folder, its worktree's or the clone's; not in a worktree gone or
+ * archived (`hidden`).
+ */
+export function waitingWorkstreams(s: Snapshot, hidden?: (w: Worktree) => boolean): number {
+  const folders = new Set<string>()
+  for (const a of s.agents ?? []) {
+    if (!waitingAgent(a)) continue
+    const repo = agentRepo(a, s)
+    if (!repo) continue
+    const wt = a.worktree ? s.worktrees.find((w) => w.path === a.worktree) : undefined
+    if (wt && (wt.prunable || hidden?.(wt))) continue
+    folders.add(a.worktree ?? `${repo}:`)
+  }
+  return folders.size
 }
 
 /** Those waiting for me first, then the most recently active. */

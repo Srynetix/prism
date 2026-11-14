@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { projectSummaries, stageOf, ticketsFor, workstreamsOf } from './workstreams'
+import { projectSummaries, stageOf, ticketsFor, waitingWorkstreams, workstreamsOf } from './workstreams'
 import { workstreamTitle } from './project-actions'
 import type { Agent, MergeRequest, Snapshot, Worktree } from './types'
 
@@ -82,6 +82,25 @@ describe('projectSummaries', () => {
     expect(list.map((p) => p.name)).toEqual(['api', 'shop', 'docs'])
     expect(list[0]).toMatchObject({ waiting: 1, workspace: 'Work' })
     expect(list[2]).toMatchObject({ workspace: 'Personal', resting: true })
+  })
+})
+
+describe('waitingWorkstreams', () => {
+  it('counts the workstreams waiting for me as the page does, one per folder', () => {
+    const s = snapshot({
+      repos: ['shop', 'api'],
+      worktrees: [wt({ path: '/code/shop', is_main: true, branch: 'main' }), wt({ path: '/code/shop.worktrees/tva', branch: 'tva' }), wt({ path: '/code/shop.worktrees/old', branch: 'old', prunable: true })],
+      agents: [
+        agent({ id: 'a', worktree: '/code/shop.worktrees/tva', cwd: '/code/shop.worktrees/tva', status: 'needs_you' }),
+        agent({ id: 'b', worktree: '/code/shop.worktrees/tva', cwd: '/code/shop.worktrees/tva', status: 'needs_you' }),
+        agent({ id: 'c', cwd: '/code/shop', status: 'needs_you' }),
+        agent({ id: 'd', cwd: '/code/api', status: 'needs_you', read: true } as never),
+        agent({ id: 'e', worktree: '/code/shop.worktrees/old', cwd: '/code/shop.worktrees/old', status: 'needs_you' }),
+      ],
+    })
+    expect(waitingWorkstreams(s)).toBe(projectSummaries(s).reduce((n, p) => n + p.waiting, 0))
+    expect(waitingWorkstreams(s)).toBe(2)
+    expect(waitingWorkstreams(s, (w) => w.path.endsWith('tva'))).toBe(1)
   })
 })
 

@@ -27,7 +27,7 @@ Où en est mon travail ? La page **Projets** montre chaque dépôt comme un proj
 ## Nettoyer
 Un chantier terminé montre le même verdict que le bloc Worktrees : **Rien à perdre**, ou ce qu’une suppression perdrait. **Supprimer le worktree** se fait en deux clics ; quand du travail serait perdu, le second dit lequel. **Archiver** le retire de la liste jusqu’à un nouveau commit ou changement.
 
-L’onglet **Nettoyage**, en haut de la liste, est le bloc Worktrees sur tous les projets : tailles, verdicts, suppression et archivage en masse. La page Worktrees a quitté le rail pour lui (une page qui ne contient que le bloc Worktrees n’est plus affichée) ; le bloc Worktrees lui-même reste sur les pages qui l’utilisent.
+L’onglet **Nettoyage**, en haut de la liste, est le bloc Worktrees sur tous les projets : tailles, verdicts, suppression et archivage en masse. Il remplace une page qui ne contient que le bloc Worktrees : une telle page peut partir (**Modifier la disposition**) ; le bloc Worktrees lui-même reste sur les pages qui l’utilisent.
 
 [Ouvrir l’onglet Nettoyage](prism:projects/cleanup)
 

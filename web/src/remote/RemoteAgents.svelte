@@ -28,6 +28,7 @@
   import { pref, setPref } from '../layout.svelte'
   import { openQuickActionDraft } from '../quick-action-draft.svelte'
   import { socketState } from './socket.svelte'
+  import { closeProjectPage, openProjectPage, projectPage } from './project-page.svelte'
   import RemoteProjectPage from './RemoteProjectPage.svelte'
 
   /**
@@ -83,8 +84,6 @@
   /** Agents outside every repository. */
   const elsewhere = $derived(agents.filter((a) => !agentRepo(a, snap)))
   let showResting = $state(false)
-  /** The project whose page is shown, over the list. */
-  let page = $state<string | null>(null)
 
   const label = (a: Agent) => (a.state === 'running' && a.gate ? [t('Waits for your trust'), 'trust'] : a.state === 'running' && a.read ? [t('Stopped'), ''] : a.state === 'running' ? (STATE[a.status] ?? ['', '']) : [a.state === 'prepared' ? t('Prepared') : t('Stopped'), ''])
   const ctx = (a: Agent) => (a.context?.size ? `ctx ${Math.round((100 * a.context.used) / a.context.size)} %` : '')
@@ -130,7 +129,7 @@
       <p class="q" class:tool={a.status === 'waiting_tool'}>{a.needs_action}</p>
     {/if}
     <div class="meta">
-      {#if agentRepo(a, snap)}{@const repo = agentRepo(a, snap)!}<button class="repo" onclick={() => (page = repo)} aria-label={t('Open the project {repo}', { repo })}><Icon name="folder" size="12px" />{repo}</button>{/if}
+      {#if agentRepo(a, snap)}{@const repo = agentRepo(a, snap)!}<button class="repo" onclick={() => openProjectPage(repo)} aria-label={t('Open the project {repo}', { repo })}><Icon name="folder" size="12px" />{repo}</button>{/if}
       {#if a.ticket}<span class="tk">{a.ticket}</span>{/if}
       {#if a.mr}<span>{mrKey(a.mr)}</span>{:else if a.branch}<span class="br">{a.branch}</span>{/if}
       {#if ctx(a)}<span>{ctx(a)}</span>{/if}
@@ -163,7 +162,7 @@
 
 {#snippet project(p: Project)}
   <section class="proj">
-    <header><span class="dot {p.group ? (urgency(p.group) === 0 ? 'asks' : urgency(p.group) === 1 ? 'run' : '') : ''}"></span><button class="pname" onclick={() => (page = p.name)} aria-label={t('Open the project {repo}', { repo: p.name })}>{p.name}<Icon name="chevronRight" size="14px" /></button><span class="grow"></span>{#if acts}<button class="plus" onclick={() => newAgentIn(p.name)} aria-label={t('New agent in {repo}', { repo: p.name })}>+</button>{/if}</header>
+    <header><span class="dot {p.group ? (urgency(p.group) === 0 ? 'asks' : urgency(p.group) === 1 ? 'run' : '') : ''}"></span><button class="pname" onclick={() => openProjectPage(p.name)} aria-label={t('Open the project {repo}', { repo: p.name })}>{p.name}<Icon name="chevronRight" size="14px" /></button><span class="grow"></span>{#if acts}<button class="plus" onclick={() => newAgentIn(p.name)} aria-label={t('New agent in {repo}', { repo: p.name })}>+</button>{/if}</header>
     {#if p.group}{#each p.group.items as e (e.id)}{#if e.kind === 'agent'}{@render card(e.a)}{/if}{/each}{/if}
     {#if p.left}
       <div class="left">
@@ -182,8 +181,8 @@
   </section>
 {/snippet}
 
-{#if page}
-<RemoteProjectPage {snap} repo={page} {acts} onback={() => (page = null)} />
+{#if projectPage.repo}
+<RemoteProjectPage {snap} repo={projectPage.repo} {acts} onback={closeProjectPage} />
 {:else}
 <div class="agents">
   <!-- The routines' runs waiting for you ("To review"), at the head, as on the computer. -->

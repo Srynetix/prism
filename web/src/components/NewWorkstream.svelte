@@ -28,11 +28,12 @@
     busy = true
     try {
       const id = await startWorkstream(repo, chosen ? { ticket: chosen } : { prompt }, now && direct)
-      if (id || !(now && direct)) {
+      // Kept while only the launcher opened: closed, what was typed is still here.
+      if (id) {
         prompt = ''
         ticket = ''
+        onstarted?.(id)
       }
-      if (id) onstarted?.(id)
     } finally {
       busy = false
     }

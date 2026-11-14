@@ -104,6 +104,11 @@ export const projectsView = $state({
   tab: 'project' as 'project' | 'cleanup',
 })
 
+/** The Projects page is on the rail once a repository is configured. */
+export const projectsOn = () => (live.snapshot?.repositories?.length ?? 0) > 0
+/** Its ⌘ digit: after the `pages`, and after the Agents view when agents are on. */
+export const projectsDigit = (pages: number) => pages + (agentsEnabled() ? 2 : 1)
+
 /** Opens the Projects page, on `repo` when given, on its Cleanup tab with `cleanup`. */
 export function openProjects(repo?: string | null, cleanup = false) {
   if (repo) projectsView.repo = repo

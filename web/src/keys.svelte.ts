@@ -1,6 +1,7 @@
 import { openThread, parseThreadAttr } from './thread.svelte'
 import { currentView, isCollapsed, isShort, setMode, setView, toggleZoom, zoom } from './layout.svelte'
 import { views } from './views'
+import { agentsEnabled, openAgents, openProjects, projectsDigit, projectsOn } from './agents.svelte'
 import { isMac } from './platform'
 
 /**
@@ -394,5 +395,8 @@ export function handleKey(e: KeyboardEvent): boolean {
       return false
   }
   if (/^[1-9]$/.test(e.key) && views()[Number(e.key) - 1]) return run(() => { setView(views()[Number(e.key) - 1].id); reset() })
+  // After the pages, as ⌘ numbers them: the Agents view, then the Projects page.
+  if (/^[1-9]$/.test(e.key) && agentsEnabled() && Number(e.key) === views().length + 1) return run(() => { openAgents(); reset() })
+  if (/^[1-9]$/.test(e.key) && projectsOn() && Number(e.key) === projectsDigit(views().length)) return run(() => { openProjects(); reset() })
   return false
 }

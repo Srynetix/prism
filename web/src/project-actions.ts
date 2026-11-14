@@ -3,7 +3,7 @@ import { live } from './live.svelte'
 import { afterLaunch, launchNow, openAgents, openLauncher, type Launch } from './agents.svelte'
 import { hasWorktrees } from './repositories'
 import { isBlocked } from './tickets'
-import { runClaude, ticketActions } from './claude-actions'
+import { implementAction, runClaude, ticketActions } from './claude-actions'
 import { nextTicket, placeIn } from './projects'
 import { t as tr } from './i18n.svelte'
 import type { Ticket } from './types'
@@ -46,28 +46,23 @@ export function implement(t: Ticket) {
  */
 export async function startWorkstream(repo: string, from: { prompt: string } | { ticket: Ticket }, direct = true): Promise<string | null> {
   const path = live.snapshot?.repos?.find((r) => r.name === repo)?.path ?? ''
-  // A worktree where agents make them; the clone otherwise; nothing without a clone.
-  const worktree = hasWorktrees(repo)
   if (!path) return null
   if ('ticket' in from) {
-    const a = ticketActions(from.ticket).find((x) => x.id === 'implement')
-    if (!a?.launch) return null
-    // Its place in this repository, whatever repository the ticket names (a tracker without any).
-    // The ticket's worktree when it has one already; otherwise a new one here, or the clone.
-    const own = a.launch.cwd && a.launch.cwd !== path ? a.launch.cwd : null
-    const place = own ? { cwd: own } : worktree ? { worktree: { ...(a.launch.worktree ?? {}), repo } } : { cwd: path }
-    const launch: Launch = { ...a.launch, cwd: undefined, worktree: undefined, ...place }
+    // In this repository, whatever repository the ticket names (a tracker without any): the
+    // ticket's worktree here, a new one where agents make them, the clone otherwise.
+    const a = implementAction(from.ticket, repo, true)
+    if (!a.launch) return null
     if (!direct) {
-      openLauncher(launch, a.href, a.onLaunch, from.ticket.id)
+      openLauncher(a.launch, a.href, a.onLaunch, from.ticket.id)
       return null
     }
-    const id = await launchNow(launch)
+    const id = await launchNow(a.launch)
     if (id) await afterLaunch(a.onLaunch, tr('Agent started'))
     return id
   }
   const prompt = from.prompt.trim()
-  const title = workstreamTitle(prompt)
-  const launch: Launch = { title, prompt, ...(worktree ? { worktree: { repo, name: title } } : placeIn({ name: repo, path }, false)) }
+  // Its title names the new worktree too.
+  const launch: Launch = { title: workstreamTitle(prompt), prompt, ...placeIn({ name: repo, path }, hasWorktrees(repo)) }
   if (!direct) {
     openLauncher(launch, null, null, repo, true)
     return null

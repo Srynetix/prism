@@ -19,6 +19,7 @@
   import { feedback, openFeedback } from '../feedback.svelte'
   import { switching } from '../agent-switch.svelte'
   import { socketState } from './socket.svelte'
+  import { closeProjectPage, projectPage } from './project-page.svelte'
   import { agentsView, closeAgents, launcherDrawer, openAgents } from '../agents.svelte'
   import { qaDraft } from '../quick-action-draft.svelte'
   import ProfileSwitch from './ProfileSwitch.svelte'
@@ -285,7 +286,12 @@
     // A view opened from the tabs or More: Back comes here again.
     if (!back) {
       trail.push(view)
-      history.pushState({ prism: true }, '')
+      // A project's page closes with the agents' view: its history entry becomes this change's.
+      if (projectPage.repo) {
+        closeProjectPage()
+        seen.project = 0
+        order = order.filter((k) => k !== 'project')
+      } else history.pushState({ prism: true }, '')
     }
     view = v
     try {
@@ -315,6 +321,7 @@
     argo: { depth: () => (argoView.open ? 1 : 0), back: closeArgo },
     overlap: { depth: () => (overlapView.open ? 1 : 0), back: closeOverlap },
     changes: { depth: () => (changesView.open ? 1 : 0), back: closeChanges },
+    project: { depth: () => (projectPage.repo ? 1 : 0), back: closeProjectPage },
   }
   /** The views left, the last one first back. */
   const trail: ViewId[] = []

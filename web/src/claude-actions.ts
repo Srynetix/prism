@@ -206,12 +206,18 @@ const planOnly = (a: ClaudeAction): ClaudeAction => (a.launch ? { ...a, launch: 
 export function ticketActions(t: Ticket): ClaudeAction[] {
   if (isDone(t)) return []
   const repo = t.repo ?? primary()
+  return [action('refine', tr('Refine'), `${t.id} · Refine`, prompts().refine(t.id), inRepo(repo)), implementAction(t, repo), ...validateActions(t)]
+}
+
+/**
+ * Implement ticket `t` in repository `repo` (its own by default; a project's, whatever repository
+ * the ticket names, for a new workstream): its worktree there if it has one, otherwise a new one
+ * named after it. `clone`: in the clone where agents make no worktrees, rather than not at all.
+ */
+export function implementAction(t: Ticket, repo = t.repo ?? primary(), clone = false): ClaudeAction {
   const wt = worktrees().find((w) => !w.is_main && w.ticket === t.id && w.repo === repo)
-  return [
-    action('refine', tr('Refine'), `${t.id} · Refine`, prompts().refine(t.id), inRepo(repo)),
-    { ...action('implement', tr('Implement'), `${t.id} · Implement`, prompts().implement(t.id), wt ? { cwd: wt.path } : { worktree: { name: `${t.id} ${t.name}`, ...(t.repo ? { repo: t.repo } : {}) } }), ...takeImplementation(t) },
-    ...validateActions(t),
-  ]
+  const place: Place = wt ? { cwd: wt.path } : clone && !takesWorktrees(repo) ? { cwd: repoPath(repo) } : { worktree: { name: `${t.id} ${t.name}`, repo } }
+  return { ...action('implement', tr('Implement'), `${t.id} · Implement`, prompts().implement(t.id), place), ...takeImplementation(t) }
 }
 
 /**

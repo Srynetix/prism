@@ -10,7 +10,7 @@ Voyez tous les worktrees de vos dépôts, à quoi ils servent et qui y travaille
 ![Le bloc Worktrees : en cours d’utilisation, obsolètes, et le détail de celui sélectionné](images/worktrees.webp)
 
 
-Le bloc **Worktrees** (et l’onglet **Nettoyage** de la page Projets, qui a pris la place de la page Worktrees : voir [Projets et chantiers](prism:help/projects)) liste les worktrees des dépôts marqués **Worktrees** dans Réglages › Code › Dépôts (l’ancien `[worktrees] repo` en fait partie), chacun avec son dépôt quand il y en a plusieurs : ceux des agents de Prism, ceux de Claude Desktop (dans `.claude/worktrees/`) et ceux que vous avez créés à la main. L’en-tête les compte, indique combien sont utilisés, combien sont obsolètes, et l’espace disque qu’ils occupent.
+Le bloc **Worktrees** (et l’onglet **Nettoyage** de la page Projets, qui peut remplacer une page Worktrees : voir [Projets et chantiers](prism:help/projects)) liste les worktrees des dépôts marqués **Worktrees** dans Réglages › Code › Dépôts (l’ancien `[worktrees] repo` en fait partie), chacun avec son dépôt quand il y en a plusieurs : ceux des agents de Prism, ceux de Claude Desktop (dans `.claude/worktrees/`) et ceux que vous avez créés à la main. L’en-tête les compte, indique combien sont utilisés, combien sont obsolètes, et l’espace disque qu’ils occupent.
 
 Pour chaque worktree, vous voyez :
 
