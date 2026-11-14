@@ -235,7 +235,7 @@
 <section class="panel" style="--src: var(--src-alert)" class:collapsed={isCollapsed('vulns')}>
   <h2>
     <span class="title"><Logo name="alert" />{t('Vulnerabilities')}<RepoChip id="vulnerabilities" /></span>
-    <small title={t('{trivy} · HIGH and CRITICAL with a fix, as in CI; each project’s .trivyignore applies', { trivy: vulns?.trivy ?? 'Trivy' })}>
+    <small title={t('{trivy} · HIGH and CRITICAL with a fix, as in CI; each component’s .trivyignore applies', { trivy: vulns?.trivy ?? 'Trivy' })}>
       {vulns ? `Trivy · ${[[vulns.branch, vulns.sha], ...(vulns.other_branches ?? [])].map(([b, sha]) => `${b} @ ${sha}`).join(' + ')} · ${vulns.scanning ? t('scanning…') : t('scanned {ago}', { ago: ago(vulns.scanned_at) })}` : t('local Trivy scan')}
     </small>
     {#if fresh}<span class="badge">+{fresh} new</span>{/if}
@@ -258,7 +258,7 @@
     <div class="kpis">
       <div class="kpi"><span>{t('To fix')}</span><b class:ko={critical > 0} class:okc={!open.length}>{open.length}</b><small>{t('{critical} critical · {high} high', { critical, high: open.length - critical })}</small></div>
       <div class="kpi"><span>{t('Accepted')}</span><b>{accepted.length}</b><small>{t('in .trivyignore')}</small></div>
-      <div class="kpi"><span>{t('Clean')}</span><b>{clean}/{vulns.projects.length}</b><small>{failed ? tn(failed, '{n} image unreadable', '{n} images unreadable') : t('projects and images')}</small></div>
+      <div class="kpi"><span>{t('Clean')}</span><b>{clean}/{vulns.projects.length}</b><small>{failed ? tn(failed, '{n} image unreadable', '{n} images unreadable') : t('components and images')}</small></div>
     </div>
     <div class="tb">
       <span class="lbl">{t('Show')}</span>
@@ -269,7 +269,7 @@
       {/each}
       <span class="grow"></span>
       <button class="sw" class:on={hideIgnored} role="switch" aria-checked={hideIgnored} onclick={toggleIgnored} title={t('Hide the CVEs ignored in a .trivyignore (accepted)')}><i></i>{t('Hide ignored')}</button>
-      <button class="sw" class:on={hideClean} role="switch" aria-checked={hideClean} onclick={toggleClean} title={t('Hide the projects and images with nothing to report')}><i></i>{t('Hide clean')}</button>
+      <button class="sw" class:on={hideClean} role="switch" aria-checked={hideClean} onclick={toggleClean} title={t('Hide the components and images with nothing to report')}><i></i>{t('Hide clean')}</button>
     </div>
     <div class="scroll">
       {#each groups as g (g.key)}

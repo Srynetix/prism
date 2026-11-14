@@ -326,7 +326,8 @@ export interface WorktreeInfo {
 const DEFAULT_STALE_DAYS = 14
 const LIVE_STATUSES = new Set<ClaudeSession['status']>(['running', 'background', 'needs_you', 'waiting_tool', 'review_ready'])
 
-const latest = (dates: (string | null | undefined)[]) => dates.filter((d): d is string => !!d).sort().at(-1) ?? null
+/** The most recent of these ISO dates, none when there is none. */
+export const latest = (dates: (string | null | undefined)[]) => dates.filter((d): d is string => !!d).sort().at(-1) ?? null
 
 /** The worktree containing `dir`: the deepest, the main repository containing `.claude/worktrees/`. */
 function ownerOf(dir: string | null | undefined, worktrees: Worktree[]): string | undefined {

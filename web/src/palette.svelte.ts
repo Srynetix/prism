@@ -4,7 +4,7 @@ import { openNewTicket, ticketBoards } from './new-ticket.svelte'
 import { mrTickets } from './conventions'
 import { live, trackerOn } from './live.svelte'
 import { pref, setPref, showBlock, setView, toggleEditing, toggleZen } from './layout.svelte'
-import { agentsEnabled, agentsSettings, agentsView, allowAgent, clearAgent, interruptAgent, openAgents, restartAgent } from './agents.svelte'
+import { agentsEnabled, agentsSettings, agentsView, allowAgent, clearAgent, interruptAgent, openAgents, openProjects, projectsDigit, projectsOn, restartAgent } from './agents.svelte'
 import { sendPrompt } from './agent-inbox.svelte'
 import { CLIS, cliOf } from './agent-cli'
 import { continueWith, targetsOf } from './agent-switch.svelte'
@@ -241,6 +241,7 @@ function pageEntries(): Entry[] {
   if (phonePages) return phonePages.map((p) => ({ id: `page:${p.id}`, kind: 'page', title: p.label, run: p.go }))
   const pages: Entry[] = views().map((v, i) => ({ id: `page:${v.id}`, kind: 'page', title: v.label, keys: keys(`⌘${i + 1}`), run: () => setView(v.id) }))
   if (agentsEnabled()) pages.push({ id: 'page:agents', kind: 'page', title: t('Agents'), keys: keys(`⌘${views().length + 1}`), run: () => openAgents() })
+  if (projectsOn()) pages.push({ id: 'page:projects', kind: 'page', title: t('Projects'), words: 'workstreams worktrees', keys: keys(`⌘${projectsDigit(views().length)}`), run: () => openProjects() })
   const blocks: Entry[] = [...new Set<string>([...Object.keys(BLOCK_LABELS), ...BLOCK_DEFS.map((b) => b.id)])].map((id) => ({
     id: `block:${id}`,
     kind: 'block',

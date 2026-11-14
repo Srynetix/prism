@@ -10,7 +10,7 @@ See every worktree of your repositories, what it is for and who works in it, and
 ![The Worktrees block: in use, stale, and the details of the selected one](images/worktrees.webp)
 
 
-The **Worktrees** block (and the Worktrees page) lists the worktrees of the repositories marked **Worktrees** in Settings › Code › Repositories (the former `[worktrees] repo` is one), each tagged with its repository when there are several: those of Prism's agents, those of Claude Desktop (in `.claude/worktrees/`), and the ones you made by hand. The header counts them, how many are in use and how many are stale, and the disk space they take.
+The **Worktrees** block (and the Projects page's **Cleanup** tab, which can replace a Worktrees page: see [Projects and workstreams](prism:help/projects)) lists the worktrees of the repositories marked **Worktrees** in Settings › Code › Repositories (the former `[worktrees] repo` is one), each tagged with its repository when there are several: those of Prism's agents, those of Claude Desktop (in `.claude/worktrees/`), and the ones you made by hand. The header counts them, how many are in use and how many are stale, and the disk space they take.
 
 For each worktree you see:
 

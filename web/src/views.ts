@@ -172,6 +172,7 @@ export const OPS_VIEWS: View[] = [
   },
   {
     // The primary repository's worktrees: what they are for, who works in them, which to clean up.
+    // Out of the rail now (the Projects page's Cleanup tab); kept for the layouts saved with it.
     id: 'worktrees',
     icon: 'worktrees',
     color: 'var(--src-gitlab)',

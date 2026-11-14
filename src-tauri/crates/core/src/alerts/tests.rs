@@ -104,7 +104,7 @@ fn agent(id: &str, f: impl FnOnce(&mut Agent)) -> Agent {
 }
 
 fn repo(name: &str, primary: bool) -> RepoInfo {
-    RepoInfo { name: name.into(), project: None, primary, clone: true, clone_missing: false, worktrees: true, merge_queue: false, ticket_required: false, pipelines: false, agent: None, forge: None, mr_web: None }
+    RepoInfo { name: name.into(), project: None, primary, clone: true, clone_missing: false, worktrees: true, merge_queue: false, ticket_required: false, pipelines: false, agent: None, forge: None, mr_web: None, workspace: None }
 }
 
 fn snap() -> Snapshot {

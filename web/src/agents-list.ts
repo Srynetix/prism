@@ -32,7 +32,7 @@ export const GROUPS: [string, SessionStatus[]][] = [
  */
 export const SORTS: [SortBy, string][] = [['activity', t('Last activity')], ['created', t('Created')], ['name', t('Name')], ['place', t('Branch')]]
 /** The groupings of the "Group by" menu, in its order. */
-export const GROUP_BY: [GroupBy, string][] = [['status', 'Status'], ['category', 'Kind'], ['tag', 'Tag'], ['repo', 'Repository']]
+export const GROUP_BY: [GroupBy, string][] = [['status', 'Status'], ['category', 'Kind'], ['tag', 'Tag'], ['repo', 'Project']]
 const NO_CATEGORY = 'No kind'
 const NO_TAG = 'No tag'
 const NO_REPO = 'No repository'

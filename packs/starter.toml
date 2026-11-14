@@ -6,13 +6,13 @@
 
 [pack]
 name = "starter"
-version = "3"
-description = "Prism's Developer template: tickets, merge requests, worktrees and agents."
+version = "4"
+description = "Prism's Developer template: tickets, merge requests, projects and agents."
 
 [[templates]]
 id = "dev"
 label = "Developer"
-summary = "Tickets, merge requests, worktrees and agents."
+summary = "Tickets, merge requests, projects and agents."
 requires = "Requires a GitLab or GitHub account and the repository."
 gitlab = true
 
@@ -29,10 +29,3 @@ id = "tickets"
 icon = "tickets"
 color = "purple"
 columns = ["refinement", "pickup"]
-
-[[templates.views]]
-name = "Worktrees"
-id = "worktrees"
-icon = "worktrees"
-color = "orange"
-columns = ["worktrees"]

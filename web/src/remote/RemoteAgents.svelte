@@ -28,6 +28,8 @@
   import { pref, setPref } from '../layout.svelte'
   import { openQuickActionDraft } from '../quick-action-draft.svelte'
   import { socketState } from './socket.svelte'
+  import { closeProjectPage, openProjectPage, projectPage } from './project-page.svelte'
+  import RemoteProjectPage from './RemoteProjectPage.svelte'
 
   /**
    * Prism's agents on a phone (not Claude Desktop's sessions): what waits for you first — the
@@ -39,7 +41,8 @@
    * a section per CLI when agents run on several), then a new agent: New opens the sheet (`PhoneLauncher`).
    * By project (a shared pref): a card per repository instead, its agents in it (those waiting for
    * you first), where it was left with Reopen, its next ticket, a + for a new agent in it; its +, its
-   * ticket's ▶ and its quick actions open the same sheet, prefilled.
+   * ticket's ▶ and its quick actions open the same sheet, prefilled. A project's name, and the
+   * repository on an agent's card, open the project's page (`RemoteProjectPage`): its workstreams.
    */
   let { snap, acts }: { snap: Snapshot; acts: boolean } = $props()
   /** Critical actions on (the passkey each time): a quick action is saved to config.toml. */
@@ -126,6 +129,7 @@
       <p class="q" class:tool={a.status === 'waiting_tool'}>{a.needs_action}</p>
     {/if}
     <div class="meta">
+      {#if agentRepo(a, snap)}{@const repo = agentRepo(a, snap)!}<button class="repo" onclick={() => openProjectPage(repo)} aria-label={t('Open the project {repo}', { repo })}><Icon name="folder" size="12px" />{repo}</button>{/if}
       {#if a.ticket}<span class="tk">{a.ticket}</span>{/if}
       {#if a.mr}<span>{mrKey(a.mr)}</span>{:else if a.branch}<span class="br">{a.branch}</span>{/if}
       {#if ctx(a)}<span>{ctx(a)}</span>{/if}
@@ -158,7 +162,7 @@
 
 {#snippet project(p: Project)}
   <section class="proj">
-    <header><span class="dot {p.group ? (urgency(p.group) === 0 ? 'asks' : urgency(p.group) === 1 ? 'run' : '') : ''}"></span><b>{p.name}</b><span class="grow"></span>{#if acts}<button class="plus" onclick={() => newAgentIn(p.name)} aria-label={t('New agent in {repo}', { repo: p.name })}>+</button>{/if}</header>
+    <header><span class="dot {p.group ? (urgency(p.group) === 0 ? 'asks' : urgency(p.group) === 1 ? 'run' : '') : ''}"></span><button class="pname" onclick={() => openProjectPage(p.name)} aria-label={t('Open the project {repo}', { repo: p.name })}>{p.name}<Icon name="chevronRight" size="14px" /></button><span class="grow"></span>{#if acts}<button class="plus" onclick={() => newAgentIn(p.name)} aria-label={t('New agent in {repo}', { repo: p.name })}>+</button>{/if}</header>
     {#if p.group}{#each p.group.items as e (e.id)}{#if e.kind === 'agent'}{@render card(e.a)}{/if}{/each}{/if}
     {#if p.left}
       <div class="left">
@@ -177,6 +181,9 @@
   </section>
 {/snippet}
 
+{#if projectPage.repo}
+<RemoteProjectPage {snap} repo={projectPage.repo} {acts} onback={closeProjectPage} />
+{:else}
 <div class="agents">
   <!-- The routines' runs waiting for you ("To review"), at the head, as on the computer. -->
   <RoutineReview next={false} />
@@ -236,6 +243,7 @@
     {#if showArchived}{#each archived as a (a.id)}{@render card(a)}{/each}{/if}
   {/if}
 </div>
+{/if}
 
 <style>
   .arch { display: inline-flex; margin: -6px -6px -6px 2px; padding: 6px; border: none; background: none; color: var(--text-muted); }
@@ -317,7 +325,8 @@
   /* A project: its header with +, its agents' cards, where it was left, its next ticket. */
   .proj { margin: 8px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
   .proj header { display: flex; align-items: center; gap: 8px; padding: 9px 10px 8px 12px; }
-  .proj header b { font-size: 15px; }
+  .proj header .pname { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: none; background: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 700; }
+  .meta .repo { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: none; background: none; color: var(--text-muted); font: inherit; font-size: 12px; text-decoration: underline dotted; }
   .proj .plus { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 9px; background: none; color: var(--src-claude); font: 400 20px/1 var(--sans); }
   .proj .ag { border-top: 1px solid var(--border); border-bottom: none; }
   .proj .left { margin: 0 12px 10px; padding: 2px 0 2px 9px; border-left: 2px solid var(--border); font-size: 12.5px; color: var(--text-muted); }
