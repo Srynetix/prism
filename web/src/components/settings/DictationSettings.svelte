@@ -175,12 +175,12 @@
   .radio.on { border: 4px solid var(--accent); }
   .chip { padding: 0 8px; border-radius: var(--r9, 9px); background: var(--surface-muted); font-size: var(--fs-tag); line-height: 18px; }
   .chip.ok { color: var(--ok); background: var(--ok-bg); }
-  .prog { width: 110px; height: 5px; border-radius: 3px; background: var(--surface-muted); overflow: hidden; }
+  .prog { width: 110px; height: 5px; border-radius: var(--r3); background: var(--surface-muted); overflow: hidden; }
   .prog i { display: block; height: 100%; background: var(--info, var(--accent)); }
   .btn { display: inline-flex; align-items: center; font: inherit; font-size: var(--fs-meta); padding: 3px 10px; border-radius: var(--r6, 6px); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
   .btn:hover:not(:disabled) { background: var(--surface-muted); }
   .btn:disabled { opacity: 0.5; }
   .btn.ghost { border-color: transparent; }
   .test { display: flex; align-items: flex-start; gap: 6px; }
-  .test textarea { flex: 1; min-width: 0; resize: vertical; border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+  .test textarea { flex: 1; min-width: 0; resize: vertical; border: 1px solid var(--border); border-radius: var(--r7); padding: 5px 8px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); }
 </style>

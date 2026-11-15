@@ -313,7 +313,7 @@
   .detail { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 24px; overflow-y: auto; }
   .detail > :global(.panel) { flex: 1; }
   .ph { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .ph h2 { margin: 0; font-size: 18px; }
+  .ph h2 { margin: 0; font-size: var(--fs-big); }
   .id { display: flex; align-items: baseline; gap: 8px; }
   .muted { color: var(--text-muted); font-size: var(--fs-tag); }
   .sigs { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--fs-tag); color: var(--text-muted); }

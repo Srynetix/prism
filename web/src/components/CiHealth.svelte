@@ -143,7 +143,7 @@
   .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
   .kpi { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 6px 10px; background: var(--surface); }
   .kpi .l { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .kpi b { font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .kpi b { font-size: var(--fs-head); font-weight: 600; white-space: nowrap; }
   .kpi small { font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bad { color: var(--ko) !important; }
   .good { color: var(--ok) !important; }

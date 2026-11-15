@@ -241,7 +241,7 @@
   .btn { padding: 1px 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
   .btn.primary { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); color: var(--accent); }
   .btn:disabled { opacity: 0.5; cursor: default; }
-  .src { display: inline-grid; place-items: center; width: 18px; height: 18px; flex-shrink: 0; border-radius: var(--r5); font-size: 10px; }
+  .src { display: inline-grid; place-items: center; width: 18px; height: 18px; flex-shrink: 0; border-radius: var(--r5); font-size: var(--fs-tag); }
   .src.git { background: color-mix(in srgb, var(--text-muted) 22%, transparent); color: var(--text-muted); }
   .src.mr { background: color-mix(in srgb, var(--src-gitlab) 20%, transparent); color: var(--src-gitlab); }
   .src.tk { background: color-mix(in srgb, var(--src-clickup) 22%, transparent); color: var(--src-clickup); }

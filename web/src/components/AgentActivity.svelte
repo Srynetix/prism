@@ -214,15 +214,15 @@
   .it.wait { background: color-mix(in srgb, var(--warn) 7%, transparent); }
   /* Two-digit and monospace (09:05, 09:05 AM): as wide on every row, so the columns line up unwrapped. */
   .it .t, .turn .t { color: var(--text-muted); font: 10px var(--mono); white-space: nowrap; }
-  .it .ic { color: var(--k); text-align: center; font-size: 10px; }
+  .it .ic { color: var(--k); text-align: center; font-size: var(--fs-tag); }
   .it .w, .turn .w { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .it .w code { font-family: var(--mono); font-size: 10.5px; }
+  .it .w code { font-family: var(--mono); font-size: var(--fs-tag); }
   .it.failed .w code { color: var(--ko); }
   .it .x, .turn .x { color: var(--text-muted); font-size: var(--fs-tag); white-space: nowrap; }
   .run { color: var(--info); }
   .files { padding: 4px 10px 8px; border-top: 1px solid var(--border); }
   .files summary { padding: 3px 0; color: var(--text-muted); font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; cursor: pointer; }
   .file { display: flex; gap: 8px; padding: 1px 0; color: var(--text-muted); font-size: var(--fs-tag); }
-  .file code { flex: 1; min-width: 0; overflow: hidden; color: var(--text); font-family: var(--mono); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+  .file code { flex: 1; min-width: 0; overflow: hidden; color: var(--text); font-family: var(--mono); font-size: var(--fs-tag); text-overflow: ellipsis; white-space: nowrap; }
   .file b { color: var(--src-claude); font-weight: 500; }
 </style>

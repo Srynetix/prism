@@ -565,7 +565,7 @@
   .launch.inside { width: auto; margin: 0; padding: 12px 14px 16px; border: none; border-radius: 0; background: none; }
   .more { align-self: flex-start; padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .more small { color: var(--text-muted); font-size: inherit; }
-  .launch h3 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .launch h3 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: var(--fs-head); }
   .launch h3 :global(svg) { color: var(--src-claude); }
   .same { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: var(--r7); background: var(--info-bg); color: var(--info); font-size: var(--fs-meta); }
   .same .grow { flex: 1; }
@@ -585,7 +585,7 @@
   /* The phone: the CLIs wrap rather than run off the screen; larger targets. */
   :global(html.remote) .seg { flex-wrap: wrap; }
   :global(html.remote) .launch button { min-height: 36px; }
-  :global(html.remote) .launch input, :global(html.remote) .launch select, :global(html.remote) .launch textarea { font-size: 16px; }
+  :global(html.remote) .launch input, :global(html.remote) .launch select, :global(html.remote) .launch textarea { font-size: var(--fs-head); }
   .seg button { border: none; border-radius: 0; background: var(--surface); color: var(--text-muted); }
   .seg button + button { border-left: 1px solid var(--border); }
   .clis button { display: inline-flex; align-items: center; gap: 5px; }
@@ -637,7 +637,7 @@
   .attach .drop { flex: 1; min-width: 200px; padding: 6px 10px; border: 1.5px dashed color-mix(in srgb, var(--src-claude) 45%, var(--border)); border-radius: var(--r7); background: color-mix(in srgb, var(--src-claude) 5%, transparent); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .then { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
   .then .step { display: grid; grid-template-columns: 20px auto minmax(0, 1fr) auto 18px; gap: 6px; align-items: center; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); font-size: var(--fs-meta); }
-  .then .n { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface-muted); font-size: 10px; font-weight: 700; }
+  .then .n { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface-muted); font-size: var(--fs-tag); font-weight: 700; }
   .then .k { white-space: nowrap; }
   .then input, .then select { min-width: 0; padding: 2px 6px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .then .x { padding: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }

@@ -44,7 +44,7 @@
   .btn:hover:not(:disabled) { border-color: var(--accent); }
   .btn:disabled { opacity: 0.5; cursor: default; }
   .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
-  .row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--text); }
+  .row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 14px; font-size: var(--fs-title); color: var(--text); }
   .row + .row { border-top: 1px solid var(--border); }
   .row :global(svg) { flex: none; margin-top: 2px; color: var(--ok); }
   .row.warn :global(svg) { color: var(--warn); }

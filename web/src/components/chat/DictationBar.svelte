@@ -50,7 +50,7 @@
 {/if}
 
 <style>
-  .bar { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 8px; border-radius: 8px; font-size: var(--fs-meta); }
+  .bar { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 8px; border-radius: var(--r8); font-size: var(--fs-meta); }
   .rec { background: var(--ko-bg, var(--surface-muted)); color: var(--ko); }
   .busy { background: var(--info-bg, var(--surface-muted)); color: var(--info, var(--text)); }
   .warn { background: var(--warn-bg, var(--surface-muted)); color: var(--warn); flex-wrap: wrap; }
@@ -59,13 +59,13 @@
   .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ko); animation: blink 1s steps(1) infinite; }
   .time { font-variant-numeric: tabular-nums; }
   .meter { display: flex; align-items: center; gap: 2px; height: 18px; flex: none; }
-  .meter i { width: 3px; border-radius: 2px; background: currentColor; opacity: 0.8; transition: height 80ms linear; }
+  .meter i { width: 3px; border-radius: var(--r2); background: currentColor; opacity: 0.8; transition: height 80ms linear; }
   .dev { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.85; }
   .grow { flex: 1; }
   .hint { flex: none; color: inherit; opacity: 0.85; white-space: nowrap; }
   .msg { min-width: 0; overflow-wrap: anywhere; }
-  kbd { font: 10px ui-monospace, 'SF Mono', Menlo, monospace; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
-  .btn { flex: none; padding: 1px 8px; border: 1px solid color-mix(in srgb, currentColor 45%, transparent); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
+  kbd { font: 10px ui-monospace, 'SF Mono', Menlo, monospace; padding: 0 4px; border: 1px solid currentColor; border-radius: var(--r4); }
+  .btn { flex: none; padding: 1px 8px; border: 1px solid color-mix(in srgb, currentColor 45%, transparent); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
   .btn:hover { border-color: var(--accent); }
   .x { flex: none; display: grid; place-items: center; padding: 2px; border: none; background: none; color: inherit; cursor: pointer; }
   @keyframes blink { 50% { opacity: 0; } }

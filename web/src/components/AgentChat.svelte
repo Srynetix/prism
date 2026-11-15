@@ -177,15 +177,15 @@
   .dock::before { content: ''; position: absolute; inset: 0; z-index: -1; backdrop-filter: var(--chat-blur); -webkit-backdrop-filter: var(--chat-blur); pointer-events: none; }
   /* Under what it does: one block with it. */
   .dock.under { border-top: none; padding-top: 2px; }
-  .perm { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 9px; background: var(--warn-bg, var(--surface-muted)); color: var(--warn); font-size: var(--fs-meta); }
+  .perm { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: var(--r9); background: var(--warn-bg, var(--surface-muted)); color: var(--warn); font-size: var(--fs-meta); }
   .perm b { display: inline-flex; align-items: center; gap: 6px; }
-  .perm code { display: block; padding: 4px 8px; border-radius: 6px; background: var(--surface); color: var(--text); font: 11.5px ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .perm code { display: block; padding: 4px 8px; border-radius: var(--r6); background: var(--surface); color: var(--text); font: 11.5px ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   .pr { display: flex; gap: 6px; }
   .pr button { display: inline-flex; align-items: center; gap: 5px; }
-  .box { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--chat-field); padding: 5px 7px 5px 10px; }
+  .box { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--chat-field); padding: 5px 7px 5px 10px; }
   .box:focus-within { border-color: var(--accent); }
   .field { position: relative; display: flex; min-width: 0; }
-  textarea { flex: 1; min-width: 0; resize: none; border: none; background: none; color: var(--text); padding: 2px 0; font: inherit; font-size: 13.5px; line-height: 1.4; field-sizing: content; min-height: 2.8em; max-height: 14em; }
+  textarea { flex: 1; min-width: 0; resize: none; border: none; background: none; color: var(--text); padding: 2px 0; font: inherit; font-size: var(--fs-title); line-height: 1.4; field-sizing: content; min-height: 2.8em; max-height: 14em; }
   textarea:focus { outline: none; }
   .foot { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .grow { flex: 1; }
@@ -196,7 +196,7 @@
   .pass:disabled { opacity: 0.35; cursor: default; }
   .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-height: 22px; font-size: var(--fs-tag); color: var(--text-muted); }
   /* The Agents view's button style does not reach here: these are framed, with a pointer, to read as buttons. */
-  .btn { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 1px solid color-mix(in srgb, var(--text-muted) 55%, transparent); border-radius: 6px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .btn { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 1px solid color-mix(in srgb, var(--text-muted) 55%, transparent); border-radius: var(--r6); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .btn:hover { border-color: var(--accent); }
   .meta .btn { padding: 1px 8px; font-size: var(--fs-tag); }
   /* Stop quits the agent: red on hover. */

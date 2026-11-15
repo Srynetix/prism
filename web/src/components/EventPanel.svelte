@@ -128,7 +128,7 @@
 
 <style>
   .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 52; width: min(520px, 92vw);
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(520px, 92vw);
     display: flex; flex-direction: column; background: var(--surface);
     border-left: 1px solid color-mix(in srgb, var(--src-calendar) 45%, var(--border));
     box-shadow: var(--shadow-drawer);
@@ -140,10 +140,10 @@
   }
   .cal { width: 14px; height: 14px; fill: none; stroke: var(--src-calendar); stroke-width: 1.4; }
   .grow { flex: 1; }
-  .icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: 15px; cursor: pointer; }
+  .icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: var(--fs-head); cursor: pointer; }
   .icon:hover { background: var(--surface-muted); color: var(--text); }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; }
-  h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+  h2 { margin: 0 0 4px; font-size: var(--fs-head); font-weight: 600; line-height: 1.35; }
   h2.off { text-decoration: line-through; color: var(--text-muted); }
   .when, .where { margin: 0 0 2px; font-size: var(--fs-body); }
   .when::first-letter { text-transform: uppercase; }

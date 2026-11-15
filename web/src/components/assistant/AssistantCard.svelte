@@ -252,10 +252,10 @@
   .card.mem { border-style: dashed; }
   .ch { display: flex; align-items: center; gap: 7px; padding: 6px 11px; background: color-mix(in srgb, var(--as) 12%, var(--surface)); color: var(--as); font-weight: 700; font-size: var(--fs-meta); }
   .ch .r { margin-left: auto; font-weight: 400; color: var(--text-muted); }
-  .pill { padding: 0 7px; border-radius: 9px; background: var(--surface); color: var(--text-muted); font-weight: 600; font-size: var(--fs-tag); }
+  .pill { padding: 0 7px; border-radius: var(--r9); background: var(--surface); color: var(--text-muted); font-weight: 600; font-size: var(--fs-tag); }
   .cb { display: grid; gap: 7px; padding: 9px 12px; }
   .why { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
-  .ttl { font-size: 13px; font-weight: 600; }
+  .ttl { font-size: var(--fs-title); font-weight: 600; }
   .kv { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 3px 10px; margin: 0; font-size: var(--fs-meta); }
   .kv dt { color: var(--text-muted); }
   .kv dd { margin: 0; min-width: 0; }
@@ -265,7 +265,7 @@
   .prompt { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; white-space: pre-wrap; cursor: pointer; }
   .prompt.open { display: block; }
   .fact { margin: 0; }
-  .kind { margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--surface-muted); color: var(--text-muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .kind { margin-right: 6px; padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.03em; }
   textarea { width: 100%; box-sizing: border-box; font: inherit; }
   .ca { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); }
   .ca input { flex: 1; min-width: 160px; font: inherit; }

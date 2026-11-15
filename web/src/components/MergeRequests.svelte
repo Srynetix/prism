@@ -204,7 +204,7 @@
   .who.on { border-color: var(--src-gitlab); background: color-mix(in srgb, var(--src-gitlab) 12%, transparent); }
   .who.dim { opacity: 0.5; }
   .who b { color: var(--text-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .who .av { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--r-avatar); background: var(--c); color: #fff; font-size: 8.5px; font-weight: 700; }
+  .who .av { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--r-avatar); background: var(--c); color: #fff; font-size: var(--fs-micro); font-weight: 700; }
   .who .av.pic { overflow: hidden; }
   .who .av.pic img { width: 100%; height: 100%; object-fit: cover; }
   .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }

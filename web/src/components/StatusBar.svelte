@@ -406,7 +406,7 @@
   .slot:not(:has(> *)) { display: none; }
   .fixed { display: flex; flex-shrink: 0; }
   .more.open { background: var(--surface-muted); color: var(--text); }
-  .overflow { position: fixed; z-index: 45; display: flex; flex-direction: column; gap: 2px; min-width: 200px; max-width: calc(100vw - 24px); padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); color: var(--text-muted); }
+  .overflow { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; gap: 2px; min-width: 200px; max-width: calc(100vw - 24px); padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); color: var(--text-muted); }
   .overflow .row { display: flex; align-items: center; min-height: 22px; }
   .overflow .row:not(:has(> *)) { display: none; }
   /* Customize: the labels on the bar, dashed; the line between the sides; the tray of hidden items. */
@@ -415,7 +415,7 @@
   .chip.you { background: color-mix(in srgb, var(--warn) 10%, transparent); }
   .chip.dragging, .sep.dragging { opacity: 0.35; }
   .sep { flex-shrink: 0; width: 6px; height: 18px; margin: 0 2px; border-left: 2px solid var(--accent); cursor: grab; }
-  .editor { position: fixed; z-index: 46; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; width: min(640px, calc(100vw - 24px)); padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); color: var(--text-muted); }
+  .editor { position: fixed; z-index: var(--z-menu); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; width: min(640px, calc(100vw - 24px)); padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); color: var(--text-muted); }
   .editor p { margin: 0; }
   .tray { display: flex; flex-wrap: wrap; gap: 4px; min-height: 30px; padding: 4px; border: 1px dashed var(--border); border-radius: var(--r8); }
   .tray .chip { border-color: var(--border); color: var(--text-muted); }
@@ -449,7 +449,7 @@
   .me { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px 0 2px; margin-right: 2px; color: var(--text); font-weight: 600; border-right: 1px solid var(--border); }
   .me .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pc); }
   .sbi.prof { flex: none; }
-  .sbi.prof .pb { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: var(--r4); border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent); background: color-mix(in srgb, var(--pc) 20%, transparent); color: var(--pc); font-size: 9px; font-weight: 700; }
+  .sbi.prof .pb { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: var(--r4); border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent); background: color-mix(in srgb, var(--pc) 20%, transparent); color: var(--pc); font-size: var(--fs-micro); font-weight: 700; }
   .sbi.prof.waits { background: color-mix(in srgb, var(--pc) 14%, transparent); }
   .sbi.prof.waits b { color: var(--warn); }
   /* Another computer's: its badge round, as its dot elsewhere; out of reach, faded. */
@@ -457,7 +457,7 @@
   .sbi.mach.off { opacity: 0.55; }
   .mini { width: 38px; height: 4px; border-radius: var(--r2); overflow: hidden; background: var(--surface-muted); }
   .mini i { display: block; height: 100%; background: var(--src-gitlab); }
-  .ctx { position: fixed; z-index: 50; width: 190px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
+  .ctx { position: fixed; z-index: var(--z-menu); width: 190px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
   .ctx p { margin: 2px 8px 4px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .ctx button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   .ctx button:hover { background: var(--surface-muted); }

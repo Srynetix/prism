@@ -223,7 +223,7 @@
 {/if}
 
 <style>
-  .tip { position: fixed; z-index: 1000; display: flex; align-items: baseline; gap: 8px; max-width: min(340px, calc(100vw - 12px)); padding: 4px 8px; border-radius: var(--r6); background: color-mix(in srgb, var(--text) 90%, var(--bg)); color: var(--bg); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); line-height: 1.4; pointer-events: none; animation: tip-in 0.09s ease-out; }
+  .tip { position: fixed; z-index: var(--z-tip); display: flex; align-items: baseline; gap: 8px; max-width: min(340px, calc(100vw - 12px)); padding: 4px 8px; border-radius: var(--r6); background: color-mix(in srgb, var(--text) 90%, var(--bg)); color: var(--bg); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); line-height: 1.4; pointer-events: none; animation: tip-in 0.09s ease-out; }
   .body { white-space: pre-line; overflow-wrap: anywhere; }
   .keys { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
   .keys i { font-style: normal; opacity: 0.6; }

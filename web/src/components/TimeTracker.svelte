@@ -369,20 +369,20 @@
   .chip { display: flex; align-items: baseline; gap: 5px; padding: 3px 9px; border-radius: var(--r6); border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border)); background: var(--surface-muted); color: var(--text-muted); font: inherit; font-size: var(--fs-body); cursor: pointer; white-space: nowrap; }
   /* After `font: inherit`, which would reset the tabular figures. */
   .chip { position: relative; overflow: hidden; font-variant-numeric: tabular-nums; }
-  .chip b { color: var(--text); font-weight: 500; font-size: 13px; }
+  .chip b { color: var(--text); font-weight: 500; font-size: var(--fs-title); }
   .chip.done b { color: var(--ok); }
   .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; }
   .progress i { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
   .chip.done .progress i { background: var(--ok); }
   /* Above the side panes (ticket, MR, logs: 49 to 52), from which a ticket's time is logged. */
-  .drawer { position: absolute; top: calc(100% + 8px); right: 0; z-index: 55; width: 400px; max-height: 80vh; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); }
+  .drawer { position: absolute; top: calc(100% + 8px); right: 0; z-index: var(--z-menu); width: 400px; max-height: 80vh; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); }
   .drawer.wide { width: 580px; }
   .modes { display: inline-flex; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); border: 1px solid var(--border); align-self: center; }
   .modes button { padding: 1px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .modes button.on { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
   .head { display: flex; align-items: baseline; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   .head .muted { flex: 1; font-size: var(--fs-meta); }
-  .x { display: inline-flex; align-items: center; border: none; background: none; color: var(--text-muted); font-size: 16px; cursor: pointer; }
+  .x { display: inline-flex; align-items: center; border: none; background: none; color: var(--text-muted); font-size: var(--fs-head); cursor: pointer; }
   .form { display: grid; grid-template-columns: 1fr 90px; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   label { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-meta); color: var(--text-muted); }
   label.wide, .actions, .error { grid-column: 1 / 3; }

@@ -131,8 +131,8 @@
 </div>
 
 <style>
-  .scrim { position: absolute; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.18); }
-  .qo { position: absolute; z-index: 21; left: 50%; top: 36px; width: min(540px, calc(100% - 24px)); transform: translateX(-50%); display: flex; flex-direction: column; max-height: calc(100% - 60px); border: 1px solid var(--border); border-radius: var(--r10, 10px); background: var(--surface); box-shadow: 0 16px 50px rgba(0, 0, 0, 0.25); overflow: hidden; font-size: var(--fs-meta); }
+  .scrim { position: absolute; inset: 0; z-index: var(--z-menu); background: rgba(0, 0, 0, 0.18); }
+  .qo { position: absolute; z-index: var(--z-menu); left: 50%; top: 36px; width: min(540px, calc(100% - 24px)); transform: translateX(-50%); display: flex; flex-direction: column; max-height: calc(100% - 60px); border: 1px solid var(--border); border-radius: var(--r10, 10px); background: var(--surface); box-shadow: 0 16px 50px rgba(0, 0, 0, 0.25); overflow: hidden; font-size: var(--fs-meta); }
   input { padding: 9px 12px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: 13px var(--mono); outline: none; }
   .list { flex: 1; min-height: 0; overflow: auto; padding: 3px 0; }
   .grp { padding: 6px 12px 2px; font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -149,7 +149,7 @@
   .none { margin: 0; padding: 10px 12px; color: var(--text-muted); }
   .foot { display: flex; gap: 12px; padding: 5px 12px; border-top: 1px solid var(--border); background: var(--surface-muted); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; }
   .grow { flex: 1; }
-  :global(html.remote) input { font-size: 16px; }
+  :global(html.remote) input { font-size: var(--fs-head); }
   :global(html.remote) .it { padding-block: 8px; }
   :global(html.remote) .foot { display: none; }
 </style>

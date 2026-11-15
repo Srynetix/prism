@@ -87,26 +87,26 @@
 {/if}
 
 <style>
-  .sw { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 2px 8px 2px 4px; border: none; border-radius: 10px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: 13px; }
+  .sw { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 2px 8px 2px 4px; border: none; border-radius: var(--r10); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .sw > span:not(.pf) { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sw :global(svg) { color: var(--text-muted); }
-  .pf { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c); font-size: 11px; font-weight: 700; }
-  .pf.big { width: 34px; height: 34px; border-radius: 10px; font-size: 16px; }
+  .pf { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: var(--r6); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c); font-size: var(--fs-micro); font-weight: 700; }
+  .pf.big { width: 34px; height: 34px; border-radius: var(--r10); font-size: var(--fs-head); }
   .pf.every { --c: var(--text-muted); }
-  .shade { position: fixed; inset: 0; z-index: 30; padding: 0; border: none; background: rgba(0, 0, 0, 0.45); }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 31; max-height: 80dvh; overflow-y: auto; padding: 8px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; background: var(--surface); color: var(--text); }
-  .grab { width: 38px; height: 4px; margin: 0 auto 12px; border-radius: 2px; background: var(--border); }
-  h3 { margin: 0 0 6px; font-size: 16px; }
+  .shade { position: fixed; inset: 0; z-index: var(--z-modal); padding: 0; border: none; background: rgba(0, 0, 0, 0.45); }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-modal); max-height: 80dvh; overflow-y: auto; padding: 8px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: var(--r14) var(--r14) 0 0; background: var(--surface); color: var(--text); }
+  .grab { width: 38px; height: 4px; margin: 0 auto 12px; border-radius: var(--r2); background: var(--border); }
+  h3 { margin: 0 0 6px; font-size: var(--fs-head); }
   .opt { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 0; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; text-align: left; }
   .pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 2px 4px; border: none; background: none; color: inherit; font: inherit; text-align: left; }
   button.opt { padding: 10px 4px; gap: 12px; }
   .opt.off .b { opacity: 0.7; }
   .b { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-  .b b { font-size: 15px; font-weight: 600; }
-  .b small { color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
-  .chk { color: var(--accent); font-weight: 700; font-size: 16px; }
-  .btn { flex: none; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 16px; background: none; color: var(--accent); font: inherit; font-size: 13px; }
+  .b b { font-size: var(--fs-title); font-weight: 600; }
+  .b small { color: var(--text-muted); font-size: var(--fs-tag); overflow-wrap: anywhere; }
+  .chk { color: var(--accent); font-weight: 700; font-size: var(--fs-head); }
+  .btn { flex: none; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 999px; background: none; color: var(--accent); font: inherit; font-size: var(--fs-meta); }
   .btn:disabled { opacity: 0.6; }
-  .note { margin: 12px 4px 0; color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
+  .note { margin: 12px 4px 0; color: var(--text-muted); font-size: var(--fs-tag); overflow-wrap: anywhere; }
   .note.ko { color: var(--ko); }
 </style>

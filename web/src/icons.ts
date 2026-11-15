@@ -26,6 +26,7 @@ import SquareSquare from '@lucide/svelte/icons/square-square'
 import SquareChevronRight from '@lucide/svelte/icons/square-chevron-right'
 import CheckCheck from '@lucide/svelte/icons/check-check'
 import Check from '@lucide/svelte/icons/check'
+import Info from '@lucide/svelte/icons/info'
 import ChevronDown from '@lucide/svelte/icons/chevron-down'
 import ChevronUp from '@lucide/svelte/icons/chevron-up'
 import ChevronLeft from '@lucide/svelte/icons/chevron-left'
@@ -139,6 +140,7 @@ export const ICONS = {
   sortAz: ArrowDownAZ, // sort a list by name
   search: Search, // filter (⌕)
   help: CircleHelp, // in-app Help (?)
+  info: Info, // something under way, nothing done (a toast's ⓘ)
   edit: Pencil, // draft, daily (✎)
   add: CirclePlus, // add to sprint (⊕)
   plus: Plus, // create (+ New)

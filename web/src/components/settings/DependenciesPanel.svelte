@@ -86,7 +86,7 @@
   .foot { border-top: 0; }
   .warn { display: inline-flex; align-items: center; gap: 4px; color: var(--warn); font-size: var(--fs-meta); }
   .miss { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-  .pill { justify-self: start; font-size: var(--fs-tag); padding: 1px 7px; border-radius: 9px; background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
+  .pill { justify-self: start; font-size: var(--fs-tag); padding: 1px 7px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
   .pill.ko { background: var(--warn-bg); color: var(--warn); }
   .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }
   .btn:hover:not(:disabled) { border-color: var(--accent); }

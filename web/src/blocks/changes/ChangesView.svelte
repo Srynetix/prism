@@ -419,12 +419,12 @@
   .changes { flex: 1; min-height: 0; display: flex; flex-direction: column; container: changes / inline-size; font-size: var(--fs-body); --c-argocd: #e96d36; --c-mrs: var(--violet); --c-pods: var(--src-k8s); --c-alerts: var(--ko); --c-vulnerabilities: var(--warn); }
   .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--border); }
   .pills { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-  .pill { padding: 1px 9px; border: 1px solid var(--border); border-radius: 10px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .pill { padding: 1px 9px; border: 1px solid var(--border); border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .pill.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
   .sel { padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .grow { flex: 1; }
   .pill.b { border-color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); font-weight: 600; }
-  .swap { padding: 0 2px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .swap { padding: 0 2px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-title); cursor: pointer; }
   .swap:hover { color: var(--text); }
   .cbtn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .cbtn :global(svg) { width: 11px; height: 11px; }
@@ -436,7 +436,7 @@
   .sides { display: flex; gap: 4px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
   .cmpnote { display: inline-block; margin-top: 2px; padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
   .cmpnote.wait { color: var(--warn); cursor: default; }
-  .warnchip { display: inline-block; margin: 2px 0 0 6px; padding: 0 6px; border: none; border-radius: 8px; background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); font: inherit; font-size: var(--fs-tag); font-weight: 600; cursor: pointer; }
+  .warnchip { display: inline-block; margin: 2px 0 0 6px; padding: 0 6px; border: none; border-radius: var(--r8); background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); font: inherit; font-size: var(--fs-tag); font-weight: 600; cursor: pointer; }
   .search { width: 170px; max-width: 40%; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .icon { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
   .icon:hover:not(:disabled) { background: var(--surface-muted); color: var(--text); }
@@ -446,7 +446,7 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .filters { display: flex; flex-wrap: wrap; gap: 5px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
-  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: none; border-radius: 10px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: none; border-radius: var(--r10); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .chip :global(svg) { width: 11px; height: 11px; }
   .chip b { font-variant-numeric: tabular-nums; }
   .chip.off { opacity: 0.45; text-decoration: line-through; }
@@ -474,7 +474,7 @@
   .ev.ko { box-shadow: inset 2px 0 var(--ko); }
   .ev.hl { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 3px 0 var(--accent); }
   .t { padding-top: 1px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-  .t i { display: block; font-size: 9.5px; font-style: normal; }
+  .t i { display: block; font-size: var(--fs-micro); font-style: normal; }
   .mono { font-family: var(--mono); font-size: var(--fs-mono); }
   .src { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: var(--r5); background: color-mix(in srgb, var(--c, var(--text-muted)) 20%, transparent); color: var(--c, var(--text-muted)); }
   .src :global(svg) { width: 11px; height: 11px; }

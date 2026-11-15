@@ -208,7 +208,7 @@
 
 <style>
   .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 52; width: min(1040px, 96vw);
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(1040px, 96vw);
     display: flex; flex-direction: column; background: var(--surface);
     border-left: 1px solid var(--border); box-shadow: var(--shadow-drawer);
   }

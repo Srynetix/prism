@@ -354,11 +354,11 @@
   .tabs { display: inline-flex; gap: 2px; margin-left: auto; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
   .tabs button { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
   .tabs button.on { background: var(--surface); color: var(--text); font-weight: 500; }
-  .tabs .dot { min-width: 14px; padding: 0 3px; border-radius: var(--r7); background: var(--ko); color: var(--surface); font-size: 9.5px; line-height: 14px; text-align: center; }
+  .tabs .dot { min-width: 14px; padding: 0 3px; border-radius: var(--r7); background: var(--ko); color: var(--surface); font-size: var(--fs-micro); line-height: 14px; text-align: center; }
   .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
   .kpi { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 6px 12px; background: var(--surface); }
   .kpi span { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
-  .kpi b { font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .kpi b { font-size: var(--fs-head); font-weight: 600; white-space: nowrap; }
   .kpi b.ko { color: var(--ko); }
   .kpi b.warn { color: var(--warn); }
   .kpi small { font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -367,12 +367,12 @@
   .wl + .cl, .err + .cl { border-top: 1px solid var(--border); }
   .cn { font-weight: 600; }
   .cl { cursor: pointer; }
-  .cl .caret { display: inline-flex; align-items: center; justify-content: center; width: 12px; align-self: center; font-size: 11px; color: var(--text-muted); transition: transform 0.12s; }
+  .cl .caret { display: inline-flex; align-items: center; justify-content: center; width: 12px; align-self: center; font-size: var(--fs-meta); color: var(--text-muted); transition: transform 0.12s; }
   .cl .caret.open { transform: rotate(90deg); }
   /* A namespace's line, under its cluster's. */
   .ns { display: flex; align-items: center; gap: 6px; padding: 4px 12px 4px 10px; font-size: var(--fs-tag); color: var(--text-muted); border-bottom: 1px solid var(--border); cursor: pointer; }
   .ns b { font-family: var(--mono); font-weight: 600; color: var(--text); }
-  .ns .caret { display: inline-flex; align-items: center; justify-content: center; width: 12px; font-size: 11px; transition: transform 0.12s; }
+  .ns .caret { display: inline-flex; align-items: center; justify-content: center; width: 12px; font-size: var(--fs-meta); transition: transform 0.12s; }
   .ns .caret.open { transform: rotate(90deg); }
   /* ArgoCD: the Application's sync and health, as a pill; discreet green when all is well. */
   .argo, .argo-sum { flex-shrink: 0; margin-left: 6px; padding: 0 6px; border-radius: var(--r9); font-family: var(--sans); font-size: var(--fs-tag); font-weight: 500; line-height: 16px; white-space: nowrap; text-decoration: none; }
@@ -410,7 +410,7 @@
   .table:global([data-sized]) { grid-template-columns: var(--cols); }
   .table:global([data-sized]) .wl:not(.head) > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .table > :global(*) { grid-column: 1 / -1; }
-  .wl.head { padding: 4px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); white-space: nowrap; }
+  .wl.head { padding: 4px 0; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); white-space: nowrap; }
   .wl.head:hover { background: none; }
   /* The names follow the columns, they do not widen them. */
   .wl.head > .fit { contain: inline-size; }
@@ -423,7 +423,7 @@
   .wl > .dot-st { justify-self: end; }
   .wl { display: grid; grid-template-columns: subgrid; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-body); }
   .wl.app { cursor: pointer; background: color-mix(in srgb, var(--src-k8s) 4%, var(--surface)); }
-  .wl.app .caret { display: inline-flex; align-items: center; justify-content: center; width: 12px; font-size: 11px; color: var(--text-muted); transition: transform 0.12s; }
+  .wl.app .caret { display: inline-flex; align-items: center; justify-content: center; width: 12px; font-size: var(--fs-meta); color: var(--text-muted); transition: transform 0.12s; }
   .wl.app .caret.open { transform: rotate(90deg); }
   .wl.child { border-bottom-color: color-mix(in srgb, var(--border) 50%, transparent); }
   .wl.child .name { padding-left: 14px; }

@@ -171,7 +171,7 @@
   button.mic, .mic.low { color: var(--warn); }
   .mic.ko { color: var(--ko); }
   .snd .mic { margin-left: 3px; }
-  .pop { position: fixed; z-index: 60; width: 290px; padding: 2px 0; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-drawer); font-size: var(--fs-meta); }
+  .pop { position: fixed; z-index: var(--z-menu); width: 290px; padding: 2px 0; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-drawer); font-size: var(--fs-meta); }
   .sec { padding: 7px 12px 8px; border-top: 1px solid var(--border); }
   .sec:first-child { border-top: none; }
   h4 { display: flex; gap: 6px; margin: 0 0 5px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }

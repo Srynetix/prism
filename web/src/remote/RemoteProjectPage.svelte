@@ -64,24 +64,24 @@
 <style>
   .page { width: calc(100% + 20px); margin: 0 -10px; padding-bottom: 8px; }
   .top { display: flex; align-items: center; gap: 10px; padding: 4px 14px 8px; }
-  .top b { font-size: 17px; }
-  .back { display: inline-flex; padding: 6px; border: 1px solid var(--border); border-radius: 9px; background: none; color: var(--text); }
+  .top b { font-size: var(--fs-head); }
+  .back { display: inline-flex; padding: 6px; border: 1px solid var(--border); border-radius: var(--r9); background: none; color: var(--text); }
   .behind { color: var(--warn); font: 600 12px var(--mono); }
-  .ko { display: inline-flex; align-items: center; gap: 3px; color: var(--ko); font-size: 12px; }
-  .grp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
-  .ws { margin: 0 10px 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  .ko { display: inline-flex; align-items: center; gap: 3px; color: var(--ko); font-size: var(--fs-tag); }
+  .grp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
+  .ws { margin: 0 10px 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); }
   .h { display: flex; align-items: center; gap: 8px; }
-  .ttl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 550; }
-  .tk { color: var(--info); font-family: var(--mono); font-size: 12px; }
+  .ttl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-title); font-weight: 550; }
+  .tk { color: var(--info); font-family: var(--mono); font-size: var(--fs-tag); }
   .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
   .dot.asks { background: var(--warn); } .dot.run { background: var(--info); }
-  .where, .mr { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .where, .mr { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mr code { font-family: var(--mono); color: var(--text); }
-  .agent { width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; text-align: left; }
+  .agent { width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); text-align: left; }
   .who { font-weight: 600; white-space: nowrap; }
   .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
   .what.asks { color: var(--warn); font-weight: 600; }
-  .tm { color: var(--text-muted); font-size: 12px; }
-  .empty { margin: 24px 0; color: var(--text-muted); font-size: 13px; text-align: center; }
+  .tm { color: var(--text-muted); font-size: var(--fs-tag); }
+  .empty { margin: 24px 0; color: var(--text-muted); font-size: var(--fs-meta); text-align: center; }
   .new { margin: 12px 10px 0; }
 </style>

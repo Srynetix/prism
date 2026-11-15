@@ -36,10 +36,10 @@
 {/if}
 
 <style>
-  .type { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; margin-right: 5px; padding: 0 5px; border-radius: var(--r4); font-size: 9.5px; font-weight: 600; line-height: 15px; letter-spacing: 0.3px; vertical-align: 1px; white-space: nowrap; background: var(--surface-muted); color: var(--text-muted); }
+  .type { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; margin-right: 5px; padding: 0 5px; border-radius: var(--r4); font-size: var(--fs-micro); font-weight: 600; line-height: 15px; letter-spacing: 0.3px; vertical-align: 1px; white-space: nowrap; background: var(--surface-muted); color: var(--text-muted); }
   .type svg { width: 9px; height: 9px; fill: currentColor; }
   .epic { background: color-mix(in srgb, var(--violet) 22%, transparent); color: color-mix(in srgb, var(--violet) 70%, var(--text)); }
-  .icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 14px; height: 14px; margin-right: 4px; border-radius: var(--r3); vertical-align: -2px; font-size: 8.5px; font-weight: 700; line-height: 1; background: var(--surface-muted); color: var(--text-muted); }
+  .icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 14px; height: 14px; margin-right: 4px; border-radius: var(--r3); vertical-align: -2px; font-size: var(--fs-micro); font-weight: 700; line-height: 1; background: var(--surface-muted); color: var(--text-muted); }
   .icon svg { width: 10px; height: 10px; fill: currentColor; }
   .icon.epic { background: var(--violet); color: #fff; }
   .icon.milestone { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); }

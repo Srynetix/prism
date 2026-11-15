@@ -161,35 +161,35 @@
 
 <style>
   .hello { padding: 8px 4px 2px; }
-  .hello h2 { margin: 0; font-size: 22px; font-weight: 650; }
-  .hello p { margin: 4px 0 0; color: var(--text-muted); font-size: 14px; }
-  .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .hello h2 { margin: 0; font-size: var(--fs-display); font-weight: 650; }
+  .hello p { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-body); }
+  .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
   .sect .ko { color: var(--ko); }
   .sect .warn { color: var(--warn); }
-  ul.card { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  ul.card { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r12); overflow: hidden; background: var(--surface); }
   ul.card li + li { border-top: 1px solid var(--border); }
-  ul.card button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 13px 14px; background: none; border: none; color: var(--text); font-size: 15px; text-align: left; }
+  ul.card button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 13px 14px; background: none; border: none; color: var(--text); font-size: var(--fs-title); text-align: left; }
   .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .txt b { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .txt small { color: var(--text-muted); font-size: 12px; }
-  .clip { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; }
-  .ico { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--surface-muted); }
+  .txt small { color: var(--text-muted); font-size: var(--fs-tag); }
+  .clip { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-body); }
+  .ico { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r10); background: var(--surface-muted); }
   .ico.asks { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
   /* A profile's badge (All): its initial on its color. */
-  .pf { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c); font-size: 12px; font-weight: 700; }
-  .pf.big { width: 32px; height: 32px; border-radius: 10px; font-size: 15px; }
+  .pf { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r7); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c); font-size: var(--fs-tag); font-weight: 700; }
+  .pf.big { width: 32px; height: 32px; border-radius: var(--r10); font-size: var(--fs-title); }
   ul.card button:disabled { opacity: 0.65; }
   .chips { display: flex; gap: 6px; padding: 0 14px 12px 50px; overflow-x: auto; scrollbar-width: none; }
   .chips :global(.qa) { flex-wrap: nowrap; }
-  .chips :global(.qa button) { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
-  .bar { flex: none; align-self: stretch; width: 3px; border-radius: 2px; background: var(--text-muted); }
+  .chips :global(.qa button) { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
+  .bar { flex: none; align-self: stretch; width: 3px; border-radius: var(--r2); background: var(--text-muted); }
   .bar.ko { background: var(--ko); }
   .bar.warn { background: var(--warn); }
   .all { color: var(--accent) !important; }
-  .none { margin: 0; padding: 14px; display: flex; align-items: center; gap: 8px; color: var(--ok); font-size: 14px; }
+  .none { margin: 0; padding: 14px; display: flex; align-items: center; gap: 8px; color: var(--ok); font-size: var(--fs-body); }
   .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text-muted); text-align: left; }
-  .tile b { font-size: 22px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
-  .tile small { width: 100%; font-size: 12px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; min-width: 0; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text-muted); text-align: left; }
+  .tile b { font-size: var(--fs-display); font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+  .tile small { width: 100%; font-size: var(--fs-tag); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tile.hot { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--accent); }
 </style>

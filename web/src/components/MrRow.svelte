@@ -137,7 +137,7 @@
 
 <style>
   /* The author at a glance: their initials on their colour. */
-  .av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 18px; height: 18px; border-radius: var(--r-avatar); background: var(--c); color: #fff; font-size: 8.5px; font-weight: 700; letter-spacing: 0.2px; }
+  .av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 18px; height: 18px; border-radius: var(--r-avatar); background: var(--c); color: #fff; font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.2px; }
   /* Their profile picture, when the forge has one. */
   .av.pic { overflow: hidden; }
   .av.pic img { width: 100%; height: 100%; object-fit: cover; }
@@ -167,7 +167,7 @@
   .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .sec { display: inline-flex; align-self: center; color: var(--ko); }
   .sec svg { width: 11px; height: 11px; fill: currentColor; }
-  .draft-tag { flex-shrink: 0; padding: 0 4px; border: 1px dashed currentColor; border-radius: var(--r4); font-size: 9px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-muted); }
+  .draft-tag { flex-shrink: 0; padding: 0 4px; border: 1px dashed currentColor; border-radius: var(--r4); font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-muted); }
   .chip { flex-shrink: 0; padding: 0 5px; border-radius: var(--r4); font-size: var(--fs-tag); }
   .chip.am { background: var(--accent); color: var(--surface); font-weight: 600; }
   .mr.automerge { box-shadow: inset 3px 0 0 var(--accent); }
@@ -185,7 +185,7 @@
   .asks { display: inline-flex; align-items: center; gap: 3px; color: var(--warn); font-weight: 500; }
   .mono { font-family: var(--mono); }
   /* Diff size: added and removed lines, and their share in five cells. */
-  .size { display: inline-flex; align-items: center; gap: 3px; font-size: 9.5px; font-variant-numeric: tabular-nums; }
+  .size { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
   /* Beyond `[alerts] large_mr_lines`: the size stands out in orange. */
   .size.large { padding: 0 4px; border-radius: var(--r4); background: var(--warn-bg); }
   .size .add { color: var(--ok); }

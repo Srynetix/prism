@@ -554,7 +554,7 @@
 
 <style>
   .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 49; width: min(560px, 92vw);
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(560px, 92vw);
     display: flex; flex-direction: column; background: var(--surface);
     border-left: 1px solid color-mix(in srgb, var(--src-gitlab) 45%, var(--border));
     box-shadow: var(--shadow-drawer);
@@ -565,29 +565,29 @@
   }
   .drawer.wide { width: min(1320px, 96vw); }
   /* The phone (the remote): the whole screen, larger type and targets. */
-  .drawer.phone { left: 0; width: auto; border-left: none; box-shadow: none; font-size: 14px; }
+  .drawer.phone { left: 0; width: auto; border-left: none; box-shadow: none; font-size: var(--fs-body); }
   .phone header { padding: calc(8px + env(safe-area-inset-top)) 12px 8px 4px; }
-  .back { display: inline-flex; align-items: center; gap: 2px; padding: 4px 6px; border: 0; background: none; color: var(--accent); font: inherit; font-size: 15px; }
+  .back { display: inline-flex; align-items: center; gap: 2px; padding: 4px 6px; border: 0; background: none; color: var(--accent); font: inherit; font-size: var(--fs-head); }
   /* Four tabs on a phone: they share its width, and scroll rather than squeeze when their counts make them wider. */
   .phone .tabs { overflow-x: auto; scrollbar-width: none; }
   .phone .tabs::-webkit-scrollbar { display: none; }
-  .phone .tabs button { flex: 1 0 auto; justify-content: center; padding: 10px 6px 8px; font-size: 14px; white-space: nowrap; }
+  .phone .tabs button { flex: 1 0 auto; justify-content: center; padding: 10px 6px 8px; font-size: var(--fs-body); white-space: nowrap; }
   .phone .body { padding: 14px 14px 96px; }
-  .phone h2 { font-size: 18px; }
+  .phone h2 { font-size: var(--fs-big); }
   .branch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
   .branch code { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .tile { min-width: 0; padding: 8px 10px; border-radius: var(--r10); background: var(--surface-muted); }
   .tile.wide { grid-column: 1 / -1; }
-  .tile small { display: block; margin-bottom: 2px; color: var(--text-muted); font-size: 11px; }
+  .tile small { display: block; margin-bottom: 2px; color: var(--text-muted); font-size: var(--fs-meta); }
   .tile b { font-weight: 500; }
-  .tile .pick { margin-left: 6px; padding: 2px 8px; font-size: 12px; }
+  .tile .pick { margin-left: 6px; padding: 2px 8px; font-size: var(--fs-body); }
   .phone section { margin-top: 18px; }
-  .phone .btn { padding: 5px 12px; font-size: 13px; }
-  .phone .step .n { font-size: 12px; }
+  .phone .btn { padding: 5px 12px; font-size: var(--fs-meta); }
+  .phone .step .n { font-size: var(--fs-tag); }
   /* Above what the overview positions as it scrolls under it (the pipeline's step dots). */
   .mainbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); }
-  .mainbar button { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: 15px; }
+  .mainbar button { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-head); }
   .mainbar .primary { flex: 2; border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
   .mainbar .primary.armed { border-color: var(--warn); background: var(--warn); }
   .mainbar button:disabled { opacity: 0.6; }
@@ -626,14 +626,14 @@
   .error { color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
   .iid { font-family: var(--mono); font-size: var(--fs-mono); font-weight: 600; color: var(--info); }
   .grow { flex: 1; }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: 15px; cursor: pointer; }
+  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-head); cursor: pointer; }
   .icon:hover { background: var(--surface-muted); color: var(--text); }
   .next { padding: 0 8px; border-radius: var(--r10); font-size: var(--fs-tag); font-weight: 500; line-height: 18px; --c: var(--text-muted); background: color-mix(in srgb, var(--c) 15%, transparent); color: color-mix(in srgb, var(--c) 70%, var(--text)); }
   .next.blocked { --c: var(--ko); } .next.todo { --c: var(--warn); } .next.wait { --c: var(--info); } .next.ready { --c: var(--ok); } .next.auto { --c: var(--accent); }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; }
-  h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+  h2 { margin: 0 0 10px; font-size: var(--fs-head); font-weight: 600; line-height: 1.35; }
   .sec { color: var(--ko); margin-right: 4px; }
-  .draft-tag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px dashed currentColor; border-radius: var(--r4); font-size: 9.5px; font-weight: 600; text-transform: uppercase; vertical-align: 2px; color: var(--text-muted); }
+  .draft-tag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px dashed currentColor; border-radius: var(--r4); font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; vertical-align: 2px; color: var(--text-muted); }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: var(--fs-body); }
   dt { color: var(--text-muted); font-size: var(--fs-meta); }
   dd .add { color: var(--ok); }
@@ -680,7 +680,7 @@
   .step.ok .sdot { background: var(--ok); border-color: var(--ok); color: var(--surface); }
   .step.ko .sdot { background: var(--ko); border-color: var(--ko); color: var(--surface); }
   .step.run .sdot { border-color: var(--warn); }
-  .step.man .sdot { border-style: dashed; font-size: 8px; }
+  .step.man .sdot { border-style: dashed; font-size: var(--fs-micro); }
   .step .n { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); font-weight: 500; }
   .step .sm { font-family: var(--mono); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; }
   .step.ko .sm { color: var(--ko); } .step.run .sm { color: var(--warn); }

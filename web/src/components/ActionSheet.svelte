@@ -50,15 +50,15 @@
 </div>
 
 <style>
-  .dim { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, 0.4); }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 81; display: flex; flex-direction: column; max-height: 80vh; padding: 8px 12px calc(12px + env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; background: var(--surface); box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35); animation: up 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .dim { position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0, 0, 0, 0.4); }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-modal); display: flex; flex-direction: column; max-height: 80vh; padding: 8px 12px calc(12px + env(safe-area-inset-bottom)); border-radius: var(--r14) var(--r14) 0 0; background: var(--surface); box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35); animation: up 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
   @keyframes up { from { transform: translateY(100%); } }
-  .grab { width: 36px; height: 4px; margin: 0 auto 8px; border-radius: 2px; background: var(--border); }
-  .title { margin: 0 4px 4px; overflow: hidden; color: var(--text-muted); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .grab { width: 36px; height: 4px; margin: 0 auto 8px; border-radius: var(--r2); background: var(--border); }
+  .title { margin: 0 4px 4px; overflow: hidden; color: var(--text-muted); font-size: var(--fs-title); text-overflow: ellipsis; white-space: nowrap; }
   .list { overflow-y: auto; overscroll-behavior: contain; }
-  .g { margin: 12px 4px 2px; color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
-  .a { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 12px 6px; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: 15px; text-align: left; }
-  .a small { margin-left: 8px; color: var(--text-muted); font-size: 12px; }
+  .g { margin: 12px 4px 2px; color: var(--text-muted); font-size: var(--fs-meta); letter-spacing: 0.05em; text-transform: uppercase; }
+  .a { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 12px 6px; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: var(--fs-head); text-align: left; }
+  .a small { margin-left: 8px; color: var(--text-muted); font-size: var(--fs-body); }
   .a.armed { color: var(--warn); }
   .a:disabled { opacity: 0.6; }
 </style>

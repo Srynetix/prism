@@ -475,22 +475,22 @@
   /* The phone's view. */
   /* Edge to edge: the remote's page pads its views. */
   .phone { width: calc(100% + 20px); max-width: none; margin: 0 -10px; padding-bottom: 8px; }
-  .pgrp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .pgrp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: var(--fs-meta); letter-spacing: 0.05em; text-transform: uppercase; }
   .pgrp.ko { color: var(--ko); } .pgrp.warn { color: var(--warn); }
   .pal { display: flex; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); --sev: var(--info); }
   .pal.ko { --sev: var(--ko); } .pal.warn { --sev: var(--warn); }
-  .sev { flex: none; width: 3px; border-radius: 2px; background: var(--sev); }
+  .sev { flex: none; width: 3px; border-radius: var(--r2); background: var(--sev); }
   .pbody { flex: 1; min-width: 0; }
-  .kind { color: var(--text-muted); font-size: 11px; }
-  .ptext { margin: 2px 0 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+  .kind { color: var(--text-muted); font-size: var(--fs-meta); }
+  .ptext { margin: 2px 0 0; font-size: var(--fs-head); line-height: 1.35; overflow-wrap: anywhere; }
   .pacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .pacts :global(.qa button), .pbtn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; text-decoration: none; }
+  .pacts :global(.qa button), .pbtn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); text-decoration: none; }
   .pbtn.claude { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); }
   .pbtn.done { border-color: transparent; background: var(--ok-bg); color: var(--ok); }
   .pbtn.err { border-color: var(--ko); color: var(--ko); }
   .pbtn:disabled { opacity: 0.7; }
   .pmark { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 50%; background: none; color: var(--text-muted); }
-  .pfold { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 10px 14px; padding: 10px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: 13px; }
+  .pfold { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 10px 14px; padding: 10px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-title); }
   .pempty { padding: 24px 14px; justify-content: center; color: var(--text-muted); }
   /* Empty: Prism's sprout (Sprout) to the left of the message. */
   .empty { display: flex; align-items: center; gap: 8px; }
@@ -532,14 +532,14 @@
   .fold { display: inline-flex; flex-shrink: 0; width: 14px; padding: 0; border: none; background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
   .obj { flex-shrink: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--accent); }
   .pills { display: inline-flex; flex-shrink: 1; gap: 3px; min-width: 0; overflow: hidden; }
-  .mini { flex-shrink: 0; max-width: 140px; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-muted); font-size: var(--fs-tag); line-height: 16px; white-space: nowrap; }
+  .mini { flex-shrink: 0; max-width: 140px; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r9); color: var(--text-muted); font-size: var(--fs-tag); line-height: 16px; white-space: nowrap; }
   .mini.ko { border-color: color-mix(in srgb, var(--ko) 55%, var(--border)); color: var(--ko); }
   .mini.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--border)); color: var(--warn); }
   .sub { padding-left: 18px; }
   .mark.on { opacity: 1; color: var(--accent); }
   .pmark.on { border-color: var(--accent); color: var(--accent); }
   .pbtn small { color: var(--text-muted); }
-  .putoff { position: fixed; z-index: 50; min-width: 210px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
+  .putoff { position: fixed; z-index: var(--z-menu); min-width: 210px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
   .putoff button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   .putoff button span { flex: 1; }
   .putoff button small { color: var(--text-muted); font-size: var(--fs-meta); }
@@ -550,7 +550,7 @@
   .card { position: relative; padding: calc(6px * var(--space)) 12px calc(7px * var(--space)) 15px; border-top: 1px solid var(--border); font-size: var(--fs-body); --sev: var(--info); }
   .card:first-of-type { border-top: none; }
   .card.ko { --sev: var(--ko); } .card.warn { --sev: var(--warn); }
-  .card::before { content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--sev); }
+  .card::before { content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 3px; border-radius: var(--r2); background: var(--sev); }
   .card .head { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .card .head .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .card:hover .mark { opacity: 1; }

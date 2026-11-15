@@ -193,19 +193,19 @@
 {/if}
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: 66; display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px 16px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(2px); }
+  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px 16px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(2px); }
   .scrim.phone { padding: 0; align-items: stretch; }
   .sheet { width: min(720px, 100%); max-height: 88vh; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r12, 12px); background: var(--surface); box-shadow: var(--shadow-modal, var(--shadow-pop)); outline: none; overflow: hidden; }
   .phone .sheet { max-height: none; border-radius: 0; }
   header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
-  header b { flex: 1; color: var(--text); font-size: var(--fs-title, 15px); }
+  header b { flex: 1; color: var(--text); font-size: var(--fs-title); }
   .x { display: inline-flex; padding: 3px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
   .body { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; overflow: auto; }
   .sub { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .sub .warn { display: block; margin-top: 3px; color: var(--warn); font-weight: 500; }
   .relay { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .box { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--bg); }
-  .box small, .cli small { color: var(--text-muted); font-size: var(--fs-tag, 11px); }
+  .box small, .cli small { color: var(--text-muted); font-size: var(--fs-tag); }
   .cli small.hot { color: var(--ko); }
   .arrow { color: var(--text-muted); }
   .targets { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -222,7 +222,7 @@
   .choice:disabled { opacity: .5; cursor: default; }
   .what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .what small { color: var(--text-muted); font-size: var(--fs-meta); }
-  .cost { flex: none; color: var(--text-muted); font-size: var(--fs-tag, 11px); white-space: nowrap; }
+  .cost { flex: none; color: var(--text-muted); font-size: var(--fs-tag); white-space: nowrap; }
   .incl { display: flex; gap: 5px; flex-wrap: wrap; }
   .incl button { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .incl button.off { color: var(--text-muted); text-decoration: line-through; }
@@ -236,7 +236,7 @@
   .muted { color: var(--text-muted); }
   p.muted { margin: 0; font-size: var(--fs-meta); }
   footer { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
-  footer .note { flex: 1; color: var(--text-muted); font-size: var(--fs-tag, 11px); }
+  footer .note { flex: 1; color: var(--text-muted); font-size: var(--fs-tag); }
   .btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
   .btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
   .btn.quiet { background: none; }

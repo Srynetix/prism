@@ -258,8 +258,46 @@
   --fs-mono: 11.5px;
   --fs-meta: 11px;
   --fs-tag: 10.5px;
+  /* Beyond the text: a badge's figure (micro), a drawer's or a dialog's subject (head), a page's
+     figure or an empty state's sign (big), a dialog's title (display), a welcome's (hero). No other
+     size in px: `scripts/lint-style.mjs` refuses it, outside its list. */
+  --fs-micro: 9px;
+  --fs-head: 15px;
+  --fs-big: 18px;
+  --fs-display: 22px;
+  --fs-hero: 28px;
   /* Room in the lists (rows, block titles, tables): `[appearance] density`, never the theme. */
   --space: 1;
+  /* Spacing scale: gaps and paddings of the shared primitives (buttons, drawers, dialogs, states). */
+  --sp-1: 2px; --sp-2: 4px; --sp-3: 6px; --sp-4: 8px; --sp-5: 12px; --sp-6: 16px; --sp-7: 24px;
+  /* The two heights of a control (button, segment, field): `sm` in rows and block titles, `md` in
+     drawers, dialogs and settings. */
+  --h-sm: 20px;
+  --h-md: 24px;
+  /*
+   * Layers, bottom to top: sticky headers, the chrome (rail, status bar), side drawers (each one
+   * opened later a step above: layers.svelte.ts), dialogs, menus and popovers, toasts, tooltips,
+   * then what covers everything (boot, screensaver). A component's own stacking stays under 10.
+   */
+  --z-sticky: 10;
+  --z-rail: 20;
+  --z-drawer: 40;
+  --z-modal: 60;
+  --z-menu: 70;
+  --z-toast: 80;
+  --z-tip: 90;
+  --z-top: 100;
+  /* Motion: one curve, two durations; none with Reduce motion (`html[data-reduce-motion]`). */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-fast: 120ms;
+  --t-mid: 200ms;
+  /* Side drawers' widths: S a record (ticket, event, launcher), M a conversation (MR, thread),
+     L a log, a terminal or a wide diff. */
+  --dw-s: 520px;
+  --dw-m: 640px;
+  --dw-l: 960px;
+  /* Behind a dialog. */
+  --scrim: color-mix(in srgb, var(--bg) 45%, transparent);
 
   /*
    * A theme's personality, beyond its colours: shape, depth, titles, background. Their defaults are
@@ -275,6 +313,11 @@
   --r14: calc(14px * var(--round));
   /* Chips and pills (`.pill`, a row's tags): their own radius, `999px` for round ones. */
   --r-chip: var(--r5);
+  /* Radii by role: a control (button, segment, field, menu item), a card (menu, popover, toast,
+     a row's box), a layer (dialog). */
+  --r-ctl: var(--r6);
+  --r-card: var(--r8);
+  --r-layer: var(--r12);
   /* Blocks: their background (translucent: glass, with the blur), their border, the source band
      on top (0: none), their shadow, a blur behind. Menus and popups keep `--surface`. */
   --panel-bg: var(--surface);
@@ -647,7 +690,7 @@
     radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--violet) 24%, transparent) 0, transparent 60%);
 }
 :root:is([data-theme='ctp-latte'], [data-theme='ctp-frappe'], [data-theme='ctp-macchiato'], [data-theme='ctp-mocha']) .panel > h2::before {
-  content: ''; flex-shrink: 0; width: 14px; height: 6px; border-radius: 99px;
+  content: ''; flex-shrink: 0; width: 14px; height: 6px; border-radius: 999px;
   background: linear-gradient(90deg, var(--src, var(--accent)), var(--ctp-pink));
 }
 :root[data-theme='ctp-latte'] { --ctp-pink: #ea76cb; --panel-shadow: 0 1px 2px rgba(114, 135, 253, 0.1), 0 8px 22px rgba(114, 135, 253, 0.14); }
@@ -1153,7 +1196,7 @@
   --bg-image: radial-gradient(rgba(60, 40, 10, 0.06) 1px, transparent 1px);
 }
 :root[data-theme='sand'] body { background-size: 6px 6px; }
-:root[data-theme='sand'] .panel > h2 { font-size: calc(var(--fs-title) + 2px); }
+:root[data-theme='sand'] .panel > h2 { font-size: var(--fs-head); }
 /* Contrast: legibility first; thick contours, a wide band, bold titles, no rounding to blur edges. */
 :root[data-theme='contrast'] { --round: 0.4; --r-chip: var(--r2); --band: 4px; --panel-border: 2px solid var(--border); --title-border: 2px solid var(--border); --title-weight: 700; }
 /* One Dark: an editor; title bars as tabs, square blocks. */
@@ -1394,6 +1437,8 @@ html.remote [data-drawer] .body { overscroll-behavior: contain; }
  */
 html.remote {
   --fs-title: 15px; --fs-body: 14px; --fs-mono: 13px; --fs-meta: 12.5px; --fs-tag: 12px;
+  --fs-micro: 10.5px; --fs-head: 17px; --fs-big: 20px; --fs-display: 24px; --fs-hero: 30px;
+  --h-sm: 28px; --h-md: 34px;
   --space: 1.5;
 }
 html.remote .panel > h2 { flex-wrap: wrap; row-gap: 6px; padding-block: 10px; }
@@ -1412,7 +1457,7 @@ body {
 ::selection { background: var(--selection); }
 
 /* A theme's layer over the whole window (scanlines…): seen, never in the way of a click. */
-body::after { content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: var(--overlay); }
+body::after { content: ''; position: fixed; inset: 0; z-index: var(--z-top); pointer-events: none; background: var(--overlay); }
 
 /* The app's chrome is not text: a click or a drag on a button, an icon, a tab, a menu, the rail or
    the status bar selects nothing (WebKit wants the prefix). Content stays selectable — titles,
@@ -1496,7 +1541,7 @@ input[type='range']::-webkit-slider-thumb {
  */
 :root { --scroll-thumb: color-mix(in srgb, var(--text-muted) 35%, transparent); }
 html:not(.remote) ::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
-html:not(.remote) ::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 5px; background: var(--scroll-thumb) padding-box; }
+html:not(.remote) ::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: var(--r5); background: var(--scroll-thumb) padding-box; }
 html:not(.remote) ::-webkit-scrollbar-thumb:hover { border-width: 2px; }
 html:not(.remote) ::-webkit-scrollbar-corner { background: transparent; }
 /* A number's arrows: the keyboard's ↑ ↓ still step it. */
@@ -1514,7 +1559,7 @@ textarea::-webkit-resizer { background: linear-gradient(135deg, transparent 52%,
 /* A datalist's arrow: suggestions are the app's (suggest.ts). */
 input::-webkit-calendar-picker-indicator, input::-webkit-list-button { display: none !important; }
 /* Suggestions under a text field (suggest.ts), in the body: above the dialogs. */
-.suggest { position: fixed; z-index: 200; max-height: 240px; overflow-y: auto; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r7); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-meta); }
+.suggest { position: fixed; z-index: var(--z-menu); max-height: 240px; overflow-y: auto; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r7); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-meta); }
 .suggest-item { display: flex; align-items: baseline; gap: 10px; padding: 3px 8px; border-radius: var(--r5); white-space: nowrap; cursor: pointer; }
 .suggest-item:hover { background: var(--surface-muted); }
 .suggest-item.on { background: color-mix(in srgb, var(--info) 18%, transparent); }
@@ -1577,6 +1622,12 @@ a { color: var(--info); text-decoration: none; }
 .pill.ko { background: color-mix(in srgb, var(--ko-bg) var(--pill-fill), transparent); color: var(--ko); }
 .pill.warn { background: color-mix(in srgb, var(--warn-bg) var(--pill-fill), transparent); color: var(--warn); }
 .pill.info { background: color-mix(in srgb, var(--info-bg) var(--pill-fill), transparent); color: var(--info); }
+/* A source's or a kind's colour (`--c`): a ticket key, an agent's CLI, a kind. */
+.pill.src { background: color-mix(in srgb, var(--c, var(--accent)) calc(var(--pill-fill) * 0.16), transparent); color: var(--c, var(--accent)); }
+/* A name rather than a state (a repository, a branch): outlined, in the code's font. */
+.pill.outline { background: none; box-shadow: inset 0 0 0 1px var(--border); }
+.pill.mono { font-family: var(--mono); font-size: var(--fs-tag); }
+.pill:is(button, a) { border: 0; font-family: inherit; cursor: pointer; }
 
 .row { display: flex; align-items: center; gap: 8px; padding: calc(5px * var(--space)) 12px; border-top: 1px solid var(--border); font-size: var(--fs-body); }
 .row:first-child { border-top: none; }
@@ -1589,6 +1640,87 @@ table.data { width: 100%; border-collapse: collapse; font-size: var(--fs-body); 
 table.data td { padding: calc(5px * var(--space)) 6px; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .empty { color: var(--text-muted); font-size: var(--fs-body); padding: 8px 12px; }
+/* A line that says what went wrong, under what failed. */
+.err { color: var(--ko); font-size: var(--fs-meta); overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/*
+ * The shared primitives: one definition each, here, never again in a component (the style lint
+ * refuses `.btn`, `.pill`, `.seg`, `.empty` or `.err` defined in a component; a component may still
+ * place them: `.row .pill { margin-left: auto; }`).
+ *
+ * Button: two sizes (`.sm` in rows and block titles, the default in drawers, dialogs, settings),
+ * variants `.primary` (in `--btn-c`, the accent unless `.claude` / `.gitlab`), `.ghost`, `.danger`,
+ * `.icon` (square), and its states: `:disabled`, `.busy` (a spinner and a verb in -ing: « Merging… »),
+ * `.armed` (the second click confirms: armed.svelte.ts, ArmedLabel).
+ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  height: var(--h-md); padding: 0 var(--sp-5); box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: var(--r-ctl);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: var(--fs-meta); font-weight: 500; line-height: 1; white-space: nowrap; text-decoration: none;
+  cursor: pointer; flex-shrink: 0;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.btn:hover { background: var(--surface-muted); text-decoration: none; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn.sm { height: var(--h-sm); padding: 0 var(--sp-4); gap: 3px; }
+.btn.icon { width: var(--h-md); padding: 0; }
+.btn.sm.icon { width: var(--h-sm); }
+.btn.primary {
+  border-color: var(--btn-c, var(--accent)); background: var(--btn-c, var(--accent)); color: var(--btn-on, var(--on-accent));
+  background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--btn-c, var(--accent));
+  text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); font-weight: 600;
+}
+.btn.primary:hover { background: color-mix(in srgb, var(--btn-c, var(--accent)) 88%, var(--text)); }
+.btn.claude { --btn-c: var(--src-claude); --btn-on: #fff; }
+.btn.gitlab { --btn-c: var(--src-gitlab); --btn-on: #fff; }
+.btn.claude:not(.primary) { color: var(--src-claude); border-color: color-mix(in srgb, var(--src-claude) 40%, var(--border)); }
+.btn.ghost { border-color: transparent; background: none; color: var(--text-muted); }
+.btn.ghost:hover { background: var(--surface-muted); color: var(--text); }
+.btn.danger { color: var(--ko); }
+.btn.danger:hover { border-color: var(--ko); background: color-mix(in srgb, var(--ko-bg) 60%, transparent); }
+.btn:disabled, .btn[aria-disabled='true'] { opacity: 0.5; cursor: default; }
+.btn.busy, .btn.busy:disabled { opacity: 0.75; cursor: progress; }
+.btn.armed { position: relative; overflow: hidden; border-color: var(--ko); background: var(--ko-bg); color: var(--ko); font-weight: 600; }
+/* The time left to confirm, draining: three seconds, as armer()'s. */
+html:not([data-reduce-motion]) .btn.armed::after { content: ''; position: absolute; left: 0; bottom: 0; height: 2px; background: currentColor; opacity: 0.6; animation: armed-drain 3s linear forwards; }
+@keyframes armed-drain { from { width: 100%; } to { width: 0; } }
+/* A spinner, in a busy button or a line that loads. */
+.spinner { display: inline-block; flex: none; width: 0.85em; height: 0.85em; box-sizing: border-box; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spinner 0.7s linear infinite; }
+html[data-reduce-motion] .spinner { animation-duration: 2s; }
+@keyframes spinner { to { transform: rotate(360deg); } }
+
+/* Segments: one choice among a few (a block's filter, a drawer's tabs). The chosen button carries
+   `.on` (or aria-pressed / aria-selected / aria-checked). */
+.seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: var(--r-ctl); background: var(--surface-muted); flex-shrink: 0; max-width: 100%; }
+.seg > button, .seg > a, .seg > label {
+  display: inline-flex; align-items: center; gap: 4px; height: calc(var(--h-sm) - 4px); padding: 0 var(--sp-4);
+  border: 0; border-radius: var(--r4); background: none; color: var(--text-muted);
+  font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.seg > :is(button, a, label):hover { color: var(--text); }
+.seg > :is(button, a, label):is(.on, [aria-pressed='true'], [aria-selected='true'], [aria-checked='true']) { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); }
+.seg > :is(button, a, label):focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.seg .n { opacity: 0.7; font-weight: 400; }
+
+/* A status dot: 7 px, its colour from its class. */
+.dot { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: var(--r-dot); background: color-mix(in srgb, var(--dot-c, var(--text-muted)) var(--dot-fill), transparent); box-shadow: inset 0 0 0 var(--dot-ring) var(--dot-c, var(--text-muted)), 0 0 var(--dot-glow) var(--dot-c, transparent); }
+.dot.ok { --dot-c: var(--ok); } .dot.ko { --dot-c: var(--ko); } .dot.warn { --dot-c: var(--warn); } .dot.info { --dot-c: var(--info); } .dot.acc { --dot-c: var(--accent); }
+html:not([data-reduce-motion]) .dot.pulse { animation: pulse 1.6s ease-in-out infinite; }
+
+/* Menus and popovers drawn by the app: one look (MenuShell's, ContextMenu's, a picker's). */
+.popover { z-index: var(--z-menu); min-width: 180px; padding: var(--sp-2); box-sizing: border-box; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-meta); }
+html:not([data-reduce-motion]) .popover { animation: pop-in var(--t-fast) var(--ease); }
+.popover .mi { display: flex; align-items: center; gap: var(--sp-4); width: 100%; min-height: 26px; padding: 0 var(--sp-4); box-sizing: border-box; border: 0; border-radius: var(--r-ctl); background: none; color: inherit; font: inherit; text-align: left; white-space: nowrap; cursor: pointer; }
+.popover .mi:is(:hover, .on, [aria-selected='true'], :focus-visible) { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
+.popover .mi:disabled { opacity: 0.5; cursor: default; background: none; }
+.popover .mi.danger { color: var(--ko); }
+.popover .mi .k { margin-left: auto; padding-left: var(--sp-5); color: var(--text-muted); font-size: var(--fs-tag); }
+.popover .hd { padding: var(--sp-2) var(--sp-4) var(--sp-1); color: var(--text-muted); font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.popover hr { margin: var(--sp-2) 0; border: 0; border-top: 1px solid var(--border); }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
 
 @keyframes pulse { 50% { opacity: 0.35; } }
 /* A block reached from elsewhere (status bar, header): pointed out a moment. */
@@ -1692,7 +1824,7 @@ html[data-theme-motion='on'][data-theme='hacker'] [data-block='todo'] [data-arri
 /* Resizable columns (columns.svelte.ts): a handle on a header cell's right edge. */
 .col-resizable { position: relative; }
 .col-grip { position: absolute; top: 0; right: 0; bottom: 0; z-index: 2; width: 7px; cursor: col-resize; touch-action: none; }
-.col-grip::after { content: ''; position: absolute; top: 20%; bottom: 20%; right: 0; width: 2px; border-radius: 1px; background: var(--accent); opacity: 0; transition: opacity 0.12s; }
+.col-grip::after { content: ''; position: absolute; top: 20%; bottom: 20%; right: 0; width: 2px; border-radius: var(--r1); background: var(--accent); opacity: 0; transition: opacity 0.12s; }
 .col-resizable:hover .col-grip::after { opacity: 0.35; }
 .col-grip:hover::after, .col-resizing .col-grip::after { opacity: 1; }
 body.col-resizing { cursor: col-resize; user-select: none; }

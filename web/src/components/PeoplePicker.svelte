@@ -138,7 +138,7 @@
 </div>
 
 <style>
-  .picker { position: fixed; z-index: 60; width: 280px; max-height: 380px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); overflow: hidden; }
+  .picker { position: fixed; z-index: var(--z-menu); width: 280px; max-height: 380px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); overflow: hidden; }
   .hd { display: flex; align-items: center; gap: 6px; padding: 8px 10px 4px; font-size: var(--fs-body); }
   .hd small { color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); }
   .x { margin-left: auto; padding: 2px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
@@ -148,9 +148,9 @@
   .row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
   .row:hover:not(:disabled) { background: var(--surface-muted); }
   .row:disabled { cursor: progress; }
-  .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; border: 1.5px solid var(--text-muted); border-radius: var(--r3); color: var(--surface); font-size: 10px; }
+  .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; border: 1.5px solid var(--text-muted); border-radius: var(--r3); color: var(--surface); font-size: var(--fs-tag); }
   .row.on .box { border-color: var(--src-gitlab); background: var(--src-gitlab); }
-  .av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; border-radius: var(--r-avatar); background: var(--surface-muted); color: var(--text-muted); font-size: 9px; font-weight: 700; }
+  .av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; border-radius: var(--r-avatar); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-micro); font-weight: 700; }
   .av.pic { overflow: hidden; }
   .av.pic img { width: 100%; height: 100%; object-fit: cover; }
   .nm { display: flex; flex-direction: column; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

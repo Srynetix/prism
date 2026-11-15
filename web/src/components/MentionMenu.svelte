@@ -92,15 +92,15 @@
 {/if}
 
 <style>
-  .people { position: absolute; left: 0; right: 0; bottom: 100%; z-index: 20; max-height: 240px; overflow-y: auto; margin-bottom: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
-  button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 8px; border: none; border-radius: 6px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+  .people { position: absolute; left: 0; right: 0; bottom: 100%; z-index: var(--z-menu); max-height: 240px; overflow-y: auto; margin-bottom: 4px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
+  button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-title); text-align: left; cursor: pointer; }
   button.on { background: var(--surface-muted); }
-  .av { flex-shrink: 0; display: inline-grid; place-items: center; width: 20px; height: 20px; overflow: hidden; border-radius: 50%; background: var(--av, var(--text-muted)); color: #fff; font-size: 9px; font-weight: 600; }
+  .av { flex-shrink: 0; display: inline-grid; place-items: center; width: 20px; height: 20px; overflow: hidden; border-radius: 50%; background: var(--av, var(--text-muted)); color: #fff; font-size: var(--fs-micro); font-weight: 600; }
   .av.pic { background: none; }
   .av img { width: 100%; height: 100%; object-fit: cover; }
   .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .handle { font-family: var(--mono); font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .here { margin-left: auto; flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
+  .handle { font-family: var(--mono); font-size: var(--fs-body); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .here { margin-left: auto; flex-shrink: 0; font-size: var(--fs-meta); color: var(--text-muted); }
   hr { margin: 3px 4px; border: none; border-top: 1px solid var(--border); }
-  .muted { margin: 0; padding: 3px 8px; color: var(--text-muted); font-size: 12px; }
+  .muted { margin: 0; padding: 3px 8px; color: var(--text-muted); font-size: var(--fs-body); }
 </style>

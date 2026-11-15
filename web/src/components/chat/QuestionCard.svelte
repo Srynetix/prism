@@ -93,28 +93,28 @@
 </div>
 
 <style>
-  .ask { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+  .ask { border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; font-size: var(--fs-head); }
   .ask.asked { border-color: var(--info); box-shadow: 0 0 0 1px color-mix(in srgb, var(--info) 30%, transparent); }
-  .head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-body); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .asked .head { color: var(--info); }
   .q p { margin: 2px 0 6px; font-weight: 600; line-height: 1.35; }
-  .tag { font-size: 11px; padding: 1px 7px; border-radius: 7px; background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-muted); }
-  small { display: block; font-size: 12px; color: var(--text-muted); }
+  .tag { font-size: var(--fs-meta); padding: 1px 7px; border-radius: var(--r7); background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-muted); }
+  small { display: block; font-size: var(--fs-body); color: var(--text-muted); }
   .q > small { margin: -4px 0 6px; }
   .opts { display: flex; flex-direction: column; gap: 6px; }
-  .opt { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; font: inherit; color: var(--text); background: var(--surface-muted); border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; }
+  .opt { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; font: inherit; color: var(--text); background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--r10); padding: 9px 10px; }
   .opt.on { border-color: var(--info); background: var(--info-bg); }
-  .mark { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 1.5px solid var(--text-muted); display: grid; place-items: center; color: var(--info); font-size: 12px; }
-  .mark.box { border-radius: 4px; }
+  .mark { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 1.5px solid var(--text-muted); display: grid; place-items: center; color: var(--info); font-size: var(--fs-body); }
+  .mark.box { border-radius: var(--r4); }
   .on .mark { border-color: var(--info); }
   .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .txt b { font-weight: 600; }
   .words { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
   .words input { margin-top: 0; }
-  input { margin-top: 6px; width: 100%; box-sizing: border-box; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 15px; }
-  .send { align-self: stretch; border: none; border-radius: 10px; padding: 10px; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; }
+  input { margin-top: 6px; width: 100%; box-sizing: border-box; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); border-radius: var(--r10); padding: 8px 10px; font: inherit; font-size: var(--fs-head); }
+  .send { align-self: stretch; border: none; border-radius: var(--r10); padding: 10px; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; }
   .send:disabled, .opt:disabled { opacity: 0.5; }
   .ans { font-weight: 400 !important; color: var(--ok); margin: 0 !important; }
-  .muted, .error { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+  .muted, .error { margin: 0; font-size: var(--fs-title); color: var(--text-muted); }
   .error { color: var(--ko); }
 </style>

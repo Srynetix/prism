@@ -131,9 +131,9 @@
   .m.pods { --c: var(--c-pods); }
   .m.alerts { --c: var(--c-alerts); }
   .m.vulnerabilities { --c: var(--c-vulnerabilities); }
-  .m.crash { border-radius: 2px; background: var(--ko); transform: translateX(-50%) rotate(45deg); }
+  .m.crash { border-radius: var(--r2); background: var(--ko); transform: translateX(-50%) rotate(45deg); }
   .m.hl { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); z-index: 1; }
-  .delay { position: absolute; z-index: 1; padding: 0 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-tag); white-space: nowrap; transform: translateX(-50%); cursor: pointer; }
+  .delay { position: absolute; z-index: 1; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-tag); white-space: nowrap; transform: translateX(-50%); cursor: pointer; }
   .delay b { color: var(--text); font-variant-numeric: tabular-nums; }
   .delay i { margin-left: 4px; font-style: normal; opacity: 0.75; }
   .delay.ko { border-color: var(--ko); color: var(--ko); }
@@ -157,9 +157,9 @@
   .app { overflow: hidden; font-family: var(--mono); font-size: var(--fs-meta); text-overflow: ellipsis; white-space: nowrap; }
   .wt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wt small { color: var(--text-muted); font-size: var(--fs-meta); }
-  .wt .earlier { padding: 0 5px; border-radius: 8px; background: var(--surface-muted); }
+  .wt .earlier { padding: 0 5px; border-radius: var(--r8); background: var(--surface-muted); }
   .mono { font-family: var(--mono); font-size: var(--fs-mono); }
-  .chip { padding: 0 6px; border-radius: 8px; font-size: var(--fs-tag); font-weight: 600; white-space: nowrap; }
+  .chip { padding: 0 6px; border-radius: var(--r8); font-size: var(--fs-tag); font-weight: 600; white-space: nowrap; }
   .chip.ko { background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); }
   .chip.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
   .more { width: 100%; padding: 3px 10px; border: none; border-top: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }

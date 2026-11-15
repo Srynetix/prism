@@ -543,7 +543,7 @@
   .strip i { display: block; height: 100%; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 0 12px 6px; font-size: var(--fs-tag); color: var(--text-muted); }
   .legend b { color: var(--text); font-weight: 600; }
-  .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+  .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: var(--r2); margin-right: 4px; }
   .dot.free { border: 1px solid var(--border); }
 
   .bar { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: var(--fs-meta); }
@@ -569,9 +569,9 @@
   .tr.head > span:first-child { padding-left: 8px; }
   .tr.rest:hover { background: none; }
   .nm { display: flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; overflow: hidden; }
-  .chev { flex: none; width: 13px; padding: 0; border: none; background: none; color: var(--text-muted); font-size: 9px; cursor: pointer; }
+  .chev { flex: none; width: 13px; padding: 0; border: none; background: none; color: var(--text-muted); font-size: var(--fs-micro); cursor: pointer; }
   .t { overflow: hidden; text-overflow: ellipsis; }
-  .badge { flex: none; font-size: 9.5px; padding: 0 5px; border-radius: var(--r-chip, 7px); background: var(--surface-muted); color: var(--text-muted); }
+  .badge { flex: none; font-size: var(--fs-micro); padding: 0 5px; border-radius: var(--r-chip, 7px); background: var(--surface-muted); color: var(--text-muted); }
   .b { height: 6px; border-radius: var(--r3); background: var(--surface-muted); overflow: hidden; }
   .b i { display: block; height: 100%; }
   .n { text-align: right; font-size: var(--fs-tag); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -596,7 +596,7 @@
   .card .acts { gap: 4px; align-self: end; }
   .srow { padding: 4px 12px 6px; font-size: var(--fs-meta); }
 
-  .du-menu { position: fixed; z-index: 50; min-width: 220px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8, 8px); background: var(--surface); box-shadow: 0 8px 28px rgb(0 0 0 / 0.25); font-size: var(--fs-meta); }
+  .du-menu { position: fixed; z-index: var(--z-menu); min-width: 220px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8, 8px); background: var(--surface); box-shadow: 0 8px 28px rgb(0 0 0 / 0.25); font-size: var(--fs-meta); }
   .du-menu .mh { padding: 3px 9px 5px; color: var(--text-muted); font-size: var(--fs-tag); border-bottom: 1px solid var(--border); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
   .du-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 9px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   .du-menu button :global(svg) { width: 13px; height: 13px; color: var(--text-muted); }

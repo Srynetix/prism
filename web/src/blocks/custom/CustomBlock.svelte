@@ -124,10 +124,10 @@
   .icon:hover { background: var(--surface-muted); color: var(--text); }
   .icon :global(svg) { width: 13px; height: 13px; }
   .spin :global(svg) { animation: spin 0.8s linear infinite; }
-  .pend { padding: 0 7px; border-radius: 9px; background: var(--warn-bg); color: var(--warn); font-size: var(--fs-tag); font-weight: 500; }
+  .pend { padding: 0 7px; border-radius: var(--r9); background: var(--warn-bg); color: var(--warn); font-size: var(--fs-tag); font-weight: 500; }
   .pending { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; font-size: var(--fs-body); }
   .why { margin: 0; }
-  .tag { margin-left: 6px; padding: 0 6px; border: 1px solid var(--border); border-radius: 9px; font-size: var(--fs-tag); color: var(--text-muted); }
+  .tag { margin-left: 6px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r9); font-size: var(--fs-tag); color: var(--text-muted); }
   .agent { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ko); font-size: var(--fs-meta); }
   .agent :global(svg) { width: 12px; height: 12px; flex-shrink: 0; }
   .diff { margin: 0; max-height: 220px; overflow: auto; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); font-family: var(--mono); font-size: var(--fs-meta); line-height: 1.45; }

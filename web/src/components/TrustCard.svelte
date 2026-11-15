@@ -76,12 +76,12 @@
 </div>
 
 <style>
-  .trust { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--violet, #8b5cf6) 45%, var(--border)); border-radius: var(--r10, 10px); background: color-mix(in srgb, var(--violet, #8b5cf6) 9%, var(--surface)); font-size: 12.5px; }
+  .trust { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--violet, #8b5cf6) 45%, var(--border)); border-radius: var(--r10, 10px); background: color-mix(in srgb, var(--violet, #8b5cf6) 9%, var(--surface)); font-size: var(--fs-title); }
   b { display: inline-flex; align-items: center; gap: 6px; color: var(--violet, #8b5cf6); }
-  code { padding: 5px 8px; border-radius: 7px; background: var(--surface); color: var(--text); font: 12px var(--mono); overflow-wrap: anywhere; }
+  code { padding: 5px 8px; border-radius: var(--r7); background: var(--surface); color: var(--text); font: 12px var(--mono); overflow-wrap: anywhere; }
   p { margin: 0; color: var(--text-muted); line-height: 1.4; }
   .scope { display: flex; flex-wrap: wrap; gap: 6px; }
-  .scope button { padding: 3px 10px; border: 1px solid var(--border); border-radius: 12px; background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
+  .scope button { padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r12); background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
   .scope button.on { border-color: var(--violet, #8b5cf6); color: var(--text); font-weight: 600; }
   .pr { display: flex; flex-wrap: wrap; gap: 6px; }
   .pr button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
@@ -92,7 +92,7 @@
   .muted { color: var(--text-muted); }
   .err { color: var(--ko); overflow-wrap: anywhere; }
   /* On a phone: a card made for a thumb, as its permission's. */
-  .trust.phone { gap: 9px; padding: 12px 14px; border-radius: 14px; font-size: 14px; }
-  .trust.phone .scope button { min-height: 36px; padding: 0 14px; border-radius: 18px; font-size: 14px; }
-  .trust.phone .pr button { flex: 1; justify-content: center; min-height: 42px; border-radius: 21px; font-size: 14.5px; }
+  .trust.phone { gap: 9px; padding: 12px 14px; border-radius: var(--r14); font-size: var(--fs-body); }
+  .trust.phone .scope button { min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: var(--fs-body); }
+  .trust.phone .pr button { flex: 1; justify-content: center; min-height: 42px; border-radius: 999px; font-size: var(--fs-body); }
 </style>

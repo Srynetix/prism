@@ -212,12 +212,12 @@
   .rf, .rl { display: flex; align-items: center; gap: 5px; width: 100%; border: none; border-radius: var(--r4); background: none; color: var(--text); text-align: left; cursor: pointer; white-space: nowrap; }
   .rf { padding: 3px 6px; font: 600 var(--fs-meta) var(--sans); }
   .rf .p { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--fs-tag) var(--mono); color: var(--text-muted); font-weight: 400; direction: rtl; text-align: left; }
-  .rf .c { margin-left: auto; padding: 0 5px; border-radius: 8px; background: var(--surface); font-size: var(--fs-tag); color: var(--text-muted); font-weight: 400; }
+  .rf .c { margin-left: auto; padding: 0 5px; border-radius: var(--r8); background: var(--surface); font-size: var(--fs-tag); color: var(--text-muted); font-weight: 400; }
   .rl { padding: 1px 6px 1px 20px; font: var(--fs-tag)/1.6 var(--mono); overflow: hidden; }
   .rf:hover, .rl:hover { background: color-mix(in srgb, var(--src-claude) 10%, transparent); }
   .rl .ln { flex: 0 0 26px; text-align: right; color: var(--text-muted); opacity: 0.7; }
   .rl .t { overflow: hidden; text-overflow: ellipsis; }
-  mark { background: color-mix(in srgb, var(--warn) 35%, transparent); color: inherit; border-radius: 2px; }
-  :global(html.remote) input { font-size: 16px; }
+  mark { background: color-mix(in srgb, var(--warn) 35%, transparent); color: inherit; border-radius: var(--r2); }
+  :global(html.remote) input { font-size: var(--fs-head); }
   :global(html.remote) .rl { padding-block: 6px; }
 </style>

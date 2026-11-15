@@ -45,11 +45,11 @@
 <style>
   .dp { display: flex; align-items: center; gap: 2px; height: 28px; padding: 0 4px; border: 1px solid var(--border); border-radius: var(--r6); flex-shrink: 0; }
   .dp.active { border-color: var(--warn); }
-  button { border: none; background: none; color: var(--text-muted); cursor: pointer; font: inherit; font-size: 14px; padding: 0 4px; line-height: 1; }
+  button { border: none; background: none; color: var(--text-muted); cursor: pointer; font: inherit; font-size: var(--fs-head); padding: 0 4px; line-height: 1; }
   button:disabled { opacity: 0.3; cursor: default; }
   button:not(:disabled):hover { color: var(--text); }
   .day { min-width: 92px; height: 22px; border-radius: var(--r4); color: var(--text); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
   .day.on { background: var(--surface-muted); }
   .today { font-size: var(--fs-meta); color: var(--warn); }
-  .cal { position: fixed; z-index: 60; width: 232px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); outline: none; }
+  .cal { position: fixed; z-index: var(--z-menu); width: 232px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); outline: none; }
 </style>

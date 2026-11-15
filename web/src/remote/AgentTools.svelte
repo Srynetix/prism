@@ -94,13 +94,13 @@
 
 <style>
   .tools { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); background: var(--bg); color: var(--text); display: flex; flex-direction: column; gap: 6px; }
-  .error { margin: 0; color: var(--ko); font-size: 13px; }
-  .muted { margin: 4px 0; color: var(--text-muted); font-size: 12.5px; }
+  .error { margin: 0; color: var(--ko); font-size: var(--fs-meta); }
+  .muted { margin: 4px 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .row { display: flex; gap: 6px; }
-  .main, .task, .add { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; text-align: left; }
+  .main, .task, .add { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; }
   .main span, .task span { display: flex; flex-direction: column; min-width: 0; }
-  small { color: var(--text-muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .x { flex: none; width: 42px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ko); font-size: 18px; }
+  small { color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .x { flex: none; width: 42px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--ko); font-size: var(--fs-big); }
   .add { justify-content: center; color: var(--info); }
   .src { margin: 8px 0 2px; font: 12px ui-monospace, monospace; color: var(--text-muted); display: flex; gap: 8px; }
   button:disabled { opacity: 0.5; }

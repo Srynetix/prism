@@ -789,11 +789,11 @@
   .st { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--text-muted); opacity: 0.6; }
   .st.lit { background: var(--ok); border-color: var(--ok); opacity: 1; }
   .none { margin: 8px; }
-  .sample { display: block; margin-top: 4px; padding: 6px 8px; border-radius: var(--r6); background: var(--surface-muted); font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sample { display: block; margin-top: 4px; padding: 6px 8px; border-radius: var(--r6); background: var(--surface-muted); font-size: var(--fs-title); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .toc .ver { margin-top: auto; padding: 10px 8px 0; color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); user-select: text; }
   .toc button.on { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 600; }
   .sw { width: 8px; height: 8px; flex-shrink: 0; border-radius: var(--r2); }
-  .warn { display: inline-flex; color: var(--ko); font-size: 11px; }
+  .warn { display: inline-flex; color: var(--ko); font-size: var(--fs-meta); }
   .dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--warn); }
 
   .body { display: flex; flex-direction: column; min-width: 0; overflow: auto; padding: 16px 22px 0; container-type: inline-size; }
@@ -815,7 +815,7 @@
   .subp.off b { color: var(--text-muted); }
   .subp small { color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .link { padding: 0; border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
-  .head h3 { margin: 0; font-size: 16px; font-weight: 650; }
+  .head h3 { margin: 0; font-size: var(--fs-head); font-weight: 650; }
   .path { padding: 1px 7px; border-radius: var(--r5); background: var(--surface-muted); color: var(--text-muted); font: var(--fs-tag) var(--mono); }
   .grow { flex: 1; }
   .brings { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 6px 9px; border-left: 3px solid var(--ok); border-radius: var(--r4); background: var(--ok-bg); color: var(--ok); font-size: var(--fs-meta); }

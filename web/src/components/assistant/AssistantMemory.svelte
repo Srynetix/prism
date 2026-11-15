@@ -130,7 +130,7 @@
   .txt { grid-column: 1; }
   .src { grid-column: 1; color: var(--text-muted); font-size: var(--fs-tag); }
   .fa { grid-row: 1 / span 2; grid-column: 2; display: flex; align-items: center; gap: 4px; }
-  .kind { margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--surface-muted); color: var(--text-muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .kind { margin-right: 6px; padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.03em; }
   .form { display: grid; gap: 6px; padding: 8px 12px; }
   .form select { justify-self: start; font: inherit; }
   .form textarea { width: 100%; box-sizing: border-box; font: inherit; }

@@ -899,13 +899,13 @@
   .top .fold { padding: 1px 4px; border-color: transparent; background: none; color: var(--text-muted); }
   .list { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--surface); }
   .top { display: flex; align-items: center; gap: 8px; padding: 10px 10px 6px; }
-  .top b { font-size: 13px; }
+  .top b { font-size: var(--fs-title); }
   .grow { flex: 1; }
   .filter { display: flex; gap: 4px; padding: 0 10px 6px; }
   .filter button { padding: 1px 9px; border-radius: var(--r10); font-size: var(--fs-meta); color: var(--text-muted); background: none; }
   .filter button.on { background: color-mix(in srgb, var(--src-claude) 15%, transparent); border-color: color-mix(in srgb, var(--src-claude) 40%, transparent); color: var(--src-claude); }
   .scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 6px 10px; display: flex; flex-direction: column; gap: 2px; }
-  .grp { display: flex; align-items: center; gap: 3px; width: calc(100% - 12px); margin: 10px 6px 3px; padding: 0; border: none; background: none; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); cursor: pointer; }
+  .grp { display: flex; align-items: center; gap: 3px; width: calc(100% - 12px); margin: 10px 6px 3px; padding: 0; border: none; background: none; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); cursor: pointer; }
   .grp:hover { color: var(--text); }
   /* A group's header, with its project's +. */
   .gh { display: flex; align-items: center; gap: 4px; margin-right: 6px; }
@@ -968,7 +968,7 @@
   /* Shown, the launcher fills the pane and scrolls in it: a long prompt never pushes it past the window. */
   .launcher:not([hidden]) { flex: 1; min-height: 0; overflow: auto; }
   header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
-  header .title { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header .title { font-size: var(--fs-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   header .path { font: var(--fs-meta) var(--mono); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   button { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; white-space: nowrap; }
   button:hover:not(:disabled) { border-color: var(--src-claude); }
@@ -1002,7 +1002,7 @@
   .filter .by { flex-shrink: 0; padding: 1px 6px; border-color: transparent; }
   .filter .sort { flex-shrink: 1; min-width: 0; max-width: 104px; padding: 1px 2px; border: 1px solid transparent; border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .filter .sort:hover, .filter .sort:focus { border-color: var(--border); color: var(--text); outline: none; }
-  header .rename { min-width: 0; width: 260px; padding: 2px 7px; border: 1px solid var(--src-claude); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; outline: none; }
+  header .rename { min-width: 0; width: 260px; padding: 2px 7px; border: 1px solid var(--src-claude); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-title); font-weight: 600; outline: none; }
   /* An agent's header: row 1 says what to do now,
      row 2, small and muted, where it works and how it is filed. */
   header.two { flex-direction: column; align-items: stretch; gap: 3px; padding: 7px 12px 6px; }
@@ -1062,7 +1062,7 @@
   .layouts button:last-child { border-right: none; }
   .layouts button.on { background: color-mix(in srgb, var(--src-claude) 14%, var(--surface)); color: var(--src-claude); }
   .lic { display: inline-grid; gap: 1px; width: 14px; height: 10px; }
-  .lic i { border-radius: 1px; background: currentColor; opacity: 0.6; }
+  .lic i { border-radius: var(--r1); background: currentColor; opacity: 0.6; }
   .lic.l2 { grid-template-columns: 1fr 1fr; }
   .lic.l2r { grid-template-rows: 1fr 1fr; }
   .lic.l4 { grid-template: 1fr 1fr / 1fr 1fr; }
@@ -1080,7 +1080,7 @@
   .pill.model { font-family: var(--mono); }
   .pill.loop { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
   .main { position: relative; }
-  .veil { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; border: 2px dashed var(--src-claude); border-radius: var(--r4); background: color-mix(in srgb, var(--src-claude) 14%, rgba(10, 10, 10, 0.55)); pointer-events: none; }
+  .veil { position: absolute; inset: 0; z-index: var(--z-menu); display: grid; place-items: center; border: 2px dashed var(--src-claude); border-radius: var(--r4); background: color-mix(in srgb, var(--src-claude) 14%, rgba(10, 10, 10, 0.55)); pointer-events: none; }
   .veil > div { max-width: 380px; padding: 12px 18px; border-radius: var(--r10); background: var(--surface); text-align: center; font-size: var(--fs-body); }
   .veil small { display: block; margin-top: 3px; color: var(--text-muted); font-size: var(--fs-meta); }
   .pill.trusting { display: inline-flex; align-items: center; gap: 4px; border-color: var(--violet); color: var(--violet); }

@@ -161,5 +161,5 @@
   .send:hover { border-color: var(--src-claude); color: var(--src-claude); }
   .none { margin: 0; padding: 10px 12px; color: var(--text-muted); }
   :global(html.remote) .send, :global(html.remote) .act { opacity: 1; min-height: 30px; }
-  :global(html.remote) textarea { font-size: 16px; }
+  :global(html.remote) textarea { font-size: var(--fs-head); }
 </style>

@@ -267,34 +267,34 @@
 
 <style>
   .project { display: flex; flex-direction: column; gap: 10px; }
-  .banner { display: block; margin: 0; padding: 9px 12px; border-radius: 10px; background: var(--surface-muted); color: var(--text-muted); font-size: 12.5px; }
+  .banner { display: block; margin: 0; padding: 9px 12px; border-radius: var(--r10); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-meta); }
   .banner.ok { background: color-mix(in srgb, var(--ok-bg) 55%, transparent); color: var(--ok); }
   .banner :global(svg) { vertical-align: -2px; margin-right: 4px; }
   .banner code { font-family: var(--mono); color: var(--text); }
-  .note { margin: 12px 4px; color: var(--text-muted); font-size: 13px; text-align: center; }
+  .note { margin: 12px 4px; color: var(--text-muted); font-size: var(--fs-meta); text-align: center; }
   .note.ko { color: var(--ko); }
-  .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
-  .sub { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; color: var(--text-muted); font-size: 12px; }
+  .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
+  .sub { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; color: var(--text-muted); font-size: var(--fs-tag); }
   .h.plain { font-family: inherit; }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-  .seg button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 16px; background: none; color: var(--text); font: inherit; font-size: 14px; }
+  .seg button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); }
   .seg button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  button.sm { padding: 5px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
-  .box { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+  button.sm { padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
+  .box { border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); overflow: hidden; }
   .field { display: flex; flex-direction: column; gap: 5px; padding: 11px 14px; }
   .field + .field { border-top: 1px solid var(--border); }
-  .field b { font-weight: 500; font-size: 14.5px; }
+  .field b { font-weight: 500; font-size: var(--fs-body); }
   .l { display: flex; align-items: center; gap: 10px; }
   .l b { flex: 1; }
-  .h { color: var(--text-muted); font-size: 12px; font-family: var(--mono); overflow-wrap: anywhere; }
+  .h { color: var(--text-muted); font-size: var(--fs-tag); font-family: var(--mono); overflow-wrap: anywhere; }
   .h.ko { color: var(--ko); font-family: inherit; }
-  .mono { font-family: var(--mono); font-size: 13.5px; overflow-wrap: anywhere; }
-  input[type='text'], input[type='search'], select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: 14px var(--mono); }
+  .mono { font-family: var(--mono); font-size: var(--fs-body); overflow-wrap: anywhere; }
+  input[type='text'], input[type='search'], select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--bg); color: var(--text); font: 14px var(--mono); }
   input:focus, select:focus { outline: none; border-color: var(--accent); }
-  .sw { flex: none; width: 42px; height: 24px; padding: 0; border-radius: 12px; background: var(--surface-muted); border: 1px solid var(--border); position: relative; }
+  .sw { flex: none; width: 42px; height: 24px; padding: 0; border-radius: var(--r12); background: var(--surface-muted); border: 1px solid var(--border); position: relative; }
   .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-muted); transition: left 0.12s; }
   .sw.on { background: var(--ok); border-color: var(--ok); }
   .sw.on::after { left: 20px; background: var(--surface); }
-  button.pri { align-self: flex-end; padding: 8px 16px; border: 1px solid var(--accent); border-radius: 18px; background: var(--accent); color: #fff; font: inherit; font-size: 14px; }
+  button.pri { align-self: flex-end; padding: 8px 16px; border: 1px solid var(--accent); border-radius: 999px; background: var(--accent); color: #fff; font: inherit; font-size: var(--fs-body); }
   button.pri:disabled { opacity: 0.5; }
 </style>

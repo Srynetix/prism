@@ -550,15 +550,15 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
   }
-  header b { font-size: 16px; }
+  header b { font-size: var(--fs-head); }
   .mac {
     margin-left: auto;
     display: inline-flex;
     align-items: center;
     gap: 5px;
     padding: 2px 9px;
-    border-radius: 10px;
-    font-size: 12px;
+    border-radius: var(--r10);
+    font-size: var(--fs-tag);
     background: var(--ok-bg);
     color: var(--ok);
   }
@@ -574,22 +574,22 @@
   }
   /* The blocks were drawn for columns: on a phone, each takes the width and its natural height. */
   main > :global(*) { min-width: 0; max-width: 100%; flex: none; }
-  .empty, .note { color: var(--text-muted); text-align: center; margin: 24px 0; font-size: 13px; }
-  ul.more { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .empty, .note { color: var(--text-muted); text-align: center; margin: 24px 0; font-size: var(--fs-meta); }
+  ul.more { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r12); overflow: hidden; background: var(--surface); }
   ul.more li + li { border-top: 1px solid var(--border); }
-  ul.more button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; background: none; border: none; color: var(--text); font-size: 15px; text-align: left; }
+  ul.more button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; background: none; border: none; color: var(--text); font-size: var(--fs-title); text-align: left; }
   ul.more button span { flex: 1; display: flex; flex-direction: column; }
-  ul.more small { color: var(--text-muted); font-size: 12px; }
-  .switch { flex: none !important; width: 38px; height: 22px; border-radius: 11px; background: var(--surface-muted); border: 1px solid var(--border); position: relative; }
+  ul.more small { color: var(--text-muted); font-size: var(--fs-tag); }
+  .switch { flex: none !important; width: 38px; height: 22px; border-radius: var(--r10); background: var(--surface-muted); border: 1px solid var(--border); position: relative; }
   .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--text-muted); }
   .switch.on { background: var(--ok); border-color: var(--ok); }
   .switch.on::after { left: 18px; background: var(--surface); }
   .note.ko { color: var(--ko); margin-top: 0; }
-  .unlock { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; font-size: 13px; }
-  .unlock input { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: 14px var(--mono); }
+  .unlock { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; font-size: var(--fs-meta); }
+  .unlock input { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--bg); color: var(--text); font: 14px var(--mono); }
   .unlock input:focus { outline: none; border-color: var(--accent); }
-  .unlock small { color: var(--text-muted); font-size: 12px; }
-  .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .unlock small { color: var(--text-muted); font-size: var(--fs-tag); }
+  .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
   ul.more button.danger { color: var(--ko); }
   nav {
     position: fixed;
@@ -614,12 +614,12 @@
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 10.5px;
+    font-size: var(--fs-micro);
   }
   nav button.on { color: var(--accent); }
   .tinted header { border-bottom: 2px solid color-mix(in srgb, var(--pc) 70%, transparent); }
   .tinted nav button.on { color: var(--pc); }
-  .n { position: absolute; top: 0; left: calc(50% + 6px); min-width: 16px; padding: 0 4px; border-radius: 8px; background: var(--ko); color: #fff; font-size: 9.5px; line-height: 16px; }
+  .n { position: absolute; top: 0; left: calc(50% + 6px); min-width: 16px; padding: 0 4px; border-radius: var(--r8); background: var(--ko); color: #fff; font-size: var(--fs-micro); line-height: 16px; }
   .search { display: inline-flex; margin-left: auto; padding: 6px; border: none; background: none; color: var(--text-muted); }
   .search ~ .mac { margin-left: 0; }
 </style>

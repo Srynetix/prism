@@ -68,7 +68,7 @@
   .req a:hover { color: var(--accent); }
   .pad { margin: 0; padding: 10px 14px; }
   .warn { color: var(--warn); font-size: var(--fs-meta); }
-  .pill { font-size: var(--fs-tag); padding: 1px 7px; border-radius: 9px; background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
+  .pill { font-size: var(--fs-tag); padding: 1px 7px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
   .pill.open { background: var(--info-bg); color: var(--info); }
   .pill.done { background: var(--ok-bg); color: var(--ok); }
   .seg { display: inline-flex; gap: 1px; padding: 1px; border-radius: var(--r6); background: var(--surface-muted); }

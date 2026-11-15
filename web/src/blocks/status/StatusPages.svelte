@@ -100,14 +100,14 @@
   .inc.ko { border-left-color: var(--ko); }
   .line { display: flex; align-items: baseline; gap: 6px; }
   .line b { font-weight: 500; }
-  .pill { flex-shrink: 0; padding: 0 6px; border-radius: 9px; background: var(--surface); color: var(--text-muted); font-size: var(--fs-tag); text-transform: capitalize; }
+  .pill { flex-shrink: 0; padding: 0 6px; border-radius: var(--r9); background: var(--surface); color: var(--text-muted); font-size: var(--fs-tag); text-transform: capitalize; }
   .inc.warn .pill { background: var(--warn-bg); color: var(--warn); }
   .inc.ko .pill { background: var(--ko-bg); color: var(--ko); }
   .meta { font-size: var(--fs-meta); }
   .upd { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-meta); color: var(--text-muted); }
   .comps { display: flex; flex-wrap: wrap; gap: 4px; }
   .comps.alone { padding: 0 12px 6px 27px; }
-  .chip { padding: 0 6px; border: 1px solid var(--border); border-radius: 9px; font-size: var(--fs-tag); color: var(--text-muted); }
+  .chip { padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r9); font-size: var(--fs-tag); color: var(--text-muted); }
   .chip.warn { color: var(--warn); }
   .chip.ko { color: var(--ko); }
 </style>

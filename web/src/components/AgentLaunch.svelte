@@ -87,7 +87,7 @@
 <style>
   .launch { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; font-size: var(--fs-meta); }
   .sec { display: flex; flex-direction: column; gap: 5px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-  .cap { display: flex; align-items: center; gap: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .cap { display: flex; align-items: center; gap: 6px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .cap .when { text-transform: none; letter-spacing: 0; }
   .grow { flex: 1; }
   .kv { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 4px 8px; }
@@ -103,7 +103,7 @@
   .link { align-self: flex-start; padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
   .mini { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); text-transform: none; letter-spacing: 0; cursor: pointer; }
   .step { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-  .n { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--surface-muted); font-size: 9.5px; }
+  .n { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--surface-muted); font-size: var(--fs-micro); }
   .old { margin: 0; padding: 10px 12px; color: var(--text-muted); }
   .acts { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--bg); }
   .acts .primary { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--src-claude); border-radius: var(--r6); background: var(--src-claude); color: #fff; font: inherit; cursor: pointer; }

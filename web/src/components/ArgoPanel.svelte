@@ -146,7 +146,7 @@
 
 <style>
   .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 51; width: min(880px, 94vw);
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(880px, 94vw);
     display: flex; flex-direction: column; background: var(--surface);
     border-left: 1px solid color-mix(in srgb, var(--src-k8s) 45%, var(--border));
     box-shadow: var(--shadow-drawer);

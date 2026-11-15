@@ -173,7 +173,7 @@
 
 <style>
   .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 48; width: min(620px, 94vw);
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(620px, 94vw);
     display: flex; flex-direction: column; background: var(--surface);
     border-left: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
     box-shadow: var(--shadow-drawer);
@@ -186,7 +186,7 @@
   .icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
   .icon:hover { background: var(--surface-muted); color: var(--text); }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; }
-  h2 { margin: 0 0 2px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+  h2 { margin: 0 0 2px; font-size: var(--fs-head); font-weight: 600; line-height: 1.35; }
   .tid { margin-right: 8px; color: var(--info); font-size: var(--fs-meta); font-weight: 500; }
   .sub { margin: 0; font-size: var(--fs-meta); }
   .chain { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); margin: 16px 0 12px; padding: 0; list-style: none; }
@@ -203,7 +203,7 @@
   .warn .bub { border-color: var(--warn); }
   .ko .bub { border-color: var(--ko); color: var(--ko); }
   .miss .bub { border-color: var(--warn); border-style: dashed; color: var(--warn); }
-  .lb { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .lb { font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .vl, .st { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vl { font-size: var(--fs-meta); }
   .st { font-size: var(--fs-tag); color: var(--text-muted); }

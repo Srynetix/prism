@@ -64,10 +64,10 @@
   .chip:hover, .chip.on { border-color: var(--border); background: var(--surface-muted); }
   .chip b { color: var(--text); font-weight: 600; }
   .chip.over b { color: var(--warn); }
-  .pop { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 30; width: 340px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); box-shadow: var(--shadow-pop); }
+  .pop { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: var(--z-menu); width: 340px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); box-shadow: var(--shadow-pop); }
   .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
-  .kpis span { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
-  .kpis b { font-size: 15px; }
+  .kpis span { display: block; font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .kpis b { font-size: var(--fs-head); }
   .kpis small { display: block; font-size: var(--fs-tag); color: var(--text-muted); }
   .lbl { margin: 0 0 4px; font-size: var(--fs-tag); color: var(--text-muted); }
   .bars { display: flex; align-items: flex-end; gap: 2px; height: 48px; }

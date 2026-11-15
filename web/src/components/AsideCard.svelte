@@ -188,5 +188,5 @@
   .b.x { padding: 0 5px; }
   .from { height: 22px; max-width: 200px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   input { flex: 1; min-width: 140px; height: 22px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  :global(html.remote) .aside .b, :global(html.remote) .aside .from, :global(html.remote) .aside input { height: 34px; font-size: 14px; }
+  :global(html.remote) .aside .b, :global(html.remote) .aside .from, :global(html.remote) .aside input { height: 34px; font-size: var(--fs-body); }
 </style>

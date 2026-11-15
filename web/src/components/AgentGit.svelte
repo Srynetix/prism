@@ -121,5 +121,5 @@
   .st button { padding: 2px 6px; border-color: transparent; color: var(--text-muted); }
   .err { margin: 0; color: var(--ko); white-space: pre-wrap; }
   :global(html.remote) .git button { min-height: 34px; }
-  :global(html.remote) .git input { font-size: 16px; min-height: 34px; }
+  :global(html.remote) .git input { font-size: var(--fs-head); min-height: 34px; }
 </style>

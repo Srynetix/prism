@@ -82,7 +82,7 @@
 <style>
   .gate { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: var(--fs-body); }
   .card { width: 380px; max-width: calc(100vw - 32px); padding: 20px 22px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
-  h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; }
+  h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-head); }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--info); }
   .dot.off { background: var(--warn); }
   p { margin: 0; color: var(--text-muted); }
@@ -90,7 +90,7 @@
   .btn { align-self: flex-start; padding: 4px 12px; border: none; border-radius: var(--r6); background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer; }
   .btn:disabled { opacity: 0.5; cursor: default; }
   .hint { font-size: var(--fs-meta); }
-  input.code { font-size: 20px; letter-spacing: 4px; text-align: center; }
+  input.code { font-size: var(--fs-display); letter-spacing: 4px; text-align: center; }
   .acts { display: flex; align-items: center; gap: 12px; }
   .link { padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; text-decoration: underline; }
   .error { color: var(--ko); font-size: var(--fs-meta); word-break: break-word; }

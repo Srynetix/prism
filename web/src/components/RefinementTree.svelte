@@ -317,7 +317,7 @@
   .epic { display: grid; grid-template-columns: 16px minmax(0, 1fr) 180px 110px minmax(150px, 220px); align-items: center; gap: 10px; padding: 6px 12px 6px 8px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--src-clickup) 3%, var(--surface)); cursor: pointer; }
   .epic:hover { background: color-mix(in srgb, var(--src-clickup) 8%, var(--surface)); }
   .epic.selected { box-shadow: inset 3px 0 0 var(--accent); }
-  .caret { display: inline-flex; align-items: center; justify-content: center; border: none; background: none; padding: 0; color: var(--text-muted); font-size: 12px; cursor: pointer; transition: transform 0.12s; }
+  .caret { display: inline-flex; align-items: center; justify-content: center; border: none; background: none; padding: 0; color: var(--text-muted); font-size: var(--fs-body); cursor: pointer; transition: transform 0.12s; }
   .epic.open .caret { transform: rotate(90deg); }
   .title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .l1, .l2 { display: flex; align-items: center; gap: 6px; min-width: 0; }

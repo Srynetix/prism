@@ -36,7 +36,7 @@
 {/each}
 
 <style>
-  .mrchoice { position: fixed; z-index: 200; min-width: 220px; max-width: 420px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
+  .mrchoice { position: fixed; z-index: var(--z-menu); min-width: 220px; max-width: 420px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
   .hd { padding: 2px 8px 4px; color: var(--text-muted); font-size: var(--fs-meta); }
   button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   button:hover { background: var(--surface-muted); }

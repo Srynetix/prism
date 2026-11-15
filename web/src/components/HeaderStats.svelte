@@ -145,7 +145,7 @@
 <style>
   .stats { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
   .stats :global(svg) { width: 12px; height: 12px; flex-shrink: 0; }
-  b { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  b { font-size: var(--fs-title); font-weight: 600; font-variant-numeric: tabular-nums; }
 
   /* For me: the counters to handle, on a shared background. */
   .inbox { display: flex; align-items: center; gap: 2px; padding: 2px; border: none; border-radius: var(--r7); background: var(--surface-muted); font: inherit; cursor: pointer; white-space: nowrap; }
@@ -172,7 +172,7 @@
   @keyframes pulse { 50% { transform: scale(1.3); opacity: 0; } }
   :global(html[data-reduce-motion]) .health.ko .dot::after { animation: none; }
   /* Detail of a cluster. */
-  .pop { position: fixed; z-index: 45; width: 360px; max-height: 70vh; overflow: auto; padding-bottom: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
+  .pop { position: fixed; z-index: var(--z-menu); width: 360px; max-height: 70vh; overflow: auto; padding-bottom: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
   .sec { display: flex; align-items: center; gap: 6px; padding: 8px 12px 3px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .sec i { width: 6px; height: 6px; border-radius: 50%; background: var(--g); }
   .row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 12px; border: none; background: none; color: var(--text); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }

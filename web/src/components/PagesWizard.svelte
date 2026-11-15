@@ -437,10 +437,10 @@
 </div>
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-start; justify-content: center; padding-top: 7vh; background: rgba(0, 0, 0, 0.5); }
+  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: flex-start; justify-content: center; padding-top: 7vh; background: rgba(0, 0, 0, 0.5); }
   .sheet { width: min(860px, 94vw); max-height: 86vh; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); box-shadow: var(--shadow-modal); overflow: hidden; }
   header { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px 10px; }
-  header b { font-size: 15px; }
+  header b { font-size: var(--fs-head); }
   header p { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-meta); }
   header div { flex: 1; }
   .x { padding: 4px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
@@ -450,7 +450,7 @@
   .steps button.skip { border-top-style: dashed; color: var(--text-muted); }
   .steps button.now { border-top-color: var(--accent); color: var(--text); font-weight: 600; }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; }
-  h3 { margin: 0 0 4px; font-size: 16px; }
+  h3 { margin: 0 0 4px; font-size: var(--fs-head); }
   .sub { margin: 0 0 12px; color: var(--text-muted); font-size: var(--fs-meta); }
   .found { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 8px; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--bg); color: var(--text); font: inherit; text-align: left; white-space: normal; cursor: pointer; }
   .found.row { margin-top: 4px; padding: 6px 10px; }
@@ -499,7 +499,7 @@
   .opt span { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-body); }
   .opt small { color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.4; }
   .preview { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .cap { margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .cap { margin: 0; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .page { border: 1px solid var(--border); border-top: 2px solid var(--tint); border-radius: var(--r9); background: var(--bg); }
   .ph { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: var(--fs-body); }
   .ph .dot { width: 8px; height: 8px; border-radius: var(--r2); background: var(--tint); }

@@ -433,5 +433,5 @@
   .panes .sep { flex: 0 0 1px; background: var(--border); }
   /* On the phone: rows a thumb can hit, a filter iOS does not zoom in on. */
   :global(html.remote) .n { padding-block: 6px; }
-  :global(html.remote) .bar input { font-size: 16px; }
+  :global(html.remote) .bar input { font-size: var(--fs-head); }
 </style>

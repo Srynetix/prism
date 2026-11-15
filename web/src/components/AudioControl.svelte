@@ -170,14 +170,14 @@
   .audio:hover, .audio.open { background: var(--surface-muted); }
   button { font: inherit; color: inherit; border: none; background: none; cursor: pointer; padding: 0; }
   .main { display: flex; align-items: center; gap: 6px; min-width: 0; height: 20px; padding: 0 4px 0 7px; }
-  .pv { width: 14px; height: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--r4); background: var(--prov); color: #fff; font-size: 9px; font-weight: 700; }
+  .pv { width: 14px; height: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--r4); background: var(--prov); color: #fff; font-size: var(--fs-micro); font-weight: 700; }
   .trk { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .trk b { font-weight: 600; color: var(--text); }
   .sep { opacity: 0.5; }
   .paused .trk, .paused .pv { opacity: 0.6; }
   .err { color: var(--warn); white-space: nowrap; }
   .app { flex-shrink: 0; font-size: var(--fs-tag); color: var(--text-muted); }
-  .livebadge { flex-shrink: 0; padding: 0 4px; border-radius: var(--r3); font-size: 9px; font-weight: 700; letter-spacing: 0.4px; background: color-mix(in srgb, var(--ko) 18%, transparent); color: var(--ko); }
+  .livebadge { flex-shrink: 0; padding: 0 4px; border-radius: var(--r3); font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.4px; background: color-mix(in srgb, var(--ko) 18%, transparent); color: var(--ko); }
   .eq { display: flex; align-items: flex-end; gap: 1.5px; height: 10px; flex-shrink: 0; }
   /* Bars scaled (transform, the GPU's), not resized: a height animated repaints at 60 Hz. */
   .eq i { width: 2px; height: 10px; border-radius: var(--r1); background: var(--prov); transform-origin: bottom; transform: scaleY(0.3); animation: eq 1s ease-in-out infinite; }
@@ -189,15 +189,15 @@
   @keyframes pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.8; } }
   :global(html[data-reduce-motion]) .eq i { animation: none; transform: scaleY(0.6); }
   .ctl { display: flex; flex-shrink: 0; }
-  .ctl button { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: var(--r4); font-size: 10px; color: var(--text-muted); }
+  .ctl button { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: var(--r4); font-size: var(--fs-tag); color: var(--text-muted); }
   .ctl button:hover { background: var(--bg); color: var(--text); }
   .ctl .pp { color: var(--text); }
   .prog { position: absolute; left: 7px; right: 7px; bottom: 0; height: 2px; border-radius: var(--r1); background: color-mix(in srgb, var(--prov) 20%, transparent); pointer-events: none; }
   .prog i { display: block; height: 100%; border-radius: var(--r1); background: var(--prov); }
 
-  .menu { position: fixed; z-index: 45; width: 320px; max-height: 70vh; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
+  .menu { position: fixed; z-index: var(--z-menu); width: 320px; max-height: 70vh; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
   .np { display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--prov) 9%, var(--surface)); }
-  .art { width: 48px; height: 48px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--r8); font-size: 22px; color: #fff; background: linear-gradient(135deg, var(--prov), color-mix(in srgb, var(--prov) 45%, #000)); }
+  .art { width: 48px; height: 48px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--r8); font-size: var(--fs-display); color: #fff; background: linear-gradient(135deg, var(--prov), color-mix(in srgb, var(--prov) 45%, #000)); }
   .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .meta b { font-size: var(--fs-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .meta small { font-size: var(--fs-meta); color: var(--text-muted); }
@@ -205,11 +205,11 @@
   .scrub .bar { flex: 1; height: 4px; border-radius: var(--r2); overflow: hidden; background: var(--surface-muted); }
   .scrub .bar i { display: block; height: 100%; background: var(--prov); }
   .scrub input { flex: 1; min-width: 0; --tick: var(--prov); height: 12px; }
-  .bigctl { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 6px 10px 8px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-muted); }
+  .bigctl { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 6px 10px 8px; border-bottom: 1px solid var(--border); font-size: var(--fs-head); color: var(--text-muted); }
   .bigctl > button:hover { color: var(--text); }
-  .bigctl .pp { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--text); color: var(--surface); font-size: 12px; }
-  .bigctl .clear { font-size: 12px; }
-  .vol { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .bigctl .pp { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--text); color: var(--surface); font-size: var(--fs-body); }
+  .bigctl .clear { font-size: var(--fs-body); }
+  .vol { display: flex; align-items: center; gap: 6px; font-size: var(--fs-title); }
   .vol input { width: 70px; --tick: var(--text-muted); height: 12px; }
   .list { overflow: auto; padding: 0 4px 6px; }
   .group { display: flex; align-items: center; gap: 4px; width: calc(100% - 4px); margin: 6px 2px 2px; padding: 2px 4px; border-radius: var(--r5); font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }

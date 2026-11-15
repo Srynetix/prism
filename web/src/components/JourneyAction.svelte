@@ -45,5 +45,5 @@
   .go:disabled { opacity: 0.6; cursor: progress; }
   .go.armed { border-color: var(--warn); background: var(--warn); }
   .go.error { border-color: var(--ko); background: var(--ko); }
-  .go.wide { width: 100%; padding: 9px 12px; border-radius: var(--r10); font-size: 15px; }
+  .go.wide { width: 100%; padding: 9px 12px; border-radius: var(--r10); font-size: var(--fs-head); }
 </style>

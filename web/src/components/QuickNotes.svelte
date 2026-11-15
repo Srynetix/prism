@@ -28,7 +28,7 @@
 {/if}
 
 <style>
-  .backdrop { position: fixed; inset: 0; z-index: 65; display: flex; justify-content: center; align-items: flex-start; padding: 9vh 16px 16px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(2px); }
+  .backdrop { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; justify-content: center; align-items: flex-start; padding: 9vh 16px 16px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(2px); }
   .sheet { width: min(620px, 100%); max-height: 78vh; display: flex; flex-direction: column; border-radius: var(--r12); box-shadow: var(--shadow-modal); outline: none; }
   .sheet :global(.panel) { flex: 1; min-height: 0; max-height: 78vh; }
 </style>

@@ -42,7 +42,7 @@
 </span>
 
 <style>
-  .remote { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 0; border-radius: 10px; background: color-mix(in srgb, var(--violet) 14%, transparent); color: var(--violet); }
+  .remote { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 0; border-radius: var(--r10); background: color-mix(in srgb, var(--violet) 14%, transparent); color: var(--violet); }
   .remote.live { background: color-mix(in srgb, var(--violet) 26%, transparent); }
   .remote.typing { background: var(--warn-bg); color: var(--warn); }
   .remote.ko { background: var(--ko-bg); color: var(--ko); }

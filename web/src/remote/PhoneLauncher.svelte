@@ -450,65 +450,65 @@
 </div>
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: 60; background: rgb(0 0 0 / 0.45); animation: fade 0.18s ease-out; }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; display: flex; flex-direction: column; max-height: calc(100dvh - 24px - env(safe-area-inset-top)); border-radius: 18px 18px 0 0; background: var(--bg); box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25); animation: rise 0.22s ease-out; font-size: 15px; }
+  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); background: rgb(0 0 0 / 0.45); animation: fade 0.18s ease-out; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-modal); display: flex; flex-direction: column; max-height: calc(100dvh - 24px - env(safe-area-inset-top)); border-radius: var(--r14) var(--r14) 0 0; background: var(--bg); box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25); animation: rise 0.22s ease-out; font-size: var(--fs-title); }
   @keyframes rise { from { transform: translateY(40px); opacity: 0; } }
   @keyframes fade { from { opacity: 0; } }
   :global(html[data-reduce-motion]) .sheet, :global(html[data-reduce-motion]) .scrim { animation: none; }
-  .grab { width: 38px; height: 5px; margin: 8px auto 0; border-radius: 3px; background: var(--border); }
+  .grab { width: 38px; height: 5px; margin: 8px auto 0; border-radius: var(--r3); background: var(--border); }
   header { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 16px; }
-  header b { font-size: 17px; }
-  .origin { padding: 2px 8px; border-radius: 10px; background: var(--surface-muted); color: var(--info); font: 12px var(--mono); }
+  header b { font-size: var(--fs-head); }
+  .origin { padding: 2px 8px; border-radius: var(--r10); background: var(--surface-muted); color: var(--info); font: 12px var(--mono); }
   .grow { flex: 1; min-width: 0; }
   .x { display: inline-flex; padding: 10px; border: none; background: none; color: var(--text-muted); }
   .scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 16px; }
-  .prompt { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  .prompt { border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); }
   .prompt:focus-within { border-color: var(--accent); }
-  .prompt textarea { display: block; width: 100%; min-height: 84px; max-height: 40dvh; field-sizing: content; resize: none; padding: 12px 14px 4px; border: none; background: none; color: var(--text); font: inherit; font-size: 16px; line-height: 1.4; outline: none; }
+  .prompt textarea { display: block; width: 100%; min-height: 84px; max-height: 40dvh; field-sizing: content; resize: none; padding: 12px 14px 4px; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-head); line-height: 1.4; outline: none; }
   .tools { display: flex; align-items: center; gap: 4px; padding: 2px 6px 6px; color: var(--text-muted); }
-  .tools button { display: inline-flex; padding: 9px; border: none; border-radius: 10px; background: none; color: var(--text-muted); }
+  .tools button { display: inline-flex; padding: 9px; border: none; border-radius: var(--r10); background: none; color: var(--text-muted); }
   .tools button:disabled { opacity: 0.5; }
-  .tools small { padding-right: 6px; font-size: 12px; }
+  .tools small { padding-right: 6px; font-size: var(--fs-tag); }
   .thumbs { display: flex; gap: 6px; padding: 4px 10px; overflow-x: auto; scrollbar-width: none; }
-  .thumb { flex: none; display: inline-flex; align-items: center; gap: 6px; max-width: 180px; padding: 3px 4px 3px 3px; border: 1px solid var(--border); border-radius: 10px; font-size: 12px; }
-  .thumb img { width: 32px; height: 32px; border-radius: 7px; object-fit: cover; }
+  .thumb { flex: none; display: inline-flex; align-items: center; gap: 6px; max-width: 180px; padding: 3px 4px 3px 3px; border: 1px solid var(--border); border-radius: var(--r10); font-size: var(--fs-tag); }
+  .thumb img { width: 32px; height: 32px; border-radius: var(--r7); object-fit: cover; }
   .thumb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .thumb button { padding: 4px 6px; border: none; background: none; color: var(--text-muted); font-size: 16px; }
+  .thumb button { padding: 4px 6px; border: none; background: none; color: var(--text-muted); font-size: var(--fs-head); }
   section { display: flex; flex-direction: column; gap: 8px; }
-  .lbl { color: var(--text-muted); font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .lbl { color: var(--text-muted); font-size: var(--fs-tag); letter-spacing: 0.05em; text-transform: uppercase; }
   .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .chips.wrap { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
-  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--text); font: inherit; font-size: 15px; }
+  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); }
   .chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); font-weight: 600; }
-  .chip small { color: var(--text-muted); font-weight: 400; font-size: 12px; }
+  .chip small { color: var(--text-muted); font-weight: 400; font-size: var(--fs-tag); }
   .chip.cli i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
-  .where { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 13px; }
+  .where { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--fs-meta); }
   .where span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .where button { flex: none; padding: 4px 2px; border: none; background: none; color: var(--accent); font: inherit; font-size: 13px; }
-  .seg { display: flex; padding: 3px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-  .seg button { flex: 1; min-height: 38px; padding: 0 6px; border: none; border-radius: 9px; background: none; color: var(--text-muted); font: inherit; font-size: 14px; }
+  .where button { flex: none; padding: 4px 2px; border: none; background: none; color: var(--accent); font: inherit; font-size: var(--fs-meta); }
+  .seg { display: flex; padding: 3px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); }
+  .seg button { flex: 1; min-height: 38px; padding: 0 6px; border: none; border-radius: var(--r9); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); }
   .seg button.on { background: var(--bg); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); }
   .seg button:disabled { opacity: 0.4; }
-  .hint { margin: 0; color: var(--text-muted); font-size: 13px; }
-  .more { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: 15px; }
+  .hint { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
+  .more { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); }
   .more > span:first-child { flex: none; white-space: nowrap; }
-  .more .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+  .more .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); }
   .muted { color: var(--text-muted); }
   .adv { display: flex; flex-direction: column; gap: 14px; }
-  .f { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-  .f span { flex: none; width: 74px; color: var(--text-muted); font-size: 14px; }
-  .f input, .f select { flex: 1; min-width: 0; height: 44px; border: none; background: none; color: var(--text); font: inherit; font-size: 16px; outline: none; }
-  .tag { width: 110px; min-height: 40px; padding: 0 12px; border: 1px dashed var(--border); border-radius: 20px; background: none; color: var(--text); font: inherit; font-size: 16px; }
-  .step { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-  .step .sh { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-  .step .n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-muted); font-size: 12px; }
-  .step .sh button { padding: 4px 8px; border: none; background: none; color: var(--text-muted); font-size: 18px; }
-  .step select, .step input { min-height: 40px; padding: 0 8px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); font: inherit; font-size: 16px; }
-  .err { margin: 0; color: var(--ko); font-size: 13px; overflow-wrap: anywhere; }
+  .f { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); }
+  .f span { flex: none; width: 74px; color: var(--text-muted); font-size: var(--fs-body); }
+  .f input, .f select { flex: 1; min-width: 0; height: 44px; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-head); outline: none; }
+  .tag { width: 110px; min-height: 40px; padding: 0 12px; border: 1px dashed var(--border); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: var(--fs-head); }
+  .step { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); }
+  .step .sh { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); }
+  .step .n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-muted); font-size: var(--fs-tag); }
+  .step .sh button { padding: 4px 8px; border: none; background: none; color: var(--text-muted); font-size: var(--fs-big); }
+  .step select, .step input { min-height: 40px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r9); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-head); }
+  .err { margin: 0; color: var(--ko); font-size: var(--fs-meta); overflow-wrap: anywhere; }
   footer { display: flex; gap: 10px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--bg); }
-  footer button { min-height: 54px; border-radius: 14px; font: inherit; }
-  .prep { flex: none; padding: 0 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 15px; }
-  .launch { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0 12px; border: none; background: var(--accent); color: var(--on-accent, #fff); font-size: 17px; font-weight: 650; }
-  .launch small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 400; opacity: 0.85; }
+  footer button { min-height: 54px; border-radius: var(--r14); font: inherit; }
+  .prep { flex: none; padding: 0 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-title); }
+  .launch { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0 12px; border: none; background: var(--accent); color: var(--on-accent, #fff); font-size: var(--fs-head); font-weight: 650; }
+  .launch small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-tag); font-weight: 400; opacity: 0.85; }
   footer button:disabled { opacity: 0.5; }
 </style>

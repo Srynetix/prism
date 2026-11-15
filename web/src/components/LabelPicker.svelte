@@ -152,7 +152,7 @@
 </div>
 
 <style>
-  .picker { position: fixed; z-index: 60; width: 280px; max-height: 380px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); overflow: hidden; }
+  .picker { position: fixed; z-index: var(--z-menu); width: 280px; max-height: 380px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); overflow: hidden; }
   .hd { display: flex; align-items: center; gap: 6px; padding: 8px 10px 4px; font-size: var(--fs-body); }
   .hd small { color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); }
   .x { margin-left: auto; padding: 2px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
@@ -161,7 +161,7 @@
   .list { flex: 1; min-height: 0; overflow: auto; padding: 0 4px 6px; }
   .row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
   .row:hover { background: var(--surface-muted); }
-  .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; border: 1.5px solid var(--text-muted); border-radius: var(--r3); color: var(--surface); font-size: 10px; }
+  .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; border: 1.5px solid var(--text-muted); border-radius: var(--r3); color: var(--surface); font-size: var(--fs-tag); }
   .row.on .box { border-color: var(--src-gitlab); background: var(--src-gitlab); }
   .row.new .box { border-style: dashed; color: var(--text-muted); }
   .dot { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--surface-muted); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 15%, transparent); }

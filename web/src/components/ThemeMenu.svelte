@@ -91,7 +91,7 @@
 {/if}
 
 <style>
-  .menu { position: fixed; z-index: 45; width: 230px; overflow: auto; padding: 4px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
+  .menu { position: fixed; z-index: var(--z-menu); width: 230px; overflow: auto; padding: 4px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
   .menu button { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
   .menu button:hover { background: var(--surface-muted); }
   .menu button.on { box-shadow: inset 0 0 0 1.5px var(--accent); }

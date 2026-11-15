@@ -37,7 +37,7 @@
 <style>
   .manual { margin-top: 1px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); line-height: 1.5; cursor: pointer; }
   .manual:hover, .manual.open { color: var(--accent); border-color: var(--accent); }
-  .menu { position: fixed; z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 180px; overflow: auto; padding: 6px; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
+  .menu { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 180px; overflow: auto; padding: 6px; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
   .head { padding: 0 2px 2px; font-size: var(--fs-tag); color: var(--text-muted); }
   .head.again { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border); }
   .menu :global(.play) { justify-content: flex-start; }

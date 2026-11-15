@@ -56,12 +56,12 @@
 
 <style>
   .ans { overflow-wrap: anywhere; }
-  .tray { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 4px 8px; border-radius: 7px; background: color-mix(in srgb, var(--warn) 14%, transparent); font-size: 12px; }
+  .tray { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 4px 8px; border-radius: var(--r7); background: color-mix(in srgb, var(--warn) 14%, transparent); font-size: var(--fs-body); }
   .grow { flex: 1; }
-  .lnk { border: none; background: none; padding: 0 2px; color: var(--info); font: inherit; font-size: 12px; cursor: pointer; }
+  .lnk { border: none; background: none; padding: 0 2px; color: var(--info); font: inherit; font-size: var(--fs-body); cursor: pointer; }
   .lnk.armed { color: var(--ko); font-weight: 600; }
-  .b { height: 24px; padding: 0 10px; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent); color: var(--on-accent); font: inherit; font-size: 12px; cursor: pointer; }
+  .b { height: 24px; padding: 0 10px; border: 1px solid var(--accent); border-radius: var(--r6); background: var(--accent); color: var(--on-accent); font: inherit; font-size: var(--fs-body); cursor: pointer; }
   .b:disabled { opacity: 0.5; }
-  .pv { margin: 4px 0 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; }
-  .note { margin: 4px 0 0; font-size: 12px; color: var(--text-muted); }
+  .pv { margin: 4px 0 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; }
+  .note { margin: 4px 0 0; font-size: var(--fs-body); color: var(--text-muted); }
 </style>

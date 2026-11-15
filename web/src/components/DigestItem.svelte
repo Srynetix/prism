@@ -84,7 +84,7 @@
   .digest.hot { color: var(--accent); }
   .muted { color: var(--text-muted); }
   .pop {
-    position: fixed; left: 50%; bottom: 30px; z-index: 60; width: min(480px, 94vw); max-height: 60vh; overflow: auto; transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: 30px; z-index: var(--z-menu); width: min(480px, 94vw); max-height: 60vh; overflow: auto; transform: translateX(-50%);
     border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-drawer); font-size: var(--fs-meta);
   }
   .hd { display: flex; align-items: baseline; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }

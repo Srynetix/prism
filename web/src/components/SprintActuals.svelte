@@ -204,7 +204,7 @@
   .sum { display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
   .card { flex: 1; min-width: 130px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: color-mix(in srgb, var(--surface-muted) 50%, transparent); }
   .card small { display: block; color: var(--text-muted); font-size: var(--fs-tag); }
-  .card b { display: inline-block; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .card b { display: inline-block; font-size: var(--fs-head); font-weight: 600; font-variant-numeric: tabular-nums; }
   .card b.ratio { min-width: 0; padding: 0 6px; }
   .learn { padding: 8px 12px 10px; border-top: 1px solid var(--border); }
   h3 { margin: 0 0 6px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }

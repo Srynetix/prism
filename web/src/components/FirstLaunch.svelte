@@ -115,7 +115,7 @@
 
 <style>
   /* In the flow, centered: the stage alone during the intro, then the stage above the card. */
-  .first { position: fixed; inset: 0; z-index: 110; display: flex; flex-direction: column; align-items: center; padding: 3vh 16px; overflow: hidden auto; background: radial-gradient(ellipse at 50% 30%, #17151f 0%, #0b0b0d 65%); color: #cfcfd6; }
+  .first { position: fixed; inset: 0; z-index: var(--z-top); display: flex; flex-direction: column; align-items: center; padding: 3vh 16px; overflow: hidden auto; background: radial-gradient(ellipse at 50% 30%, #17151f 0%, #0b0b0d 65%); color: #cfcfd6; }
   .stage { flex: none; width: calc(100% + 32px); margin: auto -16px 0; display: flex; flex-direction: column; align-items: center; mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
   /* The prism keeps its proportions; the beam and the rays run past the box to the window's edges. */
   .scene { display: block; width: 100%; height: min(48vh, 440px); overflow: visible; transition: height 0.9s cubic-bezier(0.65, 0, 0.25, 1); }
@@ -138,10 +138,10 @@
   @keyframes glow { to { opacity: 0.1; } }
 
   .hello { margin-top: 10px; padding: 0 16px; text-align: center; animation: rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 1.6s both; }
-  h1 { margin: 0; font-size: 34px; font-weight: 300; letter-spacing: 0.3px; color: #fff; transition: font-size 0.9s cubic-bezier(0.65, 0, 0.25, 1); }
-  .ready h1 { font-size: 28px; }
+  h1 { margin: 0; font-size: var(--fs-hero); font-weight: 300; letter-spacing: 0.3px; color: #fff; transition: font-size 0.9s cubic-bezier(0.65, 0, 0.25, 1); }
+  .ready h1 { font-size: var(--fs-hero); }
   h1 b { font-weight: 700; background: linear-gradient(90deg, #ff5f6d, #ffc371, #7cf29a, #5ec8ff, #a78bfa, #ff5f6d); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: sweep 1.6s ease-out 1.8s both; }
-  .hello p { margin: 8px 0 0; font-size: 14px; color: #9c9ba8; }
+  .hello p { margin: 8px 0 0; font-size: var(--fs-head); color: #9c9ba8; }
   @keyframes rise { from { opacity: 0; transform: translateY(12px); filter: blur(6px); letter-spacing: 3px; } }
   @keyframes sweep { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
@@ -152,7 +152,7 @@
   .fold.open > div { overflow: visible; }
   .card { margin-top: 26px; padding: 18px 20px 16px; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); color: var(--text); box-shadow: var(--shadow-modal); opacity: 0; transform: translateY(18px) scale(0.98); pointer-events: none; transition: opacity 0.6s ease 0.35s, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s; }
   .ready .card { opacity: 1; transform: none; pointer-events: auto; }
-  h2 { margin: 0 0 4px; font-size: 15px; }
+  h2 { margin: 0 0 4px; font-size: var(--fs-head); }
   .lead { margin: 0 0 14px; font-size: var(--fs-meta); color: var(--text-muted); line-height: 1.45; }
   .err { margin: 10px 0 0; color: var(--ko); font-size: var(--fs-meta); }
   .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
@@ -161,7 +161,7 @@
   .btn:disabled { opacity: 0.5; cursor: default; }
   .btn.ghost { background: none; color: var(--text-muted); }
   .btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
-  .skip { position: fixed; bottom: 14px; right: 20px; font-size: 11px; color: #55556a; }
+  .skip { position: fixed; bottom: 14px; right: 20px; font-size: var(--fs-meta); color: #55556a; }
 
   /* Skipped, or "Reduce motion": everything in its final place at once. */
   .skipped :is(.beam, .ray, .inner, .wedge, .hello, h1 b) { animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
@@ -174,6 +174,6 @@
   @media (max-height: 640px) {
     .scene { height: 34vh; }
     .ready .scene { height: 18vh; }
-    h1, .ready h1 { font-size: 24px; }
+    h1, .ready h1 { font-size: var(--fs-display); }
   }
 </style>

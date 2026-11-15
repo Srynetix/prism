@@ -201,7 +201,7 @@
 
 <style>
   .blocked-pill { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 0 7px; border-radius: var(--r9); background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); font-size: var(--fs-tag); font-weight: 500; line-height: 17px; white-space: nowrap; }
-  .new { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: 14px; cursor: pointer; }
+  .new { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: var(--fs-head); cursor: pointer; }
   .new:hover, .new.on { background: var(--surface-muted); color: var(--text); }
   section { container-type: inline-size; }
   .grow { flex: 1; }

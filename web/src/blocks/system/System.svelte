@@ -136,7 +136,7 @@
   .empty { padding: 14px 16px; color: var(--text-muted); font-size: var(--fs-body); }
   .muted { color: var(--text-muted); }
   p.muted { margin: 4px 0 0; font-size: var(--fs-meta); }
-  .pill { padding: 0 7px; border-radius: 9px; font-size: var(--fs-tag); font-weight: 500; white-space: nowrap; }
+  .pill { padding: 0 7px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 500; white-space: nowrap; }
   .pill.warn { background: var(--warn-bg); color: var(--warn); }
   .pill.ko { background: var(--ko-bg); color: var(--ko); }
   .scroll { container-type: inline-size; }
@@ -157,10 +157,10 @@
   .g { min-width: 0; padding: 8px 12px; border-right: 1px solid var(--border); }
   .g:last-child { border-right: none; }
   .l { display: flex; justify-content: space-between; font-size: var(--fs-tag); color: var(--text-muted); }
-  .v { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .v { font-size: var(--fs-big); font-weight: 600; font-variant-numeric: tabular-nums; }
   .v small { font-size: var(--fs-meta); font-weight: 400; color: var(--text-muted); }
   .d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-tag) var(--mono); color: var(--text-muted); }
-  .bar { display: flex; height: 5px; margin: 4px 0 3px; overflow: hidden; border-radius: 3px; background: var(--surface-muted); }
+  .bar { display: flex; height: 5px; margin: 4px 0 3px; overflow: hidden; border-radius: var(--r3); background: var(--surface-muted); }
   .bar i { display: block; height: 100%; }
   .spark { display: block; width: 100%; height: 30px; margin-top: 4px; }
   .spark polyline { fill: none; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
@@ -181,7 +181,7 @@
   .host { display: grid; grid-template-columns: minmax(0, 1fr) 54px 70px; gap: 6px; align-items: center; padding: 1px 0; font-size: var(--fs-meta); }
   .hn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lat { display: flex; align-items: flex-end; gap: 1px; height: 14px; }
-  .lat i { flex: 1; border-radius: 1px; background: var(--ok); }
+  .lat i { flex: 1; border-radius: var(--r1); background: var(--ok); }
   .lat i.w { background: var(--warn); }
   .lat i.k { background: var(--ko); opacity: 0.6; }
   .short { display: flex; flex-direction: column; }

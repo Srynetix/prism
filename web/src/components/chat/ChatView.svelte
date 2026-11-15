@@ -731,41 +731,41 @@
   .pane { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   /* Scrolled, never squeezed. */
   .pane > :global(*) { flex-shrink: 0; }
-  .card { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; font: inherit; color: var(--text); background: var(--chat-card); border: 1px solid var(--border); border-radius: 12px; padding: 9px 11px; }
+  .card { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; font: inherit; color: var(--text); background: var(--chat-card); border: 1px solid var(--border); border-radius: var(--r12); padding: 9px 11px; }
   .card.cur { border-color: var(--warn); }
-  .card .top { font-size: 11.5px; color: var(--text-muted); }
+  .card .top { font-size: var(--fs-meta); color: var(--text-muted); }
   .card .top b { color: var(--text); }
-  .card .p { font-size: 14px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .p { font-size: var(--fs-head); font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card .chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .card .chips i { font-style: normal; font-size: 11.5px; padding: 1px 7px; border-radius: 7px; background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-muted); }
+  .card .chips i { font-style: normal; font-size: var(--fs-meta); padding: 1px 7px; border-radius: var(--r7); background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-muted); }
   .card .chips i.ko { color: var(--ko); }
   .card em { font-style: normal; }
   .card .add { color: var(--ok); } .card .del { color: var(--ko); }
-  .card .sum { font-size: 13px; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .muted, .error { margin: 12px 4px; font-size: 13px; color: var(--text-muted); }
+  .card .sum { font-size: var(--fs-title); color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .muted, .error { margin: 12px 4px; font-size: var(--fs-title); color: var(--text-muted); }
   .error { color: var(--ko); }
-  .earlier { align-self: center; margin: 0; font-size: 12px; }
-  .me { align-self: flex-end; max-width: 85%; background: var(--accent); color: var(--on-accent); padding: 7px 12px; border-radius: 16px 16px 4px 16px; font-size: 14.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .earlier { align-self: center; margin: 0; font-size: var(--fs-body); }
+  .me { align-self: flex-end; max-width: 85%; background: var(--accent); color: var(--on-accent); padding: 7px 12px; border-radius: var(--r14) var(--r14) var(--r4) var(--r14); font-size: var(--fs-head); line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
   .me.pending { opacity: 0.6; }
-  .ai { font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+  .ai { font-size: var(--fs-head); line-height: 1.5; overflow-wrap: anywhere; }
   .ai :global(p:first-child) { margin-top: 0; }
   .ai :global(p:last-child) { margin-bottom: 0; }
-  .ai :global(pre) { overflow-x: auto; font-size: 12px; }
-  .rmk { align-self: flex-start; border: none; background: none; padding: 0 2px; font: inherit; font-size: 11px; color: var(--text-muted); opacity: 0.75; }
+  .ai :global(pre) { overflow-x: auto; font-size: var(--fs-body); }
+  .rmk { align-self: flex-start; border: none; background: none; padding: 0 2px; font: inherit; font-size: var(--fs-meta); color: var(--text-muted); opacity: 0.75; }
   .rmk:hover, .rmk.open { opacity: 1; color: var(--text); }
   .rms { display: flex; flex-direction: column; gap: 6px; padding-left: 10px; border-left: 2px solid var(--border); }
   .rm { display: flex; flex-direction: column; gap: 2px; }
-  .rh { display: flex; gap: 6px; font-size: 11px; color: var(--text-muted); min-width: 0; }
+  .rh { display: flex; gap: 6px; font-size: var(--fs-meta); color: var(--text-muted); min-width: 0; }
   .rh bdi { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rtx { text-align: left; border: none; margin: 0; padding: 6px 8px; border-radius: 8px; background: var(--chat-code); color: var(--text-muted); font: 11px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .rtx { text-align: left; border: none; margin: 0; padding: 6px 8px; border-radius: var(--r8); background: var(--chat-code); color: var(--text-muted); font: 11px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   .rtx.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; line-clamp: 6; overflow: hidden; cursor: pointer; }
-  .note { align-self: center; font-size: 12px; color: var(--text-muted); font-style: italic; }
-  .tool { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; font: inherit; font-size: 13px; color: var(--text-muted); background: var(--chat-card); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; min-width: 0; }
+  .note { align-self: center; font-size: var(--fs-body); color: var(--text-muted); font-style: italic; }
+  .tool { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; font: inherit; font-size: var(--fs-title); color: var(--text-muted); background: var(--chat-card); border: 1px solid var(--border); border-radius: var(--r10); padding: 6px 10px; min-width: 0; }
   .tool b { color: var(--text); font-weight: 600; flex: none; }
-  .tool .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; }
+  .tool .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: var(--fs-body); }
   /* A path cut at its start: its file name shows. */
   .tool .what.path { direction: rtl; text-align: left; }
-  .tool .n { flex: none; font-size: 12px; }
+  .tool .n { flex: none; font-size: var(--fs-body); }
   .tool i { font-style: normal; }
   .tool .add { color: var(--ok); } .tool .del { color: var(--ko); }
   .tool .st { flex: none; font-weight: 700; }
@@ -773,89 +773,89 @@
   .tool.failed { border-color: color-mix(in srgb, var(--ko) 45%, var(--border)); }
   .reads { margin: -4px 0 0 30px; font: 12px/1.5 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--text-muted); overflow-wrap: anywhere; }
   .reads b { color: var(--text); font-weight: 600; font-family: var(--sans); }
-  .diff { margin-top: -4px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--chat-card); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; }
+  .diff { margin-top: -4px; border: 1px solid var(--border); border-radius: var(--r10); overflow: hidden; background: var(--chat-card); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; }
   .diff div { padding: 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-muted); }
   .diff .add { background: var(--ok-bg); color: var(--ok); }
   .diff .del { background: color-mix(in srgb, var(--ko) 14%, transparent); color: var(--ko); }
-  .out { margin: -4px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--chat-code); color: var(--text); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .out { margin: -4px 0 0; padding: 8px 10px; border-radius: var(--r10); background: var(--chat-code); color: var(--text); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   .tool .dur { flex: none; font: 11px ui-monospace, 'SF Mono', Menlo, monospace; color: var(--text-muted); }
   .think { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; font: inherit; border: none; border-left: 2px solid var(--violet, #7b68ee); background: none; color: var(--text-muted); padding: 1px 0 1px 10px; }
   .think:disabled { cursor: default; }
-  .think .tt { font-size: 11.5px; font-weight: 600; color: var(--violet, #7b68ee); }
-  .think .tx { font-size: 12.5px; font-style: italic; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .think .tt { font-size: var(--fs-meta); font-weight: 600; color: var(--violet, #7b68ee); }
+  .think .tx { font-size: var(--fs-title); font-style: italic; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .think.open .tx { white-space: pre-wrap; overflow-wrap: anywhere; }
-  .subagent { border: 1px solid var(--border); border-left: 3px solid color-mix(in srgb, var(--accent) 55%, var(--border)); border-radius: 10px; background: var(--chat-card); overflow: hidden; }
+  .subagent { border: 1px solid var(--border); border-left: 3px solid color-mix(in srgb, var(--accent) 55%, var(--border)); border-radius: var(--r10); background: var(--chat-card); overflow: hidden; }
   .subagent.run { border-left-color: var(--info); }
   .subagent.failed { border-left-color: var(--ko); }
-  .subagent .sh { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; font: inherit; font-size: 13px; color: var(--text-muted); background: none; border: none; padding: 6px 10px; min-width: 0; }
+  .subagent .sh { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; font: inherit; font-size: var(--fs-title); color: var(--text-muted); background: none; border: none; padding: 6px 10px; min-width: 0; }
   .subagent .sh b { color: var(--text); font-weight: 600; flex: none; }
   .subagent .sh .w { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .subagent .sh .n { flex: none; font-size: 12px; }
+  .subagent .sh .n { flex: none; font-size: var(--fs-body); }
   .subagent .sh .dur { flex: none; font: 11px ui-monospace, 'SF Mono', Menlo, monospace; }
   .subagent .sh .st { flex: none; font-weight: 700; }
-  .subagent .sh .st.running { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 0 7px; border-radius: 7px; }
+  .subagent .sh .st.running { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); font-weight: 500; padding: 0 7px; border-radius: var(--r7); }
   .subagent .sh .st.running .dot { width: 6px; height: 6px; background: var(--info); }
   .subagent .sub { margin: 0 10px 6px 18px; }
-  .subagent .said1 { padding: 0 10px 7px 31px; font-size: 12px; font-style: italic; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sub { margin: -4px 0 0 18px; padding: 4px 10px 6px; border-left: 1px dashed var(--border); font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 1px; }
+  .subagent .said1 { padding: 0 10px 7px 31px; font-size: var(--fs-body); font-style: italic; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub { margin: -4px 0 0 18px; padding: 4px 10px 6px; border-left: 1px dashed var(--border); font-size: var(--fs-body); color: var(--text-muted); display: flex; flex-direction: column; gap: 1px; }
   .sub > div { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .sub b { color: var(--text); font-weight: 600; flex: none; }
   .sub .m { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11.5px ui-monospace, 'SF Mono', Menlo, monospace; }
-  .sub .more { font-size: 11px; }
+  .sub .more { font-size: var(--fs-meta); }
   .sub .said { display: block; font-style: italic; padding-top: 3px; overflow-wrap: anywhere; }
   .tasks li { display: flex; flex-direction: column; gap: 1px; padding: 3px 0; color: var(--text); }
   .tasks .row { display: flex; align-items: center; gap: 7px; min-width: 0; }
   .tasks .row :global(svg) { flex: none; color: var(--text-muted); }
   .tasks .w { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tasks .meta { flex: none; font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-  .tasks .sum { padding-left: 21px; font-size: 11.5px; color: var(--text-muted); overflow-wrap: anywhere; }
+  .tasks .meta { flex: none; font-size: var(--fs-meta); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .tasks .sum { padding-left: 21px; font-size: var(--fs-meta); color: var(--text-muted); overflow-wrap: anywhere; }
   .tasks li.completed .w, .tasks li.stopped .w { color: var(--text-muted); }
   /* The rail: its plan, background tasks, chain and turns, one chip each. */
   .rail { flex: none; display: flex; align-items: center; gap: 6px; padding: 5px 12px; background: var(--chat-bar); border-bottom: 1px solid var(--border); min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .rail::-webkit-scrollbar { display: none; }
   .rail::-webkit-scrollbar { display: none; }
-  .rc { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 24px; max-width: 280px; padding: 0 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--chat-card); color: var(--text-muted); font: inherit; font-size: 11.5px; white-space: nowrap; cursor: pointer; }
+  .rc { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 24px; max-width: 280px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--chat-card); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
   .rc b { color: var(--text); font-weight: 600; }
   .rc .c { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .rc.open { border-color: var(--accent); color: var(--text); }
   .rc.held { border-color: var(--warn); color: var(--warn); }
   .rc :global(svg) { flex: none; }
-  .rc .prog { flex: none; width: 36px; height: 4px; border-radius: 2px; background: var(--surface-muted); overflow: hidden; }
+  .rc .prog { flex: none; width: 36px; height: 4px; border-radius: var(--r2); background: var(--surface-muted); overflow: hidden; }
   .rc .prog i { display: block; height: 100%; background: var(--ok); transition: width 0.4s; }
   .bgd { width: 6px; height: 6px; border-radius: 50%; background: var(--info); animation: pulse 1.2s infinite; }
   .grow { flex: 1; }
-  .rc .st, .tasks .st { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 0 7px; border-radius: 7px; background: var(--surface-muted); color: var(--text-muted); }
+  .rc .st, .tasks .st { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); padding: 0 7px; border-radius: var(--r7); background: var(--surface-muted); color: var(--text-muted); }
   .st.running { background: var(--info-bg); color: var(--info); }
   .st.completed { background: var(--ok-bg); color: var(--ok); }
   .st.failed { background: color-mix(in srgb, var(--ko) 14%, transparent); color: var(--ko); }
   .tasks .st .dot { width: 6px; height: 6px; background: var(--info); }
   /* A chip's popover (a sheet on a phone), over the conversation: a click aside or Esc closes it. */
   .scrim { position: absolute; inset: 0; z-index: 4; border: none; padding: 0; background: transparent; cursor: default; }
-  .drop { position: absolute; z-index: 5; top: 34px; left: max(12px, calc((100% - 820px) / 2)); width: 380px; max-width: calc(100% - 24px); max-height: 60%; display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding: 9px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); font-size: 12.5px; }
+  .drop { position: absolute; z-index: 5; top: 34px; left: max(12px, calc((100% - 820px) / 2)); width: 380px; max-width: calc(100% - 24px); max-height: 60%; display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding: 9px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); font-size: var(--fs-title); }
   .drop.right { left: auto; right: max(12px, calc((100% - 820px) / 2)); }
-  .drop.sheet { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none; max-height: 75%; border-radius: 18px 18px 0 0; border-bottom: none; padding: 8px 14px calc(14px + env(safe-area-inset-bottom)); font-size: 14px; box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25); }
+  .drop.sheet { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none; max-height: 75%; border-radius: var(--r14) var(--r14) 0 0; border-bottom: none; padding: 8px 14px calc(14px + env(safe-area-inset-bottom)); font-size: var(--fs-head); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25); }
   .chat:not(.wide) .scrim { background: rgba(0, 0, 0, 0.3); }
-  .grab { flex: none; width: 38px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 4px; }
+  .grab { flex: none; width: 38px; height: 5px; border-radius: var(--r3); background: var(--border); margin: 0 auto 4px; }
   .dh { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-  .dh span { color: var(--text-muted); font-size: 11.5px; }
+  .dh span { color: var(--text-muted); font-size: var(--fs-meta); }
   .drop ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
   .steps li { display: flex; gap: 7px; padding: 2px 0; color: var(--text-muted); }
   .steps li.completed { text-decoration: line-through; opacity: 0.7; }
   .steps li.in_progress { color: var(--text); font-weight: 600; }
   .steps .ck { flex: none; width: 14px; text-align: center; }
-  .drop input { flex: none; width: 100%; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); border-radius: 8px; padding: 5px 10px; font: inherit; }
-  .sheet input { font-size: 16px; padding: 8px 12px; border-radius: 12px; }
+  .drop input { flex: none; width: 100%; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); border-radius: var(--r8); padding: 5px 10px; font: inherit; }
+  .sheet input { font-size: var(--fs-head); padding: 8px 12px; border-radius: var(--r12); }
   .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; }
   .list > :global(*) { flex-shrink: 0; }
   .drop :global(.chain) { padding: 0; }
   /* A turn's line: its number and time, what it took. */
-  .turnh { display: flex; align-items: center; gap: 7px; margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+  .turnh { display: flex; align-items: center; gap: 7px; margin-top: 6px; font-size: var(--fs-meta); color: var(--text-muted); }
   .turnh b { color: var(--text); font-weight: 600; }
   .turnh .ln { flex: 1; height: 1px; background: var(--border); }
   /* Its steps between two answers, folded. */
-  .work { border: 1px solid var(--border); border-radius: 10px; background: var(--chat-card); overflow: hidden; }
+  .work { border: 1px solid var(--border); border-radius: var(--r10); background: var(--chat-card); overflow: hidden; }
   .work.live { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
-  .wh { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 5px 10px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+  .wh { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 5px 10px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-title); text-align: left; cursor: pointer; }
   .wh b { flex: none; color: var(--text); font-weight: 600; }
   .wh .bits { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wh i { font-style: normal; }
@@ -863,22 +863,22 @@
   .wh :global(svg) { flex: none; }
   .work .in { display: flex; flex-direction: column; gap: 6px; padding: 7px 8px 8px; border-top: 1px solid var(--border); background: var(--chat-code); }
   .work .in > :global(*) { flex-shrink: 0; }
-  .work .more { align-self: flex-start; border: none; background: none; padding: 0 2px; color: var(--info); font: inherit; font-size: 11.5px; cursor: pointer; }
-  .chat:not(.wide) .wh { min-height: 40px; font-size: 13px; }
+  .work .more { align-self: flex-start; border: none; background: none; padding: 0 2px; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .chat:not(.wide) .wh { min-height: 40px; font-size: var(--fs-title); }
   /* A phone: every chip in its width. */
   .chat:not(.wide) .rail { gap: 5px; padding: 5px 8px; }
   .chat:not(.wide) .rc { padding: 0 8px; }
   .chat:not(.wide) .rc .c { max-width: 90px; }
   .status.peekable { cursor: pointer; }
-  .status { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--chat-bar); border-top: 1px solid var(--border); font-size: 12.5px; min-width: 0; }
+  .status { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--chat-bar); border-top: 1px solid var(--border); font-size: var(--fs-title); min-width: 0; }
   .status .meta { flex: none; color: var(--text-muted); font: 11.5px ui-monospace, 'SF Mono', Menlo, monospace; }
-  .status .act { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 12px; }
+  .status .act { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-body); }
   .status .act b { color: var(--text); font-weight: 600; }
   /* A button, not a key hint: framed, a pointer, warned on hover; its key beside its word. */
-  .status .esc { flex: none; display: inline-flex; align-items: center; gap: 5px; border: 1px solid color-mix(in srgb, var(--text-muted) 55%, transparent); background: var(--surface-muted); color: var(--text); border-radius: 6px; padding: 2px 8px; font: inherit; font-size: 11.5px; font-weight: 500; cursor: pointer; box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent); }
+  .status .esc { flex: none; display: inline-flex; align-items: center; gap: 5px; border: 1px solid color-mix(in srgb, var(--text-muted) 55%, transparent); background: var(--surface-muted); color: var(--text); border-radius: var(--r6); padding: 2px 8px; font: inherit; font-size: var(--fs-meta); font-weight: 500; cursor: pointer; box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent); }
   .status .esc:hover:not(:disabled) { border-color: var(--warn); color: var(--warn); }
   .status .esc:disabled { opacity: 0.5; cursor: default; }
-  .status .esc kbd { padding: 0 4px; border-radius: 3px; background: var(--surface-muted); color: var(--text-muted); font: 10px ui-monospace, 'SF Mono', Menlo, monospace; }
+  .status .esc kbd { padding: 0 4px; border-radius: var(--r3); background: var(--surface-muted); color: var(--text-muted); font: 10px ui-monospace, 'SF Mono', Menlo, monospace; }
   /* No Esc key on a phone. */
   :global(html.remote) .status .esc kbd { display: none; }
   .chat:not(.wide) .status { flex-wrap: wrap; row-gap: 2px; }
@@ -890,7 +890,7 @@
   .live .lbl { display: flex; justify-content: space-between; align-items: center; font: 600 10px var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
   /* On the computer: a column to read, in a pane of any width. */
   .wide .pane { padding-left: max(16px, calc((100% - 820px) / 2)); padding-right: max(16px, calc((100% - 820px) / 2)); }
-  .wide .me, .wide .ai { font-size: 13.5px; }
+  .wide .me, .wide .ai { font-size: var(--fs-title); }
   .wide .status, .wide .rail { padding-left: max(12px, calc((100% - 820px) / 2)); padding-right: max(12px, calc((100% - 820px) / 2)); }
   .wide .down { bottom: 16px; }
   .tl { white-space: pre; overflow: hidden; text-overflow: ellipsis; }

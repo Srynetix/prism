@@ -103,50 +103,50 @@
 </aside>
 
 <style>
-  .qa { position: fixed; top: 0; right: 0; bottom: 0; z-index: 53; width: min(520px, 92vw); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid color-mix(in srgb, var(--src-claude) 45%, var(--border)); box-shadow: var(--shadow-drawer); animation: slide 0.16s ease-out; }
+  .qa { position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(520px, 92vw); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid color-mix(in srgb, var(--src-claude) 45%, var(--border)); box-shadow: var(--shadow-drawer); animation: slide 0.16s ease-out; }
   @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
   :global(html[data-reduce-motion]) .qa { animation: none; }
   header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); box-shadow: inset 0 2px var(--src-claude); }
-  header b { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+  header b { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-title); }
   header b :global(svg) { color: var(--src-claude); }
   .grow { flex: 1; min-width: 0; }
   .x { display: inline-flex; padding: 3px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px; font-size: var(--fs-body, 13px); }
-  .from { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-muted); font-size: 12px; }
+  .body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px; font-size: var(--fs-body); }
+  .from { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-muted); font-size: var(--fs-body); }
   .from i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
   .f { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 8px; }
-  .f > span, .lh > span { color: var(--text-muted); font-size: 12px; }
+  .f > span, .lh > span { color: var(--text-muted); font-size: var(--fs-body); }
   .f.col { grid-template-columns: 1fr; }
   .lh { display: flex; align-items: baseline; gap: 8px; }
-  .lh small { color: var(--text-muted); font-size: 11.5px; }
+  .lh small { color: var(--text-muted); font-size: var(--fs-meta); }
   input:not([type='checkbox']), select, textarea { min-width: 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--bg); color: var(--text); font: inherit; }
-  textarea { resize: vertical; font-family: var(--mono); font-size: 12px; line-height: 1.45; }
-  .state { display: flex; align-items: center; gap: 6px; min-height: 20px; color: var(--text-muted); font-size: 12px; }
-  .state code { font-family: var(--mono); font-size: 11px; color: var(--info); }
+  textarea { resize: vertical; font-family: var(--mono); font-size: var(--fs-body); line-height: 1.45; }
+  .state { display: flex; align-items: center; gap: 6px; min-height: 20px; color: var(--text-muted); font-size: var(--fs-body); }
+  .state code { font-family: var(--mono); font-size: var(--fs-meta); color: var(--info); }
   .lnk { padding: 0; border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; }
   .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-  .seg button { padding: 3px 10px; border: 1px solid var(--border); border-radius: 12px; background: none; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+  .seg button { padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r12); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); cursor: pointer; }
   .seg button.on { border-color: var(--accent); color: var(--text); font-weight: 600; background: color-mix(in srgb, var(--accent) 12%, transparent); }
   .seg button:disabled { opacity: 0.4; cursor: default; }
-  .muted { margin: 0; color: var(--text-muted); font-size: 12px; }
-  .err { margin: 0; color: var(--ko); font-size: 12px; overflow-wrap: anywhere; }
+  .muted { margin: 0; color: var(--text-muted); font-size: var(--fs-body); }
+  .err { margin: 0; color: var(--ko); font-size: var(--fs-body); overflow-wrap: anywhere; }
   footer { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
   footer button { padding: 5px 14px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: none; color: var(--text); font: inherit; cursor: pointer; }
   footer .primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent, #fff); }
   footer button:disabled { opacity: 0.5; cursor: default; }
-  .routine { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; }
+  .routine { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--fs-body); }
   /* On a phone: a sheet from the bottom, its controls made for a thumb. */
-  .scrim { position: fixed; inset: 0; z-index: 60; background: rgb(0 0 0 / 0.45); }
-  .qa.phone { top: auto; left: 0; z-index: 61; width: auto; max-height: calc(100dvh - 24px - env(safe-area-inset-top)); border: none; border-radius: 18px 18px 0 0; background: var(--bg); box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25); animation: none; font-size: 15px; }
-  .qa.phone .grab { width: 38px; height: 5px; margin: 8px auto 0; border-radius: 3px; background: var(--border); }
+  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); background: rgb(0 0 0 / 0.45); }
+  .qa.phone { top: auto; left: 0; z-index: var(--z-modal); width: auto; max-height: calc(100dvh - 24px - env(safe-area-inset-top)); border: none; border-radius: var(--r14) var(--r14) 0 0; background: var(--bg); box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25); animation: none; font-size: var(--fs-title); }
+  .qa.phone .grab { width: 38px; height: 5px; margin: 8px auto 0; border-radius: var(--r3); background: var(--border); }
   .qa.phone header { border: none; box-shadow: none; padding: 6px 10px 6px 16px; }
-  .qa.phone header b { font-size: 17px; }
+  .qa.phone header b { font-size: var(--fs-head); }
   .qa.phone .x { padding: 10px; }
-  .qa.phone .body { padding: 4px 16px 16px; gap: 12px; font-size: 15px; }
+  .qa.phone .body { padding: 4px 16px 16px; gap: 12px; font-size: var(--fs-title); }
   .qa.phone .f { grid-template-columns: 1fr; gap: 6px; }
-  .qa.phone input:not([type='checkbox']), .qa.phone select, .qa.phone textarea { min-height: 42px; padding: 8px 12px; border-radius: 12px; font-size: 16px; }
-  .qa.phone .seg button { min-height: 38px; padding: 0 14px; border-radius: 19px; font-size: 14px; }
+  .qa.phone input:not([type='checkbox']), .qa.phone select, .qa.phone textarea { min-height: 42px; padding: 8px 12px; border-radius: var(--r12); font-size: var(--fs-head); }
+  .qa.phone .seg button { min-height: 38px; padding: 0 14px; border-radius: 999px; font-size: var(--fs-body); }
   .qa.phone footer { padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
   .qa.phone footer .grow { display: none; }
-  .qa.phone footer .primary { flex: 1; min-height: 50px; border-radius: 14px; font-size: 17px; font-weight: 650; }
+  .qa.phone footer .primary { flex: 1; min-height: 50px; border-radius: var(--r14); font-size: var(--fs-head); font-weight: 650; }
 </style>

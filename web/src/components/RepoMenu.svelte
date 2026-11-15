@@ -110,7 +110,7 @@
   .sbi:hover, .sbi.on { background: var(--surface-muted); color: var(--text); }
   .g { color: var(--src-gitlab); }
   .flag { min-width: 14px; padding: 0 4px; border-radius: var(--r7); background: var(--warn-bg); color: var(--warn); font-size: var(--fs-tag); font-weight: 600; text-align: center; }
-  .pop { position: fixed; left: 8px; bottom: 30px; z-index: 50; width: min(460px, calc(100vw - 16px)); padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); white-space: normal; }
+  .pop { position: fixed; left: 8px; bottom: 30px; z-index: var(--z-menu); width: min(460px, calc(100vw - 16px)); padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); white-space: normal; }
   .head { margin: 2px 8px 4px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .repo { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: var(--r6); }
   .repo:hover { background: var(--surface-muted); }
@@ -119,7 +119,7 @@
   .info b { font-weight: 600; }
   .branch { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); font-size: var(--fs-tag); }
   .branch.off { color: var(--info); }
-  .dirty { align-self: center; display: inline-flex; color: var(--warn); font-size: 11px; }
+  .dirty { align-self: center; display: inline-flex; color: var(--warn); font-size: var(--fs-meta); }
   .behind { color: var(--warn); font-family: var(--mono); font-size: var(--fs-tag); }
   .ahead { color: var(--ok); font-family: var(--mono); font-size: var(--fs-tag); }
   .err { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ko); font-size: var(--fs-tag); }

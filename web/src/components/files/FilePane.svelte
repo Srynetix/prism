@@ -245,7 +245,7 @@
   .file .nm { font-weight: 600; white-space: nowrap; }
   .file .dir { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-tag) var(--mono); color: var(--text-muted); direction: rtl; text-align: left; }
   .dot { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--text); }
-  .pill { flex-shrink: 0; padding: 0 6px; border-radius: 9px; font-size: var(--fs-tag); font-weight: 600; background: var(--surface-muted); }
+  .pill { flex-shrink: 0; padding: 0 6px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 600; background: var(--surface-muted); }
   .pill.sM, .pill.sR { background: var(--warn-bg); }
   .pill.sA, .pill.su { background: var(--ok-bg); }
   .pill.sD { background: var(--ko-bg); }
@@ -273,6 +273,6 @@
   .chip button.primary { background: color-mix(in srgb, var(--src-claude) 85%, #000); color: #fff; }
   .chip button:disabled { opacity: 0.5; }
   .chip input { width: 260px; padding: 3px 8px; border: 1px solid var(--src-claude); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; outline: none; }
-  :global(html.remote) .chip input { font-size: 16px; }
+  :global(html.remote) .chip input { font-size: var(--fs-head); }
   :global(html.remote) .chip button { min-height: 32px; }
 </style>

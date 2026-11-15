@@ -74,7 +74,7 @@
   .chg { display: inline-flex; align-items: center; gap: 2px; height: 20px; padding: 0 6px; border-radius: var(--r5); color: var(--text-muted); font-size: var(--fs-meta); }
   .chg:hover:not(:disabled), .chg.open { background: var(--surface-muted); color: var(--text); }
   .chg:disabled { opacity: 0.45; cursor: default; }
-  .pop { position: fixed; z-index: 45; display: flex; flex-direction: column; width: 320px; max-height: 360px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
+  .pop { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; width: 320px; max-height: 360px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
   input { height: 26px; margin-bottom: 4px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; }
   .list { min-height: 0; overflow-y: auto; }
   .g { margin: 6px 6px 2px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }

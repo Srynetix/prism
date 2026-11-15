@@ -702,67 +702,67 @@
 
 <style>
   /* Under the drawers (48–53): an MR, a ticket or a log opened from its Chat shows over it. Its own sheets and menus stay within it. */
-  .tty { position: fixed; inset: 0; z-index: 47; display: flex; flex-direction: column; background: var(--surface); color: var(--text); }
+  .tty { position: fixed; inset: 0; z-index: var(--z-drawer); display: flex; flex-direction: column; background: var(--surface); color: var(--text); }
   header { display: flex; align-items: center; gap: 8px; padding: calc(10px + env(safe-area-inset-top)) 12px 10px; background: var(--surface); color: var(--text); border-bottom: 1px solid var(--border); }
-  header b { font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  header b { font-size: var(--fs-title); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   header .tt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-  header small { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: var(--text-muted); }
+  header small { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-tag); color: var(--text-muted); }
   header .st { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
   header .st.running { background: var(--warn); animation: pulse 1.2s infinite; }
   header .st.waiting_tool, header .st.waiting_input { background: var(--warn); }
   @keyframes pulse { 50% { opacity: 0.3; } }
-  .back { background: none; border: none; color: var(--info); font-size: 18px; padding: 0 4px; }
-  .more { margin-left: auto; display: grid; place-items: center; width: 34px; height: 30px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text-muted); font-size: 16px; }
+  .back { background: none; border: none; color: var(--info); font-size: var(--fs-big); padding: 0 4px; }
+  .more { margin-left: auto; display: grid; place-items: center; width: 34px; height: 30px; border: 1px solid transparent; border-radius: var(--r8); background: none; color: var(--text-muted); font-size: var(--fs-head); }
   .more.on { border-color: var(--border); background: var(--surface-muted); color: var(--text); }
   /* Its effort, a chip by its ⋯: the level it runs at, always in sight. */
-  .effchip { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: 12.5px; }
-  .effchip small { font-size: 11px; color: var(--text-muted); }
+  .effchip { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
+  .effchip small { font-size: var(--fs-micro); color: var(--text-muted); }
   .effchip.on { border-color: var(--accent); }
   .effchip + .more { margin-left: 0; }
   header .effchip { margin-left: auto; }
   .scrim.clear { background: none; }
-  .effort { position: fixed; left: 10px; right: 10px; top: calc(60px + env(safe-area-inset-top)); z-index: 71; display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3); }
-  .effort .lbl { display: flex; flex-direction: column; gap: 2px; font-size: 14px; font-weight: 600; }
-  .effort .lbl small { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+  .effort { position: fixed; left: 10px; right: 10px; top: calc(60px + env(safe-area-inset-top)); z-index: var(--z-menu); display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); color: var(--text); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3); }
+  .effort .lbl { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-body); font-weight: 600; }
+  .effort .lbl small { font-size: var(--fs-tag); font-weight: 400; color: var(--text-muted); }
   .effort .levels { display: flex; flex-wrap: wrap; gap: 6px; }
-  .effort .levels button { padding: 7px 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: 13px; }
+  .effort .levels button { padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .effort .levels button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); font-weight: 600; }
   .effort .levels button:disabled { opacity: 0.5; }
   /* Its ⋯: an action sheet, each action one line and a short why. */
-  .actions { position: fixed; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 71; display: flex; flex-direction: column; gap: 8px; }
-  .actions .group { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; background: var(--surface); color: var(--text); }
-  .actions .head { margin: 0; padding: 10px 14px; text-align: center; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .actions .off { margin: 0; padding: 8px 14px; font-size: 12px; color: var(--warn); border-bottom: 1px solid var(--border); }
-  .actions button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 14px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--info); font: inherit; font-size: 16px; }
+  .actions { position: fixed; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: var(--z-menu); display: flex; flex-direction: column; gap: 8px; }
+  .actions .group { display: flex; flex-direction: column; border-radius: var(--r14); overflow: hidden; background: var(--surface); color: var(--text); }
+  .actions .head { margin: 0; padding: 10px 14px; text-align: center; font-size: var(--fs-tag); color: var(--text-muted); border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .actions .off { margin: 0; padding: 8px 14px; font-size: var(--fs-tag); color: var(--warn); border-bottom: 1px solid var(--border); }
+  .actions button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 14px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--info); font: inherit; font-size: var(--fs-head); }
   .actions .group button:last-child { border-bottom: none; }
-  .actions button small { font-size: 11.5px; color: var(--text-muted); }
+  .actions button small { font-size: var(--fs-tag); color: var(--text-muted); }
   .actions button.ko { color: var(--ko); }
   .actions button.armed { background: var(--ko-bg); color: var(--ko); font-weight: 600; }
   .actions button:disabled { opacity: 0.5; }
-  .actions .cancel { border-radius: 14px; border: none; background: var(--surface); font-weight: 600; }
+  .actions .cancel { border-radius: var(--r14); border: none; background: var(--surface); font-weight: 600; }
   /* The window's panels (Files, Diff, Activity, Launch), the full width. */
   .side { flex: 1; min-height: 0; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); background: var(--surface); color: var(--text); }
   .side :global(.side) { border-left: none; }
   .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
   .tabs::-webkit-scrollbar { display: none; }
-  .tabs button { flex: 1 0 auto; padding: 8px 12px; border: none; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); font: inherit; font-size: 13px; }
+  .tabs button { flex: 1 0 auto; padding: 8px 12px; border: none; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); }
   .tabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
   .tabs .moretab { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
   /* More: the other tools, a sheet from the bottom. */
-  .scrim { position: fixed; inset: 0; z-index: 70; border: none; padding: 0; background: rgba(0, 0, 0, 0.3); }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 71; padding: 8px 14px calc(16px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; background: var(--surface); color: var(--text); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25); }
-  .grab { width: 38px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 12px; }
+  .scrim { position: fixed; inset: 0; z-index: var(--z-menu); border: none; padding: 0; background: rgba(0, 0, 0, 0.3); }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-menu); padding: 8px 14px calc(16px + env(safe-area-inset-bottom)); border-radius: var(--r14) var(--r14) 0 0; background: var(--surface); color: var(--text); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25); }
+  .grab { width: 38px; height: 5px; border-radius: var(--r3); background: var(--border); margin: 0 auto 12px; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .grid button { padding: 14px 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: 14px; }
+  .grid button { padding: 14px 0; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-body); }
   .grid button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .term { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .term.hidden { display: none; }
-  .banner { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 12px; background: var(--info-bg); color: var(--info); }
+  .banner { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: var(--fs-tag); background: var(--info-bg); color: var(--info); }
   .banner.rw { background: var(--warn-bg); color: var(--warn); }
   .banner.off { background: var(--surface-muted); color: var(--text-muted); }
   .banner .right { margin-left: auto; display: flex; gap: 6px; }
-  .banner button { background: none; border: 1px solid currentColor; border-radius: 8px; color: inherit; font-size: 12px; padding: 2px 10px; }
-  .error, .note { margin: 0; padding: 8px 12px; font-size: 13px; }
+  .banner button { background: none; border: 1px solid currentColor; border-radius: var(--r8); color: inherit; font-size: var(--fs-tag); padding: 2px 10px; }
+  .error, .note { margin: 0; padding: 8px 12px; font-size: var(--fs-meta); }
   .error { color: var(--ko); }
   .note { color: var(--text-muted); }
   .stage { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
@@ -775,46 +775,46 @@
   .screen.zoomed { overflow: auto; }
   .seam { display: flex; align-items: center; gap: 8px; margin: 4px 10px; color: var(--info); font: 600 10px var(--sans); letter-spacing: 0.05em; text-transform: uppercase; }
   .seam::before, .seam::after { content: ''; flex: 1; height: 1px; background: color-mix(in srgb, var(--info) 35%, transparent); }
-  .ctxbar { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--surface); color: var(--text); border-top: 1px solid var(--border); font-size: 11px; }
+  .ctxbar { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--surface); color: var(--text); border-top: 1px solid var(--border); font-size: var(--fs-micro); }
   .ctxbar .grow { flex: 1; }
   /* Watched: the terminal takes no tap (no keyboard, no focus); the screen still scrolls sideways when zoomed. */
   .screen.watched .host { pointer-events: none; }
-  .past { padding: 8px 10px 0; font-size: 11px; line-height: 1.45; font-family: 'RecMonoCasual Nerd Font Mono', var(--mono); color: var(--text); }
+  .past { padding: 8px 10px 0; font-size: var(--fs-micro); line-height: 1.45; font-family: 'RecMonoCasual Nerd Font Mono', var(--mono); color: var(--text); }
   .pl { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.45em; }
   .past .b { font-weight: 700; }
   .host { width: max-content; }
   .keys { display: flex; gap: 5px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); overflow-x: auto; }
-  .keys button { flex: none; min-width: 38px; padding: 7px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 12px ui-monospace, monospace; }
+  .keys button { flex: none; min-width: 38px; padding: 7px 8px; border-radius: var(--r7); border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 12px ui-monospace, monospace; }
   .keys button.on { background: var(--info-bg); color: var(--info); border-color: var(--info); }
   .answer { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); }
   .quick { display: flex; gap: 6px; flex-wrap: wrap; }
-  .quick button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 38px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 13px ui-monospace, monospace; }
+  .quick button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 38px; padding: 6px 10px; border-radius: var(--r8); border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 13px ui-monospace, monospace; }
   .quick .allow { display: inline-flex; align-items: center; gap: 4px; background: var(--ok-bg); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); font-family: inherit; font-weight: 600; }
   .quick .again { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-family: inherit; font-weight: 600; color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
   .compose { position: relative; display: flex; gap: 6px; align-items: flex-end; }
-  .compose textarea { flex: 1; resize: none; max-height: 120px; padding: 9px 12px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 15px/1.35 inherit; }
-  .compose button { display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 14px; border-radius: 19px; border: none; background: var(--accent); color: var(--on-accent); font: inherit; font-size: 14px; font-weight: 600; }
+  .compose textarea { flex: 1; resize: none; max-height: 120px; padding: 9px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 15px/1.35 inherit; }
+  .compose button { display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 14px; border-radius: 999px; border: none; background: var(--accent); color: var(--on-accent); font: inherit; font-size: var(--fs-body); font-weight: 600; }
   .compose button:disabled { opacity: 0.45; }
   .compose textarea { field-sizing: content; min-height: 38px; }
   .compose textarea:disabled { opacity: 0.6; }
-  .hint { margin: 0 4px; color: var(--text-muted); font-size: 11.5px; }
+  .hint { margin: 0 4px; color: var(--text-muted); font-size: var(--fs-tag); }
   /* Its Chat's dock. */
   .answer.calm { position: relative; padding-top: 10px; }
   .ctxline { position: absolute; left: 0; right: 0; top: 0; height: 8px; padding: 0; border: none; background: none; }
   .ctxline::before { content: ''; position: absolute; inset: 0 0 auto; height: 2px; background: var(--surface-muted); }
   .ctxline i { position: absolute; left: 0; top: 0; height: 2px; background: var(--info); }
   .ctxline.warn i { background: var(--warn); }
-  .perm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 14px; background: var(--warn-bg); color: var(--warn); font-size: 13px; }
+  .perm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: var(--r14); background: var(--warn-bg); color: var(--warn); font-size: var(--fs-meta); }
   .perm b { display: inline-flex; align-items: center; gap: 6px; }
-  .perm code { display: block; padding: 6px 9px; border-radius: 8px; background: var(--surface); color: var(--text); font: 12.5px ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .perm code { display: block; padding: 6px 9px; border-radius: var(--r8); background: var(--surface); color: var(--text); font: 12.5px ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   .perm .pr { display: flex; gap: 8px; }
-  .perm .pr button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 40px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; }
+  .perm .pr button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 40px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); font-weight: 600; }
   .perm .pr .allow { background: var(--warn); border-color: var(--warn); color: var(--surface); }
   .quick.hidden { display: none; }
-  .compose .kbd { flex: none; width: 38px; padding: 0; justify-content: center; background: var(--surface-muted); color: var(--text-muted); border: 1px solid var(--border); font-size: 17px; font-weight: 400; }
+  .compose .kbd { flex: none; width: 38px; padding: 0; justify-content: center; background: var(--surface-muted); color: var(--text-muted); border: 1px solid var(--border); font-size: var(--fs-head); font-weight: 400; }
   .compose .kbd.on { background: var(--info-bg); color: var(--info); border-color: var(--info); }
   .compose .round { width: 38px; padding: 0; justify-content: center; }
-  .sent { position: absolute; right: 50px; top: -28px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ok); font-size: 12px; }
+  .sent { position: absolute; right: 50px; top: -28px; padding: 2px 9px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--ok); font-size: var(--fs-tag); }
   .hint.ok { color: var(--ok); }
   button:disabled { opacity: 0.5; }
   /* Quick answers: one line, scrolled sideways. */

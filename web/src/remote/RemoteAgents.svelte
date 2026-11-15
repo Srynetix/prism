@@ -249,95 +249,95 @@
   .arch { display: inline-flex; margin: -6px -6px -6px 2px; padding: 6px; border: none; background: none; color: var(--text-muted); }
   /* Edge to edge: the remote's page pads its views. */
   .agents { width: calc(100% + 20px); max-width: none; margin: 0 -10px; padding-bottom: 8px; }
-  .plan { margin: 0 10px 8px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .plan { margin: 0 10px 8px; border: 1px solid var(--border); border-radius: var(--r12); overflow: hidden; background: var(--surface); }
   .plan.stale { opacity: 0.75; }
-  .sum { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: none; background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; }
+  .sum { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; }
   .sum > :global(svg:first-child) { color: var(--cli-fill); }
   .sum .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sum > :global(svg:last-child) { color: var(--text-muted); }
   .w { display: inline-flex; align-items: center; gap: 5px; --fill: var(--cli-fill); }
   .w.warn { --fill: var(--warn); }
   .w.ko { --fill: var(--ko); }
-  .w small { color: var(--text-muted); font-size: 12px; }
+  .w small { color: var(--text-muted); font-size: var(--fs-tag); }
   .w b { font: 600 13px var(--mono); color: var(--fill); }
   .w:not(.warn):not(.ko) b { color: var(--text); }
-  .bar { width: 44px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .bar { width: 44px; height: 6px; border-radius: var(--r3); background: var(--border); overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--fill); }
   /* The other CLIs in use, as on the computer: tinted once one of them nears a limit. */
-  .more { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 10px; background: var(--surface-muted); font-size: 12px; color: var(--text-muted); }
+  .more { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: var(--r10); background: var(--surface-muted); font-size: var(--fs-tag); color: var(--text-muted); }
   .more.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
   .more.ko { background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); }
   .more :global(svg) { width: 12px; height: 12px; }
   /* A section per CLI, in its colour. */
   .cli { border-top: 1px solid var(--border); background: color-mix(in srgb, var(--cli-fill) 6%, transparent); }
   .cli :global(.usage) { border-top: none; background: none; padding-top: 4px; }
-  .cli header { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; font-size: 14px; }
+  .cli header { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; font-size: var(--fs-body); }
   .cli header > :global(svg) { color: var(--cli-fill); }
   .cli header b { color: var(--text); }
-  .cli .def { font-size: 12px; color: var(--text-muted); }
-  .cli .n { margin-left: auto; font-size: 12px; color: var(--text-muted); }
-  .cli .none { margin: 0; padding: 6px 14px 12px; font-size: 13px; color: var(--text-muted); }
+  .cli .def { font-size: var(--fs-tag); color: var(--text-muted); }
+  .cli .n { margin-left: auto; font-size: var(--fs-tag); color: var(--text-muted); }
+  .cli .none { margin: 0; padding: 6px 14px 12px; font-size: var(--fs-meta); color: var(--text-muted); }
   /* The status bar's detail, made for a thumb: the window's name, its reset and % on a line, its bar under them. */
   .plan :global(.usage) { gap: 12px; padding: 12px 14px 14px; }
-  .plan :global(.u:not(.off)) { grid-template-columns: minmax(0, 1fr) auto auto; row-gap: 6px; font-size: 13px; }
+  .plan :global(.u:not(.off)) { grid-template-columns: minmax(0, 1fr) auto auto; row-gap: 6px; font-size: var(--fs-meta); }
   .plan :global(.u .name) { order: 0; }
-  .plan :global(.u .reset) { order: 1; font-size: 12px; }
+  .plan :global(.u .reset) { order: 1; font-size: var(--fs-tag); }
   .plan :global(.u .pct) { order: 2; min-width: 40px; }
   .plan :global(.u > .bar), .plan :global(.u > .days) { order: 3; grid-column: 1 / -1; }
   .plan :global(.u .bar7) { height: 10px; }
-  .plan :global(.u .labels span) { font-size: 10.5px; }
+  .plan :global(.u .labels span) { font-size: var(--fs-micro); }
   .new { display: flex; gap: 8px; align-items: flex-end; padding: 4px 14px 6px; }
-  .new textarea { flex: 1; field-sizing: content; min-height: 38px; max-height: 140px; resize: none; padding: 9px 12px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; }
-  .new button { height: 38px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 19px; background: none; color: var(--text); font: inherit; font-size: 14px; }
+  .new textarea { flex: 1; field-sizing: content; min-height: 38px; max-height: 140px; resize: none; padding: 9px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); }
+  .new button { height: 38px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); }
   .new button:disabled { opacity: 0.45; }
-  .grp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .grp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
   .grp.warn { color: var(--warn); }
   .ag { padding: 12px 14px; border-bottom: 1px solid var(--border); }
   .ag.off { opacity: 0.6; }
-  .h { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; }
+  .h { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--fs-tag); }
   .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
   .dot.asks { background: var(--warn); } .dot.trust { background: var(--violet); }
   .st.trust { color: var(--violet); } .dot.tool { background: var(--ko); } .dot.run { background: var(--info); }
   .st { font-weight: 600; }
   .st.asks { color: var(--warn); } .st.tool { color: var(--ko); } .st.run { color: var(--info); }
   .grow { flex: 1; }
-  .title { display: block; width: 100%; margin: 4px 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 550; line-height: 1.3; text-align: left; }
-  .q { margin: 6px 0 8px; padding: 8px 10px; border-left: 3px solid var(--warn); border-radius: 4px; background: var(--surface); font-size: 13px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .q.tool { border-color: var(--ko); font-family: var(--mono); font-size: 12px; }
-  .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--text-muted); font-size: 12px; }
+  .title { display: block; width: 100%; margin: 4px 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: var(--fs-title); font-weight: 550; line-height: 1.3; text-align: left; }
+  .q { margin: 6px 0 8px; padding: 8px 10px; border-left: 3px solid var(--warn); border-radius: var(--r4); background: var(--surface); font-size: var(--fs-meta); line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .q.tool { border-color: var(--ko); font-family: var(--mono); font-size: var(--fs-tag); }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--text-muted); font-size: var(--fs-tag); }
   .meta .tk { color: var(--info); font-family: var(--mono); }
   .meta .br { overflow: hidden; max-width: 100%; font-family: var(--mono); text-overflow: ellipsis; white-space: nowrap; }
   /* Its open ports: a chip per port, what holds it beside, scrolled sideways rather than wrapped. */
   .ports { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
-  .port { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); border-radius: 15px; background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ok); font: 600 13px var(--mono); }
+  .port { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ok); font: 600 13px var(--mono); }
   .port small { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font: 400 11.5px var(--sans); }
   .chips { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
   .chips :global(.qa) { flex-wrap: nowrap; }
-  .chips :global(.qa button), .btn { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+  .chips :global(.qa button), .btn { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .btn.allow { border-color: var(--ok); color: var(--ok); }
   .btn:disabled { opacity: 0.5; }
   .btn { display: inline-flex; align-items: center; gap: 5px; }
-  .empty { margin: 24px 0; color: var(--text-muted); font-size: 13px; text-align: center; }
+  .empty { margin: 24px 0; color: var(--text-muted); font-size: var(--fs-meta); text-align: center; }
   /* By status or by project. */
   .by { display: flex; gap: 6px; padding: 2px 14px 8px; }
-  .by button { padding: 5px 12px; border: 1px solid var(--border); border-radius: 15px; background: none; color: var(--text-muted); font: inherit; font-size: 13px; }
+  .by button { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); }
   .by button.on { border-color: var(--text); background: var(--surface); color: var(--text); font-weight: 600; }
   /* A project: its header with +, its agents' cards, where it was left, its next ticket. */
-  .proj { margin: 8px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+  .proj { margin: 8px 10px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); overflow: hidden; }
   .proj header { display: flex; align-items: center; gap: 8px; padding: 9px 10px 8px 12px; }
-  .proj header .pname { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: none; background: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 700; }
-  .meta .repo { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: none; background: none; color: var(--text-muted); font: inherit; font-size: 12px; text-decoration: underline dotted; }
-  .proj .plus { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 9px; background: none; color: var(--src-claude); font: 400 20px/1 var(--sans); }
+  .proj header .pname { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-title); font-weight: 700; }
+  .meta .repo { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); text-decoration: underline dotted; }
+  .proj .plus { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--r9); background: none; color: var(--src-claude); font: 400 20px/1 var(--sans); }
   .proj .ag { border-top: 1px solid var(--border); border-bottom: none; }
-  .proj .left { margin: 0 12px 10px; padding: 2px 0 2px 9px; border-left: 2px solid var(--border); font-size: 12.5px; color: var(--text-muted); }
+  .proj .left { margin: 0 12px 10px; padding: 2px 0 2px 9px; border-left: 2px solid var(--border); font-size: var(--fs-meta); color: var(--text-muted); }
   .proj .left p { margin: 0; }
   .proj .left code { font-family: var(--mono); }
   .proj .left q { display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; color: var(--text); quotes: '« ' ' »'; }
   .proj .quick { margin: 0 12px 10px; }
-  .proj .next { display: flex; align-items: center; gap: 7px; padding: 8px 12px 10px; border-top: 1px solid var(--border); font-size: 13px; }
+  .proj .next { display: flex; align-items: center; gap: 7px; padding: 8px 12px 10px; border-top: 1px solid var(--border); font-size: var(--fs-meta); }
   .proj .next code { color: var(--info); font-family: var(--mono); }
   .proj .next .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .proj .next .btn { padding: 4px 11px; color: var(--src-claude); }
   .muted { color: var(--text-muted); }
-  .fold { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 10px 14px; padding: 10px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: 13px; }
+  .fold { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 10px 14px; padding: 10px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); }
 </style>

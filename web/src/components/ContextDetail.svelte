@@ -153,9 +153,9 @@
   .wrap { position: relative; display: inline-flex; }
   .gauge { display: inline-flex; padding: 1px 6px; margin: -1px -6px; border: 1px solid transparent; border-radius: var(--r5); background: none; font: inherit; cursor: pointer; }
   .gauge:hover, .gauge.on { border-color: var(--border); background: var(--surface-muted); }
-  .pop { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 30; width: 420px; max-width: calc(100vw - 32px); max-height: 70vh; overflow: auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); }
+  .pop { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: var(--z-menu); width: 420px; max-width: calc(100vw - 32px); max-height: 70vh; overflow: auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); }
   .head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-  .head b { font-size: 16px; }
+  .head b { font-size: var(--fs-head); }
   .head small, .muted { color: var(--text-muted); }
   .grow { flex: 1; }
   .stack { display: flex; height: 10px; border-radius: var(--r3); overflow: hidden; background: var(--surface-muted); }
@@ -170,8 +170,8 @@
   .sw.free { background: var(--surface-muted); border: 1px solid var(--border); }
   .n { text-align: right; font-variant-numeric: tabular-nums; }
   .p { text-align: right; color: var(--text-muted); font-size: var(--fs-tag); }
-  .car { margin-left: 4px; color: var(--text-muted); font-size: 9px; }
-  .meas { margin-left: 4px; padding: 0 5px; border-radius: var(--r9); background: var(--ok-bg); color: var(--ok); font-size: 9.5px; }
+  .car { margin-left: 4px; color: var(--text-muted); font-size: var(--fs-micro); }
+  .meas { margin-left: 4px; padding: 0 5px; border-radius: var(--r9); background: var(--ok-bg); color: var(--ok); font-size: var(--fs-micro); }
   .k-base { background: color-mix(in srgb, var(--text-muted) 70%, transparent); }
   .k-summary { background: color-mix(in srgb, var(--text-muted) 40%, transparent); }
   .k-prompts { background: var(--accent); }

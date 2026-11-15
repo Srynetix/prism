@@ -69,17 +69,17 @@
 {/each}
 
 <style>
-  .fold { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 10px; border: 1px dashed var(--border); border-radius: 10px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
+  .fold { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 10px; border: 1px dashed var(--border); border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
   .fold span:first-of-type { flex: 1; }
-  .when { font-size: var(--fs-tag, 11px); }
+  .when { font-size: var(--fs-tag); }
   .old { display: flex; flex-direction: column; gap: 8px; opacity: .6; }
-  .me { align-self: flex-end; max-width: 85%; background: var(--surface-muted); padding: 6px 11px; border-radius: 14px 14px 4px 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .me { align-self: flex-end; max-width: 85%; background: var(--surface-muted); padding: 6px 11px; border-radius: var(--r14) var(--r14) var(--r4) var(--r14); white-space: pre-wrap; overflow-wrap: anywhere; }
   .ai { display: flex; flex-direction: column; gap: 2px; }
-  .who { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: var(--fs-tag, 11px); }
+  .who { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: var(--fs-tag); }
   .divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .card { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); }
+  .card { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); }
   .link { padding: 0; border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; }
-  .msg { margin: 0; max-height: 260px; overflow: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-family: var(--mono); font-size: var(--fs-tag, 11px); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg { margin: 0; max-height: 260px; overflow: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--bg); font-family: var(--mono); font-size: var(--fs-tag); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
   .muted { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
 </style>

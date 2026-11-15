@@ -198,10 +198,10 @@
   .ko { color: var(--ko); display: flex; gap: 6px; align-items: center; }
   .mono { font-family: var(--mono); }
   .pair { display: flex; gap: 16px; align-items: center; padding: 12px; border-radius: var(--r10); background: var(--surface-muted); }
-  .qr { width: 176px; height: 176px; flex: none; background: #fff; border-radius: 8px; padding: 6px; }
+  .qr { width: 176px; height: 176px; flex: none; background: #fff; border-radius: var(--r8); padding: 6px; }
   .qr :global(svg) { width: 100%; height: 100%; display: block; }
   .steps { display: flex; flex-direction: column; gap: 8px; }
-  .code { font-size: 26px; font-weight: 600; letter-spacing: 6px; color: var(--accent); }
+  .code { font-size: var(--fs-hero); font-weight: 600; letter-spacing: 6px; color: var(--accent); }
   .device + .device { border-top: 1px solid var(--border); padding-top: 10px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; flex: none; }
   .dot.on { background: var(--ok); opacity: 1; }

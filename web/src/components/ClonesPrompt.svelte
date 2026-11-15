@@ -63,11 +63,11 @@
 </div>
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-start; justify-content: center; padding-top: 10vh; background: rgba(0, 0, 0, 0.5); }
+  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: flex-start; justify-content: center; padding-top: 10vh; background: rgba(0, 0, 0, 0.5); }
   .sheet { width: min(760px, 94vw); max-height: 80vh; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); box-shadow: var(--shadow-modal); overflow: hidden; }
   header { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
   header div { flex: 1; }
-  header b { font-size: 15px; }
+  header b { font-size: var(--fs-head); }
   header p { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.45; }
   .x { padding: 4px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
   .body { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px; overflow: auto; }

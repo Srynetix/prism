@@ -46,9 +46,9 @@
   button { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: none; border-radius: var(--r5); background: none; padding: 0; color: var(--text-muted); font: inherit; font-size: var(--fs-body); line-height: 1; cursor: pointer; }
   button:hover { background: var(--surface-muted); color: var(--text); }
   .seg { display: inline-flex; gap: 1px; padding: 1px; border-radius: var(--r6); background: var(--surface-muted); }
-  .seg button { width: 20px; height: 17px; border-radius: var(--r4); font-size: 11px; }
+  .seg button { width: 20px; height: 17px; border-radius: var(--r4); font-size: var(--fs-meta); }
   .seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
   .x:hover { color: var(--ko); }
   /* Handle: placed at the start of the title by flex order, wherever the component is. */
-  .grip { order: -1; display: inline-flex; align-items: center; margin-right: -2px; color: var(--text-muted); font-size: 12px; cursor: grab; }
+  .grip { order: -1; display: inline-flex; align-items: center; margin-right: -2px; color: var(--text-muted); font-size: var(--fs-body); cursor: grab; }
 </style>

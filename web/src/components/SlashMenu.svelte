@@ -94,12 +94,12 @@
 {/if}
 
 <style>
-  .slash { position: absolute; left: 0; right: 0; bottom: 100%; z-index: 20; max-height: 280px; overflow-y: auto; margin-bottom: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
-  .wait { padding: 7px 12px; color: var(--text-muted); font-size: var(--fs-meta, 12px); }
-  button { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto; align-items: baseline; gap: 10px; width: 100%; padding: 5px 8px; border: none; border-radius: 6px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+  .slash { position: absolute; left: 0; right: 0; bottom: 100%; z-index: var(--z-menu); max-height: 280px; overflow-y: auto; margin-bottom: 4px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
+  .wait { padding: 7px 12px; color: var(--text-muted); font-size: var(--fs-meta); }
+  button { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto; align-items: baseline; gap: 10px; width: 100%; padding: 5px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-title); text-align: left; cursor: pointer; }
   button.on { background: var(--surface-muted); }
   .name { font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hint { color: var(--text-muted); }
-  .desc { color: var(--text-muted); font-size: var(--fs-meta, 12px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .src { color: var(--info); font-size: var(--fs-tag, 11px); white-space: nowrap; }
+  .desc { color: var(--text-muted); font-size: var(--fs-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .src { color: var(--info); font-size: var(--fs-tag); white-space: nowrap; }
 </style>

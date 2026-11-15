@@ -125,7 +125,7 @@
   /* The phone: the same list, the action the whole width under each row. */
   :global(html.remote) .row { grid-template-columns: minmax(0, 1fr) auto; padding: 10px 12px; }
   :global(html.remote) .row .act { grid-column: 1 / -1; }
-  :global(html.remote) .row .act :global(.go) { width: 100%; padding: 9px 12px; border-radius: var(--r10); font-size: 15px; }
+  :global(html.remote) .row .act :global(.go) { width: 100%; padding: 9px 12px; border-radius: var(--r10); font-size: var(--fs-title); }
   :global(html.remote) .row .steps { grid-column: 1; grid-row: 2; }
   :global(html.remote) .row .who { grid-column: 2; grid-row: 1; align-self: start; }
   :global(html.remote) .name { white-space: normal; }

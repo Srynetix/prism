@@ -74,7 +74,7 @@
   .qa { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
   .qa.bar { display: flex; padding: 6px 10px; border-top: 1px solid var(--border); background: var(--surface); }
   .lbl { margin-right: 2px; color: var(--text-muted); font-size: var(--fs-tag); }
-  button { padding: 2px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
+  button { padding: 2px 10px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
   button.first { border-color: var(--accent); }
   button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
   button:disabled { opacity: 0.45; cursor: default; }
@@ -82,5 +82,5 @@
   .sugg span { overflow: hidden; text-overflow: ellipsis; }
   .compact .sugg { max-width: 150px; }
   .compact { flex-wrap: nowrap; gap: 3px; }
-  .compact button { padding: 0 8px; border-radius: 10px; font-size: var(--fs-tag); line-height: 1.6; }
+  .compact button { padding: 0 8px; border-radius: var(--r10); font-size: var(--fs-tag); line-height: 1.6; }
 </style>

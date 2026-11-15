@@ -233,7 +233,7 @@
   .dep { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; }
   .dep a { color: var(--text); font-weight: 600; }
   .dep a:hover { color: var(--info); text-decoration: none; }
-  .dep .ds { flex-shrink: 0; padding: 0 5px; border-radius: var(--r4); background: color-mix(in srgb, var(--sc) 20%, transparent); color: color-mix(in srgb, var(--sc) 75%, var(--text)); font-weight: 600; text-transform: uppercase; font-size: 9.5px; line-height: 15px; }
+  .dep .ds { flex-shrink: 0; padding: 0 5px; border-radius: var(--r4); background: color-mix(in srgb, var(--sc) 20%, transparent); color: color-mix(in srgb, var(--sc) 75%, var(--text)); font-weight: 600; text-transform: uppercase; font-size: var(--fs-micro); line-height: 15px; }
   .dep .dn { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
   .dep.over { opacity: 0.55; }
   .dep.over .dn, .dep.over a { text-decoration: line-through; }

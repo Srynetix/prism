@@ -108,7 +108,7 @@
   .txt:focus { border-color: var(--src-alert); }
   .cal { display: inline-flex; padding: 2px 5px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text-muted); cursor: pointer; }
   .cal:hover, .cal.on { color: var(--text); }
-  .when-cal { position: fixed; z-index: 70; display: flex; flex-direction: column; gap: 6px; width: 232px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); outline: none; }
+  .when-cal { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; gap: 6px; width: 232px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); outline: none; }
   .time { display: flex; gap: 6px; }
   .time input { flex: 1; min-width: 0; padding: 3px 6px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-body); font-variant-numeric: tabular-nums; outline: none; }
   .time input:focus { border-color: var(--src-alert); }

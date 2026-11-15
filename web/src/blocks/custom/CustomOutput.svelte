@@ -138,7 +138,7 @@
   .link { padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .link:hover { color: var(--info); text-decoration: underline; }
   .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-meta); }
-  .badge { flex-shrink: 0; padding: 0 6px; border-radius: 9px; background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); }
+  .badge { flex-shrink: 0; padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); }
   .badge.warn { background: var(--warn-bg); color: var(--warn); }
   .badge.ko { background: var(--ko-bg); color: var(--ko); }
   .badge.ok { color: var(--ok); }
@@ -153,14 +153,14 @@
   .stat.warn { border-left-color: var(--warn); }
   .stat.ko { border-left-color: var(--ko); }
   .stats.one .stat { align-items: flex-start; }
-  .stats.one .value { font-size: 28px; }
+  .stats.one .value { font-size: var(--fs-hero); }
   .label { color: var(--text-muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .value { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.15; }
-  .value small { margin-left: 2px; font-size: 11px; font-weight: 500; color: var(--text-muted); }
+  .value { font-size: var(--fs-display); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .value small { margin-left: 2px; font-size: var(--fs-meta); font-weight: 500; color: var(--text-muted); }
   .value .of { margin-left: 4px; }
   .stat.warn .value { color: var(--warn); }
   .stat.ko .value { color: var(--ko); }
-  .bar { display: block; width: 100%; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+  .bar { display: block; width: 100%; height: 4px; border-radius: var(--r2); background: var(--border); overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--info); }
   .stat.ok .bar i { background: var(--ok); }
   .stat.warn .bar i { background: var(--warn); }

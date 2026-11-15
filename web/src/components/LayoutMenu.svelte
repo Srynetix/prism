@@ -81,7 +81,7 @@
   .btn:disabled { opacity: 0.45; cursor: default; }
   .btn.on { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: var(--accent); color: var(--text); font-weight: 500; }
   .add { position: relative; }
-  .picker { position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; display: flex; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); overflow: hidden; }
+  .picker { position: absolute; top: calc(100% + 4px); left: 0; z-index: var(--z-menu); display: flex; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); overflow: hidden; }
   .menu { min-width: 190px; max-height: 70vh; overflow: auto; padding: 4px; border-right: 1px solid var(--border); }
   .menu button.on { background: var(--surface-muted); }
   .about { display: flex; flex-direction: column; gap: 10px; width: 460px; padding: 10px 12px; font-size: var(--fs-body); line-height: 1.45; }
@@ -93,5 +93,5 @@
   .menu button:hover { background: var(--surface-muted); }
   .menu small { margin-left: auto; color: var(--text-muted); font-size: var(--fs-tag); }
   .group + .group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
-  .cat { display: block; padding: 3px 8px 2px; color: var(--text-muted); font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
+  .cat { display: block; padding: 3px 8px 2px; color: var(--text-muted); font-size: var(--fs-tag); font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
 </style>

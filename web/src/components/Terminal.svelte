@@ -315,7 +315,7 @@
   /* content-box: xterm's fit reads this frame's height and width as the room for the rows and
      columns; with the padding counted in, a last row went under the frame (in the status bar). */
   .term { position: relative; flex: 1; min-height: 0; padding: 8px 4px 4px 10px; box-sizing: content-box; background: var(--surface); }
-  .tmenu { position: absolute; z-index: 10; display: flex; flex-direction: column; min-width: 160px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); }
+  .tmenu { position: absolute; z-index: var(--z-menu); display: flex; flex-direction: column; min-width: 160px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); }
   .tmenu button { display: flex; justify-content: space-between; gap: 16px; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
   .tmenu button:hover:not(:disabled) { background: var(--surface-muted); }
   .tmenu button:disabled { color: var(--text-muted); cursor: default; }
@@ -325,5 +325,5 @@
   .term :global(.xterm) { height: 100%; }
   .term :global(.xterm-viewport) { background: var(--surface) !important; }
   /* xterm 6 draws its own scrollbar (VS Code's): its slider as the app's. */
-  .term :global(.xterm .scrollbar > .slider) { background: var(--scroll-thumb) !important; border-radius: 5px; }
+  .term :global(.xterm .scrollbar > .slider) { background: var(--scroll-thumb) !important; border-radius: var(--r5); }
 </style>

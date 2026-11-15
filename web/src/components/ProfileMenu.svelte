@@ -111,12 +111,12 @@
 
 <style>
   /* Its own color on the badge itself (`style:--c`): this rule's default would hide a parent's. */
-  .pf { --c: var(--accent); display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--r7); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); font-weight: 700; font-size: 12px; line-height: 1; }
+  .pf { --c: var(--accent); display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--r7); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); font-weight: 700; font-size: var(--fs-body); line-height: 1; }
   /* Another computer's: a dot of its own color. */
   .pf.rm { position: relative; }
   .pf.rm::after { content: ''; position: absolute; right: -4px; bottom: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--info); border: 2px solid var(--surface); }
-  .pf.sm { width: 18px; height: 18px; border-radius: var(--r5); font-size: 10px; border-width: 1px; flex-shrink: 0; }
-  .menu { position: fixed; z-index: 45; width: 270px; padding: 4px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
+  .pf.sm { width: 18px; height: 18px; border-radius: var(--r5); font-size: var(--fs-tag); border-width: 1px; flex-shrink: 0; }
+  .menu { position: fixed; z-index: var(--z-menu); width: 270px; padding: 4px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
   .menu .t { padding: 4px 8px 3px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .menu button { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
   .menu button:hover { background: var(--surface-muted); }

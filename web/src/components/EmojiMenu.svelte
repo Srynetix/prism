@@ -76,10 +76,10 @@
 {/if}
 
 <style>
-  .emoji { position: absolute; left: 0; right: 0; bottom: 100%; z-index: 20; max-height: 220px; overflow-y: auto; margin-bottom: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
-  button { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 3px 8px; border: none; border-radius: 6px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+  .emoji { position: absolute; left: 0; right: 0; bottom: 100%; z-index: var(--z-menu); max-height: 220px; overflow-y: auto; margin-bottom: 4px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
+  button { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 3px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-title); text-align: left; cursor: pointer; }
   button.on { background: var(--surface-muted); }
-  .e { width: 1.4em; text-align: center; font-size: 15px; }
+  .e { width: 1.4em; text-align: center; font-size: var(--fs-head); }
   .name { font-family: var(--mono); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   button.on .name { color: var(--text); }
 </style>

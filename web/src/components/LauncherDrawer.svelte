@@ -46,11 +46,11 @@
 {/if}
 
 <style>
-  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 53; width: min(520px, 92vw); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid color-mix(in srgb, var(--src-claude) 45%, var(--border)); box-shadow: var(--shadow-drawer); animation: slide 0.16s ease-out; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(520px, 92vw); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid color-mix(in srgb, var(--src-claude) 45%, var(--border)); box-shadow: var(--shadow-drawer); animation: slide 0.16s ease-out; }
   @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
   :global(html[data-reduce-motion]) .drawer { animation: none; }
   header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-shrink: 0; border-bottom: 1px solid var(--border); box-shadow: inset 0 2px var(--src-claude); }
-  header b { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+  header b { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-title); }
   header b :global(svg) { color: var(--src-claude); }
   .grow { flex: 1; }
   .back { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border: none; border-radius: var(--r6); background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
@@ -58,9 +58,9 @@
   .x { display: inline-flex; padding: 3px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
   .body { flex: 1; min-height: 0; overflow: auto; }
   /* On the phone (the remote): the whole screen, above its tabs; the panel behind stays as it is. */
-  :global(html.remote) .drawer { left: 0; width: auto; z-index: 60; border-left: none; box-shadow: none; animation: none; font-size: 14px; }
+  :global(html.remote) .drawer { left: 0; width: auto; z-index: var(--z-modal); border-left: none; box-shadow: none; animation: none; font-size: var(--fs-body); }
   :global(html.remote) header { padding: calc(8px + env(safe-area-inset-top)) 12px 8px; }
-  :global(html.remote) header b { font-size: 15px; }
+  :global(html.remote) header b { font-size: var(--fs-title); }
   :global(html.remote) .x { padding: 8px; }
   :global(html.remote) .body { padding-bottom: env(safe-area-inset-bottom); }
   :global(html.remote.launching aside.drawer:not(.ldrawer)) { transform: none; filter: none; }

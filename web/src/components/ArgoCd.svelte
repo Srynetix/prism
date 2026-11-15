@@ -229,7 +229,7 @@
   .tabs { display: inline-flex; gap: 1px; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
   .tabs button { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
   .tabs button.on { background: var(--surface); color: var(--text); font-weight: 500; }
-  .dot-n { min-width: 14px; padding: 0 3px; border-radius: 7px; background: var(--ko); color: #fff; font-size: 9.5px; line-height: 14px; text-align: center; }
+  .dot-n { min-width: 14px; padding: 0 3px; border-radius: var(--r7); background: var(--ko); color: #fff; font-size: var(--fs-micro); line-height: 14px; text-align: center; }
   .txt { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); font-weight: 400; cursor: pointer; }
   .txt:hover { text-decoration: underline; }
   .err { margin: 0; padding: 6px 12px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); }
@@ -237,7 +237,7 @@
   .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
   .kpi { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 6px 12px; background: var(--surface); }
   .kpi span { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
-  .kpi b { font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .kpi b { font-size: var(--fs-head); font-weight: 600; white-space: nowrap; }
   .kpi b small { font-size: var(--fs-meta); font-weight: 400; color: var(--text-muted); }
   .kpi b.ko { color: var(--ko); }
   .kpi b.warn { color: var(--warn); }
@@ -287,7 +287,7 @@
   .how { padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); }
 
   .short-body .k { width: 76px; flex: none; color: var(--text-muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; }
-  .stack { flex: 1; height: 6px; border-radius: 3px; overflow: hidden; display: flex; background: var(--surface-muted); }
+  .stack { flex: 1; height: 6px; border-radius: var(--r3); overflow: hidden; display: flex; background: var(--surface-muted); }
   .stack i { display: block; height: 100%; background: var(--ok); }
   .stack i.info { background: var(--info); } .stack i.warn { background: var(--warn); } .stack i.ko { background: var(--ko); }
 

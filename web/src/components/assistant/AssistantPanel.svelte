@@ -124,11 +124,11 @@
 </aside>
 
 <style>
-  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 52; width: min(1040px, 94vw); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid color-mix(in srgb, var(--info) 45%, var(--border)); box-shadow: var(--shadow-drawer); animation: slide 0.16s ease-out; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(1040px, 94vw); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid color-mix(in srgb, var(--info) 45%, var(--border)); box-shadow: var(--shadow-drawer); animation: slide 0.16s ease-out; }
   @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
   :global(html[data-reduce-motion]) .drawer { animation: none; }
   header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex-shrink: 0; border-bottom: 1px solid var(--border); box-shadow: inset 0 2px var(--info); }
-  header b { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+  header b { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-title); }
   header b :global(svg) { color: var(--info); }
   .tabs { display: flex; gap: 2px; }
   .tabs button { padding: 3px 9px; border: none; border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
@@ -158,18 +158,18 @@
   .chat { display: flex; flex-direction: column; min-height: 0; }
   .ch { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); }
   .ch :global(svg) { color: var(--info); }
-  .ch b { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .ch b { overflow: hidden; font-size: var(--fs-title); text-overflow: ellipsis; white-space: nowrap; }
   .meta { color: var(--text-muted); font-size: var(--fs-meta); white-space: nowrap; }
   .host { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .ask { max-width: 620px; margin: 8vh auto 0; padding: 0 20px; }
-  .ask h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 18px; }
+  .ask h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: var(--fs-big); }
   .ask h2 :global(svg) { color: var(--info); }
   .lead { margin: 0 0 12px; color: var(--text-muted); }
-  .ask textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r8, 8px); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; resize: vertical; }
+  .ask textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r8, 8px); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-title); resize: vertical; }
   .row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
   .hint { color: var(--text-muted); font-size: var(--fs-tag); }
   .ex { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
-  .chip { padding: 3px 9px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .chip { padding: 3px 9px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .chip:hover { border-color: var(--info); color: var(--text); }
   .count { margin-top: 18px; color: var(--text-muted); font-size: var(--fs-meta); }
 </style>

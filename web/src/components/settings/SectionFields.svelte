@@ -113,7 +113,7 @@
   .lbl b { display: flex; align-items: center; gap: 6px; font-weight: 550; font-size: var(--fs-body); }
   .lbl small { color: var(--text-muted); font-size: var(--fs-meta); }
   .key { font: var(--fs-tag) var(--mono); color: var(--text-muted); opacity: 0.75; }
-  .badge { padding: 0 6px; border-radius: var(--r9); font-size: 10px; font-weight: 500; line-height: 16px; }
+  .badge { padding: 0 6px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 500; line-height: 16px; }
   .seeds { display: flex; gap: 6px; }
   .seed { align-self: flex-start; margin-top: 4px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .seed:hover { border-color: var(--accent); }

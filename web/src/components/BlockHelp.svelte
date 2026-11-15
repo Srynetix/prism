@@ -38,8 +38,8 @@
 {/if}
 
 <style>
-  .help { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%; background: none; color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; }
+  .help { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); font-weight: 600; line-height: 1; cursor: pointer; }
   .help:hover, .help.on { background: var(--surface-muted); color: var(--text); }
-  .bubble { position: fixed; z-index: 60; width: min(360px, calc(100vw - 16px)); overflow: auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); font-weight: 400; line-height: 1.45; text-transform: none; letter-spacing: 0; white-space: normal; cursor: auto; }
+  .bubble { position: fixed; z-index: var(--z-menu); width: min(360px, calc(100vw - 16px)); overflow: auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); font-weight: 400; line-height: 1.45; text-transform: none; letter-spacing: 0; white-space: normal; cursor: auto; }
   .suggest { display: block; margin-top: 8px; padding: 0; border: none; background: none; color: var(--accent); font: inherit; font-size: var(--fs-meta); font-weight: 600; cursor: pointer; }
 </style>

@@ -382,7 +382,7 @@
   .file:hover:not(:disabled) { background: var(--surface-muted); }
   .file:disabled { cursor: default; }
   .file .p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .grp { margin: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .grp { margin: 4px 6px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .file.art { grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; }
   .file.art :global(svg) { color: var(--src-claude); }
   .file .tm { color: var(--text-muted); }
@@ -405,5 +405,5 @@
   iframe { flex: 1; min-height: 0; width: 100%; border: none; background: #fff; }
   .web { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
   /* Over the whole window: above the views and drawers, below the boot screen and tooltips. */
-  .web.overlay { position: fixed; inset: 0; z-index: 90; background: var(--surface); box-shadow: inset 0 2px var(--src-claude); }
+  .web.overlay { position: fixed; inset: 0; z-index: var(--z-top); background: var(--surface); box-shadow: inset 0 2px var(--src-claude); }
 </style>

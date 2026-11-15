@@ -158,35 +158,35 @@
 <style>
   .ct { display: flex; flex-direction: column; gap: 2px; }
   .ct.editable { padding-left: 24px; }
-  .ps { position: relative; border-radius: 5px; padding: 1px 6px; margin: 0 -6px; }
+  .ps { position: relative; border-radius: var(--r5); padding: 1px 6px; margin: 0 -6px; }
   .ps :global(p), .ps :global(ul), .ps :global(h1), .ps :global(h2), .ps :global(h3), .ps :global(h4), .ps :global(pre) { margin-top: 2px; margin-bottom: 2px; }
   .editable .ps:hover { background: var(--surface-muted); }
   .ps.has { background: color-mix(in srgb, var(--warn) 12%, transparent); box-shadow: inset 2px 0 0 var(--warn); }
   .add { position: absolute; left: -24px; top: 3px; width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font: 600 12px/16px var(--sans, inherit); text-align: center; cursor: pointer; opacity: 0; }
   .ps:hover .add, .add:focus-visible { opacity: 1; }
   .ps.picked { background: color-mix(in srgb, var(--accent) 10%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
-  .ps.has .add { opacity: 1; background: var(--warn); border-color: var(--warn); color: var(--surface); font-size: 10px; }
+  .ps.has .add { opacity: 1; background: var(--warn); border-color: var(--warn); color: var(--surface); font-size: var(--fs-tag); }
   /* Inside a comment's run of passages, past its first: the lit band goes on, no number again. */
-  .ps.cont .add { opacity: 0; background: var(--surface); border-color: var(--border); color: var(--text-muted); font-size: 12px; }
+  .ps.cont .add { opacity: 0; background: var(--surface); border-color: var(--border); color: var(--text-muted); font-size: var(--fs-body); }
   .ps.cont:hover .add, .ps.cont .add:focus-visible { opacity: 1; }
   /* No hover on a phone: the + stays, faint. */
   @media (hover: none) { .add { opacity: 0.45; } }
-  .cmt { display: flex; align-items: flex-start; gap: 6px; margin: 2px 0 6px; padding: 5px 8px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); border-radius: 8px; background: var(--surface); font-size: 12.5px; }
+  .cmt { display: flex; align-items: flex-start; gap: 6px; margin: 2px 0 6px; padding: 5px 8px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); border-radius: var(--r8); background: var(--surface); font-size: var(--fs-title); }
   .cmt.sent { opacity: 0.7; border-color: var(--border); }
-  .cmt .n { flex: none; min-width: 16px; height: 16px; border-radius: 8px; background: var(--warn); color: var(--surface); font: 700 10px/16px var(--sans, inherit); text-align: center; }
+  .cmt .n { flex: none; min-width: 16px; height: 16px; border-radius: var(--r8); background: var(--warn); color: var(--surface); font: 700 10px/16px var(--sans, inherit); text-align: center; }
   .cmt .body { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .cmt .st { flex: none; color: var(--text-muted); }
   .ic { flex: none; display: grid; place-items: center; width: 20px; height: 18px; padding: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
   .ic:hover { color: var(--text); }
-  .box { display: flex; flex-direction: column; gap: 5px; margin: 2px 0 6px; padding: 6px 8px; border: 1px solid var(--warn); border-radius: 8px; background: var(--surface); }
-  .box textarea { width: 100%; resize: vertical; min-height: 40px; border: 1px solid var(--border); border-radius: 6px; padding: 5px 7px; background: var(--bg, var(--surface-muted)); color: var(--text); font: inherit; font-size: 13px; }
+  .box { display: flex; flex-direction: column; gap: 5px; margin: 2px 0 6px; padding: 6px 8px; border: 1px solid var(--warn); border-radius: var(--r8); background: var(--surface); }
+  .box textarea { width: 100%; resize: vertical; min-height: 40px; border: 1px solid var(--border); border-radius: var(--r6); padding: 5px 7px; background: var(--bg, var(--surface-muted)); color: var(--text); font: inherit; font-size: var(--fs-title); }
   .row { display: flex; align-items: center; gap: 6px; }
-  .row small { color: var(--text-muted); font-size: 11px; }
+  .row small { color: var(--text-muted); font-size: var(--fs-meta); }
   .grow { flex: 1; }
-  .b { height: 24px; padding: 0 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+  .b { height: 24px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }
   .b.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .b:disabled { opacity: 0.5; cursor: default; }
   .astray { margin-top: 6px; display: flex; flex-direction: column; }
-  .astray small { color: var(--text-muted); font-size: 11px; }
-  :global(html.remote) .box textarea { font-size: 16px; }
+  .astray small { color: var(--text-muted); font-size: var(--fs-meta); }
+  :global(html.remote) .box textarea { font-size: var(--fs-head); }
 </style>

@@ -237,9 +237,9 @@
 {/if}
 
 <style>
-  .more { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
+  .more { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-head); line-height: 1; cursor: pointer; }
   .more:hover, .more.open { border-color: var(--border); color: var(--text); background: var(--surface); }
-  .menu { position: fixed; z-index: 45; width: 260px; max-height: calc(100vh - 16px); display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); text-align: left; font-size: var(--fs-body); }
+  .menu { position: fixed; z-index: var(--z-menu); width: 260px; max-height: calc(100vh - 16px); display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); text-align: left; font-size: var(--fs-body); }
   .menu.wide { width: 300px; }
   .menu:focus { outline: none; }
   /* Header: the menu's subject, in its source's color. */
@@ -255,7 +255,7 @@
   /* Quick bar: copy, open, filter, in one click, always at the top. */
   .qb { display: grid; gap: 4px; flex-shrink: 0; padding: 6px; border-bottom: 1px solid var(--border); }
   .qb a, .qb button { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 2px 5px; border: none; border-radius: var(--r7); background: none; color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .qb i { font-style: normal; font-size: 14px; color: var(--text-muted); }
+  .qb i { font-style: normal; font-size: var(--fs-head); color: var(--text-muted); }
   .qb a:hover, .qb button:hover:not(:disabled), .qb a:focus-visible, .qb button:focus-visible { background: var(--surface-muted); outline: none; }
   .qb button.done { background: var(--ok-bg); color: var(--ok); }
   .qb button.done i { color: var(--ok); }

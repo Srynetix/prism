@@ -154,7 +154,7 @@
 {/if}
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: 66; display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(2px); }
+  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(2px); }
   .scrim.hidden { visibility: hidden; }
   .scrim.phone { padding: 0; align-items: stretch; }
   .sheet { width: min(660px, 100%); max-height: 84vh; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); box-shadow: var(--shadow-modal); outline: none; overflow: hidden; }
@@ -162,7 +162,7 @@
   header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
   header b { flex: 1; color: var(--text); font-size: var(--fs-title); }
   .x { display: inline-flex; padding: 3px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .pill { font-size: var(--fs-tag); padding: 1px 7px; border-radius: 9px; background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
+  .pill { font-size: var(--fs-tag); padding: 1px 7px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
   .pill.open { background: var(--info-bg); color: var(--info); }
   .empty { margin: 0; padding: 16px 14px; color: var(--text-muted); }
   .body { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 9px 12px; align-items: start; padding: 12px 14px; overflow: auto; }

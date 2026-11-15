@@ -137,7 +137,7 @@
 {/each}
 
 <style>
-  .ctxmenu { position: fixed; z-index: 200; min-width: 150px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
+  .ctxmenu { position: fixed; z-index: var(--z-menu); min-width: 150px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
   .ctxmenu button { display: flex; align-items: center; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   .ctxmenu button:hover:not(:disabled) { background: var(--surface-muted); }
   .ctxmenu button:disabled { color: var(--text-muted); opacity: 0.6; cursor: default; }

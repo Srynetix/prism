@@ -153,7 +153,7 @@
 {/if}
 
 <style>
-  .selectmenu { position: fixed; z-index: 200; max-height: 320px; overflow-y: auto; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
+  .selectmenu { position: fixed; z-index: var(--z-menu); max-height: 320px; overflow-y: auto; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
   .opt { position: relative; padding: 4px 10px 4px 22px; border-radius: var(--r5); white-space: nowrap; cursor: pointer; }
   .opt.on { background: color-mix(in srgb, var(--info) 18%, transparent); }
   .opt.picked::before { content: ''; position: absolute; left: 8px; top: 50%; width: 6px; height: 3px; margin-top: -3px; border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }

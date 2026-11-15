@@ -187,25 +187,25 @@
   .search { display: flex; align-items: center; gap: 6px; height: 28px; margin: 0 2px 6px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); color: var(--text-muted); }
   .search input { flex: 1; min-width: 0; border: none; outline: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); }
   nav { display: flex; flex-direction: column; gap: 1px; overflow: auto; }
-  .grp { margin: 10px 8px 3px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .grp { margin: 10px 8px 3px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   nav button { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
   nav button:hover { background: var(--surface-muted); }
   nav button.on { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 600; }
   .name { flex: 1; min-width: 0; }
   mark { border-radius: var(--r2); background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; }
   .count, .auto { flex-shrink: 0; font-size: var(--fs-tag); color: var(--text-muted); }
-  .auto { padding: 0 4px; border-radius: var(--r3); background: var(--surface-muted); font-size: 9px; font-weight: 600; text-transform: uppercase; }
+  .auto { padding: 0 4px; border-radius: var(--r3); background: var(--surface-muted); font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; }
   .none { margin: 10px 8px; color: var(--text-muted); font-size: var(--fs-meta); }
 
   .doc { min-width: 0; overflow: auto; }
   .page { display: grid; grid-template-columns: minmax(0, 720px) 190px; justify-content: center; gap: 36px; padding: 22px 32px 60px; }
   .crumbs { margin: 0 0 6px; font-size: var(--fs-meta); color: var(--text-muted); }
-  h1 { margin: 0 0 6px; font-size: 20px; font-weight: 650; }
+  h1 { margin: 0 0 6px; font-size: var(--fs-display); font-weight: 650; }
   .lead { margin: 0 0 18px; color: var(--text-muted); }
-  .lead :global(.md) { font-size: 13.5px; }
+  .lead :global(.md) { font-size: var(--fs-title); }
   /* Guide text: a little larger than the blocks', sections set apart. */
   .body :global(.h2) { scroll-margin-top: 14px; }
-  h2 { display: flex; align-items: baseline; gap: 8px; margin: 24px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-size: 14px; scroll-margin-top: 14px; }
+  h2 { display: flex; align-items: baseline; gap: 8px; margin: 24px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-size: var(--fs-head); scroll-margin-top: 14px; }
   h2 code { font-family: var(--mono); font-size: var(--fs-tag); font-weight: 400; color: var(--text-muted); }
   .grow { flex: 1; }
   .muted { color: var(--text-muted); font-size: var(--fs-body); }
@@ -232,7 +232,7 @@
   .toc { padding: 3px 0 3px 10px; border: none; border-left: 2px solid var(--border); background: none; color: var(--text-muted); font: inherit; text-align: left; cursor: pointer; }
   .toc.on { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
   .rel-link { padding: 2px 0; border: none; background: none; color: var(--info); font: inherit; text-align: left; cursor: pointer; }
-  .lightbox { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; background: color-mix(in srgb, #000 82%, transparent); cursor: zoom-out; }
+  .lightbox { position: fixed; inset: 0; z-index: var(--z-top); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; background: color-mix(in srgb, #000 82%, transparent); cursor: zoom-out; }
   .lightbox img { max-width: 100%; max-height: calc(100vh - 80px); border-radius: var(--r6); }
   .caption { margin: 0; color: #ddd; font-size: var(--fs-meta); }
   @container (max-width: 900px) {

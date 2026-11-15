@@ -131,7 +131,7 @@
 {/if}
 
 <style>
-  .pop { position: fixed; z-index: 60; min-width: 210px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
+  .pop { position: fixed; z-index: var(--z-menu); min-width: 210px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
   .head { display: flex; align-items: center; gap: 7px; padding: 6px 8px 7px; color: var(--tint, var(--text)); font-weight: 600; }
   .head :global(svg), .menu button :global(svg) { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   .head b { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -145,7 +145,7 @@
   .menu .danger.armed { background: var(--ko-bg); font-weight: 600; }
   kbd, .menu small { margin-left: auto; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); }
   hr { margin: 4px 2px; border: none; border-top: 1px solid var(--border); }
-  .cap { margin: 4px 8px 4px; color: var(--text-muted); font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
+  .cap { margin: 4px 8px 4px; color: var(--text-muted); font-size: var(--fs-tag); font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
   .scroll { max-height: 40vh; overflow: auto; }
   .grid { width: 262px; padding: 6px 8px 8px; }
   .icons { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }

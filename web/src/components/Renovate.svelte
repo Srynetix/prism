@@ -193,7 +193,7 @@
   .launch:disabled { cursor: default; opacity: 0.7; }
   .section { padding: 4px 12px; background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); border-top: 1px solid var(--border); }
   .section:first-child { border-top: none; }
-  .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; padding: 0; border: 1.5px solid var(--text-muted); border-radius: var(--r3); background: none; color: var(--surface); font: inherit; font-size: 10px; font-weight: 700; line-height: 1; cursor: pointer; }
+  .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; padding: 0; border: 1.5px solid var(--text-muted); border-radius: var(--r3); background: none; color: var(--surface); font: inherit; font-size: var(--fs-tag); font-weight: 700; line-height: 1; cursor: pointer; }
   .box:hover:not(:disabled) { border-color: var(--accent); }
   .box.armed { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--accent); }
   .box.on { border-color: var(--ok); background: var(--ok); }

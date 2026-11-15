@@ -173,7 +173,7 @@
 </div>
 
 <style>
-  .picker { position: absolute; top: 36px; left: 8px; right: 8px; z-index: 20; display: flex; flex-direction: column; max-height: min(60vh, 520px); border: 1px solid var(--border); border-radius: var(--r9); background: var(--surface); box-shadow: var(--shadow-pop); overflow: hidden; }
+  .picker { position: absolute; top: 36px; left: 8px; right: 8px; z-index: var(--z-menu); display: flex; flex-direction: column; max-height: min(60vh, 520px); border: 1px solid var(--border); border-radius: var(--r9); background: var(--surface); box-shadow: var(--shadow-pop); overflow: hidden; }
   .top { display: flex; align-items: center; gap: 6px; padding: 7px; border-bottom: 1px solid var(--border); }
   .top input { flex: 1; min-width: 0; height: 26px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); outline: none; }
   .top input:focus { border-color: var(--src-claude); }

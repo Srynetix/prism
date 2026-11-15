@@ -145,9 +145,9 @@
   .list { display: flex; flex-direction: column; gap: 8px; }
   .prof { --c: var(--accent); display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r9); background: var(--surface); }
   .prof.cur { border-color: color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) 5%, var(--surface)); }
-  .pf { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--r9); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); font-weight: 700; font-size: 14px; }
+  .pf { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--r9); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); font-weight: 700; font-size: var(--fs-head); }
   .info { min-width: 0; }
-  .nm { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; }
+  .nm { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: var(--fs-title); }
   .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: var(--fs-meta); color: var(--text-muted); }
   .meta code { font: var(--fs-tag) var(--mono); }
   .meta .warn { color: var(--warn); }
@@ -167,7 +167,7 @@
   .sw { width: 18px; height: 18px; padding: 0; border: none; border-radius: var(--r5); background: var(--c); cursor: pointer; }
   .sw.on { outline: 2px solid var(--text); outline-offset: 2px; }
   .form { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); max-width: 680px; }
-  .form h3 { margin: 0 0 12px; font-size: 14px; }
+  .form h3 { margin: 0 0 12px; font-size: var(--fs-head); }
   .check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-meta); }
   .foot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 </style>

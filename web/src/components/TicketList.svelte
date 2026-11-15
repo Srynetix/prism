@@ -413,7 +413,7 @@
   .filters { align-items: center; gap: 3px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
   .filters.on { border-color: var(--accent); }
   .filters b { color: var(--accent); font-weight: 600; }
-  .filters-menu { position: fixed; z-index: 45; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 260px; max-height: 60vh; overflow: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); }
+  .filters-menu { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 260px; max-height: 60vh; overflow: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); }
   .filters-menu .prio { flex-wrap: wrap; }
   .cap { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
   .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; font-size: var(--fs-meta); }

@@ -102,7 +102,7 @@
   .bar7 .now { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; border-radius: var(--r1); background: var(--text); pointer-events: none; }
   .labels { display: flex; gap: 2px; }
   .bar7.many, .bar7.many + .labels { gap: 1px; }
-  .labels span { flex: 1; min-width: 0; overflow: visible; white-space: nowrap; font-size: 9px; line-height: 1; text-align: center; color: var(--text-muted); opacity: 0.8; }
+  .labels span { flex: 1; min-width: 0; overflow: visible; white-space: nowrap; font-size: var(--fs-micro); line-height: 1; text-align: center; color: var(--text-muted); opacity: 0.8; }
   .labels span.current { color: var(--text); font-weight: 600; opacity: 1; }
   .reset.over { color: var(--warn); }
   .reset.under { color: var(--ok); }

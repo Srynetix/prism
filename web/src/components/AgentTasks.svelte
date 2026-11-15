@@ -137,7 +137,7 @@
   .grp:hover { background: var(--surface-muted); }
   .grp .chev { display: inline-flex; color: var(--text-muted); }
   .grp .c { padding: 0 5px; border-radius: var(--r8); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); }
-  .grp .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .grp .k { font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .grp .f { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
   .grp .r { margin-left: auto; color: var(--text-muted); font-family: var(--mono); }
   .note { margin: 0 6px 3px; color: var(--warn); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

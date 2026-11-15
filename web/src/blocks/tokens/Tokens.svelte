@@ -191,7 +191,7 @@
   .seg button.on { background: var(--surface-muted); color: var(--text); font-weight: 500; }
   .body { display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 10px; overflow: auto; }
   .hero { display: flex; align-items: baseline; gap: 6px; }
-  .hero b { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+  .hero b { font-size: var(--fs-display); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
   .unit { color: var(--text-muted); font-size: var(--fs-meta); }
   .vs { margin-left: 4px; color: var(--text-muted); font-size: var(--fs-meta); }
   .cost { color: var(--text); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
@@ -199,10 +199,10 @@
   .bars { display: flex; align-items: stretch; gap: 2px; height: 86px; }
   .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .track { flex: 1; display: flex; align-items: flex-end; border-bottom: 1px solid var(--border); }
-  .track i { display: block; width: 100%; max-width: 28px; margin: 0 auto; border-radius: 4px 4px 0 0; background: var(--src-claude); }
+  .track i { display: block; width: 100%; max-width: 28px; margin: 0 auto; border-radius: var(--r4) var(--r4) 0 0; background: var(--src-claude); }
   .col:hover .track i:not(.future) { background: color-mix(in srgb, var(--src-claude) 75%, var(--text)); }
-  .track i.future { height: 3px; border-radius: 2px; background: none; border-top: 1px dashed var(--border); }
-  .lbl { height: 12px; text-align: center; color: var(--text-muted); font-size: 10px; line-height: 12px; font-variant-numeric: tabular-nums; }
+  .track i.future { height: 3px; border-radius: var(--r2); background: none; border-top: 1px dashed var(--border); }
+  .lbl { height: 12px; text-align: center; color: var(--text-muted); font-size: var(--fs-tag); line-height: 12px; font-variant-numeric: tabular-nums; }
   .today .lbl { color: var(--text); font-weight: 600; }
   .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 18px; }
   .list { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -212,8 +212,8 @@
   .pick { width: 100%; padding: 0; border: none; background: none; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
   .pick:hover .nm { color: var(--info); }
   .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tr { height: 4px; border-radius: 2px; background: var(--surface-muted); overflow: hidden; }
-  .tr i { display: block; height: 100%; border-radius: 2px; background: color-mix(in srgb, var(--src-claude) 70%, transparent); }
+  .tr { height: 4px; border-radius: var(--r2); background: var(--surface-muted); overflow: hidden; }
+  .tr i { display: block; height: 100%; border-radius: var(--r2); background: color-mix(in srgb, var(--src-claude) 70%, transparent); }
   .n { text-align: right; font-variant-numeric: tabular-nums; }
   .foot { margin: 0; font-size: var(--fs-tag); }
 </style>

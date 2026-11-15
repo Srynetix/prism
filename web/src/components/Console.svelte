@@ -69,7 +69,7 @@
 </div>
 
 <style>
-  .console { position: fixed; left: 0; right: 0; top: 0; z-index: 70; height: min(46vh, 420px); display: flex; flex-direction: column; background: rgba(10, 10, 14, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); box-shadow: var(--shadow-pop); color: #d8d8e2; font: 12px/1.55 var(--mono); transform: translateY(-100%); visibility: hidden; transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1), visibility 0s 0.22s; }
+  .console { position: fixed; left: 0; right: 0; top: 0; z-index: var(--z-menu); height: min(46vh, 420px); display: flex; flex-direction: column; background: rgba(10, 10, 14, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); box-shadow: var(--shadow-pop); color: #d8d8e2; font: 12px/1.55 var(--mono); transform: translateY(-100%); visibility: hidden; transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1), visibility 0s 0.22s; }
   .console.open { transform: none; visibility: visible; transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1); }
   .out { flex: 1; overflow: auto; padding: 10px 14px; white-space: pre-wrap; }
   .in { display: flex; gap: 8px; padding: 7px 14px; border-top: 1px solid #ffffff14; }

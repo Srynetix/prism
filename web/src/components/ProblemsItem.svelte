@@ -80,7 +80,7 @@
   .problems .g { color: var(--warn); }
   .problems.ko .g { color: var(--ko); }
   .problems.open { background: var(--surface-muted); color: var(--text); }
-  .pop { position: fixed; z-index: 45; display: flex; flex-direction: column; width: 520px; max-width: calc(100vw - 24px); max-height: 60vh; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
+  .pop { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; width: 520px; max-width: calc(100vw - 24px); max-height: 60vh; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
   .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 6px 8px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .acts { display: flex; gap: 2px; text-transform: none; letter-spacing: 0; }
   button { border: none; background: none; color: inherit; font: inherit; cursor: pointer; }

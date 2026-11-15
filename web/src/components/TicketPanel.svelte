@@ -478,7 +478,7 @@
 
 <style>
   .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 50; width: min(560px, 92vw);
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(560px, 92vw);
     display: flex; flex-direction: column; background: var(--surface);
     border-left: 1px solid color-mix(in srgb, var(--src-clickup) 45%, var(--border));
     box-shadow: var(--shadow-drawer);
@@ -489,11 +489,11 @@
     background: var(--surface); box-shadow: inset 0 2px var(--src-clickup);
   }
   .grow { flex: 1; }
-  .log { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta, 11px); white-space: nowrap; cursor: pointer; }
+  .log { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
   .log:hover { border-color: var(--accent); color: var(--accent); }
   .log.armed { border-color: var(--warn); color: var(--warn); }
   .log:disabled { opacity: 0.6; cursor: default; }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-head); line-height: 1; cursor: pointer; }
   .icon:hover { background: var(--surface-muted); color: var(--text); }
   .icon:disabled { opacity: 0.4; cursor: progress; }
   .id { border: none; background: none; padding: 0; color: var(--info); font-size: var(--fs-mono); font-weight: 600; cursor: pointer; }
@@ -508,7 +508,7 @@
   .picker select:disabled { cursor: progress; }
   .picker small { font-size: var(--fs-tag); text-transform: none; }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; }
-  h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+  h2 { margin: 0 0 10px; font-size: var(--fs-head); font-weight: 600; line-height: 1.35; }
   h3 { margin: 0 0 8px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   h3 small { font-weight: 400; margin-left: 4px; }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; margin: 0 0 14px; font-size: var(--fs-meta); }
@@ -570,22 +570,22 @@
   .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fsize { flex-shrink: 0; font-size: var(--fs-tag); color: var(--text-muted); }
   /* The phone (the remote): the whole screen, larger type and targets, as the MR panel. */
-  .drawer.phone { left: 0; width: auto; border-left: none; box-shadow: none; font-size: 14px; }
+  .drawer.phone { left: 0; width: auto; border-left: none; box-shadow: none; font-size: var(--fs-body); }
   .phone header { flex-wrap: wrap; row-gap: 6px; padding: calc(8px + env(safe-area-inset-top)) 8px 8px 4px; }
-  .phone .icon { width: 36px; height: 36px; font-size: 17px; }
-  .phone .id { font-size: 14px; }
+  .phone .icon { width: 36px; height: 36px; font-size: var(--fs-head); }
+  .phone .id { font-size: var(--fs-body); }
   .phone .picker { padding: 4px 6px 4px 8px; }
   .phone .body { padding: 14px 14px calc(96px + env(safe-area-inset-bottom)); }
-  .phone h2 { font-size: 18px; }
-  .phone dl { font-size: 14px; gap: 6px 14px; }
+  .phone h2 { font-size: var(--fs-big); }
+  .phone dl { font-size: var(--fs-body); gap: 6px 14px; }
   .phone section { margin-top: 16px; }
   .phone .acts { gap: 10px; }
-  .phone .btn { padding: 6px 12px; font-size: 14px; }
+  .phone .btn { padding: 6px 12px; font-size: var(--fs-body); }
   .phone .subtasks li, .phone .commits li, .phone .mrs li { padding: 6px 0; }
   .phone .subject { white-space: normal; }
-  .back { display: inline-flex; align-items: center; gap: 2px; max-width: 40%; padding: 4px 6px; overflow: hidden; border: 0; background: none; color: var(--accent); font: inherit; font-size: 15px; white-space: nowrap; text-overflow: ellipsis; }
+  .back { display: inline-flex; align-items: center; gap: 2px; max-width: 40%; padding: 4px 6px; overflow: hidden; border: 0; background: none; color: var(--accent); font: inherit; font-size: var(--fs-head); white-space: nowrap; text-overflow: ellipsis; }
   .mainbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); }
-  .mainbar > * { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: 15px; text-decoration: none; }
+  .mainbar > * { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-head); text-decoration: none; }
   .mainbar .primary { flex: 2; border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
   /* The next action, at the top; the journal, by stage, the steps ahead dashed. */
   .nextcard { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border)); border-radius: var(--r8); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
@@ -607,7 +607,7 @@
   .journal .when { float: right; margin-left: 8px; color: var(--text-muted); font-size: var(--fs-tag); }
   .journal small { display: block; color: var(--text-muted); font-size: var(--fs-meta); }
   .journal .plain { color: inherit; }
-  .lightbox { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; background: color-mix(in srgb, #000 82%, transparent); cursor: zoom-out; }
+  .lightbox { position: fixed; inset: 0; z-index: var(--z-top); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; background: color-mix(in srgb, #000 82%, transparent); cursor: zoom-out; }
   .lightbox :global(.plain) { max-width: 100%; max-height: calc(100vh - 120px); border-radius: var(--r6); }
   .caption { margin: 0; color: #ddd; font-size: var(--fs-meta); }
   .caption a { color: #9ecbff; }

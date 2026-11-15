@@ -87,7 +87,7 @@
   .pad { margin: 0; padding: 10px 14px; }
   .foot { border-top: 1px solid var(--border); }
   .warn { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--warn); font-size: var(--fs-meta); }
-  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-tag); padding: 1px 8px; border-radius: 9px; background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-tag); padding: 1px 8px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
   .pill.ok { background: var(--ok-bg, var(--surface-muted)); color: var(--ok); }
   .pill.warn { background: var(--warn-bg); color: var(--warn); }
   .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }

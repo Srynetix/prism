@@ -605,4 +605,8 @@ export default {
   '{name}: {error}': '{name} : {error}',
   'waits for your trust': 'attend votre confiance',
   'a new version waits for your trust': 'une nouvelle version attend votre confiance',
+  // Shared primitives: drawers' crumbs, states.
+  'Opened from': 'Ouvert depuis',
+  'Back to {name}': 'Revenir à {name}',
+  'Try again': 'Réessayer',
 } satisfies Dictionary

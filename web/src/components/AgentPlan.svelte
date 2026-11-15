@@ -70,7 +70,7 @@
 <style>
   .plans { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .plans > :global(*) { flex-shrink: 0; }
-  .muted { margin: 4px 2px; color: var(--text-muted); font-size: 12.5px; }
+  .muted { margin: 4px 2px; color: var(--text-muted); font-size: var(--fs-title); }
   .err { color: var(--ko); }
-  h4 { margin: 6px 0 0; font-size: 12px; color: var(--text-muted); font-weight: 600; }
+  h4 { margin: 6px 0 0; font-size: var(--fs-body); color: var(--text-muted); font-weight: 600; }
 </style>

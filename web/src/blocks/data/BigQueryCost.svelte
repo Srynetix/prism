@@ -79,7 +79,7 @@
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; padding: 8px 12px; }
   .tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--r8); color: var(--text-muted); font-size: var(--fs-meta); }
   .tile .cap { font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; }
-  .tile > b { color: var(--text); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tile > b { color: var(--text); font-size: var(--fs-head); font-weight: 600; font-variant-numeric: tabular-nums; }
   .tile.spike { border-color: color-mix(in srgb, var(--ko) 45%, var(--border)); }
   .tile.spike > b, .x { color: var(--ko); }
   .chart { display: flex; align-items: flex-end; gap: 2px; height: 34px; margin-top: 2px; }

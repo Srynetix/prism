@@ -73,7 +73,7 @@
 <style>
   .shells .g { color: var(--src-k8s); }
   .shells.open { background: var(--surface-muted); color: var(--text); }
-  .pop { position: fixed; z-index: 45; width: 400px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
+  .pop { position: fixed; z-index: var(--z-menu); width: 400px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
   .pop p { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 5px 8px 6px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .pop p span:last-child { text-transform: none; letter-spacing: 0; }
   .row { display: flex; align-items: center; border-radius: var(--r6); }
