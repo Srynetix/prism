@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { inLayer } from './layers.svelte'
   import { reopenLastPanel } from './recent-panels.svelte'
   // Agents' chains run while Prism does, the Agents view open or not.
   import { clock } from './clock.svelte'
@@ -320,6 +321,8 @@
   const headerShown = $derived(!zen.on || !!filter.query || filterPeek || !!headerStats.open)
 
   function onKey(e: KeyboardEvent) {
+    // Escape inside a drawer, a dialog or a menu is the stack's (layers.svelte.ts), not the page's.
+    if (e.key === 'Escape' && inLayer(e.target)) return
     // A shortcut an agent's terminal keeps (`[agents] terminal_keys`): Prism leaves it there, and
     // ignores the menu bar's echo of it (⌘N, ⌘,).
     if (inTerminal(e) && terminalKeeps(e)) {

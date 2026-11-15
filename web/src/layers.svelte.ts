@@ -116,6 +116,9 @@ export function reveal(key: string): boolean {
   return true
 }
 
+/** Is this element inside an open layer? */
+export const inLayer = (target: EventTarget | null) => target instanceof Node && layers.stack.some((l) => l.el()?.contains(target))
+
 /** Is a layer of this key open? */
 export const isOpen = (key: string) => layers.stack.some((l) => l.key === key)
 
@@ -138,27 +141,27 @@ function onKey(e: KeyboardEvent) {
   if (own && !layers.stack.some((l) => l.el()?.contains(own))) return
   if (top.escape === false && top.el()?.contains(target)) return
   // In a field, or in what handles its own Escape (`data-esc-own`: a comment box cancels, a filter
-  // clears), the field has it first: `onKeyAfter` below, once it went through.
-  if (target instanceof HTMLElement && target.closest(`${FIELD}, [data-esc-own]`) && top.el()?.contains(target)) return
+  // clears, a list of suggestions closes), the field has it first; once the event went through,
+  // unused (no `preventDefault`, however far it went), `afterField` acts.
+  if (target instanceof HTMLElement && target.closest(`${FIELD}, [data-esc-own]`) && top.el()?.contains(target)) {
+    setTimeout(() => afterField(e, top, target))
+    return
+  }
   e.preventDefault()
   e.stopImmediatePropagation()
   top.close()
 }
 
 /**
- * Escape from a field, gone through without being used (no `preventDefault`): out of the field, what
- * is typed stays; a second Escape closes the layer. In a dialog (the palette's field), it closes.
+ * Escape from a field, gone through unused: out of the field in a drawer (what is typed stays, a
+ * second Escape closes); in a dialog or a menu (the palette's field), it closes.
  */
-function onKeyAfter(e: KeyboardEvent) {
-  if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return
-  const top = layers.stack.at(-1)
-  const target = e.target as Element | null
-  if (!top || !(target instanceof HTMLElement) || !top.el()?.contains(target)) return
-  e.preventDefault()
+function afterField(e: KeyboardEvent, top: Layer, target: HTMLElement) {
+  if (e.defaultPrevented || !layers.stack.includes(top)) return
   if (top.kind === 'drawer' && target.closest(FIELD)) {
     target.blur()
     top.el()?.focus({ preventScroll: true })
-  } else top.close()
+  } else if (top.escape !== false) top.close()
 }
 
 /** Never closes on: a menu, a list of choices, an enlarged image, a toast, a tooltip. */
@@ -184,6 +187,5 @@ function onPointer(e: PointerEvent) {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', onKey, true)
-  window.addEventListener('keydown', onKeyAfter)
   window.addEventListener('pointerdown', onPointer, true)
 }
