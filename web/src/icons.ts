@@ -115,6 +115,7 @@ import Volume2 from '@lucide/svelte/icons/volume-2'
 import VolumeX from '@lucide/svelte/icons/volume-x'
 import X from '@lucide/svelte/icons/x'
 import Zap from '@lucide/svelte/icons/zap'
+import Diamond from '@lucide/svelte/icons/diamond'
 
 /**
  * Interface icons (Lucide), by role rather than by drawing: the data (menus, steps
@@ -206,6 +207,8 @@ export const ICONS = {
   queue: ListOrdered, // merge queue (⇶)
   automerge: Zap, // ⚡ ⇥
   quick: Zap, // a quick action: an agent in one click
+  bolt: Zap, // an EPIC (task type)
+  milestone: Diamond, // a milestone (task type)
   security: ShieldAlert, // ⛨
   secure: ShieldCheck, // nothing to fix
   logs: ScrollText, // ≡
