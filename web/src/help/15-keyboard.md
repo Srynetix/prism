@@ -51,6 +51,7 @@ Pages: `1` … `9` or `⌘1` … `⌘9` open a page of the rail (`⌘` alone on 
 | `⌘⇧F` | Zen mode: the rail and the page header fold away, the blocks get the window (also View › Zen Mode); the header comes back while you filter (`/`) or open For me (`i`) |
 | `?` | the keyboard shortcuts |
 | `⌘?` or `F1` | this Help |
+| `F2` | rename the page shown, in the rail |
 | `Ctrl+Q` / `F11` (Linux, Windows) | quit Prism / full screen, which the Mac's menu bar does there: closing the window only minimises it |
 
 [Show the keyboard shortcuts](prism:keys)

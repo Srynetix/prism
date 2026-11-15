@@ -31,10 +31,28 @@ Vous pouvez aussi modifier les pages une à une dans **Réglages › Interface �
 4. Cliquez sur **+ Colonne** pour ajouter une colonne (quatre au plus), ou sur **×** sur un bloc pour le retirer de cette page.
 5. Cliquez sur **Terminé**, ou appuyez sur `Esc`. Les colonnes vides sont supprimées.
 
-Les blocs sont écrits dans `config.toml` au fur et à mesure, dans les **Blocs par colonne** de la page (Réglages › Interface › Pages), avec l’Id de la page : renommer ou déplacer une page conserve donc sa disposition. **Réinitialiser** ramène la page à des tailles égales et des blocs normaux ; ses blocs restent. **Pages…** mène à Réglages › Interface › Pages. Colonnes et blocs se redimensionnent à la souris ; double-cliquez sur une poignée pour revenir aux proportions par défaut.
+Les blocs sont écrits dans `config.toml` au fur et à mesure, dans les **Blocs par colonne** de la page (Réglages › Interface › Pages), avec l’Id de la page : renommer ou déplacer une page conserve donc sa disposition. **Réinitialiser** ramène la page à des tailles égales et des blocs normaux ; ses blocs restent. **Pages…** mène à Réglages › Interface › Pages, la table entière. Colonnes et blocs se redimensionnent à la souris ; double-cliquez sur une poignée pour revenir aux proportions par défaut.
 
 > [!TIP]
 > Renommer une page dans Réglages › Interface › Pages conserve sa disposition tant que son **Id** reste le même.
+
+## Gérer les pages depuis le rail
+Un clic droit sur une page du rail (ou son **⋯** en mode disposition) ouvre son menu :
+
+- **Renommer** (`F2` pour la page affichée) : le nom se tape sur place, `Entrée` le garde, `Échap` le laisse comme avant.
+- **Icône et couleur…** : une grille d’icônes et de couleurs, visibles dans le rail et l’en-tête à mesure ; `Entrée`, **Terminé** ou un clic ailleurs les gardent, `Échap` remet les précédentes.
+- **Dupliquer** : une copie juste après, avec ses tailles et l’état de ses blocs.
+- **Monter** et **Descendre** ; ou faites glisser la page le long du rail.
+- **Modifier la disposition**, sur cette page.
+- **Masquer** : la page quitte le rail sans être supprimée. **Pages masquées**, en bas du rail, les liste ; un clic en remet une.
+- **Supprimer** (deux clics) : **Annuler**, dans le message qui suit, la remet pendant quelques secondes. La dernière page ne peut pas être supprimée.
+
+En mode disposition, **+ Page** sous les pages du rail en ajoute une après la page affichée : une page vide, une copie de celle-ci, ou une page des modèles de vos packs. Elle s’ouvre en mode disposition, son nom prêt à être tapé. Dans l’en-tête aussi, l’icône et le nom de la page se changent sur place.
+
+Tout s’écrit dans `[[views]]` de `config.toml`, comme le fait Réglages › Interface › Pages ; une page renommée garde son **Id**, et avec lui sa disposition.
+
+### Les pages d’un pack
+Un pack peut apporter des pages. Elles portent la marque **pack** en mode disposition et dans leur menu, et restent à jour avec le pack : dans `config.toml`, une telle page est une ligne avec son seul `id` (et `hidden` quand elle est masquée). La renommer, changer son icône, sa couleur ou ses blocs l’écrit en entier : elle ne suit plus le pack, et Prism le dit, avec **Annuler**. Son menu propose alors **Remettre au modèle du pack**. Une page de pack masquée reste à jour.
 
 ## Les contrôles d’un bloc
 Survolez le titre d’un bloc pour faire apparaître ses contrôles :

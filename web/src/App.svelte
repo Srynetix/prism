@@ -14,7 +14,10 @@
   import Alerts from './components/Alerts.svelte'
   import { addColumn, bandsOf, columnsOf, currentView, editing, ensureSizes, showBlock, modeOf, moveBand, moveBlock, resetLayout, setView, shift, sizesOf, stepView, toggleEditing, toggleZen, zen, zoom } from './layout.svelte'
   import LayoutMenu from './components/LayoutMenu.svelte'
-  import { MAX_COLUMNS, bandRanges, isCustom, views, type BlockId, type View } from './views'
+  import ViewIcon from './components/ViewIcon.svelte'
+  import { MAX_COLUMNS, bandRanges, hiddenViews, isCustom, views, type BlockId, type View } from './views'
+  import { look, movePage, pageUi, renamePage, startRename, startStyling } from './pages.svelte'
+  import PageMenus from './components/PageMenus.svelte'
   import CustomBlock from './blocks/custom/CustomBlock.svelte'
   import { customBlock } from './blocks/custom/types'
   import { BLOCK_COMPONENTS } from './blocks/components'
@@ -291,6 +294,9 @@
 
   /** Zen mode: the filter shown while `/` puts the cursor in it, until it loses it. */
   let filterPeek = $state(false)
+  /** A page being dragged along the rail, and the place it would take. */
+  let draggedPage = $state<string | null>(null)
+  let dropAt = $state<number | null>(null)
   /** In Zen mode, the header is back while the filter or the For me panel is in use. */
   const headerShown = $derived(!zen.on || !!filter.query || filterPeek || !!headerStats.open)
 
@@ -342,6 +348,14 @@
       toggleHelp()
       return
     }
+    // F2: renames the page shown, in the rail.
+    if (e.key === 'F2' && !typing(e) && !inTerminal(e) && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open) {
+      e.preventDefault()
+      startRename(view.id)
+      return
+    }
+    // A page's menu, grid, « + » or name open: Esc is theirs.
+    if (e.key === 'Escape' && (pageUi.menu || pageUi.styling || pageUi.adding || pageUi.hiddenMenu || pageUi.renaming)) return
     // Typing in an agent's terminal: everything goes to it (Esc, ⌃1…), except app chords.
     if (inTerminal(e) && !chord(e)) return
     if (e.key === 'Escape' && settingsView.open && !typing(e)) {
@@ -465,24 +479,8 @@
 
 <svelte:window onpointerdown={followPointer} onkeydown={(e) => { onAlt(e, true); onKey(e) }} onkeyup={(e) => onAlt(e, false)} onblur={() => onAlt(new KeyboardEvent('keyup'), false)} />
 
-<!-- View icons in the rail (`VIEW_ICONS`); an unknown icon takes the dashboard's. -->
-{#snippet icon(id: string)}
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    {#if id === 'tickets'}<path d="M4 6h16M4 12h11M4 18h7" /><path d="m15.5 19.5 1-3.5 4-4 2.5 2.5-4 4z" />
-    {:else if id === 'notes'}<path d="M5 3.5h10l4 4V20.5H5z" /><path d="M14.5 3.5v4.5H19M8.5 12h7M8.5 16h5" />
-    {:else if id === 'chart'}<path d="M4 20V4M4 20h16" /><path d="M8 16v-4M12 16V8M16 16v-6" />
-    {:else if id === 'star'}<path d="m12 3.2 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.2l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />
-    {:else if id === 'calendar'}<rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" />
-    {:else if id === 'shield'}<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8 7.5 9.5 4.3-1.5 7.5-4.9 7.5-9.5V6z" /><path d="m9 12 2.2 2.2L15.5 10" />
-    {:else if id === 'music'}<path d="M9 18V5.5l11-2V16" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" />
-    {:else if id === 'ci'}<circle cx="6" cy="6" r="2.2" /><circle cx="18" cy="12" r="2.2" /><circle cx="6" cy="18" r="2.2" /><path d="M8.2 6H12a3 3 0 0 1 3 3v.8M8.2 18H12a3 3 0 0 0 3-3v-.8" />
-    {:else if id === 'agents'}<rect x="2.5" y="4" width="19" height="16" rx="2.5" /><path d="m7 10 3 2.5L7 15M12.5 15H17" />
-    {:else if id === 'worktrees'}<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2.5h8.5A1.5 1.5 0 0 1 21 10v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" /><circle cx="9.5" cy="15.5" r="1.4" /><circle cx="15" cy="12.5" r="1.4" /><path d="M9.5 14v-1.5a1.5 1.5 0 0 1 1.5-1.5h2.6" />
-    {:else if id === 'data'}<ellipse cx="12" cy="5.5" rx="7.5" ry="2.8" /><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8" />
-    {:else if id === 'infra'}<path d="M12 2.8 20.5 7.5v9L12 21.2 3.5 16.5v-9z" /><path d="M12 12 20.5 7.5M12 12 3.5 7.5M12 12v9.2" />
-    {:else}<rect x="3" y="3" width="7.5" height="9" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="5" rx="1.6" /><rect x="13.5" y="11" width="7.5" height="10" rx="1.6" /><rect x="3" y="15" width="7.5" height="6" rx="1.6" />{/if}
-  </svg>
-{/snippet}
+<!-- View icons in the rail (`VIEW_ICONS`). -->
+{#snippet icon(id: string)}<ViewIcon {id} />{/snippet}
 
 <!--
   The header of every page: its title on its color, the filter, the stats. The Agents view has
@@ -490,7 +488,23 @@
 -->
 {#snippet pageHeader(agents: boolean, preview?: Snippet<[BlockId]>)}
   <header style:--view={agents ? 'var(--src-claude)' : undefined} class:folded={!headerShown}>
-    <span class="title">{#if agents}{@render icon('agents')}{t('Agents')}{:else}{@render icon(view.icon)}{t(view.label)}{/if}</span>
+    {#if !agents && editing.on}
+      <!-- Edit layout: the page's icon and color, and its name, changed in place. -->
+      <span class="title editable">
+        <button class="look" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); startStyling(view.id, r.left, r.bottom + 4) }} title={t('Icon and color…')} aria-label={t('Icon and color…')}>{@render icon(look(view).icon)}</button>
+        {#if pageUi.renaming?.id === view.id && pageUi.renaming.at === 'header'}
+          <!-- svelte-ignore a11y_autofocus -->
+          <input class="rename" value={view.label} autofocus aria-label={t('Page name')} onfocus={(e) => e.currentTarget.select()}
+            onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') renamePage(view.id, e.currentTarget.value); else if (e.key === 'Escape') pageUi.renaming = null }}
+            onblur={(e) => { if (pageUi.renaming?.id === view.id) renamePage(view.id, e.currentTarget.value) }} />
+        {:else}
+          <button class="name" onclick={() => startRename(view.id, 'header')} title={t('Rename (F2)')}>{t(view.label)}</button>
+        {/if}
+        {#if view.origin}<span class="packmark" class:changed={view.origin === 'copy'} title={view.origin === 'pack' ? t('A page of a pack, kept up to date with it') : t('A page of a pack, changed here: it no longer follows the pack')}>{view.origin === 'pack' ? t('pack') : t('pack, changed')}</span>{/if}
+      </span>
+    {:else}
+    <span class="title">{#if agents}{@render icon('agents')}{t('Agents')}{:else}{@render icon(look(view).icon)}{t(view.label)}{/if}</span>
+    {/if}
     <div class="filter" class:active={!!focus}>
       <input
         bind:this={input}
@@ -517,7 +531,7 @@
   </header>
 {/snippet}
 
-<div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!(machine() || profileWindow()) && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={view.color}>
+<div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!(machine() || profileWindow()) && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={look(view).color}>
   <div class="shell">
   <!-- Two fingers up or down on the rail: the next or previous page, while one is shown. -->
   <nav class="rail" aria-label={t('Views')} {@attach pageSwipe(stepView, () => appearance().page_swipe && !editing.on && !zoomed && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open)}>
@@ -526,14 +540,41 @@
     <span class="brand" title="Prism" onclick={logoClick}>{#key rainbow}<span class:spin={rainbow > 0}><PrismLogo size={30} animated pulse={live.snapshot?.updated_at} /></span>{/key}</span>
     {#key rainbow}{#if rainbow}<span class="rainbow" aria-hidden="true"></span>{/if}{/key}
     {#each views() as v, i (v.id)}
-      <button class="v" class:on={v.id === view.id && !settingsView.open && !agentsView.open && !projectsView.open && !helpView.open} style:--tint={v.color} onclick={() => { closeSettings(); closeHelp(); setView(v.id) }} title="{t(v.label)} ({keys(`⌘${i + 1}`)})" aria-current={v.id === view.id ? 'page' : undefined}>
-        {@render icon(v.icon)}
+      {@const lk = look(v)}
+      <div class="pg" class:drop={dropAt === i} class:dragged={draggedPage === v.id}
+        ondragover={(e) => { if (draggedPage) { e.preventDefault(); dropAt = i } }}
+        ondragleave={() => { if (dropAt === i) dropAt = null }}
+        ondrop={(e) => { e.preventDefault(); if (draggedPage && draggedPage !== v.id) movePage(draggedPage, i); draggedPage = null; dropAt = null }}
+        role="listitem">
+      {#if pageUi.renaming?.id === v.id && pageUi.renaming.at === 'rail'}
+        <span class="v on renaming" style:--tint={lk.color}>
+          {@render icon(lk.icon)}
+          <!-- svelte-ignore a11y_autofocus -->
+          <input class="rename" value={v.label} autofocus aria-label={t('Page name')} onfocus={(e) => e.currentTarget.select()}
+            onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') renamePage(v.id, e.currentTarget.value); else if (e.key === 'Escape') pageUi.renaming = null }}
+            onblur={(e) => { if (pageUi.renaming?.id === v.id) renamePage(v.id, e.currentTarget.value) }} />
+        </span>
+      {:else}
+      <button class="v" class:on={v.id === view.id && !settingsView.open && !agentsView.open && !projectsView.open && !helpView.open} style:--tint={lk.color} onclick={() => { closeSettings(); closeHelp(); setView(v.id) }} title="{t(v.label)} ({keys(`⌘${i + 1}`)}){v.origin === 'pack' ? ` · ${t('pack')}` : ''}" aria-current={v.id === view.id ? 'page' : undefined}
+        draggable="true" ondragstart={(e) => { draggedPage = v.id; e.dataTransfer?.setData('text/plain', v.label) }} ondragend={() => { draggedPage = null; dropAt = null }}
+        oncontextmenu={(e) => { e.preventDefault(); pageUi.menu = { id: v.id, x: e.clientX, y: e.clientY } }}>
+        {@render icon(lk.icon)}
         <span>{t(v.label)}</span>
         {#if viewAlert(v)}<span class="alert-dot" aria-label={t('Pod down')}></span>{/if}
         {#each blockBadges(v) as b (b.title)}<span class="count ko" title={b.title}>{b.count}</span>{/each}
         {#if columnsOf(v).flat().includes('worktrees') && staleWorktrees}<span class="count stale" title={tn(staleWorktrees, '{n} stale worktree', '{n} stale worktrees')}>{staleWorktrees}</span>{/if}
+        {#if editing.on && v.origin}<span class="packmark" class:changed={v.origin === 'copy'} title={v.origin === 'pack' ? t('A page of a pack, kept up to date with it') : t('A page of a pack, changed here: it no longer follows the pack')}>{t('pack')}</span>{/if}
       </button>
+      {#if editing.on}<button class="pmore" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); pageUi.menu = { id: v.id, x: r.right + 4, y: r.top } }} aria-label={t('{page}: its menu', { page: t(v.label) })} title={t('Rename, icon and color, duplicate, move, hide, delete')}><Icon name="more" /></button>{/if}
+      {/if}
+      </div>
     {/each}
+    {#if editing.on}
+      <button class="v add" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); pageUi.adding = { x: r.right + 4, y: r.top } }} title={t('A new page: empty, a copy of this one, or a template’s')} aria-label={t('New page')}><Icon name="plus" /><span>{t('Page')}</span></button>
+    {/if}
+    {#if hiddenViews().length}
+      <button class="hiddenp" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); pageUi.hiddenMenu = { x: r.right + 4, y: r.top } }} title={tn(hiddenViews().length, '{n} hidden page: show it again', '{n} hidden pages: show them again')} aria-label={t('Hidden pages')}><Icon name="hide" />{hiddenViews().length}</button>
+    {/if}
     {#if agentsEnabled()}
     <button class="v" class:on={agentsView.open && !settingsView.open && !helpView.open} style:--tint="var(--src-claude)" onclick={() => openAgents()} title={keys(t('Agents (⌘{digit}) · new agent ⌘N', { digit: agentsDigit }))} aria-current={agentsView.open ? 'page' : undefined}>
       {@render icon('agents')}
@@ -674,6 +715,7 @@
   </div>
   <StatusBar snap={full} {now} {status} alerts={allAlerts} />
   <Toast />
+  <PageMenus />
   <Tooltip />
   <ContextMenu />
   <SelectMenu />
@@ -746,14 +788,29 @@
   .rail :global(.v:hover) { color: var(--text); background: var(--surface-muted); }
   .rail :global(.v svg) { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   /* Icons tinted with their view's color, even inactive; the active one has a stroke on the left. */
-  .rail .v svg { color: color-mix(in srgb, var(--tint) 80%, var(--text-muted)); }
+  .rail .v :global(svg) { color: color-mix(in srgb, var(--tint) 80%, var(--text-muted)); }
   .rail .v.on { color: var(--tint); background: color-mix(in srgb, var(--tint) var(--rail-active), transparent); font-weight: 600; }
-  .rail .v.on svg { color: var(--tint); }
+  .rail .v.on :global(svg) { color: var(--tint); }
   .rail .v.on::before { content: ''; position: absolute; left: -4px; top: 8px; bottom: 8px; width: var(--rail-mark); border-radius: 0 var(--r3) var(--r3) 0; background: var(--tint); }
   /* Theme button (ThemeMenu) open. */
   .rail :global(.v.on) { color: var(--accent); background: color-mix(in srgb, var(--accent) var(--rail-active), transparent); }
   .rail :global(.v span) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rail .grow { flex: 1; }
+  /* Managing the pages from the rail: drag and drop, the name typed in place, ⋯ and « + » in Edit layout. */
+  .rail .pg { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .rail .pg.drop::before { content: ''; position: absolute; top: -3px; left: 8px; right: 8px; height: 2px; border-radius: 1px; background: var(--accent); }
+  .rail .pg.dragged { opacity: 0.45; }
+  .rail .v.renaming { cursor: default; }
+  .rail .rename { width: 54px; padding: 1px 3px; border: 1px solid var(--accent); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: 9.5px; text-align: center; }
+  .rail .pmore { position: absolute; top: 0; right: -2px; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-muted); cursor: pointer; }
+  .rail .pmore :global(svg) { width: 11px; height: 11px; }
+  .rail .pmore:hover { color: var(--text); }
+  .rail .packmark { position: absolute; bottom: -2px; padding: 0 3px; border-radius: var(--r3); background: var(--surface-muted); color: var(--text-muted); font-size: 8px; font-weight: 600; letter-spacing: 0.2px; }
+  .rail .packmark.changed { color: var(--warn); }
+  .rail .v.add { border: 1px dashed var(--border); }
+  .rail .hiddenp { display: inline-flex; align-items: center; gap: 3px; margin-top: 2px; padding: 2px 6px; border: none; border-radius: var(--r8); background: none; color: var(--text-muted); font: inherit; font-size: 10px; cursor: pointer; }
+  .rail .hiddenp:hover { background: var(--surface-muted); color: var(--text); }
+  .rail .hiddenp :global(svg) { width: 13px; height: 13px; }
   /* Zen mode: the rail and the header fold away (the header comes back for the filter). */
   .app.zen .rail, header.folded { display: none; }
   /* A page as the others: it slides in and out as they do (`pageTransition`). */
@@ -772,6 +829,12 @@
   header { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: linear-gradient(90deg, color-mix(in srgb, var(--view) 11%, var(--chrome-bg)), var(--chrome-bg) 45%); }
   header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, var(--view), color-mix(in srgb, var(--view) 25%, transparent) 40%, transparent 75%), var(--border); background-size: 100% 2px, 100% 1px; background-position: 0 0, 0 100%; background-repeat: no-repeat; pointer-events: none; }
   .title { view-transition-name: view-title; display: flex; align-items: center; gap: 6px; flex-shrink: 0; color: var(--view); font-size: var(--fs-title); font-weight: 600; white-space: nowrap; }
+  .title.editable { gap: 4px; }
+  .title .look, .title .name { display: inline-flex; align-items: center; padding: 2px 5px; border: 1px dashed color-mix(in srgb, var(--view) 50%, var(--border)); border-radius: var(--r6); background: none; color: inherit; font: inherit; cursor: pointer; }
+  .title .look:hover, .title .name:hover { background: color-mix(in srgb, var(--view) 10%, transparent); }
+  .title .rename { width: 160px; padding: 1px 6px; border: 1px solid var(--view); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; }
+  .title .packmark { padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r8); color: var(--text-muted); font-size: var(--fs-tag); font-weight: 500; }
+  .title .packmark.changed { color: var(--warn); }
   .title :global(svg) { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   .filter { display: flex; align-items: center; gap: 6px; padding: 0 6px 0 10px; height: 30px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); flex: 0 1 360px; min-width: 160px; }
   .filter.active { border-color: var(--info); }

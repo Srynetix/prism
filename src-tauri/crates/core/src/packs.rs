@@ -976,7 +976,7 @@ mod tests {
         assert_eq!(info.name, "starter");
         assert_eq!(values.keys().collect::<Vec<_>>(), ["templates"]);
         let cfg: crate::config::Config = toml::Value::Table(values).try_into().unwrap();
-        assert_eq!(cfg.templates.iter().map(|t| (t.id.as_str(), t.views.len())).collect::<Vec<_>>(), [("dev", 3)]);
+        assert_eq!(cfg.templates.iter().map(|t| (t.id.as_str(), t.views.len())).collect::<Vec<_>>(), [("dev", 2)]);
     }
 
     #[tokio::test]

@@ -143,17 +143,18 @@ export const SCHEMA: SectionSpec[] = [
   },
   {
     id: 'views', label: t('Pages'), table: '[[views]]', path: [],
-    intro: t('Pages of the rail, in this order. Empty: one empty Dashboard. Edit layout writes its blocks here, with the page\'s Id, so that a renamed page keeps its sizes.'),
+    intro: t('Pages of the rail, in this order. Empty: one empty Dashboard. Edit layout writes its blocks here, with the page\'s Id, so that a renamed page keeps its sizes. The rail manages them too: right-click a page, or « + » and ⋯ in Edit layout. A row with an Id and no name is a pack\'s page, kept up to date with it.'),
     fields: [
       {
         key: 'views', label: t('Pages'), kind: 'table', blank: { name: '', columns: [] }, seed: 'views',
         hint: t('Blocks: one chip per column, its blocks separated by spaces (todo sessions notes); a --- chip starts a band below, a row of its own columns (one block alone in it spans the width). Blocks: {blocks}. Id: keeps the layout of a renamed page; empty, taken from the name.', { blocks: ALL_BLOCKS.join(', ') }),
         columns: [
-          { key: 'name', label: t('Name'), kind: 'text', width: '120px' },
+          { key: 'name', label: t('Name'), kind: 'text', optional: true, placeholder: t('the pack’s'), width: '120px' },
           { key: 'icon', label: t('Icon'), kind: 'select', options: VIEW_ICONS, optional: true, placeholder: 'dashboard', width: '110px' },
           { key: 'color', label: t('Color'), kind: 'select', options: Object.keys(VIEW_COLORS), optional: true, placeholder: 'accent', width: '100px' },
           { key: 'columns', label: t('Blocks by column'), kind: 'list', optional: true },
           { key: 'id', label: t('Id'), kind: 'text', optional: true, placeholder: t('from name'), width: '100px' },
+          { key: 'hidden', label: t('Out of the rail'), kind: 'toggle', optional: true },
         ],
       },
     ],
@@ -521,7 +522,7 @@ export const SCHEMA: SectionSpec[] = [
       {
         key: 'repos', label: t('Repositories'), kind: 'table', blank: { name: '' },
         columns: [
-          { key: 'name', label: t('Name'), kind: 'text', width: '120px' },
+          { key: 'name', label: t('Name'), kind: 'text', optional: true, placeholder: t('the pack’s'), width: '120px' },
           { key: 'path', label: t('Path'), kind: 'path', optional: true, placeholder: t('none: MRs only'), check: 'git_repo' },
           { key: 'project', label: t('Project'), kind: 'text', optional: true, placeholder: 'group/project', check: 'gitlab_project' },
           { key: 'merge_requests', label: t('MRs'), kind: 'toggle', width: '60px' },
@@ -640,7 +641,7 @@ export const SCHEMA: SectionSpec[] = [
         key: 'machines', label: t('Machines'), kind: 'table', blank: { name: '', url: '' },
         hint: t('Address: https://<name>.<tailnet>.ts.net, or http://127.0.0.1:<port> at a tunnel’s end. SSH host: its name in ~/.ssh/config, to open its folders here in VS Code (Remote-SSH); empty, they open there only. What is critical there (a merge, a manual job, an agent stopped, a worktree removed, a file of an agent saved) first asks the person at this computer: Touch ID or its password on a Mac, polkit’s agent (password or fingerprint) on Linux, Windows Hello on Windows; No confirmation: it goes without. Asked by the app, not the page.'),
         columns: [
-          { key: 'name', label: t('Name'), kind: 'text', width: '120px' },
+          { key: 'name', label: t('Name'), kind: 'text', optional: true, placeholder: t('the pack’s'), width: '120px' },
           { key: 'url', label: t('Address'), kind: 'text', placeholder: 'https://build-srv.tail1234.ts.net' },
           { key: 'ssh', label: t('SSH host'), kind: 'text', optional: true, placeholder: t('none'), width: '120px' },
           { key: 'skip_confirm', label: t('No confirmation'), kind: 'toggle' },

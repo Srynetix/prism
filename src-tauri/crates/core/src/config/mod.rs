@@ -310,8 +310,9 @@ pub fn load(path: &Path) -> Result<Config> {
 /// `raw` read as the config at `path` would be (its packs beside it), without reading the file:
 /// what a proposed text gives before it is written.
 pub fn load_text(path: &Path, raw: &str) -> Result<Config> {
-    let (table, _, _) = crate::packs::layered(path, raw)?;
+    let (table, inherited, _) = crate::packs::layered(path, raw)?;
     let mut cfg: Config = toml::Value::Table(table.clone()).try_into().context(tr("invalid config.toml"))?;
+    resolve_views(&mut cfg.views, &inherited, table.get("views") == inherited.get("views"));
     cfg.table = table;
     // Before the repositories: a clone in a working folder takes its forge.
     resolve_workspaces(&mut cfg.workspaces)?;
@@ -328,6 +329,30 @@ pub fn load_text(path: &Path, raw: &str) -> Result<Config> {
     cfg.agents.worktrees_dir = cfg.agents.worktrees_dir.as_deref().map(expand_home);
     resolve_accounts(&mut cfg.agents.accounts);
     Ok(cfg)
+}
+
+/// The pages, against those the packs give (`inherited`): an `id` alone takes its pack's page
+/// (left out once no pack has it), hidden or not as config.toml says; a page with a pack's id is
+/// marked a copy of it. `followed`: config.toml lists no pages, its packs' are all followed. A
+/// pack's page gets its id written in, so that config.toml can name it.
+pub fn resolve_views(views: &mut Vec<ViewConfig>, inherited: &toml::Table, followed: bool) {
+    let pack: Vec<ViewConfig> = inherited.get("views").cloned().and_then(|v| v.try_into().ok()).unwrap_or_default();
+    if pack.is_empty() {
+        return;
+    }
+    let id_of = |v: &ViewConfig| v.id.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(String::from).unwrap_or_else(|| crate::agents::slug(&v.name));
+    let page = |id: &str| pack.iter().find(|p| id_of(p) == id);
+    views.retain_mut(|v| {
+        let id = id_of(v);
+        if v.name.trim().is_empty() {
+            let Some(p) = page(&id) else { return false };
+            *v = ViewConfig { id: Some(id), hidden: v.hidden, origin: Some(ViewOrigin::Pack), ..p.clone() };
+        } else if page(&id).is_some() {
+            v.id = Some(id);
+            v.origin = Some(if followed { ViewOrigin::Pack } else { ViewOrigin::Copy });
+        }
+        true
+    });
 }
 
 /// The CLIs' accounts, read: folders expanded; those without a name or a folder, of a CLI without
@@ -919,6 +944,25 @@ pub mod tests {
         let cfg = resolved("[[workspaces]]\nname = \"Personal\"\ndir = \"/perso\"\nforge = \"github\"\n[[repos]]\nname = \"blog\"\npath = \"/perso/blog\"\nproject = \"me/blog\"\nmerge_requests = true\n[[repos]]\nname = \"mine\"\npath = \"/perso/mine\"\nproject = \"g/mine\"\nforge = \"gitlab\"\n[[repos]]\nname = \"app\"\npath = \"/dev/app\"\n").unwrap();
         let forge = |n: &str| cfg.repos.iter().find(|r| r.name == n).unwrap().forge;
         assert_eq!((forge("blog"), forge("mine"), forge("app")), (Some(crate::forge::Provider::Github), None, None));
+    }
+
+    /// A page named by its id alone is its pack's, up to date and hidden as config.toml says; one
+    /// gone from the packs goes; a page with a pack's id is a copy; without pages of its own, the
+    /// packs' are followed.
+    #[test]
+    fn pages_follow_their_pack() {
+        let inherited: toml::Table = "[[views]]\nname = \"CI\"\nid = \"ci\"\ncolumns = [\"ci pods\"]\n[[views]]\nname = \"Équipe\"\ncolumns = [\"mrs\"]\n".parse().unwrap();
+        let own: toml::Table = "[[views]]\nid = \"ci\"\nhidden = true\n[[views]]\nname = \"Mine\"\ncolumns = [\"todo\"]\n[[views]]\nname = \"Team\"\nid = \"equipe\"\ncolumns = [\"notes\"]\n[[views]]\nid = \"gone\"\n".parse().unwrap();
+        let mut views: Vec<ViewConfig> = own["views"].clone().try_into().unwrap();
+        resolve_views(&mut views, &inherited, false);
+        let got: Vec<_> = views.iter().map(|v| (v.name.as_str(), v.id.as_deref(), v.hidden, v.origin)).collect();
+        assert_eq!(got, [("CI", Some("ci"), true, Some(ViewOrigin::Pack)), ("Mine", None, false, None), ("Team", Some("equipe"), false, Some(ViewOrigin::Copy))]);
+        assert_eq!(views[0].columns, ["ci pods"], "the pack's blocks");
+
+        let mut views: Vec<ViewConfig> = inherited["views"].clone().try_into().unwrap();
+        resolve_views(&mut views, &inherited, true);
+        assert!(views.iter().all(|v| v.origin == Some(ViewOrigin::Pack)));
+        assert_eq!(views[1].id.as_deref(), Some("equipe"), "its id written in");
     }
 
     /// A repository says its working folder (the Projects page groups by it): the deepest that holds its clone.

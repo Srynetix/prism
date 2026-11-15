@@ -1,6 +1,7 @@
 import { live } from './live.svelte'
 import { BLOCK_DEFS, type PluginBlockId } from './blocks'
 import type { ViewConfig } from './types'
+import type { ViewOrigin } from './bindings/ViewOrigin'
 import { t } from './i18n.svelte'
 
 /**
@@ -90,6 +91,10 @@ export interface View {
   bands?: number[]
   /** Default proportions: width of each column, height of each block (and of each band). */
   sizes: { columns: number[]; rows: number[][]; bands?: number[] }
+  /** A pack's page followed (`pack`), or written here from a pack's (`copy`); absent: its own. */
+  origin?: ViewOrigin
+  /** Out of the rail, under « Hidden pages ». */
+  hidden?: boolean
 }
 
 /**
@@ -212,8 +217,8 @@ export const viewSlug = (name: string) =>
 
 /** A configured page's identifier: its `id`, otherwise its name's; `-2`… when a page before it (`taken`) has it. */
 function viewId(c: ViewConfig, taken: Set<string>): string {
-  let id = c.id?.trim() || viewSlug(c.name)
-  for (let n = 2; taken.has(id); n++) id = `${c.id?.trim() || viewSlug(c.name)}-${n}`
+  let id = c.id?.trim() || viewSlug(c.name ?? '')
+  for (let n = 2; taken.has(id); n++) id = `${c.id?.trim() || viewSlug(c.name ?? '')}-${n}`
   taken.add(id)
   return id
 }
@@ -247,41 +252,73 @@ function fromConfig(c: ViewConfig, taken: Set<string>): View {
   const builtIn = OPS_VIEWS.find((v) => v.id === id)
   return {
     id,
-    label: c.name.trim() || id,
+    label: c.name?.trim() || id,
     icon: c.icon && VIEW_ICONS.includes(c.icon) ? c.icon : (builtIn?.icon ?? 'dashboard'),
     color: viewColor(c.color) ?? builtIn?.color ?? 'var(--accent)',
     columns,
     ...(bands.length > 1 ? { bands } : {}),
     sizes: { columns: columns.map(() => 1), rows: columns.map((col) => col.map(() => 1)), ...(bands.length > 1 ? { bands: bands.map(() => 1) } : {}) },
+    ...(c.origin ? { origin: c.origin } : {}),
+    ...(c.hidden ? { hidden: true } : {}),
   }
 }
 
 /** Without `[[views]]`: one empty Dashboard, to fill with "+ Block" or a template. */
 export const EMPTY_VIEW: View = { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', color: 'var(--accent)', columns: [[]], sizes: { columns: [1], rows: [[]] } }
 
-/** The views from config.toml, otherwise one empty Dashboard. */
-export function views(): View[] {
+/** Every page of config.toml, the hidden ones included; otherwise one empty Dashboard. */
+export function allViews(): View[] {
   const configured = live.snapshot?.views ?? []
   if (!configured.length) return [EMPTY_VIEW]
   const taken = new Set<string>()
   return configured.filter((c) => c.name?.trim()).map((c) => fromConfig(c, taken))
 }
 
+/** The rail's pages: those not hidden (all of them, should every one be). */
+export function views(): View[] {
+  const all = allViews()
+  const shown = all.filter((v) => !v.hidden)
+  return shown.length ? shown : all
+}
+
+/** The pages hidden, under « Hidden pages » at the bottom of the rail. */
+export const hiddenViews = (): View[] => allViews().filter((v) => v.hidden)
+
 /**
- * `[[views]]` as "Edit layout" writes it back: the pages of `blocks` get those blocks, in their
- * `bands` (one without), empty columns and bands left out; every page gets its identifier written
- * in, so that renaming or moving it keeps its proportions and block states. Without any page: the
- * empty Dashboard, written.
+ * config.toml's pages as they are read, each with its identifier (`id`): what the page operations
+ * (`pages.svelte.ts`) and "Edit layout" change before `fileRows` writes them back. Without any: the
+ * empty Dashboard.
  */
-export function viewRows(blocks: Record<string, BlockId[][]>, bands: Record<string, number[]> = {}): ViewConfig[] {
+export function pageRows(): ViewConfig[] {
   const configured = live.snapshot?.views?.length ? live.snapshot.views : [{ name: EMPTY_VIEW.label, id: EMPTY_VIEW.id, icon: EMPTY_VIEW.icon, columns: [] }]
   const taken = new Set<string>()
-  return configured.map((c) => {
-    if (!c.name?.trim()) return { ...c }
-    const id = viewId(c, taken)
-    const cols = blocks[id]
-    return { ...c, id, columns: cols ? columnRows(cols, bands[id]) : c.columns }
+  return configured.map((c) => (c.name?.trim() ? { ...c, id: viewId(c, taken) } : { ...c }))
+}
+
+/**
+ * `[[views]]` as config.toml takes them: a pack's page still followed, by its `id` alone (and
+ * `hidden`), so that it keeps up with its pack; any other whole, without what was only read
+ * (`origin`).
+ */
+export function fileRows(rows: ViewConfig[]): ViewConfig[] {
+  return rows.map(({ origin, ...c }) => {
+    if (origin === 'pack' && c.id) return { id: c.id, ...(c.hidden ? { hidden: true } : {}) } as ViewConfig
+    const { hidden, ...rest } = c
+    return { ...rest, ...(hidden ? { hidden: true } : {}) }
   })
+}
+
+/**
+ * `[[views]]` as "Edit layout" writes it back: the pages of `blocks` get those blocks, in their
+ * `bands` (one without), empty columns and bands left out (a pack's page so changed is its own
+ * from then on); every page gets its identifier written in, so that renaming or moving it keeps
+ * its proportions and block states. Without any page: the empty Dashboard, written.
+ */
+export function viewRows(blocks: Record<string, BlockId[][]>, bands: Record<string, number[]> = {}): ViewConfig[] {
+  return fileRows(pageRows().map((c) => {
+    const cols = c.id && c.name?.trim() ? blocks[c.id] : undefined
+    return cols ? { ...c, columns: columnRows(cols, bands[c.id!]), origin: undefined } : c
+  }))
 }
 
 /** A page's `columns` in config.toml: one string per column, `---` between two bands. */
