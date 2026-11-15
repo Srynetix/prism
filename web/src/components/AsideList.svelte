@@ -24,14 +24,14 @@
 </script>
 
 <div class="asides">
-  <div class="filters" role="tablist">
+  <div class="seg filters" role="tablist">
     {#each FILTERS as [f, label] (f)}
       {@const n = mine.filter((a) => inFilter(a, f)).length}
-      <button role="tab" class:on={asideView.filter === f} aria-selected={asideView.filter === f} onclick={() => (asideView.filter = f)}>{label} <span>{n}</span></button>
+      <button role="tab" class:on={asideView.filter === f} aria-selected={asideView.filter === f} onclick={() => (asideView.filter = f)}>{label} <span class="n">{n}</span></button>
     {/each}
   </div>
   {#if agent}
-    <div class="only"><span>{t('Seen by {agent}', { agent: agentTitle })}</span><button onclick={() => (asideView.agent = '')} aria-label={t('All agents')} title={t('All agents')}><Icon name="close" size={11} /></button></div>
+    <div class="only"><span>{t('Seen by {agent}', { agent: agentTitle })}</span><button class="btn sm icon ghost" onclick={() => (asideView.agent = '')} aria-label={t('All agents')} title={t('All agents')}><Icon name="close" size={11} /></button></div>
   {/if}
   {#each byRepo(fresh) as [repo, list] (repo)}
     <div class="grp">{repo || t('No repository')}<span>{list.length}</span></div>
@@ -49,15 +49,12 @@
 
 <style>
   .asides { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px 10px; }
-  .filters { display: flex; flex-wrap: wrap; gap: 2px; }
-  .filters button { padding: 2px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .filters button.on { background: var(--surface-muted); color: var(--text); }
-  .filters span { opacity: 0.7; }
+  .filters { flex-wrap: wrap; align-self: flex-start; }
   .only { display: flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r6); background: color-mix(in srgb, var(--info) 10%, transparent); color: var(--info); font-size: var(--fs-meta); }
   .only span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .only button { padding: 0; border: none; background: none; color: inherit; cursor: pointer; }
+  .only .btn { color: inherit; }
   .grp { display: flex; align-items: center; gap: 5px; margin-top: 4px; color: var(--text-muted); font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
   .grp span { font-weight: 400; }
   .grp.fold { padding: 0; border: none; background: none; font: inherit; font-size: var(--fs-tag); cursor: pointer; text-align: left; }
-  .empty { margin: 8px 4px; color: var(--text-muted); font-size: var(--fs-body); }
+  .asides > .empty { margin: 0; padding: 8px 4px; }
 </style>

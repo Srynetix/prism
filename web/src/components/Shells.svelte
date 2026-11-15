@@ -83,36 +83,31 @@
   {#each shells as s (s.n)}
     <span class="tab" class:on={s.n === active?.n} class:busy={s.busy}>
       <button class="pick" role="tab" aria-selected={s.n === active?.n} onclick={() => select(s.n)} title="{s.busy ? t('Runs {command}', { command: s.command }) : t('At its prompt')} · {folder}">
-        <span class="dot"></span>{s.n}<span class="cmd">{s.command}</span>
+        <span class="dot" class:ok={s.busy}></span>{s.n}<span class="cmd">{s.command}</span>
       </button>
-      <button class="x" class:armed={armed.is(String(s.n))} onclick={() => close(s)} title={armed.is(String(s.n)) ? t('Click again: {command} stops with its shell', { command: s.command }) : t('Close shell {n}', { n: s.n })} aria-label={t('Close shell {n}', { n: s.n })}><Icon name="close" size={10} /></button>
+      <button class="btn sm icon ghost x" class:armed={armed.is(String(s.n))} onclick={() => close(s)} title={armed.is(String(s.n)) ? t('Click again: {command} stops with its shell', { command: s.command }) : t('Close shell {n}', { n: s.n })} aria-label={armed.is(String(s.n)) ? t('Click again to confirm') : t('Close shell {n}', { n: s.n })}><Icon name="close" size={10} /></button>
     </span>
   {/each}
-  <button class="plus" onclick={() => open()} title={t('A new shell in {folder}', { folder })} aria-label={t('New shell')}><Icon name="plus" /></button>
+  <button class="btn sm icon ghost plus" onclick={() => open()} title={t('A new shell in {folder}', { folder })} aria-label={t('New shell')}><Icon name="plus" /></button>
 </div>
 {#if error}<p class="err">{error}</p>{/if}
 {#if active}
   {#key active.key}<div class="tw"><Terminal id={active.key} onend={() => ended(active.n)} /></div>{/key}
 {:else if loaded}
-  <p class="muted empty">{t('No shell open.')} <button class="link" onclick={() => open()}>{t('Open one in {folder}', { folder })}</button></p>
+  <p class="empty">{t('No shell open.')} <button class="link" onclick={() => open()}>{t('Open one in {folder}', { folder })}</button></p>
 {/if}
 
 <style>
   .bar { display: flex; align-items: center; gap: 4px; padding: 5px 8px; border-bottom: 1px solid var(--border); overflow-x: auto; }
   .tab { display: inline-flex; align-items: center; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); }
   .tab.on { border-color: var(--src-claude); background: color-mix(in srgb, var(--src-claude) 10%, transparent); }
-  .pick, .x, .plus { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
+  .pick { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
   .tab.on .pick { color: var(--text); }
   .cmd { max-width: 110px; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); color: var(--text-muted); }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; }
-  .busy .dot { background: var(--ok); opacity: 1; }
-  .x { padding: 2px 4px; }
-  .x:hover { color: var(--text); }
-  .x.armed { background: var(--ko-bg); color: var(--ko); }
-  .plus { flex-shrink: 0; border: 1px dashed var(--border); }
-  .plus:hover { border-color: var(--src-claude); color: var(--src-claude); }
-  .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
-  .empty { padding: 12px; font-size: var(--fs-meta); }
+  .tab:not(.busy) .dot { opacity: 0.5; }
+  .bar .plus { border: 1px dashed var(--border); }
+  .bar .plus:hover { border-color: var(--src-claude); color: var(--src-claude); }
+  .bar + .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); }
   .link { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
   .tw { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 </style>

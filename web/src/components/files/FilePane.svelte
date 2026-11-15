@@ -16,7 +16,8 @@
   import { agentRepo } from '../../repositories'
   import { pref, setPref } from '../../layout.svelte'
   import { live } from '../../live.svelte'
-  import { copy, toast } from '../../toast.svelte'
+  import { copy, toast, toastError } from '../../toast.svelte'
+  import State from '../ui/State.svelte'
   import { t, tn } from '../../i18n.svelte'
   import type { Agent } from '../../types'
 
@@ -39,6 +40,8 @@
   } = $props()
 
   const STATUS: Record<string, string> = { M: t('Modified'), A: t('Added'), D: t('Deleted'), R: t('Renamed'), '?': t('Untracked') }
+  /** A git status as a pill's tone. */
+  const TONE: Record<string, string> = { M: 'warn', R: 'warn', A: 'ok', '?': 'ok', D: 'ko' }
   const isMd = (p: string) => /\.(md|mdx|markdown)$/i.test(p)
   const isHtml = (p: string) => /\.html?$/i.test(p)
   const WEB = /\.(html?|svg|pdf)$/i
@@ -153,16 +156,16 @@
   <div class="ph">
     <span class="file" title={path}><span class="nm">{path.slice(folderOf(path).length)}</span>{#if folderOf(path)}<span class="dir">{folderOf(path)}</span>{/if}</span>
     {#if meta?.dirty}<span class="dot" title={t('Not saved')}></span>{/if}
-    {#if status}<span class="pill s{status === '?' ? 'u' : status}">{STATUS[status] ?? status}</span>{/if}
+    {#if status}<span class="pill st {TONE[status] ?? ''}">{STATUS[status] ?? status}</span>{/if}
     <span class="grow"></span>
-    {#if meta?.dirty && !meta.conflict}<button class="save" onclick={() => void saveBuffer(key)} disabled={meta.saving} title={working ? t('The agent works: saved once its turn is over') : t('Save (⌘S)')}><Icon name="save" />{meta.saving ? t('Saving…') : meta.pending ? t('Waits') : t('Save')}</button>{/if}
-    {#if phone && preview?.kind === 'text' && !meta?.editing}<button onclick={() => setEditing(agent.id, path, true)} title={t('Edit it here')}><Icon name="edit" />{t('Edit')}</button>{/if}
-    {#if preview?.kind === 'text' && isMd(path)}<button class:on={mdSource} onclick={() => setMdSource(!mdSource)} title={t('Show the Markdown source')}>{t('Source')}</button>{/if}
-    {#if WEB.test(path)}<button onclick={() => onweb(path)} title={t('Open it in the Web tab')}><Icon name="web" />Web</button>{/if}
-    {#if status}<button onclick={ondiff} title={t('The Diff tab')}><Icon name="diff" />Diff</button>{/if}
-    {#if editor}<button onclick={() => void openAgentFile(agent.id, path).catch((e) => toast(String(e), 6000))} title={t('Open it in {editor}', { editor })}><Icon name="code" /></button>{/if}
-    <button onclick={() => ondownload(path)} title={t('Download it')}><Icon name="download" /></button>
-    <button onclick={() => copy(path, t('{name} copied', { name: path }))} title={t('Copy its path')}><Icon name="copy" /></button>
+    {#if meta?.dirty && !meta.conflict}<button class="btn sm save" class:busy={meta.saving} onclick={() => void saveBuffer(key)} disabled={meta.saving} title={working ? t('The agent works: saved once its turn is over') : t('Save (⌘S)')}>{#if meta.saving}<span class="spinner"></span>{t('Saving…')}{:else}<Icon name="save" />{meta.pending ? t('Waits') : t('Save')}{/if}</button>{/if}
+    {#if phone && preview?.kind === 'text' && !meta?.editing}<button class="btn sm ghost" onclick={() => setEditing(agent.id, path, true)} title={t('Edit it here')}><Icon name="edit" />{t('Edit')}</button>{/if}
+    {#if preview?.kind === 'text' && isMd(path)}<button class="btn sm ghost" class:on={mdSource} onclick={() => setMdSource(!mdSource)} title={t('Show the Markdown source')}>{t('Source')}</button>{/if}
+    {#if WEB.test(path)}<button class="btn sm ghost" onclick={() => onweb(path)} title={t('Open it in the Web tab')}><Icon name="web" />Web</button>{/if}
+    {#if status}<button class="btn sm ghost" onclick={ondiff} title={t('The Diff tab')}><Icon name="diff" />Diff</button>{/if}
+    {#if editor}<button class="btn sm icon ghost" onclick={() => void openAgentFile(agent.id, path).catch((e) => toastError(String(e)))} title={t('Open it in {editor}', { editor })}><Icon name="code" /></button>{/if}
+    <button class="btn sm icon ghost" onclick={() => ondownload(path)} title={t('Download it')}><Icon name="download" /></button>
+    <button class="btn sm icon ghost" onclick={() => copy(path, t('{name} copied', { name: path }))} title={t('Copy its path')}><Icon name="copy" /></button>
   </div>
   {#if est && !rendered}
     <div class="crumb">
@@ -179,28 +182,28 @@
       {#if meta.comparing}
         <span>{t('Its version against yours: Accept keeps your change, Reject takes its line.')}</span>
         <span class="grow"></span>
-        <button onclick={() => endCompare(key)}>{t('Done')}</button>
+        <button class="btn sm" onclick={() => endCompare(key)}>{t('Done')}</button>
       {:else}
         <b>{t('The agent changed this file')}</b><span>{t('while you edited it. Yours is kept.')}</span>
         <span class="grow"></span>
-        <button onclick={() => void compare(key)}>{t('Compare')}</button>
-        <button onclick={() => takeTheirs(key)}>{t('Take its version')}</button>
-        <button onclick={() => keepMine(key)} title={t('Saved over its version')}>{t('Keep mine')}</button>
+        <button class="btn sm" onclick={() => void compare(key)}>{t('Compare')}</button>
+        <button class="btn sm" onclick={() => takeTheirs(key)}>{t('Take its version')}</button>
+        <button class="btn sm" onclick={() => keepMine(key)} title={t('Saved over its version')}>{t('Keep mine')}</button>
       {/if}
     </div>
   {:else if meta?.pending}
-    <div class="banner"><span>{t('Saved once the agent’s turn is over')}</span><span class="grow"></span><button onclick={() => meta && (meta.pending = false)}>{t('Cancel')}</button></div>
+    <div class="banner"><span>{t('Saved once the agent’s turn is over')}</span><span class="grow"></span><button class="btn sm" onclick={() => meta && (meta.pending = false)}>{t('Cancel')}</button></div>
   {/if}
   {#if meta?.error}<p class="err">{meta.error}</p>{/if}
 
   {#if meta?.loading}
-    <p class="muted empty">{t('Reading…')}</p>
+    <State kind="loading" title={t('Reading…')} />
   {:else if preview?.kind === 'image'}
     <div class="img"><img src={preview.url} alt={path} /></div>
   {:else if preview?.kind === 'binary'}
-    <p class="muted empty">{t('A binary file ({size}): no preview.', { size: size(preview.size) })}</p>
+    <p class="empty">{t('A binary file ({size}): no preview.', { size: size(preview.size) })}</p>
   {:else if preview?.kind === 'too_large'}
-    <p class="muted empty">{t('Too large to preview ({size}).', { size: size(preview.size) })}</p>
+    <p class="empty">{t('Too large to preview ({size}).', { size: size(preview.size) })}</p>
   {:else if rendered && est}
     <div class="md"><Markdown text={est.doc.toString()} reading /></div>
   {:else if preview?.kind === 'text' && isHtml(path)}
@@ -212,12 +215,12 @@
     <div class="chip" style:top="{chipAt.top}px" style:left="{chipAt.left}px">
       {#if asking}
         <input bind:this={askField} bind:value={question} placeholder={t('Ask {name} about lines {lines}…', { name, lines: passage.to > passage.from ? `${passage.from}–${passage.to}` : `${passage.from}` })} onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') void sendAsk(); else if (e.key === 'Escape') { asking = false; view?.focus() } }} />
-        <button class="primary" onmousedown={keep} onclick={sendAsk} disabled={!question.trim()}><Icon name="send" /></button>
+        <button class="btn sm icon primary claude" onmousedown={keep} onclick={sendAsk} disabled={!question.trim()}><Icon name="send" /></button>
       {:else}
-        <button class="primary" onmousedown={keep} onclick={() => (asking = true)} title={t('A question to the agent about these lines')}><Icon name="send" />{t('Ask agent')}</button>
-        <button onmousedown={keep} onclick={addToPrompt} title={t('Added to its Chat prompt, to send with more')}><Icon name="plus" />{t('Add to prompt')}</button>
-        <button onmousedown={keep} onclick={toNote} title={t('A TODO note of this repository, with these lines')}><Icon name="pin" />{t('Note')}</button>
-        <button onmousedown={keep} onclick={() => copy(refOf(passage!), t('{name} copied', { name: refOf(passage!) }))} title={t('Copy where these lines are')}><Icon name="copy" />{refOf(passage).slice(path.length + 1)}</button>
+        <button class="btn sm primary claude" onmousedown={keep} onclick={() => (asking = true)} title={t('A question to the agent about these lines')}><Icon name="send" />{t('Ask agent')}</button>
+        <button class="btn sm ghost" onmousedown={keep} onclick={addToPrompt} title={t('Added to its Chat prompt, to send with more')}><Icon name="plus" />{t('Add to prompt')}</button>
+        <button class="btn sm ghost" onmousedown={keep} onclick={toNote} title={t('A TODO note of this repository, with these lines')}><Icon name="pin" />{t('Note')}</button>
+        <button class="btn sm ghost" onmousedown={keep} onclick={() => copy(refOf(passage!), t('{name} copied', { name: refOf(passage!) }))} title={t('Copy where these lines are')}><Icon name="copy" />{refOf(passage).slice(path.length + 1)}</button>
       {/if}
     </div>
   {/if}
@@ -236,27 +239,20 @@
 <style>
   .pane { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .ph { display: flex; align-items: center; gap: 5px; padding: 5px 8px 3px 10px; font-size: var(--fs-meta); }
-  .ph button, .banner button { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border: 1px solid transparent; border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .ph button:hover { border-color: var(--border); color: var(--text); }
-  .ph button.on { border-color: var(--src-claude); color: var(--src-claude); }
-  .ph button.save { border-color: var(--src-claude); color: var(--src-claude); }
-  .ph button:disabled { opacity: 0.5; cursor: default; }
+  .ph .btn.on, .ph .save { border-color: var(--src-claude); color: var(--src-claude); }
   .file { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
   .file .nm { font-weight: 600; white-space: nowrap; }
   .file .dir { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-tag) var(--mono); color: var(--text-muted); direction: rtl; text-align: left; }
-  .dot { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--text); }
-  .pill { flex-shrink: 0; padding: 0 6px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 600; background: var(--surface-muted); }
-  .pill.sM, .pill.sR { background: var(--warn-bg); }
-  .pill.sA, .pill.su { background: var(--ok-bg); }
-  .pill.sD { background: var(--ko-bg); }
+  .ph .dot { --dot-c: var(--text); }
+  .ph .st { flex-shrink: 0; font-weight: 600; }
   .crumb { display: flex; align-items: center; gap: 6px; padding: 0 10px 4px; border-bottom: 1px solid var(--border); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; min-width: 0; }
   .crumb .sym { overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); color: var(--text); }
   .crumb .chg { color: var(--warn); }
   .banner { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 10px; background: var(--info-bg); color: var(--info); font-size: var(--fs-meta); border-bottom: 1px solid var(--border); }
   .banner.w { background: var(--warn-bg); color: var(--warn); }
-  .banner button { border-color: currentColor; color: inherit; }
-  .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
-  .empty { padding: 12px; font-size: var(--fs-meta); }
+  .banner .btn { border-color: currentColor; color: inherit; background: none; }
+  .pane > .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); }
+  .pane > .empty { padding: 12px; font-size: var(--fs-meta); }
   .grow { flex: 1; }
   .cm { flex: 1; min-height: 0; overflow: hidden; }
   .cm.hidden { display: none; }
@@ -268,11 +264,7 @@
   .status { display: flex; align-items: center; gap: 12px; padding: 2px 10px; border-top: 1px solid var(--border); background: var(--surface-muted); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; }
   .status .busy { color: var(--warn); font-weight: 600; }
   .chip { position: absolute; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16); font-size: var(--fs-meta); }
-  .chip button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border: 1px solid transparent; border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; cursor: pointer; white-space: nowrap; }
-  .chip button:hover { color: var(--text); border-color: var(--border); }
-  .chip button.primary { background: color-mix(in srgb, var(--src-claude) 85%, #000); color: #fff; }
-  .chip button:disabled { opacity: 0.5; }
   .chip input { width: 260px; padding: 3px 8px; border: 1px solid var(--src-claude); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; outline: none; }
   :global(html.remote) .chip input { font-size: var(--fs-head); }
-  :global(html.remote) .chip button { min-height: 32px; }
+  :global(html.remote) .chip .btn { min-height: 32px; }
 </style>

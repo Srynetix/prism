@@ -41,9 +41,12 @@
   const worktreeOf = (a: Agent) => snap.worktrees.find((w) => w.path === (a.worktree ?? a.cwd))
   /** Row tooltip: what no longer fits on a compact row. */
   const tooltip = (a: Agent) =>
-    [a.title, `${a.state === 'running' ? sessionLabel(a) : STOPPED[a.state]} · ${a.branch ?? a.cwd}`, a.needs_action ? `→ ${a.needs_action}` : '', t('Open in the Agents view')]
+    [a.title, `${a.state === 'running' ? sessionLabel(a) : STOPPED[a.state]} · ${a.branch ?? a.cwd}`, a.needs_action ? `→ ${a.needs_action}` : '', t('Open the agent')]
       .filter(Boolean)
       .join('\n')
+  /** A session's status as a dot's tone (`.dot`). */
+  const DOT: Record<string, string> = { running: 'ok pulse', background: 'ok bg', needs_you: 'warn', waiting_tool: 'ko', review_ready: 'info' }
+  const dot = (status: string) => `dot ${DOT[status] ?? 'idle'}`
 </script>
 
 <section class="panel" style="--src: var(--src-claude)" class:collapsed={isCollapsed('sessions')}>
@@ -52,7 +55,7 @@
     <!-- Short: only the agents waiting for me. -->
     <div class="short-body">
       {#each agents.filter(isWaiting) as a (a.id)}
-        <div class="srow"><span class="st {a.status}"></span><button class="t" onclick={() => openAgents(a.id)} title={tooltip(a)}>{a.title}</button><span class="qa"><QuickAnswers agent={a} compact /></span><span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'}">{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span></div>
+        <div class="srow"><span class={dot(a.status)}></span><button class="t" onclick={() => openAgents(a.id)} title={tooltip(a)}>{a.title}</button><span class="qa"><QuickAnswers agent={a} compact /></span><span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'}">{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span></div>
       {:else}
         <div class="srow more">{t('No agent waiting for you.')}</div>
       {/each}
@@ -64,7 +67,7 @@
       {@const wt = worktreeOf(a)}
       {@const status = a.state === 'running' ? a.status : 'completed'}
       <div class="s" class:dim={status === 'completed' || status === 'idle'} data-thread={threadAttr({ agent: a.id })}>
-        <span class="st {status}" title={a.state === 'running' ? sessionLabel(a) : STOPPED[a.state]}></span>
+        <span class={dot(status)} title={a.state === 'running' ? sessionLabel(a) : STOPPED[a.state]}></span>
         <button class="t" onclick={() => openAgents(a.id)} title={tooltip(a)}><Icon name="terminal" />{a.title}</button>
         {#if isWaiting(a) || a.status === 'review_ready'}<span class="qa"><QuickAnswers agent={a} compact /></span>{/if}
         {#if isWaiting(a)}<span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'} asks" title={a.needs_action ?? sessionLabel(a)}>{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span>{/if}
@@ -94,15 +97,8 @@
   .mr { font-size: var(--fs-meta); flex-shrink: 0; }
   .when { width: 28px; text-align: right; flex-shrink: 0; font-size: var(--fs-meta); }
   .asks { cursor: help; }
-  .st { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-  .st.running { background: var(--ok); animation: pulse 1.4s infinite; }
-  .st.background { background: var(--ok); opacity: 0.6; }
-  .st.needs_you { background: var(--warn); }
-  .st.waiting_tool { background: var(--ko); }
-  .st.review_ready { background: var(--info); }
-  .st.completed, .st.idle { background: var(--text-muted); opacity: 0.5; }
+  span.bg, span.idle { opacity: 0.55; }
   .dim { opacity: 0.6; }
-  button.pill { border: none; cursor: pointer; font: inherit; font-size: var(--fs-tag); }
   /* An agent's quick answers: on the row's hover, as its other actions, over its right end: out of
      the row's flow, they never take the title's room. */
   .s, .srow { position: relative; }

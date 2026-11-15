@@ -286,8 +286,8 @@
       </div>
       {#if diff}<small class="muted">{t('vs {ref}', { ref: diff.against })}</small>{/if}
       <span class="grow"></span>
-      {#if !phone && sentDiff && notesOf(agent.id).some((n) => n.status === 'sent')}<button class:on={since} onclick={() => (since = !since)} title={t('Only the files that changed since the notes were sent')}>{t('Since my notes')}</button>{/if}
-      <button onclick={loadDiff} disabled={diffBusy} title={t('Compute the diff again')}><Icon name="refresh" spin={diffBusy} /></button>
+      {#if !phone && sentDiff && notesOf(agent.id).some((n) => n.status === 'sent')}<button class="btn sm" class:on={since} onclick={() => (since = !since)} title={t('Only the files that changed since the notes were sent')}>{t('Since my notes')}</button>{/if}
+      <button class="btn sm icon" onclick={loadDiff} disabled={diffBusy} title={t('Compute the diff again')}><Icon name="refresh" spin={diffBusy} /></button>
     </div>
     {#if diffError}<p class="err">{diffError}</p>{/if}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -295,9 +295,9 @@
       {#if shownDiff}
         {#if shownDiff.files.length}
           {#key shownDiff}<MrDiffView iid="agent:{agent.id}" diff={shownDiff} discussions={[]} me={null} source={(path) => agentFileText(agent.id, path)} image={diffImage} review={phone ? undefined : review} {phone} />{/key}
-          {#if shownDiff.truncated}<p class="muted empty">{t('Diff cut: too large.')}</p>{/if}
+          {#if shownDiff.truncated}<p class="empty">{t('Diff cut: too large.')}</p>{/if}
         {:else}
-          <p class="muted empty">{since ? t('Nothing changed since the notes were sent.') : branch ? t('No change on this branch.') : t('No change since the last commit.')}</p>
+          <p class="empty">{since ? t('Nothing changed since the notes were sent.') : branch ? t('No change on this branch.') : t('No change since the last commit.')}</p>
         {/if}
       {/if}
     </div>
@@ -308,12 +308,12 @@
           <span class="muted">{queued ? t('to send once {agent}’s menu is answered', { agent: nameOf(agent) }) : t('not sent')}</span>
           <span class="grow"></span>
           {#if queued}
-            <button onclick={() => cancelQueue(agent.id)} title={t('Keep them as drafts')}>{t('Cancel')}</button>
-            <button onclick={() => send('interrupt')} disabled={sending} title={t('Stop {agent}’s turn (Esc), then send', { agent: nameOf(agent) })}>{t('Interrupt and send')}</button>
+            <button class="btn sm" onclick={() => cancelQueue(agent.id)} title={t('Keep them as drafts')}>{t('Cancel')}</button>
+            <button class="btn sm" onclick={() => send('interrupt')} disabled={sending} title={t('Stop {agent}’s turn (Esc), then send', { agent: nameOf(agent) })}>{t('Interrupt and send')}</button>
           {:else}
-            <button class:on={showPrompt} onclick={() => (showPrompt = !showPrompt)} title={t('What {agent} will read', { agent: nameOf(agent) })}>{t('Preview')}</button>
-            <button onclick={() => send('insert')} disabled={sending || !diff} title={t('Type it in {agent}’s prompt, without Enter', { agent: nameOf(agent) })}>{t('Insert')}</button>
-            <button class="primary" onclick={() => send('send')} disabled={sending || !diff} title={menu ? t('{agent} shows a menu: sent once it is answered', { agent: nameOf(agent) }) : busy ? t('Sent at once: {agent} reads it once its turn is over', { agent: nameOf(agent) }) : t('Type it in {agent}’s terminal and submit it', { agent: nameOf(agent) })}>{menu ? t('Send after its menu') : t('Send')} <kbd>{keys('⌘↵')}</kbd></button>
+            <button class="btn sm" class:on={showPrompt} onclick={() => (showPrompt = !showPrompt)} title={t('What {agent} will read', { agent: nameOf(agent) })}>{t('Preview')}</button>
+            <button class="btn sm" onclick={() => send('insert')} disabled={sending || !diff} title={t('Type it in {agent}’s prompt, without Enter', { agent: nameOf(agent) })}>{t('Insert')}</button>
+            <button class="btn sm primary claude" class:busy={sending} onclick={() => send('send')} disabled={sending || !diff} title={menu ? t('{agent} shows a menu: sent once it is answered', { agent: nameOf(agent) }) : busy ? t('Sent at once: {agent} reads it once its turn is over', { agent: nameOf(agent) }) : t('Type it in {agent}’s terminal and submit it', { agent: nameOf(agent) })}>{#if sending}<span class="spinner"></span>{t('Sending…')}{:else}{menu ? t('Send after its menu') : t('Send')} <kbd>{keys('⌘↵')}</kbd>{/if}</button>
           {/if}
         </div>
         {#if busy && !menu && !queued}<p class="muted note">{t('{agent} is working: it reads them once its turn is over.', { agent: nameOf(agent) })} <button class="link" onclick={() => send('interrupt')} disabled={sending}>{t('Interrupt and send')}</button></p>{/if}
@@ -325,9 +325,9 @@
     <div class="web" class:overlay role={overlay ? 'dialog' : undefined} aria-label={overlay ? t('Web view of {agent}, over the window', { agent: agent.title }) : undefined}>
     <form class="bar" onsubmit={(e) => { e.preventDefault(); go() }}>
       <input bind:value={address} placeholder={t('docs/page.html or http://localhost:5173')} spellcheck="false" {@attach suggest(() => (pages ?? []).map((p) => p.path))} />
-      <button type="button" class:on={picking} data-picker-toggle onclick={togglePicker} aria-expanded={picking} title={t('Pick a page of the folder, or a {agent} artifact', { agent: nameOf(agent) })}><Icon name="files" />{t('Open…')}{#if artifacts?.length}<span class="n">{artifacts.length}</span>{/if}</button>
-      <button type="submit" title={t('Load (reload)')}><Icon name="refresh" /></button>
-      <button type="button" class:on={overlay} onclick={() => (overlay = !overlay)} aria-pressed={overlay} title={overlay ? t('Back to the panel (Esc)') : t('The page over the whole window')} aria-label={overlay ? t('Back to the panel') : t('Over the whole window')}><Icon name={overlay ? 'shrink' : 'expand'} /></button>
+      <button type="button" class="btn sm" class:on={picking} data-picker-toggle onclick={togglePicker} aria-expanded={picking} title={t('Pick a page of the folder, or a {agent} artifact', { agent: nameOf(agent) })}><Icon name="files" />{t('Open…')}{#if artifacts?.length}<span class="pill src n">{artifacts.length}</span>{/if}</button>
+      <button type="submit" class="btn sm icon" title={t('Load (reload)')}><Icon name="refresh" /></button>
+      <button type="button" class="btn sm icon" class:on={overlay} onclick={() => (overlay = !overlay)} aria-pressed={overlay} title={overlay ? t('Back to the panel (Esc)') : t('The page over the whole window')} aria-label={overlay ? t('Back to the panel') : t('Over the whole window')}><Icon name={overlay ? 'shrink' : 'expand'} /></button>
     </form>
     {#if picking}
       <AgentWebPicker {pages} {artifacts} {ignored} onignored={setIgnored} cli={nameOf(agent)} onpick={(p, scratchpad) => go(scratchpad ? artifactAddress(p) : p)} onclose={() => (picking = false)} />
@@ -346,7 +346,7 @@
         <iframe aria-label={t('Web view of {agent}', { agent: agent.title })} {src} sandbox={isLocal(shown) ? 'allow-scripts allow-forms allow-popups allow-modals allow-same-origin' : 'allow-scripts allow-forms allow-popups allow-modals'}></iframe>
       {/key}
     {:else}
-      <p class="muted empty">{t('A page of the agent folder (a mockup, a report, a Markdown file: pick it with Open… or type its path), a {agent} artifact, or a local dev server. In Files, an HTML file opens here.', { agent: nameOf(agent) })}</p>
+      <p class="empty">{t('A page of the agent folder (a mockup, a report, a Markdown file: pick it with Open… or type its path), a {agent} artifact, or a local dev server. In Files, an HTML file opens here.', { agent: nameOf(agent) })}</p>
       {#if artifacts?.length}
         <div class="list">
           <div class="grp">{t('Artifacts of this session')}</div>
@@ -364,19 +364,14 @@
 
 <style>
   .side { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--border); background: var(--surface); }
-  .bar .n { padding: 0 5px; border-radius: var(--r8); background: color-mix(in srgb, var(--src-claude) 18%, transparent); color: var(--src-claude); font-size: var(--fs-tag); }
+  .bar .n { --c: var(--src-claude); padding: 0 5px; }
   .bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   .bar input { flex: 1; min-width: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: var(--fs-meta) var(--mono); outline: none; }
   .bar input:focus { border-color: var(--src-claude); }
-  .bar button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .bar button.on { border-color: var(--src-claude); color: var(--src-claude); }
+  .bar .btn.on, .trow .btn.on { border-color: var(--src-claude); color: var(--src-claude); }
   .grow { flex: 1; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { border: none; border-radius: 0; }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button.on { background: var(--src-claude); color: #fff; }
-  .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
-  .empty { padding: 12px; font-size: var(--fs-meta); }
+  .side .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); }
+  .side .empty { padding: 12px; font-size: var(--fs-meta); }
   .list { flex: 1; min-height: 0; overflow: auto; padding: 4px; display: flex; flex-direction: column; }
   .file { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 6px; padding: 1px 6px; border: none; border-radius: var(--r4); background: none; color: var(--text); font: var(--fs-meta) var(--mono); text-align: left; cursor: pointer; }
   .file:hover:not(:disabled) { background: var(--surface-muted); }
@@ -391,10 +386,6 @@
   .tray { flex-shrink: 0; max-height: 45%; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--src-claude) 6%, var(--surface)); }
   .trow { display: flex; align-items: center; gap: 6px; padding: 6px 8px; font-size: var(--fs-meta); }
   .trow b { color: var(--src-claude); }
-  .trow button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .trow button.on { border-color: var(--src-claude); color: var(--src-claude); }
-  .trow button.primary { background: var(--src-claude); border-color: var(--src-claude); color: #fff; background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--src-claude); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
-  .trow button:disabled { opacity: 0.6; cursor: default; }
   .trow kbd { font: 10px var(--mono); opacity: 0.8; }
   .tray .note { margin: 0; padding: 0 8px 6px; font-size: var(--fs-tag); }
   .link { padding: 0; border: none; background: none; color: var(--src-claude); font: inherit; cursor: pointer; text-decoration: underline; }

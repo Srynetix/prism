@@ -4,8 +4,10 @@
   import { agentContextDetail, clearAgent, compactAgent, type AgentContextDetail } from '../agents.svelte'
   import { armer } from '../armed.svelte'
   import { cliOf } from '../agent-cli'
-  import { toast } from '../toast.svelte'
+  import { toastError } from '../toast.svelte'
   import ContextGauge from './ContextGauge.svelte'
+  import ArmedLabel from './ArmedLabel.svelte'
+  import State from './ui/State.svelte'
   import { t } from '../i18n.svelte'
 
   /**
@@ -74,7 +76,7 @@
       await (what === 'compact' ? compactAgent : clearAgent)(agent.id)
       open = false
     } catch (e) {
-      toast(t(what === 'compact' ? 'Could not compact: {error}' : 'Could not clear: {error}', { error: e instanceof Error ? e.message : String(e) }))
+      toastError(t(what === 'compact' ? 'Could not compact: {error}' : 'Could not clear: {error}', { error: e instanceof Error ? e.message : String(e) }))
     }
   }
 </script>
@@ -100,7 +102,7 @@
             </div>
             <div class="rows">
               {#if detail.base}
-                <div class="row"><span class="sw k-base"></span><span>{t('Base')} <span class="meas" title={t('The first request’s tokens, less your first prompt: system prompt, tools, MCP, skills, {file}', { file: agent.provider === 'codex' ? 'AGENTS.md' : 'CLAUDE.md' })}>{t('measured')}</span></span><span class="n">{tokens(detail.base)}</span><span class="p">{share(detail.base)}</span></div>
+                <div class="row"><span class="sw k-base"></span><span>{t('Base')} <span class="pill ok meas" title={t('The first request’s tokens, less your first prompt: system prompt, tools, MCP, skills, {file}', { file: agent.provider === 'codex' ? 'AGENTS.md' : 'CLAUDE.md' })}>{t('measured')}</span></span><span class="n">{tokens(detail.base)}</span><span class="p">{share(detail.base)}</span></div>
               {/if}
               {#each detail.parts as p (p.kind)}
                 {@const foldable = p.tools.length > 0}
@@ -131,15 +133,15 @@
               {t('Names only, never a content.')}
             </p>
             <div class="actions">
-              <button class="btn" class:armed={armed.is('clear')} onclick={() => act('clear')} disabled={busy} title={busy ? t('Once its turn is over') : t('Types /clear in the agent: a new conversation, nothing of this one in its context (its transcript stays)')}>{armed.is('clear') ? t('Clear? click again') : t('Clear')}</button>
-              <button class="btn" class:armed={armed.is('compact')} onclick={() => act('compact')} disabled={busy} title={busy ? t('Once its turn is over') : t('Types /compact in the agent: the conversation gives way to its summary')}>{armed.is('compact') ? t('Compact? click again') : t('Compact')}</button>
+              <button class="btn sm" class:armed={armed.is('clear')} onclick={() => act('clear')} disabled={busy} title={busy ? t('Once its turn is over') : t('Types /clear in the agent: a new conversation, nothing of this one in its context (its transcript stays)')}><ArmedLabel armed={armed.is('clear')} label={t('Clear')} armedLabel={t('Click again to confirm')} /></button>
+              <button class="btn sm" class:armed={armed.is('compact')} onclick={() => act('compact')} disabled={busy} title={busy ? t('Once its turn is over') : t('Types /compact in the agent: the conversation gives way to its summary')}><ArmedLabel armed={armed.is('compact')} label={t('Compact')} armedLabel={t('Click again to confirm')} /></button>
             </div>
           {:else if error}
-            <p class="note">{t('Could not read the context: {error}', { error })}</p>
+            <p class="err">{t('Could not read the context: {error}', { error })}</p>
           {:else if loaded}
             <p class="note">{t('No transcript to read yet: the detail comes with the agent’s first reply.')}</p>
           {:else}
-            <p class="note">{t('Reading the transcript…')}</p>
+            <State kind="loading" title={t('Reading the transcript…')} inline />
           {/if}
         </div>
       {/if}
@@ -171,7 +173,7 @@
   .n { text-align: right; font-variant-numeric: tabular-nums; }
   .p { text-align: right; color: var(--text-muted); font-size: var(--fs-tag); }
   .car { margin-left: 4px; color: var(--text-muted); font-size: var(--fs-micro); }
-  .meas { margin-left: 4px; padding: 0 5px; border-radius: var(--r9); background: var(--ok-bg); color: var(--ok); font-size: var(--fs-micro); }
+  .meas { margin-left: 4px; font-size: var(--fs-micro); }
   .k-base { background: color-mix(in srgb, var(--text-muted) 70%, transparent); }
   .k-summary { background: color-mix(in srgb, var(--text-muted) 40%, transparent); }
   .k-prompts { background: var(--accent); }
@@ -190,8 +192,5 @@
   .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .note { margin: 8px 0 0; font-size: var(--fs-tag); color: var(--text-muted); line-height: 1.4; }
   .actions { display: flex; gap: 6px; margin-top: 8px; }
-  .btn { padding: 2px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.armed { color: var(--warn); border-color: var(--warn); }
+  .pop > .err { margin: 0; }
 </style>

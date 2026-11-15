@@ -57,7 +57,7 @@
   <div class="head"><Icon name="help" /> {asked ? (sent ? t('Answer sent') : t('It asks you')) : status === 'failed' ? t('Not answered') : t('Answered')}</div>
   {#each ask.questions as q, i (i)}
     <div class="q">
-      {#if q.header}<span class="tag">{q.header}</span>{/if}
+      {#if q.header}<span class="pill tag">{q.header}</span>{/if}
       <p>{q.question}</p>
       {#if asked && !sent}
         {#if q.multi}<small>{t('Several choices')}</small>{/if}
@@ -84,12 +84,12 @@
   {/each}
   {#if asked && !sent}
     {#if acts}
-      <button class="send" onclick={send} disabled={!ready || busy}>{busy ? '…' : ask.questions.length > 1 ? t('Send the answers') : t('Send the answer')}</button>
+      <button class="btn primary send" class:busy onclick={send} disabled={!ready || busy}>{#if busy}<span class="spinner"></span>{t('Sending…')}{:else}{ask.questions.length > 1 ? t('Send the answers') : t('Send the answer')}{/if}</button>
     {:else}
       <p class="muted">{t('Answering from a phone is off (Settings › Remote › actions): the terminal shows it.')}</p>
     {/if}
   {/if}
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error}<p class="err">{error}</p>{/if}
 </div>
 
 <style>
@@ -98,7 +98,7 @@
   .head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-body); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .asked .head { color: var(--info); }
   .q p { margin: 2px 0 6px; font-weight: 600; line-height: 1.35; }
-  .tag { font-size: var(--fs-meta); padding: 1px 7px; border-radius: var(--r7); background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-muted); }
+  .tag { font-size: var(--fs-meta); }
   small { display: block; font-size: var(--fs-body); color: var(--text-muted); }
   .q > small { margin: -4px 0 6px; }
   .opts { display: flex; flex-direction: column; gap: 6px; }
@@ -112,9 +112,9 @@
   .words { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
   .words input { margin-top: 0; }
   input { margin-top: 6px; width: 100%; box-sizing: border-box; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); border-radius: var(--r10); padding: 8px 10px; font: inherit; font-size: var(--fs-head); }
-  .send { align-self: stretch; border: none; border-radius: var(--r10); padding: 10px; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; }
-  .send:disabled, .opt:disabled { opacity: 0.5; }
+  .send { align-self: stretch; height: auto; padding: 10px; font-size: inherit; }
+  .opt:disabled { opacity: 0.5; }
   .ans { font-weight: 400 !important; color: var(--ok); margin: 0 !important; }
-  .muted, .error { margin: 0; font-size: var(--fs-title); color: var(--text-muted); }
-  .error { color: var(--ko); }
+  .muted { margin: 0; font-size: var(--fs-title); color: var(--text-muted); }
+  .ask > .err { margin: 0; font-size: var(--fs-title); }
 </style>

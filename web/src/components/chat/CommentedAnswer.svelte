@@ -7,6 +7,7 @@
   import { compose, passages } from '../../comments'
   import { answerTarget, draftsOf, forget } from '../../comments.svelte'
   import { armer } from '../../armed.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
 
   /**
    * A long answer of the agent's in its Chat (`[agents] comment_answers`), its passages commented
@@ -45,9 +46,9 @@
     <div class="tray">
       <Icon name="comment" size={12} /><b>{tn(drafts.length, '{n} comment', '{n} comments')}</b>
       <span class="grow"></span>
-      <button class="lnk" onclick={() => (preview = !preview)}>{preview ? t('Hide') : t('Preview')}</button>
-      <button class="lnk" class:armed={armed.is('clear')} onclick={() => armed.confirm('clear') && forget(id, target)}>{armed.is('clear') ? t('Clear them?') : t('Clear')}</button>
-      <button class="b" disabled={busy} onclick={send} title={t('Your comments to it, as one prompt, each passage quoted')}>{t('Send comments')}</button>
+      <button class="btn sm ghost" onclick={() => (preview = !preview)}>{preview ? t('Hide') : t('Preview')}</button>
+      <button class="btn sm ghost" class:armed={armed.is('clear')} onclick={() => armed.confirm('clear') && forget(id, target)}><ArmedLabel armed={armed.is('clear')} label={t('Clear')} armedLabel={t('Click again to confirm')} /></button>
+      <button class="btn sm primary" class:busy disabled={busy} onclick={send} title={t('Your comments to it, as one prompt, each passage quoted')}>{#if busy}<span class="spinner"></span>{t('Sending…')}{:else}{t('Send comments')}{/if}</button>
     </div>
     {#if preview}<pre class="pv">{message}</pre>{/if}
   {/if}
@@ -58,10 +59,7 @@
   .ans { overflow-wrap: anywhere; }
   .tray { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 4px 8px; border-radius: var(--r7); background: color-mix(in srgb, var(--warn) 14%, transparent); font-size: var(--fs-body); }
   .grow { flex: 1; }
-  .lnk { border: none; background: none; padding: 0 2px; color: var(--info); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .lnk.armed { color: var(--ko); font-weight: 600; }
-  .b { height: 24px; padding: 0 10px; border: 1px solid var(--accent); border-radius: var(--r6); background: var(--accent); color: var(--on-accent); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .b:disabled { opacity: 0.5; }
+  .tray .ghost:not(.armed) { color: var(--info); }
   .pv { margin: 4px 0 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; }
   .note { margin: 4px 0 0; font-size: var(--fs-body); color: var(--text-muted); }
 </style>

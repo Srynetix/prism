@@ -48,7 +48,7 @@
       <div class="back">
         {#each left as target (`${target.provider}:${target.account ?? ''}`)}
           {@const p = target.provider}
-          <button onclick={() => backTo(agent, target)} title={CLIS[p].resumes_with_prompt ? t('{cli} picks its conversation up again, told what happened since', { cli: targetName(target) }) : t('{cli} starts a new conversation from a relay', { cli: CLIS[p].cli })}><Icon name="retry" size={11} />{t('Back to {cli}', { cli: targetName(target) })}</button>
+          <button class="btn sm" onclick={() => backTo(agent, target)} title={CLIS[p].resumes_with_prompt ? t('{cli} picks its conversation up again, told what happened since', { cli: targetName(target) }) : t('{cli} starts a new conversation from a relay', { cli: CLIS[p].cli })}><Icon name="retry" size={11} />{t('Back to {cli}', { cli: targetName(target) })}</button>
         {/each}
       </div>
     {/if}
@@ -66,5 +66,4 @@
   .what small { color: var(--text-muted); font-weight: 400; }
   .amt { color: var(--text-muted); font-size: var(--fs-tag); }
   .back { display: flex; gap: 6px; flex-wrap: wrap; }
-  .back button { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
 </style>

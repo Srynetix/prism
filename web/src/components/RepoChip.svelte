@@ -13,10 +13,10 @@
 </script>
 
 {#if several && repos.length}
-  <button class="repo" onclick={() => openSettings('repo-blocks')} title={t('The repository it reads: Settings › Repositories')}>{repos.join(', ')}</button>
+  <button class="pill outline mono repo" onclick={() => openSettings('repo-blocks')} title={t('The repository it reads: Settings › Repositories')}>{repos.join(', ')}</button>
 {/if}
 
 <style>
-  .repo { margin-left: 6px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r9); background: none; color: var(--text-muted); font: var(--fs-tag) var(--mono); font-weight: 400; line-height: 16px; cursor: pointer; text-transform: none; letter-spacing: 0; }
-  .repo:hover { border-color: var(--accent); color: var(--text); }
+  .repo { margin-left: 6px; background: none; font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .repo:hover { color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
 </style>

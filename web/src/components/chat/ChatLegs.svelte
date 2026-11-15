@@ -1,4 +1,5 @@
 <script lang="ts">
+  import State from '../ui/State.svelte'
   import Icon from '../Icon.svelte'
   import Markdown from '../Markdown.svelte'
   import { CLIS } from '../../agent-cli'
@@ -46,7 +47,7 @@
     <span class="when">{time(leg.started)} → {time(leg.ended)}</span>
   </button>
   {#if c === 'loading'}
-    <p class="muted">…</p>
+    <State kind="loading" lines={2} />
   {:else if c === null}
     <p class="muted">{t('Its conversation is no longer on disk, or {cli} keeps none Prism reads.', { cli: CLIS[leg.provider].name })}</p>
   {:else if c}
@@ -62,7 +63,7 @@
     <span class="card">
       <Icon name={CLIS[leg.provider].icon} size={12} />→<Icon name={CLIS[next(i)].icon} size={12} />
       {t('Relay {time} · {reason}', { time: time(leg.ended), reason: reasonOf(leg.reason) })}
-      <button class="link" onclick={() => (shown[i] = !shown[i])}>{shown[i] ? t('hide the message') : t('see the message')}</button>
+      <button class="link" onclick={() => (shown[i] = !shown[i])}>{shown[i] ? t('hide the message') : t('show the message')}</button>
     </span>
   </div>
   {#if shown[i]}<pre class="msg">{leg.message}</pre>{/if}

@@ -242,7 +242,7 @@
   {#if timeDraft.open}
     <div class="drawer" class:wide={mode !== 'day'} role="dialog" aria-label={tr('Time tracking')} {@attach exclusive(() => (timeDraft.open = false))}>
       <div class="head">
-        <div class="modes" role="tablist" aria-label={tr('Time view')}>
+        <div class="seg modes" role="tablist" aria-label={tr('Time view')}>
           {#each MODES as m (m.id)}
             <button role="tab" aria-selected={mode === m.id} class:on={mode === m.id} onclick={() => setMode(m.id)}>{m.label}</button>
           {/each}
@@ -253,7 +253,7 @@
         {:else}
           <span class="muted"></span>
         {/if}
-        <button class="x" onclick={() => (timeDraft.open = false)} aria-label={tr('Close')}><Icon name="close" /></button>
+        <button class="btn sm icon ghost" onclick={() => (timeDraft.open = false)} aria-label={tr('Close')}><Icon name="close" /></button>
       </div>
 
       {#if mode !== 'day'}
@@ -271,9 +271,9 @@
         </label>
         <div class="actions">
           <span class="muted hint">{tr('{day}, from {time}', { day: label(day, 'long'), time: time(nextStart) })}</span>
-          <button class="primary" onclick={log} disabled={busy}>{tr('Log time')}</button>
+          <button class="btn primary log" class:busy onclick={log} disabled={busy}>{#if busy}<span class="spinner"></span>{tr('Logging…')}{:else}{tr('Log time')}{/if}</button>
         </div>
-        {#if error}<div class="error">{error}</div>{/if}
+        {#if error}<div class="err">{error}</div>{/if}
       </div>
 
       {#if transverse.length}
@@ -285,7 +285,7 @@
             {#if recent.length}
               <div class="recent">
                 {#each recent as t (t.id)}
-                  <button class="chip-t" onclick={() => pick(t.id)} title={tip(t)}>{t.name}</button>
+                  <button class="pill chip-t" onclick={() => pick(t.id)} title={tip(t)}>{t.name}</button>
                 {/each}
               </div>
             {/if}
@@ -330,10 +330,10 @@
               <input class="e-ticket mono" {@attach suggest(() => suggestions.map(([value, label]) => ({ value, label })))} bind:value={editing.ticket} placeholder={e.ticket ?? '—'} spellcheck="false" aria-label={tr('Ticket')} />
               <input class="e-desc" bind:value={editing.description} placeholder={tr('Description')} use:focusFirst aria-label={tr('Description')} />
               <input class="e-dur mono" bind:value={editing.duration} placeholder="1h30" aria-label={tr('Duration')} />
-              <button class="save" onclick={saveEdit} disabled={saving} title={tr('Save in {tracker} (Enter)', { tracker: trackerName() })} aria-label={tr('Save')}>{#if saving}…{:else}<Icon name="check" />{/if}</button>
-              <button class="del cancel" onclick={() => (editing = null)} title={tr('Cancel (Esc)')} aria-label={tr('Cancel')}><Icon name="close" /></button>
+              <button class="btn sm icon primary save" class:busy={saving} onclick={saveEdit} disabled={saving} title={tr('Save in {tracker} (Enter)', { tracker: trackerName() })} aria-label={tr('Save')}>{#if saving}<span class="spinner"></span>{:else}<Icon name="check" />{/if}</button>
+              <button class="btn sm icon ghost del cancel" onclick={() => (editing = null)} title={tr('Cancel (Esc)')} aria-label={tr('Cancel')}><Icon name="close" /></button>
             </div>
-            {#if editError}<div class="error edit-error">{editError}</div>{/if}
+            {#if editError}<div class="err edit-error">{editError}</div>{/if}
           {:else}
           <!-- svelte-ignore a11y_no_static_element_interactions : the pencil is the keyboard path -->
           <div class="entry" ondblclick={(ev) => !(ev.target as HTMLElement).closest('a, button') && startEdit(e)} title={hasCore() ? tr('Double-click to edit') : undefined}>
@@ -342,16 +342,18 @@
             <span class="grow" title={e.task_name ?? ''}>{e.description || e.task_name || ''}</span>
             <span class="mono muted">{hours(e.duration_ms)}</span>
             {#if hasCore()}
-              <button class="del edit" onclick={() => startEdit(e)} title={tr('Edit this entry')} aria-label={tr('Edit this entry')}><Icon name="edit" /></button>
+              <button class="btn sm icon ghost del edit" onclick={() => startEdit(e)} title={tr('Edit this entry')} aria-label={tr('Edit this entry')}><Icon name="edit" /></button>
               <button
-                class="del"
+                class="btn sm ghost del"
+                class:icon={!arming.is(e.id)}
+                class:busy={deleting === e.id}
                 class:armed={arming.is(e.id)}
                 class:error={deleteError?.id === e.id}
                 disabled={deleting === e.id}
                 onclick={() => remove(e)}
                 title={deleteError?.id === e.id ? tr('Could not delete: {error}', { error: deleteError.message }) : arming.is(e.id) ? tr('Click again to delete this entry in {tracker}', { tracker: trackerName() }) : tr('Delete this entry')}
-                aria-label={arming.is(e.id) ? tr('Confirm: delete this entry') : tr('Delete this entry')}
-              >{#if deleting === e.id}…{:else if arming.is(e.id)}{tr('delete?')}{:else}<Icon name="close" />{/if}</button>
+                aria-label={tr('Delete this entry')}
+              >{#if deleting === e.id}<span class="spinner"></span>{:else if arming.is(e.id)}{tr('Click again to confirm')}{:else}<Icon name="close" />{/if}</button>
             {/if}
           </div>
           {/if}
@@ -377,30 +379,26 @@
   /* Above the side panes (ticket, MR, logs: 49 to 52), from which a ticket's time is logged. */
   .drawer { position: absolute; top: calc(100% + 8px); right: 0; z-index: var(--z-menu); width: 400px; max-height: 80vh; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); }
   .drawer.wide { width: 580px; }
-  .modes { display: inline-flex; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); border: 1px solid var(--border); align-self: center; }
-  .modes button { padding: 1px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .modes button.on { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+  .modes { align-self: center; }
   .head { display: flex; align-items: baseline; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   .head .muted { flex: 1; font-size: var(--fs-meta); }
-  .x { display: inline-flex; align-items: center; border: none; background: none; color: var(--text-muted); font-size: var(--fs-head); cursor: pointer; }
   .form { display: grid; grid-template-columns: 1fr 90px; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   label { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-meta); color: var(--text-muted); }
-  label.wide, .actions, .error { grid-column: 1 / 3; }
+  label.wide, .actions, .form > .err { grid-column: 1 / 3; }
   input { font: inherit; font-size: var(--fs-body); padding: 5px 7px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); min-width: 0; }
   input:focus { outline: none; border-color: var(--info); }
   .actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .hint { font-size: var(--fs-meta); }
-  button.primary { font: inherit; font-size: var(--fs-body); padding: 4px 12px; border-radius: var(--r6); border: none; background: var(--info-bg); color: var(--info); cursor: pointer; }
-  button.primary:disabled { opacity: 0.6; cursor: progress; }
-  .error { font-size: var(--fs-body); color: var(--ko); }
+  .actions .log { --btn-c: var(--info); }
+  .form > .err { font-size: var(--fs-body); }
   .section { display: flex; align-items: center; gap: 6px; width: 100%; padding: 7px 12px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
   .section:hover { background: var(--surface-muted); }
   .chev { display: inline-flex; color: var(--text-muted); transition: transform 0.15s; }
   .chev.open { transform: rotate(90deg); }
   .transverse { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
   .recent { display: flex; flex-wrap: wrap; gap: 5px; }
-  .chip-t { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 9px; font: inherit; font-size: var(--fs-mono); border-radius: var(--r12); border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); cursor: pointer; }
-  .chip-t:hover { border-color: var(--info); }
+  .chip-t { max-width: 180px; overflow: hidden; text-overflow: ellipsis; padding: 3px 9px; font-size: var(--fs-mono); color: var(--text); }
+  .chip-t:hover { box-shadow: inset 0 0 0 1px var(--info); }
   .search { font-size: var(--fs-mono); }
   .tree { max-height: 180px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r6); }
   .node { display: flex; align-items: center; gap: 4px; padding: 0 6px 0 0; border-top: 1px solid var(--border); }
@@ -426,12 +424,10 @@
   .wd.ok .mono { color: var(--ok); }
   .wd .mono { font-size: var(--fs-tag); }
   .entry { display: flex; gap: 8px; align-items: center; padding: 5px 12px; border-top: 1px solid var(--border); font-size: var(--fs-body); }
-  .del { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; opacity: 0; }
+  .del { opacity: 0; }
   .entry:hover .del, .del:focus-visible, .del.armed, .del.error { opacity: 1; }
-  .del:hover, .del.armed, .del.error { color: var(--ko); border-color: color-mix(in srgb, var(--ko) 40%, transparent); }
-  .del.armed { background: color-mix(in srgb, var(--ko) 12%, transparent); }
-  .del:disabled { cursor: progress; }
-  .del.edit:hover { color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
+  .del:hover, .del.error { color: var(--ko); }
+  .del.edit:hover { color: var(--info); }
   .entry.editing { gap: 5px; padding: 4px 8px 4px 12px; background: color-mix(in srgb, var(--info) 6%, var(--surface)); }
   .entry.editing input { padding: 2px 5px; font-size: var(--fs-meta); }
   .entry.editing .e-at { width: 64px; }
@@ -440,8 +436,7 @@
   .entry.editing .e-dur { width: 50px; }
   .entry.editing .del { opacity: 1; }
   /* Not `.ok`: that is the tone of a complete day in the week (`.wd.ok`). */
-  .save { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 4px; border: 1px solid color-mix(in srgb, var(--info) 40%, transparent); border-radius: var(--r5); background: var(--info-bg); color: var(--info); cursor: pointer; }
-  .save:disabled { cursor: progress; }
+  .entry .save { --btn-c: var(--info); }
   .edit-error { padding: 2px 12px 6px; font-size: var(--fs-meta); }
   /* Narrow window: the day is already shown in the header's date picker. */
   @media (max-width: 1250px) {

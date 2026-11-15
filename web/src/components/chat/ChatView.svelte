@@ -4,6 +4,7 @@
   import { pollsShown } from '../../polls.svelte'
   import { clock } from '../../clock.svelte'
   import Icon from '../Icon.svelte'
+  import State from '../ui/State.svelte'
   import Markdown from '../Markdown.svelte'
   import ChatLegs from './ChatLegs.svelte'
   import AgentChain from '../AgentChain.svelte'
@@ -387,6 +388,7 @@
   const BG_ICONS: Record<BackgroundTask['kind'], IconName> = { command: 'terminal', agent: 'group', monitor: 'activity' }
   const BG_LABEL: Record<BackgroundTask['kind'], string> = { command: tr('Command'), agent: tr('Subagent'), monitor: tr('Monitor') }
   const BG_STATE: Record<BackgroundTask['state'], string> = { running: tr('running'), completed: tr('done'), failed: tr('failed'), stopped: tc('chat', 'stopped') }
+  const BG_TONE: Record<BackgroundTask['state'], string> = { running: 'info', completed: 'ok', failed: 'ko', stopped: '' }
   /** How long it has run, or ran. */
   const ran = (b: BackgroundTask) => (b.at ? dur(Math.max(0, (b.ended ? Date.parse(b.ended) : now) - Date.parse(b.at))) : '')
   const ICONS: Record<ConversationTool['kind'], IconName> = { read: 'files', write: 'edit', command: 'terminal', web: 'web', agent: 'group', other: 'code' }
@@ -494,10 +496,10 @@
     <!-- A task flagged in passing (suggest_task): its card, where the agent saw it; done in its session (done_task): one line under it, not its card again; withdrawn (dismiss_task): struck out. -->
     {@const call = row.entry}
     {@const line = asideOfCall(call)}
-    {#if isDoneCall(call)}<div class="note">✓ {tr('Done in passing')}: {line?.title ?? call.what ?? ''}{line?.why ? ` — ${line.why}` : ''}{call.state === 'failed' && call.output ? ` — ${call.output}` : ''}</div>
+    {#if isDoneCall(call)}<div class="note"><Icon name="check" /> {tr('Done in passing')}: {line?.title ?? call.what ?? ''}{line?.why ? ` — ${line.why}` : ''}{call.state === 'failed' && call.output ? ` — ${call.output}` : ''}</div>
     {:else if line && isSuggest(call)}<AsideCard a={line} chat />
     {:else if line}<AsideCard a={line} chat withdrawn />
-    {:else}<div class="note">↗ {isSuggest(call) ? tr('In passing') : tr('Withdrawn')}: {call.what ?? ''}{call.state === 'failed' && call.output ? ` — ${call.output}` : ''}</div>{/if}
+    {:else}<div class="note"><Icon name="aside" /> {isSuggest(call) ? tr('In passing') : tr('Withdrawn')}: {call.what ?? ''}{call.state === 'failed' && call.output ? ` — ${call.output}` : ''}</div>{/if}
   {:else if row.entry.kind === 'agent'}
     {@const t = row.entry}
     {@const b = busy(t)}
@@ -507,13 +509,13 @@
         <Icon name="group" /><b>{t.agent ?? tr('Subagent')}</b><span class="w">{t.what ?? ''}</span>
         {#if t.sub}<span class="n">{tn(t.sub.count, '{n} call', '{n} calls')}</span>{/if}
         {#if worked(t)}<span class="dur">{worked(t)}</span>{/if}
-        {#if b}<span class="st running"><span class="dot"></span>{tr('running')}</span>{:else if t.state === 'failed' || taskOf(t)?.state === 'failed'}<span class="st ko">✗</span>{:else}<span class="st ok">✓</span>{/if}
+        {#if b}<span class="pill info st running"><span class="dot info pulse"></span>{tr('running')}</span>{:else if t.state === 'failed' || taskOf(t)?.state === 'failed'}<span class="st ko"><Icon name="fail" /></span>{:else}<span class="st ok"><Icon name="check" /></span>{/if}
       </button>
       {#if shown && t.sub}
         <div class="sub">
           {#if t.sub.count > t.sub.steps.length}<div class="more">{tr('{n} earlier calls', { n: t.sub.count - t.sub.steps.length })}</div>{/if}
           {#each t.sub.steps as s, i (i)}
-            <div><b>{s.tool}</b><span class="m">{s.what ?? ''}</span>{#if s.state === 'running'}<span class="dot"></span>{:else if s.state === 'failed'}<span class="st ko">✗</span>{:else}<span class="st ok">✓</span>{/if}</div>
+            <div><b>{s.tool}</b><span class="m">{s.what ?? ''}</span>{#if s.state === 'running'}<span class="dot warn pulse"></span>{:else if s.state === 'failed'}<span class="st ko"><Icon name="fail" /></span>{:else}<span class="st ok"><Icon name="check" /></span>{/if}</div>
           {/each}
           {#if t.sub.said}<div class="said">{t.sub.said}</div>{/if}
         </div>
@@ -528,7 +530,7 @@
       {#if t.added || t.removed}<span class="n"><i class="add">+{t.added}</i> <i class="del">−{t.removed}</i></span>{/if}
       {#if t.sub}<span class="n">{tn(t.sub.count, '{n} call', '{n} calls')}</span>{/if}
       {#if t.state === 'running' && t.at}<span class="dur">{since(t.at)}</span>{:else if t.ms !== null && t.ms >= 1000}<span class="dur">{dur(t.ms)}</span>{/if}
-      {#if t.state === 'running'}<span class="st run"><span class="dot"></span></span>{:else if t.state === 'failed'}<span class="st ko">✗</span>{:else}<span class="st ok">✓</span>{/if}
+      {#if t.state === 'running'}<span class="st run"><span class="dot warn pulse"></span></span>{:else if t.state === 'failed'}<span class="st ko"><Icon name="fail" /></span>{:else}<span class="st ok"><Icon name="check" /></span>{/if}
     </button>
     {#if t === running && live?.output.length}
       <pre class="out">{live.output.join('\n')}</pre>
@@ -537,7 +539,7 @@
       <div class="sub">
         {#if t.sub.count > t.sub.steps.length}<div class="more">{tr('{n} earlier calls', { n: t.sub.count - t.sub.steps.length })}</div>{/if}
         {#each t.sub.steps as s, i (i)}
-          <div><b>{s.tool}</b><span class="m">{s.what ?? ''}</span>{#if s.state === 'running'}<span class="dot"></span>{:else if s.state === 'failed'}<span class="st ko">✗</span>{:else}<span class="st ok">✓</span>{/if}</div>
+          <div><b>{s.tool}</b><span class="m">{s.what ?? ''}</span>{#if s.state === 'running'}<span class="dot warn pulse"></span>{:else if s.state === 'failed'}<span class="st ko"><Icon name="fail" /></span>{:else}<span class="st ok"><Icon name="check" /></span>{/if}</div>
         {/each}
         {#if t.sub.said}<div class="said">{t.sub.said}</div>{/if}
       </div>
@@ -570,7 +572,7 @@
       {#if background.length && bgShown}
         {@const last = background.at(-1)}
         <button class="rc" class:open={bgOpen} onclick={() => show('bg')} aria-expanded={bgOpen} title={tr('Its background tasks: commands, subagents, monitors')}>
-          {#if bgRunning.length}<span class="bgd"></span><b>{bgRunning.length}</b> {tr('in the background')}{:else}<Icon name="running" />{tr('Background')}{#if last}<span class="st {last.state}">{BG_STATE[last.state]}</span>{/if}{/if}
+          {#if bgRunning.length}<span class="dot info pulse"></span><b>{bgRunning.length}</b> {tr('in the background')}{:else}<Icon name="running" />{tr('Background')}{#if last}<span class="pill st {BG_TONE[last.state]}">{BG_STATE[last.state]}</span>{/if}{/if}
         </button>
       {/if}
       {#if chain}
@@ -591,7 +593,7 @@
       {#if drop === 'plan'}
         <div class="dh"><b>{tr('Plan')}</b><span>{tr('{done} of {total} done', { done: planDone, total: plan.length })}</span></div>
         <ul class="steps">
-          {#each plan as p, i (i)}<li class={p.status}><span class="ck">{p.status === 'completed' ? '✓' : p.status === 'in_progress' ? '▸' : '○'}</span>{p.text}</li>{/each}
+          {#each plan as p, i (i)}<li class={p.status}><span class="ck"><Icon name={p.status === 'completed' ? 'check' : p.status === 'in_progress' ? 'running' : 'pending'} size={11} /></span>{p.text}</li>{/each}
         </ul>
       {:else if drop === 'bg'}
         <div class="dh"><b>{tr('Background')}</b><span>{bgRunning.length ? tr('{n} running', { n: bgRunning.length }) : tr('none running')}</span></div>
@@ -603,7 +605,7 @@
                 <span class="w" title={b.what ?? ''}>{b.what ?? BG_LABEL[b.kind]}</span>
                 {#if b.kind === 'monitor' && b.events}<span class="meta">{tn(b.events, '{n} event', '{n} events')}</span>{/if}
                 <span class="meta">{ran(b)}</span>
-                <span class="st {b.state}">{#if b.state === 'running'}<span class="dot"></span>{/if}{BG_STATE[b.state]}</span>
+                <span class="pill st {BG_TONE[b.state]}">{#if b.state === 'running'}<span class="dot info pulse"></span>{/if}{BG_STATE[b.state]}</span>
               </span>
               {#if b.summary}<span class="sum">{b.summary}</span>{/if}
             </li>
@@ -625,7 +627,7 @@
                 <span class="chips">
                   {#each s.files.slice(0, 4) as f (f.path)}<i>{base(f.path)} <em class="add">+{f.added}</em> <em class="del">−{f.removed}</em></i>{/each}
                   {#if s.files.length > 4}<i>{tr('+{n} files', { n: s.files.length - 4 })}</i>{/if}
-                  {#if s.commands}<i class:ko={s.failed > 0}>{tn(s.commands, '{n} command', '{n} commands')}{#if s.failed}{` · ${s.failed} ✗`}{/if}</i>{/if}
+                  {#if s.commands}<i class:ko={s.failed > 0}>{tn(s.commands, '{n} command', '{n} commands')}{#if s.failed}{` · ${s.failed} `}<Icon name="fail" size={10} />{/if}</i>{/if}
                 </span>
               {/if}
               {#if s.last}<span class="sum">{s.last}</span>{/if}
@@ -640,7 +642,7 @@
   <!-- On the computer, its text size (`[agents] chat_font_size`, 13.5 the base): the conversation scaled. -->
   <div class="pane" bind:this={pane} {onscroll} style:zoom={wide && chatFontSize() !== 13.5 ? chatFontSize() / 13.5 : undefined}>
     {#if convo === undefined && !error}
-      <p class="muted">…</p>
+      <State kind="loading" lines={4} />
     {:else if convo === null}
       {#if agent?.legs?.length}<ChatLegs {agent} />{/if}
       <p class="muted">{tr('No conversation to read yet: its CLI keeps none, or it has not started. The Terminal tab shows it.')}</p>
@@ -675,8 +677,8 @@
                 <div class="work" class:live={isLive} class:open={shown.length > 0}>
                   <button class="wh" onclick={() => toggle(gk)} aria-expanded={!!open[gk]} title={open[gk] ? tr('Fold its steps') : tr('Show each of its steps')}>
                     <b>{tn(c.steps, '{n} step', '{n} steps')}</b>
-                    <span class="bits">{c.text}{#if c.added || c.removed}{' '}<i class="add">+{c.added}</i> <i class="del">−{c.removed}</i>{/if}{#if c.failed}{' '}<i class="ko">{c.failed} ✗</i>{/if}</span>
-                    {#if isLive}<span class="dot"></span>{/if}
+                    <span class="bits">{c.text}{#if c.added || c.removed}{' '}<i class="add">+{c.added}</i> <i class="del">−{c.removed}</i>{/if}{#if c.failed}{' '}<i class="ko">{c.failed} <Icon name="fail" size={10} /></i>{/if}</span>
+                    {#if isLive}<span class="dot warn pulse"></span>{/if}
                     <Icon name={open[gk] ? 'up' : 'down'} />
                   </button>
                   {#if shown.length}
@@ -701,19 +703,19 @@
       {/each}
       {#if pending}{@render prompt('me pending', pending)}{/if}
     {/if}
-    {#if error}<p class="error">{error}</p>{/if}
+    {#if error}<p class="err">{error}</p>{/if}
   </div>
   {#if !atBottom}<button class="down" onclick={toBottom} aria-label={tr('To the latest')}><Icon name="down" /></button>{/if}
   {#if working && convo !== undefined}
     <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events : the terminal's lines also have the Terminal tab -->
     <div class="status" class:peekable={tail.length > 0} onclick={(e) => tail.length && !(e.target as HTMLElement).closest('button') && (peek = !peek)}>
-      <span class="dot"></span>
+      <span class="dot warn pulse"></span>
       <b>{live?.verb ?? tr('Working…')}</b>
       {#if live?.detail.length}<span class="meta">{live.detail.join(' · ')}</span>{/if}
       {#if convo?.model}<span class="meta" title={tr('The model answering')}>{modelName(convo.model)}</span>{/if}
       <span class="act">{#if running}<b>{running.tool}</b> <bdi>{running.what ?? ''}</bdi>{/if}</span>
       {#if tail.length}<span class="meta" aria-hidden="true">{peek ? '▾' : '▴'}</span>{/if}
-      {#if acts}<button class="esc" onclick={stop} disabled={stopping} title={tr('Interrupt its turn: the agent stays, its prompt waits for you (Esc)')}><Icon name="pause" size={11} />{tr('Interrupt')}<kbd>Esc</kbd></button>{/if}
+      {#if acts}<button class="btn sm esc" class:busy={stopping} onclick={stop} disabled={stopping} title={tr('Interrupt its turn: the agent stays, its prompt waits for you (Esc)')}>{#if stopping}<span class="spinner"></span>{tr('Interrupting…')}{:else}<Icon name="pause" size={11} />{tr('Interrupt')}<kbd>Esc</kbd>{/if}</button>{/if}
     </div>
     {#if peek && tail.length}
       <button class="live" onclick={onterminal} title={tr('The terminal: its menus')}>
@@ -742,8 +744,8 @@
   .card em { font-style: normal; }
   .card .add { color: var(--ok); } .card .del { color: var(--ko); }
   .card .sum { font-size: var(--fs-title); color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .muted, .error { margin: 12px 4px; font-size: var(--fs-title); color: var(--text-muted); }
-  .error { color: var(--ko); }
+  .muted, .pane > .err { margin: 12px 4px; font-size: var(--fs-title); color: var(--text-muted); }
+  .pane > .err { color: var(--ko); }
   .earlier { align-self: center; margin: 0; font-size: var(--fs-body); }
   .me { align-self: flex-end; max-width: 85%; background: var(--accent); color: var(--on-accent); padding: 7px 12px; border-radius: var(--r14) var(--r14) var(--r4) var(--r14); font-size: var(--fs-head); line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
   .me.pending { opacity: 0.6; }
@@ -793,8 +795,7 @@
   .subagent .sh .n { flex: none; font-size: var(--fs-body); }
   .subagent .sh .dur { flex: none; font: 11px ui-monospace, 'SF Mono', Menlo, monospace; }
   .subagent .sh .st { flex: none; font-weight: 700; }
-  .subagent .sh .st.running { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); font-weight: 500; padding: 0 7px; border-radius: var(--r7); }
-  .subagent .sh .st.running .dot { width: 6px; height: 6px; background: var(--info); }
+  .subagent .sh .st.running { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); font-weight: 500; }
   .subagent .sub { margin: 0 10px 6px 18px; }
   .subagent .said1 { padding: 0 10px 7px 31px; font-size: var(--fs-body); font-style: italic; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sub { margin: -4px 0 0 18px; padding: 4px 10px 6px; border-left: 1px dashed var(--border); font-size: var(--fs-body); color: var(--text-muted); display: flex; flex-direction: column; gap: 1px; }
@@ -822,13 +823,8 @@
   .rc :global(svg) { flex: none; }
   .rc .prog { flex: none; width: 36px; height: 4px; border-radius: var(--r2); background: var(--surface-muted); overflow: hidden; }
   .rc .prog i { display: block; height: 100%; background: var(--ok); transition: width 0.4s; }
-  .bgd { width: 6px; height: 6px; border-radius: 50%; background: var(--info); animation: pulse 1.2s infinite; }
   .grow { flex: 1; }
-  .rc .st, .tasks .st { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); padding: 0 7px; border-radius: var(--r7); background: var(--surface-muted); color: var(--text-muted); }
-  .st.running { background: var(--info-bg); color: var(--info); }
-  .st.completed { background: var(--ok-bg); color: var(--ok); }
-  .st.failed { background: color-mix(in srgb, var(--ko) 14%, transparent); color: var(--ko); }
-  .tasks .st .dot { width: 6px; height: 6px; background: var(--info); }
+  .rc .st, .tasks .st { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); }
   /* A chip's popover (a sheet on a phone), over the conversation: a click aside or Esc closes it. */
   .scrim { position: absolute; inset: 0; z-index: 4; border: none; padding: 0; background: transparent; cursor: default; }
   .drop { position: absolute; z-index: 5; top: 34px; left: max(12px, calc((100% - 820px) / 2)); width: 380px; max-width: calc(100% - 24px); max-height: 60%; display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding: 9px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); font-size: var(--fs-title); }
@@ -875,16 +871,12 @@
   .status .act { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-body); }
   .status .act b { color: var(--text); font-weight: 600; }
   /* A button, not a key hint: framed, a pointer, warned on hover; its key beside its word. */
-  .status .esc { flex: none; display: inline-flex; align-items: center; gap: 5px; border: 1px solid color-mix(in srgb, var(--text-muted) 55%, transparent); background: var(--surface-muted); color: var(--text); border-radius: var(--r6); padding: 2px 8px; font: inherit; font-size: var(--fs-meta); font-weight: 500; cursor: pointer; box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent); }
   .status .esc:hover:not(:disabled) { border-color: var(--warn); color: var(--warn); }
-  .status .esc:disabled { opacity: 0.5; cursor: default; }
   .status .esc kbd { padding: 0 4px; border-radius: var(--r3); background: var(--surface-muted); color: var(--text-muted); font: 10px ui-monospace, 'SF Mono', Menlo, monospace; }
   /* No Esc key on a phone. */
   :global(html.remote) .status .esc kbd { display: none; }
   .chat:not(.wide) .status { flex-wrap: wrap; row-gap: 2px; }
   .chat:not(.wide) .status .act { flex-basis: 100%; order: 9; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); animation: pulse 1.2s infinite; }
-  @keyframes pulse { 50% { opacity: 0.3; } }
   .down { position: absolute; right: 14px; bottom: 96px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--info); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); display: grid; place-items: center; }
   .live { display: block; width: 100%; text-align: left; border: none; border-top: 1px solid var(--border); background: var(--chat-code); color: var(--text); padding: 5px 10px 7px; font: 11px/1.4 ui-monospace, 'SF Mono', Menlo, monospace; }
   .live .lbl { display: flex; justify-content: space-between; align-items: center; font: 600 10px var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }

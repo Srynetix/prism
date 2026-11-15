@@ -6,6 +6,9 @@
   import AgentLegs from './AgentLegs.svelte'
   import { pollsShown } from '../polls.svelte'
   import { t, tn, tc } from '../i18n.svelte'
+  import Icon from './Icon.svelte'
+  import State from './ui/State.svelte'
+  import type { IconName } from '../icons'
 
   /**
    * The Activity tab: what the agent did, from its hook log (metadata only: tool, file, command,
@@ -83,7 +86,7 @@
   }
   const allFolded = $derived(turns.length > 0 && turns.every((tu) => folded.has(tu.key)))
   const foldAll = () => (folded = allFolded ? new Set() : new Set(turns.map((tu) => tu.key)))
-  const ICON: Record<string, string> = { read: '👁', write: '✎', command: '▶', web: '🌐', agent: '✳', other: '·', wait: '⏸', prompt: '›', stop: '■' }
+  const ICON: Record<string, IconName> = { read: 'show', write: 'edit', command: 'play', web: 'web', agent: 'subtask', other: 'none', wait: 'pause', prompt: 'send', stop: 'stop' }
   const clock = (t: number) => new Date(t).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
   const dur = (ms: number) => (ms < 1000 ? `${ms} ms` : ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.floor(ms / 60_000)}m${String(Math.round((ms % 60_000) / 1000)).padStart(2, '0')}`)
   const mins = (ms: number) => (ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}m`)
@@ -107,15 +110,15 @@
 
 <div class="act">
   <AgentLegs {agent} />
-  {#if error}<p class="empty">{error}</p>
-  {:else if !act}<p class="empty">{t('Reading its log…')}</p>
-  {:else if !act.items.length}<p class="empty">{t('Nothing yet: its activity shows here as it works.')}</p>
+  {#if error}<State kind="error" title={error} retry={load} />
+  {:else if !act}<State kind="loading" title={t('Reading its log…')} />
+  {:else if !act.items.length}<State kind="empty" title={t('Nothing yet: its activity shows here as it works.')} />
   {:else}
     <div class="sum">
-      <span><b>{act.summary.read}</b> {tn(act.summary.read, 'file read', 'files read')}</span>
-      <span><b>{act.summary.written}</b> {act.summary.written < 2 ? t('written') : tc('plural', 'written')}</span>
-      <span><b>{act.summary.commands}</b> {tn(act.summary.commands, 'command', 'commands')}{#if act.summary.failed}{' '}· <span class="ko">{t('{n} failed', { n: act.summary.failed })}</span>{/if}</span>
-      {#if act.summary.waits}<span><b>{act.summary.waits}</b> {tn(act.summary.waits, 'wait', 'waits')} · {mins(act.summary.waited_ms)}</span>{/if}
+      <span class="pill"><b>{act.summary.read}</b> {tn(act.summary.read, 'file read', 'files read')}</span>
+      <span class="pill"><b>{act.summary.written}</b> {act.summary.written < 2 ? t('written') : tc('plural', 'written')}</span>
+      <span class="pill"><b>{act.summary.commands}</b> {tn(act.summary.commands, 'command', 'commands')}{#if act.summary.failed}{' '}· <span class="ko">{t('{n} failed', { n: act.summary.failed })}</span>{/if}</span>
+      {#if act.summary.waits}<span class="pill"><b>{act.summary.waits}</b> {tn(act.summary.waits, 'wait', 'waits')} · {mins(act.summary.waited_ms)}</span>{/if}
     </div>
     {#if span}
       <div class="strip" title={t('Reading · writing · commands · web · subagents · waiting for you')}>
@@ -127,16 +130,17 @@
       <div class="stuck">
         <b>{t('Going in circles?')}</b> <code>{agent.looping.command}</code> {t('failed {n} times in a row, nothing written in between.', { n: agent.looping.count })}
         <div class="row">
-          <button onclick={() => interruptAgent(agent.id)}>{t('Interrupt')}</button>
-          {#if isDesktop()}<button class="primary" onclick={note} disabled={noted} title={t('Typed in its prompt, not sent: complete it, then Enter')}>{noted ? t('Note typed in its prompt') : t('Note: step back, explain the failure')}</button>{/if}
+          <button class="btn sm" onclick={() => interruptAgent(agent.id)}>{t('Interrupt')}</button>
+          {#if isDesktop()}<button class="btn sm claude" onclick={note} disabled={noted} title={t('Typed in its prompt, not sent: complete it, then Enter')}>{noted ? t('Note typed in its prompt') : t('Note: step back, explain the failure')}</button>{/if}
         </div>
       </div>
     {/if}
-    <div class="filters" role="radiogroup" aria-label={t('Show')}>
+    <div class="filters"><div class="seg" role="radiogroup" aria-label={t('Show')}>
       {#each [['all', t('All')], ['files', t('Files')], ['commands', t('Commands')], ['waits', t('Waits & turns')]] as const as [f, name] (f)}
         <button role="radio" aria-checked={filter === f} class:on={filter === f} onclick={() => (filter = f)}>{name}</button>
       {/each}
-      {#if turns.length > 1}<button class="fold" onclick={foldAll}>{allFolded ? t('Expand all') : t('Collapse all')}</button>{/if}
+      </div>
+      {#if turns.length > 1}<button class="btn sm ghost fold" onclick={foldAll}>{allFolded ? t('Expand all') : t('Collapse all')}</button>{/if}
     </div>
     <div class="items">
       {#each turns as turn (turn.key)}
@@ -154,7 +158,7 @@
           {#each turn.shown as i, n (n)}
             <div class="it k-{i.kind}" class:failed={i.failed} class:wait={i.kind === 'wait'} title={i.path ?? i.what ?? ''}>
               <span class="t">{clock(i.t)}</span>
-              <span class="ic" aria-hidden="true">{ICON[i.kind]}</span>
+              <span class="ic" aria-hidden="true"><Icon name={ICON[i.kind]} size={10} /></span>
               <span class="w">{#if i.kind === 'command' || i.kind === 'read' || i.kind === 'write'}<code>{label(i)}</code>{:else}{label(i)}{/if}</span>
               <span class="x">{#if i.failed}<span class="ko">{t('failed')} · </span>{/if}{#if i.ms === null}<span class="run">{i.kind === 'wait' ? t('waiting for you') : t('running…')}</span>{:else if i.ms > 0}{i.kind === 'wait' ? t('you, {time} later', { time: dur(i.ms) }) : dur(i.ms)}{/if}</span>
             </div>
@@ -175,9 +179,7 @@
 
 <style>
   .act { flex: 1; min-height: 0; display: flex; flex-direction: column; font-size: var(--fs-meta); }
-  .empty { margin: 0; padding: 14px; color: var(--text-muted); }
   .sum { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  .sum > span { padding: 1px 7px; border-radius: var(--r5); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); }
   .sum b { color: var(--text); }
   .ko { color: var(--ko); }
   .strip { position: relative; height: 10px; margin: 8px 10px 2px; border-radius: var(--r3); background: var(--surface-muted); overflow: hidden; }
@@ -195,14 +197,8 @@
   .stuck b { color: var(--warn); }
   .stuck code { font-family: var(--mono); font-size: var(--fs-tag); }
   .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-  .row button, .filters button { padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
-  .row button.primary { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); color: var(--src-claude); }
-  .row button:disabled { opacity: 0.6; cursor: default; }
-  .filters { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 10px 4px; }
-  .filters button { border-radius: var(--r9); color: var(--text-muted); }
-  .filters button.on { border-color: var(--src-claude); color: var(--text); }
-  .filters .fold { margin-left: auto; border-color: transparent; background: none; }
-  .filters .fold:hover { color: var(--text); }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 10px 4px; }
+  .filters .fold { margin-left: auto; }
   .items { flex: 1; min-height: 0; overflow: auto; padding-bottom: 6px; }
   .it { display: grid; grid-template-columns: max-content 16px minmax(0, 1fr) auto; gap: 0 6px; align-items: baseline; padding: 2px 10px; }
   .it:hover, .turn:hover { background: var(--surface-muted); }

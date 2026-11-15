@@ -31,8 +31,8 @@
       <b>{t('{cli} limit reached', { cli: nameOf(a) })}{#if full}, {resets(full)}{/if}</b>
       {#if to}<small>{targetUse(to) !== null ? t('{cli} is at {pct} % of its plan.', { cli: targetName(to), pct: Math.round(targetUse(to)!) }) : t('{cli} can take it on meanwhile.', { cli: targetName(to) })}{#if to.provider === a.provider}{' '}{t('Its conversation goes with it.')}{/if}</small>{/if}
     </div>
-    {#if to}<button class="primary" onclick={() => openSwitch(a, to, 'limit')}>{t('Continue with {cli}…', { cli: targetName(to) })}</button>{/if}
-    {#if full?.resets_at}<button class="quiet" onclick={() => setPref(key, full!.resets_at)} title={t('Hide this until its plan resets')}>{t('Wait')}</button>{/if}
+    {#if to}<button class="btn sm primary" onclick={() => openSwitch(a, to, 'limit')}>{t('Continue with {cli}…', { cli: targetName(to) })}</button>{/if}
+    {#if full?.resets_at}<button class="btn sm ghost" onclick={() => setPref(key, full!.resets_at)} title={t('Hide this until its plan resets')}>{t('Wait')}</button>{/if}
   </div>
 {/if}
 
@@ -40,7 +40,4 @@
   .banner { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--ko) 9%, var(--surface)); }
   .what { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: var(--fs-meta); }
   .what small { color: var(--text-muted); }
-  button { padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  button.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
-  button.quiet { background: none; }
 </style>

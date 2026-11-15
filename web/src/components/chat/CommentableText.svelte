@@ -112,7 +112,7 @@
   <div class="box">
     <textarea bind:this={bodyField} bind:value={body} use:focus onkeydown={onkeydown} rows="2" writingsuggestions="false" placeholder={several ? t('Your comment on these {n} passages…', { n: range![1] - range![0] + 1 }) : t('Your comment on this passage…')}></textarea>
     <DictationBar key="comment:{id}:{target}" />
-    <div class="row"><DictateButton key="comment:{id}:{target}" field={() => bodyField} text={() => body} write={(v) => (body = v)} hints={() => filesOfAgent(id)} size={13} /><small>{editing ? t('Enter adds · ⇧Enter a line · Esc cancels') : t('Enter adds · ⇧Enter a line · Esc cancels · ⇧-click another + for several passages')}</small><span class="grow"></span><button class="b" onclick={cancel}>{t('Cancel')}</button><button class="b primary" onclick={save} disabled={!body.trim()}>{editing ? t('Save') : t('Add')}</button></div>
+    <div class="row"><DictateButton key="comment:{id}:{target}" field={() => bodyField} text={() => body} write={(v) => (body = v)} hints={() => filesOfAgent(id)} size={13} /><small>{editing ? t('Enter adds · ⇧Enter a line · Esc cancels') : t('Enter adds · ⇧Enter a line · Esc cancels · ⇧-click another + for several passages')}</small><span class="grow"></span><button class="btn sm" onclick={cancel}>{t('Cancel')}</button><button class="btn sm primary" onclick={save} disabled={!body.trim()}>{editing ? t('Save') : t('Add')}</button></div>
   </div>
 {/snippet}
 
@@ -125,8 +125,8 @@
       <span class="body">{c.body}</span>
       {#if c.status === 'sent'}<small class="st">sent</small>{/if}
       {#if editable && c.status === 'draft'}
-        <button class="ic" onclick={() => edit(c)} title={t('Edit')}><Icon name="edit" size={11} /></button>
-        <button class="ic" onclick={() => removeComment(id, target, c.id)} title={t('Remove')}><Icon name="close" size={11} /></button>
+        <button class="btn sm icon ghost ic" onclick={() => edit(c)} title={t('Edit')}><Icon name="edit" size={11} /></button>
+        <button class="btn sm icon ghost ic" onclick={() => removeComment(id, target, c.id)} title={t('Remove')}><Icon name="close" size={11} /></button>
       {/if}
     </div>
   {/if}
@@ -176,16 +176,12 @@
   .cmt .n { flex: none; min-width: 16px; height: 16px; border-radius: var(--r8); background: var(--warn); color: var(--surface); font: 700 10px/16px var(--sans, inherit); text-align: center; }
   .cmt .body { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .cmt .st { flex: none; color: var(--text-muted); }
-  .ic { flex: none; display: grid; place-items: center; width: 20px; height: 18px; padding: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .ic:hover { color: var(--text); }
+  .ic { height: 18px; }
   .box { display: flex; flex-direction: column; gap: 5px; margin: 2px 0 6px; padding: 6px 8px; border: 1px solid var(--warn); border-radius: var(--r8); background: var(--surface); }
   .box textarea { width: 100%; resize: vertical; min-height: 40px; border: 1px solid var(--border); border-radius: var(--r6); padding: 5px 7px; background: var(--bg, var(--surface-muted)); color: var(--text); font: inherit; font-size: var(--fs-title); }
   .row { display: flex; align-items: center; gap: 6px; }
   .row small { color: var(--text-muted); font-size: var(--fs-meta); }
   .grow { flex: 1; }
-  .b { height: 24px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .b.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-  .b:disabled { opacity: 0.5; cursor: default; }
   .astray { margin-top: 6px; display: flex; flex-direction: column; }
   .astray small { color: var(--text-muted); font-size: var(--fs-meta); }
   :global(html.remote) .box textarea { font-size: var(--fs-head); }

@@ -5,6 +5,7 @@
   import { ago } from '../time'
   import type { AgentArtifact, AgentPage } from '../agents.svelte'
   import { t, tc } from '../i18n.svelte'
+  import State from './ui/State.svelte'
 
   /**
    * The Web tab's picker: what it can show, from the agent's folder (its pages, documents and
@@ -140,8 +141,8 @@
 <div class="picker" bind:this={box} role="dialog" aria-label={t('Open a page')}>
   <div class="top">
     <span class="seg" role="tablist">
-      <button role="tab" class:on={source === 'folder'} aria-selected={source === 'folder'} onclick={() => setSource('folder')} title={t('Pages, documents and images of the agent’s folder')}>{t('Folder')} <b>{pages?.length ?? '…'}</b></button>
-      <button role="tab" class:on={source === 'scratchpad'} aria-selected={source === 'scratchpad'} onclick={() => setSource('scratchpad')} title={t('Pages {cli} wrote in the scratchpad of this session (its artifacts)', { cli })}>{t('Artifacts')} <b>{artifacts?.length ?? '…'}</b></button>
+      <button role="tab" class:on={source === 'folder'} aria-selected={source === 'folder'} onclick={() => setSource('folder')} title={t('Pages, documents and images of the agent’s folder')}>{t('Folder')} {#if pages}<span class="n">{pages.length}</span>{:else}<span class="spinner"></span>{/if}</button>
+      <button role="tab" class:on={source === 'scratchpad'} aria-selected={source === 'scratchpad'} onclick={() => setSource('scratchpad')} title={t('Pages {cli} wrote in the scratchpad of this session (its artifacts)', { cli })}>{t('Artifacts')} {#if artifacts}<span class="n">{artifacts.length}</span>{:else}<span class="spinner"></span>{/if}</button>
     </span>
     <!-- svelte-ignore a11y_autofocus -->
     <input bind:value={query} use:focus {onkeydown} placeholder={source === 'folder' ? t('Search the folder…') : t('Search the artifacts…')} spellcheck="false" aria-label={t('Search')} />
@@ -160,10 +161,14 @@
         {/if}
       </button>
     {:else}
-      <p class="none">
-        {#if source === 'folder'}{pages === null ? t('Reading the folder…') : terms.length ? t('No file matches.') : t('No page, document or image in this folder.')}
-        {:else}{artifacts === null ? t('Reading the scratchpad…') : terms.length ? t('No artifact matches.') : t('No artifact yet: {cli} writes them in the scratchpad of its session.', { cli })}{/if}
-      </p>
+      {#if (source === 'folder' ? pages : artifacts) === null}
+        <State kind="loading" title={source === 'folder' ? t('Reading the folder…') : t('Reading the scratchpad…')} />
+      {:else}
+        <p class="empty">
+          {#if source === 'folder'}{terms.length ? t('No file matches.') : t('No page, document or image in this folder.')}
+          {:else}{terms.length ? t('No artifact matches.') : t('No artifact yet: {cli} writes them in the scratchpad of its session.', { cli })}{/if}
+        </p>
+      {/if}
     {/each}
   </div>
   <div class="foot">
@@ -177,11 +182,6 @@
   .top { display: flex; align-items: center; gap: 6px; padding: 7px; border-bottom: 1px solid var(--border); }
   .top input { flex: 1; min-width: 0; height: 26px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); outline: none; }
   .top input:focus { border-color: var(--src-claude); }
-  .seg { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button.on { background: color-mix(in srgb, var(--src-claude) 14%, var(--surface)); color: var(--src-claude); font-weight: 600; }
-  .seg b { font-weight: 500; opacity: 0.8; }
   .list { flex: 1; min-height: 0; overflow: auto; padding: 4px; }
   .row { display: flex; align-items: center; gap: 6px; width: 100%; height: 24px; padding-right: 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: var(--fs-meta) var(--mono); text-align: left; cursor: pointer; }
   .row.on { background: color-mix(in srgb, var(--src-claude) 14%, transparent); }
@@ -191,7 +191,7 @@
   .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dirname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); direction: rtl; text-align: left; }
   .when { margin-left: auto; flex-shrink: 0; color: var(--text-muted); font-family: var(--sans); }
-  .none { margin: 0; padding: 12px; color: var(--text-muted); font-size: var(--fs-meta); }
+  .list > .empty { margin: 0; padding: 12px; font-size: var(--fs-meta); }
   .row.ign .name { opacity: 0.6; }
   .ign-check { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
   .ign-check input { margin: 0; --tick: var(--src-claude); }

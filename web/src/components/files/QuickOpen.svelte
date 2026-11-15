@@ -124,7 +124,7 @@
         {/if}
       </button>
     {:else}
-      <p class="none">{asked.kind === 'symbol' ? (active ? t('No symbol found in this file.') : t('Open a file first.')) : asked.kind === 'line' ? t('Open a file first.') : t('No file matches.')}</p>
+      <p class="empty">{asked.kind === 'symbol' ? (active ? t('No symbol found in this file.') : t('Open a file first.')) : asked.kind === 'line' ? t('Open a file first.') : t('No file matches.')}</p>
     {/each}
   </div>
   <div class="foot"><span>↑↓ {t('move')}</span><span>↵ {t('open')}</span><span>⌘↵ {t('beside')}</span><span>⇧↵ {t('to the prompt')}</span><span class="grow"></span><span>:{t('line')} · @{t('symbol')} · #{t('text')}</span></div>
@@ -146,7 +146,7 @@
   .sM, .sR { color: var(--warn); }
   .sA, .su { color: var(--ok); }
   .sD { color: var(--ko); }
-  .none { margin: 0; padding: 10px 12px; color: var(--text-muted); }
+  .list > .empty { margin: 0; padding: 10px 12px; font-size: inherit; }
   .foot { display: flex; gap: 12px; padding: 5px 12px; border-top: 1px solid var(--border); background: var(--surface-muted); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; }
   .grow { flex: 1; }
   :global(html.remote) input { font-size: var(--fs-head); }

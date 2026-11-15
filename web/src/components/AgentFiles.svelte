@@ -12,7 +12,7 @@
   import { paletteKey, paletteOn } from '../palette.svelte'
   import { matches } from '../shortcut'
   import { pref, setPref } from '../layout.svelte'
-  import { toast } from '../toast.svelte'
+  import { toast, toastInfo } from '../toast.svelte'
   import { t, tn } from '../i18n.svelte'
   import type { Agent } from '../types'
 
@@ -185,7 +185,7 @@
   const closer = armer()
   function close(path: string) {
     // Not saved: a second click closes it all the same.
-    if (metaOf(agent.id, path)?.dirty && !closer.confirm(path)) return toast(t('Not saved: click again to close it all the same'), 2500)
+    if (metaOf(agent.id, path)?.dirty && !closer.confirm(path)) return toastInfo(t('Not saved: click again to close it all the same'), 2500)
     closeTab(agent.id, path)
   }
   /** The pane the keyboard is in: the second one opens beside the first. */
@@ -276,7 +276,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="files" class:wide bind:clientWidth={width} onkeydown={onFilesKey}>
 <div class="nav" style:height={wide ? null : `${treeH}px`} style:width={wide ? `${treeW}px` : null}>
-<div class="seg">
+<div class="seg navseg">
   <button class:on={navTab === 'files'} onclick={() => setNav('files')}>{t('Files')}</button>
   <button class:on={navTab === 'search'} onclick={() => setNav('search')} title={t('Search in every file (⌘⇧F)')}>{t('Search')}</button>
   <button onclick={() => (quickOpen = true)} title={t('Open a file by its name (⌘P)')}><Icon name="search" size={11} />⌘P</button>
@@ -286,11 +286,11 @@
 {:else}
 <div class="bar">
   <input bind:value={query} placeholder={t('Filter files')} spellcheck="false" />
-  <button class:on={changedOnly} onclick={() => setChanged(!changedOnly)} title={t('Only the files git sees as changed')}>{t('Changed')} {changed}</button>
-  <button class:on={withIgnored} onclick={() => setIgnored(!withIgnored)} title={t('Also the files .gitignore leaves out (.env, builds…), dimmed; dependencies and caches (node_modules, target…) never listed')}>{t('Ignored')}</button>
-  <button onclick={downloadListed} disabled={downloading || (!selectedDir && !filtered.length)} title={zipTitle}><Icon name="download" spin={downloading} /></button>
-  <button onclick={() => { toggled = {}; setPref('agents.side.tree', { ...pref<Record<string, Record<string, boolean>>>('agents.side.tree', {}), [agent.id]: {} }) }} title={t('Back to the default: only the folders holding changes open')}><Icon name="chevronDown" /></button>
-  <button onclick={load} title={t('Read the folder again')}><Icon name="refresh" /></button>
+  <button class="btn sm" class:on={changedOnly} onclick={() => setChanged(!changedOnly)} title={t('Only the files git sees as changed')}>{t('Changed')} {changed}</button>
+  <button class="btn sm" class:on={withIgnored} onclick={() => setIgnored(!withIgnored)} title={t('Also the files .gitignore leaves out (.env, builds…), dimmed; dependencies and caches (node_modules, target…) never listed')}>{t('Ignored')}</button>
+  <button class="btn sm icon" onclick={downloadListed} disabled={downloading || (!selectedDir && !filtered.length)} title={zipTitle}><Icon name="download" spin={downloading} /></button>
+  <button class="btn sm icon" onclick={() => { toggled = {}; setPref('agents.side.tree', { ...pref<Record<string, Record<string, boolean>>>('agents.side.tree', {}), [agent.id]: {} }) }} title={t('Back to the default: only the folders holding changes open')}><Icon name="chevronDown" /></button>
+  <button class="btn sm icon" onclick={load} title={t('Read the folder again')}><Icon name="refresh" /></button>
 </div>
 {#if error}<p class="err">{error}</p>{/if}
 <!-- svelte-ignore a11y_no_noninteractive_tabindex : the tree takes the arrow keys -->
@@ -319,9 +319,9 @@
       {#if r.status}<span class="s s{r.status === '?' ? 'u' : r.status}">{r.status}</span>{/if}
     </button>
   {:else}
-    {#if files}<p class="muted empty">{filtering ? t('No file matches.') : t('No file.')}</p>{/if}
+    {#if files}<p class="empty">{filtering ? t('No file matches.') : t('No file.')}</p>{/if}
   {/each}
-  {#if rows.length >= SHOWN || truncated}<p class="muted empty">{truncated ? t('List cut (folder too large): filter to narrow.') : t('List cut: filter to narrow.')}</p>{/if}
+  {#if rows.length >= SHOWN || truncated}<p class="empty">{truncated ? t('List cut (folder too large): filter to narrow.') : t('List cut: filter to narrow.')}</p>{/if}
 </div>
 {/if}
 </div>
@@ -340,12 +340,12 @@
           onauxclick={(e) => e.button === 1 && close(tab.path)}>
           <span class="nm">{tab.path.slice(tab.path.lastIndexOf('/') + 1)}</span>
           {#if st}<span class="s s{st === '?' ? 'u' : st}">{st}</span>{/if}
-          {#if m?.dirty}<span class="dot" class:armed={closer.is(tab.path)} title={t('Not saved')}></span>{/if}
-          <button class="x" class:armed={closer.is(tab.path)} onclick={(e) => { e.stopPropagation(); close(tab.path) }} title={t('Close')}><Icon name="close" size={10} /></button>
+          {#if m?.dirty}<span class="dot" class:ko={closer.is(tab.path)} title={t('Not saved')}></span>{/if}
+          <button class="btn sm icon ghost x" class:armed={closer.is(tab.path)} onclick={(e) => { e.stopPropagation(); close(tab.path) }} title={t('Close')}><Icon name="close" size={10} /></button>
         </div>
       {/each}
       <span class="grow"></span>
-      {#if wide && tabs.active}<button class="tb" class:on={!!tabs.split} onclick={() => setSplit(agent.id, tabs.split ? null : (tabs.tabs.find((x) => x.path !== tabs.active)?.path ?? null))} disabled={!tabs.split && tabs.tabs.length < 2} title={tabs.split ? t('One file') : t('Two files side by side: ⌘↵ in quick open, or ⌥-click a tab, opens one beside')}><Icon name="split" /></button>{/if}
+      {#if wide && tabs.active}<button class="btn sm icon ghost tb" class:on={!!tabs.split} onclick={() => setSplit(agent.id, tabs.split ? null : (tabs.tabs.find((x) => x.path !== tabs.active)?.path ?? null))} disabled={!tabs.split && tabs.tabs.length < 2} title={tabs.split ? t('One file') : t('Two files side by side: ⌘↵ in quick open, or ⌥-click a tab, opens one beside')}><Icon name="split" /></button>{/if}
     </div>
   {/if}
   {#if tabs.active}
@@ -357,7 +357,7 @@
       {/if}
     </div>
   {:else}
-    <p class="muted empty">{t('Click a file to open it, or ⌘P to find it by its name.')}</p>
+    <p class="empty">{t('Click a file to open it, or ⌘P to find it by its name.')}</p>
   {/if}
 </div>
 </div>
@@ -368,10 +368,8 @@
   .bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   .bar input { flex: 1; min-width: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: var(--fs-meta) var(--mono); outline: none; }
   .bar input:focus { border-color: var(--src-claude); }
-  .bar button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .bar button.on { border-color: var(--src-claude); color: var(--src-claude); }
-  .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
-  .empty { padding: 12px; font-size: var(--fs-meta); }
+  .bar .btn.on { border-color: var(--src-claude); color: var(--src-claude); }
+  .nav > .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); }
   .grow { flex: 1; }
 
   /* Stacked: the tree's part on a muted ground, the file in a card on it. Side by side: the
@@ -399,7 +397,6 @@
   .n .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .n.dir .nm { font-weight: 600; font-family: var(--sans); }
   .n.ign { opacity: 0.55; }
-  .bar button:disabled { opacity: 0.5; cursor: default; }
   .n .cnt { margin-left: auto; color: var(--warn); font-size: var(--fs-tag); font-variant-numeric: tabular-nums; }
   .n .s { margin-left: auto; }
   .n .cnt + .s { margin-left: 4px; }
@@ -410,25 +407,21 @@
 
   .prev { position: relative; flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); overflow: hidden; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06); }
   .wide .prev { border: none; border-radius: 0; box-shadow: none; }
-  .seg { display: flex; gap: 2px; padding: 6px 8px 0; }
-  .seg button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding: 2px 0; border: none; border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .seg button:last-child { flex: 0 0 auto; padding: 2px 6px; font-size: var(--fs-tag); }
-  .seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+  .navseg { display: flex; margin: 6px 8px 0; }
+  .navseg > button { flex: 1; justify-content: center; }
+  .navseg > button:last-child { flex: 0 0 auto; font-size: var(--fs-tag); }
   .n.open .nm { text-decoration: underline dotted color-mix(in srgb, var(--text-muted) 70%, transparent); text-underline-offset: 2px; }
   .ftabs { display: flex; align-items: stretch; flex-shrink: 0; background: var(--surface-muted); border-bottom: 1px solid var(--border); font-size: var(--fs-meta); overflow-x: auto; scrollbar-width: none; }
   .ft { display: flex; align-items: center; gap: 5px; padding: 4px 4px 4px 10px; border-right: 1px solid var(--border); color: var(--text-muted); white-space: nowrap; cursor: pointer; }
   .ft.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: inset 0 2px 0 var(--src-claude); }
   .ft.side { background: var(--surface); color: var(--text); box-shadow: inset 0 2px 0 var(--border); }
   .ft.loose .nm { font-style: italic; }
-  .ft .x { display: inline-flex; padding: 2px; border: none; border-radius: var(--r4); background: none; color: inherit; opacity: 0.5; cursor: pointer; }
-  .ft .x:hover { opacity: 1; background: var(--surface-muted); }
-  .ft .x.armed { opacity: 1; color: var(--ko); }
-  .ft .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text); }
-  .ft .dot.armed { background: var(--ko); }
+  .ft .x { width: 18px; height: 18px; color: inherit; opacity: 0.5; }
+  .ft .x:hover, .ft .x.armed { opacity: 1; }
+  .ft .dot:not(.ko) { --dot-c: var(--text); }
   .ft .s { width: auto; }
-  .tb { display: inline-flex; align-items: center; padding: 0 8px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
+  .tb { align-self: center; margin: 0 4px; }
   .tb.on { color: var(--src-claude); }
-  .tb:disabled { opacity: 0.4; cursor: default; }
   .panes { flex: 1; min-height: 0; display: flex; }
   .panes .sep { flex: 0 0 1px; background: var(--border); }
   /* On the phone: rows a thumb can hit, a filter iOS does not zoom in on. */
