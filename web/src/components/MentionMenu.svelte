@@ -74,12 +74,12 @@
 </script>
 
 {#if open}
-  <div class="people" role="listbox" aria-label={t('People to mention')} bind:this={list}>
+  <div class="people popover" role="listbox" aria-label={t('People to mention')} bind:this={list}>
     {#each matches as p, i (p.key)}
       {@const pic = source.picture(p)}
       {@const thread = source.first.includes(p.key)}
       {#if i > 0 && !thread && source.first.includes(matches[i - 1].key)}<hr />{/if}
-      <button type="button" role="option" aria-selected={i === sel} class:on={i === sel} onmousedown={(e) => e.preventDefault()} onclick={() => pick(p)} onmouseenter={() => (sel = i)}>
+      <button type="button" class="mi" role="option" aria-selected={i === sel} class:on={i === sel} onmousedown={(e) => e.preventDefault()} onclick={() => pick(p)} onmouseenter={() => (sel = i)}>
         <span class="av" class:pic={!!pic} style:--av={p.color}>{#if pic}<img src={pic} alt="" />{:else}{p.initials}{/if}</span>
         <span class="name">{p.name}</span>
         {#if p.handle}<span class="handle">@{p.handle}</span>{/if}
@@ -92,15 +92,14 @@
 {/if}
 
 <style>
-  .people { position: absolute; left: 0; right: 0; bottom: 100%; z-index: var(--z-menu); max-height: 240px; overflow-y: auto; margin-bottom: 4px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
-  button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-title); text-align: left; cursor: pointer; }
-  button.on { background: var(--surface-muted); }
+  /* Above the box it completes, as wide. */
+  .people { position: absolute; left: 0; right: 0; bottom: 100%; max-height: 240px; overflow-y: auto; margin-bottom: 4px; }
+  .people .mi { gap: 8px; padding-block: 3px; font-size: var(--fs-title); }
   .av { flex-shrink: 0; display: inline-grid; place-items: center; width: 20px; height: 20px; overflow: hidden; border-radius: 50%; background: var(--av, var(--text-muted)); color: #fff; font-size: var(--fs-micro); font-weight: 600; }
   .av.pic { background: none; }
   .av img { width: 100%; height: 100%; object-fit: cover; }
   .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .handle { font-family: var(--mono); font-size: var(--fs-body); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .here { margin-left: auto; flex-shrink: 0; font-size: var(--fs-meta); color: var(--text-muted); }
-  hr { margin: 3px 4px; border: none; border-top: 1px solid var(--border); }
   .muted { margin: 0; padding: 3px 8px; color: var(--text-muted); font-size: var(--fs-body); }
 </style>

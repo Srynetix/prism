@@ -44,9 +44,7 @@
 <style>
   .prio { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); }
   .prio.error { color: var(--ko); }
-  .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r7); background: var(--surface-muted); }
-  .seg button { padding: 1px 7px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: 600 var(--fs-tag) var(--mono); cursor: pointer; }
-  .seg button:hover:not(:disabled), .seg button:focus-visible { color: var(--text); outline: none; background: color-mix(in srgb, var(--surface) 60%, transparent); }
-  .seg button.on { background: var(--surface); color: color-mix(in srgb, var(--warn) 70%, var(--text)); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); cursor: default; }
-  .seg button:disabled:not(.on) { cursor: progress; }
+  .prio .seg > button { padding: 0 7px; font: 600 var(--fs-tag) var(--mono); }
+  .prio .seg > button.on { color: color-mix(in srgb, var(--warn) 70%, var(--text)); cursor: default; }
+  .prio .seg > button:disabled:not(.on) { cursor: progress; }
 </style>

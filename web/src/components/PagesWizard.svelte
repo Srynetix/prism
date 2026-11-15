@@ -20,6 +20,7 @@
   import type { AgentProvider } from '../types'
   import { keys } from '../platform'
   import { t, tn, tc } from '../i18n.svelte'
+  import Modal from './ui/Modal.svelte'
 
   /**
    * Pages wizard, in five steps: Forge → Agents → Repositories → Tickets → Your page. Each starts
@@ -254,17 +255,11 @@
 
 {#snippet verdict(text: string, ok: boolean)}<span class={ok ? 'ok' : 'no'}>{#if ok}<i class="led"></i>{/if}{text}</span>{/snippet}
 
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="scrim" onclick={(e) => e.target === e.currentTarget && closeWizard()}>
-  <div class="sheet" role="dialog" aria-label={t('Set up your pages')}>
-    <header>
-      <div>
-        <b>{t('Set up your pages')}</b>
-        <p>{t('Prism starts from what this machine already has. Every step can be skipped; Settings changes everything afterwards.')}</p>
-      </div>
-      {#if detecting}<span class="muted small">{t('Looking at this machine…')}</span>{:else if found}<button class="ghost" onclick={() => detect(false)} title={t('Look again: after signing in, installing a CLI…')}><Icon name="retry" />{t('Check again')}</button>{/if}
-      <button class="x" onclick={closeWizard} aria-label={t('Close')}><Icon name="close" /></button>
-    </header>
+<Modal open key="pages-wizard" label={t('Set up your pages')} title={t('Set up your pages')} width={860} onclose={closeWizard}>
+    {#snippet head()}
+      {#if detecting}<span class="muted small">{t('Looking at this machine…')}</span>{:else if found}<button class="btn sm ghost" onclick={() => detect(false)} title={t('Look again: after signing in, installing a CLI…')}><Icon name="retry" />{t('Check again')}</button>{/if}
+    {/snippet}
+    <p class="intro">{t('Prism starts from what this machine already has. Every step can be skipped; Settings changes everything afterwards.')}</p>
 
     <nav class="steps">
       {#each STEPS as s, i (s)}
@@ -285,7 +280,7 @@
               <small>{#if !found}{t('checking…')}{:else if !f?.installed}{t('{cli} is not installed', { cli: FORGE_CLI[p] })}{:else if f.login}{t('{cli} on {host}', { cli: FORGE_CLI[p], host: f.host })}{:else}{t('{cli} installed, not signed in on {host}', { cli: FORGE_CLI[p], host: f.host })}{/if}</small>
             </span>
             {#if f?.login}{@render verdict(t('signed in as {login}', { login: f.login }), true)}
-            {:else if found && !f?.installed}<span class="link" role="link" tabindex="-1" onclick={(e) => { e.stopPropagation(); openLink(INSTALL[p]) }}>{t('How to install it')} ↗</span>{/if}
+            {:else if found && !f?.installed}<!-- svelte-ignore a11y_click_events_have_key_events : inside a button, its click is the keyboard's --><span class="link" role="link" tabindex="-1" onclick={(e) => { e.stopPropagation(); openLink(INSTALL[p]) }}>{t('How to install it')} ↗</span>{/if}
           </button>
           {#if forge === p && f?.installed && !f.login}<div class="inline"><ForgeLogin forge={p} host={f.host} /></div>{/if}
         {/each}
@@ -302,11 +297,11 @@
           <button class="found" class:on={agents.includes(p)} role="checkbox" aria-checked={agents.includes(p)} onclick={() => toggleAgent(p)}>
             <span class="box" class:on={agents.includes(p)}>{#if agents.includes(p)}<Icon name="check" />{/if}</span>
             <span class="ic"><Logo name={AGENT_LOGO[p]} size={16} /></span>
-            <span class="lb"><b>{CLIS[p].cli}{#if agents[0] === p}<span class="pill">{t('default')}</span>{/if}</b>
+            <span class="lb"><b>{CLIS[p].cli}{#if agents[0] === p}<span class="pill src">{t('default')}</span>{/if}</b>
               <small class="mono">{#if !found}{t('checking…')}{:else if a?.path}{a.path}{#if a.version}{' '}· {a.version}{/if}{:else}{t('not installed')}{/if}</small>
             </span>
             {#if a?.path}{@render verdict(t('found'), true)}
-            {:else if found}<span class="link" role="link" tabindex="-1" onclick={(e) => { e.stopPropagation(); openLink(INSTALL[p]) }}>{t('How to install it')} ↗</span>{/if}
+            {:else if found}<!-- svelte-ignore a11y_click_events_have_key_events : inside a button, its click is the keyboard's --><span class="link" role="link" tabindex="-1" onclick={(e) => { e.stopPropagation(); openLink(INSTALL[p]) }}>{t('How to install it')} ↗</span>{/if}
           </button>
         {/each}
         {#if found && !found.tmux}<p class="warn"><Icon name="warning" />{t('tmux is missing: the agents run in it. Install it, then Check again.')}</p>{/if}
@@ -346,7 +341,7 @@
           {#if tracker === k && k === 'clickup' && !found?.trackers.clickup_env}
             <div class="inline"><TokenField tracker="clickup" label={t('ClickUp token')} hint={TOKEN_HINTS.clickup} create={TOKEN_PAGES.clickup} check={tokenCheck('clickup')} /></div>
           {:else if tracker === k && k === 'jira'}
-            <div class="inline"><span class="muted">{t('Name the site and the account in Settings › Work › Tracker › Jira, then paste the token there.')}</span><button onclick={() => { closeWizard(); openSettings('jira') }}>{t('Settings')} › Jira</button></div>
+            <div class="inline"><span class="muted">{t('Name the site and the account in Settings › Work › Tracker › Jira, then paste the token there.')}</span><button class="btn sm" onclick={() => { closeWizard(); openSettings('jira') }}>{t('Settings')} › Jira</button></div>
           {:else if tracker === k && k === 'obsidian'}
             <div class="inline">
               {#if found?.trackers.obsidian_vaults.length}
@@ -363,13 +358,13 @@
               <button role="radio" aria-checked={template?.id === p.id} class:on={template?.id === p.id} onclick={() => (picked = p.id)}>
                 <b>{p.label}</b>
                 <span>{p.summary}</span>
-                <span class="tags"><span class="pill">{tn(p.views.length, '{n} page', '{n} pages')}</span>{#if p.cluster}<span class="pill k8s">{t('clusters')}</span>{/if}{#if p.data}<span class="pill k8s">GCP</span>{/if}</span>
+                <span class="tags"><span class="pill">{tn(p.views.length, '{n} page', '{n} pages')}</span>{#if p.cluster}<span class="pill src" style:--c="var(--src-k8s)">{t('clusters')}</span>{/if}{#if p.data}<span class="pill src" style:--c="var(--src-k8s)">GCP</span>{/if}</span>
               </button>
             {:else}
               <div class="none">
                 <b>{t('No template yet')}</b>
                 <span>{t('Templates come from the packs: your team’s brings those of its roles (Settings › General › Packs). Prism’s starter pack brings the Developer one: tickets, merge requests, worktrees and agents.')}</span>
-                <button class="primary" onclick={importStarter} disabled={!!packBusy.name}>{packBusy.name ? t('Importing…') : t('Import the starter pack')}</button>
+                <button class="btn primary" class:busy={!!packBusy.name} onclick={importStarter} disabled={!!packBusy.name}>{#if packBusy.name}<span class="spinner"></span>{t('Importing…')}{:else}{t('Import the starter pack')}{/if}</button>
               </div>
             {/each}
             <label class="opt">
@@ -414,38 +409,31 @@
       </div>
     {/if}
 
-    <footer>
+    {#snippet footer()}
       {#if step === 'page'}
-        <span class="muted">
+        <span class="muted small">
           {#if current}{tn(current.length, 'Replaces your page ({names}); the layout of this page starts over.', 'Replaces your {n} pages ({names}); the layout of these pages starts over.', { names: current.map((v) => v.label).join(', ') })}{:else}{t('Everything changes later in Settings.')}{/if}
         </span>
       {:else}
-        <span class="muted">{t('Everything changes later in Settings.')}</span>
+        <span class="muted small">{t('Everything changes later in Settings.')}</span>
       {/if}
-      {#if error}<span class="err">{error}</span>{/if}
+      {#if error}<span class="err" title={error}>{error}</span>{/if}
       <span class="grow"></span>
-      {#if at > 0}<button class="ghost" onclick={() => go(STEPS[at - 1])}>{t('Back')}</button>{/if}
+      {#if at > 0}<button class="btn ghost" onclick={() => go(STEPS[at - 1])}>{t('Back')}</button>{/if}
       {#if step === 'page'}
-        <button onclick={openDemo} disabled={demoBusy} title={t('Prism filled with a fictitious team’s work, in its own window: nothing read, nothing written here')}>{demoBusy ? t('Opening…') : t('Open the demo')}</button>
-        <button class="primary" onclick={start} disabled={busy || !pages.length}>{busy ? t('Applying…') : tc('wizard', 'Start')}</button>
+        <button class="btn" class:busy={demoBusy} onclick={openDemo} disabled={demoBusy} title={t('Prism filled with a fictitious team’s work, in its own window: nothing read, nothing written here')}>{#if demoBusy}<span class="spinner"></span>{t('Opening…')}{:else}{t('Open the demo')}{/if}</button>
+        <button class="btn primary" class:busy onclick={start} disabled={busy || !pages.length}>{#if busy}<span class="spinner"></span>{t('Applying…')}{:else}{tc('wizard', 'Start')}{/if}</button>
       {:else}
-        <button onclick={() => next(true)} title={t('Keep what the config says for this step')}>{t('Skip')}</button>
-        <button class="primary" onclick={() => next()}>{t('Next')}</button>
+        <button class="btn" onclick={() => next(true)} title={t('Keep what the config says for this step')}>{t('Skip')}</button>
+        <button class="btn primary" onclick={() => next()}>{t('Next')}</button>
       {/if}
-    </footer>
-  </div>
-</div>
+    {/snippet}
+</Modal>
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: flex-start; justify-content: center; padding-top: 7vh; background: rgba(0, 0, 0, 0.5); }
-  .sheet { width: min(860px, 94vw); max-height: 86vh; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); box-shadow: var(--shadow-modal); overflow: hidden; }
-  header { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px 10px; }
-  header b { font-size: var(--fs-head); }
-  header p { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-meta); }
-  header div { flex: 1; }
-  .x { padding: 4px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .steps { display: flex; gap: 6px; padding: 0 18px 12px; border-bottom: 1px solid var(--border); }
-  .steps button { flex: 1; justify-content: flex-start; padding: 6px 0 0; border: none; border-top: 3px solid var(--border); border-radius: 0; background: none; color: var(--text-muted); font-size: var(--fs-meta); }
+  .intro { margin: 0; padding: var(--sp-4) var(--sp-6) 0; color: var(--text-muted); font-size: var(--fs-meta); }
+  .steps { display: flex; flex-shrink: 0; gap: 6px; padding: var(--sp-4) var(--sp-6) 12px; border-bottom: 1px solid var(--border); }
+  .steps button { display: inline-flex; align-items: center; flex: 1; justify-content: flex-start; font: inherit; cursor: pointer; padding: 6px 0 0; border: none; border-top: 3px solid var(--border); border-radius: 0; background: none; color: var(--text-muted); font-size: var(--fs-meta); }
   .steps button.done { border-top-color: var(--ok); color: var(--text); }
   .steps button.skip { border-top-style: dashed; color: var(--text-muted); }
   .steps button.now { border-top-color: var(--accent); color: var(--text); font-weight: 600; }
@@ -475,7 +463,6 @@
   .sel { display: flex; align-items: center; gap: 6px; }
   .warn { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; color: var(--warn); font-size: var(--fs-meta); }
   .list { display: flex; flex-direction: column; }
-  .pill { padding: 0 6px; border-radius: var(--r10); background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-size: var(--fs-tag); font-weight: 500; }
   .muted { color: var(--text-muted); }
   .small { font-size: var(--fs-meta); }
   .mono { font-family: var(--mono); }
@@ -488,9 +475,8 @@
   .templates { display: flex; flex-direction: column; gap: 8px; }
   .templates button { display: flex; flex-direction: column; align-items: stretch; white-space: normal; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--bg); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   .templates button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
-  .templates button span { color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.4; }
+  .templates button > span:not(.tags) { color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.4; }
   .tags { display: flex; gap: 5px; margin-top: 2px; }
-  .tags .pill.k8s { background: color-mix(in srgb, var(--src-k8s) 20%, transparent); color: var(--src-k8s); }
   .none { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: var(--r10); font-size: var(--fs-body); }
   .none span { color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.4; }
   .none button { align-self: flex-start; }
@@ -507,12 +493,6 @@
   .grid { display: flex; gap: 6px; padding: 8px; }
   .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
   .blk { padding: 7px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); font-size: var(--fs-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help; }
-  footer { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border-top: 1px solid var(--border); font-size: var(--fs-meta); }
-  .err { color: var(--ko); }
   .grow { flex: 1; }
-  button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; white-space: nowrap; }
-  button.ghost { border-color: transparent; background: none; color: var(--text-muted); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
-  button:disabled { opacity: 0.5; cursor: default; }
   @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
 </style>

@@ -5,6 +5,8 @@
   import Calendar from './Calendar.svelte'
   import { dateFormat } from '../locale'
   import { anchored, dismissable, exclusive } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
 
   /**
    * Day viewed by the dashboard: time entries and merged MRs. The day in the window's locale and
@@ -20,8 +22,16 @@
 
   let trigger: HTMLButtonElement | undefined = $state()
   let open = $state(false)
+  let cal: HTMLDivElement | undefined = $state()
+  // Open, a layer on top: Escape closes it first.
+  $effect(() => {
+    if (!open) return
+    return untrack(() => pushLayer({ kind: 'menu', key: 'date-picker', el: () => cal, close, outside: false })).remove
+  })
   const show = () => (open = true)
-  const close = () => (open = false)
+  function close() {
+    open = false
+  }
   function pick(key: string) {
     setDate(key)
     close()
@@ -37,7 +47,7 @@
 </div>
 
 {#if open}
-  <div class="cal" role="dialog" aria-label={t('Pick a day')} tabindex="-1" {@attach anchored(() => trigger, { align: 'center' })} {@attach exclusive(close)} {@attach dismissable(close, { trigger: () => trigger })} {@attach focusOnOpen}>
+  <div class="cal popover" role="dialog" aria-label={t('Pick a day')} tabindex="-1" bind:this={cal} {@attach anchored(() => trigger, { align: 'center' })} {@attach exclusive(close)} {@attach dismissable(close, { trigger: () => trigger, escape: false })} {@attach focusOnOpen}>
     <Calendar value={day} {min} max={today} {today} onpick={pick} />
   </div>
 {/if}
@@ -51,5 +61,5 @@
   .day { min-width: 92px; height: 22px; border-radius: var(--r4); color: var(--text); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
   .day.on { background: var(--surface-muted); }
   .today { font-size: var(--fs-meta); color: var(--warn); }
-  .cal { position: fixed; z-index: var(--z-menu); width: 232px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); outline: none; }
+  .cal { position: fixed; width: 232px; min-width: 0; padding: 8px; outline: none; }
 </style>

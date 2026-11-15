@@ -1,3 +1,5 @@
+import { untrack } from 'svelte'
+
 /**
  * The window's layers: side drawers (an MR, a ticket, logs…), dialogs (the palette, a new ticket…)
  * and the menus that ask for it, in the order they were opened. The stack alone decides:
@@ -64,12 +66,17 @@ export function isTop(id: number): boolean {
 /** Opens a layer on top of the others; the function returned removes it (on close). */
 export function pushLayer(spec: LayerSpec): { id: number; remove: () => void } {
   const layer: Layer = { escape: true, outside: spec.kind === 'drawer', ...spec, id: next++, from: document.activeElement }
-  layers.stack.push(layer)
+  // Called from components' effects: the stack written, never read into their dependencies.
+  untrack(() => layers.stack.push(layer))
   queueMicrotask(() => focusInto(layer))
   return { id: layer.id, remove: () => remove(layer.id) }
 }
 
 function remove(id: number) {
+  untrack(() => removeNow(id))
+}
+
+function removeNow(id: number) {
   const i = layers.stack.findIndex((l) => l.id === id)
   if (i < 0) return
   const [layer] = layers.stack.splice(i, 1)
@@ -81,6 +88,10 @@ function remove(id: number) {
 
 /** Puts an open layer on top (its content changed: another MR in the MR drawer). */
 export function front(id: number) {
+  untrack(() => frontNow(id))
+}
+
+function frontNow(id: number) {
   const i = layers.stack.findIndex((l) => l.id === id)
   if (i < 0 || i === layers.stack.length - 1) return
   const [layer] = layers.stack.splice(i, 1)

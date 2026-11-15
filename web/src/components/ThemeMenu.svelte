@@ -1,5 +1,7 @@
 <script lang="ts">
   import { anchored, dismissable, exclusive } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
   import { previewTheme, setTheme, theme, THEMES } from '../theme.svelte'
   import { appearance } from '../fun.svelte'
   import { pref, setPref } from '../layout.svelte'
@@ -13,6 +15,16 @@
    */
   let open = $state(false)
   let button: HTMLButtonElement | undefined = $state()
+  let menu: HTMLDivElement | undefined = $state()
+  // Open, a layer on top: Escape closes it first. Shown to the stack once it has placed the focus:
+  // a theme focused is a theme tried.
+  $effect(() => {
+    if (!open) return
+    let ready = false
+    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'theme-menu', el: () => (ready ? menu : undefined), close: () => (open = false), outside: false }))
+    queueMicrotask(() => (ready = true))
+    return layer.remove
+  })
 
   function toggle(e: MouseEvent) {
     e.stopPropagation()
@@ -64,23 +76,23 @@
   <span>{t('Theme')}</span>
 </button>
 {#if open}
-  <div class="menu" role="menu" tabindex="-1" {@attach anchored(() => button, { side: 'right', gap: 8 })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, resize: true })} onmouseleave={() => preview(null)}>
-    <button role="menuitemradio" aria-checked={theme.choice === 'system'} class:on={theme.choice === 'system'} onclick={(e) => pick(e, 'system')} onmouseenter={() => preview('system')} onfocus={() => preview('system')}>
+  <div class="menu popover" role="menu" tabindex="-1" bind:this={menu} {@attach anchored(() => button, { side: 'right', gap: 8 })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, resize: true, escape: false })} onmouseleave={() => preview(null)}>
+    <button class="mi" role="menuitemradio" aria-checked={theme.choice === 'system'} class:on={theme.choice === 'system'} onclick={(e) => pick(e, 'system')} onmouseenter={() => preview('system')} onfocus={() => preview('system')}>
       <span class="sw system"><i></i><i></i></span><span class="name">{t('System')}<small>{t('Paper or Graphite, as the system')}</small></span>
     </button>
-    <div class="tones" role="group" aria-label={t('Light or dark')}>
+    <div class="seg tones" role="group" aria-label={t('Light or dark')}>
       {#each [['all', tc('shell', 'All')], ['light', t('Light')], ['dark', t('Dark')]] as [id, label] (id)}
         <button class:on={tone === id} aria-pressed={tone === id} onclick={(e) => setTone(e, id as Tone)} onmouseenter={() => preview(null)}>{label}</button>
       {/each}
     </div>
     {#each shown as th, i (th.id)}
       {#if th.group && th.group !== shown[i - 1]?.group}
-        <button class="group" class:folded={collapsed.includes(th.group)} onclick={(e) => fold(e, th.group!)} onmouseenter={() => preview(null)} aria-expanded={!collapsed.includes(th.group)}>
+        <button class="hd group" class:folded={collapsed.includes(th.group)} onclick={(e) => fold(e, th.group!)} onmouseenter={() => preview(null)} aria-expanded={!collapsed.includes(th.group)}>
           <span class="chev" aria-hidden="true"><Icon name="chevronDown" /></span>{th.group}<small>{shown.filter((x) => x.group === th.group).length}</small>
         </button>
       {/if}
       {#if !(th.group && collapsed.includes(th.group)) || theme.choice === th.id}
-        <button role="menuitemradio" aria-checked={theme.choice === th.id} class:on={theme.choice === th.id} onclick={(e) => pick(e, th.id)} onmouseenter={() => preview(th.id)} onfocus={() => preview(th.id)}>
+        <button class="mi" role="menuitemradio" aria-checked={theme.choice === th.id} class:on={theme.choice === th.id} onclick={(e) => pick(e, th.id)} onmouseenter={() => preview(th.id)} onfocus={() => preview(th.id)}>
           <span class="sw" style="background: {th.swatch[0]}">{#each th.swatch as c, n (n)}<i style="background: {c}"></i>{/each}</span>
           <span class="name">{th.label}<small>{th.hint}</small></span>
         </button>
@@ -91,18 +103,15 @@
 {/if}
 
 <style>
-  .menu { position: fixed; z-index: var(--z-menu); width: 230px; overflow: auto; padding: 4px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
-  .menu button { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
-  .menu button:hover { background: var(--surface-muted); }
-  .menu button.on { box-shadow: inset 0 0 0 1.5px var(--accent); }
-  .menu .group { gap: 4px; margin-top: 4px; padding: 3px 8px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
-  .menu .group:hover { color: var(--text); }
+  .menu { position: fixed; width: 230px; overflow: auto; display: flex; flex-direction: column; }
+  .menu .mi { padding-block: 4px; }
+  .group { display: flex; align-items: center; gap: 4px; margin-top: 4px; border: none; background: none; font-family: inherit; text-align: left; cursor: pointer; }
+  .group:hover { color: var(--text); }
   .group small { margin-left: auto; }
   .chev { display: inline-flex; width: 10px; transition: transform 0.12s; }
   .group.folded .chev { transform: rotate(-90deg); }
-  .tones { display: flex; gap: 2px; margin: 4px 0 2px; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
-  .menu .tones button { flex: 1; justify-content: center; padding: 2px 6px; font-size: var(--fs-tag); color: var(--text-muted); }
-  .menu .tones button.on { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+  .tones { display: flex; margin: 4px 0 2px; }
+  .tones > button { flex: 1; justify-content: center; }
   .tip { margin: 4px 0 0; padding: 6px 8px 3px; border-top: 1px solid var(--border); font-size: var(--fs-tag); color: var(--text-muted); }
   .name { display: flex; flex-direction: column; line-height: 1.25; }
   .name small { font-size: var(--fs-tag); color: var(--text-muted); }

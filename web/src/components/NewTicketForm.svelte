@@ -86,7 +86,7 @@
     {#if offers('assignees')}<label class="me"><input type="checkbox" bind:checked={assignMe} /> {t('Assign me')}</label>{/if}
     <span class="grow"></span>
     <span class="hint">{keys('⌘↵')} {t('creates and opens')}</span>
-    <button type="submit" class="primary" disabled={saving || !title.trim() || !status}>{saving ? '…' : t('Create')}</button>
+    <button type="submit" class="btn primary" class:sm={!wide} class:busy={saving} disabled={saving || !title.trim() || !status}>{#if saving}<span class="spinner"></span>{t('Creating…')}{:else}{t('Create')}{/if}</button>
   </div>
   {#if error}<p class="err" title={error}>{error}</p>{/if}
 </form>
@@ -103,7 +103,5 @@
   .link:hover { color: var(--text); }
   .me { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); cursor: pointer; }
   .hint { color: var(--text-muted); font-size: var(--fs-tag); }
-  .primary { padding: 2px 12px; border: 1px solid var(--accent); border-radius: var(--r6); background: var(--accent); color: var(--on-accent); font: inherit; cursor: pointer; }
-  .primary:disabled { opacity: 0.5; cursor: default; }
-  .err { margin: 0; color: var(--ko); font-size: var(--fs-tag); overflow-wrap: anywhere; }
+  .new-ticket .err { margin: 0; }
 </style>

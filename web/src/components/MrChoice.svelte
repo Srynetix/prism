@@ -1,5 +1,7 @@
 <script lang="ts">
   import { anchored, dismissable } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
   import { closeMrChoice, mrChoice, openMrOption } from '../mr-choice.svelte'
   import { mrKey } from '../mr-ref'
   import { repoName } from '../repositories'
@@ -13,6 +15,13 @@
    * knows first with their title, the others « on its forge ».
    */
   const at = () => ({ getBoundingClientRect: () => new DOMRect(mrChoice.x, mrChoice.y, 0, 0) }) as HTMLElement
+  let menu: HTMLDivElement | undefined = $state()
+  // Open, a layer on top: Escape closes it first, not the panel the link is in.
+  const shown = $derived(!!mrChoice.options)
+  $effect(() => {
+    if (!shown) return
+    return untrack(() => pushLayer({ kind: 'menu', key: 'mr-choice', el: () => menu, close: closeMrChoice, outside: false })).remove
+  })
   function pick(o: MrOption) {
     closeMrChoice()
     openMrOption(o)
@@ -20,14 +29,14 @@
 </script>
 
 {#each mrChoice.options ? [mrChoice.options] : [] as options (options)}
-  <div class="mrchoice" role="menu" tabindex="-1" {@attach anchored(at, { align: 'start', gap: 2 })} {@attach dismissable(closeMrChoice, { resize: true })}>
+  <div class="mrchoice popover" role="menu" tabindex="-1" bind:this={menu} {@attach anchored(at, { align: 'start', gap: 2 })} {@attach dismissable(closeMrChoice, { resize: true, escape: false })}>
     <div class="hd">{t('Which repository?')}</div>
     {#each options as o (mrKey(o.ref))}
       {@const known = knownMr(o, live.snapshot)}
-      <button role="menuitem" onclick={() => pick(o)} title={known ? mrKey(o.ref) : o.url}>
+      <button class="mi" role="menuitem" onclick={() => pick(o)} title={known ? mrKey(o.ref) : o.url}>
         <Icon name="mr" size={11} />
         <b>{repoName(o.ref.repo)}</b>
-        <span class="k">{mrKey(o.ref)}</span>
+        <span class="ref">{mrKey(o.ref)}</span>
         <span class="what">{known?.title ?? t('on its forge')}</span>
         {#if !known}<Icon name="external" size={10} />{/if}
       </button>
@@ -36,10 +45,8 @@
 {/each}
 
 <style>
-  .mrchoice { position: fixed; z-index: var(--z-menu); min-width: 220px; max-width: 420px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
-  .hd { padding: 2px 8px 4px; color: var(--text-muted); font-size: var(--fs-meta); }
-  button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-  button:hover { background: var(--surface-muted); }
-  .k { color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-meta); }
+  .mrchoice { position: fixed; min-width: 220px; max-width: 420px; outline: none; }
+  .mrchoice .mi { gap: 6px; }
+  .ref { color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-meta); }
   .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
 </style>

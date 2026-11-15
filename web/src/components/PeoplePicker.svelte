@@ -4,6 +4,7 @@
   import { onDestroy, onMount, untrack } from 'svelte'
   import Icon from './Icon.svelte'
   import { anchored, exclusive } from '../popup'
+  import { pushLayer } from '../layers.svelte'
   import { loadMembers, membersError, membersOf, setMrPeople, type Member, type PeopleKind } from '../mr-people.svelte'
   import { forgeAvatar } from '../people'
   import { mrKey, type MrRef } from '../mr-ref'
@@ -48,6 +49,9 @@
     if (!target?.isConnected || el?.contains(target) || trigger()?.contains(target)) return
     onclose()
   }
+
+  // A layer on top while shown: Escape closes it first, not the drawer under it.
+  $effect(() => untrack(() => pushLayer({ kind: 'menu', key: 'people-picker', el: () => el, close: () => onclose(), outside: false })).remove)
 
   onMount(() => {
     void loadMembers(mr.repo)
@@ -95,10 +99,7 @@
 
   const initials = (m: Member) => m.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
   function onkey(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      onclose()
-    } else if (e.key === 'Enter' && shown[0]) {
+    if (e.key === 'Enter' && shown[0]) {
       e.preventDefault()
       void toggle(shown[0].username)
     }
@@ -107,10 +108,10 @@
 
 <svelte:window onpointerdown={onOutside} />
 
-<div class="picker" bind:this={el} role="dialog" aria-label={kind === 'assignees' ? t('Assignees') : t('Reviewers')} tabindex="-1" {@attach anchored(trigger, { align: 'start' })} {@attach exclusive(onclose)}>
-  <div class="hd">
+<div class="picker popover" bind:this={el} role="dialog" aria-label={kind === 'assignees' ? t('Assignees') : t('Reviewers')} tabindex="-1" {@attach anchored(trigger, { align: 'start' })} {@attach exclusive(onclose)}>
+  <div class="top">
     <b>{kind === 'assignees' ? t('Assignees') : t('Reviewers')}</b><small>{mrKey(mr)}</small>
-    <button class="x" onclick={onclose} aria-label={t('Close')}><Icon name="close" /></button>
+    <button class="btn sm icon ghost x" onclick={onclose} aria-label={t('Close')}><Icon name="close" /></button>
   </div>
   <label class="search"><Icon name="search" /><input bind:this={input} bind:value={query} placeholder={t('Search people…')} spellcheck="false" onkeydown={onkey} /></label>
   <div class="list">
@@ -118,12 +119,12 @@
     {:else if !membersOf(mr.repo)}<p class="muted">{t('Loading the project members…')}</p>
     {:else}
       {#each strangers as u (u)}
-        <button class="row on" onclick={() => toggle(u)}><span class="box"><Icon name="check" stroke={3} /></span><span class="av">?</span><span class="nm">{u}<small>{t('no longer a member')}</small></span></button>
+        <button class="mi row on" onclick={() => toggle(u)}><span class="box"><Icon name="check" stroke={3} /></span><span class="av">?</span><span class="nm">{u}<small>{t('no longer a member')}</small></span></button>
       {/each}
       {#each shown as m (m.id)}
         {@const on = chosen.includes(m.username)}
         {@const pic = forgeAvatar(m.avatar_url)}
-        <button class="row" class:on onclick={() => toggle(m.username)} title="@{m.username}">
+        <button class="mi row" class:on onclick={() => toggle(m.username)} title="@{m.username}">
           <span class="box">{#if on}<Icon name="check" stroke={3} />{/if}</span>
           <span class="av" class:pic={!!pic}>{#if pic}<img src={pic} alt="" />{:else}{initials(m)}{/if}</span>
           <span class="nm">{m.name}{m.username === me ? ' (you)' : ''}<small>@{m.username}</small></span>
@@ -138,24 +139,25 @@
 </div>
 
 <style>
-  .picker { position: fixed; z-index: var(--z-menu); width: 280px; max-height: 380px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); overflow: hidden; }
-  .hd { display: flex; align-items: center; gap: 6px; padding: 8px 10px 4px; font-size: var(--fs-body); }
-  .hd small { color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); }
-  .x { margin-left: auto; padding: 2px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
+  .picker { position: fixed; width: 280px; max-height: 380px; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .top { display: flex; align-items: center; gap: 6px; padding: 6px 6px 2px 10px; font-size: var(--fs-body); }
+  .top small { color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); }
+  .x { margin-left: auto; }
   .search { display: flex; align-items: center; gap: 6px; margin: 4px 8px 6px; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--r6); color: var(--text-muted); }
   .search input { flex: 1; min-width: 0; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); outline: none; }
   .list { flex: 1; min-height: 0; overflow: auto; padding: 0 4px 6px; }
-  .row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
-  .row:hover:not(:disabled) { background: var(--surface-muted); }
+  .list .row { gap: 8px; padding: 4px 6px; font-size: var(--fs-body); }
+  /* Its box says it is chosen: no highlight of its own. */
+  .row.on:not(:hover, :focus-visible) { background: none; }
   .row:disabled { cursor: progress; }
   .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; border: 1.5px solid var(--text-muted); border-radius: var(--r3); color: var(--surface); font-size: var(--fs-tag); }
   .row.on .box { border-color: var(--src-gitlab); background: var(--src-gitlab); }
   .av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; border-radius: var(--r-avatar); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-micro); font-weight: 700; }
   .av.pic { overflow: hidden; }
   .av.pic img { width: 100%; height: 100%; object-fit: cover; }
-  .nm { display: flex; flex-direction: column; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .nm { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .nm small { color: var(--text-muted); font-size: var(--fs-tag); }
   .muted { margin: 6px 8px; color: var(--text-muted); font-size: var(--fs-meta); }
-  .err { margin: 6px 10px; color: var(--ko); font-size: var(--fs-meta); }
+  .picker .err { margin: 6px 10px; }
   .state { margin: 0; padding: 5px 10px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-tag); }
 </style>

@@ -55,6 +55,9 @@
 
 <script lang="ts">
   import { anchored, exclusive } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
+  import { armer } from '../armed.svelte'
   import { actorName } from '../agent-cli'
   import { openLink } from '../links'
   import Icon from './Icon.svelte'
@@ -65,7 +68,7 @@
    * ⋯ menu of a row (MR, ticket, sprint): at the top what it targets (`head`), a bar of quick
    * actions (`quick`), then the actions by theme, spelled out, or as pills (statuses) and
    * as a selector (priority). Those that cannot be undone ask for a second click (`confirm`).
-   * Keyboard: arrows to move, the displayed key to run, Escape to close.
+   * Keyboard: arrows to move, the displayed key to run, Escape (the stack of layers) to close.
    * No fixed max height: the menu only scrolls as a last resort (very short window),
    * with the header and quick bar staying visible. Fixed position, attached to `<body>`.
    */
@@ -74,7 +77,7 @@
   let open = $state(false)
   let button: HTMLButtonElement | undefined = $state()
   let menu: HTMLDivElement | undefined = $state()
-  let armed = $state<string | null>(null)
+  const armed = armer()
   let busy = $state<string | null>(null)
   let error = $state<string | null>(null)
   let flashed = $state<string | null>(null)
@@ -111,18 +114,15 @@
   function toggle(e: MouseEvent) {
     e.stopPropagation()
     open = !open
-    armed = null
+    armed.disarm()
     error = null
     flashed = null
   }
 
   async function exec(key: string, run: () => Promise<unknown> | unknown, opts: { confirm?: string; done?: string } = {}) {
     if (busy) return
-    if (opts.confirm && armed !== key) {
-      armed = key
-      return
-    }
-    armed = null
+    if (opts.confirm && !armed.confirm(key)) return
+    armed.disarm()
     busy = key
     error = null
     try {
@@ -147,11 +147,6 @@
   const typing = (e: KeyboardEvent) => !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')
   function onKey(e: KeyboardEvent) {
     if (!open) return
-    if (e.key === 'Escape') {
-      e.stopImmediatePropagation()
-      open = false
-      return
-    }
     if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
@@ -174,6 +169,13 @@
       open = false
     } else if (hit.run) exec(hit.key, hit.run, { confirm: 'confirm' in hit ? hit.confirm : undefined, done: 'done' in hit ? hit.done : undefined })
   }
+
+  // Open as a popup, a layer on top: Escape closes it first, before a drawer under it.
+  $effect(() => {
+    if (!open || asSheet) return
+    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'action-menu', el: () => menu, close: () => (open = false), outside: false }))
+    return layer.remove
+  })
 </script>
 
 <svelte:window onclick={() => (open = false)} onkeydowncapture={onKey} onresize={() => !asSheet && (open = false)} />
@@ -185,9 +187,9 @@
   <div onclick={(e) => e.stopPropagation()}><ActionSheet title={head ? `${head.id} ${head.title}` : label} actions={sheetActions} onclose={() => (open = false)} /></div>
 {:else if open}
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-  <div bind:this={menu} class="menu" class:wide={!!head} role="menu" tabindex="-1" style:--src={head?.color} onclick={(e) => e.stopPropagation()} {@attach toBody} {@attach anchored(() => button)} {@attach exclusive(() => (open = false))}>
+  <div bind:this={menu} class="menu popover" class:wide={!!head} role="menu" tabindex="-1" style:--src={head?.color} onclick={(e) => e.stopPropagation()} {@attach toBody} {@attach anchored(() => button)} {@attach exclusive(() => (open = false))}>
     {#if head}
-      <div class="hd">
+      <div class="head">
         <span class="id"><b>{head.id}</b>{#each head.pills ?? [] as p (p.label)}<span class="pill {p.tone ?? ''}">{p.label}</span>{/each}</span>
         <span class="t" title={head.title}>{head.title}</span>
       </div>
@@ -205,7 +207,7 @@
     {/if}
     <div class="body">
       {#each shown as s (s.title)}
-        <p class:claude={s.title === actorName()}>{s.title}</p>
+        <p class="hd" class:claude={s.title === actorName()}>{s.title}</p>
         {#if s.chips?.length}
           <div class="chips">
             {#each s.chips as c (c.key)}
@@ -223,15 +225,16 @@
         {#each s.items ?? [] as item (item.key)}
           {#if item.href}
             <!-- Links: opened by the document handler (browser, or the Claude app). -->
-            <a data-nav role="menuitem" class="it" href={item.href} target={item.external ? '_blank' : undefined} rel="noreferrer" onclick={() => (open = false)}>{#if item.icon}<span class="ic"><Icon name={item.icon} /></span>{/if}{item.label}{#if item.hint}<small>{item.hint}</small>{/if}{#if item.kbd}<kbd>{item.kbd}</kbd>{/if}</a>
+            <a data-nav role="menuitem" class="mi it" href={item.href} target={item.external ? '_blank' : undefined} rel="noreferrer" onclick={() => (open = false)}>{#if item.icon}<span class="ic"><Icon name={item.icon} /></span>{/if}{item.label}{#if item.hint}<small>{item.hint}</small>{/if}{#if item.kbd}<kbd class="k">{item.kbd}</kbd>{/if}</a>
           {:else}
-            <button data-nav role="menuitem" class="it" class:armed={armed === item.key} disabled={!!busy} onclick={(e) => pick(e, item)}>
-              {#if item.icon}<span class="ic"><Icon name={item.icon} /></span>{/if}{armed === item.key ? item.confirm : busy === item.key ? `${item.label}…` : item.label}{#if item.hint && armed !== item.key}<small>{item.hint}</small>{/if}{#if item.kbd && armed !== item.key}<kbd>{item.kbd}</kbd>{/if}
+            {@const on = armed.is(item.key)}
+            <button data-nav role="menuitem" class="mi it" class:armed={on} disabled={!!busy} onclick={(e) => pick(e, item)} title={on ? t('Click again to confirm') : undefined}>
+              {#if item.icon}<span class="ic"><Icon name={item.icon} /></span>{/if}{on ? item.confirm : busy === item.key ? `${item.label}…` : item.label}{#if item.hint && !on}<small>{item.hint}</small>{/if}{#if item.kbd && !on}<kbd class="k">{item.kbd}</kbd>{/if}
             </button>
           {/if}
         {/each}
       {/each}
-      {#if error}<p class="error">{error}</p>{/if}
+      {#if error}<p class="err">{error}</p>{/if}
     </div>
   </div>
 {/if}
@@ -239,19 +242,15 @@
 <style>
   .more { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-head); line-height: 1; cursor: pointer; }
   .more:hover, .more.open { border-color: var(--border); color: var(--text); background: var(--surface); }
-  .menu { position: fixed; z-index: var(--z-menu); width: 260px; max-height: calc(100vh - 16px); display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); text-align: left; font-size: var(--fs-body); }
+  .menu { position: fixed; width: 260px; max-height: calc(100vh - 16px); display: flex; flex-direction: column; overflow: hidden; padding: 0; text-align: left; }
   .menu.wide { width: 300px; }
   .menu:focus { outline: none; }
   /* Header: the menu's subject, in its source's color. */
-  .hd { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; padding: 9px 11px 8px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--src) 7%, var(--surface)); box-shadow: inset 0 2px var(--src); }
+  .head { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; padding: 9px 11px 8px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--src) 7%, var(--surface)); box-shadow: inset 0 2px var(--src); }
   .id { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--text-muted); }
   .id b { color: var(--src); font-weight: 600; }
+  .id .pill { font-family: var(--sans); }
   .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: var(--fs-title); color: var(--text); }
-  .pill { padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); font-family: var(--sans); font-size: var(--fs-tag); white-space: nowrap; }
-  .pill.ok { background: var(--ok-bg); color: var(--ok); }
-  .pill.ko { background: var(--ko-bg); color: var(--ko); }
-  .pill.warn { background: var(--warn-bg); color: var(--warn); }
-  .pill.info { background: var(--info-bg); color: var(--info); }
   /* Quick bar: copy, open, filter, in one click, always at the top. */
   .qb { display: grid; gap: 4px; flex-shrink: 0; padding: 6px; border-bottom: 1px solid var(--border); }
   .qb a, .qb button { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 2px 5px; border: none; border-radius: var(--r7); background: none; color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -259,17 +258,16 @@
   .qb a:hover, .qb button:hover:not(:disabled), .qb a:focus-visible, .qb button:focus-visible { background: var(--surface-muted); outline: none; }
   .qb button.done { background: var(--ok-bg); color: var(--ok); }
   .qb button.done i { color: var(--ok); }
-  .body { overflow: auto; padding: 4px; }
-  .body p { margin: 6px 8px 2px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
-  .body p.claude { color: var(--src-claude); }
-  .it { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; text-decoration: none; cursor: pointer; white-space: nowrap; }
-  .it:hover:not(:disabled), .it:focus-visible { background: var(--surface-muted); outline: none; }
-  .it:disabled { cursor: progress; opacity: 0.6; }
-  .it.armed { background: var(--warn-bg); color: var(--warn); white-space: normal; }
+  .body { overflow: auto; padding: var(--sp-2); }
+  .body .hd { margin: 0; }
+  .body .hd.claude { color: var(--src-claude); }
+  .it { text-decoration: none; }
+  .it:disabled { cursor: progress; }
+  .body .it.armed { background: var(--ko-bg); color: var(--ko); font-weight: 600; white-space: normal; }
   .ic { display: inline-flex; justify-content: center; width: 16px; flex-shrink: 0; color: var(--text-muted); }
   .it small { margin-left: auto; max-width: 120px; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); font-size: var(--fs-tag); }
-  kbd { margin-left: auto; padding: 0 4px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: var(--r4); color: var(--text-muted); font: 10px var(--mono); }
-  .it small + kbd { margin-left: 6px; }
+  .it kbd.k { padding: 0 4px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: var(--r4); font-family: var(--mono); }
+  .it small + kbd.k { margin-left: 6px; }
   /* Statuses as pills; the current value highlighted. */
   .chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 6px; }
   .chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
@@ -277,11 +275,10 @@
   .chip:hover:not(:disabled), .chip:focus-visible { border-color: var(--c); outline: none; }
   .chip.cur { background: color-mix(in srgb, var(--c) 16%, var(--surface)); border-color: var(--c); font-weight: 600; cursor: default; }
   .chip:disabled:not(.cur) { cursor: progress; opacity: 0.6; }
-  /* Single-line selector (priority). */
-  .seg { display: flex; gap: 2px; margin: 2px 8px 6px; padding: 2px; border-radius: var(--r7); background: var(--surface-muted); }
-  .seg button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 2px 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
-  .seg button:hover:not(:disabled), .seg button:focus-visible { color: var(--text); outline: none; background: color-mix(in srgb, var(--surface) 60%, transparent); }
-  .seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); cursor: default; }
+  /* Single-line selector (priority): the shared segments, full width. */
+  .body .seg { display: flex; margin: 2px 8px 6px; }
+  .body .seg > button { flex: 1; justify-content: center; min-width: 0; }
+  .body .seg > button:disabled { cursor: default; }
   .seg b { width: 7px; height: 7px; border-radius: var(--r2); background: var(--c); }
-  .error { margin: 4px 8px; color: var(--ko) !important; text-transform: none !important; letter-spacing: 0 !important; white-space: pre-wrap; }
+  .body .err { margin: 4px 8px; }
 </style>

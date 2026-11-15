@@ -6,12 +6,14 @@
   import { keys } from '../platform'
   import { matches } from '../shortcut'
   import { t, tn, tc } from '../i18n.svelte'
+  import Modal from './ui/Modal.svelte'
+  import State from './ui/State.svelte'
 
   /**
    * The command palette (palette.svelte.ts): its field, the lines found by kind, and an entry's
    * actions (⌘↵). ↑ ↓ move, ↵ goes or runs (a command waiting for its words gets them typed), ⇥
-   * completes a command's name, Escape closes the actions then the palette. `phone`: the remote's,
-   * the whole screen.
+   * completes a command's name, Escape (the stack of layers, through `Modal`) closes the actions then
+   * the palette. `phone`: the remote's.
    */
   let { phone = false }: { phone?: boolean } = $props()
 
@@ -51,11 +53,7 @@
       e.stopPropagation()
       return closePalette()
     }
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      if (acts) palette.actions = null
-      else closePalette()
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       const step = e.key === 'ArrowDown' ? 1 : -1
       if (acts) {
@@ -77,16 +75,14 @@
   }
 </script>
 
-{#if palette.open}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions : Escape closes from the keyboard -->
-  <div class="scrim" class:phone onclick={(e) => e.target === e.currentTarget && closePalette()}>
-    <div class="pal" role="dialog" aria-modal="true" aria-label={t('Command palette')}>
+<!-- Escape or a click on the veil: back from an entry's actions first, then closed. -->
+<Modal open={palette.open} key="palette" label={t('Command palette')} width={620} class="pal" onclose={() => (palette.actions ? (palette.actions = null) : closePalette())}>
       <div class="field">
         <Icon name="search" />
         <input bind:this={input} value={palette.query} oninput={(e) => { palette.query = e.currentTarget.value; palette.selected = 0; palette.actions = null }} {onkeydown}
           placeholder={phone ? t('Go to, or do…') : t('Go to anything, or do it…')} autocomplete="off" spellcheck="false" aria-label={t('Search')} role="combobox" aria-expanded="true" aria-controls="palette-list" />
         {#if current?.words}<span class="scope">{current.entry.title}</span>{/if}
-        {#if phone}<button class="x" onclick={closePalette} aria-label={t('Close')}><Icon name="close" /></button>{:else}<span class="kbd">esc</span>{/if}
+        {#if phone}<button class="btn sm icon ghost" onclick={closePalette} aria-label={t('Close')}><Icon name="close" /></button>{:else}<span class="kbd">esc</span>{/if}
       </div>
 
       <div class="list" id="palette-list" role="listbox" bind:this={list}>
@@ -121,9 +117,9 @@
               </div>
             {/each}
           {:else}
-            {#if !found.busy}<p class="empty">{t('Nothing in Prism for “{query}”.', { query: palette.query.trim() })}</p>{/if}
+            {#if !found.busy}<State kind="empty" icon="search" title={t('Nothing in Prism for “{query}”.', { query: palette.query.trim() })} />{/if}
           {/each}
-          {#if found.busy}<p class="busy">{t('Searching the tracker…')}</p>{/if}
+          {#if found.busy}<State kind="loading" inline title={t('Searching the tracker…')} />{/if}
         {/if}
       </div>
 
@@ -141,23 +137,18 @@
       {:else if current?.entry.actions && !palette.actions}
         <div class="foot"><button class="btn" onclick={() => current && showActions(current)}>{t('Actions on the chosen line')}</button></div>
       {/if}
-    </div>
-  </div>
-{/if}
+</Modal>
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; justify-content: center; align-items: flex-start; padding: 10vh 16px 16px; background: color-mix(in srgb, var(--bg) 40%, transparent); backdrop-filter: blur(2px); }
-  .scrim.phone { padding: 0; align-items: stretch; }
-  .pal { width: min(640px, 100%); max-height: 70vh; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); box-shadow: var(--shadow-modal); overflow: hidden; }
-  .phone .pal { max-height: none; border-radius: 0; }
-  .field { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+  :global(.modal.pal) { max-height: 70vh; }
+  :global(html.remote .modal.pal) { max-height: 90vh; }
+  .field { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border); color: var(--text-muted); }
   .field input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-head); }
   .scope { padding: 1px 8px; border-radius: var(--r9); background: var(--accent); color: var(--on-accent); font-size: var(--fs-tag); }
-  .x { display: inline-flex; padding: 4px; border: none; background: none; color: var(--text-muted); }
   .list { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 4px 6px 6px; }
   .grp { padding: 8px 8px 3px; color: var(--text-muted); font-size: var(--fs-tag); letter-spacing: 0.04em; text-transform: uppercase; }
   .grp.sub { padding-top: 4px; text-transform: none; letter-spacing: 0; }
-  .it { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--r7); cursor: pointer; }
+  .it { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--r-ctl); cursor: pointer; }
   .it.on { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
   .g { display: grid; flex-shrink: 0; place-items: center; width: 22px; height: 22px; border-radius: var(--r6); background: var(--surface-muted); color: var(--text-muted); }
   .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -165,16 +156,8 @@
   .t small.usage { margin-left: 5px; font-family: var(--mono); }
   .t mark { background: none; color: var(--accent); font-weight: 600; }
   .r { display: flex; flex-shrink: 0; align-items: center; gap: 6px; }
-  .pill { padding: 1px 7px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); white-space: nowrap; }
-  .pill.warn { background: var(--warn-bg); color: var(--warn); }
-  .pill.info { background: var(--info-bg); color: var(--info); }
-  .pill.ko { background: var(--ko-bg); color: var(--ko); }
-  .pill.ok { background: var(--ok-bg); color: var(--ok); }
   .kbd { padding: 0 5px; border: 1px solid var(--border); border-radius: var(--r4); color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); white-space: nowrap; }
-  .empty { margin: 0; padding: 16px 10px; color: var(--text-muted); }
-  .busy { margin: 0; padding: 8px 10px; color: var(--text-muted); font-size: var(--fs-meta); }
   .foot { display: flex; align-items: center; gap: 14px; padding: 7px 14px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-tag); }
   .foot b { color: var(--text); font-weight: 500; }
   .grow { flex: 1; }
-  .btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; }
 </style>

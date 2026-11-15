@@ -4,6 +4,7 @@
   import { onDestroy, onMount, untrack } from 'svelte'
   import Icon from './Icon.svelte'
   import { anchored, exclusive } from '../popup'
+  import { pushLayer } from '../layers.svelte'
   import { labelsOf, loadLabels, projectLabels, setMrLabels, validLabel, type ForgeLabel } from '../mr-labels.svelte'
   import { mrKey, type MrRef } from '../mr-ref'
 
@@ -42,6 +43,9 @@
     if (!target?.isConnected || el?.contains(target) || trigger()?.contains(target)) return
     onclose()
   }
+
+  // A layer on top while shown: Escape closes it first, not the drawer under it.
+  $effect(() => untrack(() => pushLayer({ kind: 'menu', key: 'label-picker', el: () => el, close: () => onclose(), outside: false })).remove)
 
   onMount(() => {
     void loadLabels(mr.repo)
@@ -104,10 +108,7 @@
   })
 
   function onkey(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      onclose()
-    } else if (e.key === 'Enter') {
+    if (e.key === 'Enter') {
       e.preventDefault()
       const exact = shown.find((l) => l.name.toLowerCase() === q)
       if (exact) toggle(exact.name)
@@ -119,10 +120,10 @@
 
 <svelte:window onpointerdown={onOutside} />
 
-<div class="picker" bind:this={el} role="dialog" aria-label={t('Labels')} tabindex="-1" {@attach anchored(trigger, { align: 'start' })} {@attach exclusive(onclose)}>
-  <div class="hd">
+<div class="picker popover" bind:this={el} role="dialog" aria-label={t('Labels')} tabindex="-1" {@attach anchored(trigger, { align: 'start' })} {@attach exclusive(onclose)}>
+  <div class="top">
     <b>{t('Labels')}</b><small>{mrKey(mr)}</small>
-    <button class="x" onclick={onclose} aria-label={t('Close')}><Icon name="close" /></button>
+    <button class="btn sm icon ghost x" onclick={onclose} aria-label={t('Close')}><Icon name="close" /></button>
   </div>
   <label class="search"><Icon name="search" /><input bind:this={input} bind:value={query} placeholder={t('Search or add a label…')} spellcheck="false" onkeydown={onkey} /></label>
   <div class="list">
@@ -130,18 +131,18 @@
     {:else if !labelsOf(mr.repo)}<p class="muted">{t('Loading the project’s labels…')}</p>
     {:else}
       {#each strangers as n (n)}
-        <button class="row on" onclick={() => toggle(n)}><span class="box"><Icon name="check" stroke={3} /></span><span class="dot"></span><span class="nm">{n}</span></button>
+        <button class="mi row on" onclick={() => toggle(n)}><span class="box"><Icon name="check" stroke={3} /></span><span class="swatch"></span><span class="nm">{n}</span></button>
       {/each}
       {#each shown as l (l.name)}
         {@const on = chosen.includes(l.name)}
-        <button class="row" class:on onclick={() => toggle(l.name)} title={l.description ?? undefined}>
+        <button class="mi row" class:on onclick={() => toggle(l.name)} title={l.description ?? undefined}>
           <span class="box">{#if on}<Icon name="check" stroke={3} />{/if}</span>
-          <span class="dot" style:background={l.color ?? undefined}></span>
+          <span class="swatch" style:background={l.color ?? undefined}></span>
           <span class="nm">{l.name}{#if l.description}<small>{l.description}</small>{/if}</span>
         </button>
       {/each}
       {#if fresh}
-        <button class="row new" onclick={() => create(fresh)} title={t('{forge} creates the label in the project', { forge: forgeName() })}><span class="box"><Icon name="plus" /></span><span class="nm">{t('Add “{label}”', { label: fresh })}<small>{t('new label')}</small></span></button>
+        <button class="mi row new" onclick={() => create(fresh)} title={t('{forge} creates the label in the project', { forge: forgeName() })}><span class="box"><Icon name="plus" /></span><span class="nm">{t('Add “{label}”', { label: fresh })}<small>{t('new label')}</small></span></button>
       {:else if !shown.length && !strangers.length}
         <p class="muted">{q ? t('No label matches “{query}”.', { query }) : t('This project has no labels yet: type one.')}</p>
       {/if}
@@ -152,22 +153,23 @@
 </div>
 
 <style>
-  .picker { position: fixed; z-index: var(--z-menu); width: 280px; max-height: 380px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); overflow: hidden; }
-  .hd { display: flex; align-items: center; gap: 6px; padding: 8px 10px 4px; font-size: var(--fs-body); }
-  .hd small { color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); }
-  .x { margin-left: auto; padding: 2px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
+  .picker { position: fixed; width: 280px; max-height: 380px; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .top { display: flex; align-items: center; gap: 6px; padding: 6px 6px 2px 10px; font-size: var(--fs-body); }
+  .top small { color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); }
+  .x { margin-left: auto; }
   .search { display: flex; align-items: center; gap: 6px; margin: 4px 8px 6px; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--r6); color: var(--text-muted); }
   .search input { flex: 1; min-width: 0; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); outline: none; }
   .list { flex: 1; min-height: 0; overflow: auto; padding: 0 4px 6px; }
-  .row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
-  .row:hover { background: var(--surface-muted); }
+  .list .row { gap: 8px; padding: 4px 6px; font-size: var(--fs-body); }
+  /* Its box says it is chosen: no highlight of its own. */
+  .row.on:not(:hover, :focus-visible) { background: none; }
   .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; border: 1.5px solid var(--text-muted); border-radius: var(--r3); color: var(--surface); font-size: var(--fs-tag); }
   .row.on .box { border-color: var(--src-gitlab); background: var(--src-gitlab); }
   .row.new .box { border-style: dashed; color: var(--text-muted); }
-  .dot { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--surface-muted); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 15%, transparent); }
-  .nm { display: flex; flex-direction: column; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .swatch { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--surface-muted); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 15%, transparent); }
+  .nm { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .nm small { overflow: hidden; color: var(--text-muted); font-size: var(--fs-tag); text-overflow: ellipsis; }
   .muted { margin: 6px 8px; color: var(--text-muted); font-size: var(--fs-meta); }
-  .err { margin: 6px 10px; color: var(--ko); font-size: var(--fs-meta); }
+  .picker .err { margin: 6px 10px; }
   .state { margin: 0; padding: 5px 10px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-tag); }
 </style>

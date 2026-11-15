@@ -3,6 +3,8 @@
   import { t, tn } from '../i18n.svelte'
   import { actorName } from '../agent-cli'
   import { dismissable } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
   import { invoke, isDesktop, isLocal } from '../bridge'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
@@ -31,7 +33,14 @@
   const flagged = $derived(repos.filter((r) => !r.is_main && attention(r)).length)
 
   let open = $state(false)
+  let pop: HTMLDivElement | undefined = $state()
   let error = $state<string | null>(null)
+  // Open, a layer on top: Escape closes it first.
+  $effect(() => {
+    if (!open) return
+    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'repo-menu', el: () => pop, close: () => (open = false), outside: false }))
+    return layer.remove
+  })
   async function openWith(r: Repo, target: 'editor' | 'terminal' | 'finder') {
     error = null
     try {
@@ -62,8 +71,8 @@
 {/if}
 
 {#if open}
-  <div class="pop" role="dialog" aria-label={t('Repositories')} tabindex="-1" {@attach dismissable(() => (open = false))}>
-    <p class="head">Repositories</p>
+  <div class="pop popover" role="dialog" aria-label={t('Repositories')} tabindex="-1" bind:this={pop} {@attach dismissable(() => (open = false), { escape: false })}>
+    <p class="hd">{t('Repositories')}</p>
     {#each repos as r (r.path)}
       {@const link = forgePage(r)}
       {@const count = repoNotes(r.name).length}
@@ -71,7 +80,7 @@
         <div class="info">
           <b>{r.name}</b>
           {#if r.error}
-            <span class="err" title={r.error}>{r.error}</span>
+            <span class="bad" title={r.error}>{r.error}</span>
           {:else}
             <span class="branch mono" class:off={r.branch !== r.base} title={r.branch ?? t('detached HEAD')}>{r.branch ?? t('detached')}</span>
             {#if r.dirty}<span class="dirty" title={t('Uncommitted changes')}><Icon name="running" /></span>{/if}
@@ -80,26 +89,26 @@
           {/if}
         </div>
         <div class="acts">
-          <button class="act proj" onclick={() => { open = false; openProjects(r.name) }} title={t('Its page in Projects: its workstreams, its agents, its MRs')}>{t('Open the project')}</button>
-          <button class="act" class:has={count > 0} onclick={() => showNotes(r.name)} title={count ? tn(count, 'Its {n} open note, and a new one', 'Its {n} open notes, and a new one') : t('A note about it')}><Icon name="pin" />{count || ''}</button>
-          <a class="act claude" href={repoAction(r.name, r.path).href} onclick={claudeClick(repoAction(r.name, r.path))} title={t('New {agent} agent in {path}', { agent: actorName(r.name), path: r.path })}><Logo name="agent" size={10} repo={r.name} />{actorName(r.name)}</a>
+          <button class="btn sm act proj" onclick={() => { open = false; openProjects(r.name) }} title={t('Its page in Projects: its workstreams, its agents, its MRs')}>{t('Open the project')}</button>
+          <button class="btn sm act" class:has={count > 0} onclick={() => showNotes(r.name)} title={count ? tn(count, 'Its {n} open note, and a new one', 'Its {n} open notes, and a new one') : t('A note about it')}><Icon name="pin" />{count || ''}</button>
+          <a class="btn sm act claude" href={repoAction(r.name, r.path).href} onclick={claudeClick(repoAction(r.name, r.path))} title={t('New {agent} agent in {path}', { agent: actorName(r.name), path: r.path })}><Logo name="agent" size={10} repo={r.name} />{actorName(r.name)}</a>
           {#if isDesktop()}
-            {#if editor}<button class="act" onclick={() => openWith(r, 'editor')} title={t('Open in {app}', { app: editor })}>{t('Editor')}</button>{/if}
+            {#if editor}<button class="btn sm act" onclick={() => openWith(r, 'editor')} title={t('Open in {app}', { app: editor })}>{t('Editor')}</button>{/if}
           {/if}
           {#if isLocal()}
-            <button class="act" onclick={() => openWith(r, 'terminal')} title={t('Open in {app}', { app: snap?.open_with?.terminal ?? 'Terminal' })}>{t('Terminal')}</button>
-            <button class="act" onclick={() => openWith(r, 'finder')} title={keys(t('Show in the Finder'))}>{FILE_MANAGER}</button>
+            <button class="btn sm act" onclick={() => openWith(r, 'terminal')} title={t('Open in {app}', { app: snap?.open_with?.terminal ?? 'Terminal' })}>{t('Terminal')}</button>
+            <button class="btn sm act" onclick={() => openWith(r, 'finder')} title={keys(t('Show in the Finder'))}>{FILE_MANAGER}</button>
           {/if}
-          {#if link}<a class="act" href={link} title={r.project}>{forgeLabel(r.forge)}</a>
-          {:else if isDesktop() && !r.error}<button class="act" onclick={() => add('publish', r.name)} title={t('Kept local: create its project on {forge} and push', { forge: forgeName() })}>{t('Publish…')}</button>{/if}
+          {#if link}<a class="btn sm act" href={link} title={r.project}>{forgeLabel(r.forge)}</a>
+          {:else if isDesktop() && !r.error}<button class="btn sm act" onclick={() => add('publish', r.name)} title={t('Kept local: create its project on {forge} and push', { forge: forgeName() })}>{t('Publish…')}</button>{/if}
         </div>
       </div>
     {/each}
-    {#if error}<p class="error">{error}</p>{/if}
+    {#if error}<p class="err">{error}</p>{/if}
     {#if isDesktop()}
       <div class="foot">
-        <button class="act" onclick={() => add('folder')} title={t('Settings › Repositories: an existing folder, or a clone of a project')}><Icon name="folder" />{t('Add a repository…')}</button>
-        <button class="act" onclick={() => add('new')} title={t('Settings › Repositories: a new folder with a git repository')}><Icon name="plus" />{t('New project…')}</button>
+        <button class="btn sm act" onclick={() => add('folder')} title={t('Settings › Repositories: an existing folder, or a clone of a project')}><Icon name="folder" />{t('Add a repository…')}</button>
+        <button class="btn sm act" onclick={() => add('new')} title={t('Settings › Repositories: a new folder with a git repository')}><Icon name="plus" />{t('New project…')}</button>
       </div>
     {/if}
   </div>
@@ -110,8 +119,8 @@
   .sbi:hover, .sbi.on { background: var(--surface-muted); color: var(--text); }
   .g { color: var(--src-gitlab); }
   .flag { min-width: 14px; padding: 0 4px; border-radius: var(--r7); background: var(--warn-bg); color: var(--warn); font-size: var(--fs-tag); font-weight: 600; text-align: center; }
-  .pop { position: fixed; left: 8px; bottom: 30px; z-index: var(--z-menu); width: min(460px, calc(100vw - 16px)); padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); white-space: normal; }
-  .head { margin: 2px 8px 4px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .pop { position: fixed; left: 8px; bottom: 30px; width: min(460px, calc(100vw - 16px)); font-size: var(--fs-body); white-space: normal; }
+  .hd { margin: 0; }
   .repo { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: var(--r6); }
   .repo:hover { background: var(--surface-muted); }
   .repo.main { border-bottom: 1px solid var(--border); border-radius: var(--r6) var(--r6) 0 0; margin-bottom: 2px; }
@@ -122,14 +131,13 @@
   .dirty { align-self: center; display: inline-flex; color: var(--warn); font-size: var(--fs-meta); }
   .behind { color: var(--warn); font-family: var(--mono); font-size: var(--fs-tag); }
   .ahead { color: var(--ok); font-family: var(--mono); font-size: var(--fs-tag); }
-  .err { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ko); font-size: var(--fs-tag); }
+  .bad { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ko); font-size: var(--fs-tag); }
   .mono { font-family: var(--mono); }
   .acts { display: flex; gap: 4px; flex-shrink: 0; }
-  .act { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; cursor: pointer; }
-  .act:hover { background: var(--surface-muted); text-decoration: none; }
+  .acts .act, .foot .act { padding: 0 var(--sp-3); font-size: var(--fs-tag); }
   .act.has { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); }
   .act.proj { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); font-weight: 600; }
   .act.claude { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); }
   .foot { display: flex; gap: 4px; padding: 6px 8px 3px; border-top: 1px solid var(--border); margin-top: 2px; }
-  .error { margin: 4px 8px; color: var(--ko); font-size: var(--fs-tag); }
+  .pop .err { margin: 4px 8px; }
 </style>
