@@ -38,7 +38,7 @@ When an MR, a ticket, logs or an event is open on the right:
 
 On the active block: `za` collapses or expands it, `zs` switches between short and normal, `zz` zooms it, and `r` reads ClickUp again right away (the ↻ of the block).
 
-Pages: `1` … `9` or `⌘1` … `⌘9` open a page of the rail (`⌘` alone on the digit key, Shift not needed on AZERTY, so `⌘⇧3`/`4`/`5` stay macOS's screenshots), `gt` / `gT` go to the next / previous one. The **Agents** view takes the digit after the last page (`⌘6` with five pages), and `⌘N` starts a new agent.
+Pages: `1` … `9` or `⌘1` … `⌘9` open a page of the rail (`⌘` alone on the digit key, Shift not needed on AZERTY, so `⌘⇧3`/`4`/`5` stay macOS's screenshots), `gt` / `gT` go to the next / previous one. The **Agents** view takes the digit after the last page (`⌘6` with five pages), the **Projects** page the next one, and `⌘N` starts a new agent. The `?` list shows the digits of your own pages.
 
 ## Keys that work everywhere
 | Key | Effect |
@@ -51,7 +51,7 @@ Pages: `1` … `9` or `⌘1` … `⌘9` open a page of the rail (`⌘` alone on 
 | `⌘⇧F` | Zen mode: the rail and the page header fold away, the blocks get the window (also View › Zen Mode); the header comes back while you filter (`/`) or open For me (`i`) |
 | `?` | the keyboard shortcuts |
 | `⌘?` or `F1` | this Help |
-| `F2` | rename the page shown, in the rail |
+| `F2` | rename the page shown, in the rail; in the Agents view, the agent shown |
 | `Ctrl+Q` / `F11` (Linux, Windows) | quit Prism / full screen, which the Mac's menu bar does there: closing the window only minimises it |
 
 [Show the keyboard shortcuts](prism:keys)

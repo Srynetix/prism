@@ -52,7 +52,14 @@ export const agentsView = $state({
   side: null as SideTab | null,
   /** Several agents side by side (set by the view): ⌥+arrows then move between them, not in the terminal. */
   split: false,
+  /** Counts the New agent asked (`newAgent`): the launcher clears its last branch and error on each. */
+  fresh: 0,
+  /** What to show as the view opens, asked from outside (`openAgents(…, 'waiting')`): taken by the view. */
+  focus: null as AgentsFocus | null,
 })
+
+/** `waiting`: the Agents view by status, on the first agent waiting for me (the « À vous » badges). */
+export type AgentsFocus = 'waiting'
 
 export type AgentsLayout = '1' | '2' | '2r' | '4'
 /**
@@ -70,11 +77,19 @@ export function paneArrow(e: KeyboardEvent): 'ArrowLeft' | 'ArrowRight' | 'Arrow
   return ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) ? (e.key as 'ArrowLeft') : null
 }
 
+/** The Agents view is the one shown: open, and neither Settings nor Help over it. */
+export const agentsShown = () => agentsView.open && !settingsView.open && !helpView.open
+
 /**
  * Opens the Agents view, a page after the rail's others: from a page, it slides in as they do;
- * from Settings or Help, at once.
+ * from Settings or Help, at once. `focus` `waiting`: grouped by status, on the first agent that
+ * waits for me (every « waiting for you » count opens it so).
  */
-export function openAgents(id?: string) {
+export function openAgents(id?: string, focus?: AgentsFocus) {
+  if (focus === 'waiting') {
+    id ??= live.snapshot?.agents?.find((a) => a.status === 'needs_you' || a.status === 'waiting_tool')?.id
+    agentsView.focus = focus
+  }
   if (id) agentsView.selected = id
   if (agentsView.open && !settingsView.open && !helpView.open) return
   const fromPage = !agentsView.open && !settingsView.open && !helpView.open
@@ -88,6 +103,19 @@ export function openAgents(id?: string) {
   if (fromPage) void pageTransition(apply, 'down')
   else apply()
 }
+/**
+ * New agent, the one door (⌘N, the menu bar's New Agent, the palette, the view's New and +): the
+ * Agents view, its launcher open and blank of the last one's place and error.
+ */
+export function newAgent() {
+  if (!agentsEnabled()) return
+  openAgents()
+  agentsView.creating = true
+  agentsView.desktopHref = null
+  agentsView.onLaunch = null
+  agentsView.fresh++
+}
+
 /** Closes the Agents view, and the Projects page: a page of the rail, Settings or Help takes their place. */
 export const closeAgents = () => {
   agentsView.open = false

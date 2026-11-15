@@ -1413,7 +1413,6 @@ export default {
   'Installed again, trusted (a pack’s new version reaching nothing more): reload the window.': 'Réinstallé, et de confiance (une nouvelle version du pack qui n’atteint rien de plus) : rechargez la fenêtre.',
   'Installed again: reload the window, then trust it.': 'Réinstallé : rechargez la fenêtre, puis faites-lui confiance.',
   'Installed by hand from': 'Installé à la main depuis',
-  'Module': 'Module',
   'Module source': 'Source du module',
   'Module {id} installed': 'Module {id} installé',
   'Module {id} installed: reload the window to look at what it reaches and trust it; its back end runs once Prism restarts.': 'Module {id} installé : rechargez la fenêtre pour voir ce qu’il atteint et lui faire confiance ; son back end tourne au redémarrage de Prism.',

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { suggest } from '../suggest'
-  import { chord, chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
+  import { untrack } from 'svelte'
+  import { chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
+  import { hit, shortcutKeys } from '../shortcuts'
   import Icon from './Icon.svelte'
   import Terminal from './Terminal.svelte'
   import QuickAnswers from './QuickAnswers.svelte'
@@ -11,7 +13,7 @@
   import KindBadge from './KindBadge.svelte'
   import Gutter from './Gutter.svelte'
   import { live } from '../live.svelte'
-  import { TERMINAL_FONT, zoomTerminal, zoomChat, agentsAvailable, agentsSettings, agentsView, allowAgent, modelName, desktopUrl, interruptAgent, justLaunched, allTags, renameAgent, startPrepared, launchAgain, openLauncher, resumeAgent, setAgentCategory, setAgentTags, kindNames, kindColor, linkAgentTicket, linkAgentMr, stopAgent, openProjects, attachFiles, mention, draggedFiles, insertInAgent, filesOf, layoutKey, paneArrow, terminalKeeps, plans, type AgentsLayout, type SideTab } from '../agents.svelte'
+  import { TERMINAL_FONT, zoomTerminal, zoomChat, agentsAvailable, agentsSettings, agentsShown, agentsView, allowAgent, newAgent, modelName, desktopUrl, interruptAgent, justLaunched, allTags, renameAgent, startPrepared, launchAgain, openLauncher, resumeAgent, setAgentCategory, setAgentTags, kindNames, kindColor, linkAgentTicket, linkAgentMr, stopAgent, openProjects, attachFiles, mention, draggedFiles, insertInAgent, filesOf, layoutKey, paneArrow, terminalKeeps, plans, type AgentsLayout, type SideTab } from '../agents.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { filter as query, resolve } from '../filter.svelte'
   import { canMarkRead, markRead } from '../session-read'
@@ -40,8 +42,6 @@
   import { isArchived, setArchived } from '../agent-archive.svelte'
   import { openQuickActionDraft } from '../quick-action-draft.svelte'
   import { setPollsShown } from '../polls.svelte'
-  import { settingsView } from '../settings.svelte'
-  import { helpView } from '../help-view.svelte'
   import { isAssistant } from '../assistant.svelte'
   import { agentEntry, desktopEntry, groupEntries, groupLabel, GROUP_BY, shortOf, SORTS, tagsOf, taskOf, TASK_ICON, where, type Entry, type Filter, type GroupBy, type SortBy } from '../agents-list'
   import { t, tn, tc } from '../i18n.svelte'
@@ -64,7 +64,7 @@
    */
 
   // Kept mounted under the other views (App): its panels' polls wait meanwhile.
-  setPollsShown(() => agentsView.open && !settingsView.open && !helpView.open)
+  setPollsShown(agentsShown)
 
   const agents = $derived(live.snapshot?.agents ?? [])
   /** Claude Desktop sessions, unless hidden (`[agents.claude] show_desktop`, only with Claude Code). */
@@ -137,6 +137,31 @@
   }
 
   const current = $derived(entries.find((e) => e.id === agentsView.selected) ?? null)
+
+  /**
+   * Opened on what waits for me (`openAgents(…, 'waiting')`, every « waiting for you » count): by
+   * status this time (the grouping chosen stays remembered), the whole list, its Waiting group open;
+   * `openAgents` picked the first agent waiting.
+   */
+  $effect(() => {
+    if (agentsView.focus !== 'waiting') return
+    agentsView.focus = null
+    untrack(() => {
+      groupBy = 'status'
+      showArchived = false
+      filter = 'all'
+      tagFilter = ''
+      if (isFolded('Waiting for you')) toggleFold('Waiting for you')
+      if (agentsView.selected && entries.some((e) => e.id === agentsView.selected && waitsForYou(e.status))) agentsView.creating = false
+    })
+  })
+  /** New agent (`newAgent`, from anywhere): the launcher forgets the last one's branch and error. */
+  let freshSeen = agentsView.fresh
+  $effect(() => {
+    if (agentsView.fresh === freshSeen) return
+    freshSeen = agentsView.fresh
+    untrack(() => launcher?.fresh())
+  })
   /** With no choice, or if the chosen item is gone: the first in the list (not an agent still on its way). */
   $effect(() => {
     const first = groups[0]?.items[0]
@@ -213,80 +238,86 @@
 
 
   /**
-   * ⌘[ / ⌘]: previous / next agent in the list; ⌘.: interrupt Claude (Escape); ⌘E: mark it read;
-   * ⌘+ / ⌘- / ⌘0: terminal text size.
+   * The Agents view's keys, declared in shortcuts.ts: ⌘[ / ⌘] previous / next agent in the list,
+   * ⌘. interrupt Claude (Escape), ⌘E mark it read, ⌘+ / ⌘- / ⌘0 text size, ⌘↵ an agent alone or
+   * back beside the others, ⌘B the list, F2 rename the agent. Only while the view is the one shown
+   * (Settings or Help may be open over it).
    */
   function onKey(e: KeyboardEvent) {
+    if (!agentsShown()) return
     // Kept by the terminal it was pressed in (`[agents] terminal_keys`).
     if (inTerminal(e) && terminalKeeps(e)) return
-    if (agentsView.open && managing && e.key === 'Escape' && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm')) {
+    const inField = !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable], .xterm')
+    if (managing && e.key === 'Escape' && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm')) {
       e.preventDefault()
       managing = false
       return
     }
     // Esc restores a full-width panel, unless it is meant for a field (or the terminal, hidden then).
-    if (agentsView.open && full && e.key === 'Escape' && !(e.target as HTMLElement | null)?.closest?.('input, textarea, select, .xterm')) {
+    if (full && e.key === 'Escape' && !inField) {
       e.preventDefault()
       setFull(false)
       return
     }
-    if (agentsView.open) {
-      const l = layoutKey(e)
-      if (l) {
-        e.preventDefault()
-        grid.setLayout(l)
-        return
-      }
-      const arrow = paneArrow(e)
-      if (arrow) {
-        e.preventDefault()
-        grid.move(arrow)
-        return
-      }
+    const l = layoutKey(e)
+    if (l) {
+      e.preventDefault()
+      grid.setLayout(l)
+      return
     }
-    if (!agentsView.open || !chord(e) || e.altKey) return
-    // Shift added only to leave the terminal (Linux, Windows) does not count.
-    const shift = e.shiftKey && !extraShift(e)
-    const k = chordKey(e)
-    const zoom = k === '=' || k === '+' ? TERMINAL_FONT.step * 2 : k === '-' || k === '_' ? -TERMINAL_FONT.step * 2 : k === '0' && !shift ? 0 : null
-    if (zoom !== null) {
+    const arrow = paneArrow(e)
+    if (arrow) {
+      e.preventDefault()
+      grid.move(arrow)
+      return
+    }
+    if (hit('rename', e) && !inField && current?.kind === 'agent') {
+      e.preventDefault()
+      startRename(current.a)
+      return
+    }
+    if (hit('text-size', e)) {
+      // Shift added only to leave the terminal (Linux, Windows) does not count.
+      const shift = e.shiftKey && !extraShift(e)
+      const k = chordKey(e)
+      const zoom = k === '=' || k === '+' ? TERMINAL_FONT.step * 2 : k === '-' || k === '_' ? -TERMINAL_FONT.step * 2 : !shift ? 0 : null
+      if (zoom === null) return
       e.preventDefault()
       // The agent shown reads as its Chat: its text; otherwise the terminals'.
       if (current?.kind === 'agent' && chatting(current.a.id)) zoomChat(zoom)
       else zoomTerminal(zoom)
       return
     }
-    if (shift) return
-    if (k === 'enter' && grid.count > 1 && current?.kind === 'agent') {
+    if (hit('agent-zoom', e) && grid.count > 1 && current?.kind === 'agent') {
       e.preventDefault()
       grid.zoomed = !grid.zoomed
       return
     }
-    if (k === 'b') {
+    if (hit('agents-list', e)) {
       e.preventDefault()
       toggleCollapsed()
       return
     }
-    if (k === 'e' && current && (current.kind === 'desktop' || current.a.state === 'running') && canMarkRead(current.kind === 'agent' ? current.a : current.c)) {
+    if (hit('mark-read', e) && current && (current.kind === 'desktop' || current.a.state === 'running') && canMarkRead(current.kind === 'agent' ? current.a : current.c)) {
       e.preventDefault()
       void act(() => markRead([current!.id]))
       return
     }
-    if (k === '[' || k === ']') {
+    if (hit('agent-cycle', e)) {
       // Grouped by tag, an agent may show in several groups: once in the order.
       const order = groups.filter((g) => !isFolded(g.name)).flatMap((g) => g.items).filter((x, i, all) => all.findIndex((y) => y.id === x.id) === i)
       const i = order.findIndex((x) => x.id === current?.id)
-      const next = order[(i + (k === ']' ? 1 : -1) + order.length) % order.length]
+      const next = order[(i + (chordKey(e) === ']' ? 1 : -1) + order.length) % order.length]
       if (!next) return
       e.preventDefault()
       select(next.id)
-    } else if (k === '.' && current?.kind === 'agent' && current.a.state === 'running') {
+    } else if (hit('interrupt', e) && current?.kind === 'agent' && current.a.state === 'running') {
       e.preventDefault()
       void act(() => interruptAgent(current!.id))
     }
   }
 
-  /** Rename: double-click the title or the pencil; ↩ or leaving the field saves, Escape cancels. */
+  /** Rename: double-click the title, F2 or ⋯ › Rename; ↩ or leaving the field saves, Escape cancels. */
   let renaming = $state<string | null>(null)
   let newTitle = $state('')
   function startRename(a: Agent) {
@@ -568,7 +599,7 @@
   {#if collapsed}
     <aside class="rail" aria-label={t('Agents')}>
       <button class="ctl" onclick={toggleCollapsed} title={keys(t('Expand the list (⌘B)'))} aria-label={t('Expand the list')}><Icon name="chevronRight" /></button>
-      <button class="ctl plus" onclick={() => { agentsView.creating = true; agentsView.desktopHref = null; agentsView.onLaunch = null; launcher?.fresh() }} disabled={!agentsAvailable()} title={keys(t('New agent (⌘N)'))} aria-label={t('New agent')}><Icon name="plus" stroke={2.5} /></button>
+      <button class="ctl plus" onclick={newAgent} disabled={!agentsAvailable()} title={`${t('New agent')} (${shortcutKeys('new-agent')})`} aria-label={t('New agent')}><Icon name="plus" stroke={2.5} /></button>
       <button class="ctl" onclick={() => grid.setLayout(LAYOUTS[(LAYOUTS.findIndex(([l]) => l === grid.layout) + 1) % LAYOUTS.length][0])} title={t('Layout: {name} · click for the next', { name: LAYOUTS.find(([l]) => l === grid.layout)?.[1] ?? '' })} aria-label={t('Next layout')}>{@render layoutIcon(grid.layout)}</button>
       <div class="rscroll">
         {#each groups as g (g.name)}
@@ -595,7 +626,7 @@
       {#if grid.count > 1}<button class="by" class:on={grid.follow} onclick={() => grid.setFollow(!grid.follow)} aria-pressed={grid.follow} title={t('Follow who waits: an agent waiting for you comes into an empty pane (or the last), and leaves it once answered')} aria-label={t('Follow who waits')}><Icon name="alarm" /></button>{/if}
       <span class="grow"></span>
       <button class="fold" onclick={toggleCollapsed} title={keys(t('Collapse the list (⌘B)'))} aria-label={t('Collapse the list')}><Icon name="chevronLeft" /></button>
-      <button class="new" onclick={() => { agentsView.creating = true; agentsView.desktopHref = null; agentsView.onLaunch = null; launcher?.fresh() }} disabled={!agentsAvailable()} title={keys(t('New agent (⌘N)'))}><Icon name="plus" size={13} stroke={2.5} />{t('New')}<kbd>{keys('⌘N')}</kbd></button>
+      <button class="new" onclick={newAgent} disabled={!agentsAvailable()} title={`${t('New agent')} (${shortcutKeys('new-agent')})`}><Icon name="plus" size={13} stroke={2.5} />{t('New')}<kbd>{shortcutKeys('new-agent')}</kbd></button>
     </div>
     <div class="filter" role="tablist">
       {#if withDesktop}
@@ -961,7 +992,7 @@
   .st.waiting_tool { background: var(--ko); }
   .st.review_ready { background: var(--info); }
   .st.completed, .st.idle { background: var(--text-muted); opacity: 0.5; }
-  .empty { padding: 14px 10px; font-size: var(--fs-meta); line-height: 1.5; }
+  .agents .empty { padding: 14px 10px; font-size: var(--fs-meta); line-height: 1.5; }
   .pane .empty { margin: auto; max-width: 420px; text-align: center; }
 
   .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -981,7 +1012,7 @@
   .new kbd { margin-left: 3px; color: var(--text-muted); }
   button.allow { background: var(--warn-bg); border-color: transparent; color: var(--warn); font-weight: 600; }
   kbd { font: 600 10px var(--mono); opacity: 0.8; }
-  .err { margin: 0; color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
+  .agents .err { margin: 0; color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
   .bar { margin: 0; padding: 6px 12px; font-size: var(--fs-meta); }
   .err.bar { background: var(--ko-bg); }
   .ask.bar { background: var(--warn-bg); color: var(--warn); }
@@ -995,7 +1026,7 @@
   .deskcard .open { align-self: flex-start; padding: 4px 12px; border-radius: var(--r6); background: var(--src-claude); color: #fff; text-decoration: none; font-weight: 500; }
 
   .row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r7); overflow: hidden; }
+  header .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r7); overflow: hidden; }
   .seg button { border: none; border-radius: 0; background: var(--surface); color: var(--text-muted); }
   .seg button + button { border-left: 1px solid var(--border); }
   .seg button.on { background: var(--src-claude); color: #fff; }
@@ -1019,7 +1050,7 @@
   .meta .link:hover, .meta .link.on { background: color-mix(in srgb, currentColor 22%, transparent); }
   .meta .tick { padding: 0; border: none; background: none; color: var(--src-clickup); font: 600 var(--fs-meta) var(--mono); }
   button.tick:hover { text-decoration: underline; }
-  .seg { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
+  header .seg { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
   .seg button { padding: 1px 8px; border: none; border-right: 1px solid var(--border); border-radius: 0; background: none; color: var(--text-muted); font-size: var(--fs-meta); }
   .seg button:last-child { border-right: none; }
   .seg button.on { background: color-mix(in srgb, var(--src-claude) 13%, transparent); color: var(--src-claude); }

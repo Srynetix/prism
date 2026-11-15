@@ -118,9 +118,11 @@
   import AgentsView from './components/AgentsView.svelte'
   import ProjectsView from './components/ProjectsView.svelte'
   import { waitingWorkstreams } from './workstreams'
-  import { agentsEnabled, agentsView, closeAgents, openAgents, openProjects, projectsDigit, projectsView, terminalKeeps } from './agents.svelte'
+  import { agentsEnabled, agentsView, newAgent, openAgents, openProjects, projectsView, terminalKeeps } from './agents.svelte'
+  import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys } from './shortcuts'
+  import { openWaiting } from './doors'
   import { BLOCK_HELP } from './block-help'
-  import { chord, chordKey, extraShift, inTerminal, isMac, keys, pageDigit } from './platform'
+  import { chord, inTerminal, keys, pageDigit } from './platform'
   import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
   import { consoleKey, toggleConsole } from './console.svelte'
   import { matches, worksWhileTyping } from './shortcut'
@@ -287,10 +289,10 @@
   /** Typing in a field (filter, note, time entry…): no shortcut. */
   const typing = (e: KeyboardEvent) => !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')
   /** The Agents view comes after the grid views: ⌘5 with four views. */
-  const agentsDigit = $derived(String(views().length + 1))
+  const agentsDigit = $derived(agentsDigitOf())
   /** The Projects page, after the Agents view: shown once a repository is configured. */
   const projectsOn = $derived((full?.repositories?.length ?? 0) > 0)
-  const projectsKey = $derived(String(projectsDigit(views().length)))
+  const projectsKey = $derived(projectsKeyOf())
 
   /** Zen mode: the filter shown while `/` puts the cursor in it, until it loses it. */
   let filterPeek = $state(false)
@@ -321,9 +323,8 @@
     // A shortcut an agent's terminal keeps (`[agents] terminal_keys`): Prism leaves it there, and
     // ignores the menu bar's echo of it (⌘N, ⌘,).
     if (inTerminal(e) && terminalKeeps(e)) {
-      const echo = chord(e) ? ({ n: 'new-agent', ',': 'settings' } as Record<string, string>)[chordKey(e)] : undefined
+      const echo = (['new-agent', 'settings', 'zen'] as const).find((id) => hit(id, e))
       if (echo) keyedAction(echo)
-      else if (chord(e) && e.shiftKey && chordKey(e).toLowerCase() === 'f') keyedAction('zen')
       return
     }
     // The command palette (`[palette] key`, ⌘K), over anything.
@@ -332,41 +333,41 @@
       togglePalette()
       return
     }
+    // The chords below: shortcuts.ts declares them (and the help lists them from there).
     // ⌘⇧F: Zen mode, the rail and the header folded away.
-    if (chord(e) && e.shiftKey && chordKey(e).toLowerCase() === 'f') {
+    if (hit('zen', e)) {
       e.preventDefault()
       keyedAction('zen')
       toggleZen()
-      if (zen.on) toast(t('Zen mode · {keys} to leave it', { keys: keys('⌘⇧F') }))
+      if (zen.on) toast(t('Zen mode · {keys} to leave it', { keys: shortcutKeys('zen') }))
       return
     }
-    // ⌘, : Settings, as in any macOS app.
-    if (chord(e) && chordKey(e) === ',') {
+    // ⌘, : Settings, as in any macOS app; closed, back to where it was opened from.
+    if (hit('settings', e)) {
       e.preventDefault()
       keyedAction('settings')
-      closeAgents()
       toggleSettings()
       return
     }
     // Ctrl+Q and F11 where no menu bar does it (Linux): quit, full screen.
-    if (!isMac && isDesktop() && chord(e) && chordKey(e) === 'q') {
+    if (isDesktop() && hit('quit', e)) {
       e.preventDefault()
       void quitApp()
       return
     }
-    if (!isMac && isDesktop() && e.key === 'F11') {
+    if (isDesktop() && hit('fullscreen', e)) {
       e.preventDefault()
       void toggleFullscreen()
       return
     }
     // ⌘? or F1: Help.
-    if ((chord(e) && chordKey(e) === '?') || e.key === 'F1') {
+    if (hit('help', e)) {
       e.preventDefault()
       toggleHelp()
       return
     }
-    // F2: renames the page shown, in the rail (not in Zen mode: the rail is not there).
-    if (e.key === 'F2' && !zen.on && !typing(e) && !inTerminal(e) && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open) {
+    // F2: renames the page shown, in the rail (not in Zen mode: the rail is not there); the Agents view renames its agent.
+    if (hit('rename', e) && !zen.on && !typing(e) && !inTerminal(e) && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open) {
       e.preventDefault()
       startRename(view.id)
       return
@@ -412,16 +413,14 @@
       openProjects()
       return
     }
-    if (chord(e) && chordKey(e) === 'n' && !(e.shiftKey && !extraShift(e)) && agentsEnabled()) {
+    if (hit('new-agent', e) && agentsEnabled()) {
       e.preventDefault()
       keyedAction('new-agent')
-      openAgents()
-      agentsView.creating = true
-      agentsView.desktopHref = null
+      newAgent()
       return
     }
     // ⌘⇧T: the panel closed last comes back (recent-panels.svelte.ts).
-    if (chord(e) && e.shiftKey && chordKey(e) === 't') {
+    if (hit('reopen', e)) {
       e.preventDefault()
       reopenLastPanel()
       return
@@ -593,7 +592,7 @@
       <button class="hiddenp" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); pageUi.hiddenMenu = { x: r.right + 4, y: r.top } }} title={tn(hiddenViews().length, '{n} hidden page: show it again', '{n} hidden pages: show them again')} aria-label={t('Hidden pages')}><Icon name="hide" />{hiddenViews().length}</button>
     {/if}
     {#if agentsEnabled()}
-    <button class="v" class:on={agentsView.open && !settingsView.open && !helpView.open} style:--tint="var(--src-claude)" onclick={() => openAgents()} title={keys(t('Agents (⌘{digit}) · new agent ⌘N', { digit: agentsDigit }))} aria-current={agentsView.open ? 'page' : undefined}>
+    <button class="v" class:on={agentsView.open && !settingsView.open && !helpView.open} style:--tint="var(--src-claude)" onclick={() => (agentsWaiting ? openWaiting() : openAgents())} title={keys(t('Agents (⌘{digit}) · new agent ⌘N', { digit: agentsDigit }))} aria-current={agentsView.open ? 'page' : undefined}>
       {@render icon('agents')}
       <span>{t('Agents')}</span>
       {#if agentsWaiting}<span class="count" title={t('{n} waiting for you', { n: agentsWaiting })}>{agentsWaiting}</span>{:else if toReview}<span class="count rv" title={t('{n} to review', { n: toReview })}>{toReview}</span>{/if}
@@ -612,7 +611,7 @@
     <span class="grow"></span>
     <button class="v" class:on={helpView.open} onclick={toggleHelp} title={keys(t('Help (⌘? or F1)'))} aria-pressed={helpView.open}><Icon name="help" /><span>{t('Help')}</span></button>
     <ThemeMenu />
-    <button class="v settings" class:on={settingsView.open} onclick={() => { closeAgents(); toggleSettings() }} title={keys(t('Settings (⌘,)'))} aria-pressed={settingsView.open}><Icon name="settings" /><span>{t('Settings')}</span></button>
+    <button class="v settings" class:on={settingsView.open} onclick={toggleSettings} title={keys(t('Settings (⌘,)'))} aria-pressed={settingsView.open}><Icon name="settings" /><span>{t('Settings')}</span></button>
     <ProfileMenu />
   </nav>
   <div class="content">

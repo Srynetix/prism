@@ -38,7 +38,7 @@ Quand une MR, un ticket, des logs ou un événement est ouvert à droite :
 
 Sur le bloc actif : `za` le replie ou le déplie, `zs` passe du format court au format normal, `zz` l’agrandit, et `r` relit ClickUp tout de suite (le ↻ du bloc).
 
-Pages : `1` … `9` ou `⌘1` … `⌘9` ouvrent une page du rail (`⌘` seul sur la touche du chiffre, Shift inutile en AZERTY, pour que `⌘⇧3`/`4`/`5` restent les captures d’écran de macOS), `gt` / `gT` passent à la suivante / précédente. La vue **Agents** prend le chiffre qui suit la dernière page (`⌘6` avec cinq pages), et `⌘N` lance un nouvel agent.
+Pages : `1` … `9` ou `⌘1` … `⌘9` ouvrent une page du rail (`⌘` seul sur la touche du chiffre, Shift inutile en AZERTY, pour que `⌘⇧3`/`4`/`5` restent les captures d’écran de macOS), `gt` / `gT` passent à la suivante / précédente. La vue **Agents** prend le chiffre qui suit la dernière page (`⌘6` avec cinq pages), la page **Projets** le suivant, et `⌘N` lance un nouvel agent. La liste `?` montre les chiffres de vos propres pages.
 
 ## Les touches valables partout
 | Touche | Effet |
@@ -51,7 +51,7 @@ Pages : `1` … `9` ou `⌘1` … `⌘9` ouvrent une page du rail (`⌘` seul s
 | `⌘⇧F` | Mode zen : le rail et l’en-tête de page se replient, les blocs prennent la fenêtre (aussi Présentation › Mode zen) ; l’en-tête revient quand vous filtrez (`/`) ou ouvrez Pour moi (`i`) |
 | `?` | les raccourcis clavier |
 | `⌘?` ou `F1` | cette Aide |
-| `F2` | renommer la page affichée, dans le rail |
+| `F2` | renommer la page affichée, dans le rail ; dans la vue Agents, l’agent affiché |
 | `Ctrl+Q` / `F11` (Linux, Windows) | quitter Prism / plein écran, ce que fait là-bas la barre de menus du Mac : fermer la fenêtre ne fait que la réduire |
 
 [Afficher les raccourcis clavier](prism:keys)

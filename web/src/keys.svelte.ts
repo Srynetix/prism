@@ -1,11 +1,12 @@
 import { openThread, parseThreadAttr } from './thread.svelte'
 import { currentView, isCollapsed, isShort, setMode, setView, toggleZoom, zoom } from './layout.svelte'
 import { views } from './views'
-import { agentsEnabled, openAgents, openProjects, projectsDigit, projectsOn } from './agents.svelte'
+import { agentsEnabled, openAgents, openProjects, projectsOn } from './agents.svelte'
+import { agentsDigit, projectsKey } from './shortcuts'
 import { isMac } from './platform'
 
 /**
- * Keyboard control, vim-style. A cursor walks the lines of the active block (tickets, MRs,
+ * Keyboard control, vim-style (its keys declared, for the help, in shortcuts.ts). A cursor walks the lines of the active block (tickets, MRs,
  * alerts, sessions, events…), marked by `data-cursor`; the active block by `data-kbd`.
  * Keys only apply outside an input field and without ⌘ / ⌥. Line commands
  * just click what the mouse would click: no action has its own path.
@@ -395,8 +396,8 @@ export function handleKey(e: KeyboardEvent): boolean {
       return false
   }
   if (/^[1-9]$/.test(e.key) && views()[Number(e.key) - 1]) return run(() => { setView(views()[Number(e.key) - 1].id); reset() })
-  // After the pages, as ⌘ numbers them: the Agents view, then the Projects page.
-  if (/^[1-9]$/.test(e.key) && agentsEnabled() && Number(e.key) === views().length + 1) return run(() => { openAgents(); reset() })
-  if (/^[1-9]$/.test(e.key) && projectsOn() && Number(e.key) === projectsDigit(views().length)) return run(() => { openProjects(); reset() })
+  // After the pages, as ⌘ numbers them (shortcuts.ts): the Agents view, then the Projects page.
+  if (agentsEnabled() && e.key === agentsDigit()) return run(() => { openAgents(); reset() })
+  if (projectsOn() && e.key === projectsKey()) return run(() => { openProjects(); reset() })
   return false
 }

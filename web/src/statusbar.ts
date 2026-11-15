@@ -5,12 +5,17 @@ import { BLOCK_DEFS } from './blocks'
  * pipeline, no meeting…) is not displayed.
  *
  * Its order is `[appearance] statusbar` (empty: `DEFAULT_ORDER`), `|` parting the left side from
- * the right; `[appearance] statusbar_hidden` the items hidden. Each item belongs to a zone, what
- * it asks of you: `you` (waits for an action), `work` (context), `machine` (the computer and Prism);
- * consecutive items of a zone are drawn together, between thin separators. Squeezed, the bar moves
- * its least needed items (`rank`) into a ⋯ at its end, never those of `you`.
+ * the right; `[appearance] statusbar_hidden` the items hidden (neither set: `DEFAULT_HIDDEN`). Each
+ * item belongs to a zone, what it asks of you: `you` (waits for an action), `work` (context),
+ * `machine` (the computer and Prism); consecutive items of a zone are drawn together, between thin
+ * separators. Squeezed, the bar moves its least needed items (`rank`) into a ⋯ at its end, never
+ * those of `you`.
+ *
+ * By default, a balanced bar: what waits for you (agents, my pipeline, the next meeting), then the
+ * work (repositories, sprint day), and on the right the computer (plan usage, Prism, the clock);
+ * every other item is hidden until « Customize… » or a right-click shows it.
  */
-type CoreStatus = 'alerts' | 'live' | 'problems' | 'repos' | 'pipeline' | 'meeting' | 'reminder' | 'claude' | 'profiles' | 'machines' | 'shells' | 'digest' | 'routines' | 'mcp' | 'aside' | 'usage' | 'sprint' | 'audio' | 'clock' | 'update' | 'packs' | 'feedback'
+type CoreStatus = 'alerts' | 'live' | 'prism' | 'repos' | 'pipeline' | 'meeting' | 'reminder' | 'claude' | 'profiles' | 'machines' | 'shells' | 'digest' | 'routines' | 'mcp' | 'aside' | 'usage' | 'sprint' | 'audio' | 'clock' | 'feedback'
 /** A core item, or a block's (its id: `BlockDef.status`). */
 export type StatusId = CoreStatus | (string & {})
 export type Zone = 'you' | 'work' | 'machine'
@@ -36,22 +41,27 @@ const CORE: StatusItem[] = [
   { id: 'machines', label: 'Other computers', zone: 'work', rank: 5 },
   { id: 'shells', label: 'Open shells', zone: 'work', rank: 3 },
   { id: 'aside', label: 'In passing', zone: 'work', rank: 3 },
-  { id: 'problems', label: 'Problems', zone: 'machine', rank: 7 },
-  { id: 'update', label: 'Prism update', zone: 'machine', rank: 6 },
-  { id: 'packs', label: 'Pack update', zone: 'machine', rank: 6 },
   { id: 'usage', label: 'Plan usage', zone: 'machine', rank: 6 },
+  { id: 'prism', label: 'Prism: updates and problems', zone: 'machine', rank: 7 },
   { id: 'audio', label: 'Audio', zone: 'machine', rank: 2 },
   { id: 'feedback', label: 'Feedback', zone: 'machine', rank: 1 },
   { id: 'live', label: 'Connection', zone: 'machine', rank: 8 },
   { id: 'clock', label: 'Clock', zone: 'machine', rank: Infinity },
 ]
-const CORE_BREAK = 'problems'
+const CORE_BREAK = 'usage'
+
+/**
+ * Former ids, still read in a config: `update`, `packs` and `problems` are one item now, `prism`
+ * (an update of Prism, packs or modules to update, problems).
+ */
+export const ALIASES: Record<string, StatusId> = { update: 'prism', packs: 'prism', problems: 'prism' }
+const current = (id: string) => ALIASES[id] ?? id
 
 /** Every item, the blocks' after the item they name (`BlockDef.status`) and in its zone; without one, by their side. */
 export const STATUS_ITEMS: StatusItem[] = BLOCK_DEFS.reduce<StatusItem[]>(
   (list, b) => {
     if (!b.status) return list
-    const at = list.findIndex((x) => x.id === b.status!.after)
+    const at = list.findIndex((x) => x.id === current(b.status!.after ?? ''))
     const item: StatusItem = { id: b.id, label: b.status.label, zone: list[at]?.zone ?? (b.status.side === 'left' ? 'work' : 'machine'), rank: 2 }
     return at < 0 ? [...list, item] : [...list.slice(0, at + 1), item, ...list.slice(at + 1)]
   },
@@ -63,12 +73,32 @@ export const statusItem = (id: StatusId) => BY_ID.get(id)
 /** The default order: zone by zone, `you` and `work` on the left. */
 export const DEFAULT_ORDER: string[] = STATUS_ITEMS.flatMap((i) => (i.id === CORE_BREAK ? [SIDE_BREAK, i.id] : [i.id]))
 
+/** Shown by default; every other item (core or block) is hidden until shown. */
+export const DEFAULT_SHOWN: StatusId[] = ['claude', 'pipeline', 'meeting', 'repos', 'sprint', 'usage', 'prism', 'clock']
+/** `[appearance] statusbar_hidden` when neither it nor `statusbar` is set. */
+export const DEFAULT_HIDDEN: string[] = STATUS_ITEMS.map((i) => i.id).filter((id) => !DEFAULT_SHOWN.includes(id))
+
 /**
- * `[appearance] statusbar` made whole: unknown ids dropped, one `|`, and every item it leaves out
- * (one Prism added since, a block turned on) put back after the one before it by default.
+ * `[appearance] statusbar_hidden` as it reads now: a former id stands for its item, which is hidden
+ * once every former id it replaces is (`problems` alone hidden: `prism` still says the updates).
  */
-export function fullOrder(order: string[]): string[] {
-  if (!order.length) return [...DEFAULT_ORDER]
+export function readHidden(hidden: string[]): string[] {
+  const out = hidden.filter((id) => !ALIASES[id])
+  for (const to of new Set(Object.values(ALIASES))) {
+    const from = Object.keys(ALIASES).filter((a) => ALIASES[a] === to)
+    if (!out.includes(to) && from.every((a) => hidden.includes(a))) out.push(to)
+  }
+  return out
+}
+
+/**
+ * `[appearance] statusbar` made whole: former ids read as their item, unknown ids dropped, one
+ * `|`, and every item it leaves out (one Prism added since, a block turned on) put back after the
+ * one before it by default.
+ */
+export function fullOrder(given: string[]): string[] {
+  if (!given.length) return [...DEFAULT_ORDER]
+  const order = given.map(current)
   const out = order.filter((id, i) => (id === SIDE_BREAK ? order.indexOf(SIDE_BREAK) === i : BY_ID.has(id) && order.indexOf(id) === i))
   if (!out.includes(SIDE_BREAK)) out.push(SIDE_BREAK)
   DEFAULT_ORDER.forEach((id, i) => {
@@ -80,8 +110,9 @@ export function fullOrder(order: string[]): string[] {
 }
 
 /** The two sides, items hidden left out, each cut into runs of one zone. */
-export function arrange(order: string[], hidden: string[]): { side: 'left' | 'right'; zones: { zone: Zone; items: StatusItem[] }[] }[] {
+export function arrange(order: string[], given: string[]): { side: 'left' | 'right'; zones: { zone: Zone; items: StatusItem[] }[] }[] {
   const full = fullOrder(order)
+  const hidden = readHidden(given)
   const at = full.indexOf(SIDE_BREAK)
   const side = (ids: string[]) =>
     ids.filter((id) => !hidden.includes(id)).map((id) => BY_ID.get(id)!).reduce<{ zone: Zone; items: StatusItem[] }[]>((runs, item) => {
