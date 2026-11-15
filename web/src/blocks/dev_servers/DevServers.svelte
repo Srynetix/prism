@@ -171,7 +171,7 @@
             <span class="acts">
               {#if hasCore()}
                 <button class="act" class:primary={list.length > 0} class:armed={arming.is(`start:${a.id}`)} disabled={busy !== null} onclick={() => start(a)} title={list.length ? t('Start {tasks}, one shell each', { tasks: list.map((task) => task.name).join(', ') }) : t('Open its Tasks panel')}>
-                  {busy === `start:${a.id}` ? '…' : list.length ? `▶ ${t('Start')}` : t('Tasks…')}
+                  {#if busy === `start:${a.id}`}<span class="spinner"></span>{t('Starting…')}{:else if list.length}<Icon name="play" />{t('Start')}{:else}{t('Tasks…')}{/if}
                 </button>
               {/if}
             </span>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte'
   import { agentAttachment, withoutMention } from '../../agents.svelte'
   import { base, promptImages } from './turns'
   import { t } from '../../i18n.svelte'
@@ -23,7 +24,7 @@
         {:catch}
           <span class="nm">{base(path)}</span>
         {/await}
-        <button type="button" class="x" onclick={() => write(withoutMention(text, path))} aria-label={t('Remove {name}', { name: base(path) })}>×</button>
+        <button type="button" class="x" onclick={() => write(withoutMention(text, path))} aria-label={t('Remove {name}', { name: base(path) })}><Icon name="close" /></button>
       </span>
     {/each}
   </div>

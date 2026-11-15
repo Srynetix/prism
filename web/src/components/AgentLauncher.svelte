@@ -384,7 +384,7 @@
         <span class="thumb" title={a.path}>
           {#if a.url}<img src={a.url} alt={a.name} />{:else}<span class="file"><Icon name="files" /></span>{/if}
           <span class="nm">{a.name}<small>{kb(a.size)}</small></span>
-          <button type="button" class="x" onclick={() => detach(i)} aria-label={t('Remove {name}', { name: a.name })}>×</button>
+          <button type="button" class="x" onclick={() => detach(i)} aria-label={t('Remove {name}', { name: a.name })}><Icon name="close" /></button>
         </span>
       {/each}
       <button type="button" class="drop" disabled={att.busy} onclick={() => fileInput?.click()}
@@ -503,7 +503,7 @@
             {:else if s.kind === 'prompt' || s.kind === 'agent'}<input bind:value={s.text} placeholder={s.kind === 'agent' ? t('Its prompt: {mr}, {ticket}, {branch} filled in', { mr: '{mr}', ticket: '{ticket}', branch: '{branch}' }) : t('Sent to this agent when it waits for you')} spellcheck="false" writingsuggestions="false" aria-label={t('Prompt')} />
             {:else}<span class="grow"></span>{/if}
             <select bind:value={s.when} aria-label={t('When')}>{#each Object.entries(WHEN_LABEL) as [w, label] (w)}<option value={w}>{label}</option>{/each}</select>
-            <button type="button" class="x" onclick={() => steps.splice(i, 1)} aria-label={t('Remove step {n}', { n: i + 1 })}>×</button>
+            <button type="button" class="x" onclick={() => steps.splice(i, 1)} aria-label={t('Remove step {n}', { n: i + 1 })}><Icon name="close" /></button>
           </div>
         {/each}
         <div class="adds">

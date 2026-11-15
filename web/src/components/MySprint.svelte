@@ -241,7 +241,7 @@
                   <!-- svelte-ignore a11y_no_static_element_interactions -->
                   <span class="tx" ondblclick={() => { editing = p.id; editText = p.text }} title={t('Double-click to edit')}>{p.text}</span>
                 {/if}
-                <button class="rm" onclick={() => removePoint(shown, p.id)} title={t('Remove this point')} aria-label={t('Remove')}>×</button>
+                <button class="rm" onclick={() => removePoint(shown, p.id)} title={t('Remove this point')} aria-label={t('Remove')}><Icon name="close" /></button>
               </div>
             {:else}
               <p class="muted">{t('What to keep, change or try, as it comes during the sprint: it is kept with {sprint}.', { sprint: shown })}</p>

@@ -63,7 +63,7 @@
 <section class="panel" class:embedded style="--src: var(--violet)" class:collapsed={!embedded && isCollapsed(pageId)}>
   <h2>
     <span class="title"><Icon name="code" />{block?.label ?? pageId.replace(/^custom:/, '')}</span>
-    {#if block?.pending}<span class="pend">⚠ {REASON[block.pending.reason]}</span>
+    {#if block?.pending}<span class="pend"><Icon name="warning" /> {REASON[block.pending.reason]}</span>
     {:else if block}
       <small class:ko={level === 'ko'} class:warn={level === 'warn'} title={[block.source, block.ran_at && t('read {time} ago', { time: ago(block.ran_at) }), block.took_ms != null && `${block.took_ms} ms`].filter(Boolean).join(' · ')}>
         {block.running ? t('reading…') : block.output?.status?.text ?? (block.ran_at ? t('{time} ago', { time: ago(block.ran_at) }) : '')}

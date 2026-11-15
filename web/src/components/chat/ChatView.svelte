@@ -459,7 +459,7 @@
   {#if row.type === 'reads'}
     <button class="tool" onclick={() => toggle(row.key)} aria-expanded={!!open[row.key]}>
       <Icon name="files" /><b>{tr('Read')}</b><span class="what">{tn(row.tools.length, '{n} file', '{n} files')}</span>
-      <span class="st ok">✓</span>
+      <span class="st ok"><Icon name="check" /></span>
     </button>
     {#if open[row.key]}
       <div class="reads">{#each row.tools as t, i (i)}<div><b>{t.tool}</b> {t.what ?? ''}</div>{/each}</div>
