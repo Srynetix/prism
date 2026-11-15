@@ -12,7 +12,7 @@
   /**
    * A side drawer, the one shell of them all (MR, ticket, logs, event, thread…): on the right, over
    * the page, in one of three widths, S a record (520), M a conversation (640), L a log, a terminal,
-   * a wide diff (960); `xl` the MR's changes (1320), `full` the whole window (the MR's full screen,
+   * a wide diff, two panes side by side (960); `xl` the MR's changes (1320), `full` the whole window (the MR's full screen,
    * a phone). Its header carries the crumbs of the drawers under it, the colour of its source on
    * top (`source`), what the panel puts in it (`head`), its pin and its ×. The stack of layers
    * (layers.svelte.ts) closes it on Escape and on a click outside, sets its rank, moves the focus

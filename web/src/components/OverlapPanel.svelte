@@ -111,7 +111,7 @@
   </div>
 {/snippet}
 
-<Drawer open={overlapView.open} key="overlap" identity={overlapView.id} crumb={t('Overlap')} label={t('Overlap')} size={phone ? 'full' : 'm'} source="var(--ko)" onclose={closeOverlap}>
+<Drawer open={overlapView.open} key="overlap" identity={overlapView.id} crumb={t('Overlap')} label={t('Overlap')} size={phone ? 'full' : 'l'} source="var(--ko)" onclose={closeOverlap}>
   {#snippet head()}
     <Icon name="overlap" />
     <span class="what">{t('Overlap')}</span>

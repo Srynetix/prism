@@ -51,7 +51,7 @@
   ]
 </script>
 
-<Drawer open={assistantView.open} key="assistant" identity={assistantView.selected ?? ''} crumb={t('Assistant')} label={t('Assistant')} size="m" source="var(--info)" onclose={closeAssistant}>
+<Drawer open={assistantView.open} key="assistant" identity={assistantView.selected ?? ''} crumb={t('Assistant')} label={t('Assistant')} size="l" source="var(--info)" onclose={closeAssistant}>
   {#snippet head()}
     <b class="title"><Icon name="sparkles" />{t('Assistant')}</b>
     <div class="seg" role="tablist">
