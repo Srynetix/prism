@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte'
   import { invoke } from '../bridge'
   import { armer } from '../armed.svelte'
+  import ArmedLabel from './ArmedLabel.svelte'
   import { cliOf } from '../agent-cli'
   import { tildePath, baseName } from '../platform'
   import { t } from '../i18n.svelte'
@@ -23,7 +24,7 @@
   let all = $state(false)
   let busy = $state(false)
   let error = $state('')
-  const arm = armer(4000)
+  const arm = armer()
 
   async function run(cmd: string, args: Record<string, unknown>) {
     if (busy) return
@@ -64,13 +65,13 @@
       </div>
     {/if}
     <div class="pr">
-      <button class="yes" disabled={busy || !critical} onclick={trust} title={critical ? '' : t('Trusting a folder from a phone: critical actions on (Settings › Remote › Exposure)')}>{#if phone}<Icon name="key" />{/if}{gate.kind === 'hooks' ? t('Approve') : t('Trust')}</button>
-      <button class:armed={arm.is('refuse')} disabled={busy} onclick={refuse} title={t('{cli} exits', { cli })}>{arm.is('refuse') ? t('Again: {cli} exits', { cli }) : t('Refuse')}</button>
-      {#if onterminal && !phone}<button class="term" onclick={onterminal}>{t('Open the terminal')}</button>{/if}
+      <button class="btn primary yes" disabled={busy || !critical} onclick={trust} title={critical ? '' : t('Trusting a folder from a phone: critical actions on (Settings › Remote › Exposure)')}>{#if phone}<Icon name="key" />{/if}{gate.kind === 'hooks' ? t('Approve') : t('Trust')}</button>
+      <button class="btn" class:armed={arm.is('refuse')} disabled={busy} onclick={refuse} title={t('{cli} exits', { cli })}><ArmedLabel label={t('Refuse')} armedLabel={t('Click again to confirm')} armed={arm.is('refuse')} /></button>
+      {#if onterminal && !phone}<button class="btn term" onclick={onterminal}>{t('Open the terminal')}</button>{/if}
     </div>
   {:else}
     <p class="muted">{t('Prism does not know this screen for sure (another version of {cli}?): it sends nothing. Answer it in its terminal.', { cli })}</p>
-    {#if onterminal}<div class="pr"><button class="yes" onclick={onterminal}>{t('Open the terminal')}</button></div>{/if}
+    {#if onterminal}<div class="pr"><button class="btn primary yes" onclick={onterminal}>{t('Open the terminal')}</button></div>{/if}
   {/if}
   {#if error}<p class="err">{error}</p>{/if}
 </div>
@@ -84,15 +85,11 @@
   .scope button { padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r12); background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
   .scope button.on { border-color: var(--violet, #8b5cf6); color: var(--text); font-weight: 600; }
   .pr { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pr button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
-  .pr .yes { border-color: var(--violet, #8b5cf6); background: var(--violet, #8b5cf6); color: #fff; font-weight: 600; }
-  .pr button.armed { border-color: var(--ko); color: var(--ko); }
-  .pr button:disabled { opacity: 0.5; cursor: default; }
+  .pr .yes { --btn-c: var(--violet, #8b5cf6); --btn-on: #fff; }
   .pr .term { margin-left: auto; }
   .muted { color: var(--text-muted); }
-  .err { color: var(--ko); overflow-wrap: anywhere; }
   /* On a phone: a card made for a thumb, as its permission's. */
   .trust.phone { gap: 9px; padding: 12px 14px; border-radius: var(--r14); font-size: var(--fs-body); }
   .trust.phone .scope button { min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: var(--fs-body); }
-  .trust.phone .pr button { flex: 1; justify-content: center; min-height: 42px; border-radius: 999px; font-size: var(--fs-body); }
+  .trust.phone .pr .btn { flex: 1; height: auto; min-height: 42px; border-radius: 999px; font-size: var(--fs-body); }
 </style>

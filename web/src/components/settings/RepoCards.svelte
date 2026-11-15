@@ -200,7 +200,7 @@
 
           <section class:locked={!path}>
             <h5><Icon name="code" /> {t('On this machine')}</h5>
-            <p class="req">{path ? t('Needs the clone ✓') : t('Needs the clone')}</p>
+            <p class="req">{t('Needs the clone')}{#if path}{' '}<Icon name="check" />{/if}</p>
             {#each SWITCHES_HERE as s (s.key)}
               <div class="sw"><Control kind="toggle" value={!!r[s.key]} onchange={(v) => update(r.name, { [s.key]: v || null })} /><span><b>{s.label}</b><small>{s.hint}</small></span></div>
             {/each}
@@ -208,8 +208,8 @@
             {#if !path}
               <div class="lock">
                 {t('No clone on this machine.')}
-                {#if canPick()}<button class="btn" onclick={() => choose(r)}>{t('Choose a folder…')}</button>{/if}
-                {#if project}<button class="btn" onclick={() => cloneInto(r)} disabled={!!busy[name]}>{busy[name] ?? (cloneTarget ? t('Clone into {folder}', { folder: wsName(cloneTarget) }) : t('Clone…'))}</button>{/if}
+                {#if canPick()}<button class="btn sm" onclick={() => choose(r)}>{t('Choose a folder…')}</button>{/if}
+                {#if project}<button class="btn sm" class:busy={!!busy[name]} onclick={() => cloneInto(r)} disabled={!!busy[name]}>{#if busy[name]}<span class="spinner"></span>{busy[name]}{:else}{cloneTarget ? t('Clone into {folder}', { folder: wsName(cloneTarget) }) : t('Clone…')}{/if}</button>{/if}
               </div>
             {/if}
             {#if errors[name]}<p class="err">{errors[name]}</p>{/if}
@@ -217,7 +217,7 @@
 
           <section class:locked={!project}>
             <h5><Icon name="mr" /> {t('On the forge')}</h5>
-            <p class="req">{project ? t('Needs the project ✓') : t('Needs the project')}</p>
+            <p class="req">{t('Needs the project')}{#if project}{' '}<Icon name="check" />{/if}</p>
             {#each SWITCHES_FORGE as s (s.key)}
               {@const forced = s.key === 'merge_requests' && bare}
               {@const barred = foreign(r) && forgeOnly(s.key)}
@@ -254,7 +254,7 @@
         <div class="foot">
           {#if r.primary && !valueOf<string>(PRIMARY, '')}<span class="note">{t('Named by primary = true, the former key: bare MR references name it.')}</span>{/if}
           <span class="grow"></span>
-          <button class="btn danger" class:armed={armed.is(`repo:${name}`)} onclick={() => remove(r)} title={pack ? t('Drops what config.toml changes in this pack’s repository') : t('Remove this repository (click twice)')}><ArmedLabel label={pack ? t('Back to the pack’s values') : t('Remove')} armedLabel={t('Click again')} armed={armed.is(`repo:${name}`)} /></button>
+          <button class="btn sm danger" class:armed={armed.is(`repo:${name}`)} onclick={() => remove(r)} title={pack ? t('Drops what config.toml changes in this pack’s repository') : t('Remove this repository (click twice)')}><ArmedLabel label={pack ? t('Back to the pack’s values') : t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is(`repo:${name}`)} /></button>
         </div>
       </div>
     {/if}
@@ -272,10 +272,10 @@
             <b>{g.label}{#if g.ws === 0}<span class="def">{t('default')}</span>{/if}</b>
             <small><span class="mono">{tilde(str(w.dir)) || t('no folder yet')}</span> · {str(w.namespace) ? str(w.namespace) : t('your account')} · <span class="chip forge {wsForge(w)}">{forgeLabel(wsForge(w))}{#if !w.forge}{' '}{t('(profile)')}{/if}</span></small>
           </span>
-          <button class="btn ghost" class:on={repoAdd.editing === g.ws} onclick={() => (repoAdd.editing = repoAdd.editing === g.ws ? null : g.ws!)} title={t('Edit this working folder')}><Icon name="edit" /></button>
+          <button class="btn sm ghost" class:on={repoAdd.editing === g.ws} onclick={() => (repoAdd.editing = repoAdd.editing === g.ws ? null : g.ws!)} title={t('Edit this working folder')}><Icon name="edit" /></button>
           {#if str(w.dir)}
-            <button class="btn" onclick={() => addIn(w, 'clone')}><Icon name="down" />{t('Clone here')}</button>
-            <button class="btn" onclick={() => addIn(w, 'new')}><Icon name="plus" />{t('New project')}</button>
+            <button class="btn sm" onclick={() => addIn(w, 'clone')}><Icon name="down" />{t('Clone here')}</button>
+            <button class="btn sm" onclick={() => addIn(w, 'new')}><Icon name="plus" />{t('New project')}</button>
           {/if}
         </div>
         {#if repoAdd.editing === g.ws}
@@ -286,7 +286,7 @@
             <label><span>{t('Group')}</span><Control kind="text" value={str(w.namespace) || null} onchange={(v) => setWorkspace(i, { namespace: v })} optional placeholder={t('your account')} compact /></label>
             <label><span>{t('Forge')}</span><Control kind="select" value={(w.forge as string | undefined) ?? null} onchange={(v) => setWorkspace(i, { forge: v })} options={['gitlab', 'github']} optional placeholder={t('profile’s')} compact /></label>
             <p class="hint">{t('New projects and clones go in a working folder (the first one by default), the only folders a phone creates projects in. Group: the forge group or owner of the projects created or published from there. Forge: where they go, and that of the clones in it unless they name their own.')}</p>
-            <button class="btn danger" class:armed={armed.is(`ws:${i}`)} onclick={() => removeWorkspace(i)}><ArmedLabel label={t('Remove this folder')} armedLabel={t('Click again')} armed={armed.is(`ws:${i}`)} /></button>
+            <button class="btn sm danger" class:armed={armed.is(`ws:${i}`)} onclick={() => removeWorkspace(i)}><ArmedLabel label={t('Remove this folder')} armedLabel={t('Click again to confirm')} armed={armed.is(`ws:${i}`)} /></button>
           </div>
         {/if}
       {:else if g.label}
@@ -350,7 +350,6 @@
   .sw.barred b { color: var(--text-muted); }
   .forced { opacity: 0.55; pointer-events: none; }
   .lock { margin-top: 6px; padding: 6px 8px; border-radius: var(--r6); background: var(--warn-bg); color: var(--warn); font-size: var(--fs-meta); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .err { margin: 6px 0 0; color: var(--ko); font-size: var(--fs-meta); }
   .row2 { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
   .row2 h5 { margin-bottom: 6px; }
   .branches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -358,12 +357,8 @@
   .foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
   .foot .note { font-size: var(--fs-meta); color: var(--text-muted); }
   .grow { flex: 1; }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn.ghost { border-color: transparent; background: none; color: var(--text-muted); }
+  .repo .err { margin: 6px 0 0; }
   .btn.ghost.on { color: var(--accent); }
-  .btn.danger { color: var(--ko); }
-  .btn.danger.armed { border-color: var(--ko); background: var(--ko-bg); }
   .link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   @media (max-width: 760px) {
     .cols, .branches, .wsedit { grid-template-columns: minmax(0, 1fr); }

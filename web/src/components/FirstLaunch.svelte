@@ -103,7 +103,7 @@
           {#if error}<p class="err">{error}</p>{/if}
           <div class="foot">
             <button class="btn ghost" onclick={() => (later = true)} title={t('Leave Prism without config: Settings or a config.toml set it up later')}>{t('Later')}</button>
-            <button class="btn primary" onclick={start} disabled={!valid || busy}>{busy ? t('Setting up…') : t('Start Prism')}</button>
+            <button class="btn primary" class:busy onclick={start} disabled={!valid || busy}>{#if busy}<span class="spinner"></span>{t('Setting up…')}{:else}{t('Start Prism')}{/if}</button>
           </div>
         </section>
       </div>
@@ -154,13 +154,8 @@
   .ready .card { opacity: 1; transform: none; pointer-events: auto; }
   h2 { margin: 0 0 4px; font-size: var(--fs-head); }
   .lead { margin: 0 0 14px; font-size: var(--fs-meta); color: var(--text-muted); line-height: 1.45; }
-  .err { margin: 10px 0 0; color: var(--ko); font-size: var(--fs-meta); }
+  .card .err { margin: 10px 0 0; }
   .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 14px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.ghost { background: none; color: var(--text-muted); }
-  .btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
   .skip { position: fixed; bottom: 14px; right: 20px; font-size: var(--fs-meta); color: #55556a; }
 
   /* Skipped, or "Reduce motion": everything in its final place at once. */

@@ -46,8 +46,8 @@
       <div class="line">
         <span class="lb"><b>{f.label}</b><small>{f.area} · <span class="mono">{tableOf(f.path)} {f.path.at(-1)}</span></small></span>
         <span class="use zero">0 ×</span>
-        <button class="btn" onclick={() => setValue(f.path, false)} title={t('Write its switch off in config.toml (saved with the other changes)')}>{t('Turn off')}</button>
-        <button class="btn ghost" class:armed={armed.is(f.id)} onclick={() => keep(f.id)} title={t('Never list it again (click twice)')}><ArmedLabel label={t('Keep')} armedLabel={t('Keep for good?')} armed={armed.is(f.id)} /></button>
+        <button class="btn sm" onclick={() => setValue(f.path, false)} title={t('Write its switch off in config.toml (saved with the other changes)')}>{t('Turn off')}</button>
+        <button class="btn sm ghost" class:armed={armed.is(f.id)} onclick={() => keep(f.id)} title={t('Never list it again (click twice)')}><ArmedLabel label={t('Keep')} armedLabel={t('Click again to confirm')} armed={armed.is(f.id)} /></button>
       </div>
     {:else}
       <p class="hint pad">{t('Every feature on was used in the last {n} days.', { n: WINDOW_DAYS })}</p>
@@ -70,13 +70,13 @@
     <div class="line">
       <span class="lb mono">{tableOf(d.path)} {d.path.at(-1)}</span>
       <span class="use">{shown(d.value)} → {t('default {value}', { value: shown(d.def) })}</span>
-      <button class="btn" onclick={() => resetValue(d.path)} title={t('Remove the key from config.toml: the pack’s value, else the default, applies (saved with the other changes)')}>{t('Reset')}</button>
+      <button class="btn sm" onclick={() => resetValue(d.path)} title={t('Remove the key from config.toml: the pack’s value, else the default, applies (saved with the other changes)')}>{t('Reset')}</button>
     </div>
   {:else}
     <p class="hint pad">{cfg.file ? t('Every key has its default value.') : t('Reading config.toml…')}</p>
   {/each}
   {#if diffs.length > DIFFS_SHOWN}
-    <div class="line"><span class="lb hint">{tn(diffs.length - DIFFS_SHOWN, '… {n} other', '… {n} others')}</span><button class="btn ghost" onclick={onToml}>{t('See them in the TOML panel')}</button></div>
+    <div class="line"><span class="lb hint">{tn(diffs.length - DIFFS_SHOWN, '… {n} other', '… {n} others')}</span><button class="btn sm ghost" onclick={onToml}>{t('See them in the TOML panel')}</button></div>
   {/if}
 </div>
 
@@ -93,8 +93,4 @@
   .use.zero { color: var(--warn); }
   .hint { color: var(--text-muted); font-size: var(--fs-meta); }
   .pad { margin: 0; padding: 6px 10px; }
-  .btn { padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn:hover { border-color: var(--accent); }
-  .btn.ghost { background: none; color: var(--text-muted); }
-  .btn.armed { border-color: var(--warn); color: var(--warn); }
 </style>

@@ -10,7 +10,7 @@
   import { invoke, hasCore, machine } from '../../bridge'
   import { setValue, valueOf } from '../../settings.svelte'
   import { checkModules, moduleUpdates } from '../../updates.svelte'
-  import { toast } from '../../toast.svelte'
+  import { toast, toastError } from '../../toast.svelte'
   import { t, tn } from '../../i18n.svelte'
   import type { ModuleRun } from '../../bindings/ModuleRun'
   import type { RemovedModule } from '../../bindings/RemovedModule'
@@ -71,7 +71,7 @@
       trusted[id] = running ? 'reload' : 'restart'
       toast(t('Module {id} trusted', { id }))
     } catch (e) {
-      toast(String(e))
+      toastError(String(e))
     } finally {
       busy = ''
     }
@@ -85,7 +85,7 @@
       await invoke('modules_forget', { id })
       await refresh()
     } catch (e) {
-      toast(String(e))
+      toastError(String(e))
     } finally {
       busy = ''
     }
@@ -105,7 +105,7 @@
       await refresh()
       void checkModules(true)
     } catch (e) {
-      toast(String(e))
+      toastError(String(e))
     } finally {
       busy = ''
     }
@@ -122,7 +122,7 @@
       toast(t('Module {id} installed', { id }))
       void checkModules(true)
     } catch (e) {
-      toast(String(e))
+      toastError(String(e))
     } finally {
       busy = ''
     }
@@ -175,19 +175,19 @@
       </div>
       <div class="side">
         {#if m.state === 'waiting' && m.info && !trusted[m.id] && local()}
-          <button class="btn" class:armed={armed.is(m.id)} disabled={busy === m.id} onclick={() => trust(m.id, m.info!.fingerprint)} title={t('Run this module’s web part and back end on this computer (click twice)')}><ArmedLabel label={t('Trust')} armedLabel={t('Trust it?')} armed={armed.is(m.id)} /></button>
+          <button class="btn sm" class:armed={armed.is(m.id)} disabled={busy === m.id} onclick={() => trust(m.id, m.info!.fingerprint)} title={t('Run this module’s web part and back end on this computer (click twice)')}><ArmedLabel label={t('Trust')} armedLabel={t('Click again to confirm')} armed={armed.is(m.id)} /></button>
         {:else}
           <span class="state" class:on={m.state === 'on' && !m.clashes.length && !run?.held} class:wait={m.state === 'waiting'}>{run?.held || m.info?.stopped ? t('On hold') : m.state === 'on' ? t('Loaded') : m.state === 'waiting' ? (trusted[m.id] ? t('Trusted') : t('Waiting')) : m.state === 'refused' ? t('Refused') : t('Failed')}</span>
         {/if}
         {#if local() && m.info && !done[m.id]}
           <span class="acts">
             {#if m.info.backend && m.info.trusted && (run?.held || run?.crashes || m.info.stopped)}
-              <button class="btn" class:armed={armed.is(`reset:${m.id}`)} disabled={busy === m.id} onclick={() => act('reset', m.id)} title={t('Start its back end again from nothing: its crashes forgotten, its blocks read again (click twice)')}><ArmedLabel label={t('Start again')} armedLabel={t('Start it?')} armed={armed.is(`reset:${m.id}`)} /></button>
+              <button class="btn sm" class:armed={armed.is(`reset:${m.id}`)} disabled={busy === m.id} onclick={() => act('reset', m.id)} title={t('Start its back end again from nothing: its crashes forgotten, its blocks read again (click twice)')}><ArmedLabel label={t('Start again')} armedLabel={t('Click again to confirm')} armed={armed.is(`reset:${m.id}`)} /></button>
             {/if}
             {#if from}
-              <button class="btn" class:primary={!!update} class:armed={armed.is(`reinstall:${m.id}`)} disabled={busy === m.id} onclick={() => act('reinstall', m.id)} title={m.info.pack ? t('Read it again from the pack {pack}’s source and put it back whole (click twice)', { pack: m.info.pack }) : t('Read it again from {source} and put it back whole (click twice)', { source: m.info.source ?? '' })}><ArmedLabel label={t('Reinstall')} armedLabel={t('Reinstall?')} armed={armed.is(`reinstall:${m.id}`)} /></button>
+              <button class="btn sm" class:primary={!!update} class:armed={armed.is(`reinstall:${m.id}`)} disabled={busy === m.id} onclick={() => act('reinstall', m.id)} title={m.info.pack ? t('Read it again from the pack {pack}’s source and put it back whole (click twice)', { pack: m.info.pack }) : t('Read it again from {source} and put it back whole (click twice)', { source: m.info.source ?? '' })}><ArmedLabel label={t('Reinstall')} armedLabel={t('Click again to confirm')} armed={armed.is(`reinstall:${m.id}`)} /></button>
             {/if}
-            <button class="btn" class:armed={armed.is(`remove:${m.id}`)} disabled={busy === m.id} onclick={() => act('remove', m.id)} title={m.info.pack ? t('Delete it from modules/ and forget its trust; the pack {pack} leaves it out from now on, until you put it back (click twice)', { pack: m.info.pack }) : t('Delete it from modules/ and forget its trust (click twice)')}><ArmedLabel label={t('Remove')} armedLabel={t('Remove?')} armed={armed.is(`remove:${m.id}`)} /></button>
+            <button class="btn sm" class:armed={armed.is(`remove:${m.id}`)} disabled={busy === m.id} onclick={() => act('remove', m.id)} title={m.info.pack ? t('Delete it from modules/ and forget its trust; the pack {pack} leaves it out from now on, until you put it back (click twice)', { pack: m.info.pack }) : t('Delete it from modules/ and forget its trust (click twice)')}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is(`remove:${m.id}`)} /></button>
           </span>
         {/if}
       </div>
@@ -205,9 +205,9 @@
       {#if local() && !done[r.id]}
         <div class="side">
           {#if r.pack}
-            <button class="btn" class:armed={armed.is(`restore:${r.id}`)} disabled={busy === r.id} onclick={() => act('restore', r.id)} title={t('Install it again from the pack {pack} (click twice)', { pack: r.pack })}><ArmedLabel label={t('Put back')} armedLabel={t('Put it back?')} armed={armed.is(`restore:${r.id}`)} /></button>
+            <button class="btn sm" class:armed={armed.is(`restore:${r.id}`)} disabled={busy === r.id} onclick={() => act('restore', r.id)} title={t('Install it again from the pack {pack} (click twice)', { pack: r.pack })}><ArmedLabel label={t('Put back')} armedLabel={t('Click again to confirm')} armed={armed.is(`restore:${r.id}`)} /></button>
           {:else}
-            <button class="btn" disabled={busy === r.id} onclick={() => forget(r.id)} title={t('Take it out of [modules] removed: a pack bringing it later installs it')}>{t('Forget')}</button>
+            <button class="btn sm" disabled={busy === r.id} onclick={() => forget(r.id)} title={t('Take it out of [modules] removed: a pack bringing it later installs it')}>{t('Forget')}</button>
           {/if}
         </div>
       {/if}
@@ -216,7 +216,7 @@
   {#if local()}
     <div class="filerow">
       <input class="t mono grow" bind:value={source} placeholder={t('~/code/hello/dist/hello, gh:owner/repo:dist/hello@v1 or glab:group/project:modules/hello.zip')} spellcheck="false" onkeydown={(e) => e.key === 'Enter' && install()} aria-label={t('Module source')} />
-      <button class="btn primary" onclick={install} disabled={!source.trim() || !!busy}>{busy === '+install' ? t('Installing…') : t('Install a module')}</button>
+      <button class="btn primary" class:busy={busy === '+install'} onclick={install} disabled={!source.trim() || !!busy}>{#if busy === '+install'}<span class="spinner"></span>{t('Installing…')}{:else}{t('Install a module')}{/if}</button>
     </div>
     <p class="hint pad">{t('Without a pack: a module’s folder or .zip on this computer, or a repository’s folder at a ref (glab or gh). Nothing of it runs before you trust it. Its source is kept: Reinstall reads it again, and a change there shows in the status bar.')}</p>
     {#if installed}<p class="hint new pad"><Icon name="check" /> {installed}</p>{/if}
@@ -226,7 +226,7 @@
   {/if}
   <div class="reload">
     <span class="hint">{t('A module added, replaced, removed or trusted shows once the window reloads.')}</span>
-    <button class="btn" onclick={() => location.reload()} title={t('Load the window again, its modules with it')}>{t('Reload the window')}</button>
+    <button class="btn sm" onclick={() => location.reload()} title={t('Load the window again, its modules with it')}>{t('Reload the window')}</button>
   </div>
 </div>
 
@@ -254,7 +254,6 @@
   .state { font-size: var(--fs-meta); color: var(--ko); white-space: nowrap; }
   .state.on { color: var(--ok); }
   .state.wait { color: var(--warn); }
-  .btn.armed { border-color: var(--warn); color: var(--warn); }
   .filerow { display: flex; gap: 8px; align-items: center; padding: 10px 14px 0; }
   .grow { flex: 1; min-width: 0; }
   .t { height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); color: var(--text); font: inherit; outline: none; }

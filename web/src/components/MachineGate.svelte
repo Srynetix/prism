@@ -2,6 +2,7 @@
   import { localInvoke as invoke, machine, profileWindow } from '../bridge'
   import { machineState } from '../machine.svelte'
   import { t } from '../i18n.svelte'
+  import State from './ui/State.svelte'
 
   /**
    * A machine's window before its Prism answers: reaching it, why not (out of reach, refused), and
@@ -42,7 +43,7 @@
 
 <div class="gate">
   <div class="card">
-    <h1><span class="dot" class:off={!!machineState.error}></span>{name}</h1>
+    <h1><span class="dot {machineState.error ? 'warn' : 'info'}"></span>{name}</h1>
     {#if noToken && asking}
       <p>{t('Accept this computer on {name}: where prism peer pair runs, or in its Settings › Remote › Devices.', { name })}</p>
       <p class="hint">{t('Waiting for it… (five minutes at most)')}</p>
@@ -51,7 +52,7 @@
       <!-- svelte-ignore a11y_autofocus -->
       <input class="code" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="7" placeholder="123 456" bind:value={code} onkeydown={(e) => e.key === 'Enter' && pair()} autofocus />
       <span class="acts">
-        <button class="btn" onclick={pair} disabled={busy || digits.length !== 6}>{t('Pair')}</button>
+        <button class="btn primary" onclick={pair} disabled={busy || digits.length !== 6}>{t('Pair')}</button>
         <button class="link" onclick={() => (pasting = true)}>{t('Paste a token instead')}</button>
       </span>
       <p class="hint">{t('Its token is kept in this computer’s keychain. It opens that Prism as its account would: keep it as an SSH key.')}</p>
@@ -60,22 +61,22 @@
       <!-- svelte-ignore a11y_autofocus -->
       <input type="password" autocomplete="off" spellcheck="false" placeholder={t('paste it')} bind:value={token} onkeydown={(e) => e.key === 'Enter' && save()} autofocus />
       <span class="acts">
-        <button class="btn" onclick={save} disabled={busy || !token.trim()}>{t('Connect')}</button>
+        <button class="btn primary" onclick={save} disabled={busy || !token.trim()}>{t('Connect')}</button>
         <button class="link" onclick={() => (pasting = false)}>{t('Pair with a code instead')}</button>
       </span>
       <p class="hint">{t('Kept in this computer’s keychain. It opens that Prism as its account would: keep it as an SSH key.')}</p>
     {:else if local && machineState.error}
       <p>{t('Its Prism does not answer yet, trying again…')}</p>
-      <span class="acts"><button class="btn" onclick={() => run(() => invoke('open_profile', { id: local }))} disabled={busy}>{t('Start')}</button></span>
+      <span class="acts"><button class="btn primary" onclick={() => run(() => invoke('open_profile', { id: local }))} disabled={busy}>{t('Start')}</button></span>
     {:else if local}
-      <p>{t('Starting its Prism…')}</p>
+      <State kind="loading" inline title={t('Starting its Prism…')} />
     {:else if machineState.error}
       <p>{t('Out of reach, trying again…')}</p>
     {:else}
-      <p>{t('Connecting…')}</p>
+      <State kind="loading" inline title={t('Connecting…')} />
     {/if}
-    {#if machineState.error && !noToken}<p class="error">{machineState.error}</p>{/if}
-    {#if error}<p class="error">{error}</p>{/if}
+    {#if machineState.error && !noToken}<p class="err">{machineState.error}</p>{/if}
+    {#if error}<p class="err">{error}</p>{/if}
   </div>
 </div>
 
@@ -83,15 +84,11 @@
   .gate { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: var(--fs-body); }
   .card { width: 380px; max-width: calc(100vw - 32px); padding: 20px 22px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
   h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-head); }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--info); }
-  .dot.off { background: var(--warn); }
   p { margin: 0; color: var(--text-muted); }
   input { padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: 12px var(--mono); }
-  .btn { align-self: flex-start; padding: 4px 12px; border: none; border-radius: var(--r6); background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer; }
-  .btn:disabled { opacity: 0.5; cursor: default; }
   .hint { font-size: var(--fs-meta); }
   input.code { font-size: var(--fs-display); letter-spacing: 4px; text-align: center; }
+  .acts > .btn { align-self: flex-start; }
   .acts { display: flex; align-items: center; gap: 12px; }
   .link { padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; text-decoration: underline; }
-  .error { color: var(--ko); font-size: var(--fs-meta); word-break: break-word; }
 </style>

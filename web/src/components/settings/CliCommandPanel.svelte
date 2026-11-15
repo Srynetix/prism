@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Icon from '../Icon.svelte'
+  import State from '../ui/State.svelte'
   import { hasCore, invoke } from '../../bridge'
   import { t } from '../../i18n.svelte'
   import { copy } from '../../toast.svelte'
@@ -38,11 +39,11 @@
     <b>{t('The prism command')}</b>
     {#if status?.state === 'installed'}<span class="pill ok"><Icon name="check" /> {t('Installed')}</span>
     {:else if status?.state === 'elsewhere'}<span class="pill warn"><Icon name="warning" /> {t('Another Prism')}</span>
-    {:else if status}<span class="pill">{t('Not installed')}</span>{/if}
+    {:else if status}<span class="pill outline">{t('Not installed')}</span>{/if}
     <span class="grow"></span>
-    {#if status?.ours}<button class="btn" onclick={() => call('cli_command_remove')} disabled={busy}>{t('Remove')}</button>{/if}
+    {#if status?.ours}<button class="btn sm" onclick={() => call('cli_command_remove')} disabled={busy}>{t('Remove')}</button>{/if}
     {#if status && status.state !== 'installed' && !(status.ours && status.found !== status.install_at && status.state === 'elsewhere' && status.dir_in_path)}
-      <button class="btn primary" onclick={() => call('cli_command_install')} disabled={busy}>{status.ours ? t('Point it to this Prism') : t('Install')}</button>
+      <button class="btn sm primary" onclick={() => call('cli_command_install')} disabled={busy}>{status.ours ? t('Point it to this Prism') : t('Install')}</button>
     {/if}
   </div>
   {#if error}<p class="warn pad"><Icon name="warning" /> {error}</p>{/if}
@@ -64,11 +65,11 @@
     {#if !status.dir_in_path && status.state !== 'installed'}
       <p class="warn pad">
         <Icon name="warning" /> {t('{dir} is not in your PATH: add it to your shell’s profile.', { dir })}
-        <button class="btn small" onclick={() => copy(pathLine, t('Line copied'))}><code>{pathLine}</code></button>
+        <button class="btn sm copyline" onclick={() => copy(pathLine, t('Line copied'))}><code>{pathLine}</code></button>
       </p>
     {/if}
   {:else}
-    <p class="muted pad">{t('Reading…')}</p>
+    <State kind="loading" title={t('Reading…')} />
   {/if}
   <p class="muted pad foot">
     {t('A short script that runs this Prism’s binary, as VS Code installs code. In a terminal: prism --help, prism token clickup, prism restart, prism completions zsh. Linux packages install it themselves.')}
@@ -87,12 +88,5 @@
   .pad { margin: 0; padding: 10px 14px; }
   .foot { border-top: 1px solid var(--border); }
   .warn { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--warn); font-size: var(--fs-meta); }
-  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-tag); padding: 1px 8px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
-  .pill.ok { background: var(--ok-bg, var(--surface-muted)); color: var(--ok); }
-  .pill.warn { background: var(--warn-bg); color: var(--warn); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
-  .btn.small { padding: 1px 8px; min-width: 0; max-width: 100%; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
+  .copyline { min-width: 0; max-width: 100%; }
 </style>

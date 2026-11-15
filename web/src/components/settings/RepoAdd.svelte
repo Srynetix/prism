@@ -2,6 +2,7 @@
   import { baseName } from '../../platform'
   import { untrack } from 'svelte'
   import Icon from '../Icon.svelte'
+  import State from '../ui/State.svelte'
   import { t } from '../../i18n.svelte'
   import { canPick, pickPath } from '../../pick'
   import { cloneRepo, createProject, initRepo, inspectFolder, publishRepo, repoAdd, sourceToAdd, type AddMode, type Folder } from '../../clones.svelte'
@@ -237,17 +238,17 @@
 <div class="add">
   <div class="modes">
     {#each MODES as m (m.id)}
-      <button class="btn" class:on={repoAdd.mode === m.id} onclick={() => open(m.id)} title={m.hint} disabled={!!busy}><Icon name={m.id === 'new' ? 'plus' : m.id === 'clone' ? 'down' : m.id === 'publish' ? 'up' : 'folder'} />{m.label}</button>
+      <button class="btn sm" class:on={repoAdd.mode === m.id} onclick={() => open(m.id)} title={m.hint} disabled={!!busy}><Icon name={m.id === 'new' ? 'plus' : m.id === 'clone' ? 'down' : m.id === 'publish' ? 'up' : 'folder'} />{m.label}</button>
     {/each}
     <span class="sep" aria-hidden="true"></span>
-    <button class="btn" onclick={addWorkspace} title={t('Where your projects live (work, personal…): the list groups them by it, new projects and clones go there, with its group and forge')} disabled={!!busy}><Icon name="group" />{t('Add a working folder…')}</button>
+    <button class="btn sm" onclick={addWorkspace} title={t('Where your projects live (work, personal…): the list groups them by it, new projects and clones go there, with its group and forge')} disabled={!!busy}><Icon name="group" />{t('Add a working folder…')}</button>
   </div>
 
   {#if repoAdd.mode === 'folder'}
     <div class="panel">
       <label class="row"><span>{t('Folder')}</span>
         <input class="mono" bind:value={path} placeholder="~/dev/my-app" onchange={() => path.trim() && readFolder(path.trim())} />
-        {#if canPick()}<button class="btn" onclick={() => pick(path, readFolder)} disabled={!!busy}>{t('Choose…')}</button>{/if}
+        {#if canPick()}<button class="btn sm" onclick={() => pick(path, readFolder)} disabled={!!busy}>{t('Choose…')}</button>{/if}
       </label>
       {#if folder}
         {#if folder.git === 'repo'}
@@ -256,13 +257,13 @@
           <p class="note warn"><Icon name="warning" />{t('A linked worktree: add its main clone instead (Prism lists its worktrees).')}</p>
         {:else}
           <p class="note warn"><Icon name="warning" />{t('Not a git repository.')}
-            <button class="btn" onclick={initHere} disabled={!!busy}>{t('Initialize git here')}</button>
+            <button class="btn sm" onclick={initHere} disabled={!!busy}>{t('Initialize git here')}</button>
           </p>
         {/if}
         {#if folder.git === 'repo'}
           <label class="row"><span>{t('Name')}</span><input bind:value={name} /></label>
           <label class="row"><span>{t('Project')}</span><input class="mono" bind:value={project} placeholder={t('none: no MRs')} /></label>
-          <div class="go"><button class="btn primary" onclick={addFolder} disabled={!!busy}>{t('Add to the list')}</button></div>
+          <div class="go"><button class="btn sm primary" onclick={addFolder} disabled={!!busy}>{t('Add to the list')}</button></div>
         {/if}
       {/if}
     </div>
@@ -274,26 +275,26 @@
       </label>
       {#if workspaces.length}
         <div class="row"><span>{t('Working folder')}</span>
-          <div class="chips">{#each workspaces as w (w.name)}<button class="btn" class:on={parent === w.dir} onclick={() => useWorkspace(w)} title={w.dir}>{w.name}</button>{/each}</div>
+          <div class="chips">{#each workspaces as w (w.name)}<button class="btn sm" class:on={parent === w.dir} onclick={() => useWorkspace(w)} title={w.dir}>{w.name}</button>{/each}</div>
         </div>
       {/if}
       <label class="row"><span>{t('Into')}</span>
         <input class="mono" bind:value={parent} placeholder="~/dev" />
-        {#if canPick()}<button class="btn" onclick={() => pick(parent, (p) => (parent = p))} disabled={!!busy}>{t('Choose…')}</button>{/if}
+        {#if canPick()}<button class="btn sm" onclick={() => pick(parent, (p) => (parent = p))} disabled={!!busy}>{t('Choose…')}</button>{/if}
       </label>
       {#if cloneName}<p class="note">{parent}/{cloneName}</p>{/if}
-      <div class="go"><button class="btn primary" onclick={cloneAdd} disabled={!!busy || !cloneName || !parent.trim()}>{busy || t('Clone and add')}</button></div>
+      <div class="go"><button class="btn sm primary" class:busy={!!busy} onclick={cloneAdd} disabled={!!busy || !cloneName || !parent.trim()}>{#if busy}<span class="spinner"></span>{busy}{:else}{t('Clone and add')}{/if}</button></div>
     </div>
   {:else if repoAdd.mode === 'new'}
     <div class="panel">
       {#if workspaces.length}
         <div class="row"><span>{t('Working folder')}</span>
-          <div class="chips">{#each workspaces as w (w.name)}<button class="btn" class:on={parent === w.dir} onclick={() => useWorkspace(w)} title={w.dir}>{w.name}</button>{/each}</div>
+          <div class="chips">{#each workspaces as w (w.name)}<button class="btn sm" class:on={parent === w.dir} onclick={() => useWorkspace(w)} title={w.dir}>{w.name}</button>{/each}</div>
         </div>
       {/if}
       <label class="row"><span>{t('In')}</span>
         <input class="mono" bind:value={parent} placeholder="~/dev" />
-        {#if canPick()}<button class="btn" onclick={() => pick(parent, (p) => (parent = p))} disabled={!!busy}>{t('Choose…')}</button>{/if}
+        {#if canPick()}<button class="btn sm" onclick={() => pick(parent, (p) => (parent = p))} disabled={!!busy}>{t('Choose…')}</button>{/if}
       </label>
       <label class="row"><span>{t('Name')}</span><input class="mono" bind:value={newName} placeholder="my-app" /></label>
       {#if newName.trim()}<p class="note">{parent}/{newName.trim()}{t(': git init, a README.md, a first commit.')}</p>{/if}
@@ -311,7 +312,7 @@
           </select>
         </label>
       {/if}
-      <div class="go"><button class="btn primary" onclick={create} disabled={!!busy || !newName.trim() || !parent.trim()}>{busy || (onForge ? t('Create here and on {forge}', { forge: forgeLabel(forge) }) : t('Create and add'))}</button></div>
+      <div class="go"><button class="btn sm primary" class:busy={!!busy} onclick={create} disabled={!!busy || !newName.trim() || !parent.trim()}>{#if busy}<span class="spinner"></span>{busy}{:else}{(onForge ? t('Create here and on {forge}', { forge: forgeLabel(forge) }) : t('Create and add'))}{/if}</button></div>
     </div>
   {:else if repoAdd.mode === 'publish'}
     <div class="panel">
@@ -333,14 +334,14 @@
           </select>
         </label>
         <p class="note">{t('Its project is named after its folder, set as origin; its current branch is pushed. A repository with a remote already: give its Project in the list instead.')}</p>
-        <div class="go"><button class="btn primary" onclick={publish} disabled={!!busy || !publishName}>{busy || t('Publish on {forge}', { forge: forgeLabel(forge) })}</button></div>
+        <div class="go"><button class="btn sm primary" class:busy={!!busy} onclick={publish} disabled={!!busy || !publishName}>{#if busy}<span class="spinner"></span>{busy}{:else}{t('Publish on {forge}', { forge: forgeLabel(forge) })}{/if}</button></div>
       {:else}
         <p class="note">{t('Every repository with a clone has its project already.')}</p>
       {/if}
     </div>
   {/if}
 
-  {#if busy && repoAdd.mode === 'folder'}<p class="note">{busy}</p>{/if}
+  {#if busy && repoAdd.mode === 'folder'}<State kind="loading" inline title={busy} />{/if}
   {#if error}<p class="err">{error}</p>{/if}
   {#if done}<p class="note ok"><Icon name="check" />{done}</p>{/if}
 </div>
@@ -359,10 +360,7 @@
   .note { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; font-size: var(--fs-meta); color: var(--text-muted); }
   .note.ok { color: var(--ok); }
   .note.warn { color: var(--warn); }
-  .err { margin: 0; font-size: var(--fs-meta); color: var(--ko); }
   .go { display: flex; justify-content: flex-end; }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn:hover:not(:disabled), .btn.on { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.6; cursor: default; }
-  .btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+  .add .err { margin: 0; }
+  :is(.modes, .chips) .btn.on { border-color: var(--accent); }
 </style>

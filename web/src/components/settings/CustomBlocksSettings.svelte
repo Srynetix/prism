@@ -4,7 +4,10 @@
   import { customState, SOURCE, type CustomAction, type CustomBlockDef, type CustomBlockView, type CustomRead } from '../../blocks/custom/types'
   import { openLauncher } from '../../agents.svelte'
   import { live } from '../../live.svelte'
-  import { toast } from '../../toast.svelte'
+  import { toast, toastError, toastInfo } from '../../toast.svelte'
+  import { armer } from '../../armed.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
+  import Icon from '../Icon.svelte'
   import { ago } from '../../time'
   import { t } from '../../i18n.svelte'
   import ScriptEditor from './ScriptEditor.svelte'
@@ -83,7 +86,7 @@
   let tried = $state<CustomRead | null>(null)
   let trying = $state(false)
   let saving = $state(false)
-  let armed = $state<string | null>(null)
+  const armed = armer()
   let describe = $state('')
   let agentDraft = $state<{ path: string; text: string | null } | null>(null)
 
@@ -110,7 +113,7 @@
     try {
       tried = await call<CustomRead>(SOURCE, 'try', { def: toDef({ ...draft, id: draft.id.trim() || 'try' }) })
     } catch (e) {
-      toast(String(e), 8000)
+      toastError(String(e))
     } finally {
       trying = false
     }
@@ -124,7 +127,7 @@
       toast(t('{name} saved and trusted: it runs now', { name: draft.label || draft.id }))
       draft.former = draft.id.trim()
     } catch (e) {
-      toast(String(e), 8000)
+      toastError(String(e))
     } finally {
       saving = false
     }
@@ -132,19 +135,14 @@
 
   async function remove() {
     if (!draft?.former) return
-    if (armed !== 'delete') {
-      armed = 'delete'
-      setTimeout(() => (armed = null), 4000)
-      return
-    }
-    armed = null
+    if (!armed.confirm('delete')) return
     try {
       await call(SOURCE, 'delete', { id: draft.former })
       toast(t('{name} removed from config.toml', { name: draft.label || draft.former }))
       draft = null
       selected = null
     } catch (e) {
-      toast(String(e), 8000)
+      toastError(String(e))
     }
   }
 
@@ -152,7 +150,7 @@
     try {
       await call(SOURCE, 'run', { id: b.id })
     } catch (e) {
-      toast(String(e))
+      toastError(String(e))
     }
   }
 
@@ -176,7 +174,7 @@
       ].join('\n')
       openLauncher({ title: t('Custom block {name}', { name: draft.label || id }), prompt, worktree: {} }, null, null, 'custom-blocks')
     } catch (e) {
-      toast(String(e))
+      toastError(String(e))
     }
   }
   async function loadDraft() {
@@ -188,9 +186,9 @@
         draft.mode = 'script'
         draft.script = d.text
         toast(t('The agent’s script is in the editor: Run now, then Save'))
-      } else toast(t('The agent has not written it yet'))
+      } else toastInfo(t('The agent has not written it yet'))
     } catch (e) {
-      toast(String(e))
+      toastError(String(e))
     }
   }
 
@@ -203,15 +201,15 @@
   {#each custom?.errors ?? [] as e (e)}<div class="cfgerr">{e}</div>{/each}
   {#each blocks as b (b.id)}
     <div class="blk" class:sel={selected?.id === b.id}>
-      <span class="dot" class:ko={!!b.error} class:warn={!!b.pending} class:off={!b.enabled}></span>
+      <span class="dot {!b.enabled ? '' : b.pending ? 'warn' : b.error ? 'ko' : 'ok'}"></span>
       <button class="name" onclick={() => edit(b)}><b>{b.label}</b> <code>custom:{b.id}</code></button>
       <span class="meta">{b.pending ? t('waits for your trust') : !b.enabled ? t('off') : b.error ? b.error.split('\n')[0] : b.ran_at ? t('read {time} ago', { time: ago(b.ran_at) }) : t('not read yet')}{b.origin === 'pack' ? ` · ${t('from a pack')}` : ''}</span>
-      {#if !b.pending && b.enabled}<button class="btn ghost" onclick={() => runSaved(b)}>{t('Run now')}</button>{/if}
+      {#if !b.pending && b.enabled}<button class="btn sm ghost" onclick={() => runSaved(b)}>{t('Run now')}</button>{/if}
     </div>
   {:else}
     <div class="none">{t('No custom block yet.')}</div>
   {/each}
-  <div class="add"><button class="btn" onclick={create}>{t('+ New custom block')}</button></div>
+  <div class="add"><button class="btn sm" onclick={create}>{t('+ New custom block')}</button></div>
 </div>
 
 {#if selected && !draft}
@@ -236,7 +234,7 @@
     {:else}
       <div class="tpl">
         <span>{t('Start from')}</span>
-        {#each TEMPLATES as tpl (tpl.id)}<button class="btn ghost" onclick={() => (d.script = tpl.text)}>{tpl.label}</button>{/each}
+        {#each TEMPLATES as tpl (tpl.id)}<button class="btn sm ghost" onclick={() => (d.script = tpl.text)}>{tpl.label}</button>{/each}
       </div>
       <ScriptEditor bind:value={d.script} label={t('Script')} />
       <small class="hint">{t('Run by its shebang (bash, python3, node, uv run --script with its dependencies…); without one, /bin/sh. Prism writes it in its data folder, private, and runs it from there.')}</small>
@@ -260,7 +258,7 @@
     <div class="env">
       <span class="lbl">{t('Environment')}<small>{t('A secret by reference: keychain:<service> (never in clear).')}</small></span>
       {#each d.env as e, i (i)}
-        <div class="row"><input bind:value={e.name} placeholder="TOKEN" spellcheck="false" /><input bind:value={e.value} placeholder="keychain:prism-backup" spellcheck="false" /><button class="btn ghost" onclick={() => d.env.splice(i, 1)} aria-label={t('Remove')}>×</button></div>
+        <div class="row"><input bind:value={e.name} placeholder="TOKEN" spellcheck="false" /><input bind:value={e.value} placeholder="keychain:prism-backup" spellcheck="false" /><button class="btn icon ghost" onclick={() => d.env.splice(i, 1)} aria-label={t('Remove')}><Icon name="close" /></button></div>
       {/each}
       <button class="btn ghost" onclick={() => d.env.push({ name: '', value: '' })}>{t('+ Variable')}</button>
       {#if clearSecret}<p class="warn">{t('{name} looks like a secret written in clear: the block refuses it. Store it in the keychain and write keychain:<service>.', { name: clearSecret.name })}</p>{/if}
@@ -275,7 +273,7 @@
             <select bind:value={a.kind}><option value="command">{t('Command')}</option><option value="script">{t('Script')}</option><option value="agent">{t('Agent')}</option></select>
             <input bind:value={a.when} placeholder="state != 'ok'" spellcheck="false" />
             <label class="chk"><input type="checkbox" bind:checked={a.critical} />{t('Critical')}</label>
-            <button class="btn ghost" onclick={() => d.actions.splice(i, 1)} aria-label={t('Remove')}>×</button>
+            <button class="btn icon ghost" onclick={() => d.actions.splice(i, 1)} aria-label={t('Remove')}><Icon name="close" /></button>
           </div>
           <textarea rows={a.kind === 'command' ? 2 : 4} bind:value={a.value} spellcheck="false" placeholder={a.kind === 'agent' ? t('Fix the backup of {item.title}') : a.kind === 'script' ? '#!/bin/sh\n…' : '~/bin/backup.sh\n{item.id}'}></textarea>
         </div>
@@ -287,9 +285,9 @@
       <label class="chk"><input type="checkbox" bind:checked={d.remote} />{t('On the phone')}</label>
     </div>
     <div class="btns">
-      <button class="btn" onclick={tryIt} disabled={trying}>{trying ? t('Running…') : t('Run now')}</button>
-      <button class="btn primary" onclick={save} disabled={saving || !d.id.trim()}>{t('Save')}</button>
-      {#if d.former}<button class="btn danger" class:armed={armed === 'delete'} onclick={remove}>{armed === 'delete' ? t('Click again to remove') : t('Remove')}</button>{/if}
+      <button class="btn" class:busy={trying} onclick={tryIt} disabled={trying}>{#if trying}<span class="spinner"></span>{t('Running…')}{:else}{t('Run now')}{/if}</button>
+      <button class="btn primary" class:busy={saving} onclick={save} disabled={saving || !d.id.trim()}>{#if saving}<span class="spinner"></span>{t('Saving…')}{:else}{t('Save')}{/if}</button>
+      {#if d.former}<button class="btn danger" class:armed={armed.is('delete')} onclick={remove}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is('delete')} /></button>{/if}
       <button class="btn ghost" onclick={() => ((draft = null), (selected = null))}>{t('Close')}</button>
     </div>
     {#if tried}
@@ -315,10 +313,6 @@
   .blk { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-top: 1px solid var(--border); }
   .blk:first-child { border-top: none; }
   .blk.sel { background: var(--surface-muted); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
-  .dot.ko { background: var(--ko); }
-  .dot.warn { background: var(--warn); }
-  .dot.off { background: var(--text-muted); opacity: 0.5; }
   .name { padding: 0; border: none; background: none; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
   .name code { color: var(--text-muted); font-size: var(--fs-meta); }
   .meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-meta); }
@@ -332,9 +326,7 @@
   .lbl { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-meta); color: var(--text-muted); }
   input, textarea, select { padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); }
   textarea { font-family: var(--mono); font-size: var(--fs-meta); resize: vertical; }
-  .seg { display: inline-flex; align-self: flex-start; gap: 1px; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
-  .seg button { padding: 3px 12px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
-  .seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+  .editor > .seg { align-self: flex-start; }
   .tpl, .agent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--text-muted); }
   .agent input { flex: 1; min-width: 200px; }
   .env, .actions { display: flex; flex-direction: column; gap: 6px; }
@@ -343,9 +335,6 @@
   .act { display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: var(--r6); }
   .chk { flex-direction: row; align-items: center; gap: 5px; white-space: nowrap; }
   .flags { display: flex; gap: 14px; }
-  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
-  .btn.armed { outline: 2px solid var(--warn); }
-  .btn.danger { color: var(--ko); }
   .warn { margin: 0; color: var(--warn); font-size: var(--fs-meta); }
   .tried { border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
   .tried .head, .tried summary { padding: 5px 10px; background: var(--surface-muted); font-size: var(--fs-meta); color: var(--text-muted); cursor: default; }

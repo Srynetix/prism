@@ -1,8 +1,11 @@
 <script lang="ts">
   import Icon from '../Icon.svelte'
+  import State from '../ui/State.svelte'
   import { invoke } from '../../bridge'
   import { t, tn } from '../../i18n.svelte'
-  import { toast } from '../../toast.svelte'
+  import { toast, toastError } from '../../toast.svelte'
+  import { FILE_MANAGER } from '../../platform'
+  import ArmedLabel from '../ArmedLabel.svelte'
   import { armer } from '../../armed.svelte'
   import { FACT_KINDS, factKindLabel, factsOf, forgetEverything, forgetFact, loadMemory, memory, saveFact } from '../../assistant.svelte'
   import type { Fact } from '../../bindings/Fact'
@@ -32,7 +35,7 @@
     try {
       await f()
     } catch (e) {
-      toast(String(e), 8000)
+      toastError(String(e))
     } finally {
       busy = false
     }
@@ -72,8 +75,8 @@
     <textarea bind:value={text} rows="3" autofocus aria-label={t('Fact')} placeholder={t('One fact, naming its repository: “The back is the server/ folder of shop.”')}
       onkeydown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void save(f); if (e.key === 'Escape') { e.stopPropagation(); editing = null; adding = false } }}></textarea>
     <div class="acts">
-      <button class="btn pri" onclick={() => save(f)} disabled={busy || !text.trim()}>{t('Save')}</button>
-      <button class="btn ghost" onclick={() => { editing = null; adding = false }}>{t('Cancel')}</button>
+      <button class="btn sm primary" onclick={() => save(f)} disabled={busy || !text.trim()}>{t('Save')}</button>
+      <button class="btn sm ghost" onclick={() => { editing = null; adding = false }}>{t('Cancel')}</button>
     </div>
   </div>
 {/snippet}
@@ -89,11 +92,11 @@
     <div class="top">
       <span class="where" title={memory.dir}>{t('Memory of this profile')} · <span class="mono">{memory.dir}</span></span>
       <span class="grow"></span>
-      <button class="btn" onclick={add} disabled={busy}><Icon name="plus" size={11} />{t('Add a fact')}</button>
-      <button class="btn" onclick={openFolder} disabled={busy}>{t('Open the folder')}</button>
-      <button class="btn danger" class:armed={armed.is('all')} onclick={forgetAll} disabled={busy || !memory.facts.length}>{armed.is('all') ? t('Click again: forget everything') : t('Forget everything…')}</button>
+      <button class="btn sm" onclick={add} disabled={busy}><Icon name="plus" size={11} />{t('Add a fact')}</button>
+      <button class="btn sm" onclick={openFolder} disabled={busy}>{t('Reveal in {app}', { app: FILE_MANAGER })}</button>
+      <button class="btn sm danger" class:armed={armed.is('all')} onclick={forgetAll} disabled={busy || !memory.facts.length}><ArmedLabel label={t('Forget everything…')} armedLabel={t('Click again to confirm')} armed={armed.is('all')} /></button>
     </div>
-    {#if memory.error}<p class="err">{memory.error}</p>{/if}
+    {#if memory.error}<div class="pad"><State kind="error" inline title={memory.error} retry={() => void loadMemory()} /></div>{/if}
     {#if adding}{@render form(null)}{/if}
     {#each shown as f (f.id)}
       <div class="fact">
@@ -103,8 +106,8 @@
           <div class="txt"><span class="kind">{factKindLabel(f.kind)}</span>{f.text}</div>
           <div class="src">{[when(f) && t('Remembered on {date}', { date: when(f) }), f.source].filter(Boolean).join(' · ')} · <span class="mono">{f.id}.md</span></div>
           <div class="fa">
-            <button class="btn ghost" onclick={() => edit(f)} disabled={busy}>{t('Edit')}</button>
-            <button class="btn ghost" class:armed={armed.is(f.id)} onclick={() => forget(f)} disabled={busy}>{armed.is(f.id) ? t('Click again') : t('Forget')}</button>
+            <button class="btn sm ghost" onclick={() => edit(f)} disabled={busy}>{t('Edit')}</button>
+            <button class="btn sm ghost" class:armed={armed.is(f.id)} onclick={() => forget(f)} disabled={busy}><ArmedLabel label={t('Forget')} armedLabel={t('Click again to confirm')} armed={armed.is(f.id)} /></button>
           </div>
         {/if}
       </div>
@@ -135,12 +138,6 @@
   .form select { justify-self: start; font: inherit; }
   .form textarea { width: 100%; box-sizing: border-box; font: inherit; }
   .acts { display: flex; gap: 6px; }
-  .btn { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn.pri { border-color: var(--info); background: var(--info); color: var(--surface); }
-  .btn.ghost { border-color: transparent; background: none; color: var(--text-muted); }
-  .btn.danger { color: var(--ko); }
-  .btn.armed { border-color: var(--ko); background: var(--ko); color: var(--surface); }
-  .btn:disabled { opacity: 0.55; cursor: default; }
-  .none, .err { margin: 14px 12px; color: var(--text-muted); font-size: var(--fs-meta); }
-  .err { color: var(--ko); }
+  .pad { padding: 10px 12px; }
+  .none { margin: 14px 12px; color: var(--text-muted); font-size: var(--fs-meta); }
 </style>

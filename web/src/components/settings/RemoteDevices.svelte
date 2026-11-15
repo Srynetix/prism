@@ -117,14 +117,14 @@
       </div>
     {/if}
   {/if}
-  {#if error}<p class="ko"><Icon name="warning" /> {error}</p>{/if}
+  {#if error}<p class="err ko"><Icon name="warning" /> {error}</p>{/if}
 </div>
 
 {#if remote?.devices.length}
   <div class="card">
     {#each remote.devices as d (d.id)}
       <div class="row device">
-        <span class="dot" class:on={d.connected} title={d.connected ? t('Connected now') : t('Not connected')}></span>
+        <span class="dot" class:ok={d.connected} title={d.connected ? t('Connected now') : t('Not connected')}></span>
         <div class="grow">
           {#if editing === d.id}
             <input class="name" bind:value={draft} maxlength="40" use:focus onblur={saveName} onkeydown={(e) => { if (e.key === 'Enter') saveName(); else if (e.key === 'Escape') editing = null }} aria-label={t('Name of {name}', { name: d.name })} />
@@ -133,8 +133,8 @@
           {/if}
           <small>{t('paired {ago}', { ago: ago(d.paired_at) })}{d.connected ? t(' · connected now') : d.last_seen ? t(' · last seen {ago}', { ago: ago(d.last_seen) }) : ''}</small>
         </div>
-        <button class="btn" class:armed={armed.is(`revoke:${d.id}`)} onclick={() => revoke(d.id)} title={t('Its passkey opens nothing anymore, its sessions end (click twice)')}>
-          <ArmedLabel label={t('Revoke')} armedLabel={t('Revoke {name}?', { name: d.name })} armed={armed.is(`revoke:${d.id}`)} />
+        <button class="btn sm" class:armed={armed.is(`revoke:${d.id}`)} onclick={() => revoke(d.id)} title={t('Its passkey opens nothing anymore, its sessions end (click twice)')}>
+          <ArmedLabel label={t('Revoke')} armedLabel={t('Click again to confirm')} armed={armed.is(`revoke:${d.id}`)} />
         </button>
       </div>
     {/each}
@@ -174,13 +174,13 @@
     {/if}
     {#each remote.peers as p (p.name)}
       <div class="row device">
-        <span class="dot" class:on={p.connected} title={p.connected ? t('Connected now') : t('Not connected')}></span>
+        <span class="dot" class:ok={p.connected} title={p.connected ? t('Connected now') : t('Not connected')}></span>
         <div class="grow">
           <b>{p.name}</b>
           <small>{t('paired {ago}', { ago: ago(p.paired_at) })}{p.connected ? t(' · connected now') : ''}</small>
         </div>
-        <button class="btn" class:armed={armed.is(`peer:${p.name}`)} onclick={() => revokePeer(p.name)} title={t('Its token opens nothing anymore, its windows close (click twice)')}>
-          <ArmedLabel label={t('Revoke')} armedLabel={t('Revoke {name}?', { name: p.name })} armed={armed.is(`peer:${p.name}`)} />
+        <button class="btn sm" class:armed={armed.is(`peer:${p.name}`)} onclick={() => revokePeer(p.name)} title={t('Its token opens nothing anymore, its windows close (click twice)')}>
+          <ArmedLabel label={t('Revoke')} armedLabel={t('Click again to confirm')} armed={armed.is(`peer:${p.name}`)} />
         </button>
       </div>
     {/each}
@@ -203,12 +203,6 @@
   .steps { display: flex; flex-direction: column; gap: 8px; }
   .code { font-size: var(--fs-hero); font-weight: 600; letter-spacing: 6px; color: var(--accent); }
   .device + .device { border-top: 1px solid var(--border); padding-top: 10px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; flex: none; }
-  .dot.on { background: var(--ok); opacity: 1; }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn:hover { border-color: var(--accent); }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-  .btn.armed { color: var(--ko); border-color: var(--ko); }
   .named { display: flex; align-items: center; gap: 4px; }
   .edit { display: inline-flex; padding: 2px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; opacity: 0; }
   .device:hover .edit, .edit:focus-visible { opacity: 1; }

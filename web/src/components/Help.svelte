@@ -9,7 +9,7 @@
   import { ALL_BLOCKS, BLOCK_LABELS, views } from '../views'
   import { columnsOf } from '../layout.svelte'
   import { SCHEMA } from '../settings-schema'
-  import { keyLabel, SHORTCUTS } from '../shortcuts'
+  import { shortcutSections } from '../shortcuts'
   import { t } from '../i18n.svelte'
 
   /**
@@ -23,9 +23,11 @@
   const order = $derived(GROUPS.flatMap((grp) => guides.filter((g) => g.group === grp)))
   const at = $derived(order.findIndex((g) => g.id === guide.id))
 
+  /** The shortcuts as they are now (the pages' digits, the keys set, the views on or off). */
+  const sections = $derived(shortcutSections())
   /** Sections of the open guide, for "On this page". */
   const toc = $derived.by((): { id: string; text: string }[] => {
-    if (guide.id === 'ref-keys') return SHORTCUTS.map((s) => ({ id: slugOf(s.title), text: s.title }))
+    if (guide.id === 'ref-keys') return sections.map((s) => ({ id: slugOf(s.title), text: s.title }))
     if (guide.id === 'ref-settings') return SCHEMA.map((s) => ({ id: `set-${s.id}`, text: t(s.label) }))
     if (guide.id === 'ref-blocks') return []
     return parse(guide.body)
@@ -133,9 +135,9 @@
             </section>
           {/each}
         {:else if guide.id === 'ref-keys'}
-          {#each SHORTCUTS as s (s.title)}
+          {#each sections as s (s.title)}
             <h2 id={slugOf(s.title)}>{s.title}</h2>
-            <div class="keys">{#each s.keys as [k, what] (k)}<kbd>{keyLabel(k)}</kbd><span>{what}</span>{/each}</div>
+            <div class="keys">{#each s.keys as [k, what], i (i)}<kbd>{k}</kbd><span>{what}</span>{/each}</div>
           {/each}
         {:else if guide.id === 'ref-settings'}
           <p class="muted">{t('Appearance, Console and Notes have a page of their own in Settings:')} <button class="link" onclick={() => runAction('settings/appearance')}>{t('Appearance')}</button> · <button class="link" onclick={() => runAction('settings/console')}>{t('Console')}</button> · <button class="link" onclick={() => runAction('settings/notes')}>{t('Notes')}</button>.</p>

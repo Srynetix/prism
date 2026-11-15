@@ -3,6 +3,8 @@
   import { t, tn } from '../../i18n.svelte'
   import { live } from '../../live.svelte'
   import { armer } from '../../armed.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
+  import State from '../ui/State.svelte'
   import { ago } from '../../time'
   import { configurePrism } from '../../prism-agent'
   import { openProposal } from '../../mcp-view.svelte'
@@ -51,7 +53,7 @@
   <div class="head">
     <b>{t('Configure Prism')}</b>
     <span class="grow"></span>
-    <button class="btn" onclick={() => configurePrism()}>✦ {t('Ask an agent')}</button>
+    <button class="btn sm" onclick={() => configurePrism()}>✦ {t('Ask an agent')}</button>
   </div>
   <p class="hint">{t('An agent in the config’s folder, with Prism’s MCP server and its skill: it reads the docs, the schema and your config, checks its changes and proposes them. You apply them here, in two clicks.')}</p>
 </div>
@@ -63,22 +65,22 @@
     <div class="row">
       <span class="name">{NAMES[i.cli] ?? i.cli}</span>
       {#if i.server}
-        <span class="chip ok">{i.skill ? t('MCP + skill') : t('MCP')}</span>
+        <span class="pill ok">{i.skill ? t('MCP + skill') : t('MCP')}</span>
       {:else if !i.present}
-        <span class="chip">{t('not found')}</span>
+        <span class="pill outline">{t('not found')}</span>
       {:else}
-        <span class="chip">{t('not added')}</span>
+        <span class="pill outline">{t('not added')}</span>
       {/if}
       <span class="grow"></span>
       {#if i.server}
-        <button class="btn ghost" disabled={busy === i.cli} onclick={() => set(i.cli, false)}>{arm.is(i.cli) ? t('Remove?') : t('Remove')}</button>
-        <button class="btn ghost" disabled={busy === i.cli} onclick={() => set(i.cli, true)} title={t('Write it again: Prism’s executable may have moved')}>{t('Update')}</button>
+        <button class="btn sm ghost" class:armed={arm.is(i.cli)} disabled={busy === i.cli} onclick={() => set(i.cli, false)}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={arm.is(i.cli)} /></button>
+        <button class="btn sm ghost" disabled={busy === i.cli} onclick={() => set(i.cli, true)} title={t('Write it again: Prism’s executable may have moved')}>{t('Update')}</button>
       {:else}
-        <button class="btn" disabled={busy === i.cli} onclick={() => set(i.cli, true)}>{t('Add')}</button>
+        <button class="btn sm" disabled={busy === i.cli} onclick={() => set(i.cli, true)}>{t('Add')}</button>
       {/if}
     </div>
   {:else}
-    <p class="hint">{hasCore() ? t('Reading…') : t('Not in the browser preview.')}</p>
+    {#if hasCore()}<State kind="loading" inline title={t('Reading…')} />{:else}<p class="hint">{t('Not in the browser preview.')}</p>{/if}
   {/each}
   {#if message}<p class="hint">{message}</p>{/if}
 </div>
@@ -94,7 +96,7 @@
     <p class="hint">{t('No agent on Prism’s MCP server.')}</p>
   {/each}
   {#if proposals.length}
-    <button class="btn" onclick={() => openProposal()}>{tn(proposals.length, 'See the proposal waiting', 'See the {n} proposals waiting')}</button>
+    <button class="btn sm" onclick={() => openProposal()}>{tn(proposals.length, 'Open the proposal waiting', 'Open the {n} proposals waiting')}</button>
   {/if}
 </div>
 
@@ -106,10 +108,4 @@
   .row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--border); }
   .row:first-of-type { border-top: none; }
   .name { font-weight: 500; }
-  .chip { padding: 0 8px; border-radius: var(--r9); background: var(--surface-muted); font-size: var(--fs-tag); line-height: 18px; }
-  .chip.ok { color: var(--ok); background: var(--ok-bg); }
-  .btn { font: inherit; font-size: var(--fs-meta); padding: 3px 10px; border-radius: var(--r6); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
-  .btn:hover:not(:disabled) { background: var(--surface-muted); }
-  .btn:disabled { opacity: 0.5; }
-  .btn.ghost { border-color: transparent; }
 </style>

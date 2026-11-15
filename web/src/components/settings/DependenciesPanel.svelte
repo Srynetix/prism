@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Icon from '../Icon.svelte'
+  import State from '../ui/State.svelte'
   import { hasCore, invoke } from '../../bridge'
   import { t } from '../../i18n.svelte'
   import { copy } from '../../toast.svelte'
@@ -51,8 +52,8 @@
   <div class="head">
     <b>{t('Tools Prism runs')}</b>
     {#if missing}<span class="warn"><Icon name="warning" /> {t('{n} needed, not found', { n: missing })}</span>{/if}
-    <button class="btn" onclick={() => copy(asText(), t('Versions copied'))} disabled={!list.length}>{t('Copy')}</button>
-    <button class="btn" onclick={() => load(true)} disabled={loading} title={t('Ask each tool its version again')}>{loading ? t('Reading…') : t('Refresh')}</button>
+    <button class="btn sm" onclick={() => copy(asText(), t('Versions copied'))} disabled={!list.length}>{t('Copy')}</button>
+    <button class="btn sm" class:busy={loading} onclick={() => load(true)} disabled={loading} title={t('Ask each tool its version again')}>{#if loading}<span class="spinner"></span>{t('Reading…')}{:else}{t('Refresh')}{/if}</button>
   </div>
   {#if error}<p class="warn pad"><Icon name="warning" /> {error}</p>{/if}
   {#each list as d (d.name)}
@@ -61,11 +62,11 @@
       <span class="ver mono" title={d.raw ?? ''}>{d.version ?? (d.path ? '?' : '—')}</span>
       <span class="role">{ROLE[d.name] ?? ''}</span>
       {#if d.path}<code class="path" title={d.path}>{d.path}</code>
-      {:else if d.needed}<span class="miss"><span class="pill ko">{t('Not found')}</span>{#if d.hint}<code class="path">{d.hint}</code>{/if}</span>
-      {:else}<span class="pill">{t('Optional')}</span>{/if}
+      {:else if d.needed}<span class="miss"><span class="pill warn">{t('Not found')}</span>{#if d.hint}<code class="path">{d.hint}</code>{/if}</span>
+      {:else}<span class="pill outline">{t('Optional')}</span>{/if}
     </div>
   {:else}
-    <p class="muted pad">{loading ? t('Reading…') : hasCore() ? t('None found.') : t('The tools are the app’s.')}</p>
+    {#if loading}<State kind="loading" title={t('Reading…')} />{:else}<p class="empty">{hasCore() ? t('None found.') : t('The tools are the app’s.')}</p>{/if}
   {/each}
   <p class="muted pad foot">{t('Found in the PATH Prism was started with, an agent CLI at its bin when set. The versions go with a feedback request (Tools), the paths never.')}</p>
 </div>
@@ -86,13 +87,9 @@
   .foot { border-top: 0; }
   .warn { display: inline-flex; align-items: center; gap: 4px; color: var(--warn); font-size: var(--fs-meta); }
   .miss { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-  .pill { justify-self: start; font-size: var(--fs-tag); padding: 1px 7px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
-  .pill.ko { background: var(--warn-bg); color: var(--warn); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
   @media (max-width: 640px) {
     .row { grid-template-columns: 80px 70px minmax(0, 1fr); }
     .role { display: none; }
   }
+  .row > .pill { justify-self: start; }
 </style>

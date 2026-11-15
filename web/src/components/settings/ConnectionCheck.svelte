@@ -38,7 +38,7 @@
   <span class="conn {phase}">
     <Icon name={phase === 'ok' ? 'check' : phase === 'ko' ? 'warning' : 'pending'} />
     <span class="msg">{phase === 'pending' ? t('Checking…') : message || t('Not checked yet')}</span>
-    <button class="test" onclick={test} disabled={phase === 'pending'} title={t('Ask the service again who this login is')}>{t('Test')}</button>
+    <button class="btn sm" onclick={test} disabled={phase === 'pending'} title={t('Ask the service again who this login is')}>{t('Test')}</button>
   </span>
 {/if}
 
@@ -47,7 +47,4 @@
   .conn.ok { color: var(--ok); }
   .conn.ko { color: var(--ko); }
   .msg { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  .test { flex-shrink: 0; padding: 1px 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .test:hover:not(:disabled) { border-color: var(--accent); }
-  .test:disabled { opacity: 0.5; cursor: default; }
 </style>

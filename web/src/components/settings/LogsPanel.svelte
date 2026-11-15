@@ -47,10 +47,10 @@
       {#if size !== null}<small>{kb(size)}</small>{/if}
     </span>
     <span class="row">
-      <button class="btn" onclick={() => open('finder')}>{t('Reveal in {app}', { app: FILE_MANAGER })}</button>
-      <button class="btn" onclick={() => open('app')}>{t('Open')}</button>
-      <button class="btn" onclick={copyTail}>{t('Copy last {n} lines', { n: LINES })}</button>
-      <button class="btn" onclick={show}>{tail ? t('Refresh last lines') : t('Show last lines')}</button>
+      <button class="btn sm" onclick={() => open('finder')}>{t('Reveal in {app}', { app: FILE_MANAGER })}</button>
+      <button class="btn sm" onclick={() => open('app')}>{t('Open')}</button>
+      <button class="btn sm" onclick={copyTail}>{t('Copy last {n} lines', { n: LINES })}</button>
+      <button class="btn sm" onclick={show}>{tail ? t('Refresh last lines') : t('Show last lines')}</button>
     </span>
     {#if tail}<pre class="tail">{tail}</pre>{/if}
   {/if}
@@ -61,8 +61,6 @@
   .row { display: flex; gap: 8px; align-items: center; width: 100%; flex-wrap: wrap; }
   .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   code { font: var(--fs-meta) var(--mono); }
-  .btn { flex-shrink: 0; padding: 0 10px; height: 28px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .btn:hover { border-color: var(--accent); }
   .tail { width: 100%; max-height: 320px; margin: 0; padding: 8px 10px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); font: var(--fs-tag) var(--mono); white-space: pre; }
   small { color: var(--text-muted); font-size: var(--fs-meta); }
   small.ko { color: var(--ko); }

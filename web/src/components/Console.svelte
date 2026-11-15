@@ -77,7 +77,7 @@
   input { flex: 1; min-width: 0; border: none; outline: none; background: none; color: #fff; font: inherit; }
   .ok { color: #7ee0a8; }
   .muted { color: #8e8e9c; }
-  .err { color: #ff8fa3; }
+  .out .err { color: #ff8fa3; }
   .warn { color: #ffc978; }
   .cmd { color: #fff; }
   .cmd::first-letter { color: #a78bfa; }

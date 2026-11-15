@@ -2,7 +2,10 @@
   import { live } from '../../live.svelte'
   import { agentsSettings } from '../../agents.svelte'
   import { openSettings, saveEdits, valueOf } from '../../settings.svelte'
-  import { toast } from '../../toast.svelte'
+  import { toast, toastError, toastInfo } from '../../toast.svelte'
+  import { armer } from '../../armed.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
+  import Icon from '../Icon.svelte'
   import { ago } from '../../time'
   import { t, tn } from '../../i18n.svelte'
   import { routineFor, BUILTINS, builtinLabel, cronWords, enableRoutine, everyWords, nextTime, removeRoutine, routinesOf, runRoutine, runTime, STATE_ICON, STATE_LABEL, trustRoutine, whenWords } from '../../routines.svelte'
@@ -89,11 +92,7 @@
     routineFor.action = ''
   })
   let saving = $state(false)
-  let armed = $state<string | null>(null)
-  const arm = (what: string) => {
-    armed = what
-    setTimeout(() => armed === what && (armed = null), 4000)
-  }
+  const armed = armer()
 
   const qa = $derived(draft?.source === 'action' ? actions.find((a) => a.name === draft!.action) : undefined)
   const builtin = $derived(draft?.source === 'action' && !!draft.action.startsWith('builtin:'))
@@ -130,7 +129,7 @@
     // Without repositories it would run nowhere: a quick action runs on a repository.
     if (!draft || draft.source !== 'prompt' || !draft.prompt.trim() || !draft.name.trim() || !draft.repos.length) return
     const name = draft.name.trim()
-    if (actions.some((a) => a.name === name)) return toast(t('A quick action is already named {name}: rename the routine first', { name }), 6000)
+    if (actions.some((a) => a.name === name)) return toastInfo(t('A quick action is already named {name}: rename the routine first', { name }), 6000)
     const d = draft
     const action = { name, prompt: d.prompt, repos: d.repos, worktree: d.worktree, ...(d.mode ? { mode: d.mode } : {}), ...(d.kind ? { kind: d.kind } : {}), ...(d.model.trim() ? { model: d.model.trim() } : {}), ...(d.effort.trim() ? { effort: d.effort.trim() } : {}) }
     // The list as Settings › Quick actions shows and writes it: its unsaved edits kept.
@@ -147,7 +146,7 @@
       draft = { ...next, former: name }
       toast(t('Quick action {name} made (Settings › Quick actions); the routine runs it', { name }), 6000)
     } catch (e) {
-      toast(String(e), 8000)
+      toastError(String(e))
     } finally {
       saving = false
     }
@@ -165,7 +164,7 @@
       toast(done)
       return true
     } catch (e) {
-      toast(String(e), 8000)
+      toastError(String(e))
       return false
     } finally {
       saving = false
@@ -181,15 +180,13 @@
 
   async function remove() {
     if (!draft?.former) return
-    if (armed !== 'delete') return arm('delete')
-    armed = null
+    if (!armed.confirm('delete')) return
     const name = draft.former
     if (await write(list.filter((r) => r.name !== name).map(asRow), t('{name} removed from config.toml', { name }))) draft = null
   }
 
   async function removePending(name: string) {
-    if (armed !== `rm:${name}`) return arm(`rm:${name}`)
-    armed = null
+    if (!armed.confirm(`rm:${name}`)) return
     await removeRoutine(name)
   }
 
@@ -221,14 +218,14 @@
 {#each pending as p (p.name)}
   {@const pe = p.pending!}
   <div class="card trust">
-    <div class="th"><span class="warn">⚠</span> <b>{p.name}</b> <span class="muted">{REASON[pe.reason]}</span></div>
+    <div class="th"><span class="warn"><Icon name="warning" /></span> <b>{p.name}</b> <span class="muted">{REASON[pe.reason]}</span></div>
     <p class="muted">{t('Seen {time} ago.', { time: ago(pe.since) })}{#if pe.agents.length}{' '}{t('Prism agents were working near config.toml then: {agents}.', { agents: pe.agents.join(', ') })}{/if}</p>
     <pre class="diff">{#each pe.diff as l, i (i)}<span class:add={l.startsWith('+')} class:del={l.startsWith('-')}>{l}
 </span>{/each}</pre>
     <div class="btns">
       <button class="btn primary" onclick={() => trustRoutine(p.name, pe.hash)}>{pe.reason === 'action_modified' ? t('Trust both') : t('Trust')}</button>
       {#if pe.reason === 'new'}
-        <button class="btn danger" class:armed={armed === `rm:${p.name}`} onclick={() => removePending(p.name)}>{armed === `rm:${p.name}` ? t('Click again to remove') : t('Remove')}</button>
+        <button class="btn danger" class:armed={armed.is(`rm:${p.name}`)} onclick={() => removePending(p.name)}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is(`rm:${p.name}`)} /></button>
       {:else if p.enabled}
         <button class="btn ghost" onclick={() => enableRoutine(p.name, false)}>{t('Turn off')}</button>
       {/if}
@@ -248,13 +245,13 @@
       <span class="when">{whenWords(r)}<code>{r.cron?.trim() || (r.every ? `every ${r.every}` : '')}</code>{#if v?.next[0]}<small>{t('next: {time}', { time: nextTime(v.next[0]) })}</small>{/if}</span>
       <span>{r.deliver === 'digest' ? t('Digest') : t('To review')}</span>
       <span class="last">{#if v?.error}<span class="ko" title={v.error}>{t('in error')}</span>{:else if v?.pending}<span class="warn">{t('waits for your trust')}</span>{:else if last}<span class="st {last.state}">{STATE_LABEL[last.state]}</span> <small>{ago(last.ended ?? last.due)}</small>{:else}<small class="muted">{t('not run yet')}</small>{/if}</span>
-      <button class="btn ghost" disabled={!!v?.pending || !!v?.error} onclick={() => runRoutine(r.name)} title={t('The routine as saved, now: its result arrives as at its time')}>{t('Run now')}</button>
+      <button class="btn sm ghost" disabled={!!v?.pending || !!v?.error} onclick={() => runRoutine(r.name)} title={t('The routine as saved, now: its result arrives as at its time')}>{t('Run now')}</button>
     </div>
     {#if v?.error}<div class="cfgerr">{r.name}: {v.error}</div>{/if}
   {:else}
     <div class="none">{t('No routine yet.')}</div>
   {/each}
-  <div class="add"><button class="btn" onclick={() => (draft = blank())}>{t('+ New routine')}</button></div>
+  <div class="add"><button class="btn sm" onclick={() => (draft = blank())}>{t('+ New routine')}</button></div>
 </div>
 
 {#if draft}
@@ -345,9 +342,9 @@
     </div>
     <label class="chk"><input type="checkbox" bind:checked={d.enabled} />{t('On')}</label>
     <div class="btns">
-      <button class="btn primary" onclick={save} disabled={saving || !d.name.trim() || taken || (d.source === 'prompt' && (!d.prompt.trim() || (d.worktree && !d.repos.length) || (!d.repos.length && /\{(repo|base)\}/.test(d.prompt))))}>{t('Save')}</button>
+      <button class="btn primary" class:busy={saving} onclick={save} disabled={saving || !d.name.trim() || taken || (d.source === 'prompt' && (!d.prompt.trim() || (d.worktree && !d.repos.length) || (!d.repos.length && /\{(repo|base)\}/.test(d.prompt))))}>{#if saving}<span class="spinner"></span>{t('Saving…')}{:else}{t('Save')}{/if}</button>
       {#if d.former}<button class="btn" disabled={!unchanged || !!savedView?.pending} onclick={() => runRoutine(d.former)} title={unchanged ? t('The routine as saved, now') : t('Save it first')}>{t('Run now')}</button>{/if}
-      {#if d.former}<button class="btn danger" class:armed={armed === 'delete'} onclick={remove}>{armed === 'delete' ? t('Click again to remove') : t('Remove')}</button>{/if}
+      {#if d.former}<button class="btn danger" class:armed={armed.is('delete')} onclick={remove}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is('delete')} /></button>{/if}
       <button class="btn ghost" onclick={() => (draft = null)}>{t('Close')}</button>
     </div>
   </div>
@@ -414,13 +411,9 @@
   .qa { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .repos { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
   .lbl { display: flex; flex-direction: column; width: 100%; font-size: var(--fs-meta); color: var(--text-muted); }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; align-self: flex-start; }
-  .seg button { padding: 3px 12px; border: none; background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
-  .seg button.on { background: color-mix(in srgb, var(--src-claude) 18%, transparent); color: var(--text); }
+  .editor > .seg { align-self: flex-start; }
   .words { margin: 0; }
   .btns { display: flex; flex-wrap: wrap; gap: 6px; }
-  .btn.armed { outline: 2px solid var(--warn); }
-  .btn.danger { color: var(--ko); }
   .lnk { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; text-decoration: underline; }
   .hh { display: flex; gap: 8px; align-items: baseline; padding-bottom: 4px; }
   .run { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; border-top: 1px solid var(--border); font-size: var(--fs-meta); }

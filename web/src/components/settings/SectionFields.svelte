@@ -81,7 +81,7 @@
           <TableInput rows={valueOf<Record<string, unknown>[]>(path) ?? []} columns={f.columns ?? []} blank={f.blank ?? {}} onchange={(rows) => setValue(path, rows.length || hasInherited(path) ? rows : null)} />
         {/if}
         <span class="seeds">
-          {#if f.seed === 'views'}<button class="seed" onclick={openWizard} title={t('The packs’ templates (or Prism’s starter pack): preview the pages and blocks before creating them')}>{t('Start from a template…')}</button>{/if}
+          {#if f.seed === 'views'}<button class="btn sm seed" onclick={openWizard} title={t('The packs’ templates (or Prism’s starter pack): preview the pages and blocks before creating them')}>{t('Start from a template…')}</button>{/if}
         </span>
       </div>
     {:else}
@@ -115,8 +115,7 @@
   .key { font: var(--fs-tag) var(--mono); color: var(--text-muted); opacity: 0.75; }
   .badge { padding: 0 6px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 500; line-height: 16px; }
   .seeds { display: flex; gap: 6px; }
-  .seed { align-self: flex-start; margin-top: 4px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .seed:hover { border-color: var(--accent); }
+  .seed { align-self: flex-start; margin-top: 4px; }
   .badge.pack { background: var(--info-bg); color: var(--info); }
   .reset { padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
 </style>

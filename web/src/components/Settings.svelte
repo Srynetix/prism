@@ -25,7 +25,7 @@
   import { broughtBy } from '../feedback.svelte'
   import SectionFields from './settings/SectionFields.svelte'
   import ListInput from './settings/ListInput.svelte'
-  import { STATUS_ITEMS, SIDE_BREAK } from '../statusbar'
+  import { DEFAULT_HIDDEN, STATUS_ITEMS, SIDE_BREAK } from '../statusbar'
   import { statusbarEditing } from '../statusbar-edit.svelte'
   import { SCHEMA, type SectionSpec } from '../settings-schema'
   import { ensure, failing, recheck, runs, sectionRequests } from '../settings-checks.svelte'
@@ -293,6 +293,8 @@
   }
   /** Remove: a first click arms the button, a second one within 3 s removes. */
   const armed = armer()
+  /** The status bar's hidden items when the file sets none: the default bar's, unless an order is set. */
+  const hiddenByDefault = () => (valueOf<string[]>(['appearance', 'statusbar'], []).length ? [] : DEFAULT_HIDDEN)
   function askRemove(name: string) {
     if (armed.confirm(`pack:${name}`)) void removePack(name)
   }
@@ -360,9 +362,9 @@
             {#if depth === 0}<span class="sw" style:background={n.color}></span>{/if}
             <span class="name">{n.label}</span>
             {#if n.choice}<span class="tag">{chosen(n)}</span>{:else if unchosen(n)}<span class="tag" class:repo={repoUses(n) > 0}>{unusedTag(n)}</span>{/if}
-            {#if nodeDirty(n)}<span class="dot" title={t('Unsaved changes')}></span>
+            {#if nodeDirty(n)}<span class="dot warn" title={t('Unsaved changes')}></span>
             {:else if nodeAttention(n)}<span class="warn" title={t('A check failed, or this source could not be read')}><Icon name="warning" /></span>
-            {:else if isOn(n) !== undefined}<span class="st" class:lit={isOn(n)} title={isOn(n) ? t('On') : t('Off')}></span>{/if}
+            {:else if isOn(n) !== undefined}<span class="dot" class:ok={isOn(n)} title={isOn(n) ? t('On') : t('Off')}></span>{/if}
           </button>
         </div>
         {#if n.children && isOpen(n)}<div class="kids">{@render branch(n.children, depth + 1)}</div>{/if}
@@ -388,9 +390,9 @@
           <button class="toggle" class:on={pageOn} role="switch" aria-checked={pageOn} aria-label={switchField(page)?.label} onclick={() => setValue(pageSwitch, !pageOn)}><i></i></button>
         </span>
       {/if}
-      {#if pageSections.some((s) => s.spec && sectionRequests(s.spec).length)}<button class="btn ghost" onclick={recheck} title={t('Run the checks of the settings again')}>{t('Check again')}</button>{/if}
-      {#if editable()}<button class="btn ghost" onclick={() => configurePrism({ page: chain.map((c) => c.label).join(' › '), table: tables.join(' ') })} title={t('Ask an agent about this page: it reads Prism’s docs and your config, and proposes the change')}>✦ {t('Ask an agent')}</button>{/if}
-      <button class="btn ghost" onclick={toggleToml} aria-pressed={showToml} title={t('Show config.toml next to the settings')}>TOML</button>
+      {#if pageSections.some((s) => s.spec && sectionRequests(s.spec).length)}<button class="btn sm ghost" onclick={recheck} title={t('Run the checks of the settings again')}>{t('Check again')}</button>{/if}
+      {#if editable()}<button class="btn sm ghost" onclick={() => configurePrism({ page: chain.map((c) => c.label).join(' › '), table: tables.join(' ') })} title={t('Ask an agent about this page: it reads Prism’s docs and your config, and proposes the change')}>✦ {t('Ask an agent')}</button>{/if}
+      <button class="btn sm ghost" onclick={toggleToml} aria-pressed={showToml} title={t('Show config.toml next to the settings')}>TOML</button>
     </div>
 
     {#if !editable()}
@@ -430,8 +432,8 @@
                 {@const current = packRef(p.source) ?? ''}
                 <input class="t mono ref" value={refs[p.name] ?? current} oninput={(e) => (refs[p.name] = e.currentTarget.value.trim())} onkeydown={(e) => e.key === 'Enter' && updatePackThen(p.name, refs[p.name] ?? current)} placeholder={t('default branch')} spellcheck="false" aria-label={t('Branch, tag or commit of {name}', { name: p.name })} title={t('The branch, tag or commit the pack is read at: Update reads it there from now on (empty: the default branch)')} />
               {/if}
-              {#if p.source}<button class="btn" class:primary={!!pc?.changed && !pc.too_new} onclick={() => updatePackThen(p.name, packRef(p.source) !== null ? (refs[p.name] ?? packRef(p.source)) : null)} disabled={!!packBusy.name || !editable()} title={refs[p.name] !== undefined && refs[p.name] !== packRef(p.source) ? t('Import it again from {source}, at {ref}', { source: p.source, ref: refs[p.name] || t('the default branch') }) : t('Import it again from {source}', { source: p.source })}>{packBusy.name === p.name ? t('Updating…') : t('Update')}</button>{/if}
-              <button class="btn" class:armed={armed.is(`pack:${p.name}`)} onclick={() => askRemove(p.name)} disabled={!!packBusy.name || !editable()} title={t('Take it out of config.toml and packs/ (click twice)')}><ArmedLabel label={t('Remove')} armedLabel={t('Remove?')} armed={armed.is(`pack:${p.name}`)} /></button>
+              {#if p.source}<button class="btn sm" class:primary={!!pc?.changed && !pc.too_new} onclick={() => updatePackThen(p.name, packRef(p.source) !== null ? (refs[p.name] ?? packRef(p.source)) : null)} class:busy={packBusy.name === p.name} disabled={!!packBusy.name || !editable()} title={refs[p.name] !== undefined && refs[p.name] !== packRef(p.source) ? t('Import it again from {source}, at {ref}', { source: p.source, ref: refs[p.name] || t('the default branch') }) : t('Import it again from {source}', { source: p.source })}>{#if packBusy.name === p.name}<span class="spinner"></span>{t('Updating…')}{:else}{t('Update')}{/if}</button>{/if}
+              <button class="btn sm" class:armed={armed.is(`pack:${p.name}`)} onclick={() => askRemove(p.name)} disabled={!!packBusy.name || !editable()} title={t('Take it out of config.toml and packs/ (click twice)')}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is(`pack:${p.name}`)} /></button>
             </span>
           </div>
         {:else}
@@ -442,7 +444,7 @@
         <div class="checkrow">
           {#if packUpdates.error}<span class="hint warn"><Icon name="warning" /> {packUpdates.error}</span>{/if}
           <span class="grow"></span>
-          <button class="btn" onclick={() => checkPacks()} disabled={packUpdates.checking || !!packBusy.name} title={t('Read the packs’ sources again ([updates] packs: at launch and every 6 hours)')}>{packUpdates.checking ? t('Checking…') : t('Check now')}</button>
+          <button class="btn sm" class:busy={packUpdates.checking} onclick={() => checkPacks()} disabled={packUpdates.checking || !!packBusy.name} title={t('Read the packs’ sources again ([updates] packs: at launch and every 6 hours)')}>{#if packUpdates.checking}<span class="spinner"></span>{t('Checking…')}{:else}{t('Check now')}{/if}</button>
         </div>
       {/if}
       <ModulesSettings />
@@ -451,7 +453,7 @@
         <div class="filerow">
           <input class="t mono grow" bind:value={packSource} placeholder={t('~/team/pack.toml, glab:group/project:path/pack.toml@main or gh:owner/repo:path/pack.toml')} spellcheck="false" onkeydown={(e) => e.key === 'Enter' && addPack()} aria-label={t('Pack source')} />
           {#if canPick()}<button class="btn" onclick={choosePack} disabled={!!packBusy.name || !editable()} title={t('Choose a pack file')}><Icon name="folder" />{t('Choose…')}</button>{/if}
-          <button class="btn primary" onclick={addPack} disabled={!packSource.trim() || !!packBusy.name || !editable()}>{packBusy.name === '+import' ? t('Importing…') : t('Import')}</button>
+          <button class="btn primary" class:busy={packBusy.name === '+import'} onclick={addPack} disabled={!packSource.trim() || !!packBusy.name || !editable()}>{#if packBusy.name === '+import'}<span class="spinner"></span>{t('Importing…')}{:else}{t('Import')}{/if}</button>
         </div>
         <p class="hint pad">{t('A local file path, or a file of a repository: on GitLab with glab,')} <code>glab:group/project:path/pack.toml@ref</code>{t('; on GitHub with gh,')} <code>gh:owner/repo:path/pack.toml@ref</code>{t(', the ref a branch, a tag or a commit (without')} <code>@ref</code>{t(': the default branch). Its source is kept, so Update reads it again; the field next to it changes the ref, to try a commit before it reaches main.')}</p>
       </div>
@@ -539,7 +541,7 @@
           </span>
         </Field>
         <Field label={t('Hidden in the status bar')} hint={t('These items never show (a right-click on the bar hides or shows them too).')} path={['appearance', 'statusbar_hidden']}>
-          <ListInput value={valueOf<string[]>(['appearance', 'statusbar_hidden'], [])} onchange={(v) => setValue(['appearance', 'statusbar_hidden'], v, [])} options={STATUS_ITEMS.map((i) => i.id)} compact />
+          <ListInput value={valueOf<string[]>(['appearance', 'statusbar_hidden'], hiddenByDefault())} onchange={(v) => setValue(['appearance', 'statusbar_hidden'], v, hiddenByDefault())} options={STATUS_ITEMS.map((i) => i.id)} compact />
         </Field>
         <Field label={t('Screensaver')} hint={t('Starts by itself after this long without a key, a click or the mouse, while the window shows. Off: only on demand (console: screensaver). ← / → switch between them, a click or another key wakes.')} path={['appearance', 'screensaver']}>
           <span class="row">
@@ -644,8 +646,8 @@
           </div>
           <span class="row">
             {#if u?.latest?.url}<button class="btn ghost" onclick={() => openLink(u.latest!.url)} title={u.latest.url}>{t('Release page')}</button>{/if}
-            <button class="btn" onclick={() => checkUpdates()} disabled={updates.checking || updates.installing} title={t('Read the releases of the saved source again')}>{updates.checking ? t('Checking…') : t('Check now')}</button>
-            {#if u?.available && u.install}<button class="btn primary" class:armed={armed.is('install')} onclick={askInstall} disabled={updates.installing} title={u.install === 'replace' ? t('Download, replace this Prism and restart it (click twice)') : t('Download the package (click twice)')}>{#if updates.installing}{t('Installing…')}{:else}<ArmedLabel label={t('Install {version}', { version: u.latest!.version })} armedLabel={u.install === 'replace' ? t('Install and restart?') : t('Download?')} armed={armed.is('install')} />{/if}</button>{/if}
+            <button class="btn" class:busy={updates.checking} onclick={() => checkUpdates()} disabled={updates.checking || updates.installing} title={t('Read the releases of the saved source again')}>{#if updates.checking}<span class="spinner"></span>{t('Checking…')}{:else}{t('Check now')}{/if}</button>
+            {#if u?.available && u.install}<button class="btn primary" class:armed={armed.is('install')} class:busy={updates.installing} onclick={askInstall} disabled={updates.installing} title={u.install === 'replace' ? t('Download, replace this Prism and restart it (click twice)') : t('Download the package (click twice)')}>{#if updates.installing}<span class="spinner"></span>{t('Installing…')}{:else}<ArmedLabel label={t('Install {version}', { version: u.latest!.version })} armedLabel={t('Click again to confirm')} armed={armed.is('install')} />{/if}</button>{/if}
           </span>
         </div>
         {#if shown.length}
@@ -682,7 +684,7 @@
       {#if page.tabs && i === 1}
         <div class="tabs" role="tablist">
           {#each pageSections.slice(1) as ts (ts.id)}
-            <button role="tab" class:on={ts.id === tab?.id} aria-selected={ts.id === tab?.id} onclick={() => go(ts.id)}>{stageLabel(ts.label)}<span class="path">{ts.table}</span>{#if dirty(ts)}<span class="dot" title={t('Unsaved changes')}></span>{/if}</button>
+            <button role="tab" class:on={ts.id === tab?.id} aria-selected={ts.id === tab?.id} onclick={() => go(ts.id)}>{stageLabel(ts.label)}<span class="path">{ts.table}</span>{#if dirty(ts)}<span class="dot warn" title={t('Unsaved changes')}></span>{/if}</button>
           {/each}
         </div>
       {/if}
@@ -698,7 +700,7 @@
           <button class="subp" class:off={inactive(c)} onclick={() => go(c.id)}>
             <span class="ptop"><b>{c.label}</b><span class="grow"></span>
               {#if unchosen(c)}<span class="tag" class:repo={repoUses(c) > 0}>{unusedTag(c)}</span>{:else if c.provider}<span class="tag on">{tc('settings', 'in use')}</span>{/if}
-              {#if nodeDirty(c)}<span class="dot" title={t('Unsaved changes')}></span>{:else if nodeAttention(c)}<span class="warn"><Icon name="warning" /></span>{:else if isOn(c) !== undefined}<span class="st" class:lit={isOn(c)} title={isOn(c) ? t('On') : t('Off')}></span>{/if}
+              {#if nodeDirty(c)}<span class="dot warn" title={t('Unsaved changes')}></span>{:else if nodeAttention(c)}<span class="warn"><Icon name="warning" /></span>{:else if isOn(c) !== undefined}<span class="dot" class:ok={isOn(c)} title={isOn(c) ? t('On') : t('Off')}></span>{/if}
             </span>
             <small class="mono">{sectionsOf(c).map((x) => x.table).join(' ')}</small>
             {#if c.children}<small>{c.children.map((k) => k.label).join(', ')}</small>{/if}
@@ -715,7 +717,7 @@
           <Icon name="edit" /><b>{tn(changes().length, '{n} change', '{n} changes')}</b><span class="hint">{t('not saved yet')}</span>
           <span class="grow"></span>
           <button class="btn ghost" onclick={discardConfig}>{t('Discard')}</button>
-          <button class="btn primary" onclick={saveConfig} disabled={cfg.saving || !editable()}>{cfg.saving ? t('Saving…') : t('Save to config.toml')} <span class="mono kbd">{keys('⌘S')}</span></button>
+          <button class="btn primary" class:busy={cfg.saving} onclick={saveConfig} disabled={cfg.saving || !editable()}>{#if cfg.saving}<span class="spinner"></span>{t('Saving…')}{:else}{t('Save to config.toml')} <span class="mono kbd">{keys('⌘S')}</span>{/if}</button>
         {:else if waiting.length}
           <Icon name="retry" /><b>{t('Saved')}</b><span class="hint">{tn(waiting.length, '{tables}, a pack’s block, applies at the next launch', '{tables}, a pack’s blocks, apply at the next launch', { tables: waiting.map((id) => `[${id}]`).join(', ') })}</span>
           <span class="grow"></span>
@@ -786,15 +788,12 @@
   .tag.on { color: var(--ok); }
   .tag.repo { color: var(--info); }
   /* A feature's state: lit when on, hollow when off. */
-  .st { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--text-muted); opacity: 0.6; }
-  .st.lit { background: var(--ok); border-color: var(--ok); opacity: 1; }
   .none { margin: 8px; }
   .sample { display: block; margin-top: 4px; padding: 6px 8px; border-radius: var(--r6); background: var(--surface-muted); font-size: var(--fs-title); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .toc .ver { margin-top: auto; padding: 10px 8px 0; color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); user-select: text; }
   .toc button.on { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 600; }
   .sw { width: 8px; height: 8px; flex-shrink: 0; border-radius: var(--r2); }
   .warn { display: inline-flex; color: var(--ko); font-size: var(--fs-meta); }
-  .dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--warn); }
 
   .body { display: flex; flex-direction: column; min-width: 0; overflow: auto; padding: 16px 22px 0; container-type: inline-size; }
   .crumb { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; color: var(--text-muted); font-size: var(--fs-meta); }
@@ -864,14 +863,8 @@
   .hint.new { color: var(--accent); }
   .checkrow { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; }
   .ref { width: 110px; }
-  .btn.armed { color: var(--ko); border-color: var(--ko); }
   .filerow { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn:hover { border-color: var(--accent); }
-  .btn.ghost { background: none; }
   .btn[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
-  .btn:disabled { opacity: 0.6; cursor: progress; }
   .kbd { opacity: 0.7; }
   code { font-family: var(--mono); font-size: var(--fs-tag); }
   /* Changes bar: stuck to the bottom of the area, even if the section is short. */

@@ -3,7 +3,7 @@
   import Markdown from '../Markdown.svelte'
   import { t } from '../../i18n.svelte'
   import { live } from '../../live.svelte'
-  import { toast } from '../../toast.svelte'
+  import { toast, toastError } from '../../toast.svelte'
   import { conventions } from '../../conventions'
   import { openTicket } from '../../ticket-view.svelte'
   import { createTicket, defaultLane, openNewTicket, ticketBoards } from '../../new-ticket.svelte'
@@ -53,7 +53,7 @@
     try {
       await f()
     } catch (e) {
-      toast(String(e), 8000)
+      toastError(String(e))
     } finally {
       busy = false
     }
@@ -96,7 +96,7 @@
       if (!id) return
       await tell('launched', { agent: id, title: p.title })
       const take = p.ticket ? takeImplementationOf(p.ticket) : undefined
-      if (take) await take().catch((e) => toast(String(e), 8000))
+      if (take) await take().catch((e) => toastError(String(e)))
     })
   const inLauncher = () => {
     const p = proposal!
@@ -203,31 +203,31 @@
       <div class="ca">
         <!-- svelte-ignore a11y_autofocus -->
         <input bind:value={reason} placeholder={t('Why? (optional, the assistant reads it)')} autofocus onkeydown={(e) => { if (e.key === 'Enter') void dismiss(); if (e.key === 'Escape') { e.stopPropagation(); refusing = false } }} />
-        <button class="btn" onclick={dismiss} disabled={busy}>{t('Dismiss')}</button>
-        <button class="btn ghost" onclick={() => (refusing = false)}>{t('Cancel')}</button>
+        <button class="btn sm" onclick={dismiss} disabled={busy}>{t('Dismiss')}</button>
+        <button class="btn sm ghost" onclick={() => (refusing = false)}>{t('Cancel')}</button>
       </div>
     {:else}
       <div class="ca">
         {#if p.action === 'ticket'}
-          <button class="btn pri" onclick={create} disabled={busy || !board}>{t('Create the ticket')}</button>
-          <button class="btn" onclick={editTicket} disabled={busy || !board}>{t('Edit…')}</button>
+          <button class="btn sm primary" onclick={create} disabled={busy || !board}>{t('Create the ticket')}</button>
+          <button class="btn sm" onclick={editTicket} disabled={busy || !board}>{t('Edit…')}</button>
         {:else if p.action === 'launch'}
-          <button class="btn pri" onclick={launch} disabled={busy}>{t('Launch')}</button>
-          <button class="btn" onclick={inLauncher} disabled={busy}>{t('Open in the launcher…')}</button>
+          <button class="btn sm primary" onclick={launch} disabled={busy}>{t('Launch')}</button>
+          <button class="btn sm" onclick={inLauncher} disabled={busy}>{t('Open in the launcher…')}</button>
         {:else if p.action === 'note'}
-          <button class="btn pri" onclick={write} disabled={busy}>{t('Write the note')}</button>
+          <button class="btn sm primary" onclick={write} disabled={busy}>{t('Write the note')}</button>
         {:else if p.action === 'repo'}
-          <button class="btn pri" onclick={addRepo} disabled={busy}>{t('Add…')}</button>
+          <button class="btn sm primary" onclick={addRepo} disabled={busy}>{t('Add…')}</button>
         {:else if p.action === 'memory'}
           {#if editing}
-            <button class="btn pri" onclick={() => remember(fact.trim(), true)} disabled={busy || !fact.trim()}>{t('Remember')}</button>
-            <button class="btn" onclick={() => (editing = false)}>{t('Cancel')}</button>
+            <button class="btn sm primary" onclick={() => remember(fact.trim(), true)} disabled={busy || !fact.trim()}>{t('Remember')}</button>
+            <button class="btn sm" onclick={() => (editing = false)}>{t('Cancel')}</button>
           {:else}
-            <button class="btn pri" onclick={() => remember(p.text)} disabled={busy}>{t('Remember')}</button>
-            <button class="btn" onclick={() => { fact = p.text; editing = true }}>{t('Edit…')}</button>
+            <button class="btn sm primary" onclick={() => remember(p.text)} disabled={busy}>{t('Remember')}</button>
+            <button class="btn sm" onclick={() => { fact = p.text; editing = true }}>{t('Edit…')}</button>
           {/if}
         {/if}
-        <button class="btn ghost" onclick={() => (refusing = true)} disabled={busy}>{p.action === 'memory' ? t('No') : t('Dismiss')}</button>
+        <button class="btn sm ghost" onclick={() => (refusing = true)} disabled={busy}>{p.action === 'memory' ? t('No') : t('Dismiss')}</button>
         {#if p.action === 'repo'}<span class="r">{t('Settings › Repositories, prefilled: nothing is cloned without your click')}</span>{/if}
         {#if !board && p.action === 'ticket'}<span class="r ko">{t('The tracker offers no board to create a ticket on.')}</span>{/if}
       </div>
@@ -239,7 +239,7 @@
     <Icon name={doneLine.icon as 'kanban'} size={12} />
     <span>{doneLine.text}</span>
     {#if o.status === 'created' && o.key}<button class="link" onclick={() => openTicket(o.key!)}>{t('Open')} →</button>{/if}
-    {#if o.status === 'launched' && o.agent && live.snapshot?.agents.some((a) => a.id === o.agent)}<button class="link" onclick={() => openAgents(o.agent)}>{t('See the agent')} →</button>{/if}
+    {#if o.status === 'launched' && o.agent && live.snapshot?.agents.some((a) => a.id === o.agent)}<button class="link" onclick={() => openAgents(o.agent)}>{t('Open the agent')} →</button>{/if}
   </div>
 {:else if call.state === 'running'}
   <div class="done"><Icon name="sparkles" size={12} /><span>{t('Proposal')}: {call.what ?? ''}</span></div>
@@ -252,7 +252,6 @@
   .card.mem { border-style: dashed; }
   .ch { display: flex; align-items: center; gap: 7px; padding: 6px 11px; background: color-mix(in srgb, var(--as) 12%, var(--surface)); color: var(--as); font-weight: 700; font-size: var(--fs-meta); }
   .ch .r { margin-left: auto; font-weight: 400; color: var(--text-muted); }
-  .pill { padding: 0 7px; border-radius: var(--r9); background: var(--surface); color: var(--text-muted); font-weight: 600; font-size: var(--fs-tag); }
   .cb { display: grid; gap: 7px; padding: 9px 12px; }
   .why { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .ttl { font-size: var(--fs-title); font-weight: 600; }
@@ -271,10 +270,8 @@
   .ca input { flex: 1; min-width: 160px; font: inherit; }
   .ca .r { margin-left: auto; color: var(--text-muted); font-size: var(--fs-tag); }
   .ca .r.ko { color: var(--ko); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn.pri { border-color: var(--as); background: var(--as); color: var(--surface); }
-  .btn.ghost { border-color: transparent; background: none; color: var(--text-muted); }
-  .btn:disabled { opacity: 0.55; cursor: default; }
+  .ch .pill { background: var(--surface); }
+  .ca .btn.primary { --btn-c: var(--as); --btn-on: var(--surface); }
   .done { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--fs-meta); }
   .done :global(svg) { color: var(--info); }
   .done.ko :global(svg) { color: var(--text-muted); }
