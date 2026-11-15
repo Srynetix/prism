@@ -296,7 +296,24 @@
   let filterPeek = $state(false)
   /** A page being dragged along the rail, and the place it would take. */
   let draggedPage = $state<string | null>(null)
+  // A name being typed where it is no longer shown (Zen mode, Edit layout left) is given up: Esc is the app's again.
+  $effect(() => {
+    if (pageUi.renaming && (zen.on || (pageUi.renaming.at === 'header' && !editing.on))) pageUi.renaming = null
+  })
+  /** Where the page dragged would go: before rail page `dropAt` (after the last one: their count). */
   let dropAt = $state<number | null>(null)
+  /** Before page `i`, or after it over its lower half. */
+  function dropSlot(e: DragEvent, i: number): number {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    return e.clientY > r.top + r.height / 2 ? i + 1 : i
+  }
+  /** The page dragged, put at `slot` (its own place counted out once it goes). */
+  function dropPage(slot: number) {
+    const from = views().findIndex((v) => v.id === draggedPage)
+    if (draggedPage && from >= 0) movePage(draggedPage, slot > from ? slot - 1 : slot)
+    draggedPage = null
+    dropAt = null
+  }
   /** In Zen mode, the header is back while the filter or the For me panel is in use. */
   const headerShown = $derived(!zen.on || !!filter.query || filterPeek || !!headerStats.open)
 
@@ -348,8 +365,8 @@
       toggleHelp()
       return
     }
-    // F2: renames the page shown, in the rail.
-    if (e.key === 'F2' && !typing(e) && !inTerminal(e) && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open) {
+    // F2: renames the page shown, in the rail (not in Zen mode: the rail is not there).
+    if (e.key === 'F2' && !zen.on && !typing(e) && !inTerminal(e) && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open) {
       e.preventDefault()
       startRename(view.id)
       return
@@ -480,6 +497,12 @@
 <svelte:window onpointerdown={followPointer} onkeydown={(e) => { onAlt(e, true); onKey(e) }} onkeyup={(e) => onAlt(e, false)} onblur={() => onAlt(new KeyboardEvent('keyup'), false)} />
 
 <!-- View icons in the rail (`VIEW_ICONS`). -->
+{#snippet renameInput(v: View)}
+  <!-- svelte-ignore a11y_autofocus -->
+  <input class="rename" value={v.label} autofocus aria-label={t('Page name')} onfocus={(e) => e.currentTarget.select()}
+    onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') renamePage(v.id, e.currentTarget.value); else if (e.key === 'Escape') pageUi.renaming = null }}
+    onblur={(e) => { if (pageUi.renaming?.id === v.id) renamePage(v.id, e.currentTarget.value) }} />
+{/snippet}
 {#snippet icon(id: string)}<ViewIcon {id} />{/snippet}
 
 <!--
@@ -493,10 +516,7 @@
       <span class="title editable">
         <button class="look" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); startStyling(view.id, r.left, r.bottom + 4) }} title={t('Icon and color…')} aria-label={t('Icon and color…')}>{@render icon(look(view).icon)}</button>
         {#if pageUi.renaming?.id === view.id && pageUi.renaming.at === 'header'}
-          <!-- svelte-ignore a11y_autofocus -->
-          <input class="rename" value={view.label} autofocus aria-label={t('Page name')} onfocus={(e) => e.currentTarget.select()}
-            onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') renamePage(view.id, e.currentTarget.value); else if (e.key === 'Escape') pageUi.renaming = null }}
-            onblur={(e) => { if (pageUi.renaming?.id === view.id) renamePage(view.id, e.currentTarget.value) }} />
+          {@render renameInput(view)}
         {:else}
           <button class="name" onclick={() => startRename(view.id, 'header')} title={t('Rename (F2)')}>{t(view.label)}</button>
         {/if}
@@ -541,18 +561,15 @@
     {#key rainbow}{#if rainbow}<span class="rainbow" aria-hidden="true"></span>{/if}{/key}
     {#each views() as v, i (v.id)}
       {@const lk = look(v)}
-      <div class="pg" class:drop={dropAt === i} class:dragged={draggedPage === v.id}
-        ondragover={(e) => { if (draggedPage) { e.preventDefault(); dropAt = i } }}
-        ondragleave={() => { if (dropAt === i) dropAt = null }}
-        ondrop={(e) => { e.preventDefault(); if (draggedPage && draggedPage !== v.id) movePage(draggedPage, i); draggedPage = null; dropAt = null }}
+      <div class="pg" class:drop={dropAt === i} class:drop-after={dropAt === i + 1 && i === views().length - 1} class:dragged={draggedPage === v.id}
+        ondragover={(e) => { if (draggedPage) { e.preventDefault(); dropAt = dropSlot(e, i) } }}
+        ondragleave={() => { if (dropAt === i || dropAt === i + 1) dropAt = null }}
+        ondrop={(e) => { e.preventDefault(); dropPage(dropSlot(e, i)) }}
         role="listitem">
       {#if pageUi.renaming?.id === v.id && pageUi.renaming.at === 'rail'}
         <span class="v on renaming" style:--tint={lk.color}>
           {@render icon(lk.icon)}
-          <!-- svelte-ignore a11y_autofocus -->
-          <input class="rename" value={v.label} autofocus aria-label={t('Page name')} onfocus={(e) => e.currentTarget.select()}
-            onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') renamePage(v.id, e.currentTarget.value); else if (e.key === 'Escape') pageUi.renaming = null }}
-            onblur={(e) => { if (pageUi.renaming?.id === v.id) renamePage(v.id, e.currentTarget.value) }} />
+          {@render renameInput(v)}
         </span>
       {:else}
       <button class="v" class:on={v.id === view.id && !settingsView.open && !agentsView.open && !projectsView.open && !helpView.open} style:--tint={lk.color} onclick={() => { closeSettings(); closeHelp(); setView(v.id) }} title="{t(v.label)} ({keys(`⌘${i + 1}`)}){v.origin === 'pack' ? ` · ${t('pack')}` : ''}" aria-current={v.id === view.id ? 'page' : undefined}
@@ -798,7 +815,8 @@
   .rail .grow { flex: 1; }
   /* Managing the pages from the rail: drag and drop, the name typed in place, ⋯ and « + » in Edit layout. */
   .rail .pg { position: relative; display: flex; flex-direction: column; align-items: center; }
-  .rail .pg.drop::before { content: ''; position: absolute; top: -3px; left: 8px; right: 8px; height: 2px; border-radius: 1px; background: var(--accent); }
+  .rail .pg.drop::before, .rail .pg.drop-after::after { content: ''; position: absolute; top: -3px; left: 8px; right: 8px; height: 2px; border-radius: 1px; background: var(--accent); }
+  .rail .pg.drop-after::after { top: auto; bottom: -3px; }
   .rail .pg.dragged { opacity: 0.45; }
   .rail .v.renaming { cursor: default; }
   .rail .rename { width: 54px; padding: 1px 3px; border: 1px solid var(--accent); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: 9.5px; text-align: center; }

@@ -336,10 +336,8 @@ pub fn load_text(path: &Path, raw: &str) -> Result<Config> {
 /// marked a copy of it. `followed`: config.toml lists no pages, its packs' are all followed. A
 /// pack's page gets its id written in, so that config.toml can name it.
 pub fn resolve_views(views: &mut Vec<ViewConfig>, inherited: &toml::Table, followed: bool) {
+    // No pack's pages (a pack missing, removed): the ids alone in config.toml go all the same.
     let pack: Vec<ViewConfig> = inherited.get("views").cloned().and_then(|v| v.try_into().ok()).unwrap_or_default();
-    if pack.is_empty() {
-        return;
-    }
     let id_of = |v: &ViewConfig| v.id.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(String::from).unwrap_or_else(|| crate::agents::slug(&v.name));
     let page = |id: &str| pack.iter().find(|p| id_of(p) == id);
     views.retain_mut(|v| {
@@ -963,6 +961,11 @@ pub mod tests {
         resolve_views(&mut views, &inherited, true);
         assert!(views.iter().all(|v| v.origin == Some(ViewOrigin::Pack)));
         assert_eq!(views[1].id.as_deref(), Some("equipe"), "its id written in");
+
+        let mut views: Vec<ViewConfig> = own["views"].clone().try_into().unwrap();
+        resolve_views(&mut views, &toml::Table::new(), false);
+        let names: Vec<_> = views.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(names, ["Mine", "Team"], "without the pack, its ids alone go");
     }
 
     /// A repository says its working folder (the Projects page groups by it): the deepest that holds its clone.

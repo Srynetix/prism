@@ -664,8 +664,19 @@ fn packs() -> Result<Value> {
 
 fn layout() -> Result<Value> {
     let cfg = crate::config::load(&crate::config_path())?;
-    let views = toml::to_string(&json!({ "views": cfg.views })).unwrap_or_default();
-    Ok(json!({ "views": views, "default": cfg.views.is_empty(), "note": "columns: each column's block ids, top to bottom, separated by spaces; \"---\" starts a band below. Propose a new [[views]] with prism_propose_layout." }))
+    // As config.toml writes them: a pack's page it follows is its id alone (and `hidden`), so
+    // that a proposal made from them keeps following the pack.
+    let rows: Vec<Value> = cfg
+        .views
+        .iter()
+        .map(|v| match v.origin {
+            Some(crate::config::ViewOrigin::Pack) if v.hidden => json!({ "id": v.id, "hidden": true }),
+            Some(crate::config::ViewOrigin::Pack) => json!({ "id": v.id }),
+            _ => serde_json::to_value(crate::config::ViewConfig { origin: None, ..v.clone() }).unwrap_or_default(),
+        })
+        .collect();
+    let views = toml::to_string(&json!({ "views": rows })).unwrap_or_default();
+    Ok(json!({ "views": views, "default": cfg.views.is_empty(), "note": "columns: each column's block ids, top to bottom, separated by spaces; \"---\" starts a band below. An entry with an id alone (and hidden) is a pack's page, kept up to date with the pack: keep it so, unless the page should change. Propose a new [[views]] with prism_propose_layout." }))
 }
 
 /// A key explained: its schema, its value, where it comes from, what reads it, its Settings page.

@@ -38,18 +38,6 @@
       if (!editing.on) toggleEditing()
     })
   }
-  /** A click elsewhere keeps what was picked (Esc, below, does not). */
-  function clickOutside(done: () => void) {
-    return (el: HTMLElement) => {
-      const opened = performance.now()
-      const click = (e: MouseEvent) => {
-        const t = e.target as Node | null
-        if (e.timeStamp > opened && t?.isConnected && !el.contains(t)) done()
-      }
-      window.addEventListener('click', click)
-      return () => window.removeEventListener('click', click)
-    }
-  }
   function styleKey(e: KeyboardEvent) {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -89,7 +77,7 @@
 
 {#if pageUi.styling}
   {@const s = pageUi.styling}
-  <div class="pop grid" role="dialog" aria-label={t('Icon and color')} style:left="{s.x}px" style:top="{s.y}px" {@attach within} {@attach clickOutside(() => endStyling(true))}>
+  <div class="pop grid" role="dialog" aria-label={t('Icon and color')} style:left="{s.x}px" style:top="{s.y}px" {@attach within} {@attach dismissable(() => endStyling(true), { escape: false })}>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div onkeydown={styleKey}>
       <p class="cap">{t('Icon')}</p>

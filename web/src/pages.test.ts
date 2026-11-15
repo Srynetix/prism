@@ -7,8 +7,9 @@ vi.mock('./settings.svelte', () => ({ saveEdits: async (e: { value: unknown }[])
 vi.mock('./toast.svelte', () => ({ toast: vi.fn() }))
 vi.mock('./layout.svelte', () => ({ currentView: () => ({ id: 'a' }), editing: { on: false }, forgetViews: vi.fn(), layout: { views: {}, modes: {} }, setView: vi.fn(async () => {}), toggleEditing: vi.fn() }))
 
-const { deletePage, hidePage, movePage, resetToPack } = await import('./pages.svelte')
+const { deletePage, endStyling, hidePage, movePage, renamePage, resetToPack, startStyling } = await import('./pages.svelte')
 const { toast } = await import('./toast.svelte')
+const { forgetViews } = await import('./layout.svelte')
 
 beforeEach(() => {
   saved.length = 0
@@ -55,5 +56,22 @@ describe('the pages from the rail', () => {
   it('puts a changed page back to its pack: its id alone', async () => {
     await resetToPack('c')
     expect((saved[0] as unknown[])[3]).toEqual({ id: 'c' })
+  })
+
+  it('renames a pack’s page: Undo gives it back to the pack, its layout kept', async () => {
+    renamePage('b', 'Mine')
+    await new Promise((r) => setTimeout(r))
+    expect((saved[0] as unknown[])[2]).toEqual({ name: 'Mine', id: 'b', columns: ['mrs'] })
+    live.snapshot = { views: (saved[0] as object[]).map((r, i) => (i === 2 ? { ...r, origin: 'copy' } : r)) }
+    vi.mocked(forgetViews).mockClear()
+    vi.mocked(toast).mock.calls.at(-1)![2]!.run()
+    expect((saved[1] as unknown[])[2]).toEqual({ id: 'b' })
+    expect(forgetViews).not.toHaveBeenCalled()
+  })
+
+  it('closes the icon and color grid unchanged without writing anything', () => {
+    startStyling('b', 0, 0)
+    endStyling(true)
+    expect(saved).toHaveLength(0)
   })
 })

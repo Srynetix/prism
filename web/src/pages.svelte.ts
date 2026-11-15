@@ -21,7 +21,7 @@ export const pageUi = $state({
   /** The page whose name is being typed, in the rail or in the header. */
   renaming: null as { id: string; at: 'rail' | 'header' } | null,
   /** Its icon and color being chosen: shown in the rail as they are picked, until applied (Esc: as before). */
-  styling: null as { id: string; icon: string; color: string; x: number; y: number } | null,
+  styling: null as { id: string; icon: string; color: string; was: { icon: string; color: string }; x: number; y: number } | null,
   /** The « + » menu of the rail, at this point. */
   adding: null as { x: number; y: number } | null,
   /** « Hidden pages », at this point. */
@@ -45,9 +45,17 @@ async function write(rows: ViewConfig[]): Promise<boolean> {
   }
 }
 
-/** A pack's page changed here: it no longer follows its pack; Undo puts the pack's back. */
-export function leftPack(v: Pick<View, 'id'>) {
-  toast(t('This page no longer follows the pack'), 6000, { label: t('Undo'), run: () => void resetToPack(v.id) })
+/**
+ * A pack's page changed here: it no longer follows its pack. Undo runs `undo` (the page's row as
+ * it was), otherwise puts the pack's page back, its layout with it (its blocks changed).
+ */
+export function leftPack(v: Pick<View, 'id'>, undo?: () => void) {
+  toast(t('This page no longer follows the pack'), 6000, { label: t('Undo'), run: () => (undo ? undo() : void resetToPack(v.id)) })
+}
+
+/** Page `id`'s row back to `row`, the other pages as they are now. */
+function restoreRow(id: string, row: ViewConfig) {
+  void write(pageRows().map((r) => (r.id === id ? row : r)))
 }
 
 /** Changes page `id` (`fn` returns its new row); a pack's page followed becomes config.toml's. */
@@ -55,17 +63,22 @@ async function change(id: string, fn: (row: ViewConfig) => ViewConfig) {
   const rows = pageRows()
   const i = rows.findIndex((r) => r.id === id)
   if (i < 0) return
-  const followed = rows[i].origin === 'pack'
-  rows[i] = { ...fn(rows[i]), origin: rows[i].origin === 'pack' ? undefined : rows[i].origin }
-  if ((await write(rows)) && followed) leftPack({ id })
+  const before = rows[i]
+  const followed = before.origin === 'pack'
+  rows[i] = { ...fn(before), origin: followed ? undefined : before.origin }
+  if ((await write(rows)) && followed) leftPack({ id }, () => restoreRow(id, before))
 }
 
-/** Waits for the snapshot to have page `id` (config.toml written, read again): a second at most. */
-function whenPage(id: string): Promise<boolean> {
+/**
+ * Waits for the snapshot to have page `id` (config.toml written, read again) as `ready` wants it:
+ * three seconds at most.
+ */
+function whenPage(id: string, ready: (v: View) => boolean = () => true): Promise<boolean> {
   return new Promise((done) => {
     const start = Date.now()
     const tick = () => {
-      if (allViews().some((v) => v.id === id)) return done(true)
+      const v = allViews().find((v) => v.id === id)
+      if (v && ready(v)) return done(true)
       if (Date.now() - start > 3000) return done(false)
       setTimeout(tick, 50)
     }
@@ -109,17 +122,18 @@ export function startStyling(id: string, x: number, y: number) {
   if (!v) return
   const row = pageRows().find((r) => r.id === id)
   pageUi.menu = null
-  pageUi.styling = { id, icon: v.icon, color: colorName(row?.color ?? 'accent'), x, y }
+  const was = { icon: v.icon, color: colorName(row?.color ?? 'accent') }
+  pageUi.styling = { id, ...was, was, x, y }
 }
 
 /** The grid closed: the icon and color picked written (`apply`), or the page as before. */
 export function endStyling(apply: boolean) {
   const s = pageUi.styling
   if (!s) return
-  const row = pageRows().find((r) => r.id === s.id)
-  if (apply && row && (s.icon !== (row.icon ?? '') || s.color !== (row.color ?? ''))) {
-    // Written before the grid goes, so that the rail does not flash the former look meanwhile.
-    void change(s.id, (r) => ({ ...r, icon: s.icon, color: s.color })).then(() => whenPage(s.id)).then(() => {
+  if (apply && (s.icon !== s.was.icon || s.color !== s.was.color)) {
+    // The grid goes once the snapshot shows what was picked: the rail does not flash the former look.
+    const shown = (v: View) => v.icon === s.icon && v.color === (viewColor(s.color) ?? v.color)
+    void change(s.id, (r) => ({ ...r, icon: s.icon, color: s.color })).then(() => whenPage(s.id, shown)).then(() => {
       if (pageUi.styling?.id === s.id) pageUi.styling = null
     })
     return
@@ -169,7 +183,7 @@ export async function hidePage(id: string, on = true) {
   const rows = pageRows().map((r) => (r.id === id ? { ...r, hidden: on || undefined } : r))
   if (!(await write(rows))) return
   if (on && currentView().id === id) void setView(views().find((v) => v.id !== id)?.id ?? '')
-  if (!on && (await whenPage(id))) void setView(id)
+  if (!on && (await whenPage(id, (v) => !v.hidden))) void setView(id)
 }
 
 /** Deletes page `id`, with Undo a few seconds; never the last one. */

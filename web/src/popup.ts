@@ -105,13 +105,15 @@ export interface Dismiss {
   trigger?: () => HTMLElement | null | undefined
   /** A resize of the window closes it too (a popup placed against its trigger). */
   resize?: boolean
+  /** Escape closes it too (default); false: the popup handles Escape itself. */
+  escape?: boolean
 }
 
 /**
  * To set on a shown popup: a click outside it and its trigger, or Escape, closes it. The click
  * that opened it, still on its way up to the window when the popup appears, does not count.
  */
-export function dismissable(close: () => void, { trigger, resize = false }: Dismiss = {}) {
+export function dismissable(close: () => void, { trigger, resize = false, escape = true }: Dismiss = {}) {
   return (el: HTMLElement) => {
     const opened = performance.now()
     const click = (e: MouseEvent) => {
@@ -120,7 +122,7 @@ export function dismissable(close: () => void, { trigger, resize = false }: Dism
       close()
     }
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (escape && e.key === 'Escape') close()
     }
     window.addEventListener('click', click)
     window.addEventListener('keydown', key)
