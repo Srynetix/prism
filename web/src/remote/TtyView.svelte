@@ -33,7 +33,9 @@
   import { armer } from '../armed.svelte'
   import { agentArtifacts, clearAgent, closeAgent, stopAgent, type AgentArtifact, type SideTab } from '../agents.svelte'
   import { unseen } from './web-seen.svelte'
-  import { toast } from '../toast.svelte'
+  import { toast, toastError } from '../toast.svelte'
+  import Sheet from '../components/ui/Sheet.svelte'
+  import State from '../components/ui/State.svelte'
   import { cliEffort, effortOf, effortsOf, loadEffortsOf, pickEffort, takesEffort } from '../agent-effort'
   import { CLIS } from '../agent-cli'
   import { installedClis, openSwitch, targetsOf, targetUse } from '../agent-switch.svelte'
@@ -346,18 +348,17 @@
   let menu = $state(false)
   /** Its effort's levels, under its chip. */
   let effortOpen = $state(false)
-  const armed = armer(4000)
+  const armed = armer()
   /** Its CLI clears from Prism (Claude Code, Codex), at its prompt. */
   const clearable = $derived(chats && quickAgent?.state === 'running')
   async function clear() {
     if (!armed.confirm('clear')) return
     busy = true
-    error = null
     try {
       await clearAgent(id)
       menu = false
     } catch (e) {
-      error = String(e)
+      toastError(String(e))
     } finally {
       busy = false
     }
@@ -370,12 +371,11 @@
   async function setEffort(effort: string | null) {
     if (!quickAgent) return
     busy = true
-    error = null
     try {
       toast(await pickEffort(quickAgent, effort), 5000)
       effortOpen = false
     } catch (e) {
-      error = String(e)
+      toastError(String(e))
     } finally {
       busy = false
     }
@@ -384,12 +384,11 @@
   async function stop() {
     if (!armed.confirm('stop')) return
     busy = true
-    error = null
     try {
       await stopAgent(id)
       menu = false
     } catch (e) {
-      error = String(e)
+      toastError(String(e))
     } finally {
       busy = false
     }
@@ -397,13 +396,12 @@
   async function close() {
     if (!armed.confirm('close')) return
     busy = true
-    error = null
     try {
       const kept = await closeAgent(id)
       if (kept) toast(kept, 5000)
       onclose()
     } catch (e) {
-      error = String(e)
+      toastError(String(e))
     } finally {
       busy = false
     }
@@ -507,7 +505,7 @@
 
 <div class="tty">
   <header>
-    <button class="back" onclick={onclose} aria-label={t('Back')}><Icon name="back" /></button>
+    <button class="btn ghost icon back" onclick={onclose} aria-label={t('Back')}><Icon name="back" /></button>
     {#if !shell && quickAgent}
       <span class="tt">
         <b>{title}</b>
@@ -522,37 +520,36 @@
       {@const level = effortOf(quickAgent) ?? cliEffort(quickAgent)}
       <button class="effchip" class:on={effortOpen} onclick={() => { effortOpen = !effortOpen; menu = false }} aria-expanded={effortOpen} aria-label={t('Effort')}><small>{t('Effort')}</small>{level ?? t('Default')}<Icon name="down" size={10} /></button>
     {/if}
-    {#if !shell && quickAgent}<button class="more" class:on={menu} onclick={() => { menu = !menu; effortOpen = false }} aria-expanded={menu} aria-label={t('Clear, stop or close the agent')}><Icon name="more" /></button>{/if}
+    {#if !shell && quickAgent}<button class="btn ghost icon more" class:on={menu} onclick={() => { menu = !menu; effortOpen = false }} aria-expanded={menu} aria-label={t('Clear, stop or close the agent')}><Icon name="more" /></button>{/if}
   </header>
   {#if !shell && quickAgent && typing}<AgentLimitBanner a={quickAgent} />{/if}
   <!-- Its effort: a setting, under its chip in the header, over its Chat. -->
   {#if effortOpen && quickAgent && takesEffort(quickAgent)}
     {@const own = effortOf(quickAgent)}
     {@const cli = cliEffort(quickAgent)}
-    <button class="scrim clear" onclick={() => (effortOpen = false)} aria-label={t('Close')} tabindex="-1"></button>
+    <button class="scrim" onclick={() => (effortOpen = false)} aria-label={t('Close')} tabindex="-1"></button>
     <div class="effort" role="group" aria-label={t('Effort')}>
       <span class="lbl">{t('Effort')}<small>{t('Higher thinks longer and uses your limits faster; kept on resume')}</small></span>
       <div class="levels">
-        <button class:on={!own} onclick={() => setEffort(null)} disabled={busy || !acts}>{cli ? t('{effort} (Settings)', { effort: cli }) : t('Default')}</button>
-        {#each effortsOf(quickAgent) as l (l)}<button class:on={own === l} onclick={() => setEffort(l)} disabled={busy || !acts}>{l}</button>{/each}
+        <button class="btn sm" aria-pressed={!own} onclick={() => setEffort(null)} disabled={busy || !acts}>{cli ? t('{effort} (Settings)', { effort: cli }) : t('Default')}</button>
+        {#each effortsOf(quickAgent) as l (l)}<button class="btn sm" aria-pressed={own === l} onclick={() => setEffort(l)} disabled={busy || !acts}>{l}</button>{/each}
       </div>
     </div>
   {/if}
   <!-- Its ⋯: what ends or resets it, an action sheet from the bottom. -->
   {#if menu && quickAgent}
-    <button class="scrim" onclick={() => (menu = false)} aria-label={t('Close')} tabindex="-1"></button>
-    <div class="actions" role="dialog" aria-label={t('Clear, stop or close the agent')}>
+    <Sheet key="agent-actions" label={t('Clear, stop or close the agent')} onclose={() => (menu = false)} class="actions">
+      <p class="head">{title}</p>
+      {#if !critical}<p class="off">{t('Stopping or closing an agent from a phone is off (Settings › Remote › Exposure: critical actions)')}</p>{/if}
       <div class="group">
-        <p class="head">{title}</p>
-        {#if !critical}<p class="off">{t('Stopping or closing an agent from a phone is off (Settings › Remote › Exposure: critical actions)')}</p>{/if}
         {#if clearable}
           {@const working = quickAgent.status === 'running' || quickAgent.status === 'waiting_tool'}
-          <button class:armed={armed.is('clear')} onclick={clear} disabled={busy || !acts || working}>{armed.is('clear') ? t('Tap again to clear') : t('Clear')}<small>{working ? t('Once its turn is over') : t('A new conversation; this one stays in its transcript')}</small></button>
+          <button class:armed={armed.is('clear')} onclick={clear} disabled={busy || !acts || working}>{armed.is('clear') ? t('Tap again to confirm') : t('Clear')}<small>{working ? t('Once its turn is over') : t('A new conversation; this one stays in its transcript')}</small></button>
         {/if}
         {#if quickAgent.state === 'running'}
-          <button class:armed={armed.is('stop')} onclick={stop} disabled={busy || !critical}>{armed.is('stop') ? t('Tap again to stop') : t('Stop')}<small>{t('{cli} exits; Resume picks it up', { cli: cliOf(quickAgent.provider).name })}</small></button>
+          <button class:armed={armed.is('stop')} onclick={stop} disabled={busy || !critical}>{armed.is('stop') ? t('Tap again to confirm') : t('Stop')}<small>{t('{cli} exits; Resume picks it up', { cli: cliOf(quickAgent.provider).name })}</small></button>
         {/if}
-        <button class="ko" class:armed={armed.is('close')} onclick={close} disabled={busy || !critical}>{armed.is('close') ? (quickAgent.state === 'running' ? t('Tap again to stop and close') : t('Tap again to close')) : t('Close')}<small>{quickAgent.worktree ? t('Stops it, removes its worktree if nothing would be lost') : t('Stops it; the conversation stays')}</small></button>
+        <button class="ko" class:armed={armed.is('close')} onclick={close} disabled={busy || !critical}>{armed.is('close') ? t('Tap again to confirm') : t('Close')}<small>{quickAgent.worktree ? t('Stops it, removes its worktree if nothing would be lost') : t('Stops it; the conversation stays')}</small></button>
       </div>
       {#if quickAgent.state !== 'prepared' && quickAgent.launch?.from !== DRAFTER}
         <div class="group">
@@ -561,9 +558,9 @@
       {/if}
       {#if quickAgent.state !== 'prepared'}
         {@const found = installedClis()}
+        <p class="head">{t('Continue with')}</p>
+        {#if !typing}<p class="off">{t('The relay is typed to the agent: typing from a phone is off (Settings › Remote › Exposure)')}</p>{/if}
         <div class="group">
-          <p class="head">{t('Continue with')}</p>
-          {#if !typing}<p class="off">{t('The relay is typed to the agent: typing from a phone is off (Settings › Remote › Exposure)')}</p>{/if}
           {#each targetsOf(quickAgent) as target (`${target.provider}:${target.account ?? ''}`)}
             {@const use = targetUse(target)}
             {@const p = target.provider}
@@ -571,8 +568,7 @@
           {/each}
         </div>
       {/if}
-      <button class="cancel" onclick={() => (menu = false)}>{t('Cancel')}</button>
-    </div>
+    </Sheet>
   {/if}
   <!-- In its Chat, its chain is a chip of the rail. -->
   {#if !shell && quickAgent && !calm}<AgentChain agent={quickAgent} />{/if}
@@ -583,15 +579,13 @@
     </nav>
   {/if}
   {#if more}
-    <button class="scrim" onclick={() => (more = false)} aria-label={t('Close')} tabindex="-1"></button>
-    <div class="sheet" role="dialog" aria-label={t('Its tools')}>
-      <div class="grab"></div>
+    <Sheet key="agent-tools" label={t('Its tools')} onclose={() => (more = false)}>
       <div class="grid">
         {#each TABS.filter(([tb]) => !MAIN.includes(tb)) as [tb, label] (tb)}
-          <button class:on={tab === tb} onclick={() => { picked = tb; more = false }}>{label}</button>
+          <button class="btn" aria-pressed={tab === tb} onclick={() => { picked = tb; more = false }}>{label}</button>
         {/each}
       </div>
-    </div>
+    </Sheet>
   {/if}
   {#if isSide(tab)}
     {#if quickAgent}<div class="side"><AgentSide agent={quickAgent} bind:tab={() => tab as SideTab, (tb) => (picked = tb)} /></div>{/if}
@@ -602,30 +596,30 @@
   {#if tab === 'chat'}
     <!-- The terminal stays under the conversation, sized: its last lines are the Chat's. -->
   {:else if control}
-    <div class="banner rw"><Icon name="edit" /> {shell ? t('Typing · the shell follows this size') : t('Typing · the agent’s window follows this size')}<span class="right"><button onclick={release}>{t('Release')}</button></span></div>
+    <div class="banner rw"><Icon name="edit" /> {shell ? t('Typing · the shell follows this size') : t('Typing · the agent’s window follows this size')}<span class="right"><button class="btn sm" onclick={release}>{t('Release')}</button></span></div>
   {:else}
     <div class="banner">
       <Icon name="show" /> {acts ? t('Answering through the box below') : t('Watching, read-only')}
       <span class="right">
-        {#if withHistory && !atBottom}<button onclick={toLive}>↓ {t('Live')}</button>{/if}
-        {#if !sized}<button onclick={() => (zoomed = !zoomed)}>{zoomed ? t('Fit') : tc('infra', 'Zoom')}</button>{/if}
-        {#if typing}<button onclick={take} disabled={busy} title={t('Type in the terminal, confirmed by this phone’s passkey')}>{t('Take')}</button>{/if}
+        {#if withHistory && !atBottom}<button class="btn sm" onclick={toLive}>↓ {t('Live')}</button>{/if}
+        {#if !sized}<button class="btn sm" onclick={() => (zoomed = !zoomed)}>{zoomed ? t('Fit') : tc('infra', 'Zoom')}</button>{/if}
+        {#if typing}<button class="btn sm" onclick={take} disabled={busy} title={t('Type in the terminal, confirmed by this phone’s passkey')}>{t('Take')}</button>{/if}
       </span>
     </div>
   {/if}
   {#if stopped}
     <div class="banner off">
       {quickAgent?.state === 'gone' ? t('Its terminal is gone') : t('Stopped')}
-      {#if acts}<span class="right"><button onclick={resume} disabled={busy} title={t('{command}, same folder', { command: cliOf(quickAgent?.provider).resume })}>{busy ? '…' : `↻ ${t('Resume')}`}</button></span>{/if}
+      {#if acts}<span class="right"><button class="btn sm" class:busy onclick={resume} disabled={busy} title={t('{command}, same folder', { command: cliOf(quickAgent?.provider).resume })}>{busy ? '…' : `↻ ${t('Resume')}`}</button></span>{/if}
     </div>
   {/if}
   {#if prepared}
     <div class="banner off">
       {t('Prepared, not started: Start launches it as prepared.')}
-      {#if acts}<span class="right"><button onclick={start} disabled={busy} title={t('Start it now, as prepared (its worktree is made then)')}>{busy ? '…' : `▶ ${t('Start')}`}</button></span>{/if}
+      {#if acts}<span class="right"><button class="btn sm" class:busy onclick={start} disabled={busy} title={t('Start it now, as prepared (its worktree is made then)')}>{busy ? '…' : `▶ ${t('Start')}`}</button></span>{/if}
     </div>
   {/if}
-  {#if error}<p class="error">{error}</p>{:else if note}<p class="note">{note}</p>{/if}
+  {#if error}<div class="error"><State kind="error" inline title={error} /></div>{:else if note}<p class="note">{note}</p>{/if}
   <div class="stage">
     <div class="scroller" class:under={tab === 'chat'} bind:this={scroller} {onscroll}>
       {#if withHistory && past.length}
@@ -647,9 +641,9 @@
   {/if}
   {#if control}
     <div class="keys">
-      <button class:on={ctrl} onclick={() => (ctrl = !ctrl)}>Ctrl</button>
-      {#if shell}<button onclick={() => key('\x1b[A\r')} title={t('Its last command again (↑ then Enter)')}>↻</button>{/if}
-      {#each KEYS as [label, seq] (label)}<button onclick={() => key(seq)}>{label}</button>{/each}
+      <button class="btn sm" aria-pressed={ctrl} onclick={() => (ctrl = !ctrl)}>Ctrl</button>
+      {#if shell}<button class="btn sm" onclick={() => key('\x1b[A\r')} title={t('Its last command again (↑ then Enter)')}>↻</button>{/if}
+      {#each KEYS as [label, seq] (label)}<button class="btn sm" onclick={() => key(seq)}>{label}</button>{/each}
     </div>
   {:else if acts && !stopped}
     <div class="answer" class:calm>
@@ -665,22 +659,22 @@
           <b><Icon name="warning" /> {t('It asks')}</b>
           {#if quickAgent?.needs_action}<code>{quickAgent.needs_action}</code>{/if}
           <div class="pr">
-            <button class="allow" onclick={() => act('agent_allow')} disabled={busy}><Icon name="check" /> {t('Allow once')}</button>
-            <button onclick={() => (picked = 'terminal')}>{t('Terminal')}</button>
+            <button class="btn primary" onclick={() => act('agent_allow')} disabled={busy}><Icon name="check" /> {t('Allow once')}</button>
+            <button class="btn" onclick={() => (picked = 'terminal')}>{t('Terminal')}</button>
           </div>
         </div>
       {/if}
       {#if quickAgent && !shell}<div class="qrow"><QuickAnswers agent={quickAgent} /></div>{/if}
       <div class="quick" class:hidden={calm && !keysOpen}>
-        {#if status === 'waiting_tool' && !calm && !quickAgent?.gate}<button class="allow" onclick={() => act('agent_allow')} disabled={busy}><Icon name="check" /> {t('Allow once')}</button>{/if}
+        {#if status === 'waiting_tool' && !calm && !quickAgent?.gate}<button class="btn sm allow" onclick={() => act('agent_allow')} disabled={busy}><Icon name="check" /> {t('Allow once')}</button>{/if}
         <!-- A permission's other choices ("don't ask again"…) are answered at the desk. -->
-        {#each status === 'waiting_tool' && !shell ? [] : ['1', '2', '3'] as n (n)}<button onclick={() => act('agent_key', { key: n })} disabled={busy} title={shell ? t('Choice {n} of its prompt', { n }) : t('Choice {n} of the agent’s question', { n })}>{n}</button>{/each}
+        {#each status === 'waiting_tool' && !shell ? [] : ['1', '2', '3'] as n (n)}<button class="btn sm k" onclick={() => act('agent_key', { key: n })} disabled={busy} title={shell ? t('Choice {n} of its prompt', { n }) : t('Choice {n} of the agent’s question', { n })}>{n}</button>{/each}
         {#if shell}
-          <button onclick={() => act('agent_key', { key: 'Escape' })} disabled={busy} title="Esc">Esc</button>
-          <button onclick={() => act('agent_key', { key: 'C-c' })} disabled={busy} title={t('Stop what the shell runs (Ctrl-C)')}>^C</button>
-          <button class="again" onclick={again} disabled={busy} title={t('Run its last command again (↑ then Enter)')}><Icon name="retry" /> {t('Again')}</button>
+          <button class="btn sm k" onclick={() => act('agent_key', { key: 'Escape' })} disabled={busy} title="Esc">Esc</button>
+          <button class="btn sm k" onclick={() => act('agent_key', { key: 'C-c' })} disabled={busy} title={t('Stop what the shell runs (Ctrl-C)')}>^C</button>
+          <button class="btn sm again" onclick={again} disabled={busy} title={t('Run its last command again (↑ then Enter)')}><Icon name="retry" /> {t('Again')}</button>
         {:else}
-          <button onclick={() => act('agent_interrupt')} disabled={busy} title={t('Interrupt the agent’s turn (Esc): the agent stays')}><Icon name="pause" /> {t('Interrupt')}</button>
+          <button class="btn sm" onclick={() => act('agent_interrupt')} disabled={busy} title={t('Interrupt the agent’s turn (Esc): the agent stays')}><Icon name="pause" /> {t('Interrupt')}</button>
         {/if}
       </div>
       {#if !shell}<AttachStrip {id} {text} {write} />{/if}
@@ -690,8 +684,8 @@
         <!-- Images: sent with the words, so only while typing is on. -->
         {#if !shell}<AttachButton {id} {text} {write} disabled={!typing} onerror={(e) => (error = e)} phone />{/if}
         <textarea bind:this={field} bind:value={() => text, write} rows="1" disabled={!typing} placeholder={typing ? (shell ? t('Type in the shell…') : t('Answer the agent…')) : t('Typing from a phone is off (Settings › Remote)')} enterkeyhint="enter" oninput={() => (sent = false)}></textarea>
-        {#if calm}<button type="button" class="kbd" class:on={keysOpen} onclick={() => (keysOpen = !keysOpen)} aria-pressed={keysOpen} aria-label={t('Its menus’ keys: 1 2 3, Esc')}>⌨︎</button>{/if}
-        <button type="submit" class:round={calm} disabled={busy || !typing || !text.trim()} aria-label={t('Send, confirmed by this phone’s passkey')}><Icon name="lock" />{#if !calm}{t('Send')}{/if}</button>
+        {#if calm}<button type="button" class="btn icon kbd" class:on={keysOpen} onclick={() => (keysOpen = !keysOpen)} aria-pressed={keysOpen} aria-label={t('Its menus’ keys: 1 2 3, Esc')}>⌨︎</button>{/if}
+        <button type="submit" class="btn primary send" class:icon={calm} disabled={busy || !typing || !text.trim()} aria-label={t('Send, confirmed by this phone’s passkey')}><Icon name="lock" />{#if !calm}{t('Send')}{/if}</button>
         {#if calm && sent}<span class="sent">✓ {t('Sent')}</span>{/if}
       </form>
       {#if typing && !calm}<p class="hint" class:ok={sent}>{sent ? `✓ ${t('Sent')}` : shell ? t('Your passkey confirms it, then the shell runs it at once') : t('Your passkey confirms it, then the agent gets it at once')}</p>{/if}
@@ -711,35 +705,30 @@
   header .st.running { background: var(--warn); animation: pulse 1.2s infinite; }
   header .st.waiting_tool, header .st.waiting_input { background: var(--warn); }
   @keyframes pulse { 50% { opacity: 0.3; } }
-  .back { background: none; border: none; color: var(--info); font-size: var(--fs-big); padding: 0 4px; }
-  .more { margin-left: auto; display: grid; place-items: center; width: 34px; height: 30px; border: 1px solid transparent; border-radius: var(--r8); background: none; color: var(--text-muted); font-size: var(--fs-head); }
-  .more.on { border-color: var(--border); background: var(--surface-muted); color: var(--text); }
+  header .back { color: var(--info); }
+  header .more { margin-left: auto; }
+  header .more.on { background: var(--surface-muted); color: var(--text); }
   /* Its effort, a chip by its ⋯: the level it runs at, always in sight. */
   .effchip { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .effchip small { font-size: var(--fs-micro); color: var(--text-muted); }
   .effchip.on { border-color: var(--accent); }
   .effchip + .more { margin-left: 0; }
   header .effchip { margin-left: auto; }
-  .scrim.clear { background: none; }
   .effort { position: fixed; left: 10px; right: 10px; top: calc(60px + env(safe-area-inset-top)); z-index: var(--z-menu); display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); color: var(--text); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3); }
   .effort .lbl { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-body); font-weight: 600; }
   .effort .lbl small { font-size: var(--fs-tag); font-weight: 400; color: var(--text-muted); }
   .effort .levels { display: flex; flex-wrap: wrap; gap: 6px; }
-  .effort .levels button { padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  .effort .levels button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); font-weight: 600; }
-  .effort .levels button:disabled { opacity: 0.5; }
-  /* Its ⋯: an action sheet, each action one line and a short why. */
-  .actions { position: fixed; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: var(--z-menu); display: flex; flex-direction: column; gap: 8px; }
-  .actions .group { display: flex; flex-direction: column; border-radius: var(--r14); overflow: hidden; background: var(--surface); color: var(--text); }
-  .actions .head { margin: 0; padding: 10px 14px; text-align: center; font-size: var(--fs-tag); color: var(--text-muted); border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .actions .off { margin: 0; padding: 8px 14px; font-size: var(--fs-tag); color: var(--warn); border-bottom: 1px solid var(--border); }
-  .actions button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 14px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--info); font: inherit; font-size: var(--fs-head); }
-  .actions .group button:last-child { border-bottom: none; }
-  .actions button small { font-size: var(--fs-tag); color: var(--text-muted); }
-  .actions button.ko { color: var(--ko); }
-  .actions button.armed { background: var(--ko-bg); color: var(--ko); font-weight: 600; }
-  .actions button:disabled { opacity: 0.5; }
-  .actions .cancel { border-radius: var(--r14); border: none; background: var(--surface); font-weight: 600; }
+  .effort .levels .btn[aria-pressed='true'] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); font-weight: 600; }
+  /* Its ⋯: a sheet, each action one line and a short why, in groups. */
+  :global(.sheet.actions) { gap: 8px; overflow-y: auto; }
+  .head { margin: 0 4px; overflow: hidden; color: var(--text-muted); font-size: var(--fs-meta); text-overflow: ellipsis; white-space: nowrap; }
+  .off { margin: 0 4px; color: var(--warn); font-size: var(--fs-tag); }
+  .group { flex: none; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r-layer); overflow: hidden; }
+  .group button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: var(--fs-head); text-align: left; }
+  .group button:last-child { border-bottom: none; }
+  .group button small { font-size: var(--fs-tag); color: var(--text-muted); }
+  .group button.ko { color: var(--ko); }
+  .group button.armed { background: var(--ko-bg); color: var(--ko); font-weight: 600; }
   /* The window's panels (Files, Diff, Activity, Launch), the full width. */
   .side { flex: 1; min-height: 0; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); background: var(--surface); color: var(--text); }
   .side :global(.side) { border-left: none; }
@@ -748,22 +737,20 @@
   .tabs button { flex: 1 0 auto; padding: 8px 12px; border: none; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); }
   .tabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
   .tabs .moretab { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+  /* Its effort's levels: a tap beside them closes them. */
+  .scrim { position: fixed; inset: 0; z-index: var(--z-menu); border: none; padding: 0; background: none; }
   /* More: the other tools, a sheet from the bottom. */
-  .scrim { position: fixed; inset: 0; z-index: var(--z-menu); border: none; padding: 0; background: rgba(0, 0, 0, 0.3); }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-menu); padding: 8px 14px calc(16px + env(safe-area-inset-bottom)); border-radius: var(--r14) var(--r14) 0 0; background: var(--surface); color: var(--text); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25); }
-  .grab { width: 38px; height: 5px; border-radius: var(--r3); background: var(--border); margin: 0 auto 12px; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .grid button { padding: 14px 0; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-body); }
-  .grid button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .grid .btn { height: 48px; font-size: var(--fs-body); }
+  .grid .btn[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .term { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .term.hidden { display: none; }
   .banner { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: var(--fs-tag); background: var(--info-bg); color: var(--info); }
   .banner.rw { background: var(--warn-bg); color: var(--warn); }
   .banner.off { background: var(--surface-muted); color: var(--text-muted); }
   .banner .right { margin-left: auto; display: flex; gap: 6px; }
-  .banner button { background: none; border: 1px solid currentColor; border-radius: var(--r8); color: inherit; font-size: var(--fs-tag); padding: 2px 10px; }
+  .banner .btn { color: inherit; border-color: currentColor; background: none; }
   .error, .note { margin: 0; padding: 8px 12px; font-size: var(--fs-meta); }
-  .error { color: var(--ko); }
   .note { color: var(--text-muted); }
   .stage { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
   /* The history above the screen, one scroll; the screen one stage tall, measured even under the Chat. */
@@ -784,17 +771,18 @@
   .past .b { font-weight: 700; }
   .host { width: max-content; }
   .keys { display: flex; gap: 5px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); overflow-x: auto; }
-  .keys button { flex: none; min-width: 38px; padding: 7px 8px; border-radius: var(--r7); border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 12px ui-monospace, monospace; }
-  .keys button.on { background: var(--info-bg); color: var(--info); border-color: var(--info); }
+  .keys .btn { min-width: 38px; height: var(--h-md); padding: 0 8px; font-family: var(--mono); }
+  .keys .btn[aria-pressed='true'] { background: var(--info-bg); color: var(--info); border-color: var(--info); }
   .answer { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); }
   .quick { display: flex; gap: 6px; flex-wrap: wrap; }
-  .quick button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 38px; padding: 6px 10px; border-radius: var(--r8); border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 13px ui-monospace, monospace; }
-  .quick .allow { display: inline-flex; align-items: center; gap: 4px; background: var(--ok-bg); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); font-family: inherit; font-weight: 600; }
-  .quick .again { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-family: inherit; font-weight: 600; color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
+  .quick .btn { min-width: 38px; height: var(--h-md); }
+  .quick .k { font-family: var(--mono); }
+  .quick .allow { background: var(--ok-bg); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); font-weight: 600; }
+  .quick .again { margin-left: auto; font-weight: 600; color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
   .compose { position: relative; display: flex; gap: 6px; align-items: flex-end; }
   .compose textarea { flex: 1; resize: none; max-height: 120px; padding: 9px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); font: 15px/1.35 inherit; }
-  .compose button { display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 14px; border-radius: 999px; border: none; background: var(--accent); color: var(--on-accent); font: inherit; font-size: var(--fs-body); font-weight: 600; }
-  .compose button:disabled { opacity: 0.45; }
+  /* Round, by the round field. */
+  .compose .btn { height: 38px; border-radius: 999px; font-size: var(--fs-body); }
   .compose textarea { field-sizing: content; min-height: 38px; }
   .compose textarea:disabled { opacity: 0.6; }
   .hint { margin: 0 4px; color: var(--text-muted); font-size: var(--fs-tag); }
@@ -808,12 +796,12 @@
   .perm b { display: inline-flex; align-items: center; gap: 6px; }
   .perm code { display: block; padding: 6px 9px; border-radius: var(--r8); background: var(--surface); color: var(--text); font: 12.5px ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   .perm .pr { display: flex; gap: 8px; }
-  .perm .pr button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 40px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); font-weight: 600; }
-  .perm .pr .allow { background: var(--warn); border-color: var(--warn); color: var(--surface); }
+  .perm .pr .btn { flex: 1; height: 40px; border-radius: 999px; font-size: var(--fs-body); font-weight: 600; }
+  .perm .pr .primary { --btn-c: var(--warn); --btn-on: var(--surface); }
   .quick.hidden { display: none; }
-  .compose .kbd { flex: none; width: 38px; padding: 0; justify-content: center; background: var(--surface-muted); color: var(--text-muted); border: 1px solid var(--border); font-size: var(--fs-head); font-weight: 400; }
+  .compose .kbd { width: 38px; background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-head); font-weight: 400; }
   .compose .kbd.on { background: var(--info-bg); color: var(--info); border-color: var(--info); }
-  .compose .round { width: 38px; padding: 0; justify-content: center; }
+  .compose .send.icon { width: 38px; }
   .sent { position: absolute; right: 50px; top: -28px; padding: 2px 9px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--ok); font-size: var(--fs-tag); }
   .hint.ok { color: var(--ok); }
   button:disabled { opacity: 0.5; }

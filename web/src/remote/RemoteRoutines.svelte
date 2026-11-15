@@ -1,6 +1,7 @@
 <script lang="ts">
   import { live } from '../live.svelte'
   import { t } from '../i18n.svelte'
+  import State from '../components/ui/State.svelte'
   import { builtinLabel, enableRoutine, nextTime, routinesOf, STATE_LABEL, whenWords } from '../routines.svelte'
 
   /**
@@ -42,7 +43,7 @@
       <button class="sw" class:on={r.enabled} disabled={busy === r.name} role="switch" aria-checked={r.enabled} aria-label={t('On')} onclick={() => toggle(r.name, !r.enabled)}></button>
     </div>
   {:else}
-    <p class="note">{t('No routine yet: they are written in Settings on the computer.')}</p>
+    <State kind="empty" title={t('No routine yet: they are written in Settings on the computer.')} />
   {/each}
 </div>
 <p class="note">{t('Read only on the phone; its switch asks for your passkey.')}</p>
@@ -53,7 +54,7 @@
   .row:first-child { border-top: none; }
   .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .txt small { color: var(--text-muted); font-size: var(--fs-tag); }
-  .prompt { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 2px 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface-muted); color: var(--text); font: 12px/1.4 var(--mono, ui-monospace, monospace); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .prompt { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 2px 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface-muted); color: var(--text); font-family: var(--mono); font-size: var(--fs-tag); line-height: 1.4; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
   .prompt.open { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
   .ko { color: var(--ko) !important; }
   .warn { color: var(--warn) !important; }

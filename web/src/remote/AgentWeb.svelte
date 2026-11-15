@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
   import Markdown from '../components/Markdown.svelte'
+  import State from '../components/ui/State.svelte'
+  import { toastError } from '../toast.svelte'
   import { invoke } from '../bridge'
   import { t } from '../i18n.svelte'
   import { ago } from '../time'
@@ -118,7 +120,7 @@
       const text = b ? null : await agentPageText(id, scratchpad ? `${SCRATCHPAD}/${path}` : path)
       page = { path, scratchpad, modified, url: b ? address(b, path) : null, text }
     } catch (e) {
-      error = String(e)
+      toastError(String(e), () => show(path, scratchpad, modified))
     } finally {
       busy = false
     }
@@ -137,10 +139,10 @@
 </script>
 
 <div class="web">
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error}<State kind="error" inline title={error} />{/if}
   <div class="seg" role="tablist">
-    <button role="tab" class:on={source === 'artifacts'} aria-selected={source === 'artifacts'} onclick={() => setSource('artifacts')}>{t('Artifacts')}<b>{artifacts?.length ?? '…'}</b></button>
-    <button role="tab" class:on={source === 'folder'} aria-selected={source === 'folder'} onclick={() => setSource('folder')}>{t('Folder')}{#if pages}<b>{pages.length}</b>{/if}</button>
+    <button role="tab" aria-selected={source === 'artifacts'} onclick={() => setSource('artifacts')}>{t('Artifacts')}<b>{artifacts?.length ?? '…'}</b></button>
+    <button role="tab" aria-selected={source === 'folder'} onclick={() => setSource('folder')}>{t('Folder')}{#if pages}<b>{pages.length}</b>{/if}</button>
   </div>
   {#if source === 'artifacts'}
     {#if newest}
@@ -164,7 +166,7 @@
         <span class="ago">{ago(a.modified)}</span>
       </button>
     {:else}
-      {#if !newest}<p class="muted">{artifacts ? t('No artifact yet: the agent writes them in the scratchpad of its session.') : t('Loading…')}</p>{/if}
+      {#if !newest}{#if artifacts}<State kind="empty" title={t('No artifact yet: the agent writes them in the scratchpad of its session.')} />{:else}<State kind="loading" lines={2} />{/if}{/if}
     {/each}
   {:else}
     <input class="search" type="search" bind:value={query} placeholder={t('Search the folder…')} spellcheck="false" aria-label={t('Search')} />
@@ -178,7 +180,7 @@
         </button>
       {/each}
     {:else}
-      <p class="muted">{!pages ? t('Loading…') : query ? t('No page matches.') : ignored ? t('No Markdown, HTML or text page in its folder.') : t('No Markdown, HTML or text page in its folder (tracked or new files).')}</p>
+      {#if !pages}<State kind="loading" lines={2} />{:else}<State kind="empty" title={query ? t('No page matches.') : ignored ? t('No Markdown, HTML or text page in its folder.') : t('No Markdown, HTML or text page in its folder (tracked or new files).')} />{/if}
     {/each}
   {/if}
 </div>
@@ -186,10 +188,10 @@
 {#if page}
   <div class="viewer">
     <div class="vbar">
-      <button class="back" onclick={() => (page = null)}><Icon name="back" />{t('Web')}</button>
+      <button class="btn ghost back" onclick={() => (page = null)}><Icon name="back" />{t('Web')}</button>
       <span class="name"><span>{nameOf(page.path)}</span><small>{page.scratchpad ? t('artifact') : dirOf(page.path) || './'}{page.modified ? ` · ${ago(page.modified)}` : ''}</small></span>
-      <button class="b" onclick={reload} title={t('Reload')} aria-label={t('Reload')}><Icon name="refresh" /></button>
-      {#if page.url}<a class="b" href={page.url} target="_blank" rel="noopener noreferrer" title={t('Open in the browser')} aria-label={t('Open in the browser')}><Icon name="external" /></a>{/if}
+      <button class="btn ghost icon" onclick={reload} title={t('Reload')} aria-label={t('Reload')}><Icon name="refresh" /></button>
+      {#if page.url}<a class="btn ghost icon" href={page.url} target="_blank" rel="noopener noreferrer" title={t('Open in the browser')} aria-label={t('Open in the browser')}><Icon name="external" /></a>{/if}
     </div>
     <div class="frame">
       {#if page.url}
@@ -198,17 +200,14 @@
       {:else if kind(page.path) === 'html'}<iframe sandbox="" srcdoc={page.text ?? ''} title={page.path}></iframe>
       {:else}<pre class="txt">{page.text}</pre>{/if}
     </div>
-    <div class="vfoot"><button onclick={ask}><Icon name="send" />{t('Ask a change…')}</button></div>
+    <div class="vfoot"><button class="btn" onclick={ask}><Icon name="send" />{t('Ask a change…')}</button></div>
   </div>
 {/if}
 
 <style>
   .web { display: flex; flex-direction: column; gap: 6px; }
-  .error { margin: 0; color: var(--ko); font-size: var(--fs-meta); }
-  .muted { margin: 4px 0; color: var(--text-muted); font-size: var(--fs-meta); }
-  .seg { display: flex; flex: none; padding: 2px; border-radius: var(--r10); background: var(--surface-muted); }
-  .seg button { flex: 1; padding: 7px; border: 0; border-radius: var(--r8); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); }
-  .seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); }
+  .web > .seg { display: flex; }
+  .web > .seg > button { flex: 1; justify-content: center; height: var(--h-md); font-size: var(--fs-body); }
   .seg b { margin-left: 4px; font-weight: 500; opacity: 0.7; }
   .card, .it { display: flex; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); font: inherit; text-align: left; }
   .card { flex-direction: column; overflow: hidden; }
@@ -235,14 +234,14 @@
 
   .viewer { position: fixed; inset: 0; z-index: var(--z-top); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); background: var(--bg); }
   .vbar { display: flex; flex: none; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); background: var(--surface); }
-  .back { display: flex; align-items: center; gap: 2px; padding: 6px; border: 0; background: none; color: var(--accent); font: inherit; font-size: var(--fs-title); }
+  .vbar .back { padding: 0 6px; color: var(--accent); font-size: var(--fs-title); }
   .name { display: flex; flex: 1; flex-direction: column; min-width: 0; }
   .name > span { overflow: hidden; font-size: var(--fs-body); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-  .b { display: grid; flex: none; place-items: center; width: 38px; height: 38px; border: 0; border-radius: var(--r8); background: none; color: var(--text); font-size: var(--fs-head); }
+  .vbar .icon { color: var(--text); font-size: var(--fs-head); }
   .frame { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
   .frame iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
   .doc { padding: 12px 14px; }
   .txt { margin: 0; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.5 var(--mono); }
   .vfoot { display: flex; flex: none; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); }
-  .vfoot button { display: flex; flex: 1; align-items: center; justify-content: center; gap: 8px; padding: 10px; border: 1px solid var(--accent); border-radius: var(--r10); background: none; color: var(--accent); font: inherit; font-size: var(--fs-body); }
+  .vfoot .btn { flex: 1; gap: 8px; height: 42px; border-color: var(--accent); background: none; color: var(--accent); font-size: var(--fs-body); }
 </style>

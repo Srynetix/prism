@@ -7,6 +7,9 @@
   import { LANGUAGES, t, tn, tc } from '../i18n.svelte'
   import Icon from '../components/Icon.svelte'
   import RemoteRoutines from './RemoteRoutines.svelte'
+  import Sheet from '../components/ui/Sheet.svelte'
+  import State from '../components/ui/State.svelte'
+  import { toastError } from '../toast.svelte'
 
   /**
    * More › Settings on a phone (`[remote] settings`): the computer's Settings tree, every value read,
@@ -87,13 +90,11 @@
 
   let confirming = $state(false)
   let saving = $state(false)
-  let saveError = $state<string | null>(null)
   let saved = $state<string | null>(null)
   /** An empty text goes back to the default: the key leaves config.toml. */
   const sent = (v: unknown) => (v === '' ? null : v)
   async function save() {
     saving = true
-    saveError = null
     try {
       const list = changes.map((c) => ({ path: c.path, value: sent(c.value) }))
       if (!preview) data = await invoke<PhoneSettings>('remote_settings_save', { edits: list })
@@ -102,7 +103,7 @@
       edits = {}
       confirming = false
     } catch (e) {
-      saveError = e instanceof Error ? e.message : String(e)
+      toastError(e instanceof Error ? e.message : String(e), save)
     } finally {
       saving = false
     }
@@ -131,13 +132,12 @@
 
 <div class="settings">
   {#if loadError}
-    <p class="note ko">{loadError}</p>
-    <button class="retry" onclick={load}>{t('Try again')}</button>
+    <State kind="error" title={loadError} retry={load} />
   {:else if !data}
-    <p class="note">{t('Reading the computer’s settings…')}</p>
+    <State kind="loading" title={t('Reading the computer’s settings…')} />
   {:else if !page}
     <p class="banner"><Icon name="lock" /> {t('Read on the computer. What is marked')} <span class="ed">{t('editable')}</span> {t('changes from here, each save confirmed by your passkey.')}</p>
-    {#if data.error}<p class="note ko">{t('config.toml does not load: {error}', { error: data.error })}</p>{/if}
+    {#if data.error}<State kind="error" title={t('config.toml does not load: {error}', { error: data.error })} />{/if}
     {#each roots as root (root.id)}
       {@const pages = pagesOf(root)}
       {#if pages.length}
@@ -222,28 +222,25 @@
 {#if changes.length}
   <div class="save">
     <span>{tn(changes.length, '{n} change', '{n} changes')}</span>
-    <button onclick={() => (edits = {})}>{t('Undo')}</button>
-    <button class="pri" onclick={() => { saveError = null; confirming = true }}>{t('Save')}</button>
+    <button class="btn" onclick={() => (edits = {})}>{t('Undo')}</button>
+    <button class="btn primary" onclick={() => (confirming = true)}>{t('Save')}</button>
   </div>
 {/if}
 
 {#if confirming}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="scrim" onclick={() => !saving && (confirming = false)}></div>
-  <div class="sheet" role="dialog" aria-label={t('Save on the computer')}>
-    <b>{t('Save on the computer?')}</b>
+  <Sheet key="settings-save" label={t('Save on the computer')} onclose={() => !saving && (confirming = false)} dismiss={!saving} class="confirm">
+    <b class="stitle">{t('Save on the computer?')}</b>
     <div class="diff">
       {#each changes as c (dotted(c.path))}
         <div><code>{c.label}</code><span><code class="o">{show(at(data?.effective, c.path))}</code> → <code class="n">{show(sent(c.value) ?? tc('settings', 'default'))}</code></span></div>
       {/each}
     </div>
     <p class="fp">{preview ? t('Preview: nothing is saved.') : t('Confirmed by your passkey.')}</p>
-    {#if saveError}<p class="note ko">{saveError}</p>{/if}
     <div class="btns">
-      <button onclick={() => (confirming = false)} disabled={saving}>{t('Cancel')}</button>
-      <button class="pri" onclick={save} disabled={saving}>{saving ? t('Saving…') : t('Save')}</button>
+      <button class="btn" onclick={() => (confirming = false)} disabled={saving}>{t('Cancel')}</button>
+      <button class="btn primary" class:busy={saving} onclick={save} disabled={saving}>{#if saving}<span class="spinner"></span>{t('Saving…')}{:else}{t('Save')}{/if}</button>
     </div>
-  </div>
+  </Sheet>
 {/if}
 
 <style>
@@ -253,9 +250,7 @@
   .banner :global(svg) { vertical-align: -2px; margin-right: 4px; }
   .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
   .note { margin: 12px 4px; color: var(--text-muted); font-size: var(--fs-meta); text-align: center; }
-  .note.ko { color: var(--ko); }
   .note.ok { color: var(--ok); }
-  .retry { align-self: center; padding: 8px 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; }
   .ed { padding: 1px 7px; border-radius: var(--r9); background: var(--ok-bg); color: var(--ok); font-size: var(--fs-micro); white-space: nowrap; }
   .ro { color: var(--text-muted); font-size: var(--fs-tag); white-space: nowrap; }
   ul.list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r12); overflow: hidden; background: var(--surface); }
@@ -292,11 +287,9 @@
 
   .save { position: fixed; left: 0; right: 0; bottom: calc(58px + env(safe-area-inset-bottom)); z-index: 6; display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.18); }
   .save span { flex: 1; color: var(--text-muted); font-size: var(--fs-meta); }
-  .save button, .btns button { padding: 8px 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); }
-  button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .scrim { position: fixed; inset: 0; z-index: var(--z-menu); background: rgba(0, 0, 0, 0.45); }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-menu); display: flex; flex-direction: column; gap: 10px; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); border-radius: var(--r14) var(--r14) 0 0; background: var(--surface); box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35); }
-  .sheet b { font-size: var(--fs-head); }
+  .save .btn, .btns .btn { font-size: var(--fs-body); }
+  :global(.sheet.confirm) { gap: 10px; }
+  .stitle { font-size: var(--fs-head); }
   .diff { border: 1px solid var(--border); border-radius: var(--r10); overflow: hidden; font-size: var(--fs-meta); }
   .diff div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; }
   .diff div + div { border-top: 1px solid var(--border); }

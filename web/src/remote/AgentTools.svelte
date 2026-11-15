@@ -2,6 +2,8 @@
   import Icon from '../components/Icon.svelte'
   import { t } from '../i18n.svelte'
   import AgentWeb from './AgentWeb.svelte'
+  import State from '../components/ui/State.svelte'
+  import { toastError } from '../toast.svelte'
   import { agentShell, agentShells, agentTasks, closeShell, runInShell, type AgentShellInfo, type TaskSource } from '../agents.svelte'
   import { socketState } from './socket.svelte'
   import { openShellView } from './shell-view.svelte'
@@ -19,11 +21,10 @@
   let busy = $state(false)
   async function act<T>(f: () => Promise<T>): Promise<T | undefined> {
     busy = true
-    error = null
     try {
       return await f()
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e)
+      toastError(e instanceof Error ? e.message : String(e))
     } finally {
       busy = false
     }
@@ -63,17 +64,17 @@
 </script>
 
 <div class="tools">
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error}<State kind="error" inline title={error} />{/if}
   {#if tab === 'shell'}
     {#each shells ?? [] as s (s.key)}
       <div class="row">
         <button class="main" onclick={() => openShell(s.n)}><Icon name="terminal" /><span>{t('Shell {n}', { n: s.n })}<small>{s.command}{s.busy ? ` · ${t('running')}` : ''}</small></span></button>
-        {#if critical}<button class="x" onclick={() => close(s.n)} disabled={busy} title={t('Close this shell, whatever it runs (passkey)')} aria-label={t('Close shell {n}', { n: s.n })}>×</button>{/if}
+        {#if critical}<button class="btn danger icon x" onclick={() => close(s.n)} disabled={busy} title={t('Close this shell, whatever it runs (passkey)')} aria-label={t('Close shell {n}', { n: s.n })}>×</button>{/if}
       </div>
     {:else}
-      <p class="muted">{shells ? t('No shell open for this agent.') : t('Loading…')}</p>
+      {#if shells}<State kind="empty" title={t('No shell open for this agent.')} />{:else}<State kind="loading" lines={2} />{/if}
     {/each}
-    {#if acts}<button class="add" onclick={() => openShell(null)} disabled={busy}><Icon name="add" />{t('New shell')}</button>{/if}
+    {#if acts}<button class="btn add" onclick={() => openShell(null)} disabled={busy}><Icon name="add" />{t('New shell')}</button>{/if}
     <p class="muted">{t('Watched read-only;')} <b>{t('Take')}</b> {t('types in it (Settings › Remote › typing, passkey).')}</p>
   {:else if tab === 'tasks'}
     {#each sources ?? [] as s (s.file)}
@@ -84,7 +85,7 @@
         </button>
       {/each}
     {:else}
-      <p class="muted">{sources ? t('No task declared in this folder (justfile, Taskfile, package.json).') : t('Loading…')}</p>
+      {#if sources}<State kind="empty" title={t('No task declared in this folder (justfile, Taskfile, package.json).')} />{:else}<State kind="loading" lines={2} />{/if}
     {/each}
     {#if sources?.length && !critical}<p class="muted">{t('Running a task from a phone is a critical action: Settings › Remote › critical.')}</p>{/if}
   {:else}
@@ -94,14 +95,13 @@
 
 <style>
   .tools { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); background: var(--bg); color: var(--text); display: flex; flex-direction: column; gap: 6px; }
-  .error { margin: 0; color: var(--ko); font-size: var(--fs-meta); }
   .muted { margin: 4px 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .row { display: flex; gap: 6px; }
-  .main, .task, .add { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; }
+  .main, .task { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; }
   .main span, .task span { display: flex; flex-direction: column; min-width: 0; }
   small { color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .x { flex: none; width: 42px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--ko); font-size: var(--fs-big); }
-  .add { justify-content: center; color: var(--info); }
-  .src { margin: 8px 0 2px; font: 12px ui-monospace, monospace; color: var(--text-muted); display: flex; gap: 8px; }
+  .x { width: 42px; height: auto; font-size: var(--fs-big); }
+  .add { width: 100%; height: 42px; gap: 10px; color: var(--info); font-size: var(--fs-body); }
+  .src { margin: 8px 0 2px; font-family: var(--mono); font-size: var(--fs-tag); color: var(--text-muted); display: flex; gap: 8px; }
   button:disabled { opacity: 0.5; }
 </style>

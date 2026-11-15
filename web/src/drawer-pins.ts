@@ -4,7 +4,7 @@ import { pref, setPref } from './layout.svelte'
 /**
  * A side pane pinned (`[appearance] pin_drawers`): a click outside no longer closes it, only its ×
  * (or Escape, where it closes). Remembered by kind of pane (`drawers.pinned`), not by what it shows:
- * the logs pinned stay pinned for the next pod. `clickedOutside` reads it off the pane (`data-pinned`).
+ * the logs pinned stay pinned for the next pod. The stack of layers reads it (layers.svelte.ts).
  */
 export type DrawerKind = 'mr' | 'ticket' | 'logs' | 'pod-logs' | 'shell' | 'event' | 'argo' | 'thread'
 

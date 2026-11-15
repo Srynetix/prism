@@ -11,6 +11,8 @@
   import { pref, setPref } from '../layout.svelte'
   import { tildePath, baseName } from '../platform'
   import { t } from '../i18n.svelte'
+  import { toastError } from '../toast.svelte'
+  import Sheet from '../components/ui/Sheet.svelte'
   import type { AgentProvider } from '../types'
 
   /**
@@ -64,7 +66,6 @@
   let more = $state(false)
   let showRepos = $state(false)
   let busy = $state(false)
-  let error = $state('')
 
   /** The repository first offered: the draft's, failing that the last one launched in, the primary one. */
   const lastRepo = () => pref<string>('phone.launch.repo', '')
@@ -110,7 +111,6 @@
   takeDraft(() => launcherDrawer, (d) => {
     prompt = d.prompt ?? ''
     title = d.title ?? ''
-    error = ''
     folder = ''
     att.clear()
     placeOf(d)
@@ -243,11 +243,10 @@
   let photoInput = $state<HTMLInputElement>()
   let fileInput = $state<HTMLInputElement>()
   async function attach(files: File[]) {
-    error = ''
     try {
       prompt = await att.add(files, prompt)
     } catch (e) {
-      error = String(e)
+      toastError(String(e))
     }
   }
   const detach = (i: number) => (prompt = att.remove(i, prompt))
@@ -278,7 +277,6 @@
   async function go(prepared = false) {
     if (busy || !ready) return
     busy = true
-    error = ''
     try {
       const id = await (prepared ? prepareAgent : spawnAgent)(launch)
       setPref('phone.launch.mode', mode)
@@ -291,7 +289,7 @@
       else openAgents(id)
       void afterLaunch(effect, prepared ? t('Agent prepared') : t('Agent started'))
     } catch (e) {
-      error = String(e)
+      toastError(String(e), () => go(prepared))
     } finally {
       busy = false
     }
@@ -306,14 +304,12 @@
 </script>
 
 <!-- A tap beside it does not close it: a prompt being written is not lost to a stray thumb. -->
-<div class="scrim" role="presentation"></div>
-<div class="sheet" role="dialog" aria-modal="true" aria-label={t('New session')}>
-  <div class="grab"></div>
+<Sheet key="launcher" label={t('New session')} onclose={closeLauncherDrawer} dismiss={false} fill>
   <header>
     <b>{t('New session')}</b>
     {#if launcherDrawer.origin}<span class="origin">{launcherDrawer.origin}</span>{/if}
     <span class="grow"></span>
-    <button class="x" onclick={closeLauncherDrawer} aria-label={t('Close')}><Icon name="close" /></button>
+    <button class="btn ghost icon" onclick={closeLauncherDrawer} aria-label={t('Close')}><Icon name="close" /></button>
   </header>
   <div class="scroll">
     <div class="prompt">
@@ -321,13 +317,13 @@
       {#if att.list.length}
         <div class="thumbs">
           {#each att.list as a, i (a.path)}
-            <span class="thumb">{#if a.url}<img src={a.url} alt={a.name} />{:else}<Icon name="files" />{/if}<span>{a.name}</span><button type="button" onclick={() => detach(i)} aria-label={t('Remove {name}', { name: a.name })}>×</button></span>
+            <span class="thumb">{#if a.url}<img src={a.url} alt={a.name} />{:else}<Icon name="files" />{/if}<span>{a.name}</span><button type="button" class="btn ghost sm icon" onclick={() => detach(i)} aria-label={t('Remove {name}', { name: a.name })}>×</button></span>
           {/each}
         </div>
       {/if}
       <div class="tools">
-        <button type="button" disabled={att.busy} onclick={() => photoInput?.click()} aria-label={t('Take a photo')}><Icon name="camera" /></button>
-        <button type="button" disabled={att.busy} onclick={() => fileInput?.click()} aria-label={t('Attach photos or files')}><Icon name="attach" /></button>
+        <button type="button" class="btn ghost icon" disabled={att.busy} onclick={() => photoInput?.click()} aria-label={t('Take a photo')}><Icon name="camera" /></button>
+        <button type="button" class="btn ghost icon" disabled={att.busy} onclick={() => fileInput?.click()} aria-label={t('Attach photos or files')}><Icon name="attach" /></button>
         <span class="grow"></span>
         {#if att.busy}<small>{t('Attaching…')}</small>{:else}<small>{t('The keyboard’s mic dictates')}</small>{/if}
       </div>
@@ -338,11 +334,11 @@
     <section>
       <div class="lbl">{t('Where')}</div>
       <div class="chips">
-        {#each chips as r (r.name)}<button type="button" class="chip" class:on={whereTo !== 'folder' && repo === r.name} onclick={() => pickRepo(r.name)}>{r.name}</button>{/each}
-        {#if ordered.length > SHOWN}<button type="button" class="chip" onclick={() => (showRepos = !showRepos)} aria-expanded={showRepos}>{showRepos ? t('Fewer') : `+${ordered.length - SHOWN}`}</button>{/if}
-        {#if whereTo === 'folder'}<span class="chip on">{baseName(folder)}</span>{/if}
+        {#each chips as r (r.name)}<button type="button" class="btn chip" aria-pressed={whereTo !== 'folder' && repo === r.name} onclick={() => pickRepo(r.name)}>{r.name}</button>{/each}
+        {#if ordered.length > SHOWN}<button type="button" class="btn chip" onclick={() => (showRepos = !showRepos)} aria-expanded={showRepos}>{showRepos ? t('Fewer') : `+${ordered.length - SHOWN}`}</button>{/if}
+        {#if whereTo === 'folder'}<span class="btn chip" aria-pressed="true">{baseName(folder)}</span>{/if}
       </div>
-      <div class="where"><Icon name={whereTo === 'new' ? 'branch' : 'folder'} size="13px" /><span>{whereLine}</span>{#if whereTo !== 'folder'}<button type="button" onclick={() => (more = true)}>{t('Change')}</button>{/if}</div>
+      <div class="where"><Icon name={whereTo === 'new' ? 'branch' : 'folder'} size="13px" /><span>{whereLine}</span>{#if whereTo !== 'folder'}<button type="button" class="btn ghost sm" onclick={() => (more = true)}>{t('Change')}</button>{/if}</div>
       {#if whereTo === 'new' && plan?.taken}<small class="muted">{t('{reason}: {name} instead', { reason: plan.taken, name: plan.name })}</small>{/if}
     </section>
 
@@ -350,7 +346,7 @@
       <div class="lbl">{t('With')}</div>
       <div class="chips">
         {#each Object.entries(CLIS) as [p, c] (p)}
-          <button type="button" class="chip cli" class:on={provider === p} style:--c={c.color} onclick={() => (picked = p === providerOf(repo || undefined) ? '' : (p as AgentProvider))}><i></i>{c.name}{#if provider === p && (model.trim() || cliModel)}<small>{model.trim() || cliModel}</small>{/if}</button>
+          <button type="button" class="btn chip cli" aria-pressed={provider === p} style:--c={c.color} onclick={() => (picked = p === providerOf(repo || undefined) ? '' : (p as AgentProvider))}><i></i>{c.name}{#if provider === p && (model.trim() || cliModel)}<small>{model.trim() || cliModel}</small>{/if}</button>
         {/each}
       </div>
       <!-- Its CLI's accounts (`[[agents.accounts]]`), each its own plan. -->
@@ -359,7 +355,7 @@
           {#each accounts as a, i (a.account ?? '')}
             {@const value = i === 0 ? '' : (a.account ?? '')}
             {@const use = targetUse(a)}
-            <button type="button" class="chip" class:on={account === value} onclick={() => (accountPicks[provider] = value)}>{a.account ?? t('{cli}’s usual folder', { cli: cliOf(provider).name })}{#if use !== null}<small>{Math.round(use)} %</small>{/if}</button>
+            <button type="button" class="btn chip" aria-pressed={account === value} onclick={() => (accountPicks[provider] = value)}>{a.account ?? t('{cli}’s usual folder', { cli: cliOf(provider).name })}{#if use !== null}<small>{Math.round(use)} %</small>{/if}</button>
           {/each}
         </div>
       {/if}
@@ -367,13 +363,13 @@
 
     <section>
       <div class="lbl">{t('Mode')}</div>
-      <div class="seg" role="radiogroup">
-        {#each MODES as [m, label] (m)}<button type="button" role="radio" aria-checked={mode === m} class:on={mode === m} onclick={() => (mode = m)}>{label}</button>{/each}
+      <div class="seg full" role="radiogroup">
+        {#each MODES as [m, label] (m)}<button type="button" role="radio" aria-checked={mode === m} onclick={() => (mode = m)}>{label}</button>{/each}
       </div>
       <p class="hint">{MODES.find(([m]) => m === mode)?.[2]}</p>
     </section>
 
-    <button type="button" class="more" onclick={() => (more = !more)} aria-expanded={more}>
+    <button type="button" class="btn more" onclick={() => (more = !more)} aria-expanded={more}>
       <span>{t('More options')}</span><span class="grow"></span><span class="muted">{more ? '' : t('worktree · model · kind · tags · then')}</span><Icon name={more ? 'chevronDown' : 'chevronRight'} />
     </button>
 
@@ -382,7 +378,7 @@
         {#if whereTo !== 'folder'}
           <div>
             <div class="lbl">{t('Worktree')}</div>
-            <div class="seg">
+            <div class="seg full">
               <button type="button" class:on={whereTo === 'new'} disabled={!hasWorktrees(repo)} onclick={() => (whereTo = 'new')}>{t('New')}</button>
               <button type="button" class:on={whereTo === 'existing'} disabled={!worktrees.length} onclick={() => (whereTo = 'existing')}>{t('Existing')}</button>
               <button type="button" class:on={whereTo === 'clone'} onclick={() => (whereTo = 'clone')}>{t('The clone')}</button>
@@ -411,16 +407,16 @@
           <div>
             <div class="lbl">{t('Kind')}</div>
             <div class="chips wrap">
-              <button type="button" class="chip" class:on={!category} onclick={() => (category = '')}>{t('Auto')}</button>
-              {#each kinds as k (k)}<button type="button" class="chip" class:on={category === k} onclick={() => (category = k)}>{k}</button>{/each}
+              <button type="button" class="btn chip" aria-pressed={!category} onclick={() => (category = '')}>{t('Auto')}</button>
+              {#each kinds as k (k)}<button type="button" class="btn chip" aria-pressed={category === k} onclick={() => (category = k)}>{k}</button>{/each}
             </div>
           </div>
         {/if}
         <div>
           <div class="lbl">{t('Tags')}</div>
           <div class="chips wrap">
-            {#each tags as tag (tag)}<button type="button" class="chip on" onclick={() => (tags = tags.filter((x) => x !== tag))} aria-label={t('Remove tag {tag}', { tag })}>#{tag} ×</button>{/each}
-            {#each (agentsSettings().tags ?? []).filter((tag) => !tags.includes(tag)) as tag (tag)}<button type="button" class="chip" onclick={() => (tags = [...tags, tag])}>+ #{tag}</button>{/each}
+            {#each tags as tag (tag)}<button type="button" class="btn chip" aria-pressed="true" onclick={() => (tags = tags.filter((x) => x !== tag))} aria-label={t('Remove tag {tag}', { tag })}>#{tag} ×</button>{/each}
+            {#each (agentsSettings().tags ?? []).filter((tag) => !tags.includes(tag)) as tag (tag)}<button type="button" class="btn chip" onclick={() => (tags = [...tags, tag])}>+ #{tag}</button>{/each}
             <input class="tag" placeholder={t('+ tag')} spellcheck="false" autocapitalize="off" enterkeyhint="done" onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(e.currentTarget) } }} onchange={(e) => addTag(e.currentTarget)} />
           </div>
         </div>
@@ -428,69 +424,60 @@
           <div class="lbl">{t('Then')}</div>
           {#each steps as s, i (i)}
             <div class="step">
-              <div class="sh"><span class="n">{i + 1}</span><span class="grow">{STEP_LABEL[s.kind]}</span><button type="button" onclick={() => steps.splice(i, 1)} aria-label={t('Remove step {n}', { n: i + 1 })}>×</button></div>
+              <div class="sh"><span class="n">{i + 1}</span><span class="grow">{STEP_LABEL[s.kind]}</span><button type="button" class="btn ghost sm icon" onclick={() => steps.splice(i, 1)} aria-label={t('Remove step {n}', { n: i + 1 })}>×</button></div>
               {#if s.kind === 'task'}<select bind:value={s.command} aria-label={t('Task')}>{#each tasks as tk (tk)}<option value={tk}>{tk}</option>{:else}<option value="">{t('No task in this folder')}</option>{/each}</select>
               {:else if s.kind === 'prompt' || s.kind === 'agent'}<input bind:value={s.text} placeholder={s.kind === 'agent' ? t('Its prompt: {mr}, {ticket}, {branch} filled in', { mr: '{mr}', ticket: '{ticket}', branch: '{branch}' }) : t('Sent to this agent when it waits for you')} spellcheck="false" aria-label={t('Prompt')} />{/if}
               <select bind:value={s.when} aria-label={t('When')}>{#each Object.entries(WHEN_LABEL) as [w, label] (w)}<option value={w}>{label}</option>{/each}</select>
             </div>
           {/each}
-          <div class="chips wrap">{#each STEP_KINDS as k (k)}<button type="button" class="chip" onclick={() => addStep(k)}>+ {STEP_LABEL[k]}</button>{/each}</div>
+          <div class="chips wrap">{#each STEP_KINDS as k (k)}<button type="button" class="btn chip" onclick={() => addStep(k)}>+ {STEP_LABEL[k]}</button>{/each}</div>
           {#if steps.length}<p class="hint">{t('The computer runs them; a task needs critical actions on.')}</p>{/if}
           {#if tasksReady && !stepsOk}<p class="err">{t('No task in this folder')}</p>{/if}
         </div>
       </div>
     {/if}
     {#if whereTo === 'new' && plan?.error}<p class="err">{plan.error}</p>{/if}
-    {#if error}<p class="err">{error}</p>{/if}
   </div>
   <footer>
-    <button type="button" class="prep" disabled={busy || !ready} onclick={() => go(true)} title={t('Kept in the list, started from the computer or here later')}>{t('Prepare')}</button>
-    <button type="button" class="launch" disabled={busy || !ready} onclick={() => go()}>{busy ? t('Launching…') : t('Launch')}<small>{summary}</small></button>
+    <button type="button" class="btn prep" disabled={busy || !ready} onclick={() => go(true)} title={t('Kept in the list, started from the computer or here later')}>{t('Prepare')}</button>
+    <button type="button" class="btn primary launch" class:busy disabled={busy || !ready} onclick={() => go()}>{busy ? t('Launching…') : t('Launch')}<small>{summary}</small></button>
   </footer>
-</div>
+</Sheet>
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: var(--z-modal); background: rgb(0 0 0 / 0.45); animation: fade 0.18s ease-out; }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-modal); display: flex; flex-direction: column; max-height: calc(100dvh - 24px - env(safe-area-inset-top)); border-radius: var(--r14) var(--r14) 0 0; background: var(--bg); box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25); animation: rise 0.22s ease-out; font-size: var(--fs-title); }
-  @keyframes rise { from { transform: translateY(40px); opacity: 0; } }
-  @keyframes fade { from { opacity: 0; } }
-  :global(html[data-reduce-motion]) .sheet, :global(html[data-reduce-motion]) .scrim { animation: none; }
-  .grab { width: 38px; height: 5px; margin: 8px auto 0; border-radius: var(--r3); background: var(--border); }
-  header { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 16px; }
+  header { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 16px; font-size: var(--fs-title); }
   header b { font-size: var(--fs-head); }
   .origin { padding: 2px 8px; border-radius: var(--r10); background: var(--surface-muted); color: var(--info); font: 12px var(--mono); }
   .grow { flex: 1; min-width: 0; }
-  .x { display: inline-flex; padding: 10px; border: none; background: none; color: var(--text-muted); }
-  .scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 16px; }
+  .scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 16px; font-size: var(--fs-title); }
   .prompt { border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); }
   .prompt:focus-within { border-color: var(--accent); }
   .prompt textarea { display: block; width: 100%; min-height: 84px; max-height: 40dvh; field-sizing: content; resize: none; padding: 12px 14px 4px; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-head); line-height: 1.4; outline: none; }
   .tools { display: flex; align-items: center; gap: 4px; padding: 2px 6px 6px; color: var(--text-muted); }
-  .tools button { display: inline-flex; padding: 9px; border: none; border-radius: var(--r10); background: none; color: var(--text-muted); }
-  .tools button:disabled { opacity: 0.5; }
   .tools small { padding-right: 6px; font-size: var(--fs-tag); }
   .thumbs { display: flex; gap: 6px; padding: 4px 10px; overflow-x: auto; scrollbar-width: none; }
   .thumb { flex: none; display: inline-flex; align-items: center; gap: 6px; max-width: 180px; padding: 3px 4px 3px 3px; border: 1px solid var(--border); border-radius: var(--r10); font-size: var(--fs-tag); }
   .thumb img { width: 32px; height: 32px; border-radius: var(--r7); object-fit: cover; }
   .thumb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .thumb button { padding: 4px 6px; border: none; background: none; color: var(--text-muted); font-size: var(--fs-head); }
+  .thumb .btn { font-size: var(--fs-head); }
   section { display: flex; flex-direction: column; gap: 8px; }
   .lbl { color: var(--text-muted); font-size: var(--fs-tag); letter-spacing: 0.05em; text-transform: uppercase; }
   .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .chips.wrap { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
-  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); }
-  .chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); font-weight: 600; }
+  /* A choice among a few, made for a thumb: a round button, the one picked in the accent. */
+  .chip { height: 40px; padding: 0 14px; gap: 6px; border-radius: 999px; font-size: var(--fs-title); font-weight: 400; }
+  .chip[aria-pressed='true'] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); font-weight: 600; }
   .chip small { color: var(--text-muted); font-weight: 400; font-size: var(--fs-tag); }
   .chip.cli i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
   .where { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--fs-meta); }
   .where span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .where button { flex: none; padding: 4px 2px; border: none; background: none; color: var(--accent); font: inherit; font-size: var(--fs-meta); }
-  .seg { display: flex; padding: 3px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); }
-  .seg button { flex: 1; min-height: 38px; padding: 0 6px; border: none; border-radius: var(--r9); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); }
-  .seg button.on { background: var(--bg); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); }
-  .seg button:disabled { opacity: 0.4; }
+  .where .btn { color: var(--accent); }
+  /* The modes, the full width, made for a thumb. */
+  .seg.full { display: flex; }
+  .seg.full > button { flex: 1; justify-content: center; height: 38px; font-size: var(--fs-body); }
+  .seg.full > button:disabled { opacity: 0.4; }
   .hint { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
-  .more { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); }
+  .more { justify-content: flex-start; gap: 8px; height: 46px; padding: 0 12px; border-radius: var(--r12); font-size: var(--fs-title); font-weight: 400; }
   .more > span:first-child { flex: none; white-space: nowrap; }
   .more .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); }
   .muted { color: var(--text-muted); }
@@ -502,13 +489,12 @@
   .step { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); }
   .step .sh { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); }
   .step .n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-muted); font-size: var(--fs-tag); }
-  .step .sh button { padding: 4px 8px; border: none; background: none; color: var(--text-muted); font-size: var(--fs-big); }
+  .step .sh .btn { font-size: var(--fs-big); }
   .step select, .step input { min-height: 40px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r9); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-head); }
-  .err { margin: 0; color: var(--ko); font-size: var(--fs-meta); overflow-wrap: anywhere; }
+  .scroll .err { margin: 0; }
   footer { display: flex; gap: 10px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--bg); }
-  footer button { min-height: 54px; border-radius: var(--r14); font: inherit; }
-  .prep { flex: none; padding: 0 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-title); }
-  .launch { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0 12px; border: none; background: var(--accent); color: var(--on-accent, #fff); font-size: var(--fs-head); font-weight: 650; }
+  footer .btn { height: 54px; border-radius: var(--r14); }
+  .prep { font-size: var(--fs-title); }
+  .launch { flex: 1; min-width: 0; flex-direction: column; gap: 1px; padding: 0 12px; font-size: var(--fs-head); }
   .launch small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-tag); font-weight: 400; opacity: 0.85; }
-  footer button:disabled { opacity: 0.5; }
 </style>

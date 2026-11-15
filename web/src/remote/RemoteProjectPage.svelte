@@ -11,6 +11,7 @@
   import { byActivity, projectSummaries, ticketsFor, waitingAgent, type Stage, type Workstream } from '../workstreams'
   import NewWorkstream from '../components/NewWorkstream.svelte'
   import Icon from '../components/Icon.svelte'
+  import State from '../components/ui/State.svelte'
   import type { Snapshot } from '../types'
 
   /**
@@ -28,7 +29,7 @@
 
 <div class="page">
   <header class="top">
-    <button class="back" onclick={onback} aria-label={t('Back')}><Icon name="back" size="18px" /></button>
+    <button class="btn icon back" onclick={onback} aria-label={t('Back')}><Icon name="back" size="18px" /></button>
     <b>{repo}</b>
     {#if p?.repo?.behind}<span class="behind">{p.repo.base} ↓{p.repo.behind}</span>{/if}
     {#if p?.mainFailed}<span class="ko"><Icon name="fail" size="12px" /> {p.repo?.base ?? 'main'}</span>{/if}
@@ -54,7 +55,7 @@
         {/each}
       {/if}
     {/each}
-    {#if !p.workstreams.length}<p class="empty">{t('Nothing in progress.')}</p>{/if}
+    {#if !p.workstreams.length}<State kind="empty" title={t('Nothing in progress.')} />{/if}
     {#if acts && p.repo}
       <div class="new"><NewWorkstream repo={p.name} tickets={ticketsFor(snap, p.name, p.workstreams, nextOf(p.name))} direct={false} /></div>
     {/if}
@@ -65,16 +66,14 @@
   .page { width: calc(100% + 20px); margin: 0 -10px; padding-bottom: 8px; }
   .top { display: flex; align-items: center; gap: 10px; padding: 4px 14px 8px; }
   .top b { font-size: var(--fs-head); }
-  .back { display: inline-flex; padding: 6px; border: 1px solid var(--border); border-radius: var(--r9); background: none; color: var(--text); }
-  .behind { color: var(--warn); font: 600 12px var(--mono); }
+  .behind { color: var(--warn); font-family: var(--mono); font-size: var(--fs-tag); font-weight: 600; }
   .ko { display: inline-flex; align-items: center; gap: 3px; color: var(--ko); font-size: var(--fs-tag); }
   .grp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
   .ws { margin: 0 10px 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); }
   .h { display: flex; align-items: center; gap: 8px; }
   .ttl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-title); font-weight: 550; }
   .tk { color: var(--info); font-family: var(--mono); font-size: var(--fs-tag); }
-  .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
-  .dot.asks { background: var(--warn); } .dot.run { background: var(--info); }
+  .dot.asks { --dot-c: var(--warn); } .dot.run { --dot-c: var(--info); }
   .where, .mr { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mr code { font-family: var(--mono); color: var(--text); }
   .agent { width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); text-align: left; }
@@ -82,6 +81,5 @@
   .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
   .what.asks { color: var(--warn); font-weight: 600; }
   .tm { color: var(--text-muted); font-size: var(--fs-tag); }
-  .empty { margin: 24px 0; color: var(--text-muted); font-size: var(--fs-meta); text-align: center; }
   .new { margin: 12px 10px 0; }
 </style>

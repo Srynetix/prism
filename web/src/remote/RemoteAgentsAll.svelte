@@ -1,5 +1,6 @@
 <script lang="ts">
   import QuickAnswers from '../components/QuickAnswers.svelte'
+  import State from '../components/ui/State.svelte'
   import { t, tn, tc } from '../i18n.svelte'
   import { openAgents } from '../agents.svelte'
   import { cliOf } from '../agent-cli'
@@ -56,7 +57,7 @@
         {#if g.acts && (a.status === 'needs_you' || a.status === 'review_ready')}<div class="chips"><QuickAnswers agent={a} /></div>{/if}
       </div>
     {:else}
-      <p class="none">{t('No agent running.')}</p>
+      <State kind="empty" inline title={t('No agent running.')} />
     {/each}
     {#if g.stopped}<button class="more" onclick={() => switchProfile(g.p.id, { view: 'agents' })}>{tn(g.stopped, '{n} stopped agent', '{n} stopped agents')}<span>›</span></button>{/if}
   {/each}
@@ -72,8 +73,7 @@
   .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .txt b { font-size: var(--fs-title); font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .txt small { color: var(--text-muted); font-size: var(--fs-tag); }
-  .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
-  .dot.asks { background: var(--warn); } .dot.tool { background: var(--ko); } .dot.run { background: var(--info); }
+  .dot.asks { --dot-c: var(--warn); } .dot.tool { --dot-c: var(--ko); } .dot.run { --dot-c: var(--info); }
   .st { font-weight: 600; }
   .st.asks { color: var(--warn); } .st.tool { color: var(--ko); } .st.run { color: var(--info); }
   .q { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--warn); border-radius: var(--r4); background: var(--bg); font-size: var(--fs-meta); line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -81,7 +81,6 @@
   .chips { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
   .chips :global(.qa) { flex-wrap: nowrap; }
   .chips :global(.qa button) { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  .none { margin: 0; padding: 10px 14px; color: var(--text-muted); font-size: var(--fs-meta); }
   .more { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 8px 14px 0; padding: 9px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); }
   .note { margin: 18px 14px 0; color: var(--text-muted); font-size: var(--fs-tag); text-align: center; }
 </style>

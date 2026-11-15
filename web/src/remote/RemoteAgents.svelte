@@ -16,7 +16,8 @@
   import { hasWindows, peak, planSections, sectionKey, sectionName, usageLevel } from '../usage'
   import { mrKey } from '../mr-ref'
   import { ago } from '../time'
-  import { toast } from '../toast.svelte'
+  import { toastError } from '../toast.svelte'
+  import State from '../components/ui/State.svelte'
   import { agentPorts } from '../agent-ports'
   import { openDevServer } from '../dev-preview.svelte'
   import type { Agent, Snapshot } from '../types'
@@ -95,7 +96,7 @@
     try {
       await run()
     } catch (e) {
-      toast(String(e), 6000)
+      toastError(String(e))
     } finally {
       busy = null
     }
@@ -115,7 +116,7 @@
 
 {#snippet archiving(a: Agent)}
   {@const hidden = isArchived(a)}
-  <button class="arch" onclick={() => setArchived(a, !hidden)} aria-label={hidden ? t('Unarchive {title}', { title: a.title }) : t('Archive {title}', { title: a.title })} title={hidden ? t('Back in the list') : t('Out of the list until it waits for you')}><Icon name={hidden ? 'show' : 'hide'} size="14px" /></button>
+  <button class="btn ghost sm icon arch" onclick={() => setArchived(a, !hidden)} aria-label={hidden ? t('Unarchive {title}', { title: a.title }) : t('Archive {title}', { title: a.title })} title={hidden ? t('Back in the list') : t('Out of the list until it waits for you')}><Icon name={hidden ? 'show' : 'hide'} size="14px" /></button>
 {/snippet}
 
 {#snippet card(a: Agent)}
@@ -145,38 +146,38 @@
     {#if acts && a.state === 'running'}
       {#if a.status === 'waiting_tool'}
         <div class="chips">
-          <button class="btn allow" disabled={busy === a.id} onclick={() => act(a.id, () => allowAgent(a.id))}>✓ {t('Allow once')}</button>
-          <button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => interruptAgent(a.id))} title={t('Refuse and interrupt its turn (Esc): the agent stays')}><Icon name="pause" /> {t('Interrupt')}</button>
+          <button class="btn sm allow" disabled={busy === a.id} onclick={() => act(a.id, () => allowAgent(a.id))}>✓ {t('Allow once')}</button>
+          <button class="btn sm" disabled={busy === a.id} onclick={() => act(a.id, () => interruptAgent(a.id))} title={t('Refuse and interrupt its turn (Esc): the agent stays')}><Icon name="pause" /> {t('Interrupt')}</button>
         </div>
       {:else if a.status !== 'running'}
-        <div class="chips"><QuickAnswers agent={a} />{#if canMarkRead(a)}<button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => markRead([a.id]))} title={t('Seen: it waits for you no more until its next turn')}><Icon name="check" /> {t('Mark as read')}</button>{/if}</div>
+        <div class="chips"><QuickAnswers agent={a} />{#if canMarkRead(a)}<button class="btn sm" disabled={busy === a.id} onclick={() => act(a.id, () => markRead([a.id]))} title={t('Seen: it waits for you no more until its next turn')}><Icon name="check" /> {t('Mark as read')}</button>{/if}</div>
       {/if}
     {:else if acts && a.state === 'prepared'}
       <!-- Its Then steps: started by the computer with it (remote.rs, agent_start). -->
-      <div class="chips"><button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => startPrepared(a.id))} title={t('Start it now, as prepared (its worktree is made then)')}><Icon name="play" /> {t('Start')}</button></div>
+      <div class="chips"><button class="btn sm" disabled={busy === a.id} onclick={() => act(a.id, () => startPrepared(a.id))} title={t('Start it now, as prepared (its worktree is made then)')}><Icon name="play" /> {t('Start')}</button></div>
     {:else if acts}
-      <div class="chips"><button class="btn" disabled={busy === a.id} onclick={() => act(a.id, () => resumeAgent(a.id))} title={t('{command}, same folder', { command: cliOf(a.provider).resume })}>↻ {t('Resume')}</button></div>
+      <div class="chips"><button class="btn sm" disabled={busy === a.id} onclick={() => act(a.id, () => resumeAgent(a.id))} title={t('{command}, same folder', { command: cliOf(a.provider).resume })}>↻ {t('Resume')}</button></div>
     {/if}
   </div>
 {/snippet}
 
 {#snippet project(p: Project)}
   <section class="proj">
-    <header><span class="dot {p.group ? (urgency(p.group) === 0 ? 'asks' : urgency(p.group) === 1 ? 'run' : '') : ''}"></span><button class="pname" onclick={() => openProjectPage(p.name)} aria-label={t('Open the project {repo}', { repo: p.name })}>{p.name}<Icon name="chevronRight" size="14px" /></button><span class="grow"></span>{#if acts}<button class="plus" onclick={() => newAgentIn(p.name)} aria-label={t('New agent in {repo}', { repo: p.name })}>+</button>{/if}</header>
+    <header><span class="dot {p.group ? (urgency(p.group) === 0 ? 'asks' : urgency(p.group) === 1 ? 'run' : '') : ''}"></span><button class="pname" onclick={() => openProjectPage(p.name)} aria-label={t('Open the project {repo}', { repo: p.name })}>{p.name}<Icon name="chevronRight" size="14px" /></button><span class="grow"></span>{#if acts}<button class="btn icon plus" onclick={() => newAgentIn(p.name)} aria-label={t('New agent in {repo}', { repo: p.name })}>+</button>{/if}</header>
     {#if p.group}{#each p.group.items as e (e.id)}{#if e.kind === 'agent'}{@render card(e.a)}{/if}{/each}{/if}
     {#if p.left}
       <div class="left">
         <p>{t('Left {ago} ago', { ago: ago(p.left.closed_at) })}{#if p.left.branch}{' '}· <code>{p.left.branch}</code>{/if} · {p.left.title}</p>
         {#if p.left.said}<q>{p.left.said}</q>{/if}
-        {#if acts}<div class="chips">{#if p.left.resumable}<button class="btn" disabled={busy === p.name} onclick={() => act(p.name, () => reopenLeft(p.name))}>↻ {t('Reopen')}</button>{/if}{#if critical}<button class="btn" onclick={() => void openQuickActionDraft({ left: p.name })} title={t('A quick action from this session: its prompt and settings, to read over')}><Icon name="quick" /> {t('Quick action…')}</button>{/if}</div>{/if}
+        {#if acts}<div class="chips">{#if p.left.resumable}<button class="btn sm" disabled={busy === p.name} onclick={() => act(p.name, () => reopenLeft(p.name))}>↻ {t('Reopen')}</button>{/if}{#if critical}<button class="btn sm" onclick={() => void openQuickActionDraft({ left: p.name })} title={t('A quick action from this session: its prompt and settings, to read over')}><Icon name="quick" /> {t('Quick action…')}</button>{/if}</div>{/if}
       </div>
     {/if}
     {#if acts}
       {@const quick = quickActionsHere(p.name)}
-      {#if quick.length}<div class="chips quick">{#each quick as a, i (i)}<button class="btn" onclick={() => runQuickAction(a, p.name, true)} title={a.prompt}><Icon name="quick" /> {a.name}</button>{/each}</div>{/if}
+      {#if quick.length}<div class="chips quick">{#each quick as a, i (i)}<button class="btn sm" onclick={() => runQuickAction(a, p.name, true)} title={a.prompt}><Icon name="quick" /> {a.name}</button>{/each}</div>{/if}
     {/if}
     {#if p.next}
-      <div class="next"><span class="muted">{tc('project', 'Next')}</span><code>{p.next.id}</code><span class="nm">{p.next.name}</span>{#if acts}<button class="btn" onclick={() => implement(p.next!)} aria-label={t('Implement {ticket}', { ticket: p.next.id })}>▶</button>{/if}</div>
+      <div class="next"><span class="muted">{tc('project', 'Next')}</span><code>{p.next.id}</code><span class="nm">{p.next.name}</span>{#if acts}<button class="btn sm" onclick={() => implement(p.next!)} aria-label={t('Implement {ticket}', { ticket: p.next.id })}>▶</button>{/if}</div>
     {/if}
   </section>
 {/snippet}
@@ -211,14 +212,14 @@
       {/if}
     </div>
   {/if}
-  <div class="by" role="tablist">
-    <button role="tab" class:on={by === 'status'} aria-selected={by === 'status'} onclick={() => setBy('status')}>{t('By status')}</button>
-    <button role="tab" class:on={by === 'project'} aria-selected={by === 'project'} onclick={() => setBy('project')}>{t('By project')}</button>
+  <div class="seg by" role="tablist">
+    <button role="tab" aria-selected={by === 'status'} onclick={() => setBy('status')}>{t('By status')}</button>
+    <button role="tab" aria-selected={by === 'project'} onclick={() => setBy('project')}>{t('By project')}</button>
   </div>
   {#if acts && by === 'status'}
     <form class="new" onsubmit={(e) => { e.preventDefault(); start() }}>
       <textarea bind:value={prompt} rows="1" placeholder={t('New agent: what should it do?')} enterkeyhint="enter"></textarea>
-      <button type="submit">{prompt.trim() ? t('Next') : t('New')}</button>
+      <button type="submit" class="btn">{prompt.trim() ? t('Next') : t('New')}</button>
     </form>
   {/if}
   {#if by === 'project'}
@@ -232,7 +233,7 @@
   {#if waiting.length}<p class="grp warn">{t('Waiting for you')} · {waiting.length}</p>{#each waiting as a (a.id)}{@render card(a)}{/each}{/if}
   {#if working.length}<p class="grp">{t('Working')} · {working.length}</p>{#each working as a (a.id)}{@render card(a)}{/each}{/if}
   {#if idle.length}<p class="grp">{t('Idle')} · {idle.length}</p>{#each idle as a (a.id)}{@render card(a)}{/each}{/if}
-  {#if !live.length}<p class="empty">{t('No agent running.')}</p>{/if}
+  {#if !live.length}<State kind="empty" title={t('No agent running.')} />{/if}
   {#if stopped.length}
     <button class="fold" onclick={() => (showStopped = !showStopped)} aria-expanded={showStopped}><span>{t('Stopped')} · {stopped.length}</span><span>{showStopped ? '▾' : '▸'}</span></button>
     {#if showStopped}{#each stopped as a (a.id)}{@render card(a)}{/each}{/if}
@@ -246,7 +247,7 @@
 {/if}
 
 <style>
-  .arch { display: inline-flex; margin: -6px -6px -6px 2px; padding: 6px; border: none; background: none; color: var(--text-muted); }
+  .arch { margin: -6px -6px -6px 2px; }
   /* Edge to edge: the remote's page pads its views. */
   .agents { width: calc(100% + 20px); max-width: none; margin: 0 -10px; padding-bottom: 8px; }
   .plan { margin: 0 10px 8px; border: 1px solid var(--border); border-radius: var(--r12); overflow: hidden; background: var(--surface); }
@@ -288,16 +289,14 @@
   .plan :global(.u .labels span) { font-size: var(--fs-micro); }
   .new { display: flex; gap: 8px; align-items: flex-end; padding: 4px 14px 6px; }
   .new textarea { flex: 1; field-sizing: content; min-height: 38px; max-height: 140px; resize: none; padding: 9px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); }
-  .new button { height: 38px; padding: 0 16px; border: 1px solid var(--accent); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); }
-  .new button:disabled { opacity: 0.45; }
+  .new .btn { height: 38px; padding: 0 16px; border-color: var(--accent); border-radius: 999px; font-size: var(--fs-body); }
   .grp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
   .grp.warn { color: var(--warn); }
   .ag { padding: 12px 14px; border-bottom: 1px solid var(--border); }
   .ag.off { opacity: 0.6; }
   .h { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--fs-tag); }
-  .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
-  .dot.asks { background: var(--warn); } .dot.trust { background: var(--violet); }
-  .st.trust { color: var(--violet); } .dot.tool { background: var(--ko); } .dot.run { background: var(--info); }
+  .dot.asks { --dot-c: var(--warn); } .dot.trust { --dot-c: var(--violet); }
+  .st.trust { color: var(--violet); } .dot.tool { --dot-c: var(--ko); } .dot.run { --dot-c: var(--info); }
   .st { font-weight: 600; }
   .st.asks { color: var(--warn); } .st.tool { color: var(--ko); } .st.run { color: var(--info); }
   .grow { flex: 1; }
@@ -313,21 +312,18 @@
   .port small { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font: 400 11.5px var(--sans); }
   .chips { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
   .chips :global(.qa) { flex-wrap: nowrap; }
-  .chips :global(.qa button), .btn { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  .btn.allow { border-color: var(--ok); color: var(--ok); }
-  .btn:disabled { opacity: 0.5; }
-  .btn { display: inline-flex; align-items: center; gap: 5px; }
-  .empty { margin: 24px 0; color: var(--text-muted); font-size: var(--fs-meta); text-align: center; }
+  /* Round, as its quick answers beside. */
+  .chips :global(.qa button) { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
+  .chips .btn { border-radius: 999px; }
+  .chips .allow { border-color: var(--ok); color: var(--ok); }
   /* By status or by project. */
-  .by { display: flex; gap: 6px; padding: 2px 14px 8px; }
-  .by button { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); }
-  .by button.on { border-color: var(--text); background: var(--surface); color: var(--text); font-weight: 600; }
+  .by { margin: 2px 14px 8px; }
   /* A project: its header with +, its agents' cards, where it was left, its next ticket. */
   .proj { margin: 8px 10px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); overflow: hidden; }
   .proj header { display: flex; align-items: center; gap: 8px; padding: 9px 10px 8px 12px; }
   .proj header .pname { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-title); font-weight: 700; }
   .meta .repo { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); text-decoration: underline dotted; }
-  .proj .plus { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--r9); background: none; color: var(--src-claude); font: 400 20px/1 var(--sans); }
+  .proj .plus { color: var(--src-claude); font-size: var(--fs-big); font-weight: 400; }
   .proj .ag { border-top: 1px solid var(--border); border-bottom: none; }
   .proj .left { margin: 0 12px 10px; padding: 2px 0 2px 9px; border-left: 2px solid var(--border); font-size: var(--fs-meta); color: var(--text-muted); }
   .proj .left p { margin: 0; }
@@ -337,7 +333,7 @@
   .proj .next { display: flex; align-items: center; gap: 7px; padding: 8px 12px 10px; border-top: 1px solid var(--border); font-size: var(--fs-meta); }
   .proj .next code { color: var(--info); font-family: var(--mono); }
   .proj .next .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .proj .next .btn { padding: 4px 11px; color: var(--src-claude); }
+  .proj .next .btn { color: var(--src-claude); }
   .muted { color: var(--text-muted); }
   .fold { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 10px 14px; padding: 10px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); }
 </style>

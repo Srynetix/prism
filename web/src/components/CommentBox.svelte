@@ -70,6 +70,7 @@
       send()
     } else if (e.key === 'Escape' && oncancel) {
       // Before the drawer: Escape closes the reply, not the drawer.
+      e.preventDefault()
       e.stopPropagation()
       oncancel()
     }

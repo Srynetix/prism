@@ -2,7 +2,8 @@
  * The window's layers: side drawers (an MR, a ticket, logs…), dialogs (the palette, a new ticket…)
  * and the menus that ask for it, in the order they were opened. The stack alone decides:
  * - Escape closes the layer on top, whatever the order the components were mounted in; in a
- *   field of a drawer, it first leaves the field (a second Escape closes);
+ *   field of a drawer, the field has it first (a comment box cancels), else it leaves the field
+ *   (a second Escape closes);
  * - a click outside a drawer closes it, and the drawers above it, unless it is pinned;
  * - focus goes into a layer when it opens and back where it came from when it closes;
  * - a drawer's rank (`z-index`) is its place in the stack, so the last opened is on top;
@@ -125,17 +126,28 @@ function onKey(e: KeyboardEvent) {
   const own = target?.closest?.('[role=listbox], [role=menu], .suggest')
   if (own && !layers.stack.some((l) => l.el()?.contains(own))) return
   if (top.escape === false && top.el()?.contains(target)) return
-  if (top.kind === 'drawer' && target instanceof HTMLElement && target.closest(FIELD) && top.el()?.contains(target)) {
-    // Out of the field first: what is typed stays, a second Escape closes.
-    e.preventDefault()
-    e.stopImmediatePropagation()
-    target.blur()
-    top.el()?.focus({ preventScroll: true })
-    return
-  }
+  // In a field, or in what handles its own Escape (`data-esc-own`: a comment box cancels, a filter
+  // clears), the field has it first: `onKeyAfter` below, once it went through.
+  if (target instanceof HTMLElement && target.closest(`${FIELD}, [data-esc-own]`) && top.el()?.contains(target)) return
   e.preventDefault()
   e.stopImmediatePropagation()
   top.close()
+}
+
+/**
+ * Escape from a field, gone through without being used (no `preventDefault`): out of the field, what
+ * is typed stays; a second Escape closes the layer. In a dialog (the palette's field), it closes.
+ */
+function onKeyAfter(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return
+  const top = layers.stack.at(-1)
+  const target = e.target as Element | null
+  if (!top || !(target instanceof HTMLElement) || !top.el()?.contains(target)) return
+  e.preventDefault()
+  if (top.kind === 'drawer' && target.closest(FIELD)) {
+    target.blur()
+    top.el()?.focus({ preventScroll: true })
+  } else top.close()
 }
 
 /** Never closes on: a menu, a list of choices, an enlarged image, a toast, a tooltip. */
@@ -161,5 +173,6 @@ function onPointer(e: PointerEvent) {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', onKey, true)
+  window.addEventListener('keydown', onKeyAfter)
   window.addEventListener('pointerdown', onPointer, true)
 }

@@ -145,7 +145,7 @@
       {#if step === 'name'}
         <p>{t('Its name shows on the computer, in Settings › Remote › Devices.')}</p>
         <input bind:value={name} maxlength="40" aria-label={t('This phone’s name')} />
-        <button class="primary" onclick={begin} disabled={busy || !name.trim()}>{t('Continue')}</button>
+        <button class="btn primary" onclick={begin} disabled={busy || !name.trim()}>{t('Continue')}</button>
       {:else}
         <p>{step === 'passkey' ? t('The computer will ask you to check this code:') : t('Confirm this code on the computer, in Settings › Remote › Devices.')}</p>
         <div class="code" aria-label={t('Code {code}', { code })}>
@@ -153,7 +153,7 @@
         </div>
         {#if step === 'passkey'}
           <p class="muted">{t('A passkey for this Prism is created on this phone; biometrics or the screen lock unlock it.')}</p>
-          <button class="primary" onclick={makePasskey} disabled={busy}><Icon name="lock" /> {t('Create the passkey')}</button>
+          <button class="btn primary" onclick={makePasskey} disabled={busy}><Icon name="lock" /> {t('Create the passkey')}</button>
         {:else}
           <p class="wait"><Icon name="refresh" spin /> {t('Waiting for the computer…')}</p>
           <p class="muted">{t('Then install the app: Chrome’s menu › Install app (Safari: Share › Add to Home Screen).')}</p>
@@ -239,19 +239,6 @@
     color: var(--text);
     font-size: var(--fs-head);
   }
-  button.primary {
-    width: min(320px, 100%);
-    padding: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: none;
-    border-radius: var(--r12);
-    background: var(--accent);
-    color: var(--on-accent);
-    font-size: var(--fs-head);
-    font-weight: 600;
-  }
+  .pair .btn { width: min(320px, 100%); height: 48px; gap: 8px; border-radius: var(--r12); font-size: var(--fs-head); }
   button:disabled { opacity: 0.55; }
 </style>

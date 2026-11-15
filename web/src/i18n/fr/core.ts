@@ -285,7 +285,6 @@ export default {
   'Add to {sprint}': 'Ajouter à {sprint}',
   'keeps its list': 'garde sa liste',
   'Add {id} to {sprint} (it keeps its list)': 'Ajouter {id} à {sprint} (il garde sa liste)',
-  'Confirm: add to {sprint}': 'Confirmer : ajouter à {sprint}',
   'Click again: {id} is added to {sprint} and stays in its list': 'Cliquez à nouveau : {id} est ajouté à {sprint} et reste dans sa liste',
   'merged': 'fusionnée',
   'Status': 'Statut',
@@ -609,4 +608,12 @@ export default {
   'Opened from': 'Ouvert depuis',
   'Back to {name}': 'Revenir à {name}',
   'Try again': 'Réessayer',
+  // Side drawers: what they could not read.
+  'Could not read the log': 'Impossible de lire le journal',
+  'Could not read the changes': 'Impossible de lire les modifications',
+  'Could not read the commits': 'Impossible de lire les commits',
+  'Could not read the discussion': 'Impossible de lire la discussion',
+  'Could not read the description': 'Impossible de lire la description',
+  'Could not read the approvals': 'Impossible de lire les approbations',
+  'Could not read {id}': 'Impossible de lire {id}',
 } satisfies Dictionary

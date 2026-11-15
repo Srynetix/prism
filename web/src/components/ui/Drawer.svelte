@@ -29,6 +29,7 @@
     source = 'var(--accent)',
     pin,
     escape = true,
+    outside = true,
     header = true,
     onclose,
     head,
@@ -48,6 +49,8 @@
     pin?: DrawerKind
     /** Escape closes it: a terminal keeps it. */
     escape?: boolean
+    /** A click outside closes it (unless pinned): false for a form a stray click must not lose. */
+    outside?: boolean
     /** The standard header (crumbs, head, pin, ×); false when the panel draws its own. */
     header?: boolean
     onclose: () => void
@@ -61,7 +64,7 @@
 
   $effect(() => {
     if (!open) return
-    const layer = pushLayer({ kind: 'drawer', key, label: () => crumb, el: () => el, close: () => onclose(), pinned: () => (pin ? isPinned(pin) : false), escape })
+    const layer = pushLayer({ kind: 'drawer', key, label: () => crumb, el: () => el, close: () => onclose(), pinned: () => (pin ? isPinned(pin) : false), escape, outside })
     id = layer.id
     return () => {
       layer.remove()
@@ -142,5 +145,7 @@
   }
   .crumbs + .dh { box-shadow: none; }
   .drawer:has(.crumbs) { box-shadow: var(--shadow-drawer), inset 0 2px var(--src); }
+  /* On the phone, full screen: below the notch. */
+  :global(html.remote) .drawer.full > :first-child { padding-top: calc(var(--sp-3) + env(safe-area-inset-top)); }
   .end { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: auto; flex-shrink: 0; }
 </style>

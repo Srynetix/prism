@@ -4,6 +4,9 @@
   import Icon from '../components/Icon.svelte'
   import PipelineBar from '../components/PipelineBar.svelte'
   import { armer } from '../armed.svelte'
+  import ArmedLabel from '../components/ArmedLabel.svelte'
+  import State from '../components/ui/State.svelte'
+  import { toastError } from '../toast.svelte'
   import { changesRequested, mrNeedsMe, nextStep, openMrs } from '../rules'
   import { meOn } from '../forge'
   import { mrTickets } from '../conventions'
@@ -87,6 +90,8 @@
     busy = mrKey(m)
     try {
       await p.run()
+    } catch (err) {
+      toastError(String(err))
     } finally {
       busy = null
     }
@@ -121,7 +126,7 @@
       </div>
     </div>
     {#if p && (tab === 'queue' || me)}
-      <button class="act" class:armed={armed.is(k)} disabled={busy === k} onclick={(e) => act(e, m)} title={p.title}>{busy === k ? '…' : armed.is(k) ? (p.confirm ?? p.label) : p.label}</button>
+      <button class="btn sm act" class:armed={armed.is(k)} class:busy={busy === k} disabled={busy === k} onclick={(e) => act(e, m)} title={p.title}>{#if busy === k}<span class="spinner"></span>{/if}<ArmedLabel label={p.label} armedLabel={t('Tap again to confirm')} armed={armed.is(k)} /></button>
     {/if}
   </div>
 {/snippet}
@@ -129,7 +134,7 @@
 {#snippet sections(b: MergeQueue)}
   {#if b.hasQueue}
     <div class="grp"><Icon name="queue" /> {t('In the queue')} · {b.queued.length}<span class="hint">{prefix ? t('by priority, then oldest first') : t('oldest first')}</span></div>
-    {#each b.queued as m, i (mrKey(m))}{@render row(m, i + 1)}{:else}<p class="empty">{t('No MR with the “{label}” label.', { label: queueLabel ?? '' })}</p>{/each}
+    {#each b.queued as m, i (mrKey(m))}{@render row(m, i + 1)}{:else}<State kind="empty" title={t('No MR with the “{label}” label.', { label: queueLabel ?? '' })} />{/each}
   {/if}
   {#if b.auto.length}
     <div class="grp"><Icon name="automerge" /> {b.hasQueue ? t('Auto-merge, out of the queue') : t('Auto-merge')} · {b.auto.length}</div>
@@ -143,14 +148,14 @@
 
 <div class="mrs">
   <div class="seg" role="group" aria-label={t('Merge requests shown')}>
-    <button class:on={tab === 'team'} onclick={() => setTab('team')}>{t('Team')} · {all.length}</button>
-    <button class:on={tab === 'mine'} onclick={() => setTab('mine')}>{tc('infra', 'Mine')} · {mine.length}</button>
-    {#if qRepos.length}<button class:on={tab === 'queue'} onclick={() => setTab('queue')}>{t('Queue')} · {qTotal}</button>{/if}
+    <button aria-pressed={tab === 'team'} onclick={() => setTab('team')}>{t('Team')} · {all.length}</button>
+    <button aria-pressed={tab === 'mine'} onclick={() => setTab('mine')}>{tc('infra', 'Mine')} · {mine.length}</button>
+    {#if qRepos.length}<button aria-pressed={tab === 'queue'} onclick={() => setTab('queue')}>{t('Queue')} · {qTotal}</button>{/if}
   </div>
   {#if tab === 'queue'}
     {#if qRepos.length > 1}
       <div class="filters">
-        {#each qRepos as r (r)}<button class:on={qRepo === r} onclick={() => setQRepo(r)}>{r} {queueCount(queues.get(r)!)}</button>{/each}
+        {#each qRepos as r (r)}<button class="btn sm" aria-pressed={qRepo === r} onclick={() => setQRepo(r)}>{r} {queueCount(queues.get(r)!)}</button>{/each}
       </div>
     {/if}
     {#if qBranches.length > 1}
@@ -161,17 +166,17 @@
     {:else}
       {@render sections(q)}
     {/if}
-    {#if !queueCount(q) && !q.hasQueue}<p class="empty">{t('Nothing waiting to merge in {repo}.', { repo: qRepo ?? '' })}</p>{/if}
+    {#if !queueCount(q) && !q.hasQueue}<State kind="empty" title={t('Nothing waiting to merge in {repo}.', { repo: qRepo ?? '' })} />{/if}
   {:else}
   {#if repos.length > 1 || (tab === 'team' && authors.length > 1)}
     <div class="filters">
       {#if repos.length > 1}
-        <button class:on={repo === null} onclick={() => (repo = null)}>{t('All repos')}</button>
-        {#each repos as r (r)}<button class:on={repo === r} onclick={() => (repo = repo === r ? null : r)}>{r || mainName} {all.filter((m) => (m.repo ?? '') === r).length}</button>{/each}
+        <button class="btn sm" aria-pressed={repo === null} onclick={() => (repo = null)}>{t('All repos')}</button>
+        {#each repos as r (r)}<button class="btn sm" aria-pressed={repo === r} onclick={() => (repo = repo === r ? null : r)}>{r || mainName} {all.filter((m) => (m.repo ?? '') === r).length}</button>{/each}
       {/if}
       {#if tab === 'team' && authors.length > 1}
         {#if repos.length > 1}<span class="sep"></span>{/if}
-        {#each authors as a (a.username)}<button class:on={author === a.username} onclick={() => (author = author === a.username ? null : a.username)}>{a.name} {a.count}</button>{/each}
+        {#each authors as a (a.username)}<button class="btn sm" aria-pressed={author === a.username} onclick={() => (author = author === a.username ? null : a.username)}>{a.name} {a.count}</button>{/each}
       {/if}
     </div>
   {/if}
@@ -190,18 +195,18 @@
     </label>
   {/if}
   {#each listed as m (mrKey(m))}{@render row(m)}{/each}
-  {#if !shown.length}<p class="empty">{tab === 'mine' ? t('No open MR of yours.') : t('No open MR.')}</p>{/if}
+  {#if !shown.length}<State kind="empty" title={tab === 'mine' ? t('No open MR of yours.') : t('No open MR.')} />{/if}
   {/if}
 </div>
 
 <style>
   .mrs { padding-bottom: 12px; }
-  .seg { display: flex; margin: 10px 14px 6px; padding: 2px; border-radius: var(--r10); background: var(--surface-muted); }
-  .seg button { flex: 1; padding: 7px; border: 0; border-radius: var(--r8); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); }
-  .seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); }
+  .mrs > .seg { display: flex; margin: 10px 14px 6px; }
+  .mrs > .seg > button { flex: 1; justify-content: center; height: var(--h-md); font-size: var(--fs-body); }
   .filters { display: flex; gap: 6px; padding: 4px 14px 8px; overflow-x: auto; scrollbar-width: none; }
-  .filters button { flex: none; padding: 5px 11px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); white-space: nowrap; }
-  .filters button.on { border-color: var(--accent); color: var(--accent); }
+  /* Filters: round, the one picked in the accent. */
+  .filters .btn { border-radius: 999px; background: none; color: var(--text-muted); font-weight: 400; }
+  .filters .btn[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
   .filters .sep { flex: none; width: 1px; margin: 4px 2px; background: var(--border); }
   .strip { display: flex; gap: 8px; margin: 0 14px 4px; overflow-x: auto; scrollbar-width: none; }
   .br { flex: none; display: flex; align-items: center; gap: 8px; min-width: 200px; padding: 6px 10px; border-radius: var(--r8); background: var(--surface); font-size: var(--fs-tag); }
@@ -218,7 +223,7 @@
   .item { position: relative; display: flex; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); --c: var(--text-muted); }
   .item:active { background: var(--surface); }
   .item.me::before { position: absolute; top: 8px; bottom: 8px; left: 0; width: 3px; border-radius: 0 var(--r3) var(--r3) 0; background: var(--tone, var(--accent)); content: ''; }
-  .item.me .act { background: color-mix(in srgb, var(--tone, var(--accent)) 22%, transparent); }
+  .item.me .act:not(.armed) { background: color-mix(in srgb, var(--tone, var(--accent)) 22%, transparent); }
   .item.blocked { --tone: var(--ko); } .item.todo { --tone: var(--warn); } .item.wait { --tone: var(--info); } .item.ready { --tone: var(--ok); } .item.auto { --tone: var(--accent); }
   .av { display: grid; flex: none; place-items: center; width: 28px; height: 28px; border-radius: var(--r-avatar); background: var(--c); color: #fff; font-size: var(--fs-micro); font-weight: 700; }
   .av.pic { overflow: hidden; }
@@ -237,8 +242,6 @@
   .meta .pipe { flex: 0 1 140px; min-width: 70px; }
   .meta .tk { color: var(--info); font-family: var(--mono); }
   .meta .ok { color: var(--ok); }
-  .act { flex: none; align-self: center; padding: 7px 13px; border: 1px solid color-mix(in srgb, var(--tone, var(--accent)) 70%, var(--border)); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); white-space: nowrap; }
-  .act.armed { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
-  .act:disabled { opacity: 0.6; }
-  .empty { padding: 24px 14px; color: var(--text-muted); text-align: center; }
+  .act { align-self: center; height: var(--h-md); border-radius: 999px; }
+  .act:not(.armed) { border-color: color-mix(in srgb, var(--tone, var(--accent)) 70%, var(--border)); background: none; }
 </style>

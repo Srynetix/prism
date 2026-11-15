@@ -61,7 +61,6 @@ export default {
   '{used} / {size} tokens': '{used} / {size} tokens',
   '{n} tokens': '{n} tokens',
   'Shells of {name}': 'Shells de {name}',
-  'Close (the shells keep running)': 'Fermer (les shells continuent de tourner)',
   'Close': 'Fermer',
   'New agent': 'Nouvel agent',
   'Back to {origin} (Esc)': 'Retour à {origin} (Échap)',

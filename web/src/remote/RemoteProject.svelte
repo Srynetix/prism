@@ -7,6 +7,8 @@
   import { forgeLabel, profileForge } from '../forge'
   import type { ForgeProvider } from '../bindings/ForgeProvider'
   import Icon from '../components/Icon.svelte'
+  import State from '../components/ui/State.svelte'
+  import { toastError } from '../toast.svelte'
 
   /**
    * More › New project on a phone (`[remote] projects`): a folder with a git repository, a README
@@ -49,7 +51,6 @@
   let namespace = $state('')
   let visibility = $state('private')
   let busy = $state(false)
-  let error = $state<string | null>(null)
   let made = $state<Created | null>(null)
   /** The project just created here, kept local: in Kept local before Prism restarts. */
   let createdLocal = $state<{ name: string; path: string } | null>(null)
@@ -64,12 +65,10 @@
   /** The repository whose publish form is open. */
   let publishing = $state('')
   let publishBusy = $state(false)
-  let publishError = $state<string | null>(null)
   let published = $state<Created | null>(null)
   let publishedForge = $state<ForgeProvider>('gitlab')
   async function publish(name: string) {
     publishBusy = true
-    publishError = null
     published = null
     try {
       if (preview) throw new Error(t('Preview: nothing is published.'))
@@ -79,7 +78,7 @@
       if (name === createdLocal?.name) createdLocal = null
       publishing = ''
     } catch (e) {
-      publishError = e instanceof Error ? e.message : String(e)
+      toastError(e instanceof Error ? e.message : String(e), () => publish(name))
     } finally {
       publishBusy = false
     }
@@ -111,7 +110,6 @@
   let searching = $state(false)
   let searchError = $state<string | null>(null)
   let cloning = $state('')
-  let cloneError = $state<string | null>(null)
   let cloned = $state<Created | null>(null)
   /** Asked again a moment after typing, and for another working folder. */
   $effect(() => {
@@ -138,13 +136,12 @@
   })
   async function clone(project: string) {
     cloning = project
-    cloneError = null
     cloned = null
     try {
       cloned = await invoke<Created>('remote_project_clone', { workspace: picked, project })
       found = found?.map((p) => (p.path === project ? { ...p, added: true } : p)) ?? null
     } catch (e) {
-      cloneError = e instanceof Error ? e.message : String(e)
+      toastError(e instanceof Error ? e.message : String(e), () => clone(project))
     } finally {
       cloning = ''
     }
@@ -152,7 +149,6 @@
 
   async function create() {
     busy = true
-    error = null
     made = null
     try {
       if (preview) throw new Error(t('Preview: nothing is created.'))
@@ -160,7 +156,7 @@
       if (!made.project) createdLocal = { name: name.trim(), path: made.path }
       name = ''
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e)
+      toastError(e instanceof Error ? e.message : String(e), create)
     } finally {
       busy = false
     }
@@ -169,9 +165,9 @@
 
 <div class="project">
   {#if loadError}
-    <p class="note ko">{loadError}</p>
+    <State kind="error" title={loadError} />
   {:else if workspaces === undefined}
-    <p class="note">{t('Asking the computer…')}</p>
+    <State kind="loading" title={t('Asking the computer…')} />
   {:else if !workspaces.length}
     <p class="banner">{t('No working folder on the computer: add one in Settings › Code › Repositories › Working folders there, then come back.')}</p>
   {:else}
@@ -179,7 +175,7 @@
     <div class="box">
       {#if workspaces.length > 1}
         <div class="field"><b>{t('Working folder')}</b>
-          <div class="seg">{#each workspaces as w (w.name)}<button class:on={picked === w.name} onclick={() => pick(w)}>{w.name}</button>{/each}</div>
+          <div class="seg">{#each workspaces as w (w.name)}<button aria-pressed={picked === w.name} onclick={() => pick(w)}>{w.name}</button>{/each}</div>
         </div>
       {/if}
       <label class="field"><b>{t('Name')}</b>
@@ -202,8 +198,7 @@
         </label>
       {/if}
     </div>
-    <button class="pri" onclick={create} disabled={busy || !name.trim() || !!why}>{busy ? (onForge ? t('Creating on {forge}…', { forge: forgeLabel(ws?.forge) }) : t('Creating…')) : onForge ? t('Create here and on {forge}', { forge: forgeLabel(ws?.forge) }) : t('Create')}</button>
-    {#if error}<p class="note ko">{error}</p>{/if}
+    <button class="btn primary go" class:busy onclick={create} disabled={busy || !name.trim() || !!why}>{busy ? (onForge ? t('Creating on {forge}…', { forge: forgeLabel(ws?.forge) }) : t('Creating…')) : onForge ? t('Create here and on {forge}', { forge: forgeLabel(ws?.forge) }) : t('Create')}</button>
     {#if made}
       <p class="banner ok"><Icon name="check" />{made.project ? t('{path} created, {project} on {forge}.', { path: made.path, project: made.project, forge: forgeLabel(ws?.forge) }) : t('{path} created.', { path: made.path })} {t('In the repositories once Prism restarts (More › Restart Prism).')}</p>
       {#if made.warning}<p class="note ko">{made.warning}</p>{/if}
@@ -218,7 +213,7 @@
       {#each found ?? [] as p (p.path)}
         <div class="field">
           <div class="l"><b class="mono">{p.path}</b>
-            {#if p.added}<span class="h plain">{t('added')}</span>{:else}<button class="sm" onclick={() => clone(p.path)} disabled={!!cloning}>{cloning === p.path ? t('Cloning…') : t('Clone')}</button>{/if}
+            {#if p.added}<span class="h plain">{t('added')}</span>{:else}<button class="btn sm" onclick={() => clone(p.path)} disabled={!!cloning}>{cloning === p.path ? t('Cloning…') : t('Clone')}</button>{/if}
           </div>
           {#if p.description}<span class="h plain">{p.description}</span>{/if}
         </div>
@@ -226,7 +221,6 @@
         {#if found && !searching}<div class="field"><span class="h plain">{query.trim() ? t('No project matches.') : t('No project.')}</span></div>{:else if searching}<div class="field"><span class="h plain">{t('Searching…')}</span></div>{/if}
       {/each}
     </div>
-    {#if cloneError}<p class="note ko">{cloneError}</p>{/if}
     {#if cloned}
       <p class="banner ok"><Icon name="check" />{cloned.project} cloned into {cloned.path}. In the repositories once Prism restarts (More › Restart Prism).</p>
       {#if cloned.warning}<p class="note ko">{cloned.warning}</p>{/if}
@@ -237,7 +231,7 @@
         {#each local as r (r.name)}
           <div class="field">
             <div class="l"><b>{r.name}</b>
-              <button class="sm" onclick={() => { publishing = publishing === r.name ? '' : r.name; publishError = null; namespace = workspaceOf(r.path)?.namespace ?? '' }} disabled={publishBusy}>{publishing === r.name ? t('Cancel') : t('Publish on {forge}', { forge: forgeLabel(forgeOf(r.path)) })}</button>
+              <button class="btn sm" onclick={() => { publishing = publishing === r.name ? '' : r.name; namespace = workspaceOf(r.path)?.namespace ?? '' }} disabled={publishBusy}>{publishing === r.name ? t('Cancel') : t('Publish on {forge}', { forge: forgeLabel(forgeOf(r.path)) })}</button>
             </div>
             <span class="h">{r.path}</span>
             {#if publishing === r.name}
@@ -251,12 +245,11 @@
                       </select>
               </label>
               <span class="h plain">{t('Named after its folder, set as origin, its current branch pushed. Confirmed by your passkey.')}</span>
-              <button class="pri" onclick={() => publish(r.name)} disabled={publishBusy}>{publishBusy ? t('Publishing on {forge}…', { forge: forgeLabel(forgeOf(r.path)) }) : t('Publish')}</button>
+              <button class="btn primary go" class:busy={publishBusy} onclick={() => publish(r.name)} disabled={publishBusy}>{publishBusy ? t('Publishing on {forge}…', { forge: forgeLabel(forgeOf(r.path)) }) : t('Publish')}</button>
             {/if}
           </div>
         {/each}
       </div>
-      {#if publishError}<p class="note ko">{publishError}</p>{/if}
     {/if}
     {#if published}
       <p class="banner ok"><Icon name="check" />{t('{path} is {project} on {forge}.', { path: published.path, project: published.project ?? '', forge: forgeLabel(publishedForge) })} {publishedForge === profileForge() ? t('Its MRs once Prism restarts (More › Restart Prism).') : t('Its link once Prism restarts (More › Restart Prism).')}</p>
@@ -276,10 +269,8 @@
   .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
   .sub { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; color: var(--text-muted); font-size: var(--fs-tag); }
   .h.plain { font-family: inherit; }
-  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-  .seg button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); }
-  .seg button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  button.sm { padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
+  .field .seg { align-self: flex-start; flex-wrap: wrap; }
+  .field .seg > button { height: var(--h-md); font-size: var(--fs-body); }
   .box { border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); overflow: hidden; }
   .field { display: flex; flex-direction: column; gap: 5px; padding: 11px 14px; }
   .field + .field { border-top: 1px solid var(--border); }
@@ -295,6 +286,5 @@
   .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-muted); transition: left 0.12s; }
   .sw.on { background: var(--ok); border-color: var(--ok); }
   .sw.on::after { left: 20px; background: var(--surface); }
-  button.pri { align-self: flex-end; padding: 8px 16px; border: 1px solid var(--accent); border-radius: 999px; background: var(--accent); color: #fff; font: inherit; font-size: var(--fs-body); }
-  button.pri:disabled { opacity: 0.5; }
+  .go { align-self: flex-end; font-size: var(--fs-body); }
 </style>

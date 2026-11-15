@@ -9,9 +9,10 @@
   import EstimateInput from './EstimateInput.svelte'
   import TicketActual from './TicketActual.svelte'
   import { estimateOf } from '../actuals'
-  import { clickedOutside } from '../drawers'
-  import { isPinned } from '../drawer-pins'
-  import PinButton from './PinButton.svelte'
+  import Drawer from './ui/Drawer.svelte'
+  import State from './ui/State.svelte'
+  import ArmedLabel from './ArmedLabel.svelte'
+  import { pushLayer } from '../layers.svelte'
   import { addComment, addToSprint, backTicket, closeTicket, editComment, openTicket, refreshTicket, setStatus, ticketView } from '../ticket-view.svelte'
   import { live } from '../live.svelte'
   import { hasCore, invoke } from '../bridge'
@@ -52,7 +53,8 @@
   /**
    * Preview of a ClickUp ticket in a side drawer, without leaving the dashboard: description,
    * checklists, subtasks and comments. It hides nothing else: a click on another
-   * identifier replaces its content, ← goes back to the previous one, Escape closes it.
+   * identifier replaces its content, ← goes back to the previous one; its shell is Drawer's
+   * (Escape, a click outside, the pin, the crumbs of the drawers under it).
    * `phone` (the remote): the whole screen, Back to the list (or the ticket before), larger type
    * and targets; at the bottom its first agent action and the sheet of all its actions.
    */
@@ -117,7 +119,7 @@
    * in it. The button goes when the snapshot that follows reads it in the sprint.
    */
   const sprintName = $derived(t ? sprintToAdd(t.task_id) : null)
-  const sprintArm = armer(4000)
+  const sprintArm = armer()
   let sprintBusy = $state(false)
   async function toSprint() {
     if (!t || sprintBusy || !sprintArm.confirm()) return
@@ -152,6 +154,13 @@
     void ticketView.id
     zoomed = null
   })
+  // The enlarged image is a layer of its own: Escape closes it before the drawer.
+  let zoomEl: HTMLElement | undefined = $state()
+  $effect(() => {
+    if (!zoomed) return
+    const layer = pushLayer({ kind: 'modal', key: 'zoom', el: () => zoomEl, close: () => (zoomed = null), outside: false })
+    return layer.remove
+  })
 
   /**
    * Its commits in the local clones (ticket_commits.rs): named in their message, or on its
@@ -180,15 +189,11 @@
 
   /**
    * Its MRs in the snapshot (open first, then merged), each with its next step. A click opens it
-   * in the MR panel, which lies under this one: the ticket closes (⌘⇧T, or the MR's ticket, brings
-   * it back).
+   * in the MR drawer, stacked over this one (its crumb leads back to the ticket).
    */
   const mrs = $derived(t ? mrsOf(t.id, row?.repo).map((m) => ({ m, step: nextStep(m, meOn(live.snapshot, m), live.snapshot?.merge_queue_label) })) : [])
   const mrRepos = $derived(new Set(mrs.map(({ m }) => m.repo)).size)
-  function showMr(m: MrRef) {
-    closeTicket()
-    openMr(m)
-  }
+  const showMr = (m: MrRef) => openMr(m)
 
   /** Comment being edited (mine). */
   let editing = $state<string | null>(null)
@@ -203,34 +208,14 @@
   /** A comment's mentions as chips, mine lit. */
   const marksOf = (c: { mentions: { id: number; text: string }[] }) => ({ known: c.mentions.map((m) => ({ text: m.text, mine: m.id === live.snapshot?.tracker_me?.id })) })
 
-  function onKey(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || !ticketView.id) return
-    // Escape in a comment in progress cancels it (CommentBox) without closing the drawer.
-    if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) return
-    // Before the window shortcuts (clear the filter, exit zoom).
-    e.stopImmediatePropagation()
-    if (zoomed) zoomed = null
-    else closeTicket()
-  }
-
-  let drawerEl: HTMLElement | undefined = $state()
-  /** A click outside the drawer closes it (see drawers.ts). */
-  function onOutside(e: PointerEvent) {
-    if (ticketView.id && !phone && clickedOutside(e, drawerEl)) {
-      closeTicket()
-    }
-  }
   /** The Journey section, folded until you open it (kept for every ticket). */
   let journeyOpen = $state(false)
 </script>
 
-<svelte:window onkeydowncapture={onKey} onpointerdowncapture={onOutside} />
-
-{#if ticketView.id}
-  <aside class="drawer" class:phone bind:this={drawerEl} data-drawer="50" data-pinned={isPinned('ticket')} aria-label={tr('Ticket {id}', { id: ticketView.id ?? '' })}>
-    <header>
+<Drawer open={!!ticketView.id} key="ticket" identity={ticketView.id ?? ''} crumb={t?.id ?? ticketView.id ?? ''} label={tr('Ticket {id}', { id: ticketView.id ?? '' })} size={phone ? 'full' : 's'} source="var(--src-clickup)" pin={phone ? undefined : 'ticket'} outside={!phone} class={phone ? 'tk phone' : 'tk'} onclose={closeTicket}>
+  {#snippet head()}
       {#if phone}<button class="back" onclick={ticketView.trail.length ? backTicket : closeTicket}><Icon name="chevronLeft" />{ticketView.trail.at(-1) ?? tr('Back')}</button>
-      {:else if ticketView.trail.length}<button class="icon" onclick={backTicket} title={tr('Back to {name}', { name: ticketView.trail.at(-1) ?? '' })} aria-label={tr('Back')}><Icon name="back" /></button>{/if}
+      {:else if ticketView.trail.length}<button class="btn sm icon ghost" onclick={backTicket} title={tr('Back to {name}', { name: ticketView.trail.at(-1) ?? '' })} aria-label={tr('Back')}><Icon name="back" /></button>{/if}
       {#if phone}<span class="id mono">{t?.id ?? ticketView.id}</span>
       {:else}<button class="id mono" onclick={() => setQuery(t?.id ?? ticketView.id!)} title={tr('Filter the dashboard on {id}', { id: t?.id ?? ticketView.id ?? '' })}>{t?.id ?? ticketView.id}</button>{/if}
       {#if t}
@@ -249,20 +234,18 @@
       {/if}
       <span class="grow"></span>
       <!-- The Time form, its ticket filled in: on the computer, where it lives. -->
-      {#if t && !phone && sprintName}<button class="log" class:armed={sprintArm.is()} onclick={toSprint} disabled={sprintBusy} title={sprintArm.is() ? tr('Click again: {id} is added to {sprint} and stays in its list', { id: t.id, sprint: sprintName }) : tr('Add {id} to {sprint} (it keeps its list)', { id: t.id, sprint: sprintName })}><Icon name="add" />{sprintArm.is() ? tr('Confirm: add to {sprint}', { sprint: sprintName }) : tr('Add to {sprint}', { sprint: sprintName })}</button>{/if}
-      {#if t && !phone && offers('time')}<button class="log" onclick={() => openTimeDraft(t.id, '')} title={tr('Log time on {id} (T in its menu)', { id: t.id })}><Icon name="timer" />{tr('Log time')}</button>{/if}
-      <button class="icon" onclick={refreshTicket} disabled={ticketView.loading} title={tr('Reload from {tracker}', { tracker: trackerName() })} aria-label={tr('Reload')}><Icon name="refresh" /></button>
-      {#if t && !phone}<button class="icon" onclick={() => copy(t.url, tr('Link to {name} copied', { name: t.id }))} title={tr('Copy link')} aria-label={tr('Copy link')}><Icon name="copy" /></button>{/if}
-      {#if t && !phone}<a class="icon" href={t.url} target="_blank" rel="noreferrer" title={tr('Open in {app}', { app: trackerName() })} aria-label={tr('Open in {app}', { app: trackerName() })}><Icon name="external" /></a>{/if}
-      {#if !phone}<PinButton kind="ticket" />{/if}
-      {#if !phone}<button class="icon" onclick={closeTicket} title={tr('Close (Esc)')} aria-label={tr('Close')}><Icon name="close" /></button>{/if}
-    </header>
+      {#if t && !phone && sprintName}<button class="btn sm" class:armed={sprintArm.is()} class:busy={sprintBusy} onclick={toSprint} disabled={sprintBusy} title={sprintArm.is() ? tr('Click again: {id} is added to {sprint} and stays in its list', { id: t.id, sprint: sprintName }) : tr('Add {id} to {sprint} (it keeps its list)', { id: t.id, sprint: sprintName })}><Icon name="add" /><ArmedLabel label={tr('Add to {sprint}', { sprint: sprintName })} armedLabel={tr('Click again to confirm')} armed={sprintArm.is()} /></button>{/if}
+      {#if t && !phone && offers('time')}<button class="btn sm" onclick={() => openTimeDraft(t.id, '')} title={tr('Log time on {id} (T in its menu)', { id: t.id })}><Icon name="timer" />{tr('Log time')}</button>{/if}
+      <button class="btn sm icon ghost" onclick={refreshTicket} disabled={ticketView.loading} title={tr('Reload from {tracker}', { tracker: trackerName() })} aria-label={tr('Reload')}><Icon name="refresh" /></button>
+      {#if t && !phone}<button class="btn sm icon ghost" onclick={() => copy(t.url, tr('Link to {name} copied', { name: t.id }))} title={tr('Copy link')} aria-label={tr('Copy link')}><Icon name="copy" /></button>{/if}
+      {#if t && !phone}<a class="btn sm icon ghost" href={t.url} target="_blank" rel="noreferrer" title={tr('Open in {app}', { app: trackerName() })} aria-label={tr('Open in {app}', { app: trackerName() })}><Icon name="external" /></a>{/if}
+  {/snippet}
 
     <div class="body" bind:this={body}>
       {#if ticketView.error}
-        <p class="error">{ticketView.error}</p>
+        <State kind="error" title={tr('Could not read {id}', { id: ticketView.id ?? '' })} detail={ticketView.error} retry={refreshTicket} />
       {:else if !t}
-        <p class="muted">{tr('Loading {id}…', { id: ticketView.id ?? '' })}</p>
+        <State kind="loading" lines={6} />
       {:else}
         <h2><TaskType type={t.task_type} glyph={t.task_type_icon} />{t.name}</h2>
         {#if journey && journey.step !== 'done' && journey.why}
@@ -303,7 +286,7 @@
             <h3>{actorName()}</h3>
             <div class="acts">
               {#each actions as a (a.id)}
-                {#if a.href}<a class="btn claude" href={a.href} onclick={claudeClick(a)} title={`${a.prompt || a.note || a.label}\n${keys('⇧-click')}: ${tr('launch at once')}`}>{a.label}</a>{:else}<span class="btn off" title={a.why}>{a.label}</span>{/if}
+                {#if a.href}<a class="btn claude" href={a.href} onclick={claudeClick(a)} title={`${a.prompt || a.note || a.label}\n${keys('⇧-click')}: ${tr('launch at once')}`}>{a.label}</a>{:else}<span class="btn" aria-disabled="true" title={a.why}>{a.label}</span>{/if}
               {/each}
             </div>
           </section>
@@ -468,34 +451,17 @@
     {#if phone && sheet && t}<ActionSheet title="{t.id} {t.name}" actions={sheetActions} onclose={() => (sheet = false)} />{/if}
     {#if zoomed}
       <!-- Enlarged image: click anywhere or Escape to close. -->
-      <div class="lightbox" role="dialog" aria-label={zoomed.title} tabindex="-1" onclick={() => (zoomed = null)} onkeydown={() => {}}>
+      <div class="lightbox" bind:this={zoomEl} role="dialog" aria-label={zoomed.title} tabindex="-1" onclick={() => (zoomed = null)} onkeydown={() => {}}>
         <RemoteImage url={zoomed.url} alt={zoomed.title} />
         <p class="caption">{zoomed.title}{#if zoomed.open}{' '}· <a href={zoomed.open} target="_blank" rel="noreferrer" onclick={linkOnly}>{tc('tickets', 'open')} <Icon name="external" /></a>{/if}</p>
       </div>
     {/if}
-  </aside>
-{/if}
+</Drawer>
 
 <style>
-  .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-drawer); width: min(560px, 92vw);
-    display: flex; flex-direction: column; background: var(--surface);
-    border-left: 1px solid color-mix(in srgb, var(--src-clickup) 45%, var(--border));
-    box-shadow: var(--shadow-drawer);
-  }
-  header {
-    display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface); box-shadow: inset 0 2px var(--src-clickup);
-  }
   .grow { flex: 1; }
-  .log { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
-  .log:hover { border-color: var(--accent); color: var(--accent); }
-  .log.armed { border-color: var(--warn); color: var(--warn); }
-  .log:disabled { opacity: 0.6; cursor: default; }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-head); line-height: 1; cursor: pointer; }
-  .icon:hover { background: var(--surface-muted); color: var(--text); }
-  .icon:disabled { opacity: 0.4; cursor: progress; }
+  :global(.tk.phone) { font-size: var(--fs-body); }
+  :global(.tk.phone .dh) { flex-wrap: wrap; row-gap: 6px; }
   .id { border: none; background: none; padding: 0; color: var(--info); font-size: var(--fs-mono); font-weight: 600; cursor: pointer; }
   .mono { font-family: var(--mono); }
   .status { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-muted); white-space: nowrap; }
@@ -520,10 +486,6 @@
   section { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border); }
   /* The agent actions, as in the MR panel. */
   .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .btn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r5); background: none; font: inherit; font-size: var(--fs-meta); white-space: nowrap; text-decoration: none; }
-  .btn.claude { color: var(--src-claude); border-color: color-mix(in srgb, var(--src-claude) 40%, var(--border)); cursor: pointer; }
-  .btn.claude:hover { border-color: var(--src-claude); text-decoration: none; }
-  .btn.off { color: var(--text-muted); cursor: not-allowed; }
   .sub { margin: 6px 0 4px; font-size: var(--fs-meta); font-weight: 500; }
   ul { list-style: none; margin: 0; padding: 0; font-size: var(--fs-body); }
   .check li { display: flex; gap: 6px; padding: 1px 0; }
@@ -558,7 +520,6 @@
   .comment { padding: 8px 10px; margin-bottom: 8px; border-radius: var(--r7); background: color-mix(in srgb, var(--surface-muted) 60%, transparent); }
   .who { display: flex; gap: 6px; margin: 0 0 4px; font-size: var(--fs-meta); color: var(--text-muted); }
   .who b { color: var(--text); font-weight: 500; }
-  .error { color: var(--ko); font-size: var(--fs-body); white-space: pre-wrap; }
   .muted { color: var(--text-muted); font-size: var(--fs-body); }
   .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 8px; }
   figure { margin: 0; min-width: 0; }
@@ -570,19 +531,17 @@
   .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fsize { flex-shrink: 0; font-size: var(--fs-tag); color: var(--text-muted); }
   /* The phone (the remote): the whole screen, larger type and targets, as the MR panel. */
-  .drawer.phone { left: 0; width: auto; border-left: none; box-shadow: none; font-size: var(--fs-body); }
-  .phone header { flex-wrap: wrap; row-gap: 6px; padding: calc(8px + env(safe-area-inset-top)) 8px 8px 4px; }
-  .phone .icon { width: 36px; height: 36px; font-size: var(--fs-head); }
-  .phone .id { font-size: var(--fs-body); }
-  .phone .picker { padding: 4px 6px 4px 8px; }
-  .phone .body { padding: 14px 14px calc(96px + env(safe-area-inset-bottom)); }
-  .phone h2 { font-size: var(--fs-big); }
-  .phone dl { font-size: var(--fs-body); gap: 6px 14px; }
-  .phone section { margin-top: 16px; }
-  .phone .acts { gap: 10px; }
-  .phone .btn { padding: 6px 12px; font-size: var(--fs-body); }
-  .phone .subtasks li, .phone .commits li, .phone .mrs li { padding: 6px 0; }
-  .phone .subject { white-space: normal; }
+  :global(.tk.phone) .btn.icon { width: 36px; height: 36px; font-size: var(--fs-head); }
+  :global(.tk.phone) .id { font-size: var(--fs-body); }
+  :global(.tk.phone) .picker { padding: 4px 6px 4px 8px; }
+  :global(.tk.phone) .body { padding: 14px 14px calc(96px + env(safe-area-inset-bottom)); }
+  :global(.tk.phone) h2 { font-size: var(--fs-big); }
+  :global(.tk.phone) dl { font-size: var(--fs-body); gap: 6px 14px; }
+  :global(.tk.phone) section { margin-top: 16px; }
+  :global(.tk.phone) .acts { gap: 10px; }
+  :global(.tk.phone) .btn:not(.icon) { height: auto; padding: 6px 12px; font-size: var(--fs-body); }
+  :global(.tk.phone) :is(.subtasks, .commits, .mrs) li { padding: 6px 0; }
+  :global(.tk.phone) .subject { white-space: normal; }
   .back { display: inline-flex; align-items: center; gap: 2px; max-width: 40%; padding: 4px 6px; overflow: hidden; border: 0; background: none; color: var(--accent); font: inherit; font-size: var(--fs-head); white-space: nowrap; text-overflow: ellipsis; }
   .mainbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); }
   .mainbar > * { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-head); text-decoration: none; }

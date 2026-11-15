@@ -81,6 +81,9 @@
   import { pushSupported, setNotifications, subscribed } from './notify'
   import { hasCore, invoke } from '../bridge'
   import { armer } from '../armed.svelte'
+  import { toastError } from '../toast.svelte'
+  import { layers } from '../layers.svelte'
+  import State from '../components/ui/State.svelte'
   import { closeMr, mrView } from '../mr-view.svelte'
   import { backTicket, closeTicket, ticketView } from '../ticket-view.svelte'
   import { closeLogs, logs } from '../logs.svelte'
@@ -190,46 +193,42 @@
   $effect(watchLanguage)
   /** This phone's notifications, shown in More when the computer pushes (`[remote] push`). */
   let notifying = $state(false)
-  let notifyError = $state<string | null>(null)
   $effect(() => {
     if (hello?.push) subscribed().then((on) => (notifying = on)).catch(() => {})
   })
   async function toggleNotifications() {
-    notifyError = null
     try {
       await setNotifications(!notifying, hello!.push!)
       notifying = !notifying
     } catch (e) {
-      notifyError = e instanceof Error ? e.message : String(e)
+      toastError(e instanceof Error ? e.message : String(e), toggleNotifications)
     }
   }
   /**
    * Prism relaunched on the computer, from the phone (`[remote] actions`): two taps. Its agents and
    * notes outlive it; the socket comes back by itself once the new Prism is up.
    */
-  const armed = armer(4000)
+  const armed = armer()
   let restarting = $state(false)
-  let restartError = $state<string | null>(null)
   /** The old Prism has gone: the next connection is the new one's. */
   let wentDown = false
   let restartTimer: ReturnType<typeof setTimeout> | undefined
   async function restartMac() {
-    if (!armed.confirm('restart')) return
-    restartError = null
+    if (!armed.confirm('prism')) return
     restarting = true
     wentDown = false
     clearTimeout(restartTimer)
     restartTimer = setTimeout(() => {
       if (!restarting) return
       restarting = false
-      restartError = t('Prism has not come back within two minutes: check the computer.')
+      toastError(t('Prism has not come back within two minutes: check the computer.'))
     }, 120_000)
     try {
       await invoke('restart_app')
     } catch (e) {
       restarting = false
       clearTimeout(restartTimer)
-      restartError = e instanceof Error ? e.message : String(e)
+      toastError(e instanceof Error ? e.message : String(e))
     }
   }
   /**
@@ -238,25 +237,23 @@
    */
   let powering = $state<'restart' | 'shutdown' | null>(null)
   let powerDone = $state<string | null>(null)
-  let powerError = $state<string | null>(null)
   /** FileVault (`hello.unlock`): the Mac's password for the restart, sent with it, never kept. */
   let macPassword = $state('')
   const runningAgents = $derived(full?.agents?.filter((a) => a.state === 'running').length ?? 0)
   async function power(action: 'restart' | 'shutdown') {
     const unlock = action === 'restart' && hello?.unlock === 'password'
     if (unlock && !macPassword) {
-      powerError = t('Type the Mac’s password first: FileVault asks for it at startup.')
+      toastError(t('Type the Mac’s password first: FileVault asks for it at startup.'))
       return
     }
     if (!armed.confirm(action)) return
     powering = action
-    powerError = null
     powerDone = null
     try {
       await invoke('mac_power', unlock ? { action, password: macPassword } : { action })
       powerDone = action === 'restart' ? t('The computer restarts: Prism comes back once it is up and opened.') : t('The computer shuts down: Prism is out of reach until it is on again.')
     } catch (e) {
-      powerError = e instanceof Error ? e.message : String(e)
+      toastError(e instanceof Error ? e.message : String(e))
     } finally {
       powering = null
       macPassword = ''
@@ -322,6 +319,8 @@
     overlap: { depth: () => (overlapView.open ? 1 : 0), back: closeOverlap },
     changes: { depth: () => (changesView.open ? 1 : 0), back: closeChanges },
     project: { depth: () => (projectPage.repo ? 1 : 0), back: closeProjectPage },
+    // A bottom sheet or a dialog (Sheet, Modal: the stack's 'modal' layers), the top one first.
+    sheet: { depth: () => layers.stack.filter((l) => l.kind === 'modal').length, back: () => layers.stack.findLast((l) => l.kind === 'modal')?.close() },
   }
   /** The views left, the last one first back. */
   const trail: ViewId[] = []
@@ -397,7 +396,7 @@
 
   <main>
     {#if !full}
-      <p class="empty">{t('Waiting for the computer…')}</p>
+      <State kind="loading" title={t('Waiting for the computer…')} />
     {:else if view === 'more'}
       {#each moreGroups as [category, views] (category)}
         <p class="sect">{t(category)}</p>
@@ -421,21 +420,19 @@
         <ul class="more">
           <li><button onclick={toggleNotifications}><Icon name="alarm" /><span>{t('Notifications')}<small>{notifying ? t('On: an agent waiting wakes this phone') : tc('notifications', 'Off')}</small></span><span class="switch" class:on={notifying}></span></button></li>
         </ul>
-        {#if notifyError}<p class="note ko">{notifyError}</p>{/if}
       {/if}
       {#if hello?.classes.includes('act')}
         <ul class="more">
           <li><button onclick={() => openFeedback({ where: 'phone remote' })}><Icon name="comment" /><span>{t('Send feedback')}<small>{t('An issue on Prism’s repository or a pack’s, opened by the computer')}</small></span><Icon name="next" /></button></li>
-          <li><button onclick={restartMac} disabled={restarting}><Icon name="retry" /><span>{restarting ? t('Restarting Prism…') : armed.is('restart') ? t('Tap again to restart') : t('Restart Prism')}<small>{t('On the computer: settings reread; agents and notes stay')}</small></span></button></li>
+          <li><button class:armed={armed.is('prism')} onclick={restartMac} disabled={restarting}><Icon name="retry" /><span>{restarting ? t('Restarting Prism…') : armed.is('prism') ? t('Tap again to confirm') : t('Restart Prism')}<small>{t('On the computer: settings reread; agents and notes stay')}</small></span></button></li>
         </ul>
-        {#if restartError}<p class="note ko">{restartError}</p>{/if}
       {/if}
       {#if hello?.power}
         {@const stops = runningAgents ? ` · ${tn(runningAgents, '{n} agent running stops', '{n} agents running stop')}` : ''}
         <p class="sect">{t('The computer')}</p>
         <ul class="more">
-          <li><button onclick={() => power('restart')} disabled={!!powering}><Icon name="refresh" /><span>{powering === 'restart' ? t('Restarting…') : armed.is('restart') ? t('Tap again: restart the computer') : t('Restart the computer')}<small>{t('Confirmed by your passkey')}{stops}</small></span></button></li>
-          <li><button class="danger" onclick={() => power('shutdown')} disabled={!!powering}><Icon name="stop" /><span>{powering === 'shutdown' ? t('Shutting down…') : armed.is('shutdown') ? t('Tap again: shut the computer down') : t('Shut down the computer')}<small>{t('Confirmed by your passkey · out of reach until switched on')}{stops}</small></span></button></li>
+          <li><button class:armed={armed.is('restart')} onclick={() => power('restart')} disabled={!!powering}><Icon name="refresh" /><span>{powering === 'restart' ? t('Restarting…') : armed.is('restart') ? t('Tap again to confirm') : t('Restart the computer')}<small>{t('Confirmed by your passkey')}{stops}</small></span></button></li>
+          <li><button class="danger" class:armed={armed.is('shutdown')} onclick={() => power('shutdown')} disabled={!!powering}><Icon name="stop" /><span>{powering === 'shutdown' ? t('Shutting down…') : armed.is('shutdown') ? t('Tap again to confirm') : t('Shut down the computer')}<small>{t('Confirmed by your passkey · out of reach until switched on')}{stops}</small></span></button></li>
         </ul>
         {#if hello.unlock === 'password'}
           <label class="unlock"><b>{t('The Mac’s password')}</b>
@@ -446,7 +443,6 @@
           <p class="note ko">{t('FileVault on a Mac without authenticated restarts: after a restart, it waits for its password at startup, out of reach.')}</p>
         {/if}
         {#if powerDone}<p class="note">{powerDone}</p>{/if}
-        {#if powerError}<p class="note ko">{powerError}</p>{/if}
       {/if}
       <p class="note">{settingsOn ? '' : `${t('Settings stay on the computer.')} `}{hello ? t('This phone: {device}.', { device: hello.device }) : ''}</p>
     {:else if view === 'project'}{#await lazy.RemoteProject() then { default: RemoteProject }}<RemoteProject />{/await}
@@ -478,12 +474,12 @@
     {:else if view === 'aside'}{#await lazy.AsideList() then { default: AsideList }}<AsideList />{/await}
     {:else if view === 'worktrees'}{#await lazy.Worktrees() then { default: Worktrees }}<Worktrees snap={full} />{/await}
     {:else if view === 'today'}{#await lazy.Agenda() then { default: Agenda }}<Agenda agenda={full.agenda} />{/await}
-    {:else if view === 'renovate' && full.features?.renovate === false}<p class="empty">{t('{name} is off on the computer.', { name: 'Renovate' })}</p>
+    {:else if view === 'renovate' && full.features?.renovate === false}<State kind="off" title={t('{name} is off on the computer.', { name: 'Renovate' })} />
     {:else if view === 'renovate'}{#await lazy.Renovate() then { default: Renovate }}<Renovate renovate={full.renovate} merge_requests={full.merge_requests} error={full.errors.renovate} />{/await}
     {:else if view === 'mail'}{#await lazy.Mail() then { default: Mail }}<Mail mail={full.mail} enabled={!!full.mail} error={full.errors.mail} />{/await}
     {:else}
       {@const b = block(view)}
-      {#if b && (b.state !== undefined || !b.def.off)}{#await b.Block then Block}{#if Block}<ModuleBoundary id={view} active={view in OWNER}><Block state={b.state as never} error={full.errors[b.def.source ?? view]} snap={full} /></ModuleBoundary>{/if}{/await}{:else}<p class="empty">{t('{name} is off on the computer.', { name: VIEWS[view]?.label ?? view })}</p>{/if}
+      {#if b && (b.state !== undefined || !b.def.off)}{#await b.Block then Block}{#if Block}<ModuleBoundary id={view} active={view in OWNER}><Block state={b.state as never} error={full.errors[b.def.source ?? view]} snap={full} /></ModuleBoundary>{/if}{/await}{:else}<State kind="off" title={t('{name} is off on the computer.', { name: VIEWS[view]?.label ?? view })} />{/if}
     {/if}
   </main>
 
@@ -563,7 +559,7 @@
     color: var(--ok);
   }
   .mac.off { background: var(--surface-muted); color: var(--text-muted); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .mac .dot { --dot-c: currentColor; }
   main {
     flex: 1;
     display: flex;
@@ -574,7 +570,7 @@
   }
   /* The blocks were drawn for columns: on a phone, each takes the width and its natural height. */
   main > :global(*) { min-width: 0; max-width: 100%; flex: none; }
-  .empty, .note { color: var(--text-muted); text-align: center; margin: 24px 0; font-size: var(--fs-meta); }
+  .note { color: var(--text-muted); text-align: center; margin: 24px 0; font-size: var(--fs-meta); }
   ul.more { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r12); overflow: hidden; background: var(--surface); }
   ul.more li + li { border-top: 1px solid var(--border); }
   ul.more button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; background: none; border: none; color: var(--text); font-size: var(--fs-title); text-align: left; }
@@ -591,6 +587,8 @@
   .unlock small { color: var(--text-muted); font-size: var(--fs-tag); }
   .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
   ul.more button.danger { color: var(--ko); }
+  /* Armed (a second tap confirms): as a `.btn.armed`. */
+  ul.more button.armed { background: var(--ko-bg); color: var(--ko); font-weight: 600; }
   nav {
     position: fixed;
     left: 0;
