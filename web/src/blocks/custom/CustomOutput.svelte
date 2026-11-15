@@ -56,7 +56,7 @@
   {#if acts && actionsOf(i).length}
     <span class="acts">
       {#each actionsOf(i) as a (a.id)}
-        <button class="act" class:agent={a.kind === 'agent'} onclick={(e) => { e.stopPropagation(); void runAction(block.id, a.id, a.label, i) }} title={a.kind === 'agent' ? t('Opens the launcher with this line') : t('Runs {action} on the computer', { action: a.label })}>{a.label}</button>
+        <button class="btn sm" class:claude={a.kind === 'agent'} onclick={(e) => { e.stopPropagation(); void runAction(block.id, a.id, a.label, i) }} title={a.kind === 'agent' ? t('Opens the launcher with this line') : t('Runs {action} on the computer', { action: a.label })}>{a.label}</button>
       {/each}
     </span>
   {/if}
@@ -73,7 +73,7 @@
           {#if i.url}<button class="title link" onclick={() => openLink(i.url!)} title={i.url}>{field(i, 'title') || i.key}</button>{:else}<span class="title">{field(i, 'title') || i.key}</span>{/if}
           {#if field(i, 'sub')}<span class="sub">{field(i, 'sub')}</span>{/if}
         </span>
-        {#if field(i, 'badge')}<span class="badge {tone(i.state)}">{field(i, 'badge')}</span>{/if}
+        {#if field(i, 'badge')}<span class="pill {tone(i.state)}">{field(i, 'badge')}</span>{/if}
         {@render buttons(i)}
       </li>
     {:else}
@@ -128,25 +128,14 @@
   .list { margin: 0; padding: 0; list-style: none; }
   .row { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-top: 1px solid var(--border); font-size: var(--fs-body); }
   .row:first-child { border-top: none; }
-  .dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); opacity: 0.4; }
-  .dot.ok { background: var(--ok); opacity: 1; }
-  .dot.info { background: var(--info); opacity: 1; }
-  .dot.warn { background: var(--warn); opacity: 1; }
-  .dot.ko { background: var(--ko); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ko) 20%, transparent); }
   .txt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
   .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .link { padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .link:hover { color: var(--info); text-decoration: underline; }
   .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--fs-meta); }
-  .badge { flex-shrink: 0; padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); }
-  .badge.warn { background: var(--warn-bg); color: var(--warn); }
-  .badge.ko { background: var(--ko-bg); color: var(--ko); }
-  .badge.ok { color: var(--ok); }
+  .row > .pill { flex-shrink: 0; }
   .acts { display: inline-flex; gap: 4px; flex-shrink: 0; }
-  .act { padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .act:hover { border-color: var(--info); color: var(--info); }
-  .act.agent { border-color: color-mix(in srgb, var(--src-claude) 40%, var(--border)); }
-  .empty, .more { padding: 8px 12px; color: var(--text-muted); font-size: var(--fs-meta); }
+  li.empty, .more { padding: 8px 12px; color: var(--text-muted); font-size: var(--fs-meta); }
   .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; padding: 10px 12px; }
   .stat { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); min-width: 0; }
   .stat.ok { border-left-color: var(--ok); }

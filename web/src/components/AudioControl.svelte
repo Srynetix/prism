@@ -5,6 +5,7 @@
   import { pref, setPref } from '../layout.svelte'
   import { showIn } from '../youtube'
   import Icon from './Icon.svelte'
+  import State from './ui/State.svelte'
   import { audio, clearAudio, clock, externalCommand, externalPosition, loadGroups, next, play, previous, providerOf, seek, setVolume, showsExternal, toggle, type External } from '../audio.svelte'
 
   /**
@@ -65,7 +66,7 @@
       <span class="pv" aria-hidden="true"><Icon name={provider.icon} /></span>
       <span class="eq" class:loading={audio.loading} aria-hidden="true"><i></i><i></i><i></i></span>
       <span class="trk"><b>{title}</b>{#if subtitle && subtitle !== t('Live stream')}<span class="sep"> — </span>{subtitle}{/if}</span>
-      {#if audio.error}<span class="err">{audio.error}</span>{:else if isLive}<span class="livebadge">{t('LIVE')}</span>{/if}
+      {#if audio.error}<span class="warnmsg">{audio.error}</span>{:else if isLive}<span class="livebadge">{t('LIVE')}</span>{/if}
     {:else}
       <span class="g"><Icon name="music" /></span><span class="trk">Audio</span>
     {/if}
@@ -114,7 +115,7 @@
         <div class="art" aria-hidden="true"><Icon name={provider.icon} /></div>
         <div class="meta">
           <b title={title}>{title}</b>
-          <small>{subtitle}{#if audio.error}{' '}· <span class="err">{audio.error}</span>{/if}</small>
+          <small>{subtitle}{#if audio.error}{' '}· <span class="warnmsg">{audio.error}</span>{/if}</small>
           {#if !isLive && !(track.provider === 'youtube' && !audio.duration)}
             <label class="scrub">
               <span>{clock(audio.position)}</span>
@@ -142,8 +143,8 @@
           <small>{#if x.playing}<Icon name="running" /> {t('playing')}{:else}{t('paused')}{/if}</small>
         </button>
       {/if}
-      {#if loading}<p class="hint">{t('Loading sources…')}</p>{/if}
-      {#each failures as f, i (i)}<p class="hint err">{f}</p>{/each}
+      {#if loading}<State kind="loading" title={t('Loading sources…')} />{/if}
+      {#each failures as f, i (i)}<p class="hint"><State kind="error" inline title={f} /></p>{/each}
       {#each audio.groups as g (g.key)}
         {@const p = g.tracks[0] ? providerOf(g.tracks[0].provider) : null}
         {@const folded = collapsed.includes(g.key)}
@@ -175,7 +176,7 @@
   .trk b { font-weight: 600; color: var(--text); }
   .sep { opacity: 0.5; }
   .paused .trk, .paused .pv { opacity: 0.6; }
-  .err { color: var(--warn); white-space: nowrap; }
+  .warnmsg { color: var(--warn); white-space: nowrap; }
   .app { flex-shrink: 0; font-size: var(--fs-tag); color: var(--text-muted); }
   .livebadge { flex-shrink: 0; padding: 0 4px; border-radius: var(--r3); font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.4px; background: color-mix(in srgb, var(--ko) 18%, transparent); color: var(--ko); }
   .eq { display: flex; align-items: flex-end; gap: 1.5px; height: 10px; flex-shrink: 0; }

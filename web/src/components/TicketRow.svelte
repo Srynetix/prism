@@ -191,9 +191,9 @@
       <span class="next" title={step.label}>{step.label}</span>
       {#if step.primary}
         {#if 'href' in step.primary}
-          <a class="act" href={step.primary.href} title={step.primary.title}><Logo name="agent" size={10} />{step.primary.label}</a>
+          <a class="btn sm claude" href={step.primary.href} title={step.primary.title}><Logo name="agent" size={10} />{step.primary.label}</a>
         {:else}
-          <button class="act" class:error={!!error} disabled={busy} onclick={run} title={error ? tr('Failed: {error}', { error }) : step.primary.title}>{busy ? '…' : step.primary.label}</button>
+          <button class="btn sm act" class:error={!!error} class:busy disabled={busy} onclick={run} title={error ? tr('Failed: {error}', { error }) : step.primary.title}>{#if busy}<span class="spinner"></span>{/if}{step.primary.label}</button>
         {/if}
       {/if}
     {/if}
@@ -269,10 +269,8 @@
   .right { grid-area: right; display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
   .next { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0 7px; border-radius: var(--r10); font-size: var(--fs-tag); font-weight: 500; line-height: 18px; white-space: nowrap; background: color-mix(in srgb, var(--c) 15%, transparent); color: color-mix(in srgb, var(--c) 70%, var(--text)); }
   .tk.idle .next { background: var(--surface-muted); color: var(--text-muted); }
-  .act { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--c) 60%, var(--border)); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; cursor: pointer; }
-  .act:hover { background: color-mix(in srgb, var(--c) 12%, var(--surface)); text-decoration: none; }
+  .act { border-color: color-mix(in srgb, var(--c) 60%, var(--border)); }
   .act.error { border-color: var(--ko); color: var(--ko); }
-  .act:disabled { cursor: progress; opacity: 0.6; }
   /* Under the full row: the MR goes first (it stays in the preview and the menu). */
   @container tickets (max-width: 869px) {
     .tk { grid-template-columns: 4px minmax(300px, 1fr) 108px 250px; grid-template-areas: 'flag l1 st right' 'flag l2 st right'; }

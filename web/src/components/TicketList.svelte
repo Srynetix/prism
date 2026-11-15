@@ -18,6 +18,7 @@
   import { conventions } from '../conventions'
   import TicketRow from './TicketRow.svelte'
   import Icon from './Icon.svelte'
+  import State from './ui/State.svelte'
   import { anchored, dismissable, exclusive } from '../popup'
 
   /**
@@ -347,7 +348,7 @@
   <div class="bar">
     <span class="seg" role="group" aria-label={tr('Tickets shown')}>
       {#each shows as s (s)}
-        <button class:on={showing === s} onclick={() => (show = save(showKey, s))}>{LABEL[s]}<b>{counts[s]}</b></button>
+        <button class:on={showing === s} aria-pressed={showing === s} onclick={() => (show = save(showKey, s))}>{LABEL[s]}<b>{counts[s]}</b></button>
       {/each}
     </span>
     <span class="wide">{@render prioritiesUI()}</span>
@@ -397,7 +398,7 @@
       {#each s.rows as { t, depth } (t.task_id)}<TicketRow ticket={t} {me} statuses={optionsOf(t)} {depth} {now} {tag} {toSprint} />{/each}
     {/if}
   {:else}
-    <p class="empty">{showing === 'mine' && !priorities.length && !fieldFiltered && !personBy ? tr('No open ticket of yours.') : priorities.length || fieldFiltered || personBy || showing !== 'all' ? tr('No ticket matches these filters.') : tr('No ticket.')}</p>
+    <State kind="empty" title={showing === 'mine' && !priorities.length && !fieldFiltered && !personBy ? tr('No open ticket of yours.') : priorities.length || fieldFiltered || personBy || showing !== 'all' ? tr('No ticket matches these filters.') : tr('No ticket.')} />
   {/each}
 </div>
 
@@ -416,12 +417,7 @@
   .filters-menu { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 260px; max-height: 60vh; overflow: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); }
   .filters-menu .prio { flex-wrap: wrap; }
   .cap { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; font-size: var(--fs-meta); }
-  .seg button { border: none; background: none; padding: 1px 9px; color: var(--text-muted); font: inherit; cursor: pointer; }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button b { margin-left: 4px; font-weight: 600; }
-  .seg button:hover { color: var(--text); }
-  .seg button.on { background: var(--surface-muted); color: var(--text); font-weight: 500; }
+  .seg > button b { margin-left: 2px; font-weight: 600; }
   .prio { display: inline-flex; align-items: center; gap: 2px; }
   .prio button { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border: 1px solid transparent; border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
   .prio button:hover { color: var(--text); }
@@ -453,5 +449,4 @@
   :global(html.remote) .seg button { flex-shrink: 0; min-height: 32px; white-space: nowrap; }
   :global(html.remote) .filters { min-height: 32px; padding: 0 10px; }
   :global(html.remote) .grp { padding-block: 8px; }
-  .empty { margin: 12px; color: var(--text-muted); font-size: var(--fs-meta); }
 </style>

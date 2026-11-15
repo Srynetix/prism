@@ -329,7 +329,6 @@ export default {
   'Open its shells': 'Ouvrir ses shells',
   'Close its shells: kubectl exec ends (click twice)': 'Fermer ses shells : kubectl exec s’arrête (cliquer deux fois)',
   'Close its shells, and what they run (click twice)': 'Fermer ses shells, et ce qu’ils exécutent (cliquer deux fois)',
-  'Close?': 'Fermer ?',
   'Pinned: only × closes it, not a click outside · unpin': 'Épinglé : seul × le ferme, pas un clic à côté · désépingler',
   'Pin: a click outside no longer closes it': 'Épingler : un clic à côté ne le ferme plus',
   'Pin': 'Épingler',

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { hasCore } from '../../bridge'
   import Icon from '../../components/Icon.svelte'
+  import State from '../../components/ui/State.svelte'
   import { showBlock } from '../../layout.svelte'
   import { call, stateOf, type StatusProps } from '../block'
   import { micProblem, recorders, type SoundSide, type SoundState } from './types'
@@ -127,7 +128,7 @@
     {:else}
       <div class="row">
         {#if s.muted !== null}
-          <button class="ib" class:on={s.muted} disabled={!app || !s.mute_settable} onclick={() => run('mute', { side, muted: !s.muted })} title={s.muted ? t('Unmute') : t('Mute')} aria-label={s.muted ? t('Unmute {name}', { name: s.name }) : t('Mute {name}', { name: s.name })}><Icon name={icon(side, s)} /></button>
+          <button class="btn sm icon mute" class:on={s.muted} disabled={!app || !s.mute_settable} onclick={() => run('mute', { side, muted: !s.muted })} title={s.muted ? t('Unmute') : t('Mute')} aria-label={s.muted ? t('Unmute {name}', { name: s.name }) : t('Mute {name}', { name: s.name })}><Icon name={icon(side, s)} /></button>
         {:else}
           <span class="ic"><Icon name={icon(side, s)} /></span>
         {/if}
@@ -154,11 +155,11 @@
       <div class="alert" class:ko={rec}>
         <Icon name="mic" />
         <span class="msg">{t('Microphone at {volume} %, under {min} %', { volume: problem.volume, min: snd.limits.min_input_gain })}</span>
-        {#if app}<button class="act" onclick={() => run('volume', { side: 'input', value: raise })}>{t('Raise to {n} %', { n: raise })}</button>{/if}
+        {#if app}<button class="btn sm" onclick={() => run('volume', { side: 'input', value: raise })}>{t('Raise to {n} %', { n: raise })}</button>{/if}
       </div>
     {/if}
     {@render line('input', snd.input)}
-    {#if failed}<p class="err" title={failed}>{failed}</p>{/if}
+    {#if failed}<div class="fail" title={failed}><State kind="error" inline title={failed} /></div>{/if}
     <div class="ft">
       <span>{t('the wheel on the item: ±5 %')}</span>
       <button class="link" onclick={() => { open = false; showBlock('sound') }}>{t('Open Sound')} ›</button>
@@ -178,11 +179,9 @@
   .rec { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--warn); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row { display: flex; align-items: center; gap: 8px; }
   .row input { flex: 1; min-width: 0; --tick: var(--accent); }
-  .ib { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .ib:hover:not(:disabled) { color: var(--text); }
-  .ib.on { border-color: var(--ko); color: var(--ko); background: color-mix(in srgb, var(--ko) 12%, transparent); }
+  .mute.on { border-color: var(--ko); color: var(--ko); background: color-mix(in srgb, var(--ko) 12%, transparent); }
   .ic { display: inline-flex; justify-content: center; flex: none; width: 24px; color: var(--text-muted); }
-  .ib:disabled, select:disabled, input:disabled { opacity: 0.6; cursor: default; }
+  select:disabled, input:disabled { opacity: 0.6; cursor: default; }
   .n { width: 40px; text-align: right; font: var(--fs-tag) var(--mono); color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .n.low { color: var(--warn); font-weight: 600; }
   select { width: 100%; margin-top: 6px; padding: 2px 6px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); color: var(--text); font: inherit; }
@@ -191,8 +190,7 @@
   .alert { display: flex; align-items: center; gap: 8px; margin: 0 8px 4px; padding: 5px 8px; border-radius: var(--r6); background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
   .alert.ko { background: color-mix(in srgb, var(--ko) 14%, transparent); color: var(--ko); }
   .alert .msg { flex: 1; min-width: 0; }
-  .act { padding: 1px 8px; border: 1px solid currentColor; border-radius: var(--r6); background: none; color: inherit; font: inherit; font-size: var(--fs-tag); cursor: pointer; white-space: nowrap; }
-  .err { margin: 0; padding: 4px 12px; color: var(--ko); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fail { padding: 4px 12px; }
   .ft { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 4px; border-top: 1px solid var(--border); font-size: var(--fs-tag); color: var(--text-muted); }
   .link { padding: 0; border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; }
 </style>

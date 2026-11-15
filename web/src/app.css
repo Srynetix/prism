@@ -1717,6 +1717,7 @@ html:not([data-reduce-motion]) .popover { animation: pop-in var(--t-fast) var(--
 .popover .mi:is(:hover, .on, [aria-selected='true'], :focus-visible) { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
 .popover .mi:disabled { opacity: 0.5; cursor: default; background: none; }
 .popover .mi.danger { color: var(--ko); }
+.popover .mi.armed { background: var(--ko-bg); color: var(--ko); font-weight: 600; }
 .popover .mi .k { margin-left: auto; padding-left: var(--sp-5); color: var(--text-muted); font-size: var(--fs-tag); }
 .popover .hd { padding: var(--sp-2) var(--sp-4) var(--sp-1); color: var(--text-muted); font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .popover hr { margin: var(--sp-2) 0; border: 0; border-top: 1px solid var(--border); }

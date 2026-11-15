@@ -178,7 +178,7 @@
    * Two-click deletion: the first arms the button, the second deletes. No
    * `confirm()`: Tauri's webview does not show it and always answers no.
    */
-  const armed = armer(4000)
+  const armed = armer()
   function remove(id: string) {
     if (armed.confirm(id)) removeNote(id)
   }
@@ -315,7 +315,7 @@
 {/snippet}
 
 {#snippet del(n: Note)}
-  <button class="x" class:armed={armed.is(n.id)} onclick={() => remove(n.id)} onblur={() => armed.is(n.id) && armed.disarm()} aria-label={armed.is(n.id) ? tr('Click again to delete the note') : tr('Delete note')} title={armed.is(n.id) ? tr('Click again to delete') : tr('Delete')}>{#if armed.is(n.id)}{tr('Delete?')}{:else}<Icon name="close" />{/if}</button>
+  <button class="x" class:armed={armed.is(n.id)} onclick={() => remove(n.id)} onblur={() => armed.is(n.id) && armed.disarm()} aria-label={armed.is(n.id) ? tr('Click again to delete the note') : tr('Delete note')} title={armed.is(n.id) ? tr('Click again to delete') : tr('Delete')}>{#if armed.is(n.id)}{tr('Click again to confirm')}{:else}<Icon name="close" />{/if}</button>
 {/snippet}
 
 {#snippet reminder(n: Note)}

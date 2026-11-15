@@ -126,9 +126,9 @@
     <span class="next" title={step.label}>{step.label}</span>
     {#if primary}
       {#if 'href' in primary}
-        <a class="act" href={primary.href} title={primary.title}><Logo name="agent" size={10} />{primary.label}</a>
+        <a class="btn sm claude" href={primary.href} title={primary.title}><Logo name="agent" size={10} />{primary.label}</a>
       {:else}
-        <button class="act" class:error={!!error} class:armed={armed.is()} disabled={busy} onclick={run} title={error ? t('Failed: {error}', { error }) : armed.is() ? t('Click again to confirm') : primary.title}>{#if busy}…{:else if primary.confirm}<ArmedLabel label={primary.label} armedLabel={primary.confirm} armed={armed.is()} />{:else}{primary.label}{/if}</button>
+        <button class="btn sm act" class:error={!!error} class:armed={armed.is()} class:busy disabled={busy} onclick={run} title={error ? t('Failed: {error}', { error }) : primary.title}>{#if busy}<span class="spinner"></span>{primary.label}{:else if primary.confirm}<ArmedLabel label={primary.label} armedLabel={t('Click again to confirm')} armed={armed.is()} />{:else}{primary.label}{/if}</button>
       {/if}
     {/if}
     <MrMenu {mr} {queueLabel} {me} />
@@ -157,7 +157,7 @@
   /* The colour only tells the step: red blocked, orange to do, blue waiting, green ready, purple automatic. */
   .mr.blocked { --c: var(--ko); } .mr.todo { --c: var(--warn); } .mr.wait { --c: var(--info); } .mr.ready { --c: var(--ok); } .mr.auto { --c: var(--accent); }
   .mr.merged, .mr.draft { opacity: 0.72; }
-  .dot { grid-area: dot; width: 8px; height: 8px; border-radius: var(--r-dot); background: color-mix(in srgb, var(--c) var(--dot-fill), transparent); box-shadow: inset 0 0 0 var(--dot-ring) var(--c), 0 0 var(--dot-glow) var(--c); }
+  .mr > .dot { grid-area: dot; --dot-c: var(--c); }
   .l1 { grid-area: l1; display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: var(--fs-body); }
   /* Non-primary repo: its badge, in its colour, before the number. */
   .repo { flex-shrink: 0; padding: 0 5px; border-radius: var(--r4); background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); font-size: var(--fs-tag); font-weight: 600; }
@@ -198,9 +198,6 @@
   .right { grid-area: right; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
   .next { padding: 0 7px; border-radius: var(--r10); font-size: var(--fs-tag); font-weight: 500; line-height: 18px; white-space: nowrap; background: color-mix(in srgb, var(--c) 15%, transparent); color: color-mix(in srgb, var(--c) 70%, var(--text)); }
   .mr.idle .next { background: var(--surface-muted); color: var(--text-muted); }
-  .act { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--c) 60%, var(--border)); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; cursor: pointer; }
-  .act:hover { background: color-mix(in srgb, var(--c) 12%, var(--surface)); text-decoration: none; }
+  .act:not(.armed) { border-color: color-mix(in srgb, var(--c) 60%, var(--border)); }
   .act.error { border-color: var(--ko); color: var(--ko); }
-  .act.armed { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
-  .act:disabled { cursor: progress; opacity: 0.6; }
 </style>

@@ -3,6 +3,7 @@
   import { columns, grip } from '../columns.svelte'
   import { locale } from '../locale'
   import Icon from './Icon.svelte'
+  import State from './ui/State.svelte'
   import type { TimeEntry } from '../types'
   import { historyStart, todayKey } from '../filter.svelte'
   import { addDays, addMonths, byDay, byTicket, hours, isWorkday, monthOf, monthWeeks, targetOf, tone, weekOf } from '../timesheet'
@@ -60,9 +61,9 @@
 
 <div class="report">
   <div class="nav">
-    <button onclick={() => move(-1)} disabled={!canBack} aria-label={mode === 'week' ? t('Previous week') : t('Previous month')} title={canBack ? (mode === 'week' ? t('Previous week') : t('Previous month')) : t('Older entries are not read (Settings › Work › Tracker, history)')}><Icon name="chevronLeft" /></button>
+    <button class="btn sm icon ghost" onclick={() => move(-1)} disabled={!canBack} aria-label={mode === 'week' ? t('Previous week') : t('Previous month')} title={canBack ? (mode === 'week' ? t('Previous week') : t('Previous month')) : t('Older entries are not read (Settings › Work › Tracker, history)')}><Icon name="chevronLeft" /></button>
     <b>{title}</b>
-    <button onclick={() => move(1)} disabled={!canNext} aria-label={mode === 'week' ? t('Next week') : t('Next month')} title={mode === 'week' ? t('Next week') : t('Next month')}><Icon name="chevronRight" /></button>
+    <button class="btn sm icon ghost" onclick={() => move(1)} disabled={!canNext} aria-label={mode === 'week' ? t('Next week') : t('Next month')} title={mode === 'week' ? t('Next week') : t('Next month')}><Icon name="chevronRight" /></button>
     <span class="sum" class:ok={logged >= target} class:warn={logged < targetToDate && missing.length > 0}>
       <b>{hours(logged)}</b>/{target_(target)}
       {#if targetToDate < target}<span class="muted"> · {t('{time} to date', { time: target_(targetToDate) })}</span>{/if}
@@ -140,7 +141,7 @@
           <span class="mono">{hours(r.total)}</span>
         </div>
       {:else}
-        <div class="empty">{t('No time logged this month.')}</div>
+        <State kind="empty" icon="timer" title={t('No time logged this month.')} />
       {/each}
     </div>
   {/if}
@@ -149,9 +150,6 @@
 <style>
   .report { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
   .nav { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface-muted); font-size: var(--fs-body); }
-  .nav button { display: inline-flex; align-items: center; padding: 2px; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .nav button:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
-  .nav button:disabled { opacity: 0.35; cursor: default; }
   .nav > b { font-weight: 500; text-transform: capitalize; }
   .sum { margin-left: auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .sum b { color: var(--text); font-weight: 500; }
@@ -165,7 +163,7 @@
   a.mono { color: var(--info); text-decoration: none; }
   td.name a.mono { margin-right: 6px; }
   a.mono:hover { text-decoration: underline; }
-  .empty { padding: 10px 12px; color: var(--text-muted); font-size: var(--fs-body); }
+  td.empty { padding: 10px 12px; }
 
   .sheet { overflow: auto; }
   table { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }

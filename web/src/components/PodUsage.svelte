@@ -4,6 +4,7 @@
   import { cpu, mem } from '../time'
   import { pref, setPref } from '../layout.svelte'
   import { dateFormat } from '../locale'
+  import State from './ui/State.svelte'
   import type { UsageHistory, UsagePoint } from '../types'
 
   /**
@@ -151,7 +152,7 @@
   </div>
   {#if history?.error}<p class="warn" title={history.error}>{t('Google Managed Prometheus unreadable, Prism’s readings instead:')} {history.error}</p>{/if}
   {#if error}
-    <p class="err">{error}</p>
+    <State kind="error" inline title={error} />
   {:else if history && !points.length}
     <p class="dim pad">{t('No reading for this pod over this period.')}</p>
   {:else if history}
@@ -178,7 +179,7 @@
             {/if}
           </svg>
           {#if near && s.value(near) !== null}
-            <i class="dot" style:left="{(x(near.at) / W) * 100}%" style:top="{(1 - (s.value(near) ?? 0) / max) * 100}%"></i>
+            <i class="pt" style:left="{(x(near.at) / W) * 100}%" style:top="{(1 - (s.value(near) ?? 0) / max) * 100}%"></i>
           {/if}
           </div>
           <div class="axis"><span>{when(span.start)}</span>{#if s.limit !== null}<span class="lim">{t('limit {value}', { value: s.fmt(s.limit) })}</span>{/if}<span>{t('now')}</span></div>
@@ -196,12 +197,8 @@
   .src { color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dim { color: var(--text-muted); }
   .pad { margin: 6px 0; }
-  .err { margin: 6px 0; color: var(--ko); white-space: pre-wrap; }
   .warn { margin: 0 0 6px; color: var(--warn); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .seg { display: inline-flex; gap: 1px; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
-  .seg button { padding: 0 8px; white-space: nowrap; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
-  .seg button.on { background: var(--surface); color: var(--text); font-weight: 500; }
-  .seg button:disabled { opacity: 0.4; cursor: default; }
+  .seg > button:disabled { opacity: 0.4; cursor: default; }
   .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .chart { margin: 0; min-width: 0; }
   .plot { position: relative; height: 72px; }
@@ -217,7 +214,7 @@
   .limit { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
   .cross { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
   /* Drawn outside the stretched SVG: round whatever the chart's width. */
-  .dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--src-k8s); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+  .pt { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--src-k8s); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
   .axis { white-space: nowrap; display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; color: var(--text-muted); font-size: var(--fs-tag); font-variant-numeric: tabular-nums; }
   .lim { opacity: 0.85; }
   @media (max-width: 640px) {

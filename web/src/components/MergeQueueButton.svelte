@@ -32,7 +32,7 @@
 
 {#if hasCore() && (on || canQueue(mr))}
   <button class="mq" class:on class:wide class:error={!!task.error} disabled={task.busy} {onclick} {title} aria-pressed={on}>
-    {#if task.busy}…{:else if on}<Icon name="queue" /> {t('queued')}{:else}<Icon name="queue" />{#if wide}{' '}{t('add to merge queue')}{/if}{/if}
+    {#if task.busy}<span class="spinner"></span>{:else if on}<Icon name="queue" /> {t('queued')}{:else}<Icon name="queue" />{#if wide}{' '}{t('add to merge queue')}{/if}{/if}
   </button>
 {:else if on}
   <span class="mq on" {title}><Icon name="queue" /> {t('queued')}</span>

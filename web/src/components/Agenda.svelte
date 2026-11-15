@@ -3,6 +3,7 @@
   import { clock } from '../clock.svelte'
   import { dateFormat } from '../locale'
   import BlockControls from './BlockControls.svelte'
+  import State from './ui/State.svelte'
   import { isCollapsed, isShort } from '../layout.svelte'
   import type { Agenda, CalendarEvent } from '../types'
   import { isBusy as busy, openEvent } from '../agenda.svelte'
@@ -84,9 +85,9 @@
   {#if live.snapshot?.calendar === false}
     <div class="empty">{t('The Calendar is off: Prism doesn’t read it.')} <button class="link" onclick={() => openSettings('calendar')}>{t('Turn on Agenda')}</button> {t('in Settings › Work › Calendar (macOS asks for access once).')}</div>
   {:else if !agenda && live.snapshot?.errors?.calendar}
-    <div class="empty ko">{live.snapshot.errors.calendar}</div>
+    <State kind="error" title={live.snapshot.errors.calendar} />
   {:else if !agenda}
-    <div class="empty">{t('Reading Calendar…')}</div>
+    <State kind="loading" title={t('Reading Calendar…')} />
   {:else if agenda.access === 'signed_out'}
     <div class="empty">{t('Not signed in to Google.')} <button class="link" onclick={() => openSettings('calendar-google')}>{t('Sign in')}</button> {t('in Settings › Work › Calendar › Google Calendar.')}</div>
   {:else if agenda.access === 'denied' || agenda.access === 'restricted'}
@@ -96,9 +97,9 @@
   {:else if agenda.access === 'unsupported'}
     <div class="empty">{t('The macOS Calendar is not available on this system.')} <button class="link" onclick={() => openSettings('calendar')}>{t('Read Google Calendar')}</button> {t('instead: Settings › Work › Calendar › Provider.')}</div>
   {:else if !isToday && other.day === day && other.error}
-    <div class="empty">{other.error}</div>
+    <State kind="error" title={other.error} />
   {:else if loadingOther}
-    <div class="empty">{t('Reading Calendar…')}</div>
+    <State kind="loading" title={t('Reading Calendar…')} />
   {:else}
     <div class="list">
       {#if allDay.length && !short}
@@ -124,14 +125,13 @@
           {/if}
         </div>
       {:else}
-        <div class="empty">{short && isToday && timed.length ? t('No more meetings today.') : isToday ? t('Nothing in the calendar today.') : t('Nothing in the calendar that day.')}</div>
+        <State kind="empty" icon="calendar" title={short && isToday && timed.length ? t('No more meetings today.') : isToday ? t('Nothing in the calendar today.') : t('Nothing in the calendar that day.')} />
       {/each}
     </div>
   {/if}
 </section>
 
 <style>
-  .ko { color: var(--ko); }
   .link { padding: 0; border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
   .cal { width: 14px; height: 14px; flex-shrink: 0; fill: none; stroke: var(--src-calendar); stroke-width: 1.4; vertical-align: -2px; }
   .head { display: flex; gap: 10px; align-items: baseline; min-width: 0; overflow: hidden; white-space: nowrap; }

@@ -4,6 +4,7 @@
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
   import Logo from '../../components/Logo.svelte'
+  import State from '../../components/ui/State.svelte'
   import type { BlockProps } from '../block'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import DataRefresh from './DataRefresh.svelte'
@@ -32,9 +33,11 @@
     <BlockControls id="bqcost" />
   </h2>
   {#if !enabled}
-    <div class="empty">{t('GCP is not read. Turn on Settings › Infra › Data (GCP), and its BigQuery cost switch, then restart Prism.')}</div>
+    <State kind="off" title={t('GCP is not read. Turn on Settings › Infra › Data (GCP), and its BigQuery cost switch, then restart Prism.')} />
   {:else if !cost || !stats}
-    <div class="empty">{error ? t('GCP unavailable: {error}', { error }) : data && !data.cost ? t('BigQuery cost is off ([data] bigquery_cost), or its jobs could not be read.') : t('Reading BigQuery jobs…')}</div>
+    {#if error}<State kind="error" title={t('GCP unavailable: {error}', { error })} />
+    {:else if data && !data.cost}<State kind="off" title={t('BigQuery cost is off ([data] bigquery_cost), or its jobs could not be read.')} />
+    {:else}<State kind="loading" title={t('Reading BigQuery jobs…')} />{/if}
   {:else if isShort('bqcost')}
     <div class="short-body">
       <div class="srow"><span class="t">{t('Today')}</span><b class:spike={stats.spike}>{money(dollars(stats.today, cost))}</b>{#if stats.spike}<span class="pill warn">{t('{x}× median', { x: stats.spike.toFixed(1) })}</span>{/if}</div>

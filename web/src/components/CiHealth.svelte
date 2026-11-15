@@ -4,6 +4,7 @@
   import BlockControls from './BlockControls.svelte'
   import Icon from './Icon.svelte'
   import Logo from './Logo.svelte'
+  import State from './ui/State.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import { claudeClick, flakyAction } from '../claude-actions'
   import { ago } from '../time'
@@ -75,14 +76,14 @@
     <span class="title"><Logo name={forgeLogo()} />{t('CI health')}<RepoChip id="ci_health" /></span>
     <small>{health ? t('last 7 days vs previous · {days} d trend', { days: health.window_days }) : t('{forge} pipelines', { forge: forgeName() })}</small>
     {#if health}
-      <span class="tabs" role="group" aria-label={t('Pipelines')}>
-        {#each health.scopes as s (s.key)}<button class:on={s.key === scope?.key} onclick={() => setScope(s.key)}>{s.label}</button>{/each}
+      <span class="seg tabs" role="group" aria-label={t('Pipelines')}>
+        {#each health.scopes as s (s.key)}<button class:on={s.key === scope?.key} aria-pressed={s.key === scope?.key} onclick={() => setScope(s.key)}>{s.label}</button>{/each}
       </span>
     {/if}
     <BlockControls id="ci" />
   </h2>
   {#if !health || !scope}
-    <div class="empty">{error ? t('Unavailable: {error}', { error }) : t('Reading two weeks of pipelines…')}</div>
+    {#if error}<State kind="error" title={t('Unavailable: {error}', { error })} />{:else}<State kind="loading" title={t('Reading two weeks of pipelines…')} />{/if}
   {:else if isShort('ci')}
     <div class="short-body">
       {#each health.scopes as s (s.key)}
@@ -126,7 +127,7 @@
           <span class="muted">{t('{n}× · {pct} % of runs', { n: f.flakes, pct: Math.round((f.flakes / Math.max(1, f.runs)) * 100) })}</span>
           <span class="muted">{t('last {ago}', { ago: ago(f.last_at) })}</span>
           {#if f.urls[0]}<a class="log" href={f.urls[0]} target="_blank" rel="noreferrer" title={t('Last failed attempt in {forge}', { forge: forgeName() })}>{t('log')} <Icon name="external" /></a>{:else}<span></span>{/if}
-          {#if a.href}<a class="act" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{:else}<span class="act off" title={a.why}><Logo name="agent" size={10} />{a.label}</span>{/if}
+          {#if a.href}<a class="btn sm claude" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{:else}<span class="btn sm claude" aria-disabled="true" title={a.why}><Logo name="agent" size={10} />{a.label}</span>{/if}
         </div>
       {:else}
         <p class="none">{t('No job needed a retry to pass.')}</p>
@@ -137,9 +138,7 @@
 
 <style>
   section { container-type: inline-size; }
-  .tabs { display: inline-flex; gap: 2px; margin-left: auto; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
-  .tabs button { padding: 0 8px; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
-  .tabs button.on { background: var(--surface); color: var(--text); font-weight: 500; }
+  .tabs { margin-left: auto; }
   .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
   .kpi { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 6px 10px; background: var(--surface); }
   .kpi .l { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -162,9 +161,6 @@
   .delta.bad { background: var(--ko-bg); }
   .delta.good { background: var(--ok-bg); }
   .log { font-size: var(--fs-tag); white-space: nowrap; }
-  .act { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--src-claude) 60%, var(--border)); border-radius: var(--r5); background: var(--surface); color: var(--text); font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; }
-  .act:hover { background: color-mix(in srgb, var(--src-claude) 12%, var(--surface)); text-decoration: none; }
-  .act.off { opacity: 0.5; cursor: not-allowed; }
   .none { margin: 6px 12px; color: var(--text-muted); font-size: var(--fs-meta); }
   /* Narrow block: two indicators per row, and neither curves nor dates in the lists. */
   @container (max-width: 520px) {

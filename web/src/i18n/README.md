@@ -23,17 +23,28 @@ A module brings its words in its `defs.js` (`words`, by language), and its back 
 What stays in English: config keys and values, ids, what is compared in code (tracker statuses,
 saved names), the prompts sent to agents (they follow `[agents] prompt_language`), logs, tests.
 
+## Words for the same thing, in both languages
+
+- **Open** (*Ouvrir*) shows an object of Prism (a drawer, a view): « Open the MR », « Open the agent »;
+  **Open in {tool}** (*Ouvrir dans {outil}*) leaves Prism; **Show / Hide** (*Afficher / Masquer*)
+  reveals in place. Never See, View or Preview for these.
+- A command that asks for more before acting ends with « … » (`New ticket…`, `New agent…`); one
+  that acts at once does not.
+- A two-click action arms to **Click again to confirm** (*Cliquer pour confirmer*), on the phone
+  **Tap again to confirm** (*Toucher pour confirmer*): the action itself goes in the button's title.
+- A workstream is a **chantier**; « worktree » stays for the technical detail.
+
 ## French
 
 - **Vous**, never tu. Actions in the infinitive (`Ouvrir`, `Relancer le pipeline`), states as
-  adjectives or past participles (`Ouverte`, `Fusionnée`).
+  adjectives or past participles (`Ouverte`, `Mergée`).
 - Typography: `«  »` for quotes (with no-break spaces inside), a no-break space (U+00A0) before
   `:` `;` `?` `!` `»` and after `«`; `…` for the ellipsis; capital only at the start of a label.
 - Units and numbers: `5 min`, `2 h`, `3 j` (jours), `Mo`, `Go`.
 
 | English | Français |
 | --- | --- |
-| merge request, MR | merge request (f.), MR (f.) — « la MR » |
+| merge request, MR | merge request (f.), MR (f.) — « la MR », « les MR » (no s) |
 | pull request, PR | pull request (f.), PR (f.) |
 | pipeline, job, stage | pipeline (m.), job (m.), stage (m.) |
 | branch, commit, tag, rebase, merge | branche, commit, tag, rebase, merge (« rebaser », « merger ») |

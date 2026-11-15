@@ -34,20 +34,17 @@
     </span>
   {/if}
   {#if editing.on}
-    <button class="x" onclick={() => removeBlock(id as BlockId)} aria-label={t('Remove from this view')} title={t('Remove from this view (+ Block brings it back)')}><Icon name="close" /></button>
+    <button class="btn sm icon ghost x" onclick={() => removeBlock(id as BlockId)} aria-label={t('Remove from this view')} title={t('Remove from this view (+ Block brings it back)')}><Icon name="close" /></button>
   {:else}
-    <button onclick={() => toggleZoom(id)} aria-pressed={zoomed} aria-label={zoomed ? t('Restore block') : t('Zoom block')} title={zoomed ? t('Restore (Esc)') : t('Zoom')}><Icon name={zoomed ? 'shrink' : 'expand'} /></button>
+    <button class="btn sm icon ghost" onclick={() => toggleZoom(id)} aria-pressed={zoomed} aria-label={zoomed ? t('Restore block') : t('Zoom block')} title={zoomed ? t('Restore (Esc)') : t('Zoom')}><Icon name={zoomed ? 'shrink' : 'expand'} /></button>
   {/if}
 </span>
 
 <style>
   .controls { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding-left: 8px; border-left: 1px solid var(--border); opacity: 0; transition: opacity 0.1s; }
   :global(.panel > h2:hover) .controls, .controls:focus-within, .controls.pinned { opacity: 1; }
-  button { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: none; border-radius: var(--r5); background: none; padding: 0; color: var(--text-muted); font: inherit; font-size: var(--fs-body); line-height: 1; cursor: pointer; }
-  button:hover { background: var(--surface-muted); color: var(--text); }
-  .seg { display: inline-flex; gap: 1px; padding: 1px; border-radius: var(--r6); background: var(--surface-muted); }
-  .seg button { width: 20px; height: 17px; border-radius: var(--r4); font-size: var(--fs-meta); }
-  .seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+  /* Square segments: an icon each. */
+  .seg > button { padding: 0 var(--sp-2); }
   .x:hover { color: var(--ko); }
   /* Handle: placed at the start of the title by flex order, wherever the component is. */
   .grip { order: -1; display: inline-flex; align-items: center; margin-right: -2px; color: var(--text-muted); font-size: var(--fs-body); cursor: grab; }

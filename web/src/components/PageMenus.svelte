@@ -91,7 +91,7 @@
     {#if page.origin === 'copy'}
       <button class="mi" role="menuitem" onclick={() => resetToPack(page.id)} title={t('The pack’s page again, followed from now on: what was changed here goes')}><Icon name="undo" />{t('Back to the pack’s page')}</button>
     {/if}
-    <button class="mi" role="menuitem" class="mi danger" class:armed={arm.is(page.id)} disabled={total <= 1} title={total <= 1 ? t('The last page cannot be deleted') : t('Undo stays a few seconds')}
+    <button class="mi danger" role="menuitem" class:armed={arm.is(page.id)} disabled={total <= 1} title={total <= 1 ? t('The last page cannot be deleted') : t('Undo stays a few seconds')}
       onclick={() => arm.confirm(page.id) && deletePage(page.id)}><Icon name="trash" /><ArmedLabel label={tc('core', 'Delete')} armedLabel={t('Click again to confirm')} armed={arm.is(page.id)} /></button>
   </div>
 {/if}

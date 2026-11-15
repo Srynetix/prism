@@ -188,8 +188,8 @@
 </script>
 
 {#snippet act(a: ClaudeAction)}
-  {#if a.href}<a class="act" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${keys('⇧-click')}: ${tr('launch at once')}`}><Logo name="agent" size={10} />{a.label}</a>
-  {:else}<span class="act off" title={a.why}><Logo name="agent" size={10} />{a.label}</span>{/if}
+  {#if a.href}<a class="btn sm claude" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${keys('⇧-click')}: ${tr('launch at once')}`}><Logo name="agent" size={10} />{a.label}</a>
+  {:else}<span class="btn sm claude" aria-disabled="true" title={a.why}><Logo name="agent" size={10} />{a.label}</span>{/if}
 {/snippet}
 
 {#snippet row(t: Ticket, opts: StatusOption[], next: boolean, epic?: Ticket)}
@@ -293,17 +293,11 @@
   .wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; container-type: inline-size; }
   .tools { display: flex; align-items: center; gap: 4px 6px; padding: 0 12px 6px; }
   .label { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
-  .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
-  .seg button { padding: 0 8px; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
-  .seg button.on { background: var(--surface); color: var(--text); font-weight: 500; }
   .grow { flex: 1; }
   .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid transparent; border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
   .chip:hover { color: var(--text); }
   .chip.on { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 12%, transparent); }
   .id { font-family: var(--mono); font-size: var(--fs-mono); white-space: nowrap; }
-  .act { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--src-claude) 60%, var(--border)); border-radius: var(--r5); background: var(--surface); color: var(--text); font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; }
-  .act:hover { background: color-mix(in srgb, var(--src-claude) 12%, var(--surface)); text-decoration: none; }
-  .act.off { opacity: 0.5; cursor: not-allowed; }
 
   .hints { display: flex; gap: 8px; padding: 0 12px 8px; overflow-x: auto; }
   .hint { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 2px; padding: 6px 9px; border: 1px solid var(--border); border-radius: var(--r7); background: color-mix(in srgb, var(--accent) 4%, var(--surface)); box-shadow: inset 3px 0 0 var(--c); }

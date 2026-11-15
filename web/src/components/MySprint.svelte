@@ -3,6 +3,7 @@
   import BlockControls from './BlockControls.svelte'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
+  import State from './ui/State.svelte'
   import { invoke } from '../bridge'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import { hours } from '../retro'
@@ -133,15 +134,15 @@
     <BlockControls id="retro" />
   </h2>
   {#if !snap.sprint}
-    <div class="empty">{t('No current sprint read from the tracker.')}</div>
+    <State kind="empty" title={t('No current sprint read from the tracker.')} />
   {:else if actuals}
     {#if !isShort('retro')}<SprintActuals {snap} />{/if}
   {:else if r === undefined}
     <!-- The core has not answered yet. -->
   {:else if !r}
-    <div class="empty">{t('The sprint has no start date: Prism cannot tell its days.')}</div>
+    <State kind="empty" title={t('The sprint has no start date: Prism cannot tell its days.')} />
   {:else if !snap.tracker_me}
-    <div class="empty">{t('Prism does not know you in the tracker yet: your tickets show once it does.')}</div>
+    <State kind="off" title={t('Prism does not know you in the tracker yet: your tickets show once it does.')} />
   {:else}
     <div class="kpis">
       <div class="kpi" title={t('Your tickets of the sprint done, of those assigned to you')}>
@@ -246,7 +247,7 @@
             {:else}
               <p class="muted">{t('What to keep, change or try, as it comes during the sprint: it is kept with {sprint}.', { sprint: shown })}</p>
             {/each}
-            {#if pointsStorage.failed}<p class="err">{t('Could not save the points.')}</p>{/if}
+            {#if pointsStorage.failed}<p class="fail"><State kind="error" inline title={t('Could not save the points.')} /></p>{/if}
             {#if r.notes.length}
               <h3 class="sub">{t('From my notes')} <span>#retro</span></h3>
               {#each r.notes as n (n.id)}
@@ -260,8 +261,8 @@
       </div>
       <div class="foot">
         <span class="muted">{t('From the tracker, the Day trail, your time, agents and notes. Stays in Prism.')}</span>
-        <button class="btn" onclick={() => copy(md, t('My sprint copied as Markdown'))}><Icon name="copy" />{t('Copy as Markdown')}</button>
-        {#if draft && (draft.launch || draft.href)}<a class="btn claude" href={draft.href} onclick={claudeClick(draft)} title={draft.prompt}><Logo name="agent" size={10} />{t('Draft my points')}</a>{/if}
+        <button class="btn sm" onclick={() => copy(md, t('My sprint copied as Markdown'))}><Icon name="copy" />{t('Copy as Markdown')}</button>
+        {#if draft && (draft.launch || draft.href)}<a class="btn sm claude" href={draft.href} onclick={claudeClick(draft)} title={draft.prompt}><Logo name="agent" size={10} />{t('Draft my points')}</a>{/if}
       </div>
     {/if}
   {/if}
@@ -322,10 +323,8 @@
   .pt .tx { overflow-wrap: anywhere; }
   .pt .edit { padding: 0 4px; border: 1px solid var(--border); border-radius: var(--r4); font: inherit; background: var(--surface); color: var(--text); }
   .sprint { max-width: 150px; padding: 0 4px; border: 1px solid var(--border); border-radius: var(--r4); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); }
-  .err { margin: 4px 0 0; color: var(--ko); font-size: var(--fs-tag); }
+  .fail { margin: 4px 0 0; font-size: var(--fs-tag); }
   .link { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
   .foot { display: flex; align-items: center; gap: 6px; padding: 6px 12px; flex-wrap: wrap; }
   .foot .muted { margin-right: auto; font-size: var(--fs-tag); }
-  .btn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); cursor: pointer; text-decoration: none; }
-  .btn.claude { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); }
 </style>

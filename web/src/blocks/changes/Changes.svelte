@@ -2,6 +2,7 @@
   import { t } from '../../i18n.svelte'
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
+  import State from '../../components/ui/State.svelte'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import type { BlockProps } from '../block'
   import ChangesView from './ChangesView.svelte'
@@ -19,12 +20,8 @@
     <BlockControls id="changes" />
   </h2>
   {#if !journal}
-    <div class="empty">{t('The Changes block is off. Turn it on in Settings › Infra › Changes ([changes] enabled).')}</div>
+    <State kind="off" title={t('The Changes block is off. Turn it on in Settings › Infra › Changes ([changes] enabled).')} />
   {:else}
     <ChangesView state={journal} {error} compact={isShort('changes')} />
   {/if}
 </section>
-
-<style>
-  .empty { padding: 14px 16px; color: var(--text-muted); font-size: var(--fs-body); }
-</style>

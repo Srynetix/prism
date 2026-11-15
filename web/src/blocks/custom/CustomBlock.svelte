@@ -4,7 +4,10 @@
   import Icon from '../../components/Icon.svelte'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import { openSettings } from '../../settings.svelte'
-  import { toast } from '../../toast.svelte'
+  import { armer } from '../../armed.svelte'
+  import ArmedLabel from '../../components/ArmedLabel.svelte'
+  import State from '../../components/ui/State.svelte'
+  import { toast, toastError } from '../../toast.svelte'
   import { ago } from '../../time'
   import { t } from '../../i18n.svelte'
   import { call } from '../block'
@@ -28,32 +31,21 @@
     try {
       await readNow(block.id)
     } catch (e) {
-      toast(String(e))
+      toastError(String(e), refresh)
     } finally {
       setTimeout(() => (refreshing = false), 1200)
     }
   }
 
   /** Two clicks: the first arms the button a few seconds (no confirm() in the app's webview). */
-  let armed = $state<string | null>(null)
-  let armTimer: ReturnType<typeof setTimeout> | undefined
-  function arm(what: string): boolean {
-    if (armed === what) {
-      armed = null
-      return true
-    }
-    armed = what
-    clearTimeout(armTimer)
-    armTimer = setTimeout(() => (armed = null), 4000)
-    return false
-  }
+  const armed = armer()
   async function act(what: 'trust' | 'revert' | 'delete') {
-    if (!block || !arm(what)) return
+    if (!block || !armed.confirm(what)) return
     try {
       await call(SOURCE, what, what === 'trust' ? { id: block.id, hash: block.pending?.hash } : { id: block.id })
       toast(what === 'trust' ? t('{name} trusted: it runs now', { name: block.label }) : what === 'revert' ? t('{name} is back to its trusted version', { name: block.label }) : t('{name} removed from config.toml', { name: block.label }))
     } catch (e) {
-      toast(String(e), 8000)
+      toastError(String(e))
     }
   }
 
@@ -68,12 +60,12 @@
       <small class:ko={level === 'ko'} class:warn={level === 'warn'} title={[block.source, block.ran_at && t('read {time} ago', { time: ago(block.ran_at) }), block.took_ms != null && `${block.took_ms} ms`].filter(Boolean).join(' · ')}>
         {block.running ? t('reading…') : block.output?.status?.text ?? (block.ran_at ? t('{time} ago', { time: ago(block.ran_at) }) : '')}
       </small>
-      {#if hasCore() && block.enabled}<button class="icon" class:spin={refreshing || block.running} onclick={refresh} title={t('Run it now')} aria-label={t('Refresh')}><Icon name="refresh" /></button>{/if}
+      {#if hasCore() && block.enabled}<button class="btn sm icon ghost" onclick={refresh} title={t('Run it now')} aria-label={t('Refresh')}><Icon name="refresh" spin={refreshing || block.running} /></button>{/if}
     {/if}
     {#if !embedded}<BlockControls id={pageId} />{/if}
   </h2>
   {#if !block}
-    <div class="empty">{t('No custom block {id} in config.toml ([[custom_blocks]]).', { id: pageId.replace(/^custom:/, '') })}{#if isDesktop()} <button class="lnk" onclick={() => openSettings('custom-blocks')}>{t('Settings › Custom blocks')}</button>{/if}</div>
+    <State kind="off" title={t('No custom block {id} in config.toml ([[custom_blocks]]).', { id: pageId.replace(/^custom:/, '') })} action={isDesktop() ? { label: t('Settings › Custom blocks'), run: () => openSettings('custom-blocks') } : undefined} />
   {:else if block.pending}
     {@const p = block.pending}
     <div class="pending">
@@ -90,40 +82,34 @@
       {/if}
       {#if isDesktop()}
         <div class="btns">
-          <button class="btn primary" class:armed={armed === 'trust'} onclick={() => act('trust')}>{armed === 'trust' ? t('Click again to trust and run') : t('Trust and run')}</button>
-          {#if p.reason !== 'new'}<button class="btn" class:armed={armed === 'revert'} onclick={() => act('revert')}>{armed === 'revert' ? t('Click again to go back') : t('Back to the trusted version')}</button>{/if}
-          {#if block.origin === 'config'}<button class="btn danger" class:armed={armed === 'delete'} onclick={() => act('delete')}>{armed === 'delete' ? t('Click again to remove') : t('Remove')}</button>{/if}
+          <button class="btn primary" class:armed={armed.is('trust')} onclick={() => act('trust')}><ArmedLabel label={t('Trust and run')} armedLabel={t('Click again to confirm')} armed={armed.is('trust')} /></button>
+          {#if p.reason !== 'new'}<button class="btn" class:armed={armed.is('revert')} onclick={() => act('revert')}><ArmedLabel label={t('Back to the trusted version')} armedLabel={t('Click again to confirm')} armed={armed.is('revert')} /></button>{/if}
+          {#if block.origin === 'config'}<button class="btn danger" class:armed={armed.is('delete')} onclick={() => act('delete')}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is('delete')} /></button>{/if}
         </div>
       {:else}
         <p class="phone">{t('Trust is given on the computer only.')}</p>
-        {#if block.origin === 'config'}<div class="btns"><button class="btn danger" class:armed={armed === 'delete'} onclick={() => act('delete')}>{armed === 'delete' ? t('Tap again to remove') : t('Remove')}</button></div>{/if}
+        {#if block.origin === 'config'}<div class="btns"><button class="btn danger" class:armed={armed.is('delete')} onclick={() => act('delete')}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is('delete')} /></button></div>{/if}
       {/if}
     </div>
     {#if p.runs_trusted && block.output}<div class="scroll"><CustomOutput {block} {short} /></div>{/if}
   {:else if !block.enabled}
-    <div class="empty">{t('Turned off (enabled = false).')}</div>
+    <State kind="off" title={t('Turned off (enabled = false).')} />
   {:else}
     {#if block.error}
-      <div class="err" title={block.stderr ?? ''}><Icon name="warning" /><span>{block.error.split('\n')[0]}</span></div>
+      <div class="fail" title={block.stderr ?? ''}><State kind="error" inline title={block.error.split('\n')[0]} /></div>
     {/if}
     {#if block.output}
       <div class="scroll"><CustomOutput {block} {short} /></div>
     {:else if !block.error}
-      <div class="empty">{block.running || !block.ran_at ? t('Reading…') : t('Nothing printed.')}</div>
+      {#if block.running || !block.ran_at}<State kind="loading" title={t('Reading…')} />{:else}<State kind="empty" title={t('Nothing printed.')} />{/if}
     {/if}
   {/if}
 </section>
 
 <style>
   .panel.embedded { border: none; box-shadow: none; border-top: 1px solid var(--border); border-radius: 0; }
-  .empty { padding: 12px 14px; color: var(--text-muted); font-size: var(--fs-body); }
-  .lnk { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
   small.ko { color: var(--ko); }
   small.warn { color: var(--warn); }
-  .icon { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover { background: var(--surface-muted); color: var(--text); }
-  .icon :global(svg) { width: 13px; height: 13px; }
-  .spin :global(svg) { animation: spin 0.8s linear infinite; }
   .pend { padding: 0 7px; border-radius: var(--r9); background: var(--warn-bg); color: var(--warn); font-size: var(--fs-tag); font-weight: 500; }
   .pending { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; font-size: var(--fs-body); }
   .why { margin: 0; }
@@ -135,10 +121,6 @@
   .l.add { background: color-mix(in srgb, var(--ok) 14%, transparent); }
   .l.del { background: color-mix(in srgb, var(--ko) 14%, transparent); }
   .btns { display: flex; flex-wrap: wrap; gap: 6px; }
-  .btn.armed { outline: 2px solid var(--warn); }
-  .btn.danger { color: var(--ko); }
   .phone { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
-  .err { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); }
-  .err :global(svg) { width: 12px; height: 12px; flex-shrink: 0; }
-  .err span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fail { padding: 6px 12px; background: color-mix(in srgb, var(--ko-bg) 50%, transparent); font-size: var(--fs-meta); }
 </style>

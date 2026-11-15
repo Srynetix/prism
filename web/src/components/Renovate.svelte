@@ -10,6 +10,8 @@
   import { isCollapsed, isShort } from '../layout.svelte'
   import Icon from './Icon.svelte'
   import Logo from './Logo.svelte'
+  import ArmedLabel from './ArmedLabel.svelte'
+  import State from './ui/State.svelte'
   import type { MergeRequest, Renovate } from '../types'
   import { checkRenovate, playRenovate } from '../pipeline-actions'
   import type { RenovateItem } from '../types'
@@ -96,7 +98,7 @@
     <BlockControls id="renovate" />
   </h2>
   {#if !renovate}
-    <div class="empty">{error ? t('Renovate unavailable: {error}', { error }) : t('Loading Renovate…')}</div>
+    {#if error}<State kind="error" title={t('Renovate unavailable: {error}', { error })} />{:else}<State kind="loading" title={t('Loading Renovate…')} />{/if}
   {:else}
     <!-- Manual launch of the Renovate schedule and the state of its last pipeline. -->
     <div class="runbar">
@@ -104,7 +106,7 @@
       <span class="lbl">{onGithub() ? (renovate.schedule_id ? t('Workflow') : t('App')) : t('Schedule')}</span>
       {#if run}
         <a class="st {tone(run.status)}" href={run.url} target="_blank" rel="noreferrer" title={t('{what} #{id} · started {date}', { what: onGithub() ? t('Run') : t('Pipeline'), id: run.id, date: new Date(run.started_at).toLocaleString(locale()) })}>
-          {#if running}<span class="dot"></span>{/if}{run.status}
+          {#if running}<span class="dot warn pulse"></span>{/if}{run.status}
         </a>
         <span class="mono muted">{running ? span(now - new Date(run.started_at).getTime()) : ago(run.updated_at)}</span>
       {:else}
@@ -114,13 +116,14 @@
       <span class="grow"></span>
       {#if hasCore() && (renovate.schedule_id || (onGithub() && renovate.dashboard_iid))}
         <button
-          class="launch"
+          class="btn sm launch"
           class:armed={arm.is('launch')}
           class:error={!!failure}
+          class:busy
           disabled={busy || running}
           onclick={launch}
           title={failure ? t('Could not start Renovate: {error}', { error: failure }) : running ? t('Renovate is running') : arm.is('launch') ? t('Click again to run Renovate now') : onGithub() ? (renovate.schedule_id ? t('Run the Renovate workflow now') : t('Ask the Renovate app for a pass (its dashboard’s run again box)')) : t('Run the Renovate schedule now')}
-        ><Icon name="play" /> {busy ? t('starting…') : running ? t('running') : arm.is('launch') ? t('run now?') : t('Run now')}</button>
+        >{#if busy}<span class="spinner"></span>{t('starting…')}{:else}<Icon name="play" />{#if running}{t('running')}{:else}<ArmedLabel label={t('Run now')} armedLabel={t('Click again to confirm')} armed={arm.is('launch')} />{/if}{/if}</button>
       {/if}
     </div>
     {#if isShort('renovate')}
@@ -145,7 +148,7 @@
                 class:error={checkError?.marker === m}
                 disabled={i.checked || checking === m || running}
                 onclick={() => check(i)}
-                aria-label={i.checked ? t('Requested') : arm.is(m) ? t('Confirm: check this item') : t('Check this item in the dashboard')}
+                aria-label={i.checked ? t('Requested') : arm.is(m) ? t('Click again to check it in the dashboard') : t('Check this item in the dashboard')}
                 title={checkError?.marker === m
                   ? t('Could not check: {error}', { error: checkError.message })
                   : i.checked
@@ -155,7 +158,7 @@
                       : arm.is(m)
                         ? t('Click again to check it in the dashboard')
                         : (ACTION[i.action] ?? t('Check it in the dashboard: Renovate will act on it on its next run'))}
-              >{#if i.checked}<Icon name="check" stroke={3} />{:else}{checking === m ? '…' : arm.is(m) ? '?' : ''}{/if}</button>
+              >{#if i.checked}<Icon name="check" stroke={3} />{:else}{#if checking === m}<span class="spinner"></span>{:else if arm.is(m)}?{/if}{/if}</button>
             {/if}
             {#if i.mr}
               <button class="mono link" onclick={() => setQuery(mrNumber(i.mr!))} title={t('Filter on {mr}', { mr: mrNumber(i.mr!) })}>{mrNumber(i.mr!)}</button>
@@ -169,7 +172,7 @@
           </div>
         {/each}
       {:else}
-        <div class="empty">{t('The dependency dashboard has nothing pending.')}</div>
+        <State kind="empty" title={t('The dependency dashboard has nothing pending.')} />
       {/each}
     </div>
     {/if}
@@ -184,13 +187,7 @@
   .runbar .grow { flex: 1; }
   .st { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: var(--text-muted); }
   .st.ok { color: var(--ok); } .st.ko { color: var(--ko); } .st.run { color: var(--warn); }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); animation: blink 1.2s infinite; }
-  @keyframes blink { 50% { opacity: 0.35; } }
-  .launch { padding: 1px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .launch:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
-  .launch.armed { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
   .launch.error { color: var(--ko); border-color: var(--ko); }
-  .launch:disabled { cursor: default; opacity: 0.7; }
   .section { padding: 4px 12px; background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); border-top: 1px solid var(--border); }
   .section:first-child { border-top: none; }
   .box { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 15px; height: 15px; padding: 0; border: 1.5px solid var(--text-muted); border-radius: var(--r3); background: none; color: var(--surface); font: inherit; font-size: var(--fs-tag); font-weight: 700; line-height: 1; cursor: pointer; }

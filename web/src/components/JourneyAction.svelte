@@ -32,18 +32,14 @@
 </script>
 
 {#if 'href' in primary}
-  <a class="go" class:wide href={primary.href} title={primary.title} onclick={(e) => e.stopPropagation()}>{primary.label}</a>
+  <a class="btn sm primary go" class:wide href={primary.href} title={primary.title} onclick={(e) => e.stopPropagation()}>{primary.label}</a>
 {:else}
-  <button class="go" class:wide class:error={!!error} class:armed={armed.is()} disabled={busy} onclick={run} title={error ? t('Failed: {error}', { error }) : armed.is() ? t('Click again to confirm') : primary.title}>
-    {#if busy}…{:else if primary.confirm}<ArmedLabel label={primary.label} armedLabel={primary.confirm} armed={armed.is()} />{:else}{primary.label}{/if}
+  <button class="btn sm go" class:primary={!armed.is()} class:wide class:error={!!error} class:armed={armed.is()} class:busy disabled={busy} onclick={run} title={error ? t('Failed: {error}', { error }) : primary.title}>
+    {#if busy}<span class="spinner"></span>{primary.label}{:else if primary.confirm}<ArmedLabel label={primary.label} armedLabel={t('Click again to confirm')} armed={armed.is()} />{:else}{primary.label}{/if}
   </button>
 {/if}
 
 <style>
-  .go { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px 10px; border: 1px solid var(--accent); border-radius: var(--r6); background: var(--accent); color: var(--on-accent); font: inherit; font-size: var(--fs-meta); font-weight: 600; line-height: 18px; white-space: nowrap; text-decoration: none; cursor: pointer; }
-  .go:hover { filter: brightness(1.08); text-decoration: none; }
-  .go:disabled { opacity: 0.6; cursor: progress; }
-  .go.armed { border-color: var(--warn); background: var(--warn); }
-  .go.error { border-color: var(--ko); background: var(--ko); }
-  .go.wide { width: 100%; padding: 9px 12px; border-radius: var(--r10); font-size: var(--fs-head); }
+  .go.error { --btn-c: var(--ko); }
+  .go.wide { width: 100%; height: auto; padding: 9px 12px; border-radius: var(--r10); font-size: var(--fs-head); }
 </style>

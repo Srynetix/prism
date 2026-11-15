@@ -973,10 +973,6 @@
   .tests b { font-weight: 500; }
   .tests :global(svg) { width: 11px; height: 11px; }
   .link { border: none; background: none; padding: 0; color: var(--info); font: inherit; cursor: pointer; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { border: none; background: none; padding: 1px 9px; color: var(--text-muted); font: inherit; cursor: pointer; }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button.on { background: var(--surface-muted); color: var(--text); font-weight: 500; }
   .add { color: var(--ok); font-family: var(--mono); font-size: var(--fs-tag); }
   .del { color: var(--ko); font-family: var(--mono); font-size: var(--fs-tag); }
   .warn { color: var(--warn); }

@@ -55,7 +55,7 @@
 {/if}
 
 <style>
-  .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+  .status { max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
   /* Tint of the status colour, readable in light as in dark. */
   .status { display: inline-flex; align-items: center; gap: 4px; background: color-mix(in srgb, var(--c) 16%, transparent); color: color-mix(in srgb, var(--c) 55%, var(--text)); }
   .status::before { content: ''; flex-shrink: 0; width: 6px; height: 6px; border-radius: var(--r2); background: var(--c); }

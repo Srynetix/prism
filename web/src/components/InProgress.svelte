@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '../i18n.svelte'
   import BlockControls from './BlockControls.svelte'
+  import State from './ui/State.svelte'
   import Logo from './Logo.svelte'
   import JourneyStrip from './JourneyStrip.svelte'
   import JourneyAction from './JourneyAction.svelte'
@@ -59,7 +60,7 @@
     <BlockControls id="wip" />
   </h2>
   {#if !snap.tracker_me && !snap.me}
-    <div class="empty">{t('Prism does not know you in the tracker nor on the forge yet: your tickets show once it does.')}</div>
+    <State kind="off" title={t('Prism does not know you in the tracker nor on the forge yet: your tickets show once it does.')} />
   {:else if isShort('wip')}
     <div class="short-body">
       {#each all.filter((j) => j.move === 'me') as j (j.key)}
@@ -93,17 +94,13 @@
           <div class="act">{#if action}<JourneyAction primary={action} />{:else if j.move === 'others'}<span class="wait">{t('waiting')}</span>{/if}</div>
         </div>
       {:else}
-        <div class="empty">{EMPTY[filter]}</div>
+        <State kind="empty" title={EMPTY[filter]} />
       {/each}
     </div>
   {/if}
 </section>
 
 <style>
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { font: inherit; font-size: var(--fs-meta); padding: 2px 8px; border: none; background: none; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button.on { background: var(--surface-muted); color: var(--text); }
   .row { display: grid; grid-template-columns: minmax(0, 1fr) auto 76px 110px; align-items: center; gap: 4px 12px; padding: 7px 12px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
   .row.waits { box-shadow: inset 2px 0 var(--accent); }
   .row.ko { box-shadow: inset 2px 0 var(--ko); }

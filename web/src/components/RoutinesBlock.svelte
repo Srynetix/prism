@@ -6,6 +6,7 @@
   import { t } from '../i18n.svelte'
   import { reviewPile, routinesOf } from '../routines.svelte'
   import BlockControls from './BlockControls.svelte'
+  import State from './ui/State.svelte'
   import RoutineReview from './RoutineReview.svelte'
   import type { RoutineRun } from '../bindings/RoutineRun'
 
@@ -26,9 +27,9 @@
   </h2>
   <div class="scroll">
     {#if none}
-      <div class="empty">{t('No routine yet: an agent launched on its own, at fixed times ([[agents.routines]]).')}{#if isDesktop()}{' '}<button class="lnk" onclick={() => openSettings('routines')}>{t('Settings › Routines')}</button>{/if}</div>
+      <State kind="empty" icon="clock" title={t('No routine yet: an agent launched on its own, at fixed times ([[agents.routines]]).')} action={isDesktop() ? { label: t('Settings › Routines'), run: () => openSettings('routines') } : undefined} />
     {:else if !n && !routinesOf(live.snapshot).routines.some((r) => r.next.length)}
-      <div class="empty">{t('Nothing to review.')}</div>
+      <State kind="empty" title={t('Nothing to review.')} />
     {:else}
       <RoutineReview {onrerun} />
     {/if}
@@ -38,6 +39,4 @@
 <style>
   .scroll { overflow: auto; padding: 6px 8px; }
   .scroll :global(.review) { border: none; padding: 0; background: none; }
-  .empty { padding: 10px 12px; color: var(--text-muted); font-size: var(--fs-body); }
-  .lnk { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; text-decoration: underline; }
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
+  import State from '../../components/ui/State.svelte'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import type { BlockProps } from '../block'
   import { bytes, diskTone, rate, spark, tones, type SystemState, type Tone } from './types'
@@ -35,9 +36,9 @@
     <BlockControls id="system" />
   </h2>
   {#if !sys}
-    <div class="empty">{t('The system is not read. Turn on Settings › Infra › System, then restart Prism.')}</div>
+    <State kind="off" title={t('The system is not read. Turn on Settings › Infra › System, then restart Prism.')} />
   {:else if !sys.updated_at}
-    <div class="empty">{error ?? t('Reading the system…')}</div>
+    {#if error}<State kind="error" title={error} />{:else}<State kind="loading" title={t('Reading the system…')} />{/if}
   {:else if short && tone}
     <div class="short">
       <div class="srow"><span class="k">CPU</span><span class="bar"><i style:width="{Math.min(100, sys.cpu.usage)}%" style:background={COLOR[tone.cpu]}></i></span><span class="n">{Math.round(sys.cpu.usage)} % · {t('load {n}', { n: sys.cpu.load[0].toFixed(1) })}</span></div>
@@ -88,7 +89,7 @@
         <h3>{t('Who consumes')} <span>{t('CPU · memory')}</span></h3>
         {#each sys.groups as g (g.kind + g.name)}
           <div class="proc" class:app={g.kind === 'app'}>
-            <span class="dot" style:background={GROUP_COLOR[g.kind]}></span>
+            <span class="dot" style:--dot-c={GROUP_COLOR[g.kind]}></span>
             <span class="nm" title="{g.name} · {g.detail}">{#if g.kind === 'app'}{g.name}{:else}<b>{g.name}</b>{/if} <span class="muted">· {g.detail}</span></span>
             <span class="n" class:hot={g.cpu >= 50} title={t('% of one core, summed over its processes')}>{Math.round(g.cpu)} %</span>
             <span class="n" class:hot={g.memory >= sys.memory.total / 5}>{bytes(g.memory)}</span>
@@ -133,12 +134,8 @@
 <style>
   /* The machine, beside the title: one line, cut when the block is narrow. */
   h2 small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .empty { padding: 14px 16px; color: var(--text-muted); font-size: var(--fs-body); }
   .muted { color: var(--text-muted); }
   p.muted { margin: 4px 0 0; font-size: var(--fs-meta); }
-  .pill { padding: 0 7px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 500; white-space: nowrap; }
-  .pill.warn { background: var(--warn-bg); color: var(--warn); }
-  .pill.ko { background: var(--ko-bg); color: var(--ko); }
   .scroll { container-type: inline-size; }
   .gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-bottom: 1px solid var(--border); }
   .disk { display: grid; grid-template-columns: minmax(0, 1fr) 70px 110px; gap: 8px; align-items: center; padding: 2px 0; font-size: var(--fs-meta); }
@@ -171,7 +168,6 @@
   .proc { display: grid; grid-template-columns: 10px minmax(0, 1fr) 46px 58px; gap: 6px; align-items: center; padding: 2px 0; font-size: var(--fs-meta); }
   .proc .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .proc b { font-weight: 550; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; }
   .n { font: var(--fs-tag) var(--mono); text-align: right; color: var(--text-muted); white-space: nowrap; }
   .n.hot { color: var(--warn); }
   .n.ko { color: var(--ko); }

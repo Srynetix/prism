@@ -30,7 +30,7 @@
 
 {#if hasCore() && trackerOn()}
   <button
-    class="refresh"
+    class="btn sm icon ghost"
     class:busy={state.busy}
     class:error={!!state.error}
     disabled={state.busy}
@@ -41,8 +41,5 @@
 {/if}
 
 <style>
-  .refresh { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-head); line-height: 1; cursor: pointer; }
-  .refresh:hover { background: var(--surface-muted); color: var(--text); }
-  .refresh.busy { cursor: progress; }
-  .refresh.error { color: var(--ko); }
+  .error { color: var(--ko); }
 </style>

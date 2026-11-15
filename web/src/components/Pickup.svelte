@@ -3,6 +3,7 @@
   import { isBlocked } from '../tickets'
   import { offers, onObsidian, queuesSource, ticketKey, trackerLogo, trackerName, trackerProvider } from '../tracker'
   import BlockControls from './BlockControls.svelte'
+  import State from './ui/State.svelte'
   import { live } from '../live.svelte'
   import RefreshTickets from './RefreshTickets.svelte'
   import TrackerOff from './TrackerOff.svelte'
@@ -85,7 +86,7 @@
   {:else if !offers('pickup')}
     <div class="empty">{tr('{tracker} has no boards to pick from: its open cards, backlog included, are in the Sprint block.', { tracker: trackerName() })}</div>
   {:else if !live.snapshot?.answered?.includes(queuesSource())}
-    <div class="empty">{tr('Loading the tickets to pick…')}</div>
+    <State kind="loading" title={tr('Loading the tickets to pick…')} />
   {:else if !sources.length && onObsidian()}
     <div class="empty">{tr('No card ready to pick: none in a lane of the Ready statuses ({statuses}, Settings › Work › Tracker).', { statuses: live.snapshot?.conventions?.pick_statuses?.join(', ') || tr('none set') })}</div>
   {:else if !sources.length && trackerProvider() === 'jira'}

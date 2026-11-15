@@ -2,6 +2,7 @@
   import { hasCore } from '../../bridge'
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
+  import State from '../../components/ui/State.svelte'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import { call, type BlockProps } from '../block'
   import { micProblem, recorders, type SoundSide, type SoundState } from './types'
@@ -51,7 +52,7 @@
           {#each (snd?.devices ?? []).filter((d) => d[side]) as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
         </select>
         {#if s.muted !== null}
-          <button class="icon" class:on={s.muted} disabled={!app || !s.mute_settable} onclick={() => run('mute', { side, muted: !s.muted })} title={s.muted ? t('Unmute') : t('Mute')} aria-label={s.muted ? t('Unmute {name}', { name: s.name }) : t('Mute {name}', { name: s.name })}>
+          <button class="btn sm icon mute" class:on={s.muted} disabled={!app || !s.mute_settable} onclick={() => run('mute', { side, muted: !s.muted })} title={s.muted ? t('Unmute') : t('Mute')} aria-label={s.muted ? t('Unmute {name}', { name: s.name }) : t('Mute {name}', { name: s.name })}>
             <Icon name={side === 'input' ? (s.muted ? 'micOff' : 'mic') : s.muted ? 'speakerOff' : 'speaker'} />
           </button>
         {/if}
@@ -76,16 +77,16 @@
     <BlockControls id="sound" />
   </h2>
   {#if !snd}
-    <div class="empty">{t('Sound is not read. Turn on Settings › Infra › Sound, then restart Prism.')}</div>
+    <State kind="off" title={t('Sound is not read. Turn on Settings › Infra › Sound, then restart Prism.')} />
   {:else if !snd.updated_at}
-    <div class="empty">{error ?? t('Reading the audio devices…')}</div>
+    {#if error}<State kind="error" title={error} />{:else}<State kind="loading" title={t('Reading the audio devices…')} />{/if}
   {:else if short}
     <div class="short">
       {#each [['output', snd.output], ['input', snd.input]] as const as [side, s] (side)}
         {@const icon = side === 'input' ? (s?.muted ? 'micOff' : 'mic') : s?.muted ? 'speakerOff' : 'speaker'}
         <div class="srow">
           {#if s && s.muted !== null}
-            <button class="icon bare" class:on={s.muted} disabled={!app || !s.mute_settable} onclick={() => run('mute', { side, muted: !s.muted })} title={s.muted ? t('Unmute') : t('Mute')} aria-label={s.muted ? t('Unmute {name}', { name: s.name }) : t('Mute {name}', { name: s.name })}><Icon name={icon} /></button>
+            <button class="btn sm icon ghost mute" class:on={s.muted} disabled={!app || !s.mute_settable} onclick={() => run('mute', { side, muted: !s.muted })} title={s.muted ? t('Unmute') : t('Mute')} aria-label={s.muted ? t('Unmute {name}', { name: s.name }) : t('Mute {name}', { name: s.name })}><Icon name={icon} /></button>
           {:else}
             <span class="ic"><Icon name={icon} /></span>
           {/if}
@@ -96,7 +97,7 @@
           {/if}
         </div>
       {/each}
-      {#if failed}<p class="err" title={failed}>{failed}</p>{/if}
+      {#if failed}<div class="fail" title={failed}><State kind="error" inline title={failed} /></div>{/if}
     </div>
   {:else}
     <div class="scroll">
@@ -109,12 +110,12 @@
             <b>{t('Microphone too low')}</b>{recording ? t(': input volume {volume} %, under {min} % while {who} records.', { volume: problem.volume, min: snd.limits.min_input_gain, who: recording }) : t(': input volume {volume} %, under {min} %.', { volume: problem.volume, min: snd.limits.min_input_gain })}
           </span>
           {#if app}
-            <button class="act" onclick={() => run('volume', { side: 'input', value: raise })}>{t('Raise to {n} %', { n: raise })}</button>
+            <button class="btn sm" onclick={() => run('volume', { side: 'input', value: raise })}>{t('Raise to {n} %', { n: raise })}</button>
           {/if}
         </div>
       {/if}
       {@render line('input', snd.input)}
-      {#if failed}<p class="err" title={failed}>{failed}</p>{/if}
+      {#if failed}<div class="fail" title={failed}><State kind="error" inline title={failed} /></div>{/if}
     </div>
   {/if}
 </section>
@@ -126,10 +127,8 @@
   .rec { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--warn); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dev { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
   .dev select { flex: 1; min-width: 0; padding: 2px 6px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover:not(:disabled) { color: var(--text); }
-  .icon.on { border-color: var(--ko); color: var(--ko); background: color-mix(in srgb, var(--ko) 12%, transparent); }
-  .icon:disabled, select:disabled, input:disabled { opacity: 0.6; cursor: default; }
+  .mute.on { border-color: var(--ko); color: var(--ko); background: color-mix(in srgb, var(--ko) 12%, transparent); }
+  select:disabled, input:disabled { opacity: 0.6; cursor: default; }
   .vol { display: flex; align-items: center; gap: 8px; font-size: var(--fs-meta); }
   .vol .k { width: 48px; color: var(--text-muted); }
   .vol input { flex: 1; min-width: 0; --tick: var(--src); }
@@ -139,15 +138,12 @@
   .alert.ko { background: color-mix(in srgb, var(--ko) 14%, transparent); color: var(--ko); }
   .alert .msg { flex: 1; min-width: 0; }
   .alert b { color: inherit; }
-  .act { padding: 1px 8px; border: 1px solid currentColor; border-radius: var(--r6); background: none; color: inherit; font: inherit; font-size: var(--fs-tag); cursor: pointer; white-space: nowrap; }
-  .err { margin: 0; padding: 4px 12px; color: var(--ko); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fail { padding: 4px 12px; font-size: var(--fs-meta); }
   .short { display: flex; flex-direction: column; }
   .srow { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-top: 1px solid var(--border); font-size: var(--fs-body); white-space: nowrap; }
   .srow:first-child { border-top: none; }
   .srow .nm { flex: 0 1 180px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .srow .nm:last-child { flex: 1; max-width: none; }
   .srow input { flex: 1; min-width: 40px; --tick: var(--src); }
-  .icon.bare { width: 22px; height: 20px; border-color: transparent; }
-  .icon.bare.on { border-color: var(--ko); }
   .ic { display: inline-flex; justify-content: center; width: 22px; flex: none; }
 </style>

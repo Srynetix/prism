@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '../i18n.svelte'
   import { armer } from '../armed.svelte'
+  import ArmedLabel from './ArmedLabel.svelte'
   import { openSettings, saveNow } from '../settings.svelte'
   import type { RemoteStatus } from '../types'
   import Icon from './Icon.svelte'
@@ -37,8 +38,8 @@
     <span class="g"><Icon name={remote.error ? 'warning' : 'web'} /></span>{label}
   </button>
   {#if typing}<button class="stop" onclick={() => invoke('remote_release', { agent: typing.agent })} title={t('Take the terminal back: the phone goes back to watching (a key typed in it on the desk does too)')}>{t('Take back')}</button>{/if}
-  <button class="stop" class:armed={armed.is('restart')} onclick={restart} disabled={restarting} title={remote.error ? t('Start the remote again: Tailscale up now?') : t('Start the remote again: the phones’ sessions end, they stay paired (click twice)')}>{restarting ? t('Restarting…') : armed.is('restart') ? t('Restart?') : t('Restart')}</button>
-  <button class="stop" class:armed={armed.is()} onclick={stop} title={t('Turn the remote off: every phone’s session ends (click twice)')}>{armed.is() ? t('Stop?') : t('Stop')}</button>
+  <button class="stop" class:armed={armed.is('restart')} onclick={restart} disabled={restarting} title={remote.error ? t('Start the remote again: Tailscale up now?') : t('Start the remote again: the phones’ sessions end, they stay paired (click twice)')}>{#if restarting}<span class="spinner"></span>{t('Restarting…')}{:else}<ArmedLabel label={t('Restart')} armedLabel={t('Click again to confirm')} armed={armed.is('restart')} />{/if}</button>
+  <button class="stop" class:armed={armed.is()} onclick={stop} title={t('Turn the remote off: every phone’s session ends (click twice)')}><ArmedLabel label={t('Stop')} armedLabel={t('Click again to confirm')} armed={armed.is()} /></button>
 </span>
 
 <style>

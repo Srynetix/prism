@@ -38,8 +38,9 @@
 
 {#if hasCore()}
   <button
-    class="retry"
+    class="btn sm ghost retry"
     class:error={!!error}
+    class:busy
     class:done
     class:armed={armed.is()}
     class:rerun
@@ -47,15 +48,12 @@
     {onclick}
     title={error ? t('Could not retry: {error}', { error }) : done ? (rerun ? t('{job} started again', { job: name || t('Job') }) : t('{job} retried', { job: name || t('Job') })) : armed.is() ? t('Click again to run it again') : rerun ? t('Run {job} again (it succeeded)', { job: name || t('this job') }) : t('Retry {job} only', { job: name || t('this job') })}
     aria-label={t('Retry {job}', { job: name || t('job') })}
-  ><Icon name={done ? 'check' : 'retry'} />{#if label || busy || error || armed.is()}<span>{busy ? (rerun ? t('starting…') : t('retrying…')) : error ? tc('mrs', 'failed') : armed.is() ? t('Run again?') : rerun ? t('Run again') : t('Retry job')}</span>{/if}</button>
+  >{#if busy}<span class="spinner"></span>{:else}<Icon name={done ? 'check' : 'retry'} />{/if}{#if label || busy || error || armed.is()}<span>{busy ? (rerun ? t('starting…') : t('retrying…')) : error ? tc('mrs', 'failed') : armed.is() ? t('Click again to confirm') : rerun ? t('Run again') : t('Retry job')}</span>{/if}</button>
 {/if}
 
 <style>
-  .retry { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; height: 18px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); line-height: 1; cursor: pointer; vertical-align: middle; }
-  .retry span { font-size: var(--fs-meta); }
-  .retry:hover:not(:disabled) { color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
-  .retry.done { color: var(--ok); }
-  .retry.armed { color: var(--warn); border-color: var(--warn); background: var(--warn-bg); }
+  .retry { padding: 0 var(--sp-3); vertical-align: middle; }
+  .retry:hover:not(:disabled) { color: var(--info); }
+  .retry.done { color: var(--ok); opacity: 1; }
   .retry.error { color: var(--ko); border-color: var(--ko); }
-  .retry:disabled { cursor: default; }
 </style>

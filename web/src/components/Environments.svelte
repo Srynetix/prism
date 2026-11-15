@@ -7,6 +7,7 @@
   import BlockControls from './BlockControls.svelte'
   import Icon from './Icon.svelte'
   import Logo from './Logo.svelte'
+  import State from './ui/State.svelte'
   import { isCollapsed, isShort, pref, setPref, showBlock } from '../layout.svelte'
   import { claudeClick, investigateAction } from '../claude-actions'
   import { columns, grip } from '../columns.svelte'
@@ -210,7 +211,7 @@
   {@const h = health(w)}
   {@const a = h !== 'ok' ? investigateAction(w.name, s.namespace, s.context, s.env, issue(w, plain)) : null}
   <div class="wl {h}" class:child={!!branch}>
-    <span class="dot-st" title={h === 'ok' ? t('Healthy') : issue(w)}></span>
+    <span class="dot {h}" title={h === 'ok' ? t('Healthy') : issue(w)}></span>
     {#if canShowPodLogs()}
       <button class="name" title="{w.name} · {label(s)} · {t('open the logs')}" onclick={logsOf(s, w)}>{@render nameOf(w, branch)}</button>
     {:else}
@@ -232,7 +233,7 @@
       <span class="ver" class:drift={w.drift}>{w.image_tag ?? '—'}</span>{#if w.drift}<span class="muted">≠ {w.expected}</span>{/if}
     </span>
     {#if canShowPodLogs()}<button class="logs" onclick={logsOf(s, w)} title={t('Logs of the pods')}>{t('Logs')}</button>{:else}<span></span>{/if}
-    {#if a?.href}<a class="act" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{:else}<span></span>{/if}
+    {#if a?.href}<a class="btn sm claude act" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{:else}<span></span>{/if}
   </div>
 {/snippet}
 
@@ -241,17 +242,17 @@
     <span class="title"><Logo name="kubernetes" />{t('Environments')}</span>
     <small>{t('pods · read-only')}</small>
     {#if names.length}
-      <span class="tabs" role="group" aria-label={t('Environment')}>
+      <span class="seg tabs" role="group" aria-label={t('Environment')}>
         {#each names as n (n)}
           {@const bad = troubled(n)}
-          <button class:on={n === env} onclick={() => setTab(n)}>{n}{#if bad}<b class="dot" title={tn(bad, '{n} workload in trouble', '{n} workloads in trouble')}>{bad}</b>{/if}</button>
+          <button class:on={n === env} aria-pressed={n === env} onclick={() => setTab(n)}>{n}{#if bad}<b class="bad" title={tn(bad, '{n} workload in trouble', '{n} workloads in trouble')}>{bad}</b>{/if}</button>
         {/each}
       </span>
     {/if}
     <BlockControls id="envs" />
   </h2>
   {#if !environments}
-    <div class="empty">{error ? t('Unavailable: {error}', { error }) : t('No environment configured ([[environments]] in the config), or reading the clusters…')}</div>
+    {#if error}<State kind="error" title={t('Unavailable: {error}', { error })} />{:else}<State kind="off" title={t('No environment configured ([[environments]] in the config), or reading the clusters…')} />{/if}
   {:else if isShort('envs')}
     <div class="short-body">
       {#each names as n (n)}
@@ -295,7 +296,7 @@
         <div class="cl" class:folded={clFolded} onclick={() => fold(clKey)} title={`${c ? clusterTitle(c) : cl.context}\n${clFolded ? t('Show its applications') : t('Hide its applications')}`}>
           <span class="cn"><span class="caret" class:open={!clFolded} aria-hidden="true"><Icon name="chevronRight" /></span>{cl.name}{#if clFolded && (troubled || cl.unreadable.length)}<span class="b {sums.some((x) => x.health === 'ko') || !troubled ? 'ko' : 'warn'}">{troubled ? t('{n} in trouble', { n: troubled }) : tn(cl.unreadable.length, '{n} namespace unreadable', '{n} namespaces unreadable')}</span>{/if}<small>{cl.namespaces.length === 1 ? cl.namespaces[0].name : tn(cl.namespaces.length, '{n} namespace', '{n} namespaces')} · {tn(cl.apps.length, '{n} app', '{n} apps')} · {tn(cl.workloads, '{n} deployment', '{n} deployments')}{c?.nodes ? ` · ${tn(c.nodes, '{n} node', '{n} nodes')}` : ''}</small>{#if argoApps.length}<button class="argo-sum {argoBad.some((r) => argoTone(r.app) === 'ko') ? 'ko' : argoBad.some((r) => argoTone(r.app) === 'warn') ? 'warn' : argoBad.length ? 'info' : 'ok'}" onclick={(e) => { e.stopPropagation(); argoSummary(argoApps[0].instance.cluster) }} title={argoApps.map((r) => `${r.app.name}: ${t(r.app.sync)} · ${t(r.app.health)}`).join('\n')}><Icon name="argocd" /> {argoBad.length ? t('{bad}/{total} not synced', { bad: argoBad.length, total: argoApps.length }) : t('{n} synced', { n: argoApps.length })}</button>{/if}</span>
           {#if cpu === null && mem === null}
-            <span class="unav">{c?.error ? t('load unavailable') : c ? '…' : ''}</span>
+            <span class="unav">{#if c?.error}{t('load unavailable')}{:else if c}<span class="spinner"></span>{/if}</span>
           {:else if c}
             <span class="m {tone(cpu)}"><span class="k">CPU</span><span class="bar"><i style:width="{cpu ?? 0}%"></i></span><b>{cpu === null ? '—' : `${Math.round(cpu)}%`}</b><small>{c.cpu_used_millis !== null ? `${cores(c.cpu_used_millis)}/${cores(c.cpu_allocatable_millis)}` : ''}</small></span>
             <span class="m {tone(mem)}"><span class="k">RAM</span><span class="bar"><i style:width="{mem ?? 0}%"></i></span><b>{mem === null ? '—' : `${Math.round(mem)}%`}</b><small>{c.mem_used_bytes !== null ? `${gib(c.mem_used_bytes)}/${gib(c.mem_allocatable_bytes)} GiB` : ''}</small></span>
@@ -303,7 +304,7 @@
         </div>
         {#if !clFolded}
         {#each cl.unreadable as s (s.namespace)}
-          <p class="err" title="{s.context} · {s.error}">{t('{namespace} unreadable: {error}', { namespace: s.namespace, error: s.error ?? '' })}</p>
+          <div class="fail" title="{s.context} · {s.error}"><State kind="error" inline title={t('{namespace} unreadable: {error}', { namespace: s.namespace, error: s.error ?? '' })} /></div>
         {/each}
         {#each cl.namespaces as ns (ns.name)}
         <!-- A namespace's line when the cluster has several; one is named in the cluster's line. -->
@@ -323,7 +324,7 @@
           {@const sum = summary(g.items.map((x) => x.w))}
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
           <div class="wl app {sum.health}" onclick={() => fold(g.key)} title={folded ? t('Show the components') : t('Hide the components')}>
-            <span class="dot-st" title={sum.health === 'ok' ? t('Every component is healthy') : tn(sum.troubled, '{n} component needs attention', '{n} components need attention')}></span>
+            <span class="dot {sum.health}" title={sum.health === 'ok' ? t('Every component is healthy') : tn(sum.troubled, '{n} component needs attention', '{n} components need attention')}></span>
             <span class="name"><span class="caret" class:open={!folded} aria-hidden="true"><Icon name="chevronRight" /></span><b>{g.label}</b><span class="role">{tn(g.items.length, '{n} component', '{n} components')}</span>{#each argoOf(g.items) as r (`${r.instance.cluster}/${r.instance.namespace}/${r.app.name}`)}{@const url = argoUrl(r)}<a class="argo {argoTone(r.app)}" href={url ?? undefined} target="_blank" rel="noreferrer" title={argoTitle(r)} onclick={(e) => argoClick(e, r)}><Icon name="argocd" /> {t(argoLabel(r.app))}</a>{/each}</span>
             <span class="pods agg" title={t('{ready}/{desired} pods ready', { ready: sum.ready, desired: sum.desired })}>{sum.ready}/{sum.desired}</span>
             {#if sum.cpu !== null}
@@ -351,10 +352,8 @@
 
 <style>
   section { container-type: inline-size; }
-  .tabs { display: inline-flex; gap: 2px; margin-left: auto; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
-  .tabs button { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
-  .tabs button.on { background: var(--surface); color: var(--text); font-weight: 500; }
-  .tabs .dot { min-width: 14px; padding: 0 3px; border-radius: var(--r7); background: var(--ko); color: var(--surface); font-size: var(--fs-micro); line-height: 14px; text-align: center; }
+  .tabs { margin-left: auto; }
+  .tabs .bad { min-width: 14px; padding: 0 3px; border-radius: var(--r7); background: var(--ko); color: var(--surface); font-size: var(--fs-micro); line-height: 14px; text-align: center; }
   .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
   .kpi { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 6px 12px; background: var(--surface); }
   .kpi span { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
@@ -364,7 +363,7 @@
   .kpi small { font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* Cluster header: separates the sections, with its load. */
   .cl { position: sticky; top: 0; z-index: 1; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; padding: 5px 12px; font-size: var(--fs-tag); color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border); box-shadow: inset 3px 0 var(--src-k8s); }
-  .wl + .cl, .err + .cl { border-top: 1px solid var(--border); }
+  .wl + .cl, .fail + .cl { border-top: 1px solid var(--border); }
   .cn { font-weight: 600; }
   .cl { cursor: pointer; }
   .cl .caret { display: inline-flex; align-items: center; justify-content: center; width: 12px; align-self: center; font-size: var(--fs-meta); color: var(--text-muted); transition: transform 0.12s; }
@@ -398,7 +397,7 @@
   .m b { text-align: right; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
   .m.warn b { color: var(--warn); }
   .m.ko b { color: var(--ko); }
-  .err { margin: 0; padding: 4px 12px; background: var(--warn-bg); color: var(--warn); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fail { padding: 4px 12px; font-size: var(--fs-tag); }
   /*
    * A single grid for all rows (subgrid): each column takes the width of its
    * widest content, a column empty everywhere takes nothing, and the name comes before the
@@ -420,7 +419,7 @@
   /* Side margins are in the 1st column (the dot, aligned right) and on the last
      cell: padding on a subgrid row shifts its cells. */
   .wl > :last-child { margin-right: 12px; }
-  .wl > .dot-st { justify-self: end; }
+  .wl > .dot { justify-self: end; }
   .wl { display: grid; grid-template-columns: subgrid; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-body); }
   .wl.app { cursor: pointer; background: color-mix(in srgb, var(--src-k8s) 4%, var(--surface)); }
   .wl.app .caret { display: inline-flex; align-items: center; justify-content: center; width: 12px; font-size: var(--fs-meta); color: var(--text-muted); transition: transform 0.12s; }
@@ -431,9 +430,6 @@
   .comp { font-family: var(--mono); font-size: var(--fs-mono); font-weight: 500; }
   .pods.agg { font-family: var(--mono); font-size: var(--fs-tag); color: var(--text-muted); }
   .wl:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
-  .dot-st { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
-  .wl.warn .dot-st { background: var(--warn); }
-  .wl.ko .dot-st { background: var(--ko); }
   .name { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .name b { font-weight: 500; }
   button.name { padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -465,8 +461,7 @@
   .ver { padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); font-family: var(--mono); max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
   .ver.drift { background: var(--warn-bg); color: var(--warn); }
   .muted { color: var(--text-muted); }
-  .act { display: inline-flex; justify-self: end; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--src-claude) 60%, var(--border)); border-radius: var(--r5); background: var(--surface); color: var(--text); font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; }
-  .act:hover { background: color-mix(in srgb, var(--src-claude) 12%, var(--surface)); text-decoration: none; }
+  .act { justify-self: end; }
   /* On the phone the last columns have no room: Logs and the agent's action go on a line of their own, under the name. */
   :global(html.remote) .wl .logs { grid-column: 2; justify-self: start; margin: 3px 0; }
   :global(html.remote) .wl .act { grid-column: 3 / -1; justify-self: start; margin: 3px 0; }

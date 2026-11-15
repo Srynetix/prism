@@ -5,6 +5,8 @@
   import { hasCore } from '../../bridge'
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
+  import ArmedLabel from '../../components/ArmedLabel.svelte'
+  import State from '../../components/ui/State.svelte'
   import type { IconName } from '../../icons'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import { canPick, pickPath } from '../../pick'
@@ -214,7 +216,7 @@
     }
     out.push({ key: 'copy', label: t('Copy the path'), icon: 'copy', run: () => void copy(n.path, t('Path copied')) })
     if (n.dir) out.push({ key: 'scan', label: t('Scan this folder'), icon: 'refresh', run: () => void startScan((root = n.path)) })
-    if (du?.cleanup && hasCore()) out.push({ key: 'trash', label: arming.is(`trash:${n.id}`) ? t('Sure? {name} to the Trash', { name: n.name }) : t('Move to the Trash'), icon: 'trash', danger: true, run: () => trash(n) })
+    if (du?.cleanup && hasCore()) out.push({ key: 'trash', label: arming.is(`trash:${n.id}`) ? t('Click again to confirm') : t('Move to the Trash'), icon: 'trash', danger: true, run: () => trash(n) })
     return out
   }
   function trash(n: DiskNode) {
@@ -288,12 +290,12 @@
             {#each roots as r (r)}<option value={r}>{r === '~' ? t('~ (home folder)') : r === '/' ? t('/ (the whole disk)') : /^[A-Za-z]:\\?$/.test(r) ? t('{drive} (the whole disk)', { drive: r }) : r}</option>{/each}
             {#if root && !roots.includes(root)}<option value={root}>{root}</option>{/if}
           </select>
-          {#if canPick()}<button class="act" disabled={!!running} onclick={chooseRoot} title={t('Any folder')}>{t('Choose…')}</button>{/if}
+          {#if canPick()}<button class="btn sm" disabled={!!running} onclick={chooseRoot} title={t('Any folder')}>{t('Choose…')}</button>{/if}
         {/if}
         {#if running}
-          <button class="act" disabled={busy === 'stop'} onclick={stopScan}><Icon name="stop" />{t('Stop')}</button>
+          <button class="btn sm" disabled={busy === 'stop'} onclick={stopScan}><Icon name="stop" />{t('Stop')}</button>
         {:else}
-          <button class="act pri" disabled={busy === 'scan' || !root} onclick={() => startScan()}><Icon name="refresh" />{scan ? t('Rescan') : t('Scan')}</button>
+          <button class="btn sm" disabled={busy === 'scan' || !root} onclick={() => startScan()}><Icon name="refresh" />{scan ? t('Rescan') : t('Scan')}</button>
         {/if}
       {/if}
     </span>
@@ -319,14 +321,14 @@
       {/if}
       <span class="sp"></span>
       {#if hasCore()}
-        <button class="act" class:armed={arming.is('empty-trash')} disabled={busy !== null || bin.emptying || unreadable || bin.items === 0} onclick={emptyTrash} title={binDetail}>
-          {bin.emptying || busy === 'empty-trash' ? t('Emptying…') : arming.is('empty-trash') ? t('Sure? {size} deleted', { size: size(bin.bytes) }) : tc('trash', 'Empty')}
+        <button class="btn sm danger" class:armed={arming.is('empty-trash')} class:busy={bin.emptying || busy === 'empty-trash'} disabled={busy !== null || bin.emptying || unreadable || bin.items === 0} onclick={emptyTrash} title={binDetail}>
+          {#if bin.emptying || busy === 'empty-trash'}<span class="spinner"></span>{t('Emptying…')}{:else}<ArmedLabel label={tc('trash', 'Empty')} armedLabel={t('Click again to confirm')} armed={arming.is('empty-trash')} />{/if}
         </button>
       {/if}
     </div>
   {/if}
   {#if !du}
-    <div class="empty">{t('Disk usage is off. Turn on Settings › Infra › Disk usage.')}</div>
+    <State kind="off" title={t('Disk usage is off. Turn on Settings › Infra › Disk usage.')} />
   {:else}
     {#if running}
       <div class="scanning">
@@ -340,12 +342,12 @@
         {#if isMac && !scan}<div class="hint">{t('macOS may ask whether Prism can read Documents, Desktop, Downloads or Photos: the scan waits for the answer. Full Disk Access (System Settings › Privacy & Security) avoids it.')}</div>{/if}
       </div>
     {/if}
-    {#if failed || error}<p class="err" title={failed ?? error}>{failed ?? error}</p>{/if}
+    {#if failed || error}<div class="fail" title={failed ?? error}><State kind="error" inline title={failed ?? error ?? ''} /></div>{/if}
     {#if done}
       <p class="ok-msg">
         {done}
         {#if offerEmpty && bin && hasCore()}
-          <button class="act" class:armed={arming.is('empty-trash')} disabled={busy !== null || bin.emptying || (bin.denied && !bin.bins.some((b) => b.items > 0))} onclick={emptyTrash}>{arming.is('empty-trash') ? t('Sure? Everything in the Trash deleted') : t('Empty the Trash')}</button>
+          <button class="btn sm danger" class:armed={arming.is('empty-trash')} disabled={busy !== null || bin.emptying || (bin.denied && !bin.bins.some((b) => b.items > 0))} onclick={emptyTrash}><ArmedLabel label={t('Empty the Trash')} armedLabel={t('Click again to confirm')} armed={arming.is('empty-trash')} /></button>
         {/if}
       </p>
     {/if}
@@ -356,8 +358,8 @@
           <span>{t('No scan yet. A scan reads the disk once, then nothing is watched until the next one.')}</span>
           {#if hasCore()}
             <span class="roots">
-              {#each roots as r (r)}<button class="act" onclick={() => startScan((root = r))}>{t('Scan {root}', { root: r })}</button>{/each}
-              {#if canPick()}<button class="act" onclick={chooseRoot}>{t('Choose…')}</button>{/if}
+              {#each roots as r (r)}<button class="btn sm" onclick={() => startScan((root = r))}>{t('Scan {root}', { root: r })}</button>{/each}
+              {#if canPick()}<button class="btn sm" onclick={chooseRoot}>{t('Choose…')}</button>{/if}
             </span>
           {/if}
         </div>
@@ -370,9 +372,9 @@
             <i style:width="{(100 * strip.other) / strip.d.total}%" style:background="var(--text-muted)"></i>
           </div>
           <div class="legend">
-            <span><i class="dot" style:background="var(--accent)"></i>{scan.root} <b>{size(strip.scanned)}</b></span>
-            <span><i class="dot" style:background="var(--text-muted)"></i>{t('rest of the disk')} <b>{size(strip.other)}</b></span>
-            <span><i class="dot free"></i>{t('free')} <b>{size(strip.free)}</b></span>
+            <span><i class="sw" style:background="var(--accent)"></i>{scan.root} <b>{size(strip.scanned)}</b></span>
+            <span><i class="sw" style:background="var(--text-muted)"></i>{t('rest of the disk')} <b>{size(strip.other)}</b></span>
+            <span><i class="sw free"></i>{t('free')} <b>{size(strip.free)}</b></span>
           </div>
         {/if}
 
@@ -416,9 +418,9 @@
                   >
                     <span class="nm" style:padding-left="{4 + r.depth * 13}px">
                       {#if n.dir && !short}<button class="chev" onclick={(e) => { e.stopPropagation(); void toggle(n) }} aria-label={opened.has(n.id) ? t('Fold') : t('Unfold')}>{opened.has(n.id) ? '▾' : '▸'}</button>{:else}<span class="chev"></span>{/if}
-                      <i class="dot" style:background={colorOf(n, r.top, r.depth)}></i>
+                      <i class="sw" style:background={colorOf(n, r.top, r.depth)}></i>
                       <span class="t" title={n.path}>{n.name}</span>
-                      {#if n.badge}<span class="badge">{n.badge === 'repo' ? t('repository') : t('worktree')}</span>{/if}
+                      {#if n.badge}<span class="pill">{n.badge === 'repo' ? t('repository') : t('worktree')}</span>{/if}
                     </span>
                     <span class="b"><i style:width="{view.bytes ? (100 * n.bytes) / view.bytes : 0}%" style:background={colorOf(n, r.top, r.depth)}></i></span>
                     <span class="n mono">{size(n.bytes)}</span>
@@ -449,7 +451,7 @@
               {#if selected && !hovered}
                 <span class="acts">
                   {#each actions(selected) as a (a.key)}
-                    <button class="icon" class:armed={a.key === 'trash' && arming.is(`trash:${selected.id}`)} disabled={busy !== null} onclick={a.run} title={a.label} aria-label={a.label}><Icon name={a.icon} /></button>
+                    <button class="btn sm icon ghost" class:armed={a.key === 'trash' && arming.is(`trash:${selected.id}`)} disabled={busy !== null} onclick={a.run} title={a.label} aria-label={a.label}><Icon name={a.icon} /></button>
                   {/each}
                 </span>
               {/if}
@@ -475,10 +477,10 @@
                   <span class="sz mono">{size(g.bytes)}</span>
                   <span class="how">{RECLAIM[g.kind].how}</span>
                   <span class="acts">
-                    <button class="act" onclick={() => show(g.first)}>{t('Show')}</button>
+                    <button class="btn sm" onclick={() => show(g.first)}>{t('Show')}</button>
                     {#if du.cleanup && hasCore()}
-                      <button class="act" class:armed={arming.is(`clean:${g.kind}`)} disabled={busy !== null || !g.available || !!running} title={g.available ? RECLAIM[g.kind].how : t('Its tool is not installed')} onclick={() => clean(g.kind, g.bytes)}>
-                        {busy === `clean:${g.kind}` ? '…' : arming.is(`clean:${g.kind}`) ? t('Sure? {size}', { size: size(g.bytes) }) : RECLAIM[g.kind].act}
+                      <button class="btn sm" class:armed={arming.is(`clean:${g.kind}`)} class:busy={busy === `clean:${g.kind}`} disabled={busy !== null || !g.available || !!running} title={g.available ? RECLAIM[g.kind].how : t('Its tool is not installed')} onclick={() => clean(g.kind, g.bytes)}>
+                        {#if busy === `clean:${g.kind}`}<span class="spinner"></span>{t('Cleaning…')}{:else}<ArmedLabel label={RECLAIM[g.kind].act} armedLabel={t('Click again to confirm')} armed={arming.is(`clean:${g.kind}`)} />{/if}
                       </button>
                     {/if}
                   </span>
@@ -495,10 +497,10 @@
   </div>
 
   {#if menu}
-    <div class="du-menu" style:left="{menu.x}px" style:top="{menu.y}px" role="menu">
+    <div class="popover du-menu" style:left="{menu.x}px" style:top="{menu.y}px" role="menu">
       <div class="mh mono">{menu.n.name} · {size(menu.n.bytes)}</div>
       {#each actions(menu.n) as a (a.key)}
-        <button role="menuitem" class:danger={a.danger} class:armed={a.key === 'trash' && arming.is(`trash:${menu.n.id}`)} onclick={() => { a.run(); if (a.key !== 'trash') menu = null }}><Icon name={a.icon} />{a.label}</button>
+        <button class="mi" role="menuitem" class:danger={a.danger} class:armed={a.key === 'trash' && arming.is(`trash:${menu.n.id}`)} onclick={() => { a.run(); if (a.key !== 'trash') menu = null }}><Icon name={a.icon} />{a.label}</button>
       {/each}
     </div>
   {/if}
@@ -508,13 +510,7 @@
   .du { container-type: inline-size; }
   .head { display: flex; gap: 6px; align-items: center; margin-left: auto; }
   .root { max-width: 190px; height: 22px; padding: 0 4px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  .act { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); cursor: pointer; white-space: nowrap; }
-  .act :global(svg) { width: 12px; height: 12px; }
-  .act.pri { border-color: var(--accent); color: var(--accent); }
-  .act:hover:not(:disabled) { border-color: var(--accent); }
-  .act.armed, .icon.armed { border-color: var(--ko); color: var(--ko); }
-  .act:disabled, .icon:disabled { opacity: 0.5; cursor: default; }
-  .err { margin: 0; padding: 4px 12px; color: var(--ko); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fail { padding: 4px 12px; font-size: var(--fs-meta); }
   .ok-msg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 4px 12px; color: var(--ok); font-size: var(--fs-meta); }
   .trash { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 5px 12px; border-bottom: 1px solid var(--border); font-size: var(--fs-meta); }
   .trash :global(svg) { width: 13px; height: 13px; color: var(--text-muted); flex: none; }
@@ -543,8 +539,9 @@
   .strip i { display: block; height: 100%; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 0 12px 6px; font-size: var(--fs-tag); color: var(--text-muted); }
   .legend b { color: var(--text); font-weight: 600; }
-  .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: var(--r2); margin-right: 4px; }
-  .dot.free { border: 1px solid var(--border); }
+  /* A colour swatch: the legend's and a line's (the treemap's colour). */
+  .sw { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: var(--r2); margin-right: 4px; }
+  .sw.free { border: 1px solid var(--border); }
 
   .bar { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: var(--fs-meta); }
   .crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; white-space: nowrap; }
@@ -553,9 +550,6 @@
   .crumbs i { font-style: normal; color: var(--text-muted); }
   .crumbs b { padding: 1px 5px; }
   .sp { flex: 1; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { padding: 0 8px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
-  .seg button.on { background: color-mix(in srgb, var(--src) 18%, transparent); color: var(--text); }
 
   .split { display: grid; grid-template-columns: minmax(300px, 42%) 1fr; height: 420px; }
   .split.short { grid-template-columns: 1fr; height: auto; }
@@ -571,7 +565,7 @@
   .nm { display: flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; overflow: hidden; }
   .chev { flex: none; width: 13px; padding: 0; border: none; background: none; color: var(--text-muted); font-size: var(--fs-micro); cursor: pointer; }
   .t { overflow: hidden; text-overflow: ellipsis; }
-  .badge { flex: none; font-size: var(--fs-micro); padding: 0 5px; border-radius: var(--r-chip, 7px); background: var(--surface-muted); color: var(--text-muted); }
+  .nm .pill { flex: none; font-size: var(--fs-micro); }
   .b { height: 6px; border-radius: var(--r3); background: var(--surface-muted); overflow: hidden; }
   .b i { display: block; height: 100%; }
   .n { text-align: right; font-size: var(--fs-tag); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -581,8 +575,6 @@
   .status { display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 3px 12px; border-top: 1px solid var(--border); font-size: var(--fs-meta); }
   .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-tag); }
   .acts { display: flex; gap: 2px; justify-content: flex-end; }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
   .info { padding: 0 12px 6px; font-size: var(--fs-tag); }
 
   .reclaim { padding: 8px 12px 10px; border-top: 1px solid var(--border); }
@@ -596,13 +588,11 @@
   .card .acts { gap: 4px; align-self: end; }
   .srow { padding: 4px 12px 6px; font-size: var(--fs-meta); }
 
-  .du-menu { position: fixed; z-index: var(--z-menu); min-width: 220px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8, 8px); background: var(--surface); box-shadow: 0 8px 28px rgb(0 0 0 / 0.25); font-size: var(--fs-meta); }
+  .du-menu { position: fixed; min-width: 220px; }
   .du-menu .mh { padding: 3px 9px 5px; color: var(--text-muted); font-size: var(--fs-tag); border-bottom: 1px solid var(--border); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
-  .du-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 9px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-  .du-menu button :global(svg) { width: 13px; height: 13px; color: var(--text-muted); }
-  .du-menu button:hover { background: var(--surface-muted); }
-  .du-menu button.danger { color: var(--ko); }
-  .du-menu button.armed { background: color-mix(in srgb, var(--ko) 14%, transparent); }
+  .du-menu .mi :global(svg) { width: 13px; height: 13px; color: var(--text-muted); }
+  .du-menu .mi.danger :global(svg) { color: var(--ko); }
+  .du-menu .mi.armed { background: color-mix(in srgb, var(--ko) 14%, transparent); }
 
   /* Narrow (a phone, a thin column): the list only, full width. */
   @container (max-width: 620px) {

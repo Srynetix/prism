@@ -4,12 +4,14 @@
   import { hasCore, invoke } from '../../bridge'
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
+  import State from '../../components/ui/State.svelte'
+  import type { IconName } from '../../icons'
   import { call, type BlockProps } from '../block'
   import { isCollapsed, isShort, pref, setPref } from '../../layout.svelte'
   import { selectedDay, todayKey } from '../../filter.svelte'
   import { canPreview, openTicket } from '../../ticket-view.svelte'
   import { openMr } from '../../mr-view.svelte'
-  import { copy, toast } from '../../toast.svelte'
+  import { copy, toast, toastError } from '../../toast.svelte'
   import { byTicket, daily, withoutTicket, dailyText, mrLabel, previousWorkday, timeline, toLog, traces, type Row, type TicketTime, type TraceKind, type TrailState } from './trail'
 
   /**
@@ -44,7 +46,7 @@
   const clock = (at: number) => new Date(at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
   const dayLabel = (k: string) => (k === todayKey() ? t('Today') : new Date(`${k}T12:00`).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' }))
 
-  const ICON: Record<TraceKind, string> = { commit: '●', mr_opened: '⇄', mr_merged: '⇄', mr_approved: '✓', mr_commented: '💬', ticket_moved: '◆', meeting: '◷', agent: '✳', time: '⏱' }
+  const ICON: Record<TraceKind, IconName> = { commit: 'branch', mr_opened: 'mr', mr_merged: 'merge', mr_approved: 'check', mr_commented: 'comment', ticket_moved: 'kanban', meeting: 'calendar', agent: 'claude', time: 'timer' }
   const TONE: Record<TraceKind, string> = { commit: 'git', mr_opened: 'mr', mr_merged: 'mr', mr_approved: 'mr', mr_commented: 'mr', ticket_moved: 'tk', meeting: 'cal', agent: 'ai', time: 'time' }
 
   const NOUN: Record<TraceKind, [string, string]> = { commit: ['{n} commit', '{n} commits'], mr_opened: ['{n} MR opened', '{n} MRs opened'], mr_merged: ['{n} MR merged', '{n} MRs merged'], mr_approved: ['{n} approval', '{n} approvals'], mr_commented: ['{n} comment', '{n} comments'], ticket_moved: ['{n} status change', '{n} status changes'], meeting: ['{n} meeting', '{n} meetings'], agent: ['{n} agent', '{n} agents'], time: ['{n} entry logged', '{n} entries logged'] }
@@ -94,7 +96,7 @@
       await invoke('log_time', { entry: { ticket: g.ticket, start: new Date(g.first).toISOString(), minutes, description: '' } })
       toast(t('Logged {time} on {ticket}', { time: hm(minutes), ticket: g.ticket }))
     } catch (e) {
-      toast(t('Not logged: {error}', { error: String(e) }), 5000)
+      toastError(t('Not logged: {error}', { error: String(e) }), () => void log(g, minutes))
     } finally {
       logging = null
     }
@@ -142,17 +144,17 @@
           {/each}
         </span>
       {/if}
-      <button class="icon" class:spin={refreshing} onclick={refresh} title={t('Read your traces again now')} aria-label={t('Refresh')}><Icon name="refresh" /></button>
+      <button class="btn sm icon ghost" onclick={refresh} title={t('Read your traces again now')} aria-label={t('Refresh')}><Icon name="refresh" spin={refreshing} /></button>
     {/if}
     <BlockControls id="trail" />
   </h2>
 
   {#if !trail}
-    <div class="empty">{t('The Day trail is off. Turn it on in Settings › Work › Day trail ([trail] enabled), then restart Prism.')}</div>
+    <State kind="off" title={t('The Day trail is off. Turn it on in Settings › Work › Day trail ([trail] enabled), then restart Prism.')} />
   {:else if isShort('trail')}
     <div class="short">
       <span><b>{hm(traced)}</b> {t('traced')}</span><span><b>{hm(logged)}</b> {t('logged')}</span>
-      {#if leftToLog}<button class="btn primary" onclick={logAll} disabled={!!logging}>{t('Log {time}', { time: hm(leftToLog) })}</button>{/if}
+      {#if leftToLog}<button class="btn sm primary" class:busy={!!logging} onclick={logAll} disabled={!!logging}>{#if logging}<span class="spinner"></span>{t('Logging…')}{:else}{t('Log {time}', { time: hm(leftToLog) })}{/if}</button>{/if}
     </div>
   {:else if tab === 'timeline'}
     <div class="body">
@@ -163,7 +165,7 @@
           {@const s = sentence(it.row)}
           {#snippet line()}
             <span class="t mono">{clock(it.row.t)}</span>
-            <span class="src {TONE[it.row.kind]}" aria-hidden="true">{ICON[it.row.kind]}</span>
+            <span class="src {TONE[it.row.kind]}" aria-hidden="true"><Icon name={ICON[it.row.kind]} /></span>
             <span class="what">{s.what}{#if s.detail}<small>{s.detail}</small>{/if}</span>
             {#if it.row.items[0].ticket && it.row.kind !== 'ticket_moved'}<span class="tk mono">{it.row.items[0].ticket}</span>{/if}
           {/snippet}
@@ -174,7 +176,7 @@
           {/if}
         {/if}
       {:else}
-        <div class="empty">{day === todayKey() ? t('No trace yet today.') : t('No trace that day.')}{#if error}<br /><small>{error}</small>{/if}</div>
+        <State kind="empty" icon="clock" title={day === todayKey() ? t('No trace yet today.') : t('No trace that day.')} detail={error ?? ''} />
       {/each}
     </div>
   {:else if tab === 'ticket'}
@@ -184,28 +186,28 @@
           <div class="grp-h">{#if g.ticket}<span class="tk mono">{g.ticket}</span>{/if}<b>{g.title}</b></div>
           <div class="grp-ev">
             {#each Object.entries(g.traces.reduce((m, tr) => ((m[tr.kind] = (m[tr.kind] ?? 0) + 1), m), {} as Record<string, number>)) as [kind, n] (kind)}
-              <span><span class="src {TONE[kind as TraceKind]}" aria-hidden="true">{ICON[kind as TraceKind]}</span>{counted(kind as TraceKind, n)}</span>
+              <span><span class="src {TONE[kind as TraceKind]}" aria-hidden="true"><Icon name={ICON[kind as TraceKind]} /></span>{counted(kind as TraceKind, n)}</span>
             {/each}
           </div>
           <div class="grp-f">
             <span class="muted">{t('traced')}</span><b>{hm(g.traced)}</b><span class="muted">· {t('logged')}</span><span class={g.logged ? 'ok' : 'warn'}>{g.logged ? hm(g.logged) : '—'}</span>
             {#if g.cost >= 0.01}<span class="muted" title={t('Its agents’ conversations, at the API prices')}>· {t('agents ≈ {cost}', { cost: `$${g.cost < 10 ? g.cost.toFixed(2) : Math.round(g.cost)}` })}</span>{/if}
             <span class="grow"></span>
-            {#if toLog(g)}<button class="btn primary" onclick={() => log(g)} disabled={!hasCore() || logging === g.ticket} title={t('Log {time} on {ticket}, from {start}', { time: hm(toLog(g)), ticket: g.ticket, start: clock(g.first) })}>{t('Log {time}', { time: hm(toLog(g)) })}</button>{/if}
+            {#if toLog(g)}<button class="btn sm primary" class:busy={logging === g.ticket} onclick={() => log(g)} disabled={!hasCore() || logging === g.ticket} title={t('Log {time} on {ticket}, from {start}', { time: hm(toLog(g)), ticket: g.ticket, start: clock(g.first) })}>{#if logging === g.ticket}<span class="spinner"></span>{t('Logging…')}{:else}{t('Log {time}', { time: hm(toLog(g)) })}{/if}</button>{/if}
           </div>
         </div>
       {/each}
       {#if perTicket.meetings}
-        <div class="grp"><div class="grp-h"><span class="src cal" aria-hidden="true">◷</span><b>{t('Meetings')}</b></div><div class="grp-f"><span class="muted">{hm(perTicket.meetings)}</span></div></div>
+        <div class="grp"><div class="grp-h"><span class="src cal" aria-hidden="true"><Icon name="calendar" /></span><b>{t('Meetings')}</b></div><div class="grp-f"><span class="muted">{hm(perTicket.meetings)}</span></div></div>
       {/if}
-      {#if !perTicket.tickets.length && !perTicket.meetings}<div class="empty">{day === todayKey() ? t('No trace yet today.') : t('No trace that day.')}</div>{/if}
+      {#if !perTicket.tickets.length && !perTicket.meetings}<State kind="empty" icon="clock" title={day === todayKey() ? t('No trace yet today.') : t('No trace that day.')} />{/if}
     </div>
     {#if perTicket.tickets.length}
       <div class="foot">
         <span><b>{hm(traced)}</b> {t('traced')} · <b>{hm(logged)}</b> {t('logged')}</span>
         {#if gaps.length}<span class="warn">· {t('{time} without trace', { time: hm(gaps.reduce((n, g) => n + Math.round((g.to - g.from) / 60_000), 0)) })}</span>{/if}
         <span class="grow"></span>
-        {#if leftToLog}<button class="btn primary" onclick={logAll} disabled={!hasCore() || !!logging}>{t('Log all · {time}', { time: hm(leftToLog) })}</button>{/if}
+        {#if leftToLog}<button class="btn sm primary" onclick={logAll} disabled={!hasCore() || !!logging}>{t('Log all · {time}', { time: hm(leftToLog) })}</button>{/if}
       </div>
     {/if}
     <p class="note">{t('An estimate: each trace counts the time since the previous one (45 min at most), an agent its launch and its last activity. Nothing is logged without your click.')}</p>
@@ -214,9 +216,9 @@
       <p class="muted">{t('For the standup of {day}: yesterday is {before}.', { day: dayLabel(day), before: dayLabel(previousWorkday(day)) })}</p>
       <textarea value={text} oninput={(e) => edit(e.currentTarget.value)} spellcheck="false" aria-label={t('The daily')}></textarea>
       <div class="acts">
-        {#if saved?.day === day}<button class="btn" onclick={regenerate} title={t('Rebuild it from the traces: your edits are lost')}>{t('Regenerate')}</button>{/if}
+        {#if saved?.day === day}<button class="btn sm" onclick={regenerate} title={t('Rebuild it from the traces: your edits are lost')}>{t('Regenerate')}</button>{/if}
         <span class="grow"></span>
-        <button class="btn primary" onclick={() => copy(text, t('Daily copied'))}>{t('Copy')}</button>
+        <button class="btn sm primary" onclick={() => copy(text, t('Daily copied'))}>{t('Copy')}</button>
       </div>
     </div>
   {/if}
@@ -224,23 +226,11 @@
 
 <style>
   .body { flex: 1; min-height: 0; overflow: auto; padding: 4px 0; }
-  .empty { padding: 14px 16px; color: var(--text-muted); font-size: var(--fs-body); }
   .mono { font-family: var(--mono); font-size: var(--fs-mono); }
   .muted { color: var(--text-muted); }
   .warn { color: var(--warn); }
   .ok { color: var(--ok); }
   .grow { flex: 1; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { padding: 0 8px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); font-weight: 400; cursor: pointer; }
-  .seg button.on { background: color-mix(in srgb, var(--src) 18%, transparent); color: var(--text); }
-  .icon { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover { background: var(--surface-muted); color: var(--text); }
-  .icon :global(svg) { width: 13px; height: 13px; }
-  .spin :global(svg) { animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .btn { padding: 1px 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); white-space: nowrap; cursor: pointer; }
-  .btn.primary { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); color: var(--accent); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
   .src { display: inline-grid; place-items: center; width: 18px; height: 18px; flex-shrink: 0; border-radius: var(--r5); font-size: var(--fs-tag); }
   .src.git { background: color-mix(in srgb, var(--text-muted) 22%, transparent); color: var(--text-muted); }
   .src.mr { background: color-mix(in srgb, var(--src-gitlab) 20%, transparent); color: var(--src-gitlab); }

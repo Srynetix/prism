@@ -4,6 +4,7 @@
   import { hasCore, invoke } from '../bridge'
   import BlockControls from './BlockControls.svelte'
   import Logo from './Logo.svelte'
+  import State from './ui/State.svelte'
   import Icon from './Icon.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import { claudeClick, cveAction } from '../claude-actions'
@@ -198,13 +199,13 @@
       {/if}
     </span>
     <span class="fix" title={t('Installed {installed} · fixed in {fixed}', { installed: g.installed.join(', '), fixed: g.fixed })}><span class="ver">{g.installed[0]}{#if g.installed.length > 1}<span class="more">+{g.installed.length - 1}</span>{/if}</span>→<span class="ver ok">{g.fixed}</span></span>
-    {#if a.href}<a class="act" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{:else}<span class="act off" title={a.why}><Logo name="agent" size={10} />{a.label}</span>{/if}
+    {#if a.href}<a class="btn sm claude" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{:else}<span class="btn sm claude" aria-disabled="true" title={a.why}><Logo name="agent" size={10} />{a.label}</span>{/if}
   </div>
   {#if isOpen}
     <div class="cves">
       {#each g.findings as f (f.id + f.installed)}
         <div class="cv">
-          <span class="dot {f.severity}" title={f.severity}></span>
+          <span class="dot {f.severity === 'critical' ? 'ko' : 'warn'}" title={f.severity}></span>
           {#if f.url}<a class="id" href={f.url} target="_blank" rel="noreferrer">{f.id}</a>{:else}<span class="id">{f.id}</span>{/if}
           <span class="ttl" title={f.title}>{f.title}</span>
           {#if f.new}<span class="new">{t('new')}</span>{/if}
@@ -244,7 +245,7 @@
     <BlockControls id="vulns" />
   </h2>
   {#if !vulns}
-    <div class="empty">{error ? t('Unavailable: {error}', { error }) : t('First Trivy scan…')}</div>
+    {#if error}<State kind="error" title={t('Unavailable: {error}', { error })} />{:else}<State kind="loading" title={t('First Trivy scan…')} />{/if}
   {:else if isShort('vulns')}
     <div class="short-body">
       <div class="srow">
@@ -285,7 +286,7 @@
             <div class="proj" class:openable={own.length > 0} class:open class:clean={isClean(p)} onclick={() => own.length && toggleProject(p.project)}>
               <b class="name" title={p.image ?? p.project}>{#if own.length}<span class="caret" class:open aria-hidden="true"><Icon name="chevronRight" /></span>{/if}{p.project}{#if p.image}<span class="tag">{p.image.split(':').pop()}</span>{/if}{#if p.note}<span class="note" title={p.note}>{p.note}</span>{/if}</b>
               {#if p.error}
-                <span class="err" title={p.error}>{p.error}</span>
+                <span class="problem" title={p.error}>{p.error}</span>
               {:else if isClean(p)}
                 <span class="ok-mark" title={t('No HIGH or CRITICAL vulnerability with a fix')}><Icon name="check" /> {tc('mrs', 'clean')}</span>
               {:else}
@@ -350,7 +351,7 @@
   .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .tag { margin-left: 6px; padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); font-weight: 400; }
   .note { margin-left: 6px; color: var(--text-muted); font-size: var(--fs-tag); font-weight: 400; }
-  .err { grid-column: span 3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--warn); font-size: var(--fs-tag); }
+  .problem { grid-column: span 3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--warn); font-size: var(--fs-tag); }
   .img { display: flex; align-items: center; gap: 6px; padding: 1px 12px 3px 26px; border-bottom: 1px solid var(--border); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; }
   .img .muted { overflow: hidden; text-overflow: ellipsis; }
   .img .grow { flex: 1; }
@@ -400,16 +401,11 @@
   /* CVEs of an expanded library: one row each, under the library. */
   .cves { padding: 2px 12px 6px 84px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--src-alert) 4%, var(--surface)); }
   .cv { display: grid; grid-template-columns: 8px auto minmax(0, 1fr) auto auto auto auto; align-items: center; gap: 6px; padding: 2px 0; font-size: var(--fs-tag); color: var(--text-muted); }
-  .cv .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ko-bg); box-shadow: inset 0 0 0 1px var(--ko); }
-  .cv .dot.critical { background: var(--ko); }
   .cv .ttl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pkg small { font-size: var(--fs-tag); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fix { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); white-space: nowrap; }
   .ver { padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); color: var(--text); font-family: var(--mono); font-size: var(--fs-tag); }
   .ver.ok { background: var(--ok-bg); color: var(--ok); }
-  .act { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--src-claude) 60%, var(--border)); border-radius: var(--r5); background: var(--surface); color: var(--text); font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; }
-  .act:hover { background: color-mix(in srgb, var(--src-claude) 12%, var(--surface)); text-decoration: none; }
-  .act.off { opacity: 0.5; cursor: not-allowed; }
   .fold { display: flex; align-items: baseline; gap: 6px; width: 100%; padding: 5px 12px; border: none; border-bottom: 1px solid var(--border); background: var(--bg); color: var(--text-muted); font: inherit; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; cursor: pointer; }
   .fold b { color: var(--text); }
   .fold .hint { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; }
