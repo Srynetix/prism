@@ -8,7 +8,7 @@ import { untrack } from 'svelte'
 import { closeHelp } from './help-view.svelte'
 import { closeSettings, saveEdits } from './settings.svelte'
 import { toast } from './toast.svelte'
-import { knownBlock, blockLabel, OPS_VIEWS, LAYOUT_VERSION, MAX_BANDS, MERGED_BLOCKS, RENAMED_VIEWS, RESET_VIEWS, bandRanges, compactBands, fitBands, viewById, viewRows, views, type BlockId, type View } from './views'
+import { knownBlock, blockLabel, OPS_VIEWS, LAYOUT_VERSION, MAX_BANDS, MERGED_BLOCKS, RENAMED_VIEWS, RESET_VIEWS, allViews, bandRanges, compactBands, fitBands, hiddenViews, viewById, viewRows, views, type BlockId, type View } from './views'
 import { t } from './i18n.svelte'
 
 /**
@@ -186,6 +186,8 @@ export function showBlock(id: BlockId | (string & {})) {
   const v = views().find((x) => columnsOf(x).flat().includes(block))
   // The Worktrees block on no page: the Projects page's Cleanup tab shows it.
   if (!v && block === 'worktrees' && live.snapshot?.repositories?.length) return openProjects(null, true)
+  const hidden = v ? undefined : hiddenViews().find((x) => columnsOf(x).flat().includes(block))
+  if (hidden) return toast(t('{block} is on a hidden page, {page}: show it again from Hidden pages, at the bottom of the rail', { block: blockLabel(block), page: t(hidden.label) }), 5000)
   if (!v) return toast(t('{block} is on no page: add it with Edit layout', { block: blockLabel(block) }))
   closeSettings()
   closeAgents()
@@ -305,8 +307,9 @@ function writeArrangements() {
   writeTimer = setTimeout(async () => {
     writeTimer = undefined
     if (!isDesktop() || !live.snapshot) return
+    const all = allViews()
     const pending = Object.fromEntries(
-      views()
+      all
         .map((v) => [v, layout.arrangements[v.id]] as const)
         .filter(([v, a]) => a && filled(a, layout.bands[v.id]) !== filled(v.columns, v.bands) && written.get(v.id) !== filled(a, layout.bands[v.id]))
         .map(([v, a]) => [v.id, a]),
@@ -315,6 +318,9 @@ function writeArrangements() {
     for (const [id, a] of Object.entries(pending)) written.set(id, filled(a, layout.bands[id]))
     try {
       await saveEdits([{ path: ['views'], value: viewRows(pending, $state.snapshot(layout.bands)) }])
+      // A pack's page whose blocks changed is written here: it no longer follows its pack.
+      const left = all.find((v) => v.origin === 'pack' && pending[v.id])
+      if (left) void import('./pages.svelte').then((m) => m.leftPack(left))
     } catch (e) {
       toast(t('Layout not written to config.toml: {error}', { error: String(e) }))
     }
@@ -327,7 +333,7 @@ if (isDesktop()) {
   $effect.root(() => {
     $effect(() => {
       if (!live.snapshot || editing.on) return
-      const all = views()
+      const all = allViews()
       untrack(() => {
         let dropped = false
         for (const v of all) {

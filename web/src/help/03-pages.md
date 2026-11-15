@@ -31,10 +31,28 @@ You can also edit pages one by one in **Settings › Interface › Pages** (the 
 4. Click **+ Column** to add a column (four at most), or **×** on a block to remove it from this page.
 5. Click **Done**, or press `Esc`. Empty columns are removed.
 
-The blocks are written to `config.toml` as you go, in the page's **Blocks by column** (Settings › Interface › Pages), with the page's Id, so renaming or moving a page keeps its layout. **Reset** brings the page back to equal sizes and normal blocks; its blocks stay. **Pages…** jumps to Settings › Interface › Pages. Columns and blocks resize with the mouse; double-click a handle to go back to the default proportions.
+The blocks are written to `config.toml` as you go, in the page's **Blocks by column** (Settings › Interface › Pages), with the page's Id, so renaming or moving a page keeps its layout. **Reset** brings the page back to equal sizes and normal blocks; its blocks stay. **Pages…** jumps to Settings › Interface › Pages, the whole table. Columns and blocks resize with the mouse; double-click a handle to go back to the default proportions.
 
 > [!TIP]
 > Renaming a page in Settings › Interface › Pages keeps its layout as long as its **Id** stays the same.
+
+## Managing pages from the rail
+Right-click a page in the rail (or its **⋯** in Edit layout) for its menu:
+
+- **Rename** (`F2` for the page shown): type the name in place, `Enter` keeps it, `Esc` leaves it as it was.
+- **Icon and color…**: a grid of icons and colors, seen in the rail and the header as you pick; `Enter`, **Done** or a click elsewhere keeps them, `Esc` puts them back.
+- **Duplicate**: a copy after it, with its sizes and its blocks' states.
+- **Move up** and **Move down**; or drag the page along the rail.
+- **Edit layout**, on that page.
+- **Hide**: the page leaves the rail without being deleted. **Hidden pages**, at the bottom of the rail, lists them; a click puts one back.
+- **Delete** (click twice): **Undo** in the message that follows puts it back for a few seconds. The last page cannot be deleted.
+
+In Edit layout, **+ Page** under the rail's pages adds one after the page shown: an empty page, a copy of this one, or a page of your packs' templates. It opens in Edit layout, its name ready to be typed. In the header, the page's icon and name change in place too.
+
+Everything is written to `[[views]]` in `config.toml`, as Settings › Interface › Pages does; a page keeps its **Id** when renamed, and with it its layout.
+
+### Pages of a pack
+A pack can bring pages. They carry a **pack** mark in Edit layout and in their menu, and keep up with the pack: in `config.toml`, such a page is a row with its `id` alone (and `hidden` when hidden). Renaming it, changing its icon, color or blocks writes it whole: it no longer follows the pack, and Prism says so with **Undo**. Its menu then offers **Back to the pack's page**. A hidden pack page stays up to date.
 
 ## Block controls
 Hover a block's title to reveal its controls:

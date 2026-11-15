@@ -51,6 +51,7 @@ Pages : `1` … `9` ou `⌘1` … `⌘9` ouvrent une page du rail (`⌘` seul s
 | `⌘⇧F` | Mode zen : le rail et l’en-tête de page se replient, les blocs prennent la fenêtre (aussi Présentation › Mode zen) ; l’en-tête revient quand vous filtrez (`/`) ou ouvrez Pour moi (`i`) |
 | `?` | les raccourcis clavier |
 | `⌘?` ou `F1` | cette Aide |
+| `F2` | renommer la page affichée, dans le rail |
 | `Ctrl+Q` / `F11` (Linux, Windows) | quitter Prism / plein écran, ce que fait là-bas la barre de menus du Mac : fermer la fenêtre ne fait que la réduire |
 
 [Afficher les raccourcis clavier](prism:keys)

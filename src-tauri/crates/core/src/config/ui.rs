@@ -92,12 +92,15 @@ impl Default for AlertsConfig {
 
 /// A rail page: its name, icon, color and blocks, one column per string (`"todo sessions notes"`).
 /// "Edit layout" writes them here. `id` keeps the proportions of a renamed page; absent, derived
-/// from the name (Edit layout writes it).
+/// from the name (Edit layout writes it). An `id` alone, without a name: a pack's page of that id,
+/// as the pack has it, kept up to date with it (dropped once no pack has it).
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct ViewConfig {
-    /// Its name in the rail.
+    /// Its name in the rail; empty: its pack's page (`id`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[cfg_attr(feature = "ts", ts(optional, as = "Option<String>"))]
     pub name: String,
     /// Its id (links, shortcuts); from its name without one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -113,6 +116,26 @@ pub struct ViewConfig {
     /// band below: the columns after it form the next row of columns, under the first.
     #[serde(default)]
     pub columns: Vec<String>,
+    /// Out of the rail without being deleted: shown again from « Hidden pages ». A pack's page
+    /// hidden stays up to date with its pack.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(optional, as = "Option<bool>"))]
+    pub hidden: bool,
+    /// Where it comes from, once read (never from the file): a pack's page followed (`pack`), or
+    /// written in config.toml from a pack's (`copy`: it no longer follows the pack). Absent: its own.
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema", schemars(skip))]
+    pub origin: Option<ViewOrigin>,
+}
+
+/// A page's origin (`ViewConfig::origin`).
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub enum ViewOrigin {
+    Pack,
+    Copy,
 }
 
 /// A template of the pages wizard (`[[templates]]`): its pages and the access it turns on.

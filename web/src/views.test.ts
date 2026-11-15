@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 const live = { snapshot: null as Record<string, unknown> | null }
 vi.mock('./live.svelte', () => ({ live }))
 
-const { compactBands, fitBands, viewRows, views } = await import('./views')
+const { compactBands, fileRows, fitBands, hiddenViews, viewRows, views } = await import('./views')
 
 describe('viewRows', () => {
   it('writes the edited page’s blocks and every page’s id, the others’ blocks untouched', () => {
@@ -31,6 +31,30 @@ describe('viewRows', () => {
   it('writes the empty Dashboard when config.toml has no page', () => {
     live.snapshot = { views: [] }
     expect(viewRows({ dashboard: [['todo']] })).toEqual([{ name: 'Dashboard', id: 'dashboard', icon: 'dashboard', columns: ['todo'] }])
+  })
+})
+
+describe('pages of a pack, hidden pages', () => {
+  it('writes a pack’s page followed by its id alone, until its blocks change', () => {
+    live.snapshot = { views: [
+      { name: 'CI', id: 'ci', columns: ['ci pods'], origin: 'pack', hidden: true },
+      { name: 'Team', id: 'team', columns: ['mrs'], origin: 'copy' },
+      { name: 'Mine', id: 'mine', columns: ['todo'] },
+    ] }
+    expect(fileRows(live.snapshot.views as never)).toEqual([
+      { id: 'ci', hidden: true },
+      { name: 'Team', id: 'team', columns: ['mrs'] },
+      { name: 'Mine', id: 'mine', columns: ['todo'] },
+    ])
+    expect(viewRows({ ci: [['ci']] })[0]).toEqual({ name: 'CI', id: 'ci', columns: ['ci'], hidden: true })
+  })
+
+  it('leaves the hidden pages out of the rail, never all of them', () => {
+    live.snapshot = { views: [{ name: 'A', columns: [] }, { name: 'B', columns: [], hidden: true }] }
+    expect(views().map((v) => v.id)).toEqual(['a'])
+    expect(hiddenViews().map((v) => v.id)).toEqual(['b'])
+    live.snapshot = { views: [{ name: 'A', columns: [], hidden: true }] }
+    expect(views().map((v) => v.id)).toEqual(['a'])
   })
 })
 
