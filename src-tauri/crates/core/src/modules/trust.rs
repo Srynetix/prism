@@ -10,9 +10,6 @@ use sha2::{Digest, Sha256};
 
 use super::{Manifest, ModuleInfo};
 
-/// One lock for the file: two trusts never cross.
-static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 /// The store of profile `id`'s modules.
 pub fn trust_path_for(id: &str) -> PathBuf {
     crate::profile::data_dir_of(&crate::profile::data_base(), id).join("modules-trust.json")
@@ -138,10 +135,8 @@ pub fn trust(root: &Path, store: &Path, id: &str, fingerprint: &str) -> Result<(
         bail!(prism_base::tr!("module {id} changed since it was shown: look at it again", id = id));
     }
     let manifest: Manifest = toml::from_str(&std::fs::read_to_string(folder.join("module.toml"))?).context("module.toml")?;
-    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut s = crate::trust::read(store);
-    s.trust(id, fingerprint, &text(id, &manifest), data(info.pack.as_deref(), web_print(&folder, &manifest).as_deref()));
-    s.write(store)
+    let data = data(info.pack.as_deref(), web_print(&folder, &manifest).as_deref());
+    crate::trust::update(store, |s| s.trust(id, fingerprint, &text(id, &manifest), data))
 }
 
 /// What a trust keeps besides the text: the pack the module came from, the one whose next versions
@@ -185,24 +180,23 @@ pub fn update(root: &Path, store: &Path, pack: &str, id: &str) -> bool {
     }
     let Ok(manifest) = std::fs::read_to_string(folder.join("module.toml")).map_err(anyhow::Error::from).and_then(|t| toml::from_str::<Manifest>(&t).map_err(Into::into)) else { return false };
     let new = text(id, &manifest);
-    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut s = crate::trust::read(store);
-    let Some(before) = s.trusted.get(id) else { return false };
-    if before.data.get("pack").and_then(|p| p.as_str()) != Some(pack) || !reach(&new).is_subset(&reach(&before.text)) {
-        return false;
-    }
     let web = web_print(&folder, &manifest);
-    if web.is_some() && before.data.get("web").and_then(|w| w.as_str()) != web.as_deref() {
-        return false;
-    }
-    s.trust(id, &info.fingerprint, &new, data(Some(pack), web.as_deref()));
-    s.write(store).is_ok()
+    // Judged on the store as it stands under its lock, trusted in the same go.
+    crate::trust::update(store, |s| {
+        let Some(before) = s.trusted.get(id) else { return false };
+        if before.data.get("pack").and_then(|p| p.as_str()) != Some(pack) || !reach(&new).is_subset(&reach(&before.text)) {
+            return false;
+        }
+        if web.is_some() && before.data.get("web").and_then(|w| w.as_str()) != web.as_deref() {
+            return false;
+        }
+        s.trust(id, &info.fingerprint, &new, data(Some(pack), web.as_deref()));
+        true
+    })
+    .unwrap_or(false)
 }
 
 /// Module `id` forgotten (its pack removed it, or I did).
 pub fn forget(store: &Path, id: &str) {
-    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut s = crate::trust::read(store);
-    s.forget(id);
-    let _ = s.write(store);
+    let _ = crate::trust::update(store, |s| s.forget(id));
 }
