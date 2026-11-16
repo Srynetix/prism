@@ -21,6 +21,8 @@ pub fn current(hub: &Hub, store: &Store, points: Option<Vec<RetroPoint>>) -> Opt
     let s = snap.borrow();
     let trail: Option<TrailState> = s.blocks.get("trail").and_then(|v| serde_json::from_value(v.clone()).ok());
     let mut retro = r::retro(&s, trail.as_ref(), &notes, &r::history_of(saved.as_ref()), Utc::now())?;
+    // The snapshot let go before its Markdown is written: the collectors' updates wait no longer.
+    drop(s);
     let points = points.unwrap_or_else(|| r::points_of(saved.as_ref(), &retro.name));
     retro.markdown = r::markdown(&retro, &points);
     Some(retro)

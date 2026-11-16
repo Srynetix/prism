@@ -453,9 +453,12 @@ impl Agents {
         self.inner.hub.update(|s| {
             let mine = s.sessions.iter().filter(|c| c.origin == SessionOrigin::Agent).cloned().collect::<Vec<_>>();
             let changed = s.agents != list || mine != sessions;
-            s.agents = list;
-            s.sessions.retain(|c| c.origin != SessionOrigin::Agent);
-            s.sessions.extend(sessions);
+            // Unchanged: the snapshot left as it is (its sessions not moved about unannounced).
+            if changed {
+                s.agents = list;
+                s.sessions.retain(|c| c.origin != SessionOrigin::Agent);
+                s.sessions.extend(sessions);
+            }
             changed
         });
         self.inner.hub.set_error(SOURCE, None);

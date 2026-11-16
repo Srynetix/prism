@@ -67,12 +67,20 @@ export function anchored(trigger: () => HTMLElement | null | undefined, { align 
     observer.observe(el)
     // The page scrolled, not the popup's own list: measuring lifts its height limit for a moment,
     // which brought its scroll back to the top at each move (a phone, where menus scroll).
+    // Placed once a frame at most: a Chat or a terminal scrolling fires many events per frame.
+    let frame = 0
     const scrolled = (e: Event) => {
-      if (!(e.target instanceof Node && el.contains(e.target))) place()
+      if (e.target instanceof Node && el.contains(e.target)) return
+      if (!frame)
+        frame = requestAnimationFrame(() => {
+          frame = 0
+          place()
+        })
     }
     window.addEventListener('resize', place)
     window.addEventListener('scroll', scrolled, true)
     return () => {
+      cancelAnimationFrame(frame)
       observer.disconnect()
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', scrolled, true)

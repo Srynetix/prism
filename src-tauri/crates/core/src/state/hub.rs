@@ -64,6 +64,22 @@ impl Hub {
         }
     }
 
+    /// The window is shown (a phone watching apart).
+    pub fn window_visible(&self) -> bool {
+        self.visible.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Until the window is shown again, or a phone starts watching.
+    pub async fn until_shown(&self) {
+        let shown = self.shown.notified();
+        tokio::pin!(shown);
+        shown.as_mut().enable();
+        if self.window_visible() {
+            return;
+        }
+        shown.await;
+    }
+
     /// The window is shown, or a phone watches.
     pub fn shown(&self) -> bool {
         self.visible.load(std::sync::atomic::Ordering::Relaxed) || self.watching.load(std::sync::atomic::Ordering::Relaxed) > 0
