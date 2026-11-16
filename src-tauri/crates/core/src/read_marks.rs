@@ -123,11 +123,29 @@ pub fn apply_now(hub: &Hub) {
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_session_read_stops_waiting_until_it_moves() {
-        let dir = std::env::temp_dir().join(format!("prism-read-{}", std::process::id()));
+    /// The marks are global: one test at a time.
+    static ONE: Mutex<()> = Mutex::new(());
+
+    /// A file of the test's own, nothing marked yet.
+    fn fresh(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("prism-read-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
         *PATH.lock().unwrap() = Some(dir.join("sessions-read.json"));
         *MARKS.lock().unwrap() = None;
+        DIRTY.store(false, Ordering::Relaxed);
+        dir
+    }
+
+    fn done(dir: &std::path::Path) {
+        *PATH.lock().unwrap() = None;
+        *MARKS.lock().unwrap() = None;
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_session_read_stops_waiting_until_it_moves() {
+        let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = fresh("moves");
         let t0 = Utc::now();
         let (mut status, mut needs, mut read) = (SessionStatus::NeedsYou, None, false);
         assert!(can_mark(status, None) && !can_mark(SessionStatus::WaitingTool, None) && !can_mark(status, Some("Answer its question")) && !can_mark(status, Some("Choose A or B")));
@@ -156,8 +174,64 @@ mod tests {
         prune(&HashSet::from(["a"]));
         flush();
         assert_eq!(std::fs::read_to_string(dir.join("sessions-read.json")).unwrap().trim(), "{}");
-        *PATH.lock().unwrap() = None;
-        *MARKS.lock().unwrap() = None;
-        let _ = std::fs::remove_dir_all(&dir);
+        done(&dir);
+    }
+
+    #[test]
+    fn idle_since_keeps_its_mark() {
+        let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = fresh("idle");
+        let t0 = Utc::now();
+        mark("a", Some(t0));
+        // Its CLI quit without moving: left as it is, the mark kept.
+        for idle in [SessionStatus::Idle, SessionStatus::Completed] {
+            let (mut status, mut needs, mut read) = (idle, None, false);
+            assert!(!apply("a", &mut status, &mut needs, Some(t0), &mut read));
+            assert_eq!((status, read), (idle, false));
+        }
+        // Waiting again at the same moment (a reload): still read.
+        let (mut status, mut needs, mut read) = (SessionStatus::NeedsYou, None, false);
+        assert!(apply("a", &mut status, &mut needs, Some(t0), &mut read));
+        assert_eq!((status, read), (SessionStatus::Idle, true));
+        // Not marked: untouched.
+        let (mut status, mut read) = (SessionStatus::NeedsYou, false);
+        assert!(!apply("z", &mut status, &mut needs, Some(t0), &mut read));
+        assert_eq!((status, read), (SessionStatus::NeedsYou, false));
+        done(&dir);
+    }
+
+    #[test]
+    fn marked_without_a_moment_falls_at_its_first_move() {
+        let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = fresh("none");
+        mark("a", None);
+        let (mut status, mut needs, mut read) = (SessionStatus::ReviewReady, None, false);
+        assert!(apply("a", &mut status, &mut needs, None, &mut read), "no move known: still read");
+        let (mut status, mut read) = (SessionStatus::ReviewReady, false);
+        assert!(!apply("a", &mut status, &mut needs, Some(Utc::now()), &mut read));
+        assert_eq!((status, read), (SessionStatus::ReviewReady, false));
+        done(&dir);
+    }
+
+    #[test]
+    fn written_only_when_changed() {
+        let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = fresh("dirty");
+        let file = dir.join("sessions-read.json");
+        let t0 = Utc::now();
+        mark("a", Some(t0));
+        assert!(std::fs::read_to_string(&file).unwrap().contains("\"a\""), "written at once");
+        std::fs::remove_file(&file).unwrap();
+        flush();
+        assert!(!file.exists(), "nothing changed: not written");
+        mark("a", Some(t0));
+        assert!(!file.exists(), "marked the same again: not written");
+        prune(&HashSet::from(["a"]));
+        flush();
+        assert!(!file.exists(), "nothing pruned: not written");
+        prune(&HashSet::new());
+        flush();
+        assert_eq!(std::fs::read_to_string(&file).unwrap().trim(), "{}");
+        done(&dir);
     }
 }
