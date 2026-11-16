@@ -5,8 +5,16 @@ import type { SessionStatus } from "./SessionStatus";
 /**
  * Claude Code desktop session: metadata and status only, never the content.
  */
-export type ClaudeSession = { id: string, title: string, folder: string, worktree: string | null, branch: string | null, ticket: string | null, status: SessionStatus, needs_action: string | null, last_activity: string | null, 
+export type ClaudeSession = { id: string, title: string, folder: string, worktree: string | null, branch: string | null, ticket: string | null, status: SessionStatus, needs_action: string | null, 
+/**
+ * Marked read (`read_marks`): its turn over, it waits for me no more (status `Idle`).
+ */
+read?: boolean, last_activity: string | null, 
 /**
  * Desktop sidebar group, its rank, and the session's rank within the group.
  */
-group: string | null, group_order: number | null, order_in_group: number | null, origin: SessionOrigin, };
+group: string | null, group_order: number | null, order_in_group: number | null, origin: SessionOrigin, 
+/**
+ * The repository a Desktop session works in (`[[repos]]`): its whole folder is never sent.
+ */
+repo?: string, };

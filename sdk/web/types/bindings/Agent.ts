@@ -72,6 +72,10 @@ exit_code: number | null,
  */
 status: SessionStatus, needs_action: string | null, 
 /**
+ * Marked read (`read_marks`): its turn over, it waits for me no more (status `Idle`).
+ */
+read?: boolean, 
+/**
  * At its prompt, the next prompt Claude Code suggests (dimmed in its input), read off its screen.
  */
 suggestion: string | null, 
