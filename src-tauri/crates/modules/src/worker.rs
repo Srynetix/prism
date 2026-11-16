@@ -391,7 +391,8 @@ impl Module {
         }
         let (reply, answer) = tokio::sync::oneshot::channel();
         self.send(Msg::Images { repo, project, local, reply })?;
-        answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))?
+        // What a module says of its images, as Prism goes by it (no gcloud token to its own host).
+        Ok(answer.await.map_err(|_| anyhow!("module {}: no answer", self.id))??.into_iter().map(ImageTarget::checked).collect())
     }
 
     /// A source of its manifest (a block's id, a part), as the core keeps it.
@@ -512,6 +513,7 @@ impl Worker {
             }
         }));
         let mut store = Store::new(cache::engine(), host);
+        store.limiter(|s| &mut s.limits);
         store.set_epoch_deadline(deadline());
         // At its deadline, its own time counted (the call's, less what Prism did for it): it traps
         // once it computed `DEADLINE` of its own, or lasted `LONGEST`; else, what is left of it.

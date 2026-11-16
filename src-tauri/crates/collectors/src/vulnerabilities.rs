@@ -604,7 +604,7 @@ async fn trivy_image(image: &str, ignore: &Path, token: Option<&str>, skip_dirs:
     if let Some(t) = token {
         cmd.env("TRIVY_REGISTRY_TOKEN", t);
     }
-    cmd.arg(image);
+    cmd.arg("--").arg(image);
     match tokio::time::timeout(IMAGE_TIMEOUT, run_ok(&mut cmd)).await {
         Ok(out) => findings(&out?),
         Err(_) => bail!("{}", tr!("timed out after {n} min", n = IMAGE_TIMEOUT.as_secs() / 60)),
@@ -624,12 +624,12 @@ struct Published {
 async fn published(image: &str, gcp: bool) -> Result<Published> {
     let ask = async {
         if gcp {
-            let out = run_ok(crate::platform::command("gcloud").args(["artifacts", "docker", "images", "describe", image, "--format=json"])).await?;
+            let out = run_ok(crate::platform::command("gcloud").args(["artifacts", "docker", "images", "describe", "--format=json", "--", image])).await?;
             let v: serde_json::Value = serde_json::from_str(&out)?;
             let digest = v.pointer("/image_summary/digest").and_then(|d| d.as_str()).context("gcloud: no digest")?;
             Ok(Published { digest: digest.to_string(), platforms: Vec::new() })
         } else {
-            let out = run_ok(crate::platform::command("docker").args(["buildx", "imagetools", "inspect", image, "--format", "{{json .Manifest}}"])).await?;
+            let out = run_ok(crate::platform::command("docker").args(["buildx", "imagetools", "inspect", "--format", "{{json .Manifest}}", "--", image])).await?;
             manifest(&out)
         }
     };
