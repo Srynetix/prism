@@ -19,6 +19,24 @@ pub type Server = tokio::net::UnixStream;
 #[cfg(windows)]
 pub type Server = tokio::net::windows::named_pipe::NamedPipeServer;
 
+/// The process at the other end of a connection the listener accepted, as the system tells it
+/// (not as the process says it): `None` when it does not.
+#[cfg(unix)]
+pub fn peer_pid(s: &Server) -> Option<u32> {
+    s.peer_cred().ok()?.pid().and_then(|p| u32::try_from(p).ok())
+}
+
+/// The process at the other end of a connection the listener accepted, as the system tells it
+/// (not as the process says it): `None` when it does not.
+#[cfg(windows)]
+pub fn peer_pid(s: &Server) -> Option<u32> {
+    use std::os::windows::io::AsRawHandle;
+    let mut pid = 0u32;
+    // SAFETY: the handle is the pipe's, alive while `s` is borrowed; `pid` is a valid out pointer.
+    let ok = unsafe { windows_sys::Win32::System::Pipes::GetNamedPipeClientProcessId(s.as_raw_handle() as _, &mut pid) };
+    (ok != 0 && pid != 0).then_some(pid)
+}
+
 /// A connection `connect` opened.
 #[cfg(unix)]
 pub type Client = tokio::net::UnixStream;
@@ -267,6 +285,8 @@ mod tests {
         assert_eq!(std::fs::metadata(&at).unwrap().permissions().mode() & 0o777, 0o600);
         let served = tokio::spawn(async move {
             let mut s = listener.accept().await.unwrap();
+            // The other end is this test's own process, as the system says it.
+            assert_eq!(peer_pid(&s), Some(std::process::id()));
             let mut b = [0u8; 2];
             s.read_exact(&mut b).await.unwrap();
             s.write_all(&b).await.unwrap();

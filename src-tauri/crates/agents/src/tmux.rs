@@ -390,6 +390,16 @@ impl Tmux {
         Ok(parse_panes(&out))
     }
 
+    /// The process a session's pane started (its CLI, or the shell that runs it); `None`: no such
+    /// session, or none known.
+    pub async fn pane_pid(&self, key: &str) -> Option<u32> {
+        let name = Self::session(key);
+        if self.local {
+            return engine(move |e| e.processes()).await.ok()?.into_iter().find(|(n, ..)| *n == name).and_then(|(_, pid, ..)| pid);
+        }
+        self.run(&["list-panes", "-t", &name, "-F", "#{pane_pid}"]).await.ok()?.lines().next()?.trim().parse().ok()
+    }
+
     /// The state of one session's pane and the program in the foreground there; `None`: no such session.
     pub async fn pane(&self, key: &str) -> Result<Option<(Pane, String)>> {
         if self.local {

@@ -30,8 +30,10 @@ struct Host {
     state: Arc<AppState>,
     next: AtomicU64,
     clients: Mutex<Vec<McpClient>>,
-    /// The connections of the assistant's conversations, proven by their key at `hello`.
+    /// The connections of the assistant's conversations, proven at `hello` (`Agents::assistant_proven`).
     assistants: Mutex<std::collections::HashSet<u64>>,
+    /// Each connection's process, as the system told it when it connected.
+    pids: Mutex<std::collections::HashMap<u64, u32>>,
     proposals: Mutex<Vec<Pending>>,
 }
 
@@ -68,7 +70,7 @@ pub fn serve(state: Arc<AppState>) {
     // Unix: bound here (no runtime needed) to be served from the runtime.
     #[cfg(unix)]
     let Some(listener) = bind() else { return };
-    let host = Arc::new(Host { state, next: AtomicU64::new(1), clients: Mutex::new(Vec::new()), assistants: Mutex::default(), proposals: Mutex::new(Vec::new()) });
+    let host = Arc::new(Host { state, next: AtomicU64::new(1), clients: Mutex::new(Vec::new()), assistants: Mutex::default(), pids: Mutex::default(), proposals: Mutex::new(Vec::new()) });
     let _ = HOST.set(host.clone());
     prism_base::rt::Generation::outside(|| {
         #[cfg(unix)]
@@ -101,7 +103,8 @@ async fn accept(host: Arc<Host>, mut listener: prism_sys::ipc::Listener) {
     loop {
         match listener.accept().await {
             Ok(stream) => {
-                prism_base::rt::spawn(host.clone().connection(stream));
+                let pid = prism_sys::ipc::peer_pid(&stream);
+                prism_base::rt::spawn(host.clone().connection(stream, pid));
             }
             Err(e) => {
                 tracing::warn!("mcp: {e}");
@@ -112,11 +115,14 @@ async fn accept(host: Arc<Host>, mut listener: prism_sys::ipc::Listener) {
 }
 
 impl Host {
-    async fn connection<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + 'static>(self: Arc<Self>, stream: S) {
+    async fn connection<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + 'static>(self: Arc<Self>, stream: S, pid: Option<u32>) {
         let (read, write) = tokio::io::split(stream);
         let write = Arc::new(tokio::sync::Mutex::new(write));
         let mut lines = BufReader::new(read).lines();
         let id = self.next.fetch_add(1, Ordering::SeqCst);
+        if let Some(pid) = pid {
+            self.pids.lock().unwrap().insert(id, pid);
+        }
         while let Ok(Some(line)) = lines.next_line().await {
             let me = self.clone();
             let write = write.clone();
@@ -137,6 +143,7 @@ impl Host {
         super::assistant::gone(&self.state, id);
         self.clients.lock().unwrap().retain(|c| c.id != id);
         self.assistants.lock().unwrap().remove(&id);
+        self.pids.lock().unwrap().remove(&id);
         self.proposals.lock().unwrap().retain(|p| p.view.client_id != Some(id));
         self.publish();
     }
@@ -194,7 +201,10 @@ impl Host {
             "hello" => {
                 let name = str_param("client").unwrap_or_else(|| "agent".into());
                 let agent = str_param("agent").filter(|a| !a.is_empty());
-                if agent.as_deref().is_some_and(|a| self.state.agents.is_assistant_by(a, &str_param("key").unwrap_or_default())) {
+                let pid = self.pids.lock().unwrap().get(&client).copied();
+                if let Some(a) = agent.as_deref()
+                    && self.state.agents.assistant_proven(a, &str_param("key").unwrap_or_default(), pid).await
+                {
                     self.assistants.lock().unwrap().insert(client);
                 }
                 self.clients.lock().unwrap().push(McpClient { id: client, name, agent, since: Utc::now(), reads: 0, proposals: 0 });
