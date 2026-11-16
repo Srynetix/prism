@@ -118,14 +118,12 @@
   $effect(() => {
     if (open) list?.querySelector('.on')?.scrollIntoView({ block: 'nearest' })
   })
-  // Open, a layer on top: Escape closes the list only, not the drawer the select is in. Shown to
-  // the stack once it has placed the focus, which stays on the select.
+  // Open, a layer on top: Escape closes the list only, not the drawer the select is in. The focus
+  // stays on the select (`focus: false`).
   const isOpen = $derived(!!open)
   $effect(() => {
     if (!isOpen) return
-    let ready = false
-    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'select-menu', el: () => (ready ? list : undefined), close, outside: false }))
-    queueMicrotask(() => (ready = true))
+    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'select-menu', el: () => list, close, outside: false, focus: false }))
     return layer.remove
   })
 </script>

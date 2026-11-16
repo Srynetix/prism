@@ -31,6 +31,8 @@ export interface LayerSpec {
   escape?: boolean
   /** A click outside closes it: drawers yes, dialogs (their scrim does) and menus (their anchor) no. */
   outside?: boolean
+  /** Focus goes into it when it opens (true); false: it stays where it is (a select's list, a field's menu). */
+  focus?: boolean
 }
 
 export interface Layer extends LayerSpec {
@@ -43,12 +45,17 @@ let next = 1
 export const layers = $state({ stack: [] as Layer[] })
 
 const BASE: Record<LayerKind, string> = { drawer: '--z-drawer', modal: '--z-modal', menu: '--z-menu' }
+const RANK: Record<LayerKind, number> = { drawer: 0, modal: 1, menu: 2 }
 
-/** A layer's `z-index`: its kind's floor, plus its place in the stack. */
+/**
+ * A layer's `z-index`: the highest floor of its kind and the kinds under it, plus its place in the
+ * stack, so the last opened is on top (a drawer opened from a dialog is above its veil).
+ */
 export function zIndex(id: number): string {
   const i = layers.stack.findIndex((l) => l.id === id)
-  const l = layers.stack[i]
-  return l ? `calc(var(${BASE[l.kind]}) + ${i})` : `var(--z-drawer)`
+  if (i < 0) return `var(--z-drawer)`
+  const floor = layers.stack.slice(0, i + 1).reduce<LayerKind>((k, l) => (RANK[l.kind] > RANK[k] ? l.kind : k), 'drawer')
+  return `calc(var(${BASE[floor]}) + ${i})`
 }
 
 /** The drawers under this one, bottom first: its crumbs. */
@@ -68,7 +75,7 @@ export function pushLayer(spec: LayerSpec): { id: number; remove: () => void } {
   const layer: Layer = { escape: true, outside: spec.kind === 'drawer', ...spec, id: next++, from: document.activeElement }
   // Called from components' effects: the stack written, never read into their dependencies.
   untrack(() => layers.stack.push(layer))
-  queueMicrotask(() => focusInto(layer))
+  if (spec.focus !== false) queueMicrotask(() => focusInto(layer))
   return { id: layer.id, remove: () => remove(layer.id) }
 }
 
@@ -129,7 +136,10 @@ function focusInto(layer: Layer) {
   target.focus({ preventScroll: true })
 }
 
-const FIELD = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], .cm-editor'
+const FIELD = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), .cm-editor, .xterm'
+
+/** Is this a field, where keys are typed (an editor, a terminal too)? The one test for every key handler. */
+export const inField = (target: EventTarget | null) => target instanceof Element && !!target.closest(FIELD)
 
 /**
  * What closes on Escape before the layers, though not one of them: a popover (`dismissable`), an
@@ -164,6 +174,9 @@ function onKey(e: KeyboardEvent) {
     e.preventDefault()
     e.stopImmediatePropagation()
   }
+  const target = e.target as Element | null
+  // A terminal drawer keeps its Escape (vim's), whatever is open elsewhere.
+  if (top.escape === false && top.el()?.contains(target)) return
   const last = held.at(-1)
   if (last) {
     stop()
@@ -171,11 +184,15 @@ function onKey(e: KeyboardEvent) {
     last()
     return
   }
-  const target = e.target as Element | null
+  // A menu on top closes, wherever the focus stayed (on the select or the field it belongs to).
+  if (top.kind === 'menu') {
+    stop()
+    top.close()
+    return
+  }
   // A list of choices of a field (a select's, a suggestion's) or a menu not in the stack: its own.
   const own = target?.closest?.('[role=listbox], [role=menu], .suggest')
   if (own && !layers.stack.some((l) => l.el()?.contains(own))) return
-  if (top.escape === false && top.el()?.contains(target)) return
   // In a field, or in what handles its own Escape (`data-esc-own`: a comment box cancels, a filter
   // clears, a list of suggestions closes), the field has it first; once the event went through,
   // unused (neither `preventDefault` nor stopped on its way), `afterField` acts. A field outside

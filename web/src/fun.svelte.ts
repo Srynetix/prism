@@ -9,7 +9,7 @@ import type { Appearance } from './types'
  * "Reduce transparency" a theme's glass and overlays, unless `ignore_reduce`. Mirrored on `<html>`
  * for the CSS: `data-animations`, `data-theme-motion`, `data-reduce-motion`, `data-reduce-transparency`, `data-density`.
  */
-export const DEFAULT_APPEARANCE: Appearance = { theme: 'system', theme_preview: true, density: 'compact', ignore_reduce: false, font: '', font_mono: '', font_terminal: '', language: '', locale: '', boot: true, animations: true, theme_motion: true, celebrations: true, easter_eggs: true, friday_guard: true, screensaver: true, screensaver_seconds: 600, screensaver_mode: 'spectrum', tooltips: true, tooltip_delay: 400, ticket_threads: false, page_swipe: true, pin_drawers: false, statusbar: [], statusbar_hidden: [] }
+export const DEFAULT_APPEARANCE: Appearance = { theme: 'system', theme_preview: true, density: 'compact', ignore_reduce: false, font: '', font_mono: '', font_terminal: '', language: '', locale: '', boot: true, animations: true, theme_motion: true, celebrations: true, easter_eggs: true, friday_guard: true, screensaver: true, screensaver_seconds: 600, screensaver_mode: 'spectrum', tooltips: true, tooltip_delay: 400, ticket_threads: false, page_swipe: true, pin_drawers: false, statusbar: [], statusbar_hidden: null }
 /** Read through a derived: a reader (each date formatted, `featureOn`) depends on the appearance
  * only, not on the whole snapshot, so it does not run again at each change of it (a change keeps
  * `appearance` as it was unless it changed). */

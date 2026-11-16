@@ -24,6 +24,7 @@ import type { AgentDownload } from './bindings/AgentDownload'
 import type { AgentArtifact } from './bindings/AgentArtifact'
 import type { AgentPage } from './bindings/AgentPage'
 import { t } from './i18n.svelte'
+import { waitsForYou } from './agents-list'
 import type { WorktreePlan } from './bindings/WorktreePlan'
 export type { WorktreePlan }
 
@@ -87,7 +88,8 @@ export const agentsShown = () => agentsView.open && !settingsView.open && !helpV
  */
 export function openAgents(id?: string, focus?: AgentsFocus) {
   if (focus === 'waiting') {
-    id ??= live.snapshot?.agents?.find((a) => a.status === 'needs_you' || a.status === 'waiting_tool')?.id
+    // The first of the view's Waiting group: the latest active first.
+    id ??= (live.snapshot?.agents ?? []).filter((a) => waitsForYou(a.status)).sort((a, b) => (b.last_activity ?? '').localeCompare(a.last_activity ?? ''))[0]?.id
     agentsView.focus = focus
   }
   if (id) agentsView.selected = id

@@ -4,7 +4,7 @@ import { views } from './views'
 import { agentsEnabled, openAgents, openProjects, projectsOn } from './agents.svelte'
 import { agentsDigit, projectsKey } from './shortcuts'
 import { isMac } from './platform'
-import { escapeFirst } from './layers.svelte'
+import { escapeFirst, inField } from './layers.svelte'
 
 /**
  * Keyboard control, vim-style (its keys declared, for the help, in shortcuts.ts). A cursor walks the lines of the active block (tickets, MRs,
@@ -257,7 +257,7 @@ function drawerKey(e: KeyboardEvent, run: (f: () => void) => boolean): boolean {
 escapeFirst((e) => {
   if (keys.pane !== 'drawer') return false
   // Esc in a field (comment in progress): up to the field to decide.
-  if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) return false
+  if (inField(e.target)) return false
   // An open menu or an enlarged image closes first, as usual.
   if (document.querySelector('[role=menu], .lightbox')) return false
   setPane('grid')

@@ -20,9 +20,13 @@ export const agentEntry = (a: Agent): Entry => ({ kind: 'agent', id: a.id, statu
 /** A desktop session does not say when it was created: its last activity stands in. */
 export const desktopEntry = (c: ClaudeSession): Entry => ({ kind: 'desktop', id: c.id, status: c.status, title: c.title, when: c.last_activity, created: c.last_activity, c })
 
+/** Waiting for me: a question, a permission, its turn over and asking. */
+export const WAITING: SessionStatus[] = ['waiting_tool', 'needs_you']
+export const waitsForYou = (s: SessionStatus) => WAITING.includes(s)
+
 /** What is waiting on me first, then what is working, then the rest, each from newest to oldest. */
 export const GROUPS: [string, SessionStatus[]][] = [
-  ['Waiting for you', ['waiting_tool', 'needs_you']],
+  ['Waiting for you', WAITING],
   ['Running', ['running', 'background']],
   ['Finished', ['review_ready', 'completed', 'idle']],
 ]

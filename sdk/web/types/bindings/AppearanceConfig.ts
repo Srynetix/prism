@@ -112,6 +112,7 @@ pin_drawers: boolean,
  */
 statusbar: Array<string>, 
 /**
- * The status bar's items not shown.
+ * The status bar's items not shown; unset (and no order): the default bar's. Set, even
+ * empty, the bar is as written.
  */
-statusbar_hidden: Array<string>, };
+statusbar_hidden: Array<string> | null, };

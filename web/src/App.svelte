@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { inLayer } from './layers.svelte'
+  import { inField, inLayer } from './layers.svelte'
   import { reopenLastPanel } from './recent-panels.svelte'
   // Agents' chains run while Prism does, the Agents view open or not.
   import { clock } from './clock.svelte'
@@ -121,7 +121,6 @@
   import { waitingWorkstreams } from './workstreams'
   import { agentsEnabled, agentsView, newAgent, openAgents, openProjects, projectsView, terminalKeeps } from './agents.svelte'
   import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys } from './shortcuts'
-  import { openWaiting } from './doors'
   import { BLOCK_HELP } from './block-help'
   import { chord, inTerminal, keys, pageDigit } from './platform'
   import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
@@ -288,7 +287,7 @@
 
   let input: HTMLInputElement | undefined = $state()
   /** Typing in a field (filter, note, time entry…): no shortcut. */
-  const typing = (e: KeyboardEvent) => !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')
+  const typing = (e: KeyboardEvent) => inField(e.target)
   /** The Agents view comes after the grid views: ⌘5 with four views. */
   const agentsDigit = $derived(agentsDigitOf())
   /** The Projects page, after the Agents view: shown once a repository is configured. */
@@ -595,7 +594,7 @@
       <button class="hiddenp" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); pageUi.hiddenMenu = { x: r.right + 4, y: r.top } }} title={tn(hiddenViews().length, '{n} hidden page: show it again', '{n} hidden pages: show them again')} aria-label={t('Hidden pages')}><Icon name="hide" />{hiddenViews().length}</button>
     {/if}
     {#if agentsEnabled()}
-    <button class="v" class:on={agentsView.open && !settingsView.open && !helpView.open} style:--tint="var(--src-claude)" onclick={() => (agentsWaiting ? openWaiting() : openAgents())} title={keys(t('Agents (⌘{digit}) · new agent ⌘N', { digit: agentsDigit }))} aria-current={agentsView.open ? 'page' : undefined}>
+    <button class="v" class:on={agentsView.open && !settingsView.open && !helpView.open} style:--tint="var(--src-claude)" onclick={() => openAgents()} title={keys(t('Agents (⌘{digit}) · new agent ⌘N', { digit: agentsDigit }))} aria-current={agentsView.open ? 'page' : undefined}>
       {@render icon('agents')}
       <span>{t('Agents')}</span>
       {#if agentsWaiting}<span class="count" title={t('{n} waiting for you', { n: agentsWaiting })}>{agentsWaiting}</span>{:else if toReview}<span class="count rv" title={t('{n} to review', { n: toReview })}>{toReview}</span>{/if}

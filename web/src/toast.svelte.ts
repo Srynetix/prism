@@ -32,9 +32,15 @@ export const toasts = $state({ list: [] as Toast[] })
 const timers = new Map<number, { timer: ReturnType<typeof setTimeout>; until: number; left: number }>()
 
 export function toast(message: string, ms = 2200, action: ToastAction | null = null, kind: ToastKind = 'ok') {
-  // The same message again: the one shown stays, its time renewed.
-  const same = toasts.list.find((x) => x.message === message && x.kind === kind)
-  if (same) dismissToast(same.id)
+  // The same message again, neither with an action: the one shown stays in place, its time renewed.
+  // With an action (two Undo), each keeps its own.
+  const same = action ? undefined : toasts.list.find((x) => x.message === message && x.kind === kind && !x.action)
+  if (same) {
+    clearTimer(same.id)
+    same.ms = ms
+    arm(same.id, ms)
+    return
+  }
   const item: Toast = { id: next++, kind, message, action, ms }
   const list = [...toasts.list, item]
   // Over the limit, the oldest without an action goes first: an Undo or a Try again stays its time.

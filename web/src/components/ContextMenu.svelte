@@ -56,13 +56,11 @@
   })
   /**
    * Open, a layer on top: Esc closes the menu only, not a drawer the field is in. The field keeps
-   * the focus: the menu is shown to the stack once it has placed the focus (it would take it).
+   * the focus (`focus: false`).
    */
   $effect(() => {
     if (!menu) return
-    let ready = false
-    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'context-menu', el: () => (ready ? menuEl : undefined), close, outside: false }))
-    queueMicrotask(() => (ready = true))
+    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'context-menu', el: () => menuEl, close, outside: false, focus: false }))
     return layer.remove
   })
 

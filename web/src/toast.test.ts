@@ -11,4 +11,18 @@ describe('toasts', () => {
     expect(toasts.list.map((x) => x.message)).toEqual(['Worktree archived', 'Link copied 2', 'Link copied 3'])
     vi.useRealTimers()
   })
+
+  it('keeps a repeated message in place, and two Undo apart', () => {
+    vi.useFakeTimers()
+    toasts.list = []
+    toast('Saved')
+    const id = toasts.list[0].id
+    toast('Saved')
+    expect(toasts.list.map((x) => x.id)).toEqual([id])
+    toasts.list = []
+    toastUndo('Page deleted', () => {})
+    toastUndo('Page deleted', () => {})
+    expect(toasts.list.length).toBe(2)
+    vi.useRealTimers()
+  })
 })

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { inField } from '../layers.svelte'
   import { suggest } from '../suggest'
   import { untrack } from 'svelte'
   import { chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
@@ -247,14 +248,14 @@
     if (!agentsShown()) return
     // Kept by the terminal it was pressed in (`[agents] terminal_keys`).
     if (inTerminal(e) && terminalKeeps(e)) return
-    const inField = !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable], .xterm')
+    const typing = inField(e.target)
     if (managing && e.key === 'Escape' && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm')) {
       e.preventDefault()
       managing = false
       return
     }
     // Esc restores a full-width panel, unless it is meant for a field (or the terminal, hidden then).
-    if (full && e.key === 'Escape' && !inField) {
+    if (full && e.key === 'Escape' && !typing) {
       e.preventDefault()
       setFull(false)
       return
@@ -271,7 +272,7 @@
       grid.move(arrow)
       return
     }
-    if (hit('rename', e) && !inField && current?.kind === 'agent') {
+    if (hit('rename', e) && !typing && current?.kind === 'agent') {
       e.preventDefault()
       startRename(current.a)
       return

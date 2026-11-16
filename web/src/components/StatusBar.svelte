@@ -48,34 +48,33 @@
   let { snap, now, status, alerts = [] }: { snap: Snapshot | null; now: number; status: string; alerts?: Alert[] } = $props()
 
   // The order and the hidden items: `[appearance] statusbar` and `statusbar_hidden`, as written
-  // (a config that sets either keeps its bar); before them, the hidden items were a pref, read until
-  // the first change writes the config; neither: the default bar (`DEFAULT_HIDDEN`).
+  // (a config that sets either keeps its bar, `statusbar_hidden = []` hiding nothing); before them,
+  // the hidden items were a pref, read until the first change writes the config; neither: the
+  // default bar (`DEFAULT_HIDDEN`).
   let legacy = $state<StatusId[]>(pref<StatusId[]>('statusbarHidden', []))
-  const saved = $derived.by(() => {
+  type Written = { order: string[]; hidden: string[] | null }
+  const resolve = (w: Written) => ({ order: w.order, hidden: readHidden(w.hidden ?? (w.order.length ? [] : legacy.length ? legacy : DEFAULT_HIDDEN)) })
+  const written = $derived.by((): Written => {
     const a = appearance()
-    const order = a.statusbar ?? []
-    const hidden = a.statusbar_hidden ?? []
-    return { order, hidden: readHidden(order.length || hidden.length ? hidden : legacy.length ? legacy : DEFAULT_HIDDEN) }
+    return { order: a.statusbar ?? [], hidden: a.statusbar_hidden ?? null }
   })
   /** A change saved, until the config reads it back. */
-  let local = $state<{ order: string[]; hidden: string[] } | null>(null)
+  let local = $state<Written | null>(null)
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
-  // Compared with what the file says, as written: the default bar is written as none, read as the default.
+  const sameHidden = (a: string[] | null, b: string[] | null) => (a === null || b === null ? a === b : same(a, b))
   $effect(() => {
-    const a = appearance()
-    if (local && same(local.order, a.statusbar ?? []) && same(local.hidden, a.statusbar_hidden ?? [])) local = null
+    if (local && same(local.order, written.order) && sameHidden(local.hidden, written.hidden)) local = null
   })
-  const current = $derived(local ? { order: local.order, hidden: local.order.length || local.hidden.length ? local.hidden : DEFAULT_HIDDEN } : saved)
+  const current = $derived(resolve(local ?? written))
   const sides = $derived(arrange(current.order, current.hidden))
 
   async function save(order: string[], hidden: string[]) {
-    // The default order is written as none: Prism's later changes to it then apply.
     const full = fullOrder(order)
     const kept = STATUS_ITEMS.map((i) => i.id).filter((id) => hidden.includes(id))
-    // The default bar is written as none: Prism's later changes to it then apply. Nothing hidden in
-    // the default order is written whole, or it would read as the default bar.
+    // The default bar is written as none (Prism's later changes to it then apply); the default
+    // order as none too, its hidden items as they are, even none.
     const byDefault = same(full, DEFAULT_ORDER)
-    const next = byDefault && same(kept, DEFAULT_HIDDEN) ? { order: [], hidden: [] } : { order: byDefault && kept.length ? [] : full, hidden: kept }
+    const next: Written = byDefault && same(kept, DEFAULT_HIDDEN) ? { order: [], hidden: null } : { order: byDefault ? [] : full, hidden: kept }
     local = next
     try {
       await saveEdits([{ path: ['appearance', 'statusbar'], value: next.order }, { path: ['appearance', 'statusbar_hidden'], value: next.hidden }])

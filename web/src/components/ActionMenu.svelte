@@ -56,7 +56,7 @@
 <script lang="ts">
   import { anchored, exclusive } from '../popup'
   import { untrack } from 'svelte'
-  import { pushLayer } from '../layers.svelte'
+  import { inField, pushLayer } from '../layers.svelte'
   import { armer } from '../armed.svelte'
   import { actorName } from '../agent-cli'
   import { openLink } from '../links'
@@ -144,7 +144,7 @@
     if (item.run) exec(item.key, item.run, { confirm: item.confirm })
   }
 
-  const typing = (e: KeyboardEvent) => !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')
+  const typing = (e: KeyboardEvent) => inField(e.target)
   function onKey(e: KeyboardEvent) {
     if (!open) return
     if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return

@@ -235,8 +235,9 @@ pub struct AppearanceConfig {
     /// The status bar's order: item ids, `|` parting the left side from the right; an item left
     /// out takes its default place. Empty: by zone (what waits for you, the work, the computer).
     pub statusbar: Vec<String>,
-    /// The status bar's items not shown.
-    pub statusbar_hidden: Vec<String>,
+    /// The status bar's items not shown; unset (and no order): the default bar's. Set, even
+    /// empty, the bar is as written.
+    pub statusbar_hidden: Option<Vec<String>>,
 }
 
 impl Default for AppearanceConfig {
@@ -266,7 +267,7 @@ impl Default for AppearanceConfig {
             page_swipe: true,
             pin_drawers: false,
             statusbar: Vec::new(),
-            statusbar_hidden: Vec::new(),
+            statusbar_hidden: None,
         }
     }
 }

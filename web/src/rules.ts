@@ -10,6 +10,7 @@ import { stateOf } from './blocks/block'
 import { locale } from './locale'
 import { t as tr } from './i18n.svelte'
 import { baseName } from './platform'
+import { waitsForYou } from './agents-list'
 
 export { isDone, isProtected }
 
@@ -209,7 +210,7 @@ export const SESSION_LABEL: Record<ClaudeSession['status'], string> = {
 /** A session's status in words: one marked read (`session-read.ts`) shows as stopped. */
 export const sessionLabel = (x: { status: ClaudeSession['status']; read?: boolean }) => (x.read ? tr('Stopped') : SESSION_LABEL[x.status])
 /** A status waiting for an answer or a permission. */
-export const waitsForYou = (s: ClaudeSession['status']) => s === 'needs_you' || s === 'waiting_tool'
+export { waitsForYou }
 /** Working: on its turn, or its turn over while its subagents or background tasks go on. */
 export const isWorking = (s: ClaudeSession['status']) => s === 'running' || s === 'background'
 /** An agent that does not run, in words: the same on the computer and the phone. */
