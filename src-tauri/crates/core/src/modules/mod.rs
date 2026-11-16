@@ -470,6 +470,40 @@ mod tests {
         std::fs::remove_dir_all(r).unwrap();
     }
 
+    /// A pack's new version reaching nothing more is trusted for me, unless its web part changed:
+    /// that code runs as Prism, nothing confines it. A trust kept before the web part was
+    /// fingerprinted asks once.
+    #[test]
+    fn a_pack_update_with_new_web_code_waits() {
+        let r = root();
+        let store = r.join(".trust.json");
+        let manifest = |v: &str| format!("[module]\nversion = \"{v}\"\n[web]\n[wasm]\ncomponent = \"b.wasm\"\n[[wasm.blocks]]\nid = \"m\"\n");
+        let mark = (".pack", "pack = \"team\"\nsource = \"x\"\n");
+        module(&r, "m", &manifest("1.0.0"), &[("web/defs.js", "defs v1"), ("b.wasm", "v1"), mark]);
+        let info = list_in(&r, &store).remove(0);
+        assert_eq!(info.pack.as_deref(), Some("team"));
+        trust(&r, &store, "m", &info.fingerprint).unwrap();
+        // The back end changed, the web part the same: trusted for me.
+        module(&r, "m", &manifest("1.1.0"), &[("web/defs.js", "defs v1"), ("b.wasm", "v2"), mark]);
+        assert!(!list_in(&r, &store)[0].trusted);
+        assert!(trust_update(&r, &store, "team", "m"));
+        assert!(list_in(&r, &store)[0].trusted);
+        // New web code: waits, even reaching nothing more.
+        module(&r, "m", &manifest("1.2.0"), &[("web/defs.js", "defs v2"), ("b.wasm", "v2"), mark]);
+        assert!(!trust_update(&r, &store, "team", "m"));
+        assert!(!list_in(&r, &store)[0].trusted);
+        let info = list_in(&r, &store).remove(0);
+        trust(&r, &store, "m", &info.fingerprint).unwrap();
+        // A trust without its web part's fingerprint (kept before): asked once.
+        let mut s = crate::trust::read(&store);
+        let text = s.trusted.get("m").unwrap().text.clone();
+        s.trust("m", &info.fingerprint, &text, serde_json::json!({ "pack": "team" }));
+        s.write(&store).unwrap();
+        module(&r, "m", &manifest("1.3.0"), &[("web/defs.js", "defs v2"), ("b.wasm", "v3"), mark]);
+        assert!(!trust_update(&r, &store, "team", "m"));
+        std::fs::remove_dir_all(r).unwrap();
+    }
+
     /// A link re-pointed inside the folder is another module: not trusted any more.
     #[cfg(unix)]
     #[test]
