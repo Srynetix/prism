@@ -417,8 +417,16 @@ impl Host {
                     b.call("save".into(), json!({ "def": def })).await?;
                     json!({ "status": "applied", "note": "added and trusted: it runs now" })
                 } else {
-                    let current = std::fs::read_to_string(&path).unwrap_or_default();
-                    if current != before {
+                    // Compared and written under the file's lock: a save in between is seen.
+                    let changed = prism_base::files::locked(&path, || -> Result<Option<String>> {
+                        let current = std::fs::read_to_string(&path).unwrap_or_default();
+                        if current != before {
+                            return Ok(Some(current));
+                        }
+                        crate::settings::write(&path, &current, &view.text)?;
+                        Ok(None)
+                    })?;
+                    if let Some(current) = changed {
                         // Changed meanwhile: computed again on the file as it is, to apply again.
                         let computed = compute(&current, &change)?;
                         anyhow::ensure!(computed.check.errors.is_empty(), "on the current config.toml, the proposal no longer holds: {}", computed.check.errors.join("; "));
@@ -430,7 +438,6 @@ impl Host {
                         self.publish();
                         bail!("config.toml changed since the proposal: it is computed again on the current version, check it and apply again");
                     }
-                    crate::settings::write(&path, &current, &view.text)?;
                     crate::commands::config::apply_live(&self.state, &path);
                     json!({ "status": "applied", "note": "applied live: check prism_problems() and prism://blocks" })
                 }
@@ -438,8 +445,7 @@ impl Host {
             // Saved from the TOML panel, as the user changed it.
             "modified" => {
                 let text = text.context("text")?;
-                let current = std::fs::read_to_string(&path).unwrap_or_default();
-                crate::settings::write(&path, &current, &text)?;
+                prism_base::files::locked(&path, || crate::settings::write(&path, &std::fs::read_to_string(&path).unwrap_or_default(), &text))?;
                 crate::commands::config::apply_live(&self.state, &path);
                 let diff: Vec<String> = prism_core::textdiff::around(prism_core::textdiff::lines(&view.text, &text), 2).into_iter().map(|l| format!("{}{}", l.op, l.text)).collect();
                 json!({ "status": "applied_modified", "note": "the user changed it before saving: here is what differs from the proposal", "diff_from_proposal": diff.join("\n") })

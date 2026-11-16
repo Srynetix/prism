@@ -405,6 +405,9 @@ async fn write_config(path: &Path, name: &str, color: &str, pack: Option<&str>, 
 pub fn rename(id: &str, name: &str, color: &str) -> Result<()> {
     ensure!(!name.trim().is_empty(), tr(tr(tr("a profile needs a name"))));
     let path = config_of(id);
+    // Under the file's lock, as every change of a config.toml.
+    let lock = prism_base::files::lock_of(&path);
+    let _held = lock.lock().unwrap_or_else(|e| e.into_inner());
     let raw = std::fs::read_to_string(&path).unwrap_or_default();
     let mut doc: toml_edit::DocumentMut = raw.parse().with_context(|| format!("{} is not valid TOML", path.display()))?;
     let fresh: toml_edit::DocumentMut = profile_table(name, color).parse()?;

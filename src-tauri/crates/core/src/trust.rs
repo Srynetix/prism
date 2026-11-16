@@ -5,11 +5,7 @@
 //! be trusted. Each user hashes its declaration and words its reasons (`RoutinePendingReason`,
 //! `CustomPendingReason`).
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
-};
+use std::{collections::BTreeMap, path::Path};
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -91,20 +87,14 @@ pub fn read(path: &Path) -> Store {
 /// The store at `path` read, changed by `f` and written back, under that file's lock: two
 /// changes at once never lose one another. What `f` returns.
 pub fn update<T>(path: &Path, f: impl FnOnce(&mut Store) -> T) -> Result<T> {
-    let lock = lock_of(path);
-    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
-    let mut store = read(path);
-    let out = f(&mut store);
-    store.write(path)?;
-    Ok(out)
+    prism_base::files::locked(path, || {
+        let mut store = read(path);
+        let out = f(&mut store);
+        store.write(path)?;
+        Ok(out)
+    })
 }
 
-/// The lock of the file at `path`, one per file.
-fn lock_of(path: &Path) -> Arc<Mutex<()>> {
-    static LOCKS: Mutex<Option<HashMap<PathBuf, Arc<Mutex<()>>>>> = Mutex::new(None);
-    let mut locks = LOCKS.lock().unwrap_or_else(|e| e.into_inner());
-    locks.get_or_insert_with(HashMap::new).entry(path.to_path_buf()).or_default().clone()
-}
 
 impl Store {
     /// Written at `path`, for me only.
