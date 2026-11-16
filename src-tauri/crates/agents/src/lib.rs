@@ -240,6 +240,8 @@ struct Inner {
     /// hook comes after (its saved status, Running or a permission, says nothing of it).
     relaunched: Mutex<HashMap<String, chrono::DateTime<Utc>>>,
     next_token: AtomicU64,
+    /// What the assistant's keys are made from (`assistant_key`): kept in `work`, read by no one else.
+    secret: Vec<u8>,
     hub: Hub,
     /// Wakes the state loop right away after a launch or a close.
     changed: Notify,
@@ -287,6 +289,7 @@ impl Agents {
         let registry = Registry::load(dir.join("agents.json"));
         let book = costs::Book::new(costs::load(&dir.join("agent-costs.json")));
         let events = work.join("events");
+        let secret = secret(&work.join("assistant.key"));
         // What nothing will come for: a month's attachments, and the notes of commands whose
         // end never arrived (an agent interrupted, Prism closed) — worktree paths, kept a day.
         attach::prune(&work.join("attach"));
@@ -314,6 +317,7 @@ impl Agents {
                 gates: Mutex::default(),
                 relaunched: Mutex::default(),
                 next_token: AtomicU64::new(1),
+                secret,
                 hub,
                 changed: Notify::new(),
                 command_code_window: Mutex::default(),
@@ -460,6 +464,22 @@ impl Agents {
     /// A conversation of Prism's assistant (launched as one, `LaunchSpec.assistant`).
     pub fn is_assistant(&self, id: &str) -> bool {
         self.record(id).is_ok_and(|r| r.launch.is_some_and(|l| l.assistant))
+    }
+
+    /// The key a conversation of the assistant proves itself with to Prism's MCP server
+    /// (`PRISM_ASSISTANT_KEY`): its id alone, any agent may give (it reads the agents' list).
+    pub fn assistant_key(&self, id: &str) -> String {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        h.update(&self.inner.secret);
+        h.update([0]);
+        h.update(id.as_bytes());
+        h.finalize().iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    /// Whether `key` is the one of `id`, a conversation of the assistant.
+    pub fn is_assistant_by(&self, id: &str, key: &str) -> bool {
+        self.is_assistant(id) && !key.is_empty() && self.assistant_key(id) == key
     }
 
     /// The agent's record, as registered.
@@ -803,6 +823,22 @@ fn clean_tags(tags: Vec<String>) -> Vec<String> {
         }
     }
     out
+}
+
+/// The secret kept at `path` (written there the first time, the owner's only): the assistant's
+/// keys outlive a restart of Prism, as its conversations do.
+fn secret(path: &std::path::Path) -> Vec<u8> {
+    if let Some(kept) = std::fs::read(path).ok().map(|b| b.trim_ascii().to_vec()).filter(|b| b.len() >= 64) {
+        return kept;
+    }
+    let fresh = format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple()).into_bytes();
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = prism_base::files::write_private(path, &fresh) {
+        tracing::warn!("agents: {} not written: {e}", path.display());
+    }
+    fresh
 }
 
 #[cfg(test)]
