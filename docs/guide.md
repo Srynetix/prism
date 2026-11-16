@@ -39,13 +39,20 @@ The window's types in `web/src/bindings/` are generated from the Rust ones by `c
 
 `src-tauri/` is a Cargo workspace. Its root package, `prism`, is the app: the Tauri shell (window,
 tray, menu, the window's commands, launch) over the library crates of `src-tauri/crates/`. Each is
-a layer that depends only on the ones below it, and none on Tauri:
+a layer that depends only on the ones above it in this table, and none on Tauri. The first four
+depend on no other Prism crate:
 
 | Crate | Holds |
 |---|---|
+| `prism-sys` | every call into the C library and WebKitGTK that Rust cannot check, behind safe functions: the other crates forbid `unsafe` |
+| `prism-macos` | the calls into Apple's frameworks (EventKit, CoreAudio, AppKit, CoreWLAN, LocalAuthentication), behind safe types; empty on other systems |
+| `prism-macros` | `#[command]`, on each command of `prism-commands`: registered with Tauri, and answered from JSON for another Prism (`peer`) |
+| `prism-module` | the SDK a module's back end is written with: its blocks as Prism's own (`impl Block`), built into a WebAssembly component |
 | `prism-base` | programs run with the login shell's environment, git, HTTP, the keyring, fonts, the runtime the collectors run on |
+| `prism-dictation` | a prompt dictated at the computer: the microphone in memory, transcribed on the computer only (macOS's speech recognition or whisper.cpp) |
 | `prism-core` | the config (packs, profiles, settings), the snapshot and its hub, conventions, the forge and tracker types, the blocks' contract |
 | `prism-collectors` | the sources (forge, tracker, CI, clusters, calendar, mail, usage, vulnerabilities…), and `Forge` / `Tracker` over the providers |
+| `prism-modules` | the host of the modules' back ends: their WebAssembly components run by wasmtime in a sandbox, as the core's blocks |
 | `prism-agents` | the coding agents: tmux sessions, worktrees, hooks, files, tasks, chains |
 | `prism-blocks` | Prism's own blocks |
 | `prism-demo` | the demo profile's data |
@@ -60,6 +67,11 @@ so `crate::config::Config` still reads the same everywhere. What Tauri provides 
 opener) is given to `prism-base` at launch (`rt::init`, `platform::set_opener`), and the blocks to
 the core (`blocks::register`). `cargo test --workspace` runs every crate's tests; `-p <crate>`
 one's.
+
+A module's code is split in two (*Modules*, below). `prism-core`'s `modules/` installs them, keeps
+their trust and serves their web part; it does without wasmtime, so the phone's server
+(`prism-remote`) does not pull it in. `prism-modules` is the wasmtime host that runs their back
+ends, a dependency of `prism-commands` only.
 
 ### Window UI
 

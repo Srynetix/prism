@@ -30,6 +30,8 @@ struct Host {
     state: Arc<AppState>,
     next: AtomicU64,
     clients: Mutex<Vec<McpClient>>,
+    /// The connections of the assistant's conversations, proven by their key at `hello`.
+    assistants: Mutex<std::collections::HashSet<u64>>,
     proposals: Mutex<Vec<Pending>>,
 }
 
@@ -66,7 +68,7 @@ pub fn serve(state: Arc<AppState>) {
     // Unix: bound here (no runtime needed) to be served from the runtime.
     #[cfg(unix)]
     let Some(listener) = bind() else { return };
-    let host = Arc::new(Host { state, next: AtomicU64::new(1), clients: Mutex::new(Vec::new()), proposals: Mutex::new(Vec::new()) });
+    let host = Arc::new(Host { state, next: AtomicU64::new(1), clients: Mutex::new(Vec::new()), assistants: Mutex::default(), proposals: Mutex::new(Vec::new()) });
     let _ = HOST.set(host.clone());
     prism_base::rt::Generation::outside(|| {
         #[cfg(unix)]
@@ -134,6 +136,7 @@ impl Host {
         // Gone: its proposals with it, nobody waits for their answer any more.
         super::assistant::gone(&self.state, id);
         self.clients.lock().unwrap().retain(|c| c.id != id);
+        self.assistants.lock().unwrap().remove(&id);
         self.proposals.lock().unwrap().retain(|p| p.view.client_id != Some(id));
         self.publish();
     }
@@ -191,6 +194,9 @@ impl Host {
             "hello" => {
                 let name = str_param("client").unwrap_or_else(|| "agent".into());
                 let agent = str_param("agent").filter(|a| !a.is_empty());
+                if agent.as_deref().is_some_and(|a| self.state.agents.is_assistant_by(a, &str_param("key").unwrap_or_default())) {
+                    self.assistants.lock().unwrap().insert(client);
+                }
                 self.clients.lock().unwrap().push(McpClient { id: client, name, agent, since: Utc::now(), reads: 0, proposals: 0 });
                 self.publish();
                 let c = cfg.as_ref();
@@ -260,7 +266,9 @@ impl Host {
             }
             m if assistant => {
                 let cfg = cfg.as_ref().context("the config does not read: fix it first")?;
-                let agent = self.clients.lock().unwrap().iter().find(|c| c.id == client).and_then(|c| c.agent.clone());
+                // Its agent as proven by its key: an id alone, any agent may claim.
+                let proven = self.assistants.lock().unwrap().contains(&client);
+                let agent = self.clients.lock().unwrap().iter().find(|c| c.id == client).and_then(|c| c.agent.clone()).filter(|_| proven);
                 super::assistant::handle(super::assistant::Ask { state: &self.state, cfg, client, agent }, m, params).await
             }
             other => bail!("no method {other}"),

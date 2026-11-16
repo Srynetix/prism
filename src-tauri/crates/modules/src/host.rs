@@ -25,12 +25,15 @@ const LISTS: &[&str] = &["-l", "--list", "-a", "--all", "-r", "--remotes", "--sh
 /// Of those, the ones whose value may come as the next argument.
 const VALUED: &[&str] = &["--format", "--sort", "--contains", "--no-contains", "--merged", "--no-merged", "--points-at"];
 
+/// Options that read a file they name, anywhere: refused (`-O<orderfile>`, `-X<file>` and the rest).
+const FILE_OPTIONS: &[&str] = &["--contents", "--ignore-revs-file", "--exclude-from", "--exclude-per-directory", "--pathspec-from-file", "--orderfile", "-O", "-X"];
+
 /// `args` a git command that reads: a subcommand that reads, first (an option there, `-C` or
 /// `-c alias.x=!…`, would leave the clone or run something else), no `--output` (a file written),
-/// no `--no-index` or `--contents` (a file outside the clone read); `branch` and `tag` listing.
+/// no `--no-index` nor an option naming a file to read (outside the clone); `branch` and `tag` listing.
 fn reads(args: &[String]) -> bool {
     let Some(sub) = args.first().filter(|c| READS.contains(&c.as_str())) else { return false };
-    if args.iter().any(|a| a.starts_with("--output") || a == "--no-index" || a.starts_with("--contents")) {
+    if args.iter().any(|a| a.starts_with("--output") || a == "--no-index" || FILE_OPTIONS.iter().any(|o| a.starts_with(o))) {
         return false;
     }
     !matches!(sub.as_str(), "branch" | "tag") || lists(&args[1..])
@@ -110,6 +113,11 @@ impl Calls {
 /// A call's work, its capability checked: what runs once started.
 type Work = std::pin::Pin<Box<dyn std::future::Future<Output = Answer> + Send>>;
 
+/// The most memory one of a module's linear memories takes: a module growing past it fails, not Prism.
+pub const MEMORY: usize = 512 << 20;
+/// The most elements one of its tables holds.
+const TABLE_ELEMENTS: usize = 1 << 20;
+
 pub struct HostState {
     pub module: String,
     pub caps: Capabilities,
@@ -131,6 +139,8 @@ pub struct HostState {
     pub part: String,
     /// Told the part to tick again once a call finishes (`""`: none, a window's call waits).
     pub woke: Option<Arc<dyn Fn(String) + Send + Sync>>,
+    /// How far its memories and tables may grow (`MEMORY`): past it, growing fails in the module.
+    pub limits: wasmtime::StoreLimits,
     wasi: WasiCtx,
     table: ResourceTable,
 }
@@ -140,7 +150,7 @@ impl HostState {
         let stderr = Stderr { module: module.clone(), lines: Default::default() };
         // No preopened folder, no environment, no socket: clocks and randomness.
         let wasi = WasiCtx::builder().stderr(stderr.clone()).build();
-        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), mark: None, calls: Default::default(), part: String::new(), woke: None, wasi, table: ResourceTable::new() }
+        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), mark: None, calls: Default::default(), part: String::new(), woke: None, limits: wasmtime::StoreLimitsBuilder::new().memory_size(MEMORY).table_elements(TABLE_ELEMENTS).build(), wasi, table: ResourceTable::new() }
     }
 
     /// What Prism does for it, its time counted apart from the call's own (`waited`).
@@ -216,11 +226,34 @@ fn text(answer: Answer) -> Result<String, String> {
     answer.map(|b| String::from_utf8(b).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned()))
 }
 
+/// A path `glab api` takes for one of the API's on the user's GitLab: relative (a URL would send
+/// their token to its host), not an option, plain characters.
+fn api_path(path: &str) -> bool {
+    !path.is_empty() && !path.starts_with('-') && !path.starts_with('/') && !path.contains("://") && !path.chars().any(|c| c.is_control() || c.is_whitespace())
+}
+
+/// The modules' HTTP client: a redirect followed on the same host only (another one, a local
+/// service say, is not among the module's capabilities).
+static HTTP: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| {
+    let policy = reqwest::redirect::Policy::custom(|attempt| {
+        let same = attempt.previous().first().is_some_and(|first| first.host_str() == attempt.url().host_str() && first.port_or_known_default() == attempt.url().port_or_known_default());
+        if attempt.previous().len() >= 10 || !same || attempt.url().scheme() != "https" && attempt.url().scheme() != "http" {
+            attempt.stop()
+        } else {
+            attempt.follow()
+        }
+    });
+    reqwest::Client::builder().redirect(policy).build().unwrap_or_default()
+});
+
 /// Each capability's work, checked: refused, said at once.
 impl HostState {
     fn gitlab_api_work(&self, method: String, path: String, body: Option<String>) -> Result<Work, String> {
         if !self.caps.gitlab {
             return Err(self.refused("gitlab"));
+        }
+        if !api_path(&path) {
+            return Err(self.refused(&format!("gitlab {path} (a path of the API, relative)")));
         }
         let method = method.to_ascii_uppercase();
         if !matches!(method.as_str(), "GET" | "POST" | "PUT" | "DELETE") {
@@ -239,6 +272,9 @@ impl HostState {
     fn gitlab_raw_work(&self, path: String) -> Result<Work, String> {
         if !self.caps.gitlab {
             return Err(self.refused("gitlab"));
+        }
+        if !api_path(&path) {
+            return Err(self.refused(&format!("gitlab {path} (a path of the API, relative)")));
         }
         Ok(Box::pin(async move { prism_core::forge::cli::Cli::Glab.run(&["api", path.as_str()]).await.map_err(err) }))
     }
@@ -264,17 +300,20 @@ impl HostState {
         let Some(host) = host.filter(|h| self.caps.http.iter().any(|allowed| allowed.eq_ignore_ascii_case(h))) else {
             return Err(self.refused(&format!("http {url}")));
         };
-        let mut request = prism_base::http::client().get(&url);
+        let mut request = HTTP.get(&url);
         for (k, v) in headers {
             request = request.header(k, v);
         }
         Ok(Box::pin(async move {
-            let got: reqwest::Result<Vec<u8>> = async {
+            let got: reqwest::Result<(Option<String>, Vec<u8>)> = async {
                 let r = request.send().await?.error_for_status()?;
-                Ok(r.bytes().await?.to_vec())
+                Ok((r.status().is_redirection().then(|| r.headers().get(reqwest::header::LOCATION).and_then(|l| l.to_str().ok()).unwrap_or("?").to_string()), r.bytes().await?.to_vec()))
             }
             .await;
-            got.map_err(|e| format!("{host}: {e}"))
+            match got.map_err(|e| format!("{host}: {e}"))? {
+                (Some(to), _) => Err(format!("{host}: redirected to {to}, another host (not among this module's capabilities)")),
+                (None, body) => Ok(body),
+            }
         }))
     }
 
@@ -461,7 +500,7 @@ mod tests {
         for ok in ["branch", "branch --show-current", "branch -a --contains abc", "branch --list fix/*", "tag --list v1.* --sort=-v:refname", "tag --points-at HEAD", "tag -n3 -l v1", "branch --merged main --format %(refname)"] {
             assert!(reads(&v(ok)), "{ok}");
         }
-        for no in ["branch new", "branch -D main", "branch -f main HEAD~1", "branch -m a b", "branch -a new", "branch --set-upstream-to=x", "tag v9", "tag -d v1", "tag -f v1 HEAD", "tag -a v2 -m x", "diff --no-index /etc/hosts /dev/null", "blame --contents /etc/hosts f", "log --output=x"] {
+        for no in ["branch new", "branch -D main", "branch -f main HEAD~1", "branch -m a b", "branch -a new", "branch --set-upstream-to=x", "tag v9", "tag -d v1", "tag -f v1 HEAD", "tag -a v2 -m x", "diff --no-index /etc/hosts /dev/null", "blame --contents /etc/hosts f", "log --output=x", "blame --ignore-revs-file=/etc/hosts f", "diff -O/etc/hosts", "diff --orderfile=/etc/hosts", "ls-files --exclude-from=/etc/hosts", "ls-files -X /etc/hosts", "diff --pathspec-from-file=/etc/hosts"] {
             assert!(!reads(&v(no)), "{no}");
         }
         assert!(some.git(format!("{}/..", mine.display()), vec!["status".into()]).is_err());
@@ -470,6 +509,13 @@ mod tests {
             assert!(e.contains("a subcommand that reads"), "{escape:?}: {e}");
         }
         assert!(some.http_get("https://evil.example.com/".into(), vec![]).unwrap_err().contains("capabilities"));
+        // GitLab: a path of its API, never a URL (the user's token would go to its host) nor an option.
+        let mut lab = state(Capabilities { gitlab: true, ..Default::default() }, vec![]);
+        for no in ["https://attacker.example/x", "//attacker.example/x", "/projects", "--hostname=attacker.example", "projects\n-X", "", "projects x"] {
+            assert!(lab.gitlab_api("GET".into(), no.into(), None).unwrap_err().contains("relative"), "{no}");
+            assert!(lab.gitlab_raw(no.into()).unwrap_err().contains("relative"), "{no}");
+        }
+        assert!(api_path("projects/g%2Fapp/merge_requests?state=opened"));
         assert!(some.http_get("file:///etc/hosts".into(), vec![]).is_err());
         assert!(some.exec("sh".into(), vec!["-c".into(), "true".into()]).unwrap_err().contains("capabilities"));
         #[cfg(unix)]

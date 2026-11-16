@@ -578,6 +578,7 @@ impl Agents {
         // Prism's MCP server gives it the assistant's tools (`prism mcp`, its other end checks it).
         if launch.is_some_and(|l| l.assistant) {
             env.push("PRISM_ASSISTANT=1".into());
+            env.push(format!("PRISM_ASSISTANT_KEY={}", self.assistant_key(id)));
         }
         let account = launch.and_then(|l| l.account.as_deref());
         if let (Some(var), Some(name)) = (provider.home_var(), account) {

@@ -348,6 +348,11 @@ async fn the_assistant_gets_its_tools_and_none_that_writes() {
     assert!(!args.contains("suggest_task"), "its server's tools allowed whole: {args}");
     assert!(b.agents.env("a1", Provider::Claude, None, Some(&spec)).contains(&"PRISM_ASSISTANT=1".to_string()));
     assert!(!b.agents.env("a1", Provider::Claude, None, None).iter().any(|e| e.starts_with("PRISM_ASSISTANT")));
+    // Its key proves it to the MCP server; an id alone does not, another agent's key neither.
+    let key = b.agents.assistant_key("a1");
+    assert!(b.agents.env("a1", Provider::Claude, None, Some(&spec)).contains(&format!("PRISM_ASSISTANT_KEY={key}")));
+    assert_ne!(key, b.agents.assistant_key("a2"));
+    assert!(!b.agents.is_assistant_by("a1", ""));
     assert!(b.agents.cli(Provider::Codex, Some(&spec)).args.iter().any(|a| a.contains(r#""mcp"]"#)), "Codex: the whole server, not « in passing » alone");
 }
 

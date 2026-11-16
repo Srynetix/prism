@@ -57,7 +57,7 @@ impl Link {
         } else {
             ""
         };
-        link.hello = link.call("hello", json!({ "client": client, "agent": std::env::var("PRISM_AGENT").unwrap_or_default(), "mode": mode })).await?;
+        link.hello = link.call("hello", json!({ "client": client, "agent": std::env::var("PRISM_AGENT").unwrap_or_default(), "key": std::env::var("PRISM_ASSISTANT_KEY").unwrap_or_default(), "mode": mode })).await?;
         Ok(link)
     }
 
