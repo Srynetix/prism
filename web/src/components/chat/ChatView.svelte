@@ -444,7 +444,6 @@
   }
 </script>
 
-<svelte:window onkeydown={(e) => { if (drop && e.key === 'Escape') { e.stopPropagation(); drop = null } }} />
 
 <!-- Your prompt as a bubble, the images it attaches shown in it. -->
 {#snippet prompt(cls: string, text: string, pasted?: PastedImages)}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdEscape } from '../../layers.svelte'
   import { untrack } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
   import { armer } from '../../armed.svelte'
@@ -260,16 +261,16 @@
   $effect(() => {
     if (!menu) return
     const close = (e: Event) => {
-      if (e instanceof KeyboardEvent && e.key !== 'Escape') return
       if (e.target instanceof Element && e.target.closest('.du-menu')) return
       menu = null
     }
     document.addEventListener('mousedown', close, true)
-    document.addEventListener('keydown', close, true)
     window.addEventListener('blur', close)
+    // Escape: the layer stack's, before a drawer under it.
+    const letGo = holdEscape(() => (menu = null))
     return () => {
+      letGo()
       document.removeEventListener('mousedown', close, true)
-      document.removeEventListener('keydown', close, true)
       window.removeEventListener('blur', close)
     }
   })

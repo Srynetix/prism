@@ -5,6 +5,7 @@
   import { draftOf, setDraft } from '../../chat-drafts.svelte'
   import { toast } from '../../toast.svelte'
   import { t } from '../../i18n.svelte'
+  import { pushLayer } from '../../layers.svelte'
   import type { AgentFile } from '../../agents.svelte'
   import type { Agent } from '../../types'
 
@@ -18,6 +19,10 @@
 
   let input = $state('')
   let field: HTMLInputElement | undefined = $state()
+  let box: HTMLDivElement | undefined = $state()
+  // A layer of the window's stack, drawn in the Files pane: the focus back where it was once closed,
+  // an Escape or a click outside it its own over the drawer it sits in.
+  $effect(() => pushLayer({ kind: 'modal', key: 'quick-open', el: () => box, close: () => onclose() }).remove)
   $effect(() => field?.focus())
   let selected = $state(0)
   const asked = $derived(parseAsk(input))
@@ -104,7 +109,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="scrim" onclick={onclose}></div>
-<div class="qo" role="dialog" aria-label={t('Open a file')}>
+<div class="qo" role="dialog" aria-label={t('Open a file')} data-layer bind:this={box}>
   <input bind:this={field} bind:value={input} spellcheck="false" autocomplete="off" placeholder={t('A file by its name · :line · @symbol · #text')} {onkeydown} />
   <div class="list" bind:this={list}>
     {#each lines as l, i (i)}

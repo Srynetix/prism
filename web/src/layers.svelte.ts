@@ -143,7 +143,8 @@ export const inField = (target: EventTarget | null) => target instanceof Element
 
 /**
  * What closes on Escape before the layers, though not one of them: a popover (`dismissable`), an
- * enlarged image, a drop zone… The last held closes first; the function returned lets go.
+ * enlarged image, a drop zone… The last held closes first, a layer open or not (its only Escape
+ * handler); the function returned lets go.
  */
 const held: (() => void)[] = []
 export function holdEscape(close: () => void): () => void {
@@ -169,21 +170,23 @@ const reached = new WeakSet<Event>()
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return
   const top = layers.stack.at(-1)
-  if (!top) return
+  const last = held.at(-1)
+  if (!top && !last) return
   const stop = () => {
     e.preventDefault()
     e.stopImmediatePropagation()
   }
   const target = e.target as Element | null
   // A terminal drawer keeps its Escape (vim's), whatever is open elsewhere.
-  if (top.escape === false && top.el()?.contains(target)) return
-  const last = held.at(-1)
+  if (top?.escape === false && top.el()?.contains(target)) return
+  // What holds Escape closes first, a layer open or not: its own Escape is this one.
   if (last) {
     stop()
     held.pop()
     last()
     return
   }
+  if (!top) return
   // A menu on top closes, wherever the focus stayed (on the select or the field it belongs to).
   if (top.kind === 'menu') {
     stop()

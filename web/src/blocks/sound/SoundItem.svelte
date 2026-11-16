@@ -108,7 +108,7 @@
   })
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (open = false)} onclick={() => (open = false)} />
+<svelte:window onclick={() => (open = false)} />
 
 {#if always && snd}
   {@const out = snd.output}

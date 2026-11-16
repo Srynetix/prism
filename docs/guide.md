@@ -22,7 +22,7 @@ packages built from another system.
 | `just install` | frontend dependencies, and the Tauri CLI |
 | `just dev` | the app in development, hot reload (Vite + Tauri window) |
 | `just web` | the frontend alone, in a browser (see below) |
-| `just check` | regenerates the window's types from Rust, then svelte-check, tsc and `cargo check` of every crate |
+| `just check` | regenerates the window's types from Rust, then svelte-check, tsc, the style lint, `cargo check` of every crate and the module SDK's types against Prism's |
 | `just test` | vitest and `cargo test` of every crate |
 | `just build` | the release bundle of this system |
 | `just first-launch` | Prism as on a new machine (empty home, no config), your setup untouched |
@@ -60,6 +60,27 @@ so `crate::config::Config` still reads the same everywhere. What Tauri provides 
 opener) is given to `prism-base` at launch (`rt::init`, `platform::set_opener`), and the blocks to
 the core (`blocks::register`). `cargo test --workspace` runs every crate's tests; `-p <crate>`
 one's.
+
+### Window UI
+
+The window's interface keeps one grammar, set in `web/src/app.css` and `web/src/components/ui/`:
+
+- **Tokens** (`app.css` `:root`): text sizes `--fs-*`, radii `--r*` (they follow the theme's
+  `--round`), spacing `--sp-*`, layers `--z-*`. A theme changes their values, never their names.
+- **Primitives**: `.btn`, `.pill`, `.seg`, `.empty`, `.err` are defined in `app.css` only; a
+  component places them, it does not define them again. `ui/State.svelte` draws an empty, loading
+  or failed state; `ui/Drawer.svelte`, `ui/Modal.svelte` and `ui/Sheet.svelte` (the phone's) are
+  the only shells of side panels, dialogs and sheets.
+- **Layer stack** (`web/src/layers.svelte.ts`): drawers, dialogs and menus register with
+  `pushLayer`. The stack alone decides what Escape and a click outside close, the order they are
+  drawn in, and where the focus goes back. A popover that is not a layer holds Escape with
+  `holdEscape` (`popup.ts` `dismissable` does it) rather than listening to Escape on the window.
+- **Shortcuts** (`web/src/shortcuts.ts`): every key is declared once in `REGISTRY`, which the
+  "?" overlay and Help list; App, the grid and the Agents view match chords with `hit(id, e)`
+  (a test checks both sides agree).
+- **Style lint** (`web/scripts/lint-style.mjs`, run by `pnpm check`): refuses a `font-size` or a
+  radius in px, a `z-index` of 10 or more, and a primitive defined outside `app.css`. Drawings
+  with measures of their own (the boot, the pet, a theme's scene) are listed in its `FREE`.
 
 ### Browser preview
 

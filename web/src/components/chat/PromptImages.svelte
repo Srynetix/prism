@@ -24,7 +24,6 @@
   })
 </script>
 
-<svelte:window onkeydown={(e) => shown && e.key === 'Escape' && (shown = null)} />
 
 <div class="imgs">
   {#each images as image (image.key)}

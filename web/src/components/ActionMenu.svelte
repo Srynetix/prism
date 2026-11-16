@@ -170,6 +170,21 @@
     } else if (hit.run) exec(hit.key, hit.run, { confirm: 'confirm' in hit ? hit.confirm : undefined, done: 'done' in hit ? hit.done : undefined })
   }
 
+  // The window's click, keys and resize listened to while it is open only: a list has one per row.
+  $effect(() => {
+    if (!open) return
+    const click = () => (open = false)
+    const resize = () => !asSheet && (open = false)
+    window.addEventListener('click', click)
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('resize', resize)
+    return () => {
+      window.removeEventListener('click', click)
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('resize', resize)
+    }
+  })
+
   // Open as a popup, a layer on top: Escape closes it first, before a drawer under it.
   $effect(() => {
     if (!open || asSheet) return
@@ -178,7 +193,6 @@
   })
 </script>
 
-<svelte:window onclick={() => (open = false)} onkeydowncapture={onKey} onresize={() => !asSheet && (open = false)} />
 
 <button bind:this={button} class="more" class:open onclick={toggle} title={t('All actions')} aria-label={label} aria-expanded={open}><Icon name="more" /></button>
 {#if open && asSheet}

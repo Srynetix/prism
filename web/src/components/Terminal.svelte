@@ -300,7 +300,7 @@
   })
 </script>
 
-<svelte:window onmousedown={(e) => menu && !(e.target as HTMLElement).closest('.tmenu') && (menu = null)} onkeydown={(e) => menu && e.key === 'Escape' && (menu = null)} onblur={() => (menu = null)} />
+<svelte:window onmousedown={(e) => menu && !(e.target as HTMLElement).closest('.tmenu') && (menu = null)} onblur={() => (menu = null)} />
 
 <div class="term" bind:this={el}>
   {#if copyMode}
