@@ -91,11 +91,13 @@
     }
   }
 
-  async function act(kind: 'reset' | 'reinstall' | 'remove' | 'restore', id: string) {
+  /** The command of each action, spelt out so that a search for it finds it. */
+  const COMMANDS = { reset: 'modules_reset', reinstall: 'modules_reinstall', remove: 'modules_remove', restore: 'modules_restore' } as const
+  async function act(kind: keyof typeof COMMANDS, id: string) {
     if (!armed.confirm(`${kind}:${id}`)) return
     busy = id
     try {
-      const out = await invoke<boolean | null>(`modules_${kind}`, { id })
+      const out = await invoke<boolean | null>(COMMANDS[kind], { id })
       done[id] =
         kind === 'reset' ? (out ? t('Started again.') : t('Runs again once Prism restarts.'))
         : kind === 'remove' ? t('Removed: reload the window; its back end stops for good once Prism restarts.')

@@ -14,8 +14,6 @@ let sealed = false
 export const seal = () => (sealed = true)
 /** A module's blocks would come too late: some of Prism already read them. */
 export const isSealed = () => sealed
-/** A block of a module: its component runs inside a boundary (`ModuleBoundary.svelte`). */
-export const isModuleBlock = (id: string) => id in RUNTIME_COMPONENTS
 
 /**
  * The core's blocks (`views.ts`, `BLOCK_LABELS`): a module may not take their ids. Kept here, a
