@@ -5,7 +5,11 @@
 //! be trusted. Each user hashes its declaration and words its reasons (`RoutinePendingReason`,
 //! `CustomPendingReason`).
 
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -82,6 +86,24 @@ pub struct Pending {
 pub fn read(path: &Path) -> Store {
     let Ok(raw) = std::fs::read(path) else { return Store::default() };
     serde_json::from_slice(&raw).map_err(|e| tracing::warn!("{}: {e}", path.display())).unwrap_or_default()
+}
+
+/// The store at `path` read, changed by `f` and written back, under that file's lock: two
+/// changes at once never lose one another. What `f` returns.
+pub fn update<T>(path: &Path, f: impl FnOnce(&mut Store) -> T) -> Result<T> {
+    let lock = lock_of(path);
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+    let mut store = read(path);
+    let out = f(&mut store);
+    store.write(path)?;
+    Ok(out)
+}
+
+/// The lock of the file at `path`, one per file.
+fn lock_of(path: &Path) -> Arc<Mutex<()>> {
+    static LOCKS: Mutex<Option<HashMap<PathBuf, Arc<Mutex<()>>>>> = Mutex::new(None);
+    let mut locks = LOCKS.lock().unwrap_or_else(|e| e.into_inner());
+    locks.get_or_insert_with(HashMap::new).entry(path.to_path_buf()).or_default().clone()
 }
 
 impl Store {
@@ -165,6 +187,24 @@ mod tests {
         #[cfg(unix)]
         assert_eq!(std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(&path).unwrap().permissions()) & 0o777, 0o600);
         assert_eq!(read(&dir.join("none.json")), Store::default());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn updated_under_its_lock() {
+        let dir = std::env::temp_dir().join(format!("prism-trust-update-{}", std::process::id()));
+        let path = dir.join("t.json");
+        let threads: Vec<_> = (0..8)
+            .map(|i| {
+                let path = path.clone();
+                std::thread::spawn(move || update(&path, |s| s.trust(&format!("n{i}"), "h", "t", Value::Null)).unwrap())
+            })
+            .collect();
+        threads.into_iter().for_each(|t| t.join().unwrap());
+        assert_eq!(read(&path).trusted.len(), 8, "no change lost");
+        assert!(update(&path, |s| s.trusted.contains_key("n3")).unwrap());
+        update(&path, |s| s.forget("n3")).unwrap();
+        assert!(!read(&path).trusted.contains_key("n3"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

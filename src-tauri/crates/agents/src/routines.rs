@@ -100,6 +100,11 @@ fn alerts_text<'a>(alerts: impl Iterator<Item = &'a prism_core::alerts::Alert>) 
     alerts.map(|a| format!("- [{}] {}: {}", a.severity.name(), a.kind, a.text)).collect::<Vec<_>>().join("\n")
 }
 
+/// The trust given to the routines, in folder `dir`.
+fn trust_path(dir: &Path) -> PathBuf {
+    dir.join("routines-trust.json")
+}
+
 pub(crate) struct Book {
     dir: PathBuf,
     pub(crate) kept: Kept,
@@ -123,7 +128,7 @@ impl Book {
         Book {
             dir: dir.to_path_buf(),
             kept: read(dir.join("routines.json")),
-            trust: prism_core::trust::read(&dir.join("routines-trust.json")),
+            trust: prism_core::trust::read(&trust_path(dir)),
             retro: None,
             finishing: HashSet::new(),
             config_dir: None,
@@ -145,9 +150,17 @@ impl Book {
         self.write("routines.json", &self.kept);
     }
 
-    fn save_trust(&self) {
-        if let Err(e) = self.trust.write(&self.dir.join("routines-trust.json")) {
-            tracing::warn!("routines: writing their trust: {e:#}");
+    /// The trust changed by `f`, in the file (`prism_core::trust::update`) and as kept here.
+    fn update_trust(&mut self, f: impl Fn(&mut prism_core::trust::Store)) {
+        match prism_core::trust::update(&trust_path(&self.dir), |s| {
+            f(s);
+            s.clone()
+        }) {
+            Ok(store) => self.trust = store,
+            Err(e) => {
+                tracing::warn!("routines: writing their trust: {e:#}");
+                f(&mut self.trust);
+            }
         }
     }
 
@@ -405,7 +418,8 @@ impl Agents {
         let cfg = self.routine_settings();
         let mut launches: Vec<(Routine, Option<String>, RoutineRun)> = Vec::new();
         let mut book = self.routines_book();
-        let mut seen_changed = false;
+        // The versions waiting for trust seen for the first time.
+        let mut seen: Vec<(String, String)> = Vec::new();
         let mut changed = false;
         let near = self.agents_near_config(book.config_dir.as_deref());
         let mut names = HashSet::new();
@@ -416,7 +430,9 @@ impl Agents {
             let Ok((when, qa)) = r.check(&cfg.quick_actions) else { continue };
             if let Some((_, hash, _)) = pending_of(&book.trust, r, &cfg.quick_actions) {
                 // Waiting for trust: when this version was first seen, and who worked near the config then.
-                seen_changed |= book.trust.see(&r.name, &hash, &near, now);
+                if book.trust.see(&r.name, &hash, &near, now) {
+                    seen.push((r.name.clone(), hash));
+                }
                 continue;
             }
             let key = schedule_key(r);
@@ -483,8 +499,13 @@ impl Agents {
         if changed {
             book.save();
         }
+        let seen_changed = !seen.is_empty();
         if seen_changed {
-            book.save_trust();
+            book.update_trust(|s| {
+                for (name, hash) in &seen {
+                    s.see(name, hash, &near, now);
+                }
+            });
         }
         if changed || seen_changed {
             self.publish_routines(&book, now);
@@ -937,8 +958,7 @@ impl Agents {
             bail!(tr("this routine changed since it was shown: look at it again"));
         }
         let mut book = self.routines_book();
-        book.trust.trust(name, &format!("{rh}:{ah}"), &text, serde_json::Value::Null);
-        book.save_trust();
+        book.update_trust(|s| s.trust(name, &format!("{rh}:{ah}"), &text, serde_json::Value::Null));
         // Its times from now on, not those it missed while it waited.
         let key = schedule_key(r);
         let ok = book.kept.slots.get(name).and_then(|s| s.ok);
@@ -952,27 +972,29 @@ impl Agents {
     /// others as they were. `before`: the config before the save (none: it did not read).
     pub fn routines_saved(&self, before: Option<&AgentsConfig>, after: &AgentsConfig) {
         let mut book = self.routines_book();
-        let mut changed = false;
+        let mut changed = Vec::new();
         for r in &after.routines {
             let (rh, ah, text) = hashes(r, &after.quick_actions);
             let old = before.and_then(|b| b.routines.iter().find(|o| o.name == r.name).map(|o| hashes(o, &b.quick_actions)));
             if old.is_some_and(|(orh, oah, _)| orh == rh && oah == ah) {
                 continue;
             }
-            book.trust.trust(&r.name, &format!("{rh}:{ah}"), &text, serde_json::Value::Null);
-            changed = true;
+            changed.push((r.name.as_str(), format!("{rh}:{ah}"), text));
         }
-        if changed {
-            book.save_trust();
+        if !changed.is_empty() {
+            book.update_trust(|s| {
+                for (name, hash, text) in &changed {
+                    s.trust(name, hash, text, serde_json::Value::Null);
+                }
+            });
         }
     }
 
     /// Forgets the trust of the routines no longer declared.
     pub fn forget_routine(&self, name: &str) {
         let mut book = self.routines_book();
-        book.trust.forget(name);
+        book.update_trust(|s| s.forget(name));
         book.kept.slots.remove(name);
-        book.save_trust();
         book.save();
     }
 }
