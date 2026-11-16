@@ -89,7 +89,7 @@
     {:else if refusing}
       <div class="refuse">
         <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={reason} placeholder={t('Why (sent to the agent): not this repository, rather…')} onkeydown={(e) => { if (e.key === 'Enter') void act('refuse'); if (e.key === 'Escape') refusing = false }} autofocus />
+        <input bind:value={reason} placeholder={t('Why (sent to the agent): not this repository, rather…')} onkeydown={(e) => { if (e.key === 'Enter') void act('refuse'); if (e.key === 'Escape') { e.preventDefault(); refusing = false } }} autofocus />
         <button class="btn sm" class:busy disabled={busy} onclick={() => act('refuse')}>{#if busy}<span class="spinner"></span>{/if}{t('Refuse')}</button>
         <button class="btn sm ghost" onclick={() => (refusing = false)}>{t('Cancel')}</button>
       </div>

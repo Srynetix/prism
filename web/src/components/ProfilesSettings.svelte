@@ -92,7 +92,7 @@
       <div class="info">
         {#if editing?.id === p.id}
           <div class="row">
-            <input class="t" bind:value={editing.name} aria-label={t('Profile name')} onkeydown={(e) => { if (e.key === 'Enter') void saveEdit(); if (e.key === 'Escape') editing = null }} />
+            <input class="t" bind:value={editing.name} aria-label={t('Profile name')} onkeydown={(e) => { if (e.key === 'Enter') void saveEdit(); if (e.key === 'Escape') { e.preventDefault(); editing = null } }} />
             <span class="colors">{#each PROFILE_COLORS as c (c)}<button class="sw" class:on={editing.color === c || (!editing.color && c === 'accent')} style:--c={profileColor(c)} onclick={() => (editing!.color = c)} aria-label={t('Color {name}', { name: c })}></button>{/each}</span>
           </div>
         {:else}

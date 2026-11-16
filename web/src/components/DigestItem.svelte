@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdEscape } from '../layers.svelte'
   import { t } from '../i18n.svelte'
   import { alertSettings } from '../conventions'
   import { clearDelivered, deliver, digest, nextDue, silenced, type Held } from '../digest.svelte'
@@ -24,6 +25,10 @@
   const shown = $derived(cfg.digest || !!off || waiting > 0 || unread > 0)
 
   let open = $state(false)
+  // Over a drawer or a dialog, its Escape closes this first.
+  $effect(() => {
+    if (open) return holdEscape(() => (open = false))
+  })
   const KIND: Record<Held['kind'], string> = { infra: t('Infra'), deploy: t('Deploy'), agent: t('Agent'), pipeline: 'CI', review: t('Review'), data: t('Data'), block: t('Block'), routine: t('Routine') }
 </script>
 

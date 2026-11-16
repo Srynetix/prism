@@ -4,6 +4,7 @@ import { views } from './views'
 import { agentsEnabled, openAgents, openProjects, projectsOn } from './agents.svelte'
 import { agentsDigit, projectsKey } from './shortcuts'
 import { isMac } from './platform'
+import { escapeFirst } from './layers.svelte'
 
 /**
  * Keyboard control, vim-style (its keys declared, for the help, in shortcuts.ts). A cursor walks the lines of the active block (tickets, MRs,
@@ -250,25 +251,18 @@ function drawerKey(e: KeyboardEvent, run: (f: () => void) => boolean): boolean {
 }
 
 /**
- * Esc with focus in a pane: back to the grid, the pane stays open. Listened to in
- * capture on the window, before the panes which, for their part, close on Esc.
+ * Esc with focus in a pane: back to the grid, the pane stays open (Esc again closes it). Asked by
+ * the stack of layers before it closes its top drawer, whatever order the listeners were set in.
  */
-if (typeof window !== 'undefined') {
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      if (e.key !== 'Escape' || keys.pane !== 'drawer') return
-      // Esc in a field (comment in progress): up to the field to decide.
-      if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) return
-      // An open menu or an enlarged image closes first, as usual.
-      if (document.querySelector('[role=menu], .lightbox')) return
-      e.preventDefault()
-      e.stopImmediatePropagation()
-      setPane('grid')
-    },
-    true,
-  )
-}
+escapeFirst((e) => {
+  if (keys.pane !== 'drawer') return false
+  // Esc in a field (comment in progress): up to the field to decide.
+  if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) return false
+  // An open menu or an enlarged image closes first, as usual.
+  if (document.querySelector('[role=menu], .lightbox')) return false
+  setPane('grid')
+  return true
+})
 
 export function reset() {
   block = null

@@ -80,6 +80,11 @@
     shown = now
   })
 
+  /** Its rank, kept once it left the stack: it slides away still above the page. */
+  let rank = $state('var(--z-drawer)')
+  $effect.pre(() => {
+    if (id) rank = zIndex(id)
+  })
   const crumbs = $derived(id ? below(id) : [])
   const top = $derived(id ? isTop(id) && layers.stack.length > 0 : true)
   const motion = (dur: number) => ({ x: 32, duration: reducedMotion() ? 0 : dur, easing: cubicOut, opacity: 0 })
@@ -91,7 +96,7 @@
     class:under={!top}
     bind:this={el}
     style:--src={source}
-    style:z-index={id ? zIndex(id) : undefined}
+    style:z-index={rank}
     data-drawer={id ? layers.stack.findIndex((l) => l.id === id) + 1 : 1}
     data-pinned={pin ? isPinned(pin) : false}
     aria-label={label}

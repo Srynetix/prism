@@ -533,7 +533,7 @@
     </div>
     {#if phone && m && m.state === 'opened' && tab === 'overview'}
       <div class="mainbar">
-        {#if main}<button class="btn primary" class:armed={armedMain.is()} class:busy={mainBusy} disabled={mainBusy} onclick={runMain}>{#if mainBusy}…{:else}<ArmedLabel label={main.label} armedLabel={t('Click again to confirm')} armed={armedMain.is()} />{/if}</button>{/if}
+        {#if main}<button class="btn primary" class:armed={armedMain.is()} class:busy={mainBusy} disabled={mainBusy} onclick={runMain}>{#if mainBusy}…{:else}<ArmedLabel label={main.label} armedLabel={main.confirm ?? t('Tap again to confirm')} armed={armedMain.is()} />{/if}</button>{/if}
         <button class="btn" onclick={() => (sheet = true)}>{t('Actions')}</button>
       </div>
     {/if}

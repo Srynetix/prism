@@ -130,15 +130,3 @@ export function shortcutSections(): { title: string; keys: [string, string][] }[
     keys: REGISTRY.filter((s) => s.group === g && onThisSystem(s) && (!s.when || s.when())).map((s): [string, string] => [shortcutKeys(s.id), t(s.label)]),
   }))
 }
-
-/**
- * The same list read at load, for Help's reference and search: a key that depends on the config
- * (the pages' digits, `[console] key`…) is its `@id` there, which `keyLabel` shows as it is now.
- */
-export const SHORTCUTS = GROUPS.map((g) => ({
-  title: t(g),
-  keys: REGISTRY.filter((s) => s.group === g && onThisSystem(s)).map((s): [string, string] => [typeof s.keys === 'function' ? `@${s.id}` : forPlatform(s.keys), t(s.label)]),
-}))
-
-/** A key of `SHORTCUTS` as shown now: an `@id` computed, any other as it is. */
-export const keyLabel = (k: string) => (k.startsWith('@') ? shortcutKeys(k.slice(1)) : k)

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdEscape } from '../../layers.svelte'
   import { mrScopeOf } from '../../linkify'
   import { untrack } from 'svelte'
   import { pollsShown } from '../../polls.svelte'
@@ -178,6 +179,10 @@
   /** The rail's chip open: its popover, or its sheet on a phone. */
   type Drop = 'plan' | 'bg' | 'chain' | 'turns'
   let drop = $state<Drop | null>(null)
+  // Over a drawer or a dialog, its Escape closes this first.
+  $effect(() => {
+    if (drop) return holdEscape(() => (drop = null))
+  })
   /** The list of turns, searched; all of them read while it is open. */
   let query = $state('')
   function show(d: Drop) {

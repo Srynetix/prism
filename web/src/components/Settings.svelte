@@ -25,7 +25,7 @@
   import { broughtBy } from '../feedback.svelte'
   import SectionFields from './settings/SectionFields.svelte'
   import ListInput from './settings/ListInput.svelte'
-  import { DEFAULT_HIDDEN, STATUS_ITEMS, SIDE_BREAK } from '../statusbar'
+  import { DEFAULT_HIDDEN, DEFAULT_ORDER, STATUS_ITEMS, SIDE_BREAK } from '../statusbar'
   import { statusbarEditing } from '../statusbar-edit.svelte'
   import { SCHEMA, type SectionSpec } from '../settings-schema'
   import { ensure, failing, recheck, runs, sectionRequests } from '../settings-checks.svelte'
@@ -295,6 +295,11 @@
   const armed = armer()
   /** The status bar's hidden items when the file sets none: the default bar's, unless an order is set. */
   const hiddenByDefault = () => (valueOf<string[]>(['appearance', 'statusbar'], []).length ? [] : DEFAULT_HIDDEN)
+  /** Nothing hidden and no order would read as the default bar: the default order is written with it. */
+  function setHidden(v: string[]) {
+    if (!v.length && !valueOf<string[]>(['appearance', 'statusbar'], []).length) setValue(['appearance', 'statusbar'], [...DEFAULT_ORDER], [])
+    setValue(['appearance', 'statusbar_hidden'], v, hiddenByDefault())
+  }
   function askRemove(name: string) {
     if (armed.confirm(`pack:${name}`)) void removePack(name)
   }
@@ -541,7 +546,7 @@
           </span>
         </Field>
         <Field label={t('Hidden in the status bar')} hint={t('These items never show (a right-click on the bar hides or shows them too).')} path={['appearance', 'statusbar_hidden']}>
-          <ListInput value={valueOf<string[]>(['appearance', 'statusbar_hidden'], hiddenByDefault())} onchange={(v) => setValue(['appearance', 'statusbar_hidden'], v, hiddenByDefault())} options={STATUS_ITEMS.map((i) => i.id)} compact />
+          <ListInput value={valueOf<string[]>(['appearance', 'statusbar_hidden'], hiddenByDefault())} onchange={setHidden} options={STATUS_ITEMS.map((i) => i.id)} compact />
         </Field>
         <Field label={t('Screensaver')} hint={t('Starts by itself after this long without a key, a click or the mouse, while the window shows. Off: only on demand (console: screensaver). ← / → switch between them, a click or another key wakes.')} path={['appearance', 'screensaver']}>
           <span class="row">

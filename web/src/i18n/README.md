@@ -32,6 +32,8 @@ saved names), the prompts sent to agents (they follow `[agents] prompt_language`
   that acts at once does not.
 - A two-click action arms to **Click again to confirm** (*Cliquer pour confirmer*), on the phone
   **Tap again to confirm** (*Toucher pour confirmer*): the action itself goes in the button's title.
+  When the second click does more than its label says (Close stops a running agent too), the armed
+  label says so: « Tap again to stop and close », or the action's own question (« Merge? »).
 - A workstream is a **chantier**; « worktree » stays for the technical detail.
 
 ## French

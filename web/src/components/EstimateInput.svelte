@@ -44,7 +44,10 @@
   function onkeydown(e: KeyboardEvent) {
     e.stopPropagation()
     if (e.key === 'Enter') save()
-    else if (e.key === 'Escape') editing = false
+    else if (e.key === 'Escape') {
+      e.preventDefault()
+      editing = false
+    }
   }
   const focus = (el: HTMLInputElement) => {
     el.focus()

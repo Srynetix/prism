@@ -60,8 +60,10 @@
   /** A change saved, until the config reads it back. */
   let local = $state<{ order: string[]; hidden: string[] } | null>(null)
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
+  // Compared with what the file says, as written: the default bar is written as none, read as the default.
   $effect(() => {
-    if (local && same(local.order, saved.order) && same(local.hidden, saved.hidden)) local = null
+    const a = appearance()
+    if (local && same(local.order, a.statusbar ?? []) && same(local.hidden, a.statusbar_hidden ?? [])) local = null
   })
   const current = $derived(local ? { order: local.order, hidden: local.order.length || local.hidden.length ? local.hidden : DEFAULT_HIDDEN } : saved)
   const sides = $derived(arrange(current.order, current.hidden))

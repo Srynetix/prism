@@ -36,7 +36,13 @@ export function toast(message: string, ms = 2200, action: ToastAction | null = n
   const same = toasts.list.find((x) => x.message === message && x.kind === kind)
   if (same) dismissToast(same.id)
   const item: Toast = { id: next++, kind, message, action, ms }
-  toasts.list = [...toasts.list, item].slice(-MAX)
+  const list = [...toasts.list, item]
+  // Over the limit, the oldest without an action goes first: an Undo or a Try again stays its time.
+  while (list.length > MAX) {
+    const i = list.findIndex((x) => !x.action && x !== item)
+    list.splice(i < 0 ? 0 : i, 1)
+  }
+  toasts.list = list
   for (const id of timers.keys()) if (!toasts.list.some((x) => x.id === id)) clearTimer(id)
   arm(item.id, ms)
 }

@@ -127,7 +127,7 @@
         <span class="dot" class:ok={d.connected} title={d.connected ? t('Connected now') : t('Not connected')}></span>
         <div class="grow">
           {#if editing === d.id}
-            <input class="name" bind:value={draft} maxlength="40" use:focus onblur={saveName} onkeydown={(e) => { if (e.key === 'Enter') saveName(); else if (e.key === 'Escape') editing = null }} aria-label={t('Name of {name}', { name: d.name })} />
+            <input class="name" bind:value={draft} maxlength="40" use:focus onblur={saveName} onkeydown={(e) => { if (e.key === 'Enter') saveName(); else if (e.key === 'Escape') { e.preventDefault(); editing = null } }} aria-label={t('Name of {name}', { name: d.name })} />
           {:else}
             <b class="named">{d.name}<button class="edit" onclick={() => rename(d.id, d.name)} title={t('Rename (its passkey and sessions stay)')} aria-label={t('Rename {name}', { name: d.name })}><Icon name="edit" /></button></b>
           {/if}

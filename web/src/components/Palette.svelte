@@ -70,8 +70,8 @@
       e.preventDefault()
       if (current?.entry.kind === 'command' && !current.words) palette.query = `${current.entry.title} `
     }
-    // The window's shortcuts do not see what is typed here.
-    e.stopPropagation()
+    // The window's shortcuts do not see what is typed here; Escape goes on to the layers, which close it.
+    if (e.key !== 'Escape') e.stopPropagation()
   }
 </script>
 

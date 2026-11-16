@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+  import { holdEscape } from '../../layers.svelte'
   import { t } from '../../i18n.svelte'
   /**
    * The images of a prompt, in its bubble: attached by Prism or pasted in its CLI, each a
@@ -17,6 +18,10 @@
   let { images }: { images: PromptImage[] } = $props()
 
   let shown = $state<string | null>(null)
+  // Over a drawer or a dialog, its Escape closes this first.
+  $effect(() => {
+    if (shown) return holdEscape(() => (shown = null))
+  })
 </script>
 
 <svelte:window onkeydown={(e) => shown && e.key === 'Escape' && (shown = null)} />

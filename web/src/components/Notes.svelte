@@ -170,6 +170,7 @@
       e.preventDefault()
       commitEdit()
     } else if (e.key === 'Escape') {
+      e.preventDefault()
       editing = null
     }
   }
@@ -333,7 +334,7 @@
             <button class="later" onclick={() => (snoozing === n.id ? (snoozing = null) : openSnooze(n))} title={tr('Change the time')} aria-expanded={snoozing === n.id}>{tr('Later')}</button>
             {#if snoozing === n.id}
               <!-- svelte-ignore a11y_no_static_element_interactions : Escape closes it; the field has its own keys -->
-              <div class="pop edit-when" onkeydown={(e) => e.key === 'Escape' && (snoozing = null)}>
+              <div class="pop edit-when" onkeydown={(e) => e.key === 'Escape' && (e.preventDefault(), (snoozing = null))}>
                 <button class="soon" onclick={() => snooze(n.id, new Date(Date.now() + 10 * 60_000))}>{tr('in 10 min')}</button>
                 <WhenInput bind:at={snoozeAt} {now} autofocus onenter={(at) => snooze(n.id, at)} />
                 <div class="acts">
@@ -505,7 +506,7 @@
       {#if notes.length > 5}
         {#if searching || search}
           <!-- svelte-ignore a11y_autofocus : opened by a click on Search -->
-          <input class="search" bind:value={search} placeholder={tr('Search notes…')} spellcheck="false" autofocus onblur={() => !search && (searching = false)} onkeydown={(e) => e.key === 'Escape' && ((search = ''), (searching = false))} />
+          <input class="search" bind:value={search} placeholder={tr('Search notes…')} spellcheck="false" autofocus onblur={() => !search && (searching = false)} onkeydown={(e) => e.key === 'Escape' && (e.preventDefault(), (search = ''), (searching = false))} />
         {:else}
           <button class="find" onclick={() => (searching = true)}><Icon name="search" /> {tr('Search')}</button>
         {/if}

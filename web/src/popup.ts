@@ -1,3 +1,5 @@
+import { holdEscape } from './layers.svelte'
+
 /**
  * Placement of fixed-position popups (⋯ menus, manual jobs, theme, block help) against
  * their trigger, without ever leaving the window: measured once shown, they
@@ -127,7 +129,10 @@ export function dismissable(close: () => void, { trigger, resize = false, escape
     window.addEventListener('click', click)
     window.addEventListener('keydown', key)
     if (resize) window.addEventListener('resize', close)
+    // Over a drawer or a dialog, its Escape closes it rather than the layer under it.
+    const letGo = escape ? holdEscape(close) : () => {}
     return () => {
+      letGo()
       window.removeEventListener('click', click)
       window.removeEventListener('keydown', key)
       window.removeEventListener('resize', close)

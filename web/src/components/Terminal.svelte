@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdEscape } from '../layers.svelte'
   import { onMount } from 'svelte'
   import { Terminal } from '@xterm/xterm'
   import { FitAddon } from '@xterm/addon-fit'
@@ -104,6 +105,10 @@
    * right button never reaches tmux; `selection`: xterm's (⌥-drag), a tmux one being copied at once.
    */
   let menu = $state<{ x: number; y: number; selection: string } | null>(null)
+  // Over a drawer or a dialog, its Escape closes this first.
+  $effect(() => {
+    if (menu) return holdEscape(() => (menu = null))
+  })
   async function copySelection(text: string) {
     menu = null
     try {

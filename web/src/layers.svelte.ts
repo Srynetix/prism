@@ -131,10 +131,46 @@ function focusInto(layer: Layer) {
 
 const FIELD = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], .cm-editor'
 
+/**
+ * What closes on Escape before the layers, though not one of them: a popover (`dismissable`), an
+ * enlarged image, a drop zone… The last held closes first; the function returned lets go.
+ */
+const held: (() => void)[] = []
+export function holdEscape(close: () => void): () => void {
+  held.push(close)
+  return () => {
+    const i = held.lastIndexOf(close)
+    if (i >= 0) held.splice(i, 1)
+  }
+}
+
+/**
+ * What takes Escape before the top layer closes (a focused MR pane steps back to the blocks): true
+ * when it took it. Asked only when the top layer is a drawer.
+ */
+const firsts: ((e: KeyboardEvent) => boolean)[] = []
+export function escapeFirst(take: (e: KeyboardEvent) => boolean) {
+  firsts.push(take)
+}
+
+/** The Escapes that went up to the window: one that did not was stopped on its way, so used. */
+const reached = new WeakSet<Event>()
+
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return
   const top = layers.stack.at(-1)
   if (!top) return
+  const stop = () => {
+    e.preventDefault()
+    e.stopImmediatePropagation()
+  }
+  const last = held.at(-1)
+  if (last) {
+    stop()
+    held.pop()
+    last()
+    return
+  }
   const target = e.target as Element | null
   // A list of choices of a field (a select's, a suggestion's) or a menu not in the stack: its own.
   const own = target?.closest?.('[role=listbox], [role=menu], .suggest')
@@ -142,13 +178,17 @@ function onKey(e: KeyboardEvent) {
   if (top.escape === false && top.el()?.contains(target)) return
   // In a field, or in what handles its own Escape (`data-esc-own`: a comment box cancels, a filter
   // clears, a list of suggestions closes), the field has it first; once the event went through,
-  // unused (no `preventDefault`, however far it went), `afterField` acts.
-  if (target instanceof HTMLElement && target.closest(`${FIELD}, [data-esc-own]`) && top.el()?.contains(target)) {
-    setTimeout(() => afterField(e, top, target))
-    return
+  // unused (neither `preventDefault` nor stopped on its way), `afterField` acts. A field outside
+  // every layer (an agent's terminal, the grid's filter) keeps its Escape: no layer closes.
+  if (target instanceof HTMLElement && target.closest(`${FIELD}, [data-esc-own]`)) {
+    if (top.el()?.contains(target)) {
+      setTimeout(() => afterField(e, top, target))
+      return
+    }
+    if (!inLayer(target)) return
   }
-  e.preventDefault()
-  e.stopImmediatePropagation()
+  if (top.kind === 'drawer' && firsts.some((take) => take(e))) return stop()
+  stop()
   top.close()
 }
 
@@ -157,7 +197,7 @@ function onKey(e: KeyboardEvent) {
  * second Escape closes); in a dialog or a menu (the palette's field), it closes.
  */
 function afterField(e: KeyboardEvent, top: Layer, target: HTMLElement) {
-  if (e.defaultPrevented || !layers.stack.includes(top)) return
+  if (e.defaultPrevented || !reached.has(e) || !layers.stack.includes(top)) return
   if (top.kind === 'drawer' && target.closest(FIELD)) {
     target.blur()
     top.el()?.focus({ preventScroll: true })
@@ -187,5 +227,6 @@ function onPointer(e: PointerEvent) {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', onKey, true)
+  window.addEventListener('keydown', (e) => e.key === 'Escape' && reached.add(e))
   window.addEventListener('pointerdown', onPointer, true)
 }

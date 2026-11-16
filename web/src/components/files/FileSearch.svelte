@@ -154,7 +154,7 @@
 <div class="search">
   <div class="row">
     <button class="btn sm icon ghost tw" onclick={() => (replacing = !replacing)} title={t('Replace')}><Icon name={replacing ? 'chevronDown' : 'chevronRight'} size={10} /></button>
-    <input bind:this={input} bind:value={text} placeholder={t('Search in every file')} spellcheck="false" autocomplete="off" onkeydown={(e) => { if (e.key === 'Escape') text = '' }} />
+    <input bind:this={input} bind:value={text} placeholder={t('Search in every file')} spellcheck="false" autocomplete="off" onkeydown={(e) => { if (e.key === 'Escape' && text) { e.preventDefault(); text = '' } }} />
     <button class="btn sm ghost tog" class:on={caseSensitive} onclick={() => remember('case', (caseSensitive = !caseSensitive))} title={t('Match case')}>Aa</button>
     <button class="btn sm ghost tog" class:on={word} onclick={() => remember('word', (word = !word))} title={t('Whole words')}>W</button>
     <button class="btn sm ghost tog" class:on={regex} onclick={() => remember('regex', (regex = !regex))} title={t('Regular expression')}>.*</button>

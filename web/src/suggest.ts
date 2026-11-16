@@ -103,6 +103,7 @@ export function suggest(options: () => Suggestion[]) {
         pick(shown[cursor].value)
       } else if (e.key === 'Escape' && list) {
         // Closes the list only, not the panel the field is in.
+        e.preventDefault()
         e.stopImmediatePropagation()
         close()
       } else if (e.key === 'Tab') {

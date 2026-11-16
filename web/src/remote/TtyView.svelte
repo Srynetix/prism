@@ -549,7 +549,7 @@
         {#if quickAgent.state === 'running'}
           <button class:armed={armed.is('stop')} onclick={stop} disabled={busy || !critical}>{armed.is('stop') ? t('Tap again to confirm') : t('Stop')}<small>{t('{cli} exits; Resume picks it up', { cli: cliOf(quickAgent.provider).name })}</small></button>
         {/if}
-        <button class="ko" class:armed={armed.is('close')} onclick={close} disabled={busy || !critical}>{armed.is('close') ? t('Tap again to confirm') : t('Close')}<small>{quickAgent.worktree ? t('Stops it, removes its worktree if nothing would be lost') : t('Stops it; the conversation stays')}</small></button>
+        <button class="ko" class:armed={armed.is('close')} onclick={close} disabled={busy || !critical}>{armed.is('close') ? (quickAgent.state === 'running' ? t('Tap again to stop and close') : t('Tap again to confirm')) : t('Close')}<small>{quickAgent.worktree ? t('Stops it, removes its worktree if nothing would be lost') : t('Stops it; the conversation stays')}</small></button>
       </div>
       {#if quickAgent.state !== 'prepared' && quickAgent.launch?.from !== DRAFTER}
         <div class="group">

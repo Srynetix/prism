@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdEscape } from '../../layers.svelte'
   import { hasCore } from '../../bridge'
   import Icon from '../../components/Icon.svelte'
   import State from '../../components/ui/State.svelte'
@@ -22,6 +23,10 @@
   const app = hasCore()
 
   let open = $state(false)
+  // Over a drawer or a dialog, its Escape closes this first.
+  $effect(() => {
+    if (open) return holdEscape(() => (open = false))
+  })
   let at = $state({ left: 0, bottom: 0 })
   let failed = $state<string | null>(null)
   /** Per side, the slider being dragged or the wheel's value: shown until its last call is answered. */

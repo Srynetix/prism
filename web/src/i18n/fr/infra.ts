@@ -466,6 +466,7 @@ export default {
   'Syncing': 'Synchronisation',
   'Take': 'Prendre',
   'Tap again to confirm': 'Toucher pour confirmer',
+  'Tap again to stop and close': 'Toucher pour arrêter et fermer',
   'Type the Mac’s password first: FileVault asks for it at startup.': 'Saisissez d’abord le mot de passe du Mac : FileVault le demande au démarrage.',
   'The Mac’s password': 'Mot de passe du Mac',
   'FileVault: for the restart to skip the unlock at startup, so that the Mac comes back by itself. Sent with the restart only, never kept.': 'FileVault : pour que le redémarrage passe le déverrouillage au démarrage et que le Mac revienne seul. Envoyé avec le redémarrage uniquement, jamais conservé.',
