@@ -368,10 +368,16 @@ export const inCopyMode = (id: string) => invoke<boolean>('agent_in_copy_mode', 
 /** Also opens the agent in the `[open_with]` terminal. */
 export const openExternal = (id: string) => invoke('agent_open_external', { id })
 
-/** Same rule as the Rust core (`worktree::slug`), for the launcher's preview. */
+/**
+ * Same rule as the Rust core (`prism_core::agents::slug`), for the launcher's preview: accents
+ * folded, ligatures spelt out (`œ` → `oe`).
+ */
 export function slug(text: string): string {
   return text
     .toLowerCase()
+    .replace(/œ/g, 'oe')
+    .replace(/æ/g, 'ae')
+    .replace(/ß/g, 'ss')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
