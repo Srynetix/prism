@@ -57,7 +57,7 @@
   /** What a capability lets a module's back end reach. */
   function capability(c: string): string {
     if (c === 'git') return t('git, reading, in your clones')
-    if (c === 'gitlab') return t('GitLab’s API, as you (glab)')
+    if (c === 'gitlab') return t('GitLab’s API as you (glab), reading and writing')
     if (c.startsWith('http:')) return t('HTTP requests to {host}', { host: c.slice(5) })
     if (c.startsWith('exec:')) return t('runs the program {program}', { program: c.slice(5) })
     return c
@@ -150,6 +150,9 @@
             <span class="hint new"><Icon name="check" /> {trusted[m.id] === 'reload' ? t('Trusted: reload the window to load it.') : t('Trusted: reload the window, and restart Prism for its back end (installed since Prism started).')}</span>
           {:else}
             <span class="hint warn"><Icon name="lock" /> {m.info.trusted_version ? t('A new version waits for your trust (v{version} was trusted): nothing of it runs until then.', { version: m.info.trusted_version }) : t('Waits for your trust: nothing of it runs until then.')}</span>
+            {#if m.info.web}
+              <small>{t('Its web part runs in Prism’s window with everything Prism can do: trust it as you would Prism.')}</small>
+            {/if}
             {#if m.info.capabilities.length}
               <small>{t('Its back end may reach:')}</small>
               <ul class="caps">{#each m.info.capabilities as c (c)}<li>{capability(c)}</li>{/each}</ul>
@@ -220,7 +223,7 @@
     </div>
     <p class="hint pad">{t('Without a pack: a module’s folder or .zip on this computer, or a repository’s folder at a ref (glab or gh). Nothing of it runs before you trust it. Its source is kept: Reinstall reads it again, and a change there shows in the status bar.')}</p>
     {#if installed}<p class="hint new pad"><Icon name="check" /> {installed}</p>{/if}
-    <Field label={t('Trust a pack’s updates')} hint={t('A new version of a module a pack installed, that you trusted before, runs without asking again when it reaches nothing more (the same capabilities and config tables, or fewer). Anything more, and it waits for your trust. A module installed by hand always asks.')} path={['modules', 'trust_pack_updates']}>
+    <Field label={t('Trust a pack’s updates')} hint={t('A new version of a module a pack installed, that you trusted before, runs without asking again when it reaches nothing more (the same capabilities and config tables, or fewer) and its web part is the same. Anything more, or new code in its web part, and it waits for your trust. A module installed by hand always asks.')} path={['modules', 'trust_pack_updates']}>
       <Control kind="toggle" value={valueOf(['modules', 'trust_pack_updates'], true)} onchange={(v) => setValue(['modules', 'trust_pack_updates'], v, true)} />
     </Field>
   {/if}

@@ -140,14 +140,28 @@ pub fn trust(root: &Path, store: &Path, id: &str, fingerprint: &str) -> Result<(
     let manifest: Manifest = toml::from_str(&std::fs::read_to_string(folder.join("module.toml"))?).context("module.toml")?;
     let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut s = crate::trust::read(store);
-    s.trust(id, fingerprint, &text(id, &manifest), data(info.pack.as_deref()));
+    s.trust(id, fingerprint, &text(id, &manifest), data(info.pack.as_deref(), web_print(&folder, &manifest).as_deref()));
     s.write(store)
 }
 
 /// What a trust keeps besides the text: the pack the module came from, the one whose next versions
-/// may be trusted for me (`update`).
-fn data(pack: Option<&str>) -> serde_json::Value {
-    pack.map_or(serde_json::Value::Null, |p| serde_json::json!({ "pack": p }))
+/// may be trusted for me (`update`), and the fingerprint of its web part as trusted.
+fn data(pack: Option<&str>, web: Option<&str>) -> serde_json::Value {
+    let mut out = serde_json::Map::new();
+    if let Some(p) = pack {
+        out.insert("pack".into(), p.into());
+    }
+    if let Some(w) = web {
+        out.insert("web".into(), w.into());
+    }
+    if out.is_empty() { serde_json::Value::Null } else { out.into() }
+}
+
+/// The fingerprint of a module's web folder alone: its code runs in Prism's window, as Prism
+/// (nothing confines it as a back end's capabilities do), so a new one is never trusted for me.
+fn web_print(folder: &Path, m: &Manifest) -> Option<String> {
+    let dir = super::within(folder, &m.web.as_ref()?.dir)?;
+    Some(fingerprint_of(&dir))
 }
 
 /// What a module may reach, in its text: a web part or a back end at all, its capabilities, its
@@ -158,7 +172,8 @@ fn reach(text: &str) -> std::collections::BTreeSet<&str> {
 
 /// Module `id`, a new version pack `pack` just installed in `root`: trusted for me when a version
 /// of it was trusted before, from that same pack (one trusted by hand, or before the pack was
-/// kept, asks once), and this one reaches nothing more. Whether it is trusted now; otherwise it waits, as any other.
+/// kept, asks once), this one reaches nothing more and its web part is the one trusted (new code
+/// there runs as Prism: always asked). Whether it is trusted now; otherwise it waits, as any other.
 pub fn update(root: &Path, store: &Path, pack: &str, id: &str) -> bool {
     let folder = root.join(id);
     let (info, _) = super::inspect(id, &folder, store);
@@ -176,7 +191,11 @@ pub fn update(root: &Path, store: &Path, pack: &str, id: &str) -> bool {
     if before.data.get("pack").and_then(|p| p.as_str()) != Some(pack) || !reach(&new).is_subset(&reach(&before.text)) {
         return false;
     }
-    s.trust(id, &info.fingerprint, &new, data(Some(pack)));
+    let web = web_print(&folder, &manifest);
+    if web.is_some() && before.data.get("web").and_then(|w| w.as_str()) != web.as_deref() {
+        return false;
+    }
+    s.trust(id, &info.fingerprint, &new, data(Some(pack), web.as_deref()));
     s.write(store).is_ok()
 }
 
