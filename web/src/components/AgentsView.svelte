@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { inField } from '../layers.svelte'
+  import { holdEscape, inField, layers } from '../layers.svelte'
   import { suggest } from '../suggest'
   import { untrack } from 'svelte'
   import { chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
@@ -249,17 +249,6 @@
     // Kept by the terminal it was pressed in (`[agents] terminal_keys`).
     if (inTerminal(e) && terminalKeeps(e)) return
     const typing = inField(e.target)
-    if (managing && e.key === 'Escape' && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm')) {
-      e.preventDefault()
-      managing = false
-      return
-    }
-    // Esc restores a full-width panel, unless it is meant for a field (or the terminal, hidden then).
-    if (full && e.key === 'Escape' && !typing) {
-      e.preventDefault()
-      setFull(false)
-      return
-    }
     const l = layoutKey(e)
     if (l) {
       e.preventDefault()
@@ -398,6 +387,17 @@
   /** The panel over the whole width, for a while (never remembered): the terminal stays attached, at its size. */
   let fullSides = $state<Record<string, boolean>>({})
   const full = $derived(!!shownAgent && !!side && !!fullSides[shownAgent.id])
+  /**
+   * Esc, while the view is shown and no layer is open over it: leaves the kinds and tags (unless it
+   * is meant for a text, the terminal or a name being changed), then restores a full-width panel
+   * (unless it is meant for a field, or the terminal, hidden then).
+   */
+  $effect(() => {
+    if (full) return holdEscape(() => setFull(false), (e) => agentsShown() && !layers.stack.length && !inField(e.target))
+  })
+  $effect(() => {
+    if (managing) return holdEscape(() => (managing = false), (e) => agentsShown() && !layers.stack.length && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm, .rename'))
+  })
   function setFull(on: boolean) {
     if (shownAgent) fullSides = { ...fullSides, [shownAgent.id]: on }
   }
