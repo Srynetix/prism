@@ -228,6 +228,9 @@ fn image_of(project: &str) -> &str {
     project.strip_suffix(" · arm64").unwrap_or(project)
 }
 
+/// How many registries are asked at once (`check`).
+const CHECKS: usize = 4;
+
 /// Each scanned image against its registry, without pulling it: the digest its tag points to
 /// now, and the newest tag the provider names that is published, when newer than the scanned one.
 async fn check(v: &mut Vulnerabilities, images: Option<&Images>) {
@@ -238,8 +241,20 @@ async fn check(v: &mut Vulnerabilities, images: Option<&Images>) {
         }),
         None => Vec::new(),
     };
-    // Each place asked once: an image's amd64 and arm64 lines share theirs.
-    let mut asked: HashMap<(String, bool), std::result::Result<String, String>> = HashMap::new();
+    // Each place asked once: an image's amd64 and arm64 lines share theirs. The scanned ones side
+    // by side first (a registry may take its minute); the newer tags then, in order.
+    let scanned: std::collections::HashSet<(String, bool)> = v.projects.iter().filter_map(|p| p.scanned.as_ref().map(|s| (s.reference.clone(), s.gcp))).collect();
+    let mut asked: HashMap<(String, bool), std::result::Result<String, String>> = {
+        use futures::StreamExt;
+        futures::stream::iter(scanned)
+            .map(|(image, gcp)| async move {
+                let r = published(&image, gcp).await.map(|p| p.digest).map_err(|e| first_line(&format!("{e:#}")));
+                ((image, gcp), r)
+            })
+            .buffer_unordered(CHECKS)
+            .collect()
+            .await
+    };
     let mut ask = async |image: &str, gcp: bool| -> std::result::Result<String, String> {
         if let Some(r) = asked.get(&(image.to_string(), gcp)) {
             return r.clone();
