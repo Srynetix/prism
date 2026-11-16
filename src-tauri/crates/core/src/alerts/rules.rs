@@ -240,7 +240,7 @@ impl<'a> Ctx<'a> {
     }
 
     pub fn is_done(&self, t: &Ticket) -> bool {
-        t.closed || Self::has(&self.c.done_statuses, &t.status)
+        self.c.is_done(t)
     }
 
     /// Tickets Prism knows, with the statuses of their list, by `ticket_ref`.

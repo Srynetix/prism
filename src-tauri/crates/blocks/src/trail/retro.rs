@@ -303,9 +303,9 @@ fn lower(xs: &[String]) -> HashSet<String> {
     xs.iter().map(|x| x.to_lowercase()).collect()
 }
 
-/// Finished ticket: closed, or in an end status (`[tracker] done_statuses`).
+/// Finished ticket: closed, or in an end status (`[tracker] done_statuses`), as the alerts say.
 fn is_done(t: &Ticket, s: &Snapshot) -> bool {
-    t.closed || s.conventions.done_statuses.contains(&t.status)
+    s.conventions.is_done(t)
 }
 
 /// The MR names that ticket, among others maybe.
@@ -817,6 +817,17 @@ mod tests {
         assert_eq!(r.notes, [RetroNote { id: "n1".into(), text: "Too many meetings".into() }]);
         assert!(r.traced && r.previous.is_none() && !r.kept);
         assert!(retro(&Snapshot::default(), None, &[], &[], now).is_none(), "no sprint");
+    }
+
+    /// A status written `Done` where the config says `done` is finished all the same, as for the alerts.
+    #[test]
+    fn a_done_status_in_another_case_is_delivered() {
+        let mut s = snapshot();
+        s.sprint.as_mut().unwrap().tickets[0].status = "Done".into();
+        let now = "2026-10-08T12:00:00Z".parse().unwrap();
+        let r = retro(&s, None, &[], &[], now).unwrap();
+        assert!(r.mine.iter().any(|m| m.t.id == "A" && m.done));
+        assert_eq!((r.team.done, r.delivered), (1, 1));
     }
 
     #[test]
