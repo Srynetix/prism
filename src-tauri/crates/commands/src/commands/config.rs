@@ -86,8 +86,9 @@ pub fn save_config(state: State<'_, AppState>, edits: Vec<crate::settings::Edit>
 /// A quick action made from a session (Create a quick action…), added after `config.toml`'s own,
 /// never in a pack: refused when one has its name already (its own or a pack's), or without a
 /// name or a prompt. A mode it does not take (not `default`, `acceptEdits`, `plan`) is dropped as
-/// it is read, as config.toml's would be: the CLI's own then. Applies at once (its ⚡ shows).
-#[prism_macros::command]
+/// it is read, as config.toml's would be: the CLI's own then. Applies at once (its ⚡ shows), off
+/// the main thread (a module configured anew may take long).
+#[prism_macros::command(async)]
 pub fn quick_action_add(state: State<'_, AppState>, action: crate::config::QuickAction) -> Cmd {
     let path = crate::config_path();
     let name = action.name.trim().to_string();
@@ -214,7 +215,11 @@ fn apply(state: &AppState, path: &std::path::Path, force: bool) {
     state.live.write().expect("live").audio = cfg.audio.clone();
     state.agents.configure(cfg.agents.clone());
     crate::app::routine_context(&state.agents, &cfg, path);
-    if let Some(started) = state.collectors.reload(&cfg, force) {
+    // A module configured anew may take long to answer (`prism_modules`, up to its first
+    // compilation): off the runtime's workers, which the rest of Prism runs on meanwhile.
+    let reload = || state.collectors.reload(&cfg, force);
+    let started = if tokio::runtime::Handle::try_current().is_ok_and(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread) { tokio::task::block_in_place(reload) } else { reload() };
+    if let Some(started) = started {
         state.adopt(started);
     }
     // The agents' proposals made on the former file say so.

@@ -17,7 +17,7 @@ pub async fn log_time(state: State<'_, AppState>, entry: NewEntry) -> Cmd {
 
 /// My sprint: the current sprint's retro (`crate::retro`), its Markdown with the points the window
 /// has; none without a sprint that has a start date.
-#[prism_macros::command]
+#[prism_macros::command(async)]
 pub fn retro_get(state: State<'_, AppState>, points: Option<Vec<crate::blocks::trail::retro::RetroPoint>>) -> Cmd<Option<crate::blocks::trail::retro::Retro>> {
     Ok(crate::retro::current(&state.hub, &state.store, points))
 }
