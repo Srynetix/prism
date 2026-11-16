@@ -91,7 +91,7 @@
   .grow { flex: 1; }
   .muted { color: var(--text-muted); font-size: var(--fs-meta); }
   .row { display: flex; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); }
-  .ic { flex: 0 0 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #fff; background: var(--text-muted); }
+  .ic { flex: 0 0 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-meta); font-weight: 600; color: #fff; background: var(--text-muted); }
   .row.ready .ic { background: var(--ok); }
   .row.blocked .ic { background: var(--warn); }
   .row.failed .ic, .row.too_long .ic { background: var(--ko); }

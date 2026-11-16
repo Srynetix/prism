@@ -9,7 +9,7 @@
 
 {#if hasCore()}
   <button
-    class="refresh"
+    class="btn sm icon ghost"
     class:busy={dataRefresh.busy}
     class:error={!!dataRefresh.error}
     disabled={dataRefresh.busy}
@@ -20,8 +20,5 @@
 {/if}
 
 <style>
-  .refresh { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
-  .refresh:hover:not(:disabled) { background: var(--surface-muted); color: var(--text); }
-  .refresh.busy { cursor: progress; }
-  .refresh.error { color: var(--warn); }
+  .error { color: var(--warn); }
 </style>

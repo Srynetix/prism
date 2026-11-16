@@ -1,11 +1,13 @@
 import { openThread, parseThreadAttr } from './thread.svelte'
 import { currentView, isCollapsed, isShort, setMode, setView, toggleZoom, zoom } from './layout.svelte'
 import { views } from './views'
-import { agentsEnabled, openAgents, openProjects, projectsDigit, projectsOn } from './agents.svelte'
+import { agentsEnabled, openAgents, openProjects, projectsOn } from './agents.svelte'
+import { agentsDigit, projectsKey } from './shortcuts'
 import { isMac } from './platform'
+import { escapeFirst, inField } from './layers.svelte'
 
 /**
- * Keyboard control, vim-style. A cursor walks the lines of the active block (tickets, MRs,
+ * Keyboard control, vim-style (its keys declared, for the help, in shortcuts.ts). A cursor walks the lines of the active block (tickets, MRs,
  * alerts, sessions, events…), marked by `data-cursor`; the active block by `data-kbd`.
  * Keys only apply outside an input field and without ⌘ / ⌥. Line commands
  * just click what the mouse would click: no action has its own path.
@@ -249,25 +251,18 @@ function drawerKey(e: KeyboardEvent, run: (f: () => void) => boolean): boolean {
 }
 
 /**
- * Esc with focus in a pane: back to the grid, the pane stays open. Listened to in
- * capture on the window, before the panes which, for their part, close on Esc.
+ * Esc with focus in a pane: back to the grid, the pane stays open (Esc again closes it). Asked by
+ * the stack of layers before it closes its top drawer, whatever order the listeners were set in.
  */
-if (typeof window !== 'undefined') {
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      if (e.key !== 'Escape' || keys.pane !== 'drawer') return
-      // Esc in a field (comment in progress): up to the field to decide.
-      if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) return
-      // An open menu or an enlarged image closes first, as usual.
-      if (document.querySelector('[role=menu], .lightbox')) return
-      e.preventDefault()
-      e.stopImmediatePropagation()
-      setPane('grid')
-    },
-    true,
-  )
-}
+escapeFirst((e) => {
+  if (keys.pane !== 'drawer') return false
+  // Esc in a field (comment in progress): up to the field to decide.
+  if (inField(e.target)) return false
+  // An open menu or an enlarged image closes first, as usual.
+  if (document.querySelector('[role=menu], .lightbox')) return false
+  setPane('grid')
+  return true
+})
 
 export function reset() {
   block = null
@@ -395,8 +390,8 @@ export function handleKey(e: KeyboardEvent): boolean {
       return false
   }
   if (/^[1-9]$/.test(e.key) && views()[Number(e.key) - 1]) return run(() => { setView(views()[Number(e.key) - 1].id); reset() })
-  // After the pages, as ⌘ numbers them: the Agents view, then the Projects page.
-  if (/^[1-9]$/.test(e.key) && agentsEnabled() && Number(e.key) === views().length + 1) return run(() => { openAgents(); reset() })
-  if (/^[1-9]$/.test(e.key) && projectsOn() && Number(e.key) === projectsDigit(views().length)) return run(() => { openProjects(); reset() })
+  // After the pages, as ⌘ numbers them (shortcuts.ts): the Agents view, then the Projects page.
+  if (agentsEnabled() && e.key === agentsDigit()) return run(() => { openAgents(); reset() })
+  if (projectsOn() && e.key === projectsKey()) return run(() => { openProjects(); reset() })
   return false
 }

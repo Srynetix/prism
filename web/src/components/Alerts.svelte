@@ -306,12 +306,12 @@
   {#each quickFixes(a) as f, i (f.key)}
     {#if f.agent}
       {@const ag = f.agent}
-      <button class="fix claude on" title={f.title} onclick={() => openAgents(ag.id)}><span class="pulse" class:live={ag.status === 'running'}></span>{f.label}</button>
+      <button class="btn sm claude fix on" title={f.title} onclick={() => openAgents(ag.id)}><span class="pulse" class:live={ag.status === 'running'}></span>{f.label}</button>
     {:else if f.claude}
-      <a class="fix claude" class:lead={lead && i === 0} href={f.claude.href} title={f.title} onclick={claudeClick(f.claude)}><Logo name="agent" size={10} />{f.label}</a>
+      <a class="btn sm claude fix" class:primary={lead && i === 0} href={f.claude.href} title={f.title} onclick={claudeClick(f.claude)}><Logo name="agent" size={10} />{f.label}</a>
     {:else}
       {@const st = stateOf(a, f)}
-      <button class="fix" class:lead={lead && i === 0} class:busy={st === 'busy'} class:done={st === 'done'} class:err={!!st && st !== 'busy' && st !== 'done'} disabled={st === 'busy' || st === 'done'} title={st && st !== 'busy' && st !== 'done' ? t('Failed: {error}', { error: st }) : f.title} onclick={() => apply(a, f)}>{#if st === 'done'}<Icon name="check" />{f.label}{:else}{st === 'busy' ? `${f.label}…` : f.label}{/if}</button>
+      <button class="btn sm fix" class:primary={lead && i === 0} class:busy={st === 'busy'} class:done={st === 'done'} class:failed={!!st && st !== 'busy' && st !== 'done'} disabled={st === 'busy' || st === 'done'} title={st && st !== 'busy' && st !== 'done' ? t('Failed: {error}', { error: st }) : f.title} onclick={() => apply(a, f)}>{#if st === 'done'}<Icon name="check" />{:else if st === 'busy'}<span class="spinner"></span>{/if}{f.label}</button>
     {/if}
   {/each}
   {#if a.answer}{@const ag = live.snapshot?.agents?.find((x) => x.id === a.answer)}{#if ag}<QuickAnswers agent={ag} compact />{/if}{/if}
@@ -320,7 +320,7 @@
 
 <!-- ⏾: puts these alerts off. -->
 {#snippet putOffButton(list: Alert[])}
-  <button class="mark" class:on={putting?.alerts === list} onclick={(e) => { const el = e.currentTarget; putting = putting?.el === el ? null : { alerts: list, el } }} title={t('Put off: back at a time, or when it changes')} aria-label={t('Put off')}><Icon name="snooze" /></button>
+  <button class="btn sm icon ghost mark" class:on={putting?.alerts === list} onclick={(e) => { const el = e.currentTarget; putting = putting?.el === el ? null : { alerts: list, el } }} title={t('Put off: back at a time, or when it changes')} aria-label={t('Put off')}><Icon name="snooze" /></button>
 {/snippet}
 
 {#snippet row(a: Alert, marked: boolean, away = false)}
@@ -330,10 +330,10 @@
     {#if away}<span class="age">{awayUntil(a)}</span>{:else if age(alertMinutes(a, now))}<span class="age" title={t('Flagged for {age}', { age: age(alertMinutes(a, now)) })}>{age(alertMinutes(a, now))}</span>{/if}
     {@render fixButtons(a)}
     {#if away}
-      <button class="mark" onclick={() => wake([a])} title={t('Bring it back now')} aria-label={t('Bring it back now')}><Icon name="undo" /></button>
+      <button class="btn sm icon ghost mark" onclick={() => wake([a])} title={t('Bring it back now')} aria-label={t('Bring it back now')}><Icon name="undo" /></button>
     {:else}
       {#if !marked}{@render putOffButton([a])}{/if}
-      <button class="mark" onclick={() => setSeen(a, !marked)} title={marked ? t('Mark as new') : t('Mark as seen, no action needed')} aria-label={marked ? t('Mark as new') : t('Mark as seen')}><Icon name={marked ? 'undo' : 'check'} /></button>
+      <button class="btn sm icon ghost mark" onclick={() => setSeen(a, !marked)} title={marked ? t('Mark as new') : t('Mark as seen, no action needed')} aria-label={marked ? t('Mark as new') : t('Mark as seen')}><Icon name={marked ? 'undo' : 'check'} /></button>
     {/if}
   </div>
 {/snippet}
@@ -353,7 +353,7 @@
       {#if age(g.minutes)}<span class="age">{age(g.minutes)}</span>{/if}
       {@render fixButtons(g.alerts[0])}
       {@render putOffButton(g.alerts)}
-      <button class="mark" onclick={() => g.alerts.forEach((a) => setSeen(a, true))} title={t('Mark them all as seen')} aria-label={t('Mark as seen')}><Icon name="check" /></button>
+      <button class="btn sm icon ghost mark" onclick={() => g.alerts.forEach((a) => setSeen(a, true))} title={t('Mark them all as seen')} aria-label={t('Mark as seen')}><Icon name="check" /></button>
     </div>
     {#if open}<div class="sub">{#each g.alerts as a (a.text)}{@render row(a, false)}{/each}</div>{/if}
   {/if}
@@ -367,10 +367,10 @@
       {#if o.ref}<span class="obj">{o.ref}</span><span class="grow" title={o.title}>{o.title}</span>{:else}<span class="pill {a.severity}">{a.kind === 'MR' ? mrWord() : a.kind === 'Claude' ? agentName() : t(a.kind)}</span><span class="grow"></span>{/if}
       {#if away}<span class="age">{awayUntil(a)}</span>{:else if age(alertMinutes(a, now))}<span class="age" title={t('Flagged for {age}', { age: age(alertMinutes(a, now)) })}>{age(alertMinutes(a, now))}</span>{/if}
       {#if away}
-        <button class="mark" onclick={() => wake([a])} title={t('Bring it back now')} aria-label={t('Bring it back now')}><Icon name="undo" /></button>
+        <button class="btn sm icon ghost mark" onclick={() => wake([a])} title={t('Bring it back now')} aria-label={t('Bring it back now')}><Icon name="undo" /></button>
       {:else}
         {#if !marked}{@render putOffButton([a])}{/if}
-        <button class="mark" onclick={() => setSeen(a, !marked)} title={marked ? t('Mark as new') : t('Mark as seen, no action needed')} aria-label={marked ? t('Mark as new') : t('Mark as seen')}><Icon name={marked ? 'undo' : 'check'} /></button>
+        <button class="btn sm icon ghost mark" onclick={() => setSeen(a, !marked)} title={marked ? t('Mark as new') : t('Mark as seen, no action needed')} aria-label={marked ? t('Mark as new') : t('Mark as seen')}><Icon name={marked ? 'undo' : 'check'} /></button>
       {/if}
     </div>
     <p class="text" title={a.text}>{a.text}</p>
@@ -393,7 +393,7 @@
         <span class="grow" title={o.title}>{o.title}</span>
         {#if age(g.minutes)}<span class="age">{age(g.minutes)}</span>{/if}
         {@render putOffButton(g.alerts)}
-        <button class="mark" onclick={() => g.alerts.forEach((a) => setSeen(a, true))} title={t('Mark them all as seen')} aria-label={t('Mark as seen')}><Icon name="check" /></button>
+        <button class="btn sm icon ghost mark" onclick={() => g.alerts.forEach((a) => setSeen(a, true))} title={t('Mark them all as seen')} aria-label={t('Mark as seen')}><Icon name="check" /></button>
       </div>
       <div class="pills wrap">{#each g.alerts as a (a.text)}<span class="mini {a.severity}" title={a.text}>{a.short ?? a.text}</span>{/each}</div>
       <div class="acts">{@render fixButtons(g.alerts[0], true)}</div>
@@ -403,7 +403,7 @@
 {/snippet}
 
 {#snippet bandHead(band: Band, n: number)}
-  <p class="band {band}"><span class="dot"></span>{BAND_LABEL[band]}<span class="n">{n}</span></p>
+  <p class="band {band}"><span class="dot {band === 'now' ? 'ko' : band === 'today' ? 'warn' : 'info'}"></span>{BAND_LABEL[band]}<span class="n">{n}</span></p>
 {/snippet}
 
 <!-- The bands, then the alerts put off and those seen, folded. -->
@@ -462,12 +462,12 @@
 
 {#if putting}
   {@const target = putting.el}
-  <div class="putoff" role="menu" {@attach anchored(() => target, { align: 'end' })} {@attach dismissable(() => (putting = null), { trigger: () => target })}>
+  <div class="popover putoff" role="menu" {@attach anchored(() => target, { align: 'end' })} {@attach dismissable(() => (putting = null), { trigger: () => target })}>
     {#each choices as c (c.key)}
-      <button role="menuitem" onclick={() => putOff(c)}><span>{c.label}</span>{#if c.detail}<small>{c.detail}</small>{/if}</button>
+      <button class="mi" role="menuitem" onclick={() => putOff(c)}><span>{c.label}</span>{#if c.detail}<small>{c.detail}</small>{/if}</button>
     {/each}
     <hr />
-    <button role="menuitem" class="muted" onclick={() => { putting = null; openSettings('alerts') }}><span>{t('Band of this kind of alert…')}</span></button>
+    <button role="menuitem" class="mi muted" onclick={() => { putting = null; openSettings('alerts') }}><span>{t('Band of this kind of alert…')}</span></button>
   </div>
 {/if}
 
@@ -475,45 +475,40 @@
   /* The phone's view. */
   /* Edge to edge: the remote's page pads its views. */
   .phone { width: calc(100% + 20px); max-width: none; margin: 0 -10px; padding-bottom: 8px; }
-  .pgrp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .pgrp { margin: 0; padding: 14px 14px 6px; color: var(--text-muted); font-size: var(--fs-meta); letter-spacing: 0.05em; text-transform: uppercase; }
   .pgrp.ko { color: var(--ko); } .pgrp.warn { color: var(--warn); }
   .pal { display: flex; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); --sev: var(--info); }
   .pal.ko { --sev: var(--ko); } .pal.warn { --sev: var(--warn); }
-  .sev { flex: none; width: 3px; border-radius: 2px; background: var(--sev); }
+  .sev { flex: none; width: 3px; border-radius: var(--r2); background: var(--sev); }
   .pbody { flex: 1; min-width: 0; }
-  .kind { color: var(--text-muted); font-size: 11px; }
-  .ptext { margin: 2px 0 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+  .kind { color: var(--text-muted); font-size: var(--fs-meta); }
+  .ptext { margin: 2px 0 0; font-size: var(--fs-head); line-height: 1.35; overflow-wrap: anywhere; }
   .pacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .pacts :global(.qa button), .pbtn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; text-decoration: none; }
+  .pacts :global(.qa button), .pbtn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); text-decoration: none; }
   .pbtn.claude { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); }
   .pbtn.done { border-color: transparent; background: var(--ok-bg); color: var(--ok); }
   .pbtn.err { border-color: var(--ko); color: var(--ko); }
   .pbtn:disabled { opacity: 0.7; }
   .pmark { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 50%; background: none; color: var(--text-muted); }
-  .pfold { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 10px 14px; padding: 10px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: 13px; }
+  .pfold { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 10px 14px; padding: 10px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-title); }
   .pempty { padding: 24px 14px; justify-content: center; color: var(--text-muted); }
   /* Empty: Prism's sprout (Sprout) to the left of the message. */
-  .empty { display: flex; align-items: center; gap: 8px; }
+  div.empty { display: flex; align-items: center; gap: 8px; }
   .hot { border-color: var(--ko); }
   .short-body .row { padding: 0; }
   .urgent { color: var(--warn) !important; font-weight: 500; }
   a { font-size: var(--fs-body); }
   /* Fixes: small buttons before "Open". */
-  .fix { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; cursor: pointer; text-decoration: none; }
-  .fix:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-  .fix.claude { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); }
-  .fix.claude:hover { background: color-mix(in srgb, var(--src-claude) 12%, var(--surface)); color: var(--text); }
   .fix.on { gap: 5px; background: color-mix(in srgb, var(--src-claude) 10%, var(--surface)); }
   .pulse { position: relative; width: 6px; height: 6px; border-radius: 50%; background: var(--src-claude); }
   /* A ring scaled and faded (the GPU's), not a shadow animated (a repaint a frame). */
   .pulse.live::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: color-mix(in srgb, var(--src-claude) 30%, transparent); opacity: 0; transform: scale(0.5); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 1; transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) { .pulse.live::after { animation: none; } }
-  .fix.busy { cursor: progress; opacity: 0.7; }
-  .fix.done { border-color: transparent; background: var(--ok-bg); color: var(--ok); cursor: default; }
-  .fix.err { border-color: var(--ko); color: var(--ko); }
+  .fix.done { border-color: transparent; background: var(--ok-bg); color: var(--ok); cursor: default; opacity: 1; }
+  .fix.failed { border-color: var(--ko); color: var(--ko); }
   /* Discreet "seen" button, revealed on row hover. */
-  .mark { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; border: none; border-radius: var(--r5); background: none; padding: 0; color: var(--text-muted); font: inherit; font-size: var(--fs-body); cursor: pointer; opacity: 0; }
+  .mark { opacity: 0; }
   .row:hover .mark, .mark:focus-visible, .seen .mark { opacity: 1; }
   .mark:hover { background: var(--surface-muted); color: var(--ok); }
   .seen { opacity: 0.55; }
@@ -522,9 +517,6 @@
   .chev.open { transform: rotate(90deg); }
   /* Bands: Now, Today, When you can, each under its line. */
   .band { display: flex; align-items: center; gap: 6px; margin: 0; padding: 6px 12px 2px; color: var(--text-muted); font-size: var(--fs-tag); letter-spacing: 0.05em; text-transform: uppercase; }
-  .band .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--info); }
-  .band.now .dot { background: var(--ko); }
-  .band.today .dot { background: var(--warn); }
   .band .n { margin-left: 2px; opacity: 0.8; }
   .pgrp.now { color: var(--ko); } .pgrp.today { color: var(--warn); }
   .age { flex-shrink: 0; color: var(--text-muted); font-size: var(--fs-tag); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -532,25 +524,22 @@
   .fold { display: inline-flex; flex-shrink: 0; width: 14px; padding: 0; border: none; background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
   .obj { flex-shrink: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--accent); }
   .pills { display: inline-flex; flex-shrink: 1; gap: 3px; min-width: 0; overflow: hidden; }
-  .mini { flex-shrink: 0; max-width: 140px; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-muted); font-size: var(--fs-tag); line-height: 16px; white-space: nowrap; }
+  .mini { flex-shrink: 0; max-width: 140px; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r9); color: var(--text-muted); font-size: var(--fs-tag); line-height: 16px; white-space: nowrap; }
   .mini.ko { border-color: color-mix(in srgb, var(--ko) 55%, var(--border)); color: var(--ko); }
   .mini.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--border)); color: var(--warn); }
   .sub { padding-left: 18px; }
   .mark.on { opacity: 1; color: var(--accent); }
   .pmark.on { border-color: var(--accent); color: var(--accent); }
   .pbtn small { color: var(--text-muted); }
-  .putoff { position: fixed; z-index: 50; min-width: 210px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
-  .putoff button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-  .putoff button span { flex: 1; }
-  .putoff button small { color: var(--text-muted); font-size: var(--fs-meta); }
-  .putoff button:hover { background: var(--surface-muted); }
-  .putoff button.muted { color: var(--text-muted); }
-  .putoff hr { margin: 4px 6px; border: none; border-top: 1px solid var(--border); }
+  .putoff { position: fixed; min-width: 210px; }
+  .putoff .mi span { flex: 1; }
+  .putoff .mi small { color: var(--text-muted); font-size: var(--fs-meta); }
+  .putoff .mi.muted { color: var(--text-muted); }
   /* The narrow block's cards: a bar of their severity, their object, their text, their fixes. */
   .card { position: relative; padding: calc(6px * var(--space)) 12px calc(7px * var(--space)) 15px; border-top: 1px solid var(--border); font-size: var(--fs-body); --sev: var(--info); }
   .card:first-of-type { border-top: none; }
   .card.ko { --sev: var(--ko); } .card.warn { --sev: var(--warn); }
-  .card::before { content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--sev); }
+  .card::before { content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 3px; border-radius: var(--r2); background: var(--sev); }
   .card .head { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .card .head .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .card:hover .mark { opacity: 1; }
@@ -559,6 +548,5 @@
   .card .pills.wrap .mini { max-width: 100%; }
   .card .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 5px; }
   .card .acts:empty { display: none; }
-  .fix.lead { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
   .popup { display: flex; flex-direction: column; max-height: min(480px, 70vh); overflow: auto; }
 </style>

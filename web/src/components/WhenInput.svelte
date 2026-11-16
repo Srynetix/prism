@@ -4,6 +4,8 @@
   import { parseWhen, whenLabel } from '../when'
   import { dayKey } from '../calendar'
   import { anchored, dismissable } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
   import Calendar from './Calendar.svelte'
   import Icon from './Icon.svelte'
 
@@ -57,14 +59,17 @@
     closeCalendar()
     calButton?.focus()
   }
-  /** Esc closes the calendar only, not the popup it is in. */
-  function calendarKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
+  /** Open, a layer on top: Esc closes the calendar only, not the popup it is in. */
+  let calEl: HTMLDivElement | undefined = $state()
+  const calendarOpen = $derived(!!calendar)
+  $effect(() => {
+    if (!calendarOpen) return
+    const close = () => {
       closeCalendar()
       calButton?.focus()
     }
-  }
+    return untrack(() => pushLayer({ kind: 'menu', key: 'when-calendar', el: () => calEl, close, outside: false })).remove
+  })
   const focusGrid = (el: HTMLElement) => el.querySelector<HTMLElement>('.month')?.focus()
 
   const focus = (el: HTMLInputElement) => {
@@ -87,11 +92,11 @@
   </small>
   {#if calendar}
     {@const c = calendar}
-    <div class="when-cal" role="dialog" aria-label={t('Pick a date and time')} tabindex="-1" onkeydown={calendarKey} {@attach anchored(() => calButton, { align: 'end' })} {@attach dismissable(closeCalendar, { trigger: () => calButton })} {@attach focusGrid}>
+    <div class="when-cal popover" role="dialog" aria-label={t('Pick a date and time')} tabindex="-1" bind:this={calEl} {@attach anchored(() => calButton, { align: 'end' })} {@attach dismissable(closeCalendar, { trigger: () => calButton, escape: false })} {@attach focusGrid}>
       <Calendar value={c.day} min={dayKey(new Date(now))} today={dayKey(new Date(now))} onpick={(key) => (c.day = key)} />
       <div class="time">
         <input value={c.time} oninput={(e) => (c.time = e.currentTarget.value)} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); apply() } }} placeholder="09:00" spellcheck="false" aria-label={t('Time')} />
-        <button type="button" class="ok" disabled={!future} onclick={apply} title={chosen ? whenLabel(chosen, new Date(now)) : t('Not understood: try 14:30, demain 9h, +20m, lun 10h')}>OK</button>
+        <button type="button" class="btn sm primary" disabled={!future} onclick={apply} title={chosen ? whenLabel(chosen, new Date(now)) : t('Not understood: try 14:30, demain 9h, +20m, lun 10h')}>OK</button>
       </div>
       <small class="read" class:bad={!future}>{#if !chosen}{t('Not understood: try 14:30, demain 9h, +20m, lun 10h')}{:else if !future}{t('Already past')}{:else}→ {whenLabel(chosen, new Date(now))}{/if}</small>
     </div>
@@ -108,12 +113,10 @@
   .txt:focus { border-color: var(--src-alert); }
   .cal { display: inline-flex; padding: 2px 5px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text-muted); cursor: pointer; }
   .cal:hover, .cal.on { color: var(--text); }
-  .when-cal { position: fixed; z-index: 70; display: flex; flex-direction: column; gap: 6px; width: 232px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); outline: none; }
+  .when-cal { position: fixed; display: flex; flex-direction: column; gap: 6px; width: 232px; min-width: 0; padding: 8px; font-size: var(--fs-tag); outline: none; }
   .time { display: flex; gap: 6px; }
   .time input { flex: 1; min-width: 0; padding: 3px 6px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-body); font-variant-numeric: tabular-nums; outline: none; }
   .time input:focus { border-color: var(--src-alert); }
-  .ok { padding: 3px 12px; border: none; border-radius: var(--r5); background: var(--accent); color: var(--on-accent); font: inherit; font-size: var(--fs-meta); font-weight: 600; cursor: pointer; }
-  .ok:disabled { opacity: 0.4; cursor: default; }
   .read { color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .read.bad { color: var(--ko); }
 </style>

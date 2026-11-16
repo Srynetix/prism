@@ -70,6 +70,7 @@
       send()
     } else if (e.key === 'Escape' && oncancel) {
       // Before the drawer: Escape closes the reply, not the drawer.
+      e.preventDefault()
       e.stopPropagation()
       oncancel()
     }
@@ -89,8 +90,8 @@
     {#each starters as s (s)}<button class="starter" onclick={() => (text = text.trim() ? `${s} ${text}` : `${s} `)} disabled={busy} title={t('Start with “{s}”', { s })}>{s}</button>{/each}
     {#if error}<span class="err" title={error}>{error}</span>{/if}
     <span class="grow"></span>
-    {#if oncancel}<button class="btn" onclick={oncancel} disabled={busy}>{t('Cancel')}</button>{/if}
-    <button class="btn primary" onclick={send} disabled={busy || !text.trim()}>{busy ? t('Sending…') : label}</button>
+    {#if oncancel}<button class="btn sm" onclick={oncancel} disabled={busy}>{t('Cancel')}</button>{/if}
+    <button class="btn sm primary" class:busy onclick={send} disabled={busy || !text.trim()}>{#if busy}<span class="spinner"></span>{t('Sending…')}{:else}{label}{/if}</button>
   </div>
 </div>
 
@@ -101,10 +102,8 @@
   textarea:focus { outline: none; border-color: var(--accent-c); }
   .bar { display: flex; align-items: center; gap: 6px; }
   .grow { flex: 1; }
-  .err { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ko); font-size: var(--fs-meta); }
-  .btn { padding: 1px 10px; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .btn:disabled { opacity: 0.55; cursor: default; }
+  .bar .err { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .starter { padding: 0 7px; border: 1px dashed var(--border); border-radius: var(--r9); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
   .starter:hover { border-style: solid; border-color: var(--accent-c); color: var(--accent-c); }
-  .btn.primary { border-color: transparent; background: var(--accent-c); color: #fff; font-weight: 500; }
+  .bar .primary { --btn-c: var(--accent-c); --btn-on: #fff; }
 </style>

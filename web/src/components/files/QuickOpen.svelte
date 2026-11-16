@@ -5,6 +5,7 @@
   import { draftOf, setDraft } from '../../chat-drafts.svelte'
   import { toast } from '../../toast.svelte'
   import { t } from '../../i18n.svelte'
+  import { pushLayer } from '../../layers.svelte'
   import type { AgentFile } from '../../agents.svelte'
   import type { Agent } from '../../types'
 
@@ -18,6 +19,10 @@
 
   let input = $state('')
   let field: HTMLInputElement | undefined = $state()
+  let box: HTMLDivElement | undefined = $state()
+  // A layer of the window's stack, drawn in the Files pane: the focus back where it was once closed,
+  // an Escape or a click outside it its own over the drawer it sits in.
+  $effect(() => pushLayer({ kind: 'modal', key: 'quick-open', el: () => box, close: () => onclose() }).remove)
   $effect(() => field?.focus())
   let selected = $state(0)
   const asked = $derived(parseAsk(input))
@@ -104,7 +109,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="scrim" onclick={onclose}></div>
-<div class="qo" role="dialog" aria-label={t('Open a file')}>
+<div class="qo" role="dialog" aria-label={t('Open a file')} data-layer bind:this={box}>
   <input bind:this={field} bind:value={input} spellcheck="false" autocomplete="off" placeholder={t('A file by its name · :line · @symbol · #text')} {onkeydown} />
   <div class="list" bind:this={list}>
     {#each lines as l, i (i)}
@@ -124,15 +129,15 @@
         {/if}
       </button>
     {:else}
-      <p class="none">{asked.kind === 'symbol' ? (active ? t('No symbol found in this file.') : t('Open a file first.')) : asked.kind === 'line' ? t('Open a file first.') : t('No file matches.')}</p>
+      <p class="empty">{asked.kind === 'symbol' ? (active ? t('No symbol found in this file.') : t('Open a file first.')) : asked.kind === 'line' ? t('Open a file first.') : t('No file matches.')}</p>
     {/each}
   </div>
   <div class="foot"><span>↑↓ {t('move')}</span><span>↵ {t('open')}</span><span>⌘↵ {t('beside')}</span><span>⇧↵ {t('to the prompt')}</span><span class="grow"></span><span>:{t('line')} · @{t('symbol')} · #{t('text')}</span></div>
 </div>
 
 <style>
-  .scrim { position: absolute; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.18); }
-  .qo { position: absolute; z-index: 21; left: 50%; top: 36px; width: min(540px, calc(100% - 24px)); transform: translateX(-50%); display: flex; flex-direction: column; max-height: calc(100% - 60px); border: 1px solid var(--border); border-radius: var(--r10, 10px); background: var(--surface); box-shadow: 0 16px 50px rgba(0, 0, 0, 0.25); overflow: hidden; font-size: var(--fs-meta); }
+  .scrim { position: absolute; inset: 0; z-index: var(--z-menu); background: rgba(0, 0, 0, 0.18); }
+  .qo { position: absolute; z-index: var(--z-menu); left: 50%; top: 36px; width: min(540px, calc(100% - 24px)); transform: translateX(-50%); display: flex; flex-direction: column; max-height: calc(100% - 60px); border: 1px solid var(--border); border-radius: var(--r10, 10px); background: var(--surface); box-shadow: 0 16px 50px rgba(0, 0, 0, 0.25); overflow: hidden; font-size: var(--fs-meta); }
   input { padding: 9px 12px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: 13px var(--mono); outline: none; }
   .list { flex: 1; min-height: 0; overflow: auto; padding: 3px 0; }
   .grp { padding: 6px 12px 2px; font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -146,10 +151,10 @@
   .sM, .sR { color: var(--warn); }
   .sA, .su { color: var(--ok); }
   .sD { color: var(--ko); }
-  .none { margin: 0; padding: 10px 12px; color: var(--text-muted); }
+  .list > .empty { margin: 0; padding: 10px 12px; font-size: inherit; }
   .foot { display: flex; gap: 12px; padding: 5px 12px; border-top: 1px solid var(--border); background: var(--surface-muted); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; overflow: hidden; }
   .grow { flex: 1; }
-  :global(html.remote) input { font-size: 16px; }
+  :global(html.remote) input { font-size: var(--fs-head); }
   :global(html.remote) .it { padding-block: 8px; }
   :global(html.remote) .foot { display: none; }
 </style>

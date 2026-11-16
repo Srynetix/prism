@@ -4,6 +4,8 @@
   import { hasCore } from '../bridge'
   import { agentsEnabled } from '../agents.svelte'
   import { t, tc } from '../i18n.svelte'
+  import Modal from './ui/Modal.svelte'
+  import State from './ui/State.svelte'
   import { KINDS, attached, capture, closeFeedback, contextLines, draftWithAgent, dropCapture, feedback, preview, send, setDraft, stopWaiting, target, uploadsCapture, vote } from '../feedback.svelte'
 
   /**
@@ -26,11 +28,7 @@
   const cli = $derived(dest?.forge === 'github' ? 'gh' : 'glab')
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      e.stopPropagation()
-      closeFeedback()
-    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
       void send()
     }
@@ -41,19 +39,13 @@
   }
 </script>
 
-{#if feedback.open && hasCore()}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions : Escape closes from the keyboard -->
-  <div class="scrim" class:phone class:hidden={feedback.capturing} onclick={(e) => e.target === e.currentTarget && !feedback.busy && closeFeedback()}>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label={t('Send feedback')} tabindex="-1" {onkeydown}>
-      <header>
-        <Icon name="comment" />
-        <b>{t('Send feedback')}</b>
-        {#if dest}<span class="pill">{cli}</span>{/if}
-        <button class="x" onclick={closeFeedback} aria-label={t('Close')}><Icon name="close" /></button>
-      </header>
-
+<!-- While the window is captured, the dialog is out of the picture (`.capturing`). -->
+<Modal open={feedback.open && hasCore()} key="feedback" label={t('Send feedback')} title={t('Send feedback')} width={620} class={feedback.capturing ? 'fb capturing' : 'fb'} onclose={() => !feedback.busy && closeFeedback()}>
+    {#snippet head()}{#if dest}<span class="pill">{cli}</span>{/if}{/snippet}
+    <!-- svelte-ignore a11y_no_static_element_interactions : ⌘↵ sends, the button does the same -->
+    <div class="wrap" {onkeydown}>
       {#if !feedback.info}
-        <p class="empty">{t('Reading the repositories…')}</p>
+        <State kind="loading" inline title={t('Reading the repositories…')} />
       {:else if !feedback.info.targets.length}
         <p class="empty">{t('No repository to send to: Prism’s is')} <code>[updates] source</code> ({t('or')} <code>[feedback] repo</code>), {t('a pack’s is the one it was imported from. Settings › General › Updates.')}</p>
       {:else if feedback.sent}
@@ -64,7 +56,7 @@
             {#if feedback.captured && (!uploadsCapture() || feedback.sent.paste_capture)}<p>{t('The capture of the window is on the clipboard: paste it into the issue.')}</p>{/if}
           </div>
         </div>
-        <footer>
+        <footer class="foot">
           <span></span>
           <button class="btn ghost" onclick={() => (feedback.sent = null)}>{t('Another one')}</button>
           <button class="btn primary" onclick={opened}><Icon name="external" />{t('Open the issue')}</button>
@@ -81,10 +73,12 @@
           </div>
 
           <span class="lab">{t('Kind')}</span>
-          <div class="seg" role="radiogroup" aria-label={t('Kind')}>
-            {#each KINDS as k (k.kind)}
-              <button class:on={feedback.draft.kind === k.kind} role="radio" aria-checked={feedback.draft.kind === k.kind} onclick={() => setDraft({ kind: k.kind })}>{t(k.label)}</button>
-            {/each}
+          <div class="kind">
+            <div class="seg" role="radiogroup" aria-label={t('Kind')}>
+              {#each KINDS as k (k.kind)}
+                <button class:on={feedback.draft.kind === k.kind} role="radio" aria-checked={feedback.draft.kind === k.kind} onclick={() => setDraft({ kind: k.kind })}>{t(k.label)}</button>
+              {/each}
+            </div>
             {#if dest?.labels[feedback.draft.kind]}<span class="hint">{t('label')} <code>{dest.labels[feedback.draft.kind]}</code></span>{/if}
           </div>
 
@@ -101,7 +95,7 @@
               {#each feedback.similar as i (i.number)}
                 <div class="d">
                   <a href={i.url} onclick={(e) => (e.preventDefault(), openLink(i.url))}><code>#{i.number}</code> {i.title}</a>
-                  <span class="pill" class:open={i.state === 'open'}>{tc('issue', i.state === 'open' ? 'open' : 'closed')}</span>
+                  <span class="pill" class:info={i.state === 'open'}>{tc('issue', i.state === 'open' ? 'open' : 'closed')}</span>
                   <button class="vote" class:on={feedback.voted.includes(i.number)} disabled={feedback.voted.includes(i.number)} onclick={() => vote(i)} title={t('A 👍 rather than a duplicate')}>👍 {i.votes + (feedback.voted.includes(i.number) ? 1 : 0)}</button>
                 </div>
               {/each}
@@ -142,31 +136,22 @@
         {/if}
         {#if feedback.drafting}<div class="banner info"><span>{t('An agent drafts the issue: its draft comes here when written.')}</span><button class="link" onclick={stopWaiting}>{t('Stop waiting')}</button></div>{/if}
 
-        <footer>
+        <footer class="foot">
           <button class="btn ghost" onclick={() => (showPreview = !showPreview)} aria-pressed={showPreview}>{showPreview ? t('Hide') : t('Preview')}</button>
           {#if agentsEnabled()}<button class="btn ghost" onclick={draftWithAgent} disabled={feedback.drafting} title={t('An agent reads the code and writes the draft; you send it')}>{t('Draft with an agent')}</button>{/if}
           <span class="cmd">{cli} → {dest?.project}</span>
-          <button class="btn primary" onclick={send} disabled={feedback.busy || !feedback.draft.title.trim()} title="⌘↵">{feedback.busy ? t('Opening…') : t('Open the issue')}</button>
+          <button class="btn primary" class:busy={feedback.busy} onclick={send} disabled={feedback.busy || !feedback.draft.title.trim()} title="⌘↵">{#if feedback.busy}<span class="spinner"></span>{t('Opening…')}{:else}{t('Open the issue')}{/if}</button>
         </footer>
       {/if}
     </div>
-  </div>
-{/if}
+</Modal>
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: 66; display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(2px); }
-  .scrim.hidden { visibility: hidden; }
-  .scrim.phone { padding: 0; align-items: stretch; }
-  .sheet { width: min(660px, 100%); max-height: 84vh; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); box-shadow: var(--shadow-modal); outline: none; overflow: hidden; }
-  .phone .sheet { max-height: none; border-radius: 0; }
-  header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
-  header b { flex: 1; color: var(--text); font-size: var(--fs-title); }
-  .x { display: inline-flex; padding: 3px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .pill { font-size: var(--fs-tag); padding: 1px 7px; border-radius: 9px; background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
-  .pill.open { background: var(--info-bg); color: var(--info); }
-  .empty { margin: 0; padding: 16px 14px; color: var(--text-muted); }
-  .body { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 9px 12px; align-items: start; padding: 12px 14px; overflow: auto; }
-  .phone .body { grid-template-columns: minmax(0, 1fr); }
+  :global(.veil:has(> .modal.fb.capturing)) { visibility: hidden; }
+  .wrap { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  .wrap > .empty { margin: 0; padding: var(--sp-6); }
+  .body { min-height: 0; display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 9px 12px; align-items: start; padding: 12px 14px; overflow: auto; }
+  :global(html.remote) .body { grid-template-columns: minmax(0, 1fr); }
   .body > * { min-width: 0; }
   .lab { padding-top: 4px; color: var(--text-muted); font-size: var(--fs-meta); }
   input:not([type]), textarea { width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; }
@@ -177,9 +162,7 @@
   .opt b { flex-shrink: 0; white-space: nowrap; }
   .opt code { min-width: 0; overflow: hidden; color: var(--text-muted); font-size: var(--fs-tag); text-overflow: ellipsis; white-space: nowrap; }
   .opt .why { flex: 1 1 0; min-width: 0; text-align: right; margin-left: auto; color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .seg { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-  .seg button { padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
-  .seg button.on { border-color: var(--accent); color: var(--accent); }
+  .kind { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
   .hint { margin-left: 6px; color: var(--text-muted); font-size: var(--fs-tag); }
   .dupes { display: flex; flex-direction: column; gap: 2px; padding: 5px 8px; border: 1px dashed var(--border); border-radius: var(--r6); }
   .d { display: flex; align-items: center; gap: 8px; }
@@ -204,11 +187,6 @@
   .done { display: flex; gap: 10px; padding: 16px 14px; color: var(--ok); }
   .done div { color: var(--text); }
   .done p { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-meta); }
-  footer { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-top: 1px solid var(--border); }
-  footer > span, .cmd { flex: 1; min-width: 0; overflow: hidden; color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); text-overflow: ellipsis; white-space: nowrap; }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.ghost { background: none; color: var(--text-muted); }
-  .btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
+  .foot { display: flex; align-items: center; gap: 8px; padding: var(--sp-4) var(--sp-6); border-top: 1px solid var(--border); }
+  .foot > span, .cmd { flex: 1; min-width: 0; overflow: hidden; color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); text-overflow: ellipsis; white-space: nowrap; }
 </style>

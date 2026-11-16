@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { inField } from '../layers.svelte'
   import { suggest } from '../suggest'
-  import { chord, chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
+  import { untrack } from 'svelte'
+  import { chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
+  import { hit, shortcutKeys } from '../shortcuts'
   import Icon from './Icon.svelte'
   import Terminal from './Terminal.svelte'
   import QuickAnswers from './QuickAnswers.svelte'
@@ -11,7 +14,7 @@
   import KindBadge from './KindBadge.svelte'
   import Gutter from './Gutter.svelte'
   import { live } from '../live.svelte'
-  import { TERMINAL_FONT, zoomTerminal, zoomChat, agentsAvailable, agentsSettings, agentsView, allowAgent, modelName, desktopUrl, interruptAgent, justLaunched, allTags, renameAgent, startPrepared, launchAgain, openLauncher, resumeAgent, setAgentCategory, setAgentTags, kindNames, kindColor, linkAgentTicket, linkAgentMr, stopAgent, openProjects, attachFiles, mention, draggedFiles, insertInAgent, filesOf, layoutKey, paneArrow, terminalKeeps, plans, type AgentsLayout, type SideTab } from '../agents.svelte'
+  import { TERMINAL_FONT, zoomTerminal, zoomChat, agentsAvailable, agentsSettings, agentsShown, agentsView, allowAgent, newAgent, modelName, desktopUrl, interruptAgent, justLaunched, allTags, renameAgent, startPrepared, launchAgain, openLauncher, resumeAgent, setAgentCategory, setAgentTags, kindNames, kindColor, linkAgentTicket, linkAgentMr, stopAgent, openProjects, attachFiles, mention, draggedFiles, insertInAgent, filesOf, layoutKey, paneArrow, terminalKeeps, plans, type AgentsLayout, type SideTab } from '../agents.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { filter as query, resolve } from '../filter.svelte'
   import { canMarkRead, markRead } from '../session-read'
@@ -40,8 +43,6 @@
   import { isArchived, setArchived } from '../agent-archive.svelte'
   import { openQuickActionDraft } from '../quick-action-draft.svelte'
   import { setPollsShown } from '../polls.svelte'
-  import { settingsView } from '../settings.svelte'
-  import { helpView } from '../help-view.svelte'
   import { isAssistant } from '../assistant.svelte'
   import { agentEntry, desktopEntry, groupEntries, groupLabel, GROUP_BY, shortOf, SORTS, tagsOf, taskOf, TASK_ICON, where, type Entry, type Filter, type GroupBy, type SortBy } from '../agents-list'
   import { t, tn, tc } from '../i18n.svelte'
@@ -64,7 +65,7 @@
    */
 
   // Kept mounted under the other views (App): its panels' polls wait meanwhile.
-  setPollsShown(() => agentsView.open && !settingsView.open && !helpView.open)
+  setPollsShown(agentsShown)
 
   const agents = $derived(live.snapshot?.agents ?? [])
   /** Claude Desktop sessions, unless hidden (`[agents.claude] show_desktop`, only with Claude Code). */
@@ -137,6 +138,31 @@
   }
 
   const current = $derived(entries.find((e) => e.id === agentsView.selected) ?? null)
+
+  /**
+   * Opened on what waits for me (`openAgents(…, 'waiting')`, every « waiting for you » count): by
+   * status this time (the grouping chosen stays remembered), the whole list, its Waiting group open;
+   * `openAgents` picked the first agent waiting.
+   */
+  $effect(() => {
+    if (agentsView.focus !== 'waiting') return
+    agentsView.focus = null
+    untrack(() => {
+      groupBy = 'status'
+      showArchived = false
+      filter = 'all'
+      tagFilter = ''
+      if (isFolded('Waiting for you')) toggleFold('Waiting for you')
+      if (agentsView.selected && entries.some((e) => e.id === agentsView.selected && waitsForYou(e.status))) agentsView.creating = false
+    })
+  })
+  /** New agent (`newAgent`, from anywhere): the launcher forgets the last one's branch and error. */
+  let freshSeen = agentsView.fresh
+  $effect(() => {
+    if (agentsView.fresh === freshSeen) return
+    freshSeen = agentsView.fresh
+    untrack(() => launcher?.fresh())
+  })
   /** With no choice, or if the chosen item is gone: the first in the list (not an agent still on its way). */
   $effect(() => {
     const first = groups[0]?.items[0]
@@ -213,80 +239,86 @@
 
 
   /**
-   * ⌘[ / ⌘]: previous / next agent in the list; ⌘.: interrupt Claude (Escape); ⌘E: mark it read;
-   * ⌘+ / ⌘- / ⌘0: terminal text size.
+   * The Agents view's keys, declared in shortcuts.ts: ⌘[ / ⌘] previous / next agent in the list,
+   * ⌘. interrupt Claude (Escape), ⌘E mark it read, ⌘+ / ⌘- / ⌘0 text size, ⌘↵ an agent alone or
+   * back beside the others, ⌘B the list, F2 rename the agent. Only while the view is the one shown
+   * (Settings or Help may be open over it).
    */
   function onKey(e: KeyboardEvent) {
+    if (!agentsShown()) return
     // Kept by the terminal it was pressed in (`[agents] terminal_keys`).
     if (inTerminal(e) && terminalKeeps(e)) return
-    if (agentsView.open && managing && e.key === 'Escape' && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm')) {
+    const typing = inField(e.target)
+    if (managing && e.key === 'Escape' && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm')) {
       e.preventDefault()
       managing = false
       return
     }
     // Esc restores a full-width panel, unless it is meant for a field (or the terminal, hidden then).
-    if (agentsView.open && full && e.key === 'Escape' && !(e.target as HTMLElement | null)?.closest?.('input, textarea, select, .xterm')) {
+    if (full && e.key === 'Escape' && !typing) {
       e.preventDefault()
       setFull(false)
       return
     }
-    if (agentsView.open) {
-      const l = layoutKey(e)
-      if (l) {
-        e.preventDefault()
-        grid.setLayout(l)
-        return
-      }
-      const arrow = paneArrow(e)
-      if (arrow) {
-        e.preventDefault()
-        grid.move(arrow)
-        return
-      }
+    const l = layoutKey(e)
+    if (l) {
+      e.preventDefault()
+      grid.setLayout(l)
+      return
     }
-    if (!agentsView.open || !chord(e) || e.altKey) return
-    // Shift added only to leave the terminal (Linux, Windows) does not count.
-    const shift = e.shiftKey && !extraShift(e)
-    const k = chordKey(e)
-    const zoom = k === '=' || k === '+' ? TERMINAL_FONT.step * 2 : k === '-' || k === '_' ? -TERMINAL_FONT.step * 2 : k === '0' && !shift ? 0 : null
-    if (zoom !== null) {
+    const arrow = paneArrow(e)
+    if (arrow) {
+      e.preventDefault()
+      grid.move(arrow)
+      return
+    }
+    if (hit('rename', e) && !typing && current?.kind === 'agent') {
+      e.preventDefault()
+      startRename(current.a)
+      return
+    }
+    if (hit('text-size', e)) {
+      // Shift added only to leave the terminal (Linux, Windows) does not count.
+      const shift = e.shiftKey && !extraShift(e)
+      const k = chordKey(e)
+      const zoom = k === '=' || k === '+' ? TERMINAL_FONT.step * 2 : k === '-' || k === '_' ? -TERMINAL_FONT.step * 2 : !shift ? 0 : null
+      if (zoom === null) return
       e.preventDefault()
       // The agent shown reads as its Chat: its text; otherwise the terminals'.
       if (current?.kind === 'agent' && chatting(current.a.id)) zoomChat(zoom)
       else zoomTerminal(zoom)
       return
     }
-    if (shift) return
-    if (k === 'enter' && grid.count > 1 && current?.kind === 'agent') {
+    if (hit('agent-zoom', e) && grid.count > 1 && current?.kind === 'agent') {
       e.preventDefault()
       grid.zoomed = !grid.zoomed
       return
     }
-    if (k === 'b') {
+    if (hit('agents-list', e)) {
       e.preventDefault()
       toggleCollapsed()
       return
     }
-    if (k === 'e' && current && (current.kind === 'desktop' || current.a.state === 'running') && canMarkRead(current.kind === 'agent' ? current.a : current.c)) {
+    if (hit('mark-read', e) && current && (current.kind === 'desktop' || current.a.state === 'running') && canMarkRead(current.kind === 'agent' ? current.a : current.c)) {
       e.preventDefault()
       void act(() => markRead([current!.id]))
       return
     }
-    if (k === '[' || k === ']') {
+    if (hit('agent-cycle', e)) {
       // Grouped by tag, an agent may show in several groups: once in the order.
       const order = groups.filter((g) => !isFolded(g.name)).flatMap((g) => g.items).filter((x, i, all) => all.findIndex((y) => y.id === x.id) === i)
       const i = order.findIndex((x) => x.id === current?.id)
-      const next = order[(i + (k === ']' ? 1 : -1) + order.length) % order.length]
+      const next = order[(i + (chordKey(e) === ']' ? 1 : -1) + order.length) % order.length]
       if (!next) return
       e.preventDefault()
       select(next.id)
-    } else if (k === '.' && current?.kind === 'agent' && current.a.state === 'running') {
+    } else if (hit('interrupt', e) && current?.kind === 'agent' && current.a.state === 'running') {
       e.preventDefault()
       void act(() => interruptAgent(current!.id))
     }
   }
 
-  /** Rename: double-click the title or the pencil; ↩ or leaving the field saves, Escape cancels. */
+  /** Rename: double-click the title, F2 or ⋯ › Rename; ↩ or leaving the field saves, Escape cancels. */
   let renaming = $state<string | null>(null)
   let newTitle = $state('')
   function startRename(a: Agent) {
@@ -568,7 +600,7 @@
   {#if collapsed}
     <aside class="rail" aria-label={t('Agents')}>
       <button class="ctl" onclick={toggleCollapsed} title={keys(t('Expand the list (⌘B)'))} aria-label={t('Expand the list')}><Icon name="chevronRight" /></button>
-      <button class="ctl plus" onclick={() => { agentsView.creating = true; agentsView.desktopHref = null; agentsView.onLaunch = null; launcher?.fresh() }} disabled={!agentsAvailable()} title={keys(t('New agent (⌘N)'))} aria-label={t('New agent')}><Icon name="plus" stroke={2.5} /></button>
+      <button class="ctl plus" onclick={newAgent} disabled={!agentsAvailable()} title={`${t('New agent')} (${shortcutKeys('new-agent')})`} aria-label={t('New agent')}><Icon name="plus" stroke={2.5} /></button>
       <button class="ctl" onclick={() => grid.setLayout(LAYOUTS[(LAYOUTS.findIndex(([l]) => l === grid.layout) + 1) % LAYOUTS.length][0])} title={t('Layout: {name} · click for the next', { name: LAYOUTS.find(([l]) => l === grid.layout)?.[1] ?? '' })} aria-label={t('Next layout')}>{@render layoutIcon(grid.layout)}</button>
       <div class="rscroll">
         {#each groups as g (g.name)}
@@ -595,7 +627,7 @@
       {#if grid.count > 1}<button class="by" class:on={grid.follow} onclick={() => grid.setFollow(!grid.follow)} aria-pressed={grid.follow} title={t('Follow who waits: an agent waiting for you comes into an empty pane (or the last), and leaves it once answered')} aria-label={t('Follow who waits')}><Icon name="alarm" /></button>{/if}
       <span class="grow"></span>
       <button class="fold" onclick={toggleCollapsed} title={keys(t('Collapse the list (⌘B)'))} aria-label={t('Collapse the list')}><Icon name="chevronLeft" /></button>
-      <button class="new" onclick={() => { agentsView.creating = true; agentsView.desktopHref = null; agentsView.onLaunch = null; launcher?.fresh() }} disabled={!agentsAvailable()} title={keys(t('New agent (⌘N)'))}><Icon name="plus" size={13} stroke={2.5} />{t('New')}<kbd>{keys('⌘N')}</kbd></button>
+      <button class="new" onclick={newAgent} disabled={!agentsAvailable()} title={`${t('New agent')} (${shortcutKeys('new-agent')})`}><Icon name="plus" size={13} stroke={2.5} />{t('New')}<kbd>{shortcutKeys('new-agent')}</kbd></button>
     </div>
     <div class="filter" role="tablist">
       {#if withDesktop}
@@ -899,13 +931,13 @@
   .top .fold { padding: 1px 4px; border-color: transparent; background: none; color: var(--text-muted); }
   .list { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--surface); }
   .top { display: flex; align-items: center; gap: 8px; padding: 10px 10px 6px; }
-  .top b { font-size: 13px; }
+  .top b { font-size: var(--fs-title); }
   .grow { flex: 1; }
   .filter { display: flex; gap: 4px; padding: 0 10px 6px; }
   .filter button { padding: 1px 9px; border-radius: var(--r10); font-size: var(--fs-meta); color: var(--text-muted); background: none; }
   .filter button.on { background: color-mix(in srgb, var(--src-claude) 15%, transparent); border-color: color-mix(in srgb, var(--src-claude) 40%, transparent); color: var(--src-claude); }
   .scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 6px 10px; display: flex; flex-direction: column; gap: 2px; }
-  .grp { display: flex; align-items: center; gap: 3px; width: calc(100% - 12px); margin: 10px 6px 3px; padding: 0; border: none; background: none; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); cursor: pointer; }
+  .grp { display: flex; align-items: center; gap: 3px; width: calc(100% - 12px); margin: 10px 6px 3px; padding: 0; border: none; background: none; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); cursor: pointer; }
   .grp:hover { color: var(--text); }
   /* A group's header, with its project's +. */
   .gh { display: flex; align-items: center; gap: 4px; margin-right: 6px; }
@@ -961,14 +993,14 @@
   .st.waiting_tool { background: var(--ko); }
   .st.review_ready { background: var(--info); }
   .st.completed, .st.idle { background: var(--text-muted); opacity: 0.5; }
-  .empty { padding: 14px 10px; font-size: var(--fs-meta); line-height: 1.5; }
+  .agents .empty { padding: 14px 10px; font-size: var(--fs-meta); line-height: 1.5; }
   .pane .empty { margin: auto; max-width: 420px; text-align: center; }
 
   .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   /* Shown, the launcher fills the pane and scrolls in it: a long prompt never pushes it past the window. */
   .launcher:not([hidden]) { flex: 1; min-height: 0; overflow: auto; }
   header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
-  header .title { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header .title { font-size: var(--fs-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   header .path { font: var(--fs-meta) var(--mono); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   button { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; white-space: nowrap; }
   button:hover:not(:disabled) { border-color: var(--src-claude); }
@@ -981,7 +1013,7 @@
   .new kbd { margin-left: 3px; color: var(--text-muted); }
   button.allow { background: var(--warn-bg); border-color: transparent; color: var(--warn); font-weight: 600; }
   kbd { font: 600 10px var(--mono); opacity: 0.8; }
-  .err { margin: 0; color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
+  .agents .err { margin: 0; color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
   .bar { margin: 0; padding: 6px 12px; font-size: var(--fs-meta); }
   .err.bar { background: var(--ko-bg); }
   .ask.bar { background: var(--warn-bg); color: var(--warn); }
@@ -995,14 +1027,14 @@
   .deskcard .open { align-self: flex-start; padding: 4px 12px; border-radius: var(--r6); background: var(--src-claude); color: #fff; text-decoration: none; font-weight: 500; }
 
   .row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r7); overflow: hidden; }
+  header .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r7); overflow: hidden; }
   .seg button { border: none; border-radius: 0; background: var(--surface); color: var(--text-muted); }
   .seg button + button { border-left: 1px solid var(--border); }
   .seg button.on { background: var(--src-claude); color: #fff; }
   .filter .by { flex-shrink: 0; padding: 1px 6px; border-color: transparent; }
   .filter .sort { flex-shrink: 1; min-width: 0; max-width: 104px; padding: 1px 2px; border: 1px solid transparent; border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .filter .sort:hover, .filter .sort:focus { border-color: var(--border); color: var(--text); outline: none; }
-  header .rename { min-width: 0; width: 260px; padding: 2px 7px; border: 1px solid var(--src-claude); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; outline: none; }
+  header .rename { min-width: 0; width: 260px; padding: 2px 7px; border: 1px solid var(--src-claude); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-title); font-weight: 600; outline: none; }
   /* An agent's header: row 1 says what to do now,
      row 2, small and muted, where it works and how it is filed. */
   header.two { flex-direction: column; align-items: stretch; gap: 3px; padding: 7px 12px 6px; }
@@ -1019,7 +1051,7 @@
   .meta .link:hover, .meta .link.on { background: color-mix(in srgb, currentColor 22%, transparent); }
   .meta .tick { padding: 0; border: none; background: none; color: var(--src-clickup); font: 600 var(--fs-meta) var(--mono); }
   button.tick:hover { text-decoration: underline; }
-  .seg { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
+  header .seg { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
   .seg button { padding: 1px 8px; border: none; border-right: 1px solid var(--border); border-radius: 0; background: none; color: var(--text-muted); font-size: var(--fs-meta); }
   .seg button:last-child { border-right: none; }
   .seg button.on { background: color-mix(in srgb, var(--src-claude) 13%, transparent); color: var(--src-claude); }
@@ -1062,7 +1094,7 @@
   .layouts button:last-child { border-right: none; }
   .layouts button.on { background: color-mix(in srgb, var(--src-claude) 14%, var(--surface)); color: var(--src-claude); }
   .lic { display: inline-grid; gap: 1px; width: 14px; height: 10px; }
-  .lic i { border-radius: 1px; background: currentColor; opacity: 0.6; }
+  .lic i { border-radius: var(--r1); background: currentColor; opacity: 0.6; }
   .lic.l2 { grid-template-columns: 1fr 1fr; }
   .lic.l2r { grid-template-rows: 1fr 1fr; }
   .lic.l4 { grid-template: 1fr 1fr / 1fr 1fr; }
@@ -1080,7 +1112,7 @@
   .pill.model { font-family: var(--mono); }
   .pill.loop { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
   .main { position: relative; }
-  .veil { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; border: 2px dashed var(--src-claude); border-radius: var(--r4); background: color-mix(in srgb, var(--src-claude) 14%, rgba(10, 10, 10, 0.55)); pointer-events: none; }
+  .veil { position: absolute; inset: 0; z-index: var(--z-menu); display: grid; place-items: center; border: 2px dashed var(--src-claude); border-radius: var(--r4); background: color-mix(in srgb, var(--src-claude) 14%, rgba(10, 10, 10, 0.55)); pointer-events: none; }
   .veil > div { max-width: 380px; padding: 12px 18px; border-radius: var(--r10); background: var(--surface); text-align: center; font-size: var(--fs-body); }
   .veil small { display: block; margin-top: 3px; color: var(--text-muted); font-size: var(--fs-meta); }
   .pill.trusting { display: inline-flex; align-items: center; gap: 4px; border-color: var(--violet); color: var(--violet); }

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { anchored, dismissable, exclusive } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
   import { tildePath } from '../platform'
   import { worktreeBranches, type BranchChoice } from '../worktrees'
   import Icon from './Icon.svelte'
@@ -17,6 +19,12 @@
   let list = $state<BranchChoice[] | null>(null)
   let error = $state('')
   let query = $state('')
+  let pop: HTMLDivElement | undefined = $state()
+  // Open, a layer on top: Escape closes it first, not the panel under it.
+  $effect(() => {
+    if (!open) return
+    return untrack(() => pushLayer({ kind: 'menu', key: 'branch-picker', el: () => pop, close: () => (open = false), outside: false })).remove
+  })
 
   async function toggle(e: MouseEvent) {
     e.stopPropagation()
@@ -45,9 +53,9 @@
 
 <button bind:this={button} class="chg" class:open onclick={toggle} {disabled} title={disabled ? why : t('Switch this worktree to another branch')} aria-expanded={open}>{t('Change')}<Icon name="chevronDown" /></button>
 {#if open}
-  <div class="pop" role="dialog" aria-label={t('Switch branch')} {@attach anchored(() => button, { align: 'start', gap: 4 })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button })}>
+  <div class="pop popover" role="dialog" aria-label={t('Switch branch')} bind:this={pop} {@attach anchored(() => button, { align: 'start', gap: 4 })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, escape: false })}>
     <!-- svelte-ignore a11y_autofocus -->
-    <input bind:value={query} placeholder={t('Search a branch…')} autofocus onkeydown={(e) => { if (e.key === 'Enter' && first) pick(first); else if (e.key === 'Escape') open = false }} />
+    <input bind:value={query} placeholder={t('Search a branch…')} autofocus onkeydown={(e) => e.key === 'Enter' && first && pick(first)} />
     <div class="list">
       {#if error}<p class="err">{error}</p>
       {:else if !list}<p class="muted">{t('Fetching origin…')}</p>
@@ -55,9 +63,9 @@
       {:else}
         {#each [[t('Local'), local], [t('On origin'), remote]] as [label, items] (label)}
           {#if (items as BranchChoice[]).length}
-            <p class="g">{label}</p>
+            <p class="hd">{label}</p>
             {#each items as BranchChoice[] as b (b.name)}
-              <button class="it" class:off={b.current || !!b.elsewhere} disabled={b.current || !!b.elsewhere} onclick={() => pick(b)} title={b.elsewhere ? tildePath(b.elsewhere) : b.name}>
+              <button class="mi it" class:off={b.current || !!b.elsewhere} disabled={b.current || !!b.elsewhere} onclick={() => pick(b)} title={b.elsewhere ? tildePath(b.elsewhere) : b.name}>
                 <span class="nm">{b.name}</span>
                 {#if b.current}<small>{t('current')}</small>{:else if b.elsewhere}<small>{t('in another worktree')}</small>{:else if b.remote}<small>{t('made local')}</small>{/if}
               </button>
@@ -74,16 +82,14 @@
   .chg { display: inline-flex; align-items: center; gap: 2px; height: 20px; padding: 0 6px; border-radius: var(--r5); color: var(--text-muted); font-size: var(--fs-meta); }
   .chg:hover:not(:disabled), .chg.open { background: var(--surface-muted); color: var(--text); }
   .chg:disabled { opacity: 0.45; cursor: default; }
-  .pop { position: fixed; z-index: 45; display: flex; flex-direction: column; width: 320px; max-height: 360px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); color: var(--text); }
+  .pop { position: fixed; display: flex; flex-direction: column; width: 320px; max-height: 360px; font-size: var(--fs-body); }
   input { height: 26px; margin-bottom: 4px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; }
   .list { min-height: 0; overflow-y: auto; }
-  .g { margin: 6px 6px 2px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
-  .it { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; border-radius: var(--r5); text-align: left; }
-  .it:hover:not(:disabled) { background: var(--surface-muted); }
-  .it.off { opacity: 0.45; cursor: default; }
+  .hd { margin: 4px 0 0; }
+  .pop .it { gap: 8px; }
+  .it.off { opacity: 0.45; }
   .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-mono); }
   .it small { flex: none; color: var(--text-muted); font-size: var(--fs-meta); }
-  p.muted, p.err { margin: 6px; font-size: var(--fs-meta); }
+  .list > p { margin: 6px; font-size: var(--fs-meta); }
   .muted { color: var(--text-muted); }
-  .err { color: var(--ko); white-space: pre-wrap; }
 </style>

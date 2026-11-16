@@ -3,6 +3,7 @@
   import { dateFormat } from '../locale'
   import { offers, onObsidian, ticketKey, trackerLogo } from '../tracker'
   import BlockControls from './BlockControls.svelte'
+  import State from './ui/State.svelte'
   import RefreshTickets from './RefreshTickets.svelte'
   import TrackerOff from './TrackerOff.svelte'
   import { trackerOn } from '../live.svelte'
@@ -122,7 +123,7 @@
   <h2>
     <span class="title"><Logo name={trackerLogo()} /><span class="name">{onNext && next ? sprintNo(next) : sprint ? sprintNo(sprint) : tr('Sprint')}</span></span>
     {#if next}
-      <span class="tabs" role="tablist" aria-label={tr('Sprint')}>
+      <span class="seg tabs" role="tablist" aria-label={tr('Sprint')}>
         <button role="tab" aria-selected={!onNext} class:on={!onNext} onclick={() => setTab('current')}><span class="long">{tc('tickets', 'Current')}</span><span class="short">{tr('Now')}</span></button>
         <button role="tab" aria-selected={onNext} class:on={onNext} onclick={() => setTab('next')} title="{next.name} · {tn(nextTickets.length, '{n} ticket', '{n} tickets')}">{tr('Next')}</button>
       </span>
@@ -172,7 +173,7 @@
     <div class="sub narrow">
       <span class="t">{#if sprint.start || sprint.end}{short(sprint.start)} → {short(sprint.end)} ·{' '}{/if}{#if days}{tr('day')} <b>{days.day}</b>/{days.total} ·{' '}{/if}<b>{tickets.length}</b> {tr('tickets')}{filtered ? ` ${tr('(filtered)')}` : ''}{#if progress !== null}<span class="pct" title={tr('{done} of {total} high and urgent tickets done', { done: key.filter(isDone).length, total: key.length })}>{' '}· <b>{progress}%</b> {tc('tickets', 'done')}</span>{/if}</span>
       <span class="grow"></span>
-      {#if showOutside}<button class="pill-off" onclick={toggleOutside} title={tr('Hide the tickets outside the sprint')}>+{extra.length} {tr('outside')} <Icon name="close" /></button>{/if}
+      {#if showOutside}<button class="pill src pill-off" onclick={toggleOutside} title={tr('Hide the tickets outside the sprint')}>+{extra.length} {tr('outside')} <Icon name="close" /></button>{/if}
     </div>
   {/if}
   {#if sprint && isShort('sprint')}
@@ -194,20 +195,17 @@
   {:else if !trackerOn()}
     <TrackerOff />
   {:else}
-    <div class="empty">{onObsidian() ? tr('Boards not read yet (Settings › Work › Tracker › Obsidian).') : tr('Current sprint not found (ClickUp folder, dates, or missing token).')}</div>
+    <State kind="off" title={onObsidian() ? tr('Boards not read yet (Settings › Work › Tracker › Obsidian).') : tr('Current sprint not found (ClickUp folder, dates, or missing token).')} />
   {/if}
   {/if}
 </section>
 
 <style>
   .blocked-pill { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 0 7px; border-radius: var(--r9); background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); font-size: var(--fs-tag); font-weight: 500; line-height: 17px; white-space: nowrap; }
-  .new { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: 14px; cursor: pointer; }
+  .new { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: var(--fs-head); cursor: pointer; }
   .new:hover, .new.on { background: var(--surface-muted); color: var(--text); }
   section { container-type: inline-size; }
   .grow { flex: 1; }
-  .tabs { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .tabs button { padding: 0 8px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); font-weight: 400; cursor: pointer; }
-  .tabs button.on { background: color-mix(in srgb, var(--src) 18%, transparent); color: var(--text); }
   .progress { font-size: var(--fs-meta); font-weight: 600; color: var(--ok); font-variant-numeric: tabular-nums; }
   .info { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .narrow { display: none; }
@@ -237,7 +235,7 @@
   .sub { align-items: center; gap: 8px; padding: 3px 12px; border-bottom: 1px solid var(--border); font-size: var(--fs-meta); color: var(--text-muted); white-space: nowrap; min-width: 0; }
   .sub .t { overflow: hidden; text-overflow: ellipsis; }
   .sub b { color: var(--text); font-weight: 600; }
-  .pill-off { flex-shrink: 0; padding: 0 6px; border: none; border-radius: var(--r9); background: color-mix(in srgb, var(--violet) 18%, transparent); color: var(--text); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
+  .pill-off { flex-shrink: 0; --c: var(--violet); }
   .stack { display: flex; height: 8px; border-radius: var(--r4); overflow: hidden; margin-bottom: 2px; flex-shrink: 0; }
   .stack i { display: block; }
   h2 a { font-size: var(--fs-meta); font-weight: 400; white-space: nowrap; }

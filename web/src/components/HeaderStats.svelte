@@ -11,7 +11,7 @@
   import { openMr } from '../mr-view.svelte'
   import { mrKey } from '../mr-ref'
   import MrTitle from './MrTitle.svelte'
-  import { agentsEnabled, openAgents } from '../agents.svelte'
+  import { openWaiting } from '../doors'
   import { agentName } from '../agent-cli'
   import { showBlock } from '../layout.svelte'
   import { ago } from '../time'
@@ -56,7 +56,6 @@
     run()
   }
   const mrFix = (a: Alert) => a.fixes?.find((f) => f.kind === 'mr')
-  const openSession = (c: ClaudeSession) => (agentsEnabled() ? openAgents(c.id) : showBlock('sessions'))
 </script>
 
 <div class="stats">
@@ -83,7 +82,7 @@
 </div>
 
 {#if open === 'inbox'}
-  <div class="pop" role="dialog" aria-label={t('Waiting for me')} {@attach anchored(() => inboxEl, { gap: 6 })} {@attach exclusive(close)} {@attach dismissable(close, { trigger: () => inboxEl, resize: true })}>
+  <div class="pop popover" role="dialog" aria-label={t('Waiting for me')} {@attach anchored(() => inboxEl, { gap: 6 })} {@attach exclusive(close)} {@attach dismissable(close, { trigger: () => inboxEl, resize: true })}>
     {#if !todo}<div class="empty">{t('Nothing waiting for you.')}</div>{/if}
     {#if reviews.length}
       <div class="sec" style:--g="var(--src-gitlab)"><i></i>{t('Reviews for me')} · {reviews.length}</div>
@@ -98,7 +97,7 @@
     {#if waiting.length}
       <div class="sec" style:--g="var(--src-claude)"><i></i>{t('{agent} waiting', { agent: agentName() })} · {waiting.length}</div>
       {#each waiting as c (c.id)}
-        <button class="row" onclick={(e) => go(e, () => openSession(c))} title={c.needs_action ?? c.title}><span class="t">{c.title}</span><span class="m">{ago(c.last_activity)}</span></button>
+        <button class="row" onclick={(e) => go(e, () => openWaiting(c.id))} title={c.needs_action ?? c.title}><span class="t">{c.title}</span><span class="m">{ago(c.last_activity)}</span></button>
       {/each}
     {/if}
     {#if syncs.length}
@@ -119,7 +118,7 @@
 {/if}
 
 {#if open === 'health'}
-  <div class="pop" role="dialog" aria-label={t('CI health')} {@attach anchored(() => healthEl, { gap: 6 })} {@attach exclusive(close)} {@attach dismissable(close, { trigger: () => healthEl, resize: true })}>
+  <div class="pop popover" role="dialog" aria-label={t('CI health')} {@attach anchored(() => healthEl, { gap: 6 })} {@attach exclusive(close)} {@attach dismissable(close, { trigger: () => healthEl, resize: true })}>
     {#if failures.length}
       <div class="sec" style:--g="var(--ko)"><i></i>{t('Failed on main/release')} · {failures.length}</div>
       {#each failures as p (p.id)}
@@ -145,7 +144,7 @@
 <style>
   .stats { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
   .stats :global(svg) { width: 12px; height: 12px; flex-shrink: 0; }
-  b { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  b { font-size: var(--fs-title); font-weight: 600; font-variant-numeric: tabular-nums; }
 
   /* For me: the counters to handle, on a shared background. */
   .inbox { display: flex; align-items: center; gap: 2px; padding: 2px; border: none; border-radius: var(--r7); background: var(--surface-muted); font: inherit; cursor: pointer; white-space: nowrap; }
@@ -155,7 +154,7 @@
   .inbox:hover .c, .inbox.on .c { box-shadow: 0 0 0 1px var(--g); }
   .clear { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: none; border-radius: var(--r6); background: none; font: inherit; font-size: var(--fs-mono); color: var(--ok); white-space: nowrap; cursor: pointer; }
   .clear:hover { background: var(--surface-muted); }
-  .empty { padding: 10px 12px 2px; color: var(--text-muted); }
+  .pop .empty { padding: 10px 12px 2px; }
 
   /* CI: an indicator light, discreet while all is well. */
   .health { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 7px; border: 1px solid var(--border); border-radius: var(--r7); background: none; font: inherit; font-size: var(--fs-mono); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
@@ -172,7 +171,7 @@
   @keyframes pulse { 50% { transform: scale(1.3); opacity: 0; } }
   :global(html[data-reduce-motion]) .health.ko .dot::after { animation: none; }
   /* Detail of a cluster. */
-  .pop { position: fixed; z-index: 45; width: 360px; max-height: 70vh; overflow: auto; padding-bottom: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
+  .pop { position: fixed; width: 360px; max-height: 70vh; overflow: auto; padding: 0 0 2px; font-size: var(--fs-body); }
   .sec { display: flex; align-items: center; gap: 6px; padding: 8px 12px 3px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .sec i { width: 6px; height: 6px; border-radius: 50%; background: var(--g); }
   .row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 12px; border: none; background: none; color: var(--text); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }

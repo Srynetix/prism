@@ -2,6 +2,8 @@
   import { hasCore, invoke } from '../../bridge'
   import { t } from '../../i18n.svelte'
   import ListInput from './ListInput.svelte'
+  import Icon from '../Icon.svelte'
+  import State from '../ui/State.svelte'
   import type { PipelineBranches } from '../../bindings/PipelineBranches'
 
   /**
@@ -58,9 +60,9 @@
       {#if error}<span class="err">{error}</span>
       {:else if preview}
         <span class="what">{t('On the forge:')}</span>
-        {#each preview.refs as b (b)}<span class="br mono">{b}</span>{:else}<span class="none">{t('no branch')}</span>{/each}
-        {#each preview.missing as m (m)}<span class="br mono miss" title={t('The forge has no branch for it')}>{m} ✗</span>{/each}
-      {:else if loading}<span class="none">{t('Reading the forge…')}</span>{/if}
+        {#each preview.refs as b (b)}<span class="pill mono">{b}</span>{:else}<span class="none">{t('no branch')}</span>{/each}
+        {#each preview.missing as m (m)}<span class="pill mono warn" title={t('The forge has no branch for it')}>{m} <Icon name="close" /></span>{/each}
+      {:else if loading}<State kind="loading" inline title={t('Reading the forge…')} />{/if}
     </p>
   {/if}
 </div>
@@ -70,8 +72,5 @@
   .hint { font-size: var(--fs-tag); }
   .resolved { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 2px 0 0; }
   .what { margin-right: 2px; }
-  .br { padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); color: var(--text); font-size: var(--fs-tag); line-height: 17px; }
-  .br.miss { background: var(--warn-bg); color: var(--warn); }
   .none { font-style: italic; }
-  .err { color: var(--ko); }
 </style>

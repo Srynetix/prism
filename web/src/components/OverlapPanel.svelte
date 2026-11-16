@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { clickedOutside } from '../drawers'
   import { t } from '../i18n.svelte'
   import { live } from '../live.svelte'
   import { hasCore, invoke } from '../bridge'
@@ -9,6 +8,8 @@
   import { promptAgent } from '../note-send'
   import { mrKey } from '../mr-ref'
   import Icon from './Icon.svelte'
+  import Drawer from './ui/Drawer.svelte'
+  import State from './ui/State.svelte'
   import type { OverlapDiff } from '../bindings/OverlapDiff'
 
   /**
@@ -86,19 +87,8 @@
     closeOverlap()
   }
 
-  function onKey(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || !overlapView.open) return
-    e.stopImmediatePropagation()
-    closeOverlap()
-  }
-  let drawerEl: HTMLElement | undefined = $state()
-  function onOutside(e: PointerEvent) {
-    if (overlapView.open && clickedOutside(e, drawerEl)) closeOverlap()
-  }
   const lineClass = (l: string) => (l.startsWith('+') ? 'add' : l.startsWith('-') ? 'del' : l.startsWith('@@') ? 'hunk' : '')
 </script>
-
-<svelte:window onkeydowncapture={onKey} onpointerdowncapture={onOutside} />
 
 {#snippet hunks(side: Side, file: NonNullable<typeof o>['files'][number])}
   {@const hs = hunksOf(diff?.[side], file, side)}
@@ -116,22 +106,19 @@
     {:else if diff}
       <p class="muted">{t('No hunk to show.')}</p>
     {:else if !error && hasCore()}
-      <p class="muted">{t('Reading…')}</p>
+      <State kind="loading" lines={4} />
     {/if}
   </div>
 {/snippet}
 
-{#if overlapView.open}
-  <aside class="drawer" class:phone bind:this={drawerEl} data-drawer="52" aria-label={t('Overlap')}>
-    <header>
-      <Icon name="overlap" />
-      <span class="what">{t('Overlap')}</span>
-      {#if o}<span class="muted">{o.repo} · {o.base}</span>{/if}
-      <span class="grow"></span>
-      <button class="icon" onclick={closeOverlap} title={t('Close (Esc)')} aria-label={t('Close')}><Icon name="close" /></button>
-    </header>
+<Drawer open={overlapView.open} key="overlap" identity={overlapView.id} crumb={t('Overlap')} label={t('Overlap')} size={phone ? 'full' : 'l'} source="var(--ko)" onclose={closeOverlap}>
+  {#snippet head()}
+    <Icon name="overlap" />
+    <span class="what">{t('Overlap')}</span>
+    {#if o}<span class="muted">{o.repo} · {o.base}</span>{/if}
+  {/snippet}
     {#if !o || !s}
-      <p class="muted pad">{t('This overlap is gone: neither side changes these lines any more.')}</p>
+      <State kind="empty" title={t('This overlap is gone: neither side changes these lines any more.')} />
     {:else}
       <div class="body">
         <div class="pair">
@@ -149,12 +136,12 @@
         {/if}
         <div class="actions">
           {#if agentOf(other(me))}
-            <button onclick={openOther}><Icon name="external" size={12} /> {t('Open the other agent')}</button>
+            <button class="btn" onclick={openOther}><Icon name="external" size={12} /> {t('Open the other agent')}</button>
           {/if}
-          <button onclick={ignoreIt} title={t('Hidden until one of the two sides changes these hunks')}>{t('Ignore this overlap')}</button>
+          <button class="btn" onclick={ignoreIt} title={t('Hidden until one of the two sides changes these hunks')}>{t('Ignore this overlap')}</button>
           {#if s.overlaps.pairs.some((p) => overlapId(p) !== overlapId(o) && (p.a === pathOf(o, me) || p.b === pathOf(o, me)))}
             {@const next = s.overlaps.pairs.find((p) => overlapId(p) !== overlapId(o) && (p.a === pathOf(o, me) || p.b === pathOf(o, me)))!}
-            <button class="ghost" onclick={() => openOverlap(overlapId(next), next.a === pathOf(o, me) ? 'a' : 'b')}>{t('Next overlap')}</button>
+            <button class="btn ghost" onclick={() => openOverlap(overlapId(next), next.a === pathOf(o, me) ? 'a' : 'b')}>{t('Next overlap')}</button>
           {/if}
         </div>
         {#if error}<p class="err">{error}</p>{/if}
@@ -163,11 +150,11 @@
           <div class="adjust-head">
             <span>{t('Ask {name} to adjust', { name: nameOf(to) })}</span>
             <span class="menu">
-              <button class="ghost" onclick={() => (menu = !menu)} aria-expanded={menu} title={t('Who adjusts')}>▾</button>
+              <button class="btn sm ghost" onclick={() => (menu = !menu)} aria-expanded={menu} title={t('Who adjusts')}>▾</button>
               {#if menu}
-                <span class="pop">
+                <span class="pop popover" role="menu">
                   {#each ['a', 'b'] as const as side (side)}
-                    <button class:on={to === side} disabled={!agentOf(side)} onclick={() => { target = side; edited = false; menu = false }}>{nameOf(side)}{#if !agentOf(side)} · {t('no agent')}{/if}</button>
+                    <button class="mi" role="menuitem" class:on={to === side} disabled={!agentOf(side)} onclick={() => { target = side; edited = false; menu = false }}>{nameOf(side)}{#if !agentOf(side)} · {t('no agent')}{/if}</button>
                   {/each}
                 </span>
               {/if}
@@ -177,12 +164,12 @@
           <div class="send">
             {#if !agentOf(to)}<small class="muted">{t('No agent works there: nobody to ask.')}</small>{/if}
             <span class="grow"></span>
-            <button class="primary" disabled={!agentOf(to) || sending || !prompt.trim()} onclick={send}>{t('Send to {name}', { name: nameOf(to) })}</button>
+            <button class="btn primary" disabled={!agentOf(to) || sending || !prompt.trim()} onclick={send}>{t('Send to {name}', { name: nameOf(to) })}</button>
           </div>
         </section>
 
         {#if phone}
-          <div class="switch" role="tablist">
+          <div class="seg switch" role="tablist">
             {#each ['a', 'b'] as const as side (side)}
               <button role="tab" aria-selected={phoneSide === side} class:on={phoneSide === side} onclick={() => (phoneSide = side)}>{nameOf(side)}</button>
             {/each}
@@ -203,55 +190,29 @@
         {/each}
       </div>
     {/if}
-  </aside>
-{/if}
+</Drawer>
 
 <style>
-  .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 52; width: min(1040px, 96vw);
-    display: flex; flex-direction: column; background: var(--surface);
-    border-left: 1px solid var(--border); box-shadow: var(--shadow-drawer);
-  }
-  .drawer.phone { width: 100vw; }
-  header {
-    display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-shrink: 0; white-space: nowrap;
-    border-bottom: 1px solid var(--border); box-shadow: inset 0 2px var(--ko);
-    font-size: var(--fs-meta); color: var(--text-muted);
-  }
-  .what { color: var(--text); font-weight: 600; }
+  .what { color: var(--text); font-weight: 600; white-space: nowrap; }
   .grow { flex: 1; }
   .muted { color: var(--text-muted); }
-  .pad { padding: 16px; }
-  .icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover { background: var(--surface-muted); color: var(--text); }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; font-size: var(--fs-body); }
   .pair { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .sidechip { padding: 2px 9px; border-radius: var(--r9); background: var(--surface-muted); font-weight: 500; }
   .sidechip.me { box-shadow: inset 0 0 0 1px var(--border); }
   .sidechip small { color: var(--text-muted); margin-left: 4px; font-weight: 400; }
-  .pill { padding: 0 7px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 500; line-height: 17px; }
-  .pill.ko { color: var(--ko); background: var(--ko-bg); } .pill.warn { color: var(--warn); background: var(--warn-bg); }
   .note { margin: 8px 0 0; color: var(--warn); }
-  .err { color: var(--ko); }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
-  button { font: inherit; font-size: var(--fs-meta); padding: 3px 10px; border-radius: var(--r6); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
-  button:hover:not(:disabled) { background: var(--surface-muted); }
-  button:disabled { opacity: 0.5; cursor: default; }
-  button.ghost { border-color: transparent; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, white); }
   .adjust { border: 1px solid var(--border); border-radius: var(--r8, 8px); padding: 8px 10px; margin-bottom: 12px; }
   .adjust-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: var(--fs-meta); }
   .menu { position: relative; }
-  .pop { position: absolute; top: 100%; left: 0; z-index: 2; display: flex; flex-direction: column; min-width: 200px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r6); box-shadow: var(--shadow-drawer); }
-  .pop button { border: none; justify-content: flex-start; }
-  .pop button.on { font-weight: 600; }
+  .pop { position: absolute; top: 100%; left: 0; z-index: 2; display: flex; flex-direction: column; min-width: 200px; font-weight: 400; }
+  .pop .mi.on { font-weight: 600; }
+  .actions .btn :global(svg) { flex: none; }
   textarea { width: 100%; box-sizing: border-box; margin-top: 6px; font: inherit; font-size: var(--fs-meta); font-family: var(--mono); background: var(--surface-muted); color: var(--text); border: 1px solid var(--border); border-radius: var(--r6); padding: 6px 8px; resize: vertical; }
   .send { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-  .switch { display: flex; gap: 4px; margin-bottom: 6px; }
-  .switch button.on { background: var(--surface-muted); font-weight: 600; }
+  .switch { margin-bottom: 6px; }
   .file h4 { display: flex; align-items: center; gap: 6px; margin: 14px 0 6px; font-size: var(--fs-meta); font-family: var(--mono); overflow-wrap: anywhere; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .dot.ko { background: var(--ko); } .dot.warn { background: var(--warn); }
   .sides { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
   .sides.stack { grid-template-columns: minmax(0, 1fr); }
   .side { min-width: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }

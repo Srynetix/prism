@@ -1,11 +1,14 @@
 <script lang="ts">
   import { anchored, dismissable } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
 
   /**
    * A select's list of options, the app's in place of the system's menu (Aqua on the Mac, GTK on
    * Linux): for every select of the window (one choice, not a list box), opened by a click on it,
    * or from the keyboard by Space, Enter, ↑ or ↓. ↑ ↓ Home End move, a letter goes to the next
-   * option starting with it, Enter or Space picks, Esc or Tab closes; the select keeps the focus.
+   * option starting with it, Enter or Space picks, Esc (the stack of layers) or Tab closes; the
+   * select keeps the focus.
    * A pick sets the select and sends it `input` then `change`, as the system's menu did, so
    * `bind:value` and `onchange` see it. The phone keeps its own pickers. Not exclusive: a popup
    * the select is in stays open.
@@ -87,8 +90,6 @@
       case 'End': take(); o.cursor = next(o.items.length, -1); break
       case 'Enter':
       case ' ': take(); pick(o.items[o.cursor]); break
-      // Closes the list only, not the panel the select is in.
-      case 'Escape': take(); close(); break
       case 'Tab': close(); break
       default:
         if (e.key.length !== 1 || e.altKey) return
@@ -117,6 +118,14 @@
   $effect(() => {
     if (open) list?.querySelector('.on')?.scrollIntoView({ block: 'nearest' })
   })
+  // Open, a layer on top: Escape closes the list only, not the drawer the select is in. The focus
+  // stays on the select (`focus: false`).
+  const isOpen = $derived(!!open)
+  $effect(() => {
+    if (!isOpen) return
+    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'select-menu', el: () => list, close, outside: false, focus: false }))
+    return layer.remove
+  })
 </script>
 
 {#if open}
@@ -124,18 +133,18 @@
   <!-- The select keeps its focus while a choice is clicked. -->
   <div
     bind:this={list}
-    class="selectmenu"
+    class="selectmenu popover"
     role="listbox"
     tabindex="-1"
     style:min-width="{o.select.offsetWidth}px"
     onmousedown={(e) => e.preventDefault()}
     {@attach anchored(() => o.select, { align: 'start', gap: 2 })}
-    {@attach dismissable(close, { trigger: () => o.select, resize: true })}
+    {@attach dismissable(close, { trigger: () => o.select, resize: true, escape: false })}
   >
     {#each o.items as item, k (item.index)}
-      {#if item.group}<p class="group">{item.group}</p>{/if}
+      {#if item.group}<p class="hd">{item.group}</p>{/if}
       <div
-        class="opt"
+        class="mi opt"
         class:on={k === o.cursor}
         class:picked={item.index === o.select.selectedIndex}
         class:off={item.disabled}
@@ -153,13 +162,13 @@
 {/if}
 
 <style>
-  .selectmenu { position: fixed; z-index: 200; max-height: 320px; overflow-y: auto; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
-  .opt { position: relative; padding: 4px 10px 4px 22px; border-radius: var(--r5); white-space: nowrap; cursor: pointer; }
-  .opt.on { background: color-mix(in srgb, var(--info) 18%, transparent); }
+  .selectmenu { position: fixed; min-width: 0; max-height: 320px; overflow-y: auto; outline: none; }
+  .hd { margin: 0; }
+  .selectmenu .opt { position: relative; padding-left: 22px; }
   .opt.picked::before { content: ''; position: absolute; left: 8px; top: 50%; width: 6px; height: 3px; margin-top: -3px; border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+  /* The cursor is lit, the option picked has its tick. */
+  .selectmenu .opt[aria-selected='true']:not(.on) { background: none; }
   .opt.off { color: var(--text-muted); opacity: 0.6; cursor: default; }
-  .opt.inner { padding-left: 30px; }
+  .selectmenu .opt.inner { padding-left: 30px; }
   .opt.inner.picked::before { left: 14px; }
-  .group { margin: 6px 10px 2px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
-  .group:first-child { margin-top: 2px; }
 </style>

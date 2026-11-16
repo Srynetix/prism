@@ -2,6 +2,7 @@
   import { hasCore } from '../../bridge'
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
+  import State from '../../components/ui/State.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../../layout.svelte'
   import { locale } from '../../locale'
   import { t } from '../../i18n.svelte'
@@ -97,14 +98,14 @@
     <span class="title"><Icon name="activity" />{t('Tokens')}</span>
     {#if usage}
       <small class="range">{range}</small>
-      {#if hasCore()}<button class="icon" class:spin={refreshing} onclick={refresh} title={t('Read the sessions again now')} aria-label={t('Refresh')}><Icon name="refresh" /></button>{/if}
+      {#if hasCore()}<button class="btn sm icon ghost" onclick={refresh} title={t('Read the sessions again now')} aria-label={t('Refresh')}><Icon name="refresh" spin={refreshing} /></button>{/if}
     {/if}
     <BlockControls id="tokens" />
   </h2>
   {#if !usage}
-    <div class="empty">{t('Token use is not read. Turn on Settings › Agents › Tokens, then restart Prism.')}</div>
+    <State kind="off" title={t('Token use is not read. Turn on Settings › Agents › Tokens, then restart Prism.')} />
   {:else if !days.length}
-    <div class="empty">{error ?? (usage.read_at ? t('No coding tool reply on this computer yet.') : t('Reading the coding tools’ sessions…'))}</div>
+    {#if error}<State kind="error" title={error} />{:else if usage.read_at}<State kind="empty" title={t('No coding tool reply on this computer yet.')} />{:else}<State kind="loading" title={t('Reading the coding tools’ sessions…')} />{/if}
   {:else}
     <div class="body">
       <div class="tools">
@@ -120,9 +121,9 @@
         {/if}
         <span class="grow"></span>
         <span class="nav">
-          <button class="icon" onclick={() => offset++} disabled={!canBack} title={bySpan('The week before', 'The month before')} aria-label={bySpan('Previous week', 'Previous month')}><Icon name="chevronLeft" /></button>
-          {#if offset}<button class="now" onclick={() => (offset = 0)} title={bySpan('Back to this week', 'Back to this month')}>{bySpan('This week', 'This month')}</button>{/if}
-          <button class="icon" onclick={() => offset--} disabled={offset === 0} title={bySpan('The week after', 'The month after')} aria-label={bySpan('Next week', 'Next month')}><Icon name="chevronRight" /></button>
+          <button class="btn sm icon ghost" onclick={() => offset++} disabled={!canBack} title={bySpan('The week before', 'The month before')} aria-label={bySpan('Previous week', 'Previous month')}><Icon name="chevronLeft" /></button>
+          {#if offset}<button class="btn sm ghost" onclick={() => (offset = 0)} title={bySpan('Back to this week', 'Back to this month')}>{bySpan('This week', 'This month')}</button>{/if}
+          <button class="btn sm icon ghost" onclick={() => offset--} disabled={offset === 0} title={bySpan('The week after', 'The month after')} aria-label={bySpan('Next week', 'Next month')}><Icon name="chevronRight" /></button>
         </span>
       </div>
       <div class="hero">
@@ -171,27 +172,16 @@
 </section>
 
 <style>
-  .empty { padding: 14px 16px; color: var(--text-muted); font-size: var(--fs-body); }
   .muted { color: var(--text-muted); }
   .mono { font-family: var(--mono); }
   .grow { flex: 1; }
-  .icon { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover:not(:disabled) { background: var(--surface-muted); color: var(--text); }
-  .icon:disabled { opacity: 0.35; cursor: default; }
-  .icon :global(svg) { width: 13px; height: 13px; }
-  .spin :global(svg) { animation: spin 0.8s linear infinite; }
   .range { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .tools, .hero, .bars { flex-shrink: 0; }
   .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .nav { display: inline-flex; align-items: center; gap: 2px; }
-  .now { padding: 0 6px; border: none; border-radius: var(--r5); background: none; color: var(--info); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; font-size: var(--fs-tag); }
-  .seg button { padding: 0 8px; border: none; background: none; color: var(--text-muted); font: inherit; line-height: 18px; cursor: pointer; }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button.on { background: var(--surface-muted); color: var(--text); font-weight: 500; }
   .body { display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 10px; overflow: auto; }
   .hero { display: flex; align-items: baseline; gap: 6px; }
-  .hero b { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+  .hero b { font-size: var(--fs-display); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
   .unit { color: var(--text-muted); font-size: var(--fs-meta); }
   .vs { margin-left: 4px; color: var(--text-muted); font-size: var(--fs-meta); }
   .cost { color: var(--text); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
@@ -199,10 +189,10 @@
   .bars { display: flex; align-items: stretch; gap: 2px; height: 86px; }
   .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .track { flex: 1; display: flex; align-items: flex-end; border-bottom: 1px solid var(--border); }
-  .track i { display: block; width: 100%; max-width: 28px; margin: 0 auto; border-radius: 4px 4px 0 0; background: var(--src-claude); }
+  .track i { display: block; width: 100%; max-width: 28px; margin: 0 auto; border-radius: var(--r4) var(--r4) 0 0; background: var(--src-claude); }
   .col:hover .track i:not(.future) { background: color-mix(in srgb, var(--src-claude) 75%, var(--text)); }
-  .track i.future { height: 3px; border-radius: 2px; background: none; border-top: 1px dashed var(--border); }
-  .lbl { height: 12px; text-align: center; color: var(--text-muted); font-size: 10px; line-height: 12px; font-variant-numeric: tabular-nums; }
+  .track i.future { height: 3px; border-radius: var(--r2); background: none; border-top: 1px dashed var(--border); }
+  .lbl { height: 12px; text-align: center; color: var(--text-muted); font-size: var(--fs-tag); line-height: 12px; font-variant-numeric: tabular-nums; }
   .today .lbl { color: var(--text); font-weight: 600; }
   .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 18px; }
   .list { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -212,8 +202,8 @@
   .pick { width: 100%; padding: 0; border: none; background: none; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
   .pick:hover .nm { color: var(--info); }
   .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tr { height: 4px; border-radius: 2px; background: var(--surface-muted); overflow: hidden; }
-  .tr i { display: block; height: 100%; border-radius: 2px; background: color-mix(in srgb, var(--src-claude) 70%, transparent); }
+  .tr { height: 4px; border-radius: var(--r2); background: var(--surface-muted); overflow: hidden; }
+  .tr i { display: block; height: 100%; border-radius: var(--r2); background: color-mix(in srgb, var(--src-claude) 70%, transparent); }
   .n { text-align: right; font-variant-numeric: tabular-nums; }
   .foot { margin: 0; font-size: var(--fs-tag); }
 </style>

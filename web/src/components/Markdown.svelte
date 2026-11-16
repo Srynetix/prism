@@ -165,8 +165,8 @@
   .md > :last-child { margin-bottom: 0; }
   p { margin: 0 0 12px; white-space: pre-wrap; }
   .h { font-weight: 600; line-height: 1.3; white-space: normal; }
-  .h1 { font-size: 16px; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-  .h2 { font-size: 14px; margin: 22px 0 8px; }
+  .h1 { font-size: var(--fs-head); margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .h2 { font-size: var(--fs-head); margin: 22px 0 8px; }
   .h3 { font-size: var(--fs-title); margin: 18px 0 6px; }
   .b { font-weight: 600; }
   .i { font-style: italic; }
@@ -231,20 +231,20 @@
   .action:hover { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
   .gone { display: block; width: calc(100% + 10px); margin: 0 0 8px -10px; padding: 1px 8px; border: none; border-left: 3px solid var(--ko); border-radius: 0 var(--r4) var(--r4) 0; background: var(--ko-bg); color: var(--ko); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
   /* Long reading (`reading`: Help, an agent's pages): larger text, larger headings, more room. */
-  .md.doc { font-size: 13.5px; line-height: 1.75; }
+  .md.doc { font-size: var(--fs-title); line-height: 1.75; }
   .doc p { margin-bottom: 14px; }
   .doc .h { font-weight: 650; letter-spacing: -0.005em; }
-  .doc .h1 { font-size: 20px; margin: 30px 0 12px; padding-bottom: 0; border-bottom: none; }
-  .doc .h2 { font-size: 16px; margin: 28px 0 10px; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
-  .doc .h3 { font-size: 14px; margin: 22px 0 8px; }
-  .doc code, .doc a.c { font-size: 12.5px; }
-  .doc pre { margin: 6px 0 18px; padding: 12px 16px; border: none; font-size: 12.5px; }
+  .doc .h1 { font-size: var(--fs-display); margin: 30px 0 12px; padding-bottom: 0; border-bottom: none; }
+  .doc .h2 { font-size: var(--fs-head); margin: 28px 0 10px; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
+  .doc .h3 { font-size: var(--fs-head); margin: 22px 0 8px; }
+  .doc code, .doc a.c { font-size: var(--fs-title); }
+  .doc pre { margin: 6px 0 18px; padding: 12px 16px; border: none; font-size: var(--fs-title); }
   .doc blockquote { margin: 6px 0 18px; padding: 8px 16px; border-left-color: var(--accent); border-radius: 0 var(--r8) var(--r8) 0; background: color-mix(in srgb, var(--accent) 7%, transparent); color: var(--text); }
   .doc hr { margin: 28px 0; }
   .doc ul { margin-bottom: 14px; }
   .doc li { margin-bottom: 6px; }
   .doc .table { margin: 6px 0 18px; }
-  .doc table { font-size: 12.5px; }
+  .doc table { font-size: var(--fs-title); }
   .doc th, .doc td { padding: 7px 14px; }
   .doc .callout, .doc details { margin-bottom: 18px; }
 </style>

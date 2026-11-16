@@ -7,6 +7,7 @@
   import { call } from '../block'
   import Icon from '../../components/Icon.svelte'
   import Logo from '../../components/Logo.svelte'
+  import State from '../../components/ui/State.svelte'
   import { openArgo } from '../../argo-view.svelte'
   import { openMr } from '../../mr-view.svelte'
   import { canShowPodLogs, openWorkload } from '../../pod-logs.svelte'
@@ -281,17 +282,17 @@
 <div class="changes" class:compact bind:clientWidth={width}>
   <div class="bar">
     {#if cmp}
-      <span class="pills" role="group" aria-label={t('Environments compared')}>
+      <span class="seg" role="group" aria-label={t('Environments compared')}>
         {#each envs as e (e)}
-          <button class="pill" class:on={e === cmp[0]} class:b={e === cmp[1]} aria-pressed={cmp.includes(e)} onclick={() => pickSecond(e)} title={cmp.includes(e) ? t('Swap the two') : t('Compare {a} with {b}', { a: cmp[0], b: e })}>{e}</button>
+          <button class:on={e === cmp[0]} class:b={e === cmp[1]} aria-pressed={cmp.includes(e)} onclick={() => pickSecond(e)} title={cmp.includes(e) ? t('Swap the two') : t('Compare {a} with {b}', { a: cmp[0], b: e })}>{e}</button>
         {/each}
         <button class="swap" onclick={() => setPair([cmp[1], cmp[0]])} title={t('Swap the two')} aria-label={t('Swap the two')}>⇄</button>
       </span>
     {:else}
-      <span class="pills" role="radiogroup" aria-label={t('Environment')}>
-        <button role="radio" aria-checked={env === null} class="pill" class:on={env === null} onclick={() => pickEnv(null)}>{t('All')}</button>
+      <span class="seg" role="radiogroup" aria-label={t('Environment')}>
+        <button role="radio" aria-checked={env === null} class:on={env === null} onclick={() => pickEnv(null)}>{t('All')}</button>
         {#each envs as e (e)}
-          <button role="radio" aria-checked={env === e} class="pill" class:on={env === e} onclick={() => pickEnv(e)}>{e}</button>
+          <button role="radio" aria-checked={env === e} class:on={env === e} onclick={() => pickEnv(e)}>{e}</button>
         {/each}
       </span>
     {/if}
@@ -299,12 +300,12 @@
       {#each PERIODS as p (p)}<option value={p}>{periodLabel(p)}</option>{/each}
       {#if period === 'custom'}<option value="custom">{hm(range.from)} → {hm(range.to)}</option>{/if}
     </select>
-    {#if app}<button class="pill on" onclick={() => (app = null)} title={t('Every application')}>{app} ✕</button>{/if}
+    {#if app}<button class="pill src" onclick={() => (app = null)} title={t('Every application')}>{app} <Icon name="close" /></button>{/if}
     <span class="grow"></span>
     <input class="search" type="search" placeholder={t('App, author, revision…')} bind:value={query} aria-label={t('Search')} />
-    {#if envs.length > 1}<button class="cbtn" class:on={!!cmp} aria-pressed={!!cmp} onclick={toggleCompare} title={t('Two environments on the same axis: what went on one and not yet on the other')}><Icon name="split" />{t('Compare')}</button>{/if}
-    <button class="icon" onclick={() => copy(cmp ? `${markdown(listA, cmp[0], range)}\n\n${markdown(listB, cmp[1], range)}` : markdown(list, env, range), t('Changes copied'))} title={t('Copy as Markdown (post-mortem, message)')} aria-label={t('Copy')} disabled={cmp ? !listA.length && !listB.length : !list.length}><Icon name="copy" /></button>
-    <button class="icon" class:spin={refreshing} onclick={refresh} title={t('Read the sources again now')} aria-label={t('Refresh')}><Icon name="refresh" /></button>
+    {#if envs.length > 1}<button class="btn sm cbtn" class:on={!!cmp} aria-pressed={!!cmp} onclick={toggleCompare} title={t('Two environments on the same axis: what went on one and not yet on the other')}><Icon name="split" />{t('Compare')}</button>{/if}
+    <button class="btn sm icon ghost" onclick={() => copy(cmp ? `${markdown(listA, cmp[0], range)}\n\n${markdown(listB, cmp[1], range)}` : markdown(list, env, range), t('Changes copied'))} title={t('Copy as Markdown (post-mortem, message)')} aria-label={t('Copy')} disabled={cmp ? !listA.length && !listB.length : !list.length}><Icon name="copy" /></button>
+    <button class="btn sm icon ghost" onclick={refresh} title={t('Read the sources again now')} aria-label={t('Refresh')}><Icon name="refresh" spin={refreshing} /></button>
   </div>
 
   <div class="filters">
@@ -343,15 +344,16 @@
 
   {#if cmp}
     {#if narrow}
-      <div class="sides" role="radiogroup" aria-label={t('List')}>
-        <button role="radio" aria-checked={side === 'a'} class="pill" class:on={side === 'a'} onclick={() => (side = 'a')}>{cmp[0]}</button>
-        <button role="radio" aria-checked={side === 'b'} class="pill b" class:on={side === 'b'} onclick={() => (side = 'b')}>{cmp[1]}</button>
+      <div class="sides"><span class="seg" role="radiogroup" aria-label={t('List')}>
+        <button role="radio" aria-checked={side === 'a'} class:on={side === 'a'} onclick={() => (side = 'a')}>{cmp[0]}</button>
+        <button role="radio" aria-checked={side === 'b'} class="b" class:on={side === 'b'} onclick={() => (side = 'b')}>{cmp[1]}</button>
+      </span>
       </div>
       <div class="list">{@render listOf(groupsOf(side === 'a' ? listA : listB), cmp[side === 'a' ? 0 : 1])}</div>
     {:else}
       <div class="cols">
-        <div class="list"><div class="colh"><span class="pill on">{cmp[0]}</span></div>{@render listOf(groupsOf(listA), cmp[0])}</div>
-        <div class="list"><div class="colh"><span class="pill b">{cmp[1]}</span></div>{@render listOf(groupsOf(listB), cmp[1])}</div>
+        <div class="list"><div class="colh"><span class="pill src">{cmp[0]}</span></div>{@render listOf(groupsOf(listA), cmp[0])}</div>
+        <div class="list"><div class="colh"><span class="pill info">{cmp[1]}</span></div>{@render listOf(groupsOf(listB), cmp[1])}</div>
       </div>
     {/if}
   {:else}
@@ -400,34 +402,28 @@
             <span class="acts">
               {#if isCrash(e)}
                 {@const a = diagnose(r)}
-                {#if a.href}<a class="act" href={a.href} onclick={claudeClick(a)} title={`${t('An agent in plan mode: the logs, the events and the diff of the change linked')}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{/if}
+                {#if a.href}<a class="btn sm claude" href={a.href} onclick={claudeClick(a)} title={`${t('An agent in plan mode: the logs, the events and the diff of the change linked')}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{/if}
               {/if}
-              {#if linkable(e.link)}<button class="act" onclick={() => open(e.link!, e)}>{linkLabel(e.link!)}</button>{/if}
+              {#if linkable(e.link)}<button class="btn sm" onclick={() => open(e.link!, e)}>{linkLabel(e.link!)}</button>{/if}
             </span>
           </div>
         {/if}
       {/each}
     {:else}
-      <div class="empty">
-        {#if !journal?.events.length}{t('Nothing recorded yet: Prism notes what changes as it reads Argo CD, the clusters, the forge, the alerts and the scans.')}{:else}{t('Nothing changed on this range.')}{/if}
-        {#if error}<br /><small>{error}</small>{/if}
-      </div>
+      <State kind="empty" icon="activity" title={!journal?.events.length ? t('Nothing recorded yet: Prism notes what changes as it reads Argo CD, the clusters, the forge, the alerts and the scans.') : t('Nothing changed on this range.')} detail={error ?? ''} />
     {/each}
 {/snippet}
 
 <style>
   .changes { flex: 1; min-height: 0; display: flex; flex-direction: column; container: changes / inline-size; font-size: var(--fs-body); --c-argocd: #e96d36; --c-mrs: var(--violet); --c-pods: var(--src-k8s); --c-alerts: var(--ko); --c-vulnerabilities: var(--warn); }
   .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--border); }
-  .pills { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-  .pill { padding: 1px 9px; border: 1px solid var(--border); border-radius: 10px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .pill.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
+  .bar .seg { flex-wrap: wrap; }
+  /* The second environment compared: in its colour. */
+  .seg > .b { color: var(--info); font-weight: 600; }
   .sel { padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .grow { flex: 1; }
-  .pill.b { border-color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); font-weight: 600; }
-  .swap { padding: 0 2px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .swap { padding: 0 2px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-title); cursor: pointer; }
   .swap:hover { color: var(--text); }
-  .cbtn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .cbtn :global(svg) { width: 11px; height: 11px; }
   .cbtn.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .cols > .list + .list { border-left: 1px solid var(--border); }
@@ -436,17 +432,11 @@
   .sides { display: flex; gap: 4px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
   .cmpnote { display: inline-block; margin-top: 2px; padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
   .cmpnote.wait { color: var(--warn); cursor: default; }
-  .warnchip { display: inline-block; margin: 2px 0 0 6px; padding: 0 6px; border: none; border-radius: 8px; background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); font: inherit; font-size: var(--fs-tag); font-weight: 600; cursor: pointer; }
+  .warnchip { display: inline-block; margin: 2px 0 0 6px; padding: 0 6px; border: none; border-radius: var(--r8); background: color-mix(in srgb, var(--ko) 16%, transparent); color: var(--ko); font: inherit; font-size: var(--fs-tag); font-weight: 600; cursor: pointer; }
   .search { width: 170px; max-width: 40%; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  .icon { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover:not(:disabled) { background: var(--surface-muted); color: var(--text); }
-  .icon:disabled { opacity: 0.4; cursor: default; }
-  .icon :global(svg) { width: 13px; height: 13px; }
-  .spin :global(svg) { animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 
   .filters { display: flex; flex-wrap: wrap; gap: 5px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
-  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: none; border-radius: 10px; background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: none; border-radius: var(--r10); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .chip :global(svg) { width: 11px; height: 11px; }
   .chip b { font-variant-numeric: tabular-nums; }
   .chip.off { opacity: 0.45; text-decoration: line-through; }
@@ -474,7 +464,7 @@
   .ev.ko { box-shadow: inset 2px 0 var(--ko); }
   .ev.hl { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 3px 0 var(--accent); }
   .t { padding-top: 1px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-  .t i { display: block; font-size: 9.5px; font-style: normal; }
+  .t i { display: block; font-size: var(--fs-micro); font-style: normal; }
   .mono { font-family: var(--mono); font-size: var(--fs-mono); }
   .src { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: var(--r5); background: color-mix(in srgb, var(--c, var(--text-muted)) 20%, transparent); color: var(--c, var(--text-muted)); }
   .src :global(svg) { width: 11px; height: 11px; }
@@ -490,9 +480,6 @@
   .mr { padding: 0; border: none; background: none; color: var(--info); font: inherit; font-family: var(--mono); font-size: var(--fs-meta); cursor: pointer; }
   .linked { display: block; margin-top: 2px; padding: 0 6px; border: 1px dashed color-mix(in srgb, var(--warn) 60%, var(--border)); border-radius: var(--r5); background: none; color: var(--warn); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
   .acts { display: inline-flex; gap: 4px; }
-  .act { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); text-decoration: none; white-space: nowrap; cursor: pointer; }
-  .act:hover { border-color: var(--accent); }
-  .empty { padding: 14px 16px; color: var(--text-muted); }
   .note { margin: 0; padding: 4px 12px 6px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-tag); }
 
   .compact .band { display: none; }

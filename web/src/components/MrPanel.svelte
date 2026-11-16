@@ -4,9 +4,9 @@
   import { locale } from '../locale'
   import { offers } from '../tracker'
   import { untrack } from 'svelte'
-  import { clickedOutside } from '../drawers'
-  import { isPinned } from '../drawer-pins'
-  import PinButton from './PinButton.svelte'
+  import Drawer from './ui/Drawer.svelte'
+  import State from './ui/State.svelte'
+  import ArmedLabel from './ArmedLabel.svelte'
   import { live } from '../live.svelte'
   import { closeMr, mrView } from '../mr-view.svelte'
   import { claudeClick, mrActions } from '../claude-actions'
@@ -54,12 +54,13 @@
   import { flatten, mrMenu, type FlatAction } from '../menus'
   import { primaryAction } from '../mr-actions'
   import { armer } from '../armed.svelte'
-  import { copy as copyText, toast, writeClipboard } from '../toast.svelte'
+  import { copy as copyText, toastError, writeClipboard } from '../toast.svelte'
 
   /**
    * An MR's details in a side drawer, like tickets and logs: summary, pipeline
    * (stages, failed jobs, logs, retries), merge (merge queue, auto-merge, rebase) and
-   * Claude actions. Read from the snapshot: it follows the MR live. Escape closes.
+   * Claude actions. Read from the snapshot: it follows the MR live. Its shell is Drawer's (Escape,
+   * a click outside, the pin, the crumbs): M, its Changes tab wide (xl) or full screen.
    * Changes (diff) and Discussion (threads, comments) tabs; description and approval read
    * on demand (mr-review.svelte.ts).
    * `phone` (the remote): the whole screen, Back to the list; the facts as tiles; at the bottom the
@@ -232,14 +233,11 @@
       e.preventDefault()
       e.stopImmediatePropagation()
       toggleFull()
-      return
     }
-    if (e.key !== 'Escape') return
-    // Escape in a comment in progress cancels it (CommentBox) without closing the drawer.
-    if (typing) return
-    e.stopImmediatePropagation()
-    closeMr()
   }
+  const ref = $derived(mrView.ref)
+  const size = $derived(phone ? 'full' : tab === 'changes' ? (full ? 'full' : 'xl') : 'm')
+  const retry = (load: typeof loadDetail) => () => m && load({ iid: m.iid, repo: m.repo }, m.updated_at, true)
   const TONE: Record<string, string> = { success: 'ok', failed: 'ko', running: 'run', pending: 'run', created: 'run' }
 
   /* ---------- The phone's action bar and sheet ---------- */
@@ -274,7 +272,7 @@
     try {
       await main.run()
     } catch (e) {
-      toast(String(e), 6000)
+      toastError(String(e))
     } finally {
       mainBusy = false
     }
@@ -284,14 +282,6 @@
     void mrView.ref
     sheet = false
   })
-
-  let drawerEl: HTMLElement | undefined = $state()
-  /** A click outside the drawer closes it (see drawers.ts). */
-  function onOutside(e: PointerEvent) {
-    if (!!mrView.ref && clickedOutside(e, drawerEl)) {
-      closeMr()
-    }
-  }
 </script>
 
 {#snippet assignees(m: MergeRequest)}
@@ -314,18 +304,18 @@
             {#if hasCore() && m.state === 'opened'}<button class="pick" bind:this={reviewBtn} class:on={picking === 'reviewers'} onclick={() => togglePicker('reviewers')} title={t('Choose who reviews')}>{t('Edit')}</button>{/if}
           {/snippet}
 
-<svelte:window onkeydowncapture={onKey} onpointerdowncapture={onOutside} />
+<svelte:window onkeydowncapture={onKey} />
 
-{#if !!mrView.ref}
-  <aside class="drawer" class:phone class:wide={tab === 'changes' && !phone} class:full={tab === 'changes' && full} bind:this={drawerEl} data-drawer="49" data-pinned={isPinned('mr')} aria-label={t('Merge request {mr}', { mr: mrKey(mrView.ref!) })}>
-    <header>
+<Drawer open={!!ref} key="mr" identity={ref ? mrKey(ref) : ''} crumb={ref ? mrKey(ref) : ''} label={ref ? t('Merge request {mr}', { mr: mrKey(ref) }) : ''} {size} source="var(--src-gitlab)" pin={phone ? undefined : 'mr'} class={phone ? 'mr phone' : 'mr'} onclose={closeMr}>
+  {#snippet head()}
+    {#if ref}
       {#if phone}<button class="back" onclick={closeMr}><Icon name="chevronLeft" />MRs</button>{/if}
-      <span class="iid">{mrKey(mrView.ref!)}</span>
+      <span class="iid">{mrKey(ref)}</span>
       {#if step}<span class="next {step.tone}">{step.label}</span>{/if}
       <span class="grow"></span>
       {#if !phone && m?.state === 'opened' && detail?.data && (detail.data.user_can_approve || detail.data.user_has_approved)}
         <button
-          class="approve"
+          class="btn sm approve"
           class:on={detail.data.user_has_approved}
           class:error={!!approveError}
           disabled={approving || (onGithub(m) && detail.data.user_has_approved)}
@@ -335,7 +325,7 @@
       {/if}
       {#if !phone && m?.state === 'opened' && detail?.data && (detail.data.user_can_approve || detail.data.user_has_approved || detail.data.user_requested_changes)}
         <button
-          class="changes"
+          class="btn sm changes"
           class:on={detail.data.user_requested_changes || asking}
           class:error={!!withdrawError}
           disabled={withdrawing || (onGithub(m) && detail.data.user_requested_changes)}
@@ -344,19 +334,18 @@
           title={withdrawError ? t('Failed: {error}', { error: withdrawError }) : detail.data.user_requested_changes ? (onGithub(m) ? t('You requested changes · GitHub cannot take it back: dismiss your review there') : t('You requested changes · click to take your request back')) : t('Request changes, with a comment saying which')}
         >{#if withdrawing}…{:else if detail.data.user_requested_changes}<Icon name="warning" /> {t('Changes requested')}{:else}{t('Request changes')}{/if}</button>
       {/if}
-      {#if m && !phone}<button class="icon" onclick={() => copyText(m.url, t('Link to {name} copied', { name: mrNumber(m.iid, m.forge) }))} title={t('Copy link')} aria-label={t('Copy link')}><Icon name="copy" /></button>{/if}
-      {#if m}<a class="icon" href={m.url} target="_blank" rel="noreferrer" title={t('Open in {forge}', { forge: forgeName(m?.forge) })} aria-label={t('Open in {forge}', { forge: forgeName(m?.forge) })}><Icon name="external" /></a>{/if}
-      {#if tab === 'changes' && !phone}<button class="icon" onclick={toggleFull} title={full ? t('Exit full screen (f)') : t('Full screen (f)')} aria-label={t('Full screen')} aria-pressed={full}><Icon name={full ? 'shrink' : 'expand'} /></button>{/if}
-      {#if !phone}<PinButton kind="mr" />{/if}
-      {#if !phone}<button class="icon" onclick={closeMr} title={t('Close (Esc)')} aria-label={t('Close')}><Icon name="close" /></button>{/if}
-    </header>
+      {#if m && !phone}<button class="btn sm icon ghost" onclick={() => copyText(m.url, t('Link to {name} copied', { name: mrNumber(m.iid, m.forge) }))} title={t('Copy link')} aria-label={t('Copy link')}><Icon name="copy" /></button>{/if}
+      {#if m}<a class="btn sm icon ghost" href={m.url} target="_blank" rel="noreferrer" title={t('Open in {forge}', { forge: forgeName(m?.forge) })} aria-label={t('Open in {forge}', { forge: forgeName(m?.forge) })}><Icon name="external" /></a>{/if}
+      {#if tab === 'changes' && !phone}<button class="btn sm icon ghost" onclick={toggleFull} title={full ? t('Exit full screen (f)') : t('Full screen (f)')} aria-label={t('Full screen')} aria-pressed={full}><Icon name={full ? 'shrink' : 'expand'} /></button>{/if}
+    {/if}
+  {/snippet}
     {#if m && asking && detail?.data}
       <div class="ask">
         <CommentBox forge={web} {people} label={t('Request changes')} accent="var(--warn)" autofocus placeholder={keys(t('What should change? (⌘↵ to request, Esc to cancel)'))} onsend={askChanges} oncancel={() => (asking = false)} />
       </div>
     {/if}
     {#if m}
-      <nav class="tabs" aria-label={t('Merge request sections')}>
+      <nav class="seg tabs" aria-label={t('Merge request sections')}>
         <button class:on={tab === 'overview'} onclick={() => (tab = 'overview')}>{t('Overview')}</button>
         <button class:on={tab === 'changes'} onclick={() => (tab = 'changes')}>{tc('mrs', 'Changes')}{#if diff?.data}<b>{diff.data.files.length}</b>{/if}</button>
         <button class:on={tab === 'commits'} onclick={() => (tab = 'commits')}>{t('Commits')}{#if commits?.data}<b>{commits.data.length}</b>{/if}</button>
@@ -369,8 +358,8 @@
       {:else if m && tab === 'changes'}
         {#if diff?.data && detail?.data}
           <MrDiffView {phone} iid={mrKey(m)} diff={diff.data} discussions={threads} me={me} onreply={reply} onresolve={resolve} oncomment={(line, body) => commentLine(m, line, body, m.updated_at)} {focus} forge={web} {people} source={(path) => mrFile(m, path)} image={(path, old) => mrImage(m, path, old)} />
-        {:else if diff?.error}<p class="error">{diff.error}</p>
-        {:else}<p class="muted">{t('Loading the changes…')}</p>{/if}
+        {:else if diff?.error}<State kind="error" title={t('Could not read the changes')} detail={diff.error} retry={retry(loadDiff)} />
+        {:else}<State kind="loading" title={t('Loading the changes…')} />{/if}
       {:else if m && tab === 'commits'}
         {#if commits?.data}
           <ul class="commits">
@@ -384,8 +373,8 @@
               <li class="muted">{t('No commit.')}</li>
             {/each}
           </ul>
-        {:else if commits?.error}<p class="error">{commits.error}</p>
-        {:else}<p class="muted">{t('Loading the commits…')}</p>{/if}
+        {:else if commits?.error}<State kind="error" title={t('Could not read the commits')} detail={commits.error} retry={retry(loadCommits)} />
+        {:else}<State kind="loading" title={t('Loading the commits…')} />{/if}
       {:else if m && tab === 'discussion'}
         {#if detail?.data}
           <div class="threads">
@@ -396,10 +385,10 @@
             {/each}
             <div class="compose" class:sticky={phone}><CommentBox forge={web} {people} onsend={(body) => comment(m, body, m.updated_at)} /></div>
           </div>
-        {:else if detail?.error}<p class="error">{detail.error}</p>
-        {:else}<p class="muted">{t('Loading the discussion…')}</p>{/if}
+        {:else if detail?.error}<State kind="error" title={t('Could not read the discussion')} detail={detail.error} retry={retry(loadDetail)} />
+        {:else}<State kind="loading" title={t('Loading the discussion…')} />{/if}
       {:else if !m}
-        <p class="muted">{t('This merge request is no longer in the dashboard.')}</p>
+        <State kind="empty" title={t('This merge request is no longer in the dashboard.')} />
       {:else}
         <h2>
           {#if securityLabel(m)}<span class="sec" title={t('Security MR (label “{label}”)', { label: securityLabel(m) ?? '' })}><Icon name="security" /></span>{/if}
@@ -463,14 +452,14 @@
             <h3>{t('Description')}</h3>
             {#if detail?.data}
               {#if detail.data.description.trim()}<div class="desc"><Markdown text={detail.data.description} forge={web} mention={{ me }} /></div>{:else}<p class="muted">{t('No description.')}</p>{/if}
-            {:else if detail?.error}<p class="error">{detail.error}</p>
-            {:else}<p class="muted">{t('Loading…')}</p>{/if}
+            {:else if detail?.error}<State kind="error" inline title={t('Could not read the description')} detail={detail.error} retry={retry(loadDetail)} />
+            {:else}<State kind="loading" lines={3} />{/if}
           </section>
           <section>
             <h3>{t('Approvals')}{#if detail?.data?.approval_history.length}<span class="muted">{t('{given} given · {standing} standing', { given: detail.data.approval_history.filter((e) => e.kind === 'approved').length, standing: m.approved_by.length })}</span>{/if}</h3>
             {#if detail?.data}<MrApprovals events={detail.data.approval_history} me={me} />
-            {:else if detail?.error}<p class="error">{detail.error}</p>
-            {:else}<p class="muted">{t('Loading…')}</p>{/if}
+            {:else if detail?.error}<State kind="error" inline title={t('Could not read the approvals')} detail={detail.error} />
+            {:else}<State kind="loading" lines={2} />{/if}
           </section>
         {/if}
 
@@ -482,11 +471,11 @@
             <h3>
               {t('Pipeline')} <span class="pst {TONE[p.status] ?? ''}">{p.status}</span>{#if total !== null}<span class="muted mono">{span(total)}</span>{/if}
               <span class="grow"></span>
-              {#if canShowLogs()}<button class="btn" onclick={() => openPipeline(p.id, mrKey(m), m.project ?? null)}>{t('Logs')}</button>{/if}
+              {#if canShowLogs()}<button class="btn sm" onclick={() => openPipeline(p.id, mrKey(m), m.project ?? null)}>{t('Logs')}</button>{/if}
               <RetryPipeline id={p.id} status={m.pipeline} label />
               <RunPipeline mr={m} />
               <CancelPipeline id={p.id} status={m.pipeline} label />
-              <a class="btn" href={p.url} target="_blank" rel="noreferrer">{forgeName(m?.forge)} <Icon name="external" /></a>
+              <a class="btn sm" href={p.url} target="_blank" rel="noreferrer">{forgeName(m?.forge)} <Icon name="external" /></a>
             </h3>
             <div class="track">
               {#each p.stages as s, i}
@@ -524,7 +513,7 @@
               {#if !m.draft && (m.auto_merge || !m.conflicts)}<span class="am" class:on={m.auto_merge}>{#if m.auto_merge}<Icon name="automerge" /> {t('Auto-merge set')}{:else}{t('Auto-merge')}{/if} <AutoMergeButton mr={m} /></span>{/if}
               {#if rebaseHint(m)}<span class="am">{t('Rebase onto {branch}', { branch: m.target_branch })} <RebaseButton mr={m} /></span>{/if}
               <span class="grow"></span>
-              <button class="btn" class:err={!!draftError} disabled={draftBusy} onclick={toggleDraft} title={draftError ?? (m.draft ? t('Remove the Draft: prefix: the MR can be merged') : t('Add the Draft: prefix: the MR cannot be merged'))}>{draftBusy ? '…' : m.draft ? t('Mark as ready') : t('Mark as draft')}</button>
+              <button class="btn" class:danger={!!draftError} class:busy={draftBusy} disabled={draftBusy} onclick={toggleDraft} title={draftError ?? (m.draft ? t('Remove the Draft: prefix: the MR can be merged') : t('Add the Draft: prefix: the MR cannot be merged'))}>{draftBusy ? '…' : m.draft ? t('Mark as ready') : t('Mark as draft')}</button>
             </div>
           </section>
         {/if}
@@ -534,7 +523,7 @@
           <h3>{actorName()}</h3>
           <div class="row">
             {#each mrActions(m) as a (a.id)}
-              {#if a.href}<a class="btn claude" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}>{a.label}</a>{:else}<span class="btn off" title={a.why}>{a.label}</span>{/if}
+              {#if a.href}<a class="btn claude" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}>{a.label}</a>{:else}<span class="btn" aria-disabled="true" title={a.why}>{a.label}</span>{/if}
             {/each}
             {#if m.ticket && offers('time')}<button class="btn" onclick={() => openTimeDraft(m.ticket!, timeDescription(m))}><Icon name="timer" /> {t('Log time')}</button>{/if}
           </div>
@@ -544,60 +533,40 @@
     </div>
     {#if phone && m && m.state === 'opened' && tab === 'overview'}
       <div class="mainbar">
-        {#if main}<button class="primary" class:armed={armedMain.is()} disabled={mainBusy} onclick={runMain}>{mainBusy ? '…' : armedMain.is() ? (main.confirm ?? main.label) : main.label}</button>{/if}
-        <button onclick={() => (sheet = true)}>{t('Actions')}</button>
+        {#if main}<button class="btn primary" class:armed={armedMain.is()} class:busy={mainBusy} disabled={mainBusy} onclick={runMain}>{#if mainBusy}…{:else}<ArmedLabel label={main.label} armedLabel={main.confirm ?? t('Tap again to confirm')} armed={armedMain.is()} />{/if}</button>{/if}
+        <button class="btn" onclick={() => (sheet = true)}>{t('Actions')}</button>
       </div>
     {/if}
     {#if phone && sheet && m}<ActionSheet title="{mrKey(m)} {cleanTitle(m)}" actions={sheetActions} onclose={() => (sheet = false)} />{/if}
-  </aside>
-{/if}
+</Drawer>
 
 <style>
-  .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 49; width: min(560px, 92vw);
-    display: flex; flex-direction: column; background: var(--surface);
-    border-left: 1px solid color-mix(in srgb, var(--src-gitlab) 45%, var(--border));
-    box-shadow: var(--shadow-drawer);
-  }
-  header {
-    display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-shrink: 0; border-bottom: 1px solid var(--border);
-    background: var(--surface); box-shadow: inset 0 2px var(--src-gitlab);
-  }
-  .drawer.wide { width: min(1320px, 96vw); }
-  /* The phone (the remote): the whole screen, larger type and targets. */
-  .drawer.phone { left: 0; width: auto; border-left: none; box-shadow: none; font-size: 14px; }
-  .phone header { padding: calc(8px + env(safe-area-inset-top)) 12px 8px 4px; }
-  .back { display: inline-flex; align-items: center; gap: 2px; padding: 4px 6px; border: 0; background: none; color: var(--accent); font: inherit; font-size: 15px; }
+  .back { display: inline-flex; align-items: center; gap: 2px; padding: 4px 6px; border: 0; background: none; color: var(--accent); font: inherit; font-size: var(--fs-head); }
   /* Four tabs on a phone: they share its width, and scroll rather than squeeze when their counts make them wider. */
-  .phone .tabs { overflow-x: auto; scrollbar-width: none; }
-  .phone .tabs::-webkit-scrollbar { display: none; }
-  .phone .tabs button { flex: 1 0 auto; justify-content: center; padding: 10px 6px 8px; font-size: 14px; white-space: nowrap; }
-  .phone .body { padding: 14px 14px 96px; }
-  .phone h2 { font-size: 18px; }
+  /* The phone (the remote): the whole screen, larger type and targets. */
+  :global(.mr.phone) { font-size: var(--fs-body); }
+  :global(.mr.phone) .tabs { display: flex; overflow-x: auto; scrollbar-width: none; }
+  :global(.mr.phone) .tabs::-webkit-scrollbar { display: none; }
+  :global(.mr.phone) .tabs > button { flex: 1 0 auto; justify-content: center; height: auto; padding: 8px 6px; font-size: var(--fs-body); }
+  :global(.mr.phone) .body { padding: 14px 14px 96px; }
+  :global(.mr.phone) h2 { font-size: var(--fs-big); }
   .branch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
   .branch code { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .tile { min-width: 0; padding: 8px 10px; border-radius: var(--r10); background: var(--surface-muted); }
   .tile.wide { grid-column: 1 / -1; }
-  .tile small { display: block; margin-bottom: 2px; color: var(--text-muted); font-size: 11px; }
+  .tile small { display: block; margin-bottom: 2px; color: var(--text-muted); font-size: var(--fs-meta); }
   .tile b { font-weight: 500; }
-  .tile .pick { margin-left: 6px; padding: 2px 8px; font-size: 12px; }
-  .phone section { margin-top: 18px; }
-  .phone .btn { padding: 5px 12px; font-size: 13px; }
-  .phone .step .n { font-size: 12px; }
+  .tile .pick { margin-left: 6px; padding: 2px 8px; font-size: var(--fs-body); }
+  :global(.mr.phone) section { margin-top: 18px; }
+  :global(.mr.phone) .body .btn:not(.icon) { height: auto; padding: 5px 12px; }
+  :global(.mr.phone) .step .n { font-size: var(--fs-tag); }
   /* Above what the overview positions as it scrolls under it (the pipeline's step dots). */
   .mainbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); }
-  .mainbar button { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); color: var(--text); font: inherit; font-size: 15px; }
-  .mainbar .primary { flex: 2; border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
-  .mainbar .primary.armed { border-color: var(--warn); background: var(--warn); }
-  .mainbar button:disabled { opacity: 0.6; }
+  .mainbar .btn { flex: 1; height: auto; padding: 12px; border-radius: var(--r12); font-size: var(--fs-head); }
+  .mainbar .btn.primary { flex: 2; }
   .compose.sticky { position: sticky; bottom: -96px; padding: 8px 0; background: var(--surface); }
-  /* Full screen (changes tab): the whole window, no shadow or border. */
-  .drawer.full { left: 0; width: auto; border-left: none; box-shadow: none; }
-  .tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .tabs button { display: inline-flex; align-items: center; gap: 5px; padding: 7px 10px 6px; border: none; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .tabs button:hover { color: var(--text); }
-  .tabs button.on { color: var(--text); font-weight: 500; border-bottom-color: var(--src-gitlab); }
+  .tabs { align-self: flex-start; margin: var(--sp-3) var(--sp-5) 0; }
   .tabs b { padding: 0 6px; border-radius: var(--r8); background: var(--surface-muted); font-size: var(--fs-tag); font-weight: 500; }
   .tabs .open { color: var(--warn); font-size: var(--fs-tag); }
   .commits { margin: 0; padding: 0; list-style: none; }
@@ -608,14 +577,14 @@
   .subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cmeta { color: var(--text-muted); font-size: var(--fs-tag); white-space: nowrap; }
   /* A phone: the title on its own line, under the sha and who. */
-  .phone .commits li { grid-template-columns: auto minmax(0, 1fr); padding: 8px 0; }
-  .phone .commits .subject { grid-column: 1 / -1; grid-row: 2; white-space: normal; }
-  .approve { padding: 2px 10px; border: 1px solid color-mix(in srgb, var(--ok) 55%, var(--border)); border-radius: var(--r6); background: none; color: var(--ok); font: inherit; font-size: var(--fs-meta); font-weight: 500; cursor: pointer; }
+  :global(.mr.phone) .commits li { grid-template-columns: auto minmax(0, 1fr); padding: 8px 0; }
+  :global(.mr.phone) .commits .subject { grid-column: 1 / -1; grid-row: 2; white-space: normal; }
+  .approve { border-color: color-mix(in srgb, var(--ok) 55%, var(--border)); background: none; color: var(--ok); }
   .approve:hover { background: var(--ok-bg); }
   .approve.on { background: var(--ok-bg); border-color: transparent; }
   .approve.error { border-color: var(--ko); color: var(--ko); }
   .approve:disabled { cursor: progress; opacity: 0.6; }
-  .changes { padding: 2px 10px; border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--border)); border-radius: var(--r6); background: none; color: var(--warn); font: inherit; font-size: var(--fs-meta); font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+  .changes { border-color: color-mix(in srgb, var(--warn) 55%, var(--border)); background: none; color: var(--warn); }
   .changes:hover, .changes.on { background: color-mix(in srgb, var(--warn) 12%, transparent); }
   .changes.on { border-color: transparent; }
   .changes.error { border-color: var(--ko); color: var(--ko); }
@@ -623,17 +592,14 @@
   .ask { padding: 8px 12px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--warn) 5%, transparent); }
   .threads { display: flex; flex-direction: column; gap: 10px; }
   .desc { font-size: var(--fs-body); }
-  .error { color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
   .iid { font-family: var(--mono); font-size: var(--fs-mono); font-weight: 600; color: var(--info); }
   .grow { flex: 1; }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: 15px; cursor: pointer; }
-  .icon:hover { background: var(--surface-muted); color: var(--text); }
   .next { padding: 0 8px; border-radius: var(--r10); font-size: var(--fs-tag); font-weight: 500; line-height: 18px; --c: var(--text-muted); background: color-mix(in srgb, var(--c) 15%, transparent); color: color-mix(in srgb, var(--c) 70%, var(--text)); }
   .next.blocked { --c: var(--ko); } .next.todo { --c: var(--warn); } .next.wait { --c: var(--info); } .next.ready { --c: var(--ok); } .next.auto { --c: var(--accent); }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; }
-  h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+  h2 { margin: 0 0 10px; font-size: var(--fs-head); font-weight: 600; line-height: 1.35; }
   .sec { color: var(--ko); margin-right: 4px; }
-  .draft-tag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px dashed currentColor; border-radius: var(--r4); font-size: 9.5px; font-weight: 600; text-transform: uppercase; vertical-align: 2px; color: var(--text-muted); }
+  .draft-tag { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px dashed currentColor; border-radius: var(--r4); font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; vertical-align: 2px; color: var(--text-muted); }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: var(--fs-body); }
   dt { color: var(--text-muted); font-size: var(--fs-meta); }
   dd .add { color: var(--ok); }
@@ -659,12 +625,6 @@
   h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   h3 > :not(:first-child) { text-transform: none; letter-spacing: 0; font-weight: 400; }
   .pst.ok { color: var(--ok); } .pst.ko { color: var(--ko); } .pst.run { color: var(--warn); }
-  .btn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; text-decoration: none; }
-  .btn:hover { border-color: var(--src-gitlab); text-decoration: none; }
-  .btn.claude { color: var(--src-claude); border-color: color-mix(in srgb, var(--src-claude) 40%, var(--border)); }
-  .btn.off { color: var(--text-muted); cursor: not-allowed; }
-  .btn.err { border-color: var(--ko); color: var(--ko); }
-  .btn:disabled { cursor: progress; opacity: 0.6; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--fs-body); }
   .am { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); }
   .am :global(button) { opacity: 1 !important; }
@@ -680,7 +640,7 @@
   .step.ok .sdot { background: var(--ok); border-color: var(--ok); color: var(--surface); }
   .step.ko .sdot { background: var(--ko); border-color: var(--ko); color: var(--surface); }
   .step.run .sdot { border-color: var(--warn); }
-  .step.man .sdot { border-style: dashed; font-size: 8px; }
+  .step.man .sdot { border-style: dashed; font-size: var(--fs-micro); }
   .step .n { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); font-weight: 500; }
   .step .sm { font-family: var(--mono); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; }
   .step.ko .sm { color: var(--ko); } .step.run .sm { color: var(--warn); }

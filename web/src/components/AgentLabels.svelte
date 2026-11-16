@@ -1,6 +1,7 @@
 <script lang="ts">
   import { armer } from '../armed.svelte'
   import Icon from './Icon.svelte'
+  import ArmedLabel from './ArmedLabel.svelte'
   import { live } from '../live.svelte'
   import { agentsSettings, kindColor, relabelAgents, type AgentLabel } from '../agents.svelte'
   import { kindIcon } from '../agents-list'
@@ -102,7 +103,7 @@
   <div class="hd">
     <b>{t('Kinds and tags')}</b>
     <span class="grow"></span>
-    <button class="x" onclick={onclose} title={t('Back to the agents (Esc)')} aria-label={t('Close')}><Icon name="close" /></button>
+    <button class="btn sm icon ghost" onclick={onclose} title={t('Back to the agents (Esc)')} aria-label={t('Close')}><Icon name="close" /></button>
   </div>
   {#if error}<p class="err">{error}</p>{/if}
   <section>
@@ -113,15 +114,15 @@
         <span class="sw" style:--k={kindColor(k.name)} title={t('Its colour, from its place in the list')}><Icon name={kindIcon(k.name)} size={11} /></span>
         <input value={k.name} spellcheck="false" disabled={busy} aria-label={t('Kind: {name}', { name: k.name })} onchange={(e) => renameKind(i, e.currentTarget)} onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
         <span class="n" title={tn(n, '{n} agent carries it', '{n} agents carry it')}>{n || ''}</span>
-        <button onclick={() => save({ kinds: moved(lists.kinds, i, -1) })} disabled={busy || i === 0} title={t('Move up')} aria-label={t('Move {name} up', { name: k.name })}><Icon name="up" /></button>
-        <button onclick={() => save({ kinds: moved(lists.kinds, i, 1) })} disabled={busy || i === lists.kinds.length - 1} title={t('Move down')} aria-label={t('Move {name} down', { name: k.name })}><Icon name="down" /></button>
-        <button class="rm" onclick={() => save({ kinds: lists.kinds.filter((x) => x.name !== k.name) })} disabled={busy} title={t('Remove from the list (the agents carrying it keep it until changed)')} aria-label={t('Remove {name}', { name: k.name })}><Icon name="close" /></button>
+        <button class="btn sm icon ghost" onclick={() => save({ kinds: moved(lists.kinds, i, -1) })} disabled={busy || i === 0} title={t('Move up')} aria-label={t('Move {name} up', { name: k.name })}><Icon name="up" /></button>
+        <button class="btn sm icon ghost" onclick={() => save({ kinds: moved(lists.kinds, i, 1) })} disabled={busy || i === lists.kinds.length - 1} title={t('Move down')} aria-label={t('Move {name} down', { name: k.name })}><Icon name="down" /></button>
+        <button class="btn sm icon ghost rm" onclick={() => save({ kinds: lists.kinds.filter((x) => x.name !== k.name) })} disabled={busy} title={t('Remove from the list (the agents carrying it keep it until changed)')} aria-label={t('Remove {name}', { name: k.name })}><Icon name="close" /></button>
         <input class="when" value={k.when} spellcheck="false" disabled={busy} placeholder={t('its commands: refine, /review…')} title={t('The commands that make an agent of this kind when its prompt starts with one, with or without their plugin (refine matches /acme-flow:refine)')} aria-label={t('Commands of {name}', { name: k.name })} onchange={(e) => setWhen(i, e.currentTarget)} onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
       </div>
     {/each}
     <form class="row add" onsubmit={(e) => { e.preventDefault(); addKind() }}>
       <input bind:value={adding.kind} placeholder={t('Add a kind…')} spellcheck="false" disabled={busy} />
-      <button type="submit" disabled={busy || !adding.kind.trim()} title={t('Add it at the end')} aria-label={t('Add')}><Icon name="plus" /></button>
+      <button type="submit" class="btn sm icon ghost" disabled={busy || !adding.kind.trim()} title={t('Add it at the end')} aria-label={t('Add')}><Icon name="plus" /></button>
     </form>
   </section>
   <section>
@@ -131,9 +132,9 @@
       <div class="row">
         <input value={name} spellcheck="false" disabled={busy} aria-label={t('Tag: {name}', { name })} onchange={(e) => renameTag(i, e.currentTarget)} onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
         <span class="n" title={tn(n, '{n} agent carries it', '{n} agents carry it')}>{n || ''}</span>
-        <button onclick={() => save({ tags: moved(lists.tags, i, -1) })} disabled={busy || i === 0} title={t('Move up')} aria-label={t('Move {name} up', { name })}><Icon name="up" /></button>
-        <button onclick={() => save({ tags: moved(lists.tags, i, 1) })} disabled={busy || i === lists.tags.length - 1} title={t('Move down')} aria-label={t('Move {name} down', { name })}><Icon name="down" /></button>
-        <button class="rm" onclick={() => save({ tags: lists.tags.filter((x) => x !== name) })} disabled={busy} title={t('No longer suggested (the agents keep it)')} aria-label={t('Remove {name}', { name })}><Icon name="close" /></button>
+        <button class="btn sm icon ghost" onclick={() => save({ tags: moved(lists.tags, i, -1) })} disabled={busy || i === 0} title={t('Move up')} aria-label={t('Move {name} up', { name })}><Icon name="up" /></button>
+        <button class="btn sm icon ghost" onclick={() => save({ tags: moved(lists.tags, i, 1) })} disabled={busy || i === lists.tags.length - 1} title={t('Move down')} aria-label={t('Move {name} down', { name })}><Icon name="down" /></button>
+        <button class="btn sm icon ghost rm" onclick={() => save({ tags: lists.tags.filter((x) => x !== name) })} disabled={busy} title={t('No longer suggested (the agents keep it)')} aria-label={t('Remove {name}', { name })}><Icon name="close" /></button>
       </div>
     {/each}
     {#each usedOnly as tag (tag)}
@@ -141,13 +142,13 @@
       <div class="row used">
         <span class="name" title={t('In use, not suggested')}>{tag}</span>
         <span class="n">{n}</span>
-        <button onclick={() => save({ tags: [...lists.tags, tag] })} disabled={busy} title={t('Suggest it too')}>{t('Keep')}</button>
-        <button class="rm" class:armed={arm.is(tag)} onclick={() => takeOff(tag)} disabled={busy} title={tn(n, 'Take it off the {n} agent carrying it (click twice)', 'Take it off the {n} agents carrying it (click twice)')}>{arm.is(tag) ? t('Take off?') : t('Take off')}</button>
+        <button class="btn sm ghost" onclick={() => save({ tags: [...lists.tags, tag] })} disabled={busy} title={t('Suggest it too')}>{t('Keep')}</button>
+        <button class="btn sm ghost rm" class:armed={arm.is(tag)} onclick={() => takeOff(tag)} disabled={busy} title={tn(n, 'Take it off the {n} agent carrying it (click twice)', 'Take it off the {n} agents carrying it (click twice)')}><ArmedLabel armed={arm.is(tag)} label={t('Take off')} armedLabel={t('Click again to confirm')} /></button>
       </div>
     {/each}
     <form class="row add" onsubmit={(e) => { e.preventDefault(); addTag() }}>
       <input bind:value={adding.tag} placeholder={t('Add a tag…')} spellcheck="false" disabled={busy} />
-      <button type="submit" disabled={busy || !adding.tag.trim()} title={t('Add it at the end')} aria-label={t('Add')}><Icon name="plus" /></button>
+      <button type="submit" class="btn sm icon ghost" disabled={busy || !adding.tag.trim()} title={t('Add it at the end')} aria-label={t('Add')}><Icon name="plus" /></button>
     </form>
   </section>
   <p class="foot">{t('Saved to')} <code>[agents]</code> {t('in config.toml at once.')}</p>
@@ -171,12 +172,8 @@
   input:focus { border-color: var(--src-claude); }
   .name { padding: 0 7px; color: var(--text-muted); font-size: var(--fs-meta); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .n { text-align: center; color: var(--text-muted); font-size: var(--fs-tag); }
-  button { display: inline-flex; align-items: center; justify-content: center; height: 22px; min-width: 22px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
-  button:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
-  button:disabled { opacity: 0.4; cursor: default; }
-  .rm:hover:not(:disabled), .rm.armed { color: var(--ko); border-color: var(--ko); }
-  .x { border: none; }
-  .err { margin: 0 0 6px; padding: 5px 8px; border-radius: var(--r6); background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); }
+  .rm:hover:not(:disabled) { color: var(--ko); }
+  .manage > .err { margin: 0 0 6px; padding: 5px 8px; border-radius: var(--r-ctl); background: var(--ko-bg); }
   .foot { margin: 12px 0 0; color: var(--text-muted); font-size: var(--fs-tag); }
   code { font-family: var(--mono); }
 </style>

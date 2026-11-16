@@ -1,5 +1,6 @@
 <script lang="ts">
   import PlanCard from './chat/PlanCard.svelte'
+  import State from './ui/State.svelte'
   import { agentConversation, type ProposedPlan } from '../agents.svelte'
   import { isDesktop } from '../bridge'
   import { socketState } from '../remote/socket.svelte'
@@ -51,11 +52,11 @@
 
 <div class="plans">
   {#if error}
-    <p class="muted err">{error}</p>
+    <State kind="error" title={error} retry={load} />
   {:else if plans === null}
-    <p class="muted">…</p>
+    <State kind="loading" lines={4} />
   {:else if !latest}
-    <p class="muted">{t('No plan in its last turns. An agent in plan mode (launched in Plan mode, or Shift+Tab in its terminal) proposes a plan before it edits anything: it shows here, to comment on passage by passage and answer.')}</p>
+    <p class="empty">{t('No plan in its last turns. An agent in plan mode (launched in Plan mode, or Shift+Tab in its terminal) proposes a plan before it edits anything: it shows here, to comment on passage by passage and answer.')}</p>
   {:else}
     <PlanCard id={agent.id} plan={latest} previous={before(plans.length - 1)} latest {acts} {typing} wide />
     {#if earlier.length}
@@ -70,7 +71,6 @@
 <style>
   .plans { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .plans > :global(*) { flex-shrink: 0; }
-  .muted { margin: 4px 2px; color: var(--text-muted); font-size: 12.5px; }
-  .err { color: var(--ko); }
-  h4 { margin: 6px 0 0; font-size: 12px; color: var(--text-muted); font-weight: 600; }
+  .plans > .empty { margin: 0; padding: 4px 2px; font-size: var(--fs-title); }
+  h4 { margin: 6px 0 0; font-size: var(--fs-body); color: var(--text-muted); font-weight: 600; }
 </style>

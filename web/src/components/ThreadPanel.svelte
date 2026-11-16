@@ -1,9 +1,8 @@
 <script lang="ts">
   import { baseName } from '../platform'
   import { t as tr, tn, tc } from '../i18n.svelte'
-  import { clickedOutside } from '../drawers'
-  import { isPinned } from '../drawer-pins'
-  import PinButton from './PinButton.svelte'
+  import Drawer from './ui/Drawer.svelte'
+  import State from './ui/State.svelte'
   import { live } from '../live.svelte'
   import { closeThread, resolveThread, threadView, type Thread } from '../thread.svelte'
   import { openTicket, canPreview } from '../ticket-view.svelte'
@@ -29,7 +28,7 @@
    * A piece of work's thread in a side drawer: from its ticket to production, each link in a
    * row (ticket, worktree, agent, MR, pipeline, environments), the one missing flagged; then what
    * Prism sees wrong about it, and its figures (time logged, agents' cost, meetings, blockers).
-   * Each link opens its own drawer or view. Escape or a click outside closes it.
+   * Each link opens its own drawer (stacked over this one) or view. Its shell is Drawer's.
    */
   const now = $derived(live.snapshot ? Date.now() : 0)
   const th = $derived<Thread | null>(threadView.ref && live.snapshot ? resolveThread(threadView.ref, live.snapshot, now) : null)
@@ -91,32 +90,17 @@
   const waiting = $derived((th?.ticket?.waiting_on ?? []).filter((d) => !d.closed))
   const blocking = $derived((th?.ticket?.blocking ?? []).filter((d) => !d.closed))
 
-  function onKey(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || !threadView.ref) return
-    e.stopImmediatePropagation()
-    closeThread()
-  }
-  let drawerEl: HTMLElement | undefined = $state()
-  function onOutside(e: PointerEvent) {
-    if (threadView.ref && clickedOutside(e, drawerEl)) {
-      closeThread()
-    }
-  }
+  const phone = document.documentElement.classList.contains('remote')
 </script>
 
-<svelte:window onkeydowncapture={onKey} onpointerdowncapture={onOutside} />
-
-{#if threadView.ref}
-  <aside class="drawer" bind:this={drawerEl} data-drawer="48" data-pinned={isPinned('thread')} aria-label={tr('Thread')}>
-    <header>
-      <Icon name="branch" />
-      <span class="grow">{tr('Thread')}{th?.branch ? ` · ${th.branch}` : ''}</span>
-      <PinButton kind="thread" />
-      <button class="icon" onclick={closeThread} title={tr('Close (Esc)')} aria-label={tr('Close')}><Icon name="close" /></button>
-    </header>
+<Drawer open={!!threadView.ref} key="thread" identity={JSON.stringify(threadView.ref)} crumb={th?.ticket?.id ?? th?.branch ?? tr('Thread')} label={tr('Thread')} size={phone ? 'full' : 'm'} pin="thread" onclose={closeThread}>
+  {#snippet head()}
+    <Icon name="branch" />
+    <span class="grow">{tr('Thread')}{th?.branch ? ` · ${th.branch}` : ''}</span>
+  {/snippet}
     <div class="body">
       {#if !th}
-        <p class="muted">{tr('Nothing found around it: no ticket, MR, worktree or agent Prism knows.')}</p>
+        <State kind="empty" title={tr('Nothing found around it: no ticket, MR, worktree or agent Prism knows.')} />
       {:else}
         <h2>
           {#if th.ticket}<span class="tid mono">{th.ticket.id}</span>{th.ticket.name}{:else if th.mr}{th.mr.title}{:else}{th.branch}{/if}
@@ -168,25 +152,12 @@
         {/if}
       {/if}
     </div>
-  </aside>
-{/if}
+</Drawer>
 
 <style>
-  .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 48; width: min(620px, 94vw);
-    display: flex; flex-direction: column; background: var(--surface);
-    border-left: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-    box-shadow: var(--shadow-drawer);
-  }
-  header {
-    display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-shrink: 0; border-bottom: 1px solid var(--border);
-    box-shadow: inset 0 2px var(--accent); font-size: var(--fs-meta); color: var(--text-muted);
-  }
   .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover { background: var(--surface-muted); color: var(--text); }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; }
-  h2 { margin: 0 0 2px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+  h2 { margin: 0 0 2px; font-size: var(--fs-head); font-weight: 600; line-height: 1.35; }
   .tid { margin-right: 8px; color: var(--info); font-size: var(--fs-meta); font-weight: 500; }
   .sub { margin: 0; font-size: var(--fs-meta); }
   .chain { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); margin: 16px 0 12px; padding: 0; list-style: none; }
@@ -203,7 +174,7 @@
   .warn .bub { border-color: var(--warn); }
   .ko .bub { border-color: var(--ko); color: var(--ko); }
   .miss .bub { border-color: var(--warn); border-style: dashed; color: var(--warn); }
-  .lb { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .lb { font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .vl, .st { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vl { font-size: var(--fs-meta); }
   .st { font-size: var(--fs-tag); color: var(--text-muted); }

@@ -1,5 +1,5 @@
 import { invoke, isDesktop, listen } from './bridge'
-import { agentsEnabled, agentsView, closeAgents, openAgents } from './agents.svelte'
+import { agentsEnabled, newAgent, openAgents } from './agents.svelte'
 import { guides } from './help-guides'
 import { openHelp } from './help.svelte'
 import { openSettings } from './settings.svelte'
@@ -23,15 +23,9 @@ export const keyedAction = (action: string) => (keyed = { action, at: Date.now()
 
 export function run(action: string) {
   if (keyed.action === action && Date.now() - keyed.at < 500) return
-  if (action === 'settings') {
-    closeAgents()
-    openSettings()
-  } else if (action === 'new-agent') {
-    if (!agentsEnabled()) return
-    openAgents()
-    agentsView.creating = true
-    agentsView.desktopHref = null
-  } else if (action === 'agents') {
+  if (action === 'settings') openSettings()
+  else if (action === 'new-agent') newAgent()
+  else if (action === 'agents') {
     if (agentsEnabled()) openAgents()
   } else if (action === 'zen') {
     toggleZen()
@@ -45,7 +39,6 @@ export function run(action: string) {
   else if (action.startsWith('help:')) openHelp(action.slice('help:'.length))
   else if (action.startsWith('profile:')) void switchProfileById(action.slice('profile:'.length)).catch((e) => toast(String(e), 6000))
   else if (action === 'profile-new' || action === 'profiles') {
-    closeAgents()
     profilesView.creating = action === 'profile-new'
     openSettings('profiles')
   }

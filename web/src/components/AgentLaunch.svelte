@@ -6,7 +6,7 @@
   import { primaryRepo } from '../repositories'
   import { live } from '../live.svelte'
   import { tildePath } from '../platform'
-  import { copy, toast } from '../toast.svelte'
+  import { copy, toastError } from '../toast.svelte'
   import { ago } from '../time'
   import type { Agent } from '../types'
   import { t } from '../i18n.svelte'
@@ -36,7 +36,7 @@
       const id = await spawnAgent(launch)
       openAgents(id)
     } catch (err) {
-      toast(String(err), 6000)
+      toastError(String(err))
     }
   }
 </script>
@@ -60,7 +60,7 @@
       </div>
     </div>
     <div class="sec">
-      <span class="cap">{t('Prompt')}<span class="grow"></span>{#if l.prompt}<button class="mini" onclick={() => copy(l.prompt!, t('Prompt copied'))}><Icon name="copy" />{t('Copy')}</button>{/if}</span>
+      <span class="cap">{t('Prompt')}<span class="grow"></span>{#if l.prompt}<button class="btn sm mini" onclick={() => copy(l.prompt!, t('Prompt copied'))}><Icon name="copy" />{t('Copy')}</button>{/if}</span>
       {#if l.prompt}
         <pre class="prompt" class:clip={!full && lines > 8}>{l.prompt}</pre>
         {#if lines > 8}<button class="link" onclick={() => (full = !full)}>{full ? t('Show less') : t('Show all ({n} lines)', { n: lines })}</button>{/if}
@@ -79,7 +79,7 @@
     {#if agent.prompt}<div class="sec"><span class="cap">{t('Prompt')}</span><pre class="prompt">{agent.prompt}</pre></div>{/if}
   {/if}
   <div class="acts">
-    <button class="primary" onclick={again} title={t('A new agent, a new conversation, launched the same: the launcher opens prefilled (⇧-click: launch at once)')}><Icon name="retry" />{t('Launch again…')}</button>
+    <button class="btn primary claude" onclick={again} title={t('A new agent, a new conversation, launched the same: the launcher opens prefilled (⇧-click: launch at once)')}><Icon name="retry" />{t('Launch again…')}</button>
     <span class="muted">{t('⇧-click: at once')}</span>
   </div>
 </div>
@@ -87,7 +87,7 @@
 <style>
   .launch { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; font-size: var(--fs-meta); }
   .sec { display: flex; flex-direction: column; gap: 5px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-  .cap { display: flex; align-items: center; gap: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .cap { display: flex; align-items: center; gap: 6px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .cap .when { text-transform: none; letter-spacing: 0; }
   .grow { flex: 1; }
   .kv { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 4px 8px; }
@@ -101,10 +101,9 @@
   .prompt { margin: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); font: 11px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
   .prompt.clip { max-height: 132px; overflow: hidden; mask-image: linear-gradient(black 70%, transparent); }
   .link { align-self: flex-start; padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
-  .mini { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); text-transform: none; letter-spacing: 0; cursor: pointer; }
+  .mini { text-transform: none; letter-spacing: 0; }
   .step { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-  .n { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--surface-muted); font-size: 9.5px; }
+  .n { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--surface-muted); font-size: var(--fs-micro); }
   .old { margin: 0; padding: 10px 12px; color: var(--text-muted); }
   .acts { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--bg); }
-  .acts .primary { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--src-claude); border-radius: var(--r6); background: var(--src-claude); color: #fff; font: inherit; cursor: pointer; }
 </style>

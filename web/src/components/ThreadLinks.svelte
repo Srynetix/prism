@@ -5,6 +5,8 @@
   import { openThread, resolveThread, type ThreadRef } from '../thread.svelte'
   import { agentName } from '../agent-cli'
   import { mrWord } from '../forge'
+  import Icon from './Icon.svelte'
+  import type { IconName } from '../icons'
 
   /**
    * A row's thread folded into small squares: worktree, agent, MR, pipeline, then the
@@ -16,16 +18,18 @@
 
   type Tone = 'on' | 'miss' | 'bad' | 'off'
   const th = $derived(live.snapshot ? resolveThread(at, live.snapshot, Date.now(), false) : null)
-  const squares = $derived.by((): { k: string; c: string; tone: Tone; title: string }[] => {
+  /** `c`: a letter (an environment's), or `icon`. */
+  type Square = { k: string; c?: string; icon?: IconName; tone: Tone; title: string }
+  const squares = $derived.by((): Square[] => {
     if (!th) return []
     const m = th.mr
     const p = th.pipeline
     const a = th.agents.find((x) => x.state === 'running') ?? th.agents[0]
-    const out: { k: string; c: string; tone: Tone; title: string }[] = [
-      { k: 'wt', c: '⑂', tone: th.worktree ? 'on' : th.missing.has('worktree') ? 'miss' : 'off', title: th.worktree ? t('Worktree {name}', { name: baseName(th.worktree.path) }) : th.missing.has('worktree') ? t('In progress, but no worktree, branch or agent') : t('No worktree') },
-      { k: 'agent', c: '✦', tone: a ? (a.state === 'running' ? 'on' : 'off') : 'off', title: a ? `${agentName()}: ${a.title}${a.state === 'running' ? '' : ` ${t('(stopped)')}`}` : t('No {name}', { name: agentName() }) },
-      { k: 'mr', c: '⇄', tone: m ? 'on' : th.missing.has('mr') ? 'miss' : 'off', title: m ? `${mrWord()} ${m.title}${m.state === 'merged' ? ` ${t('(merged)')}` : ''}` : th.missing.has('mr') ? t('Commits on the branch, but no MR') : t('No {name}', { name: mrWord() }) },
-      { k: 'ci', c: p?.status === 'failed' ? '✕' : p?.status === 'canceled' ? '⊘' : '✓', tone: p ? (p.status === 'failed' ? 'bad' : p.status === 'success' ? 'on' : 'off') : m?.state === 'merged' ? 'on' : 'off', title: p ? t('Pipeline {status}', { status: p.status }) : m?.state === 'merged' ? tc('tickets', 'Merged') : t('No pipeline') },
+    const out: Square[] = [
+      { k: 'wt', icon: 'worktree', tone: th.worktree ? 'on' : th.missing.has('worktree') ? 'miss' : 'off', title: th.worktree ? t('Worktree {name}', { name: baseName(th.worktree.path) }) : th.missing.has('worktree') ? t('In progress, but no worktree, branch or agent') : t('No worktree') },
+      { k: 'agent', icon: 'sparkles', tone: a ? (a.state === 'running' ? 'on' : 'off') : 'off', title: a ? `${agentName()}: ${a.title}${a.state === 'running' ? '' : ` ${t('(stopped)')}`}` : t('No {name}', { name: agentName() }) },
+      { k: 'mr', icon: 'mr', tone: m ? 'on' : th.missing.has('mr') ? 'miss' : 'off', title: m ? `${mrWord()} ${m.title}${m.state === 'merged' ? ` ${t('(merged)')}` : ''}` : th.missing.has('mr') ? t('Commits on the branch, but no MR') : t('No {name}', { name: mrWord() }) },
+      { k: 'ci', icon: p?.status === 'failed' ? 'fail' : p?.status === 'canceled' ? 'canceled' : 'check', tone: p ? (p.status === 'failed' ? 'bad' : p.status === 'success' ? 'on' : 'off') : m?.state === 'merged' ? 'on' : 'off', title: p ? t('Pipeline {status}', { status: p.status }) : m?.state === 'merged' ? tc('tickets', 'Merged') : t('No pipeline') },
     ]
     for (const e of th.envs) {
       const miss = th.missing.has(`env:${e.env}`)
@@ -38,7 +42,7 @@
 
 {#if touched}
   <button class="links" onclick={(e) => { e.stopPropagation(); openThread(at) }} title="{t('Thread (t)')}: {squares.map((q) => q.title).join(' · ')}">
-    {#each squares as q (q.k)}<i class={q.tone}>{q.c}</i>{/each}
+    {#each squares as q (q.k)}<i class={q.tone}>{#if q.icon}<Icon name={q.icon} size={9} stroke={2.5} />{:else}{q.c}{/if}</i>{/each}
   </button>
 {/if}
 

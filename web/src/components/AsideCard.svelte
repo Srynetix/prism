@@ -7,7 +7,7 @@
   import { offers } from '../tracker'
   import { openAgents } from '../agents.svelte'
   import { openTicket } from '../ticket-view.svelte'
-  import { toast } from '../toast.svelte'
+  import { toast, toastError } from '../toast.svelte'
   import { agentBranch, asideDismiss, asideDone, asideForget, asideLater, asideReopen, asideSession, asideThen, asideTicket, isOpen, launchAside, mainAction, originOf, seenName, sessionOf, STATE_LABEL } from '../asides.svelte'
   import { ago } from '../time'
   import Icon from './Icon.svelte'
@@ -49,7 +49,7 @@
       await f()
       if (done) toast(done)
     } catch (e) {
-      toast(String(e), 6000)
+      toastError(String(e))
     } finally {
       busy = false
     }
@@ -77,7 +77,7 @@
 <div class="aside" class:chat class:struck={withdrawn || byAgent} class:done={!isOpen(a)}>
   <div class="hd">
     <span class="tag"><Icon name="aside" size={11} />{t('In passing')}</span>
-    {#if a.state !== 'open'}<span class="st {a.state}">{byAgent ? t('withdrawn by the agent') : STATE_LABEL[a.state]}</span>{/if}
+    {#if a.state !== 'open'}<span class="pill st" class:ok={['launched', 'then', 'session', 'done'].includes(a.state)} class:info={a.state === 'ticket'}>{byAgent ? t('withdrawn by the agent') : STATE_LABEL[a.state]}</span>{/if}
     {#if desktop}<span class="pill" title={t('Seen in a Claude Desktop session: its own chip stays in Desktop')}>Desktop</span>{/if}
     {#if a.files_changed}<span class="pill warn" title={t('A commit of another branch changed its files since: maybe done already')}>{t('files changed since')}</span>{/if}
     <span class="grow"></span>
@@ -113,22 +113,22 @@
         <div class="acts">
           <!-- svelte-ignore a11y_autofocus : the reason is what this row is for -->
           <input bind:value={why} placeholder={t('Why (told to the agent, optional)')} autofocus onkeydown={(e) => { if (e.key === 'Enter') dismiss(); else if (e.key === 'Escape') { e.stopPropagation(); dismissing = false } }} />
-          <button class="b ko" disabled={busy} onclick={dismiss}>{t('Dismiss')}</button>
-          <button class="b ghost" onclick={() => (dismissing = false)}>{t('Cancel')}</button>
+          <button class="btn sm danger" disabled={busy} onclick={dismiss}>{t('Dismiss')}</button>
+          <button class="btn sm ghost" onclick={() => (dismissing = false)}>{t('Cancel')}</button>
         </div>
       {:else}
         <div class="acts">
           {#if main === 'session' && session}
-            <button class="b pri" disabled={busy} onclick={toSession} title={sessionTitle}>{sessionLabel}</button>
-            <button class="b" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
+            <button class="btn sm primary pri" disabled={busy} onclick={toSession} title={sessionTitle}>{sessionLabel}</button>
+            <button class="btn sm" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
           {:else if main === 'then' && canThen}
-            <button class="b pri" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{showPrompt ? t('Chain it after this agent') : t('After this agent')}</button>
-            <button class="b" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
+            <button class="btn sm primary pri" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{showPrompt ? t('Chain it after this agent') : t('After this agent')}</button>
+            <button class="btn sm" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
           {:else if main === 'ticket'}
-            <button class="b pri" disabled={busy} onclick={ticket}>{t('Ticket')}</button>
-            <button class="b" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
+            <button class="btn sm primary pri" disabled={busy} onclick={ticket}>{t('Ticket')}</button>
+            <button class="btn sm" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
           {:else}
-            <button class="b pri" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
+            <button class="btn sm primary pri" onclick={launch} title={t('The launcher, prefilled: Enter launches it')}>{t('Launch…')}</button>
           {/if}
           {#if branch && a.repo}
             <select class="from" value={useBranch ? 'branch' : 'base'} onchange={(e) => (fromBranch = e.currentTarget.value === 'branch')} title={t('Where its worktree starts: the repository’s base, or its agent’s branch (it depends on its changes). After this agent: the branch as it is then.')} aria-label={t('Start from')}>
@@ -136,21 +136,21 @@
               <option value="branch">{t('from {branch}', { branch })}</option>
             </select>
           {/if}
-          {#if main !== 'then' && canThen}<button class="b" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{showPrompt ? t('Chain it after this agent') : t('After this agent')}</button>{/if}
-          {#if main !== 'ticket' && canTicket}<button class="b" disabled={busy} onclick={ticket} title={t('A ticket of the tracker: its title, its tldr and prompt in a comment')}>{t('Ticket')}</button>{/if}
-          {#if a.state === 'open'}<button class="b ghost" disabled={busy} onclick={() => run(() => asideLater(a))} title={t('Kept in the list, without its badge')}>{t('Later')}</button>{/if}
-          <button class="b ghost" class:on={showPrompt} onclick={() => (showPrompt = !showPrompt)} aria-pressed={showPrompt} title={t('What the new agent is given')}>{t('Prompt')}</button>
+          {#if main !== 'then' && canThen}<button class="btn sm" disabled={busy} onclick={then} title={t('A “Then” step of its chain: another agent does it once it is done')}>{showPrompt ? t('Chain it after this agent') : t('After this agent')}</button>{/if}
+          {#if main !== 'ticket' && canTicket}<button class="btn sm" disabled={busy} onclick={ticket} title={t('A ticket of the tracker: its title, its tldr and prompt in a comment')}>{t('Ticket')}</button>{/if}
+          {#if a.state === 'open'}<button class="btn sm ghost" disabled={busy} onclick={() => run(() => asideLater(a))} title={t('Kept in the list, without its badge')}>{t('Later')}</button>{/if}
+          <button class="btn sm ghost" class:on={showPrompt} onclick={() => (showPrompt = !showPrompt)} aria-pressed={showPrompt} title={t('What the new agent is given')}>{t('Prompt')}</button>
           <span class="grow"></span>
-          <button class="b ghost x" onclick={() => (dismissing = true)} title={t('Dismiss: the reason is told to the agent, which will not propose it again')} aria-label={t('Dismiss')}><Icon name="close" size={12} /></button>
+          <button class="btn sm icon ghost" onclick={() => (dismissing = true)} title={t('Dismiss: the reason is told to the agent, which will not propose it again')} aria-label={t('Dismiss')}><Icon name="close" size={12} /></button>
         </div>
       {/if}
     {:else if !chat && !withdrawn}
       <div class="acts">
-        <button class="b ghost" class:on={showPrompt} onclick={() => (showPrompt = !showPrompt)} aria-pressed={showPrompt}>{t('Prompt')}</button>
-        {#if a.state === 'session'}<button class="b" disabled={busy} onclick={() => run(() => asideDone(a))} title={t('Done in its session, its agent not having said so')}>{t('Mark done')}</button>{/if}
-        {#if a.state === 'dismissed' || a.state === 'then' || a.state === 'session'}<button class="b ghost" disabled={busy} onclick={() => run(() => asideReopen(a))} title={t('Back among the open ones')}>{t('Reopen')}</button>{/if}
+        <button class="btn sm ghost" class:on={showPrompt} onclick={() => (showPrompt = !showPrompt)} aria-pressed={showPrompt}>{t('Prompt')}</button>
+        {#if a.state === 'session'}<button class="btn sm" disabled={busy} onclick={() => run(() => asideDone(a))} title={t('Done in its session, its agent not having said so')}>{t('Mark done')}</button>{/if}
+        {#if a.state === 'dismissed' || a.state === 'then' || a.state === 'session'}<button class="btn sm ghost" disabled={busy} onclick={() => run(() => asideReopen(a))} title={t('Back among the open ones')}>{t('Reopen')}</button>{/if}
         <span class="grow"></span>
-        {#if a.state !== 'then' && a.state !== 'session'}<button class="b ghost" disabled={busy} onclick={() => run(() => asideForget(a))} title={t('Out of the list for good')}>{t('Remove')}</button>{/if}
+        {#if a.state !== 'then' && a.state !== 'session'}<button class="btn sm ghost" disabled={busy} onclick={() => run(() => asideForget(a))} title={t('Out of the list for good')}>{t('Remove')}</button>{/if}
       </div>
     {/if}
   {/if}
@@ -163,11 +163,6 @@
   .struck .title, .struck .tldr { text-decoration: line-through; color: var(--text-muted); }
   .hd { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--fs-tag); color: var(--text-muted); }
   .tag { display: inline-flex; align-items: center; gap: 3px; color: var(--info); font-weight: 600; }
-  .st { padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); }
-  .st.launched, .st.then, .st.session, .st.done { color: var(--ok); background: var(--ok-bg); }
-  .st.ticket { color: var(--info); background: var(--info-bg, color-mix(in srgb, var(--info) 12%, transparent)); }
-  .pill { padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); }
-  .pill.warn { color: var(--warn); background: var(--warn-bg); }
   .grow { flex: 1; }
   .by { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
   .title { font-weight: 600; }
@@ -179,14 +174,9 @@
   .lnk { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; text-decoration: underline; }
   .prompt { margin: 2px 0; max-height: 220px; overflow: auto; padding: 6px 8px; border-radius: var(--r5); background: var(--surface-muted); font-size: var(--fs-meta); white-space: pre-wrap; }
   .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 2px; }
-  .b { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .b.pri { border-color: transparent; background: var(--info); color: var(--surface); font-weight: 600; }
-  .b.ko { border-color: transparent; background: var(--ko); color: #fff; }
-  .b.ghost { border-color: transparent; background: none; color: var(--text-muted); }
-  .b.ghost.on { color: var(--text); background: var(--surface-muted); }
-  .b:disabled { opacity: 0.5; cursor: default; }
-  .b.x { padding: 0 5px; }
+  .acts .pri { --btn-c: var(--info); --btn-on: var(--surface); }
+  .acts .ghost.on { color: var(--text); background: var(--surface-muted); }
   .from { height: 22px; max-width: 200px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   input { flex: 1; min-width: 140px; height: 22px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  :global(html.remote) .aside .b, :global(html.remote) .aside .from, :global(html.remote) .aside input { height: 34px; font-size: 14px; }
+  :global(html.remote) .aside .btn, :global(html.remote) .aside .from, :global(html.remote) .aside input { height: 34px; font-size: var(--fs-body); }
 </style>

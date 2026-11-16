@@ -1,6 +1,6 @@
 import { BLOCK_HELP } from './block-help'
 import { SCHEMA } from './settings-schema'
-import { SHORTCUTS } from './shortcuts'
+import { shortcutSections } from './shortcuts'
 import { ALL_BLOCKS, BLOCK_LABELS, type BlockId } from './views'
 import { BLOCK_DEFS } from './blocks'
 import { keys as forPlatform } from './platform'
@@ -99,7 +99,10 @@ const REFERENCES: Guide[] = [
     id: 'ref-keys', title: t('All shortcuts'), group: 'Reference', blocks: [], related: ['keyboard'],
     lead: t('Every keyboard shortcut — the same list as the ? overlay.'),
     body: '', images: {},
-    text: ['all shortcuts keyboard', t('All shortcuts'), ...SHORTCUTS.flatMap((s) => [s.title, ...s.keys.map(([k, w]) => `${k} ${w}`)])].join('\n').toLowerCase(),
+    // Read at each search: the keys as they are now (the pages' digits, `[console] key`…).
+    get text() {
+      return ['all shortcuts keyboard', t('All shortcuts'), ...shortcutSections().flatMap((s) => [s.title, ...s.keys.map(([k, w]) => `${k} ${w}`)])].join('\n').toLowerCase()
+    },
   },
   {
     id: 'ref-settings', title: t('All settings'), group: 'Reference', blocks: [], related: ['settings'],

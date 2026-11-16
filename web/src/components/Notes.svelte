@@ -170,6 +170,7 @@
       e.preventDefault()
       commitEdit()
     } else if (e.key === 'Escape') {
+      e.preventDefault()
       editing = null
     }
   }
@@ -178,7 +179,7 @@
    * Two-click deletion: the first arms the button, the second deletes. No
    * `confirm()`: Tauri's webview does not show it and always answers no.
    */
-  const armed = armer(4000)
+  const armed = armer()
   function remove(id: string) {
     if (armed.confirm(id)) removeNote(id)
   }
@@ -315,7 +316,7 @@
 {/snippet}
 
 {#snippet del(n: Note)}
-  <button class="x" class:armed={armed.is(n.id)} onclick={() => remove(n.id)} onblur={() => armed.is(n.id) && armed.disarm()} aria-label={armed.is(n.id) ? tr('Click again to delete the note') : tr('Delete note')} title={armed.is(n.id) ? tr('Click again to delete') : tr('Delete')}>{#if armed.is(n.id)}{tr('Delete?')}{:else}<Icon name="close" />{/if}</button>
+  <button class="x" class:armed={armed.is(n.id)} onclick={() => remove(n.id)} onblur={() => armed.is(n.id) && armed.disarm()} aria-label={armed.is(n.id) ? tr('Click again to delete the note') : tr('Delete note')} title={armed.is(n.id) ? tr('Click again to delete') : tr('Delete')}>{#if armed.is(n.id)}{tr('Click again to confirm')}{:else}<Icon name="close" />{/if}</button>
 {/snippet}
 
 {#snippet reminder(n: Note)}
@@ -333,7 +334,7 @@
             <button class="later" onclick={() => (snoozing === n.id ? (snoozing = null) : openSnooze(n))} title={tr('Change the time')} aria-expanded={snoozing === n.id}>{tr('Later')}</button>
             {#if snoozing === n.id}
               <!-- svelte-ignore a11y_no_static_element_interactions : Escape closes it; the field has its own keys -->
-              <div class="pop edit-when" onkeydown={(e) => e.key === 'Escape' && (snoozing = null)}>
+              <div class="pop edit-when" onkeydown={(e) => e.key === 'Escape' && (e.preventDefault(), (snoozing = null))}>
                 <button class="soon" onclick={() => snooze(n.id, new Date(Date.now() + 10 * 60_000))}>{tr('in 10 min')}</button>
                 <WhenInput bind:at={snoozeAt} {now} autofocus onenter={(at) => snooze(n.id, at)} />
                 <div class="acts">
@@ -505,7 +506,7 @@
       {#if notes.length > 5}
         {#if searching || search}
           <!-- svelte-ignore a11y_autofocus : opened by a click on Search -->
-          <input class="search" bind:value={search} placeholder={tr('Search notes…')} spellcheck="false" autofocus onblur={() => !search && (searching = false)} onkeydown={(e) => e.key === 'Escape' && ((search = ''), (searching = false))} />
+          <input class="search" bind:value={search} placeholder={tr('Search notes…')} spellcheck="false" autofocus onblur={() => !search && (searching = false)} onkeydown={(e) => e.key === 'Escape' && (e.preventDefault(), (search = ''), (searching = false))} />
         {:else}
           <button class="find" onclick={() => (searching = true)}><Icon name="search" /> {tr('Search')}</button>
         {/if}
@@ -531,7 +532,7 @@
   .due { padding: 0 6px; border-radius: var(--r9); background: var(--ko-bg); color: var(--ko); font-size: var(--fs-tag); font-weight: 500; white-space: nowrap; }
   /* Note kind: sticky (accent), daily (calendar), reminder (alert). */
   .kinds { display: inline-flex; flex-shrink: 0; gap: 1px; padding: 1px; border-radius: var(--r6); background: var(--surface-muted); }
-  .kinds button { display: grid; place-items: center; width: 22px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; }
+  .kinds button { display: grid; place-items: center; width: 22px; height: 20px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font-size: var(--fs-body); cursor: pointer; }
   .kinds button:hover { color: var(--text); }
   .kinds button.on { background: var(--surface); color: var(--kc); box-shadow: inset 0 -2px var(--kc); }
   .k-sticky { --kc: var(--accent); }
@@ -581,7 +582,7 @@
   .fold b { color: var(--text); }
   .search { width: 55%; padding: 2px 6px; border: 1px solid var(--accent); border-radius: var(--r5); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .search:focus { outline: none; }
-  .caret { display: inline-flex; font-size: 10px; transition: transform 0.12s; }
+  .caret { display: inline-flex; font-size: var(--fs-tag); transition: transform 0.12s; }
   .caret.open { transform: rotate(90deg); }
   .note { display: flex; gap: 9px; align-items: flex-start; padding: 4px 12px; }
   .note:hover { background: var(--surface-muted); }
@@ -594,7 +595,7 @@
   .later { padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 16px; cursor: pointer; opacity: 0; }
   .note:hover .later, .later[aria-expanded='true'], .rem.late .later { opacity: 1; }
   .later:hover { color: var(--text); }
-  .pop { position: absolute; right: 0; top: calc(100% + 3px); z-index: 20; display: flex; flex-direction: column; min-width: 120px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r7); box-shadow: var(--shadow-pop); }
+  .pop { position: absolute; right: 0; top: calc(100% + 3px); z-index: var(--z-menu); display: flex; flex-direction: column; min-width: 120px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r7); box-shadow: var(--shadow-pop); }
   .pop button { padding: 3px 8px; border: none; border-radius: var(--r4); background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); text-align: left; white-space: nowrap; cursor: pointer; }
   .pop button:hover { background: var(--surface-muted); }
   /* Changing a reminder's time: proposed times, the field, then Set. */
@@ -615,7 +616,7 @@
   .text a.open:hover { opacity: 1; text-decoration: none; }
   /* Status as a round box: empty TODO, half DOING, ticked DONE; a plain note shows a dot, and
      on hover the box that makes it a task. A reminder's box is square, in its colour. */
-  .box { flex-shrink: 0; display: grid; place-items: center; width: 14px; height: 14px; margin-top: 2px; padding: 0; border: 1.5px solid var(--text-muted); border-radius: 50%; background: none; color: var(--surface); font-size: 9px; cursor: pointer; }
+  .box { flex-shrink: 0; display: grid; place-items: center; width: 14px; height: 14px; margin-top: 2px; padding: 0; border: 1.5px solid var(--text-muted); border-radius: 50%; background: none; color: var(--surface); font-size: var(--fs-micro); cursor: pointer; }
   .box.todo { border-color: var(--warn); }
   .box.doing { border-color: var(--info); background: linear-gradient(90deg, var(--info) 50%, transparent 50%); }
   .box.done { border-color: var(--ok); background: var(--ok); }
@@ -628,7 +629,7 @@
   .box:hover, .box.open { filter: brightness(1.15); }
   .box.open { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
   /* The status picker. */
-  .pick { position: fixed; z-index: 40; display: flex; flex-direction: column; min-width: 160px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
+  .pick { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; min-width: 160px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); }
   .pick button { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
   .pick button:hover { background: var(--surface-muted); }
   .pick button.on { font-weight: 600; }
@@ -654,18 +655,18 @@
   :global(html.remote) .note:hover { background: none; }
   :global(html.remote) .rem.late, :global(html.remote) .rem.late:hover { background: color-mix(in srgb, var(--ko) 8%, var(--surface)); }
   :global(html.remote) .text { flex-basis: calc(100% - 30px); line-height: 1.4; }
-  :global(html.remote) .box { position: relative; width: 20px; height: 20px; margin-top: 0; font-size: 12px; }
+  :global(html.remote) .box { position: relative; width: 20px; height: 20px; margin-top: 0; font-size: var(--fs-tag); }
   :global(html.remote) .box::before { content: ''; position: absolute; inset: -10px; }
   :global(html.remote) .box.none { border: 1.5px dashed color-mix(in srgb, var(--text-muted) 50%, transparent); }
   :global(html.remote) .box.none::after { display: none; }
   :global(html.remote) .meta { flex-basis: calc(100% - 30px); min-width: 0; gap: 4px; margin: -2px 0 -6px 30px; min-height: 32px; }
   :global(html.remote) .acts { display: flex; gap: 2px; margin: 0 -6px 0 auto; }
   :global(html.remote) .x, :global(html.remote) .later { opacity: 1; }
-  :global(html.remote) .x { display: grid; place-items: center; min-width: 34px; height: 32px; padding: 0 6px; border-radius: var(--r6); font-size: 15px; }
+  :global(html.remote) .x { display: grid; place-items: center; min-width: 34px; height: 32px; padding: 0 6px; border-radius: var(--r6); font-size: var(--fs-title); }
   :global(html.remote) .x.armed { font-size: var(--fs-meta); }
   :global(html.remote) .later { line-height: 26px; padding: 0 10px; }
   :global(html.remote) .when { padding: 4px 3px; }
-  :global(html.remote) .line textarea, :global(html.remote) textarea.edit, :global(html.remote) .search { font-size: 16px; line-height: 22px; }
+  :global(html.remote) .line textarea, :global(html.remote) textarea.edit, :global(html.remote) .search { font-size: var(--fs-head); line-height: 22px; }
   :global(html.remote) .line kbd { display: none; }
   :global(html.remote) .kinds button { min-width: 32px; min-height: 30px; }
   :global(html.remote) .pick button { min-height: 40px; padding: 6px 10px; }

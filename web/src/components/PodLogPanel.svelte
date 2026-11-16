@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { clickedOutside } from '../drawers'
-  import { isPinned } from '../drawer-pins'
-  import PinButton from './PinButton.svelte'
+  import Drawer from './ui/Drawer.svelte'
+  import State from './ui/State.svelte'
   import { t } from '../i18n.svelte'
   import { tick } from 'svelte'
   import { closePodLogs, loadOlder, podLogs, reload, selectPod, setContainer, setPrevious } from '../pod-logs.svelte'
@@ -22,7 +21,7 @@
    * crash or an OOMKilled). A filter keeps only the lines that contain it. Without ANSI
    * codes, each line gets syntax highlighting (log-highlight.ts) and error lines
    * are emphasised. A cut log reads further back once scrolled to its top, up to the container's
-   * start, where it was scrolled staying in place. ⤢ or "f" switches to full screen (remembered under `logs.full`). Escape closes.
+   * start, where it was scrolled staying in place. ⤢ or "f" switches to full screen (remembered under `logs.full`). Its shell is Drawer's (Escape, a click outside, the pin).
    */
   let query = $state('')
   /**
@@ -99,13 +98,10 @@
     if (e.key === 'f' && !typing(e) && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
       e.stopImmediatePropagation()
-      return toggleFull()
+      toggleFull()
     }
-    if (e.key !== 'Escape') return
-    e.stopImmediatePropagation()
-    if (query) query = ''
-    else closePodLogs()
   }
+  const phone = document.documentElement.classList.contains('remote')
   /** A shell in the pod's container (`kubectl exec`), in the shells drawer that replaces this one. */
   const canShell = $derived(isDesktop() && !!live.snapshot?.pod_shell && !podLogs.target?.read && !!pod)
   function shell() {
@@ -129,20 +125,13 @@
     usage = !usage
     setPref('logs.usage', usage)
   }
-
-  let drawerEl: HTMLElement | undefined = $state()
-  function onOutside(e: PointerEvent) {
-    if (podLogs.open && clickedOutside(e, drawerEl)) {
-      closePodLogs()
-    }
-  }
 </script>
 
-<svelte:window onkeydowncapture={onKey} onpointerdowncapture={onOutside} />
+<svelte:window onkeydowncapture={onKey} />
 
-{#if podLogs.open && podLogs.target}
-  <aside class="drawer" class:full bind:this={drawerEl} data-drawer="51" data-pinned={isPinned('pod-logs')} aria-label={t('Workload logs')}>
-    <header>
+<Drawer open={podLogs.open && !!podLogs.target} key="pod-logs" identity={`${podLogs.target?.context}/${podLogs.target?.namespace}/${podLogs.target?.label}`} crumb={podLogs.target?.label ?? ''} label={t('Workload logs')} size={full || phone ? 'full' : 'l'} source="var(--src-k8s)" pin="pod-logs" class="podlogs" onclose={closePodLogs}>
+  {#snippet head()}
+    {#if podLogs.target}
       <span class="what">{podLogs.target.label}</span>
       {#if pod}
         <span class="sep">›</span>
@@ -161,17 +150,17 @@
         {#if !podLogs.previous}<span class="st run"><Icon name="running" /> {t('live')}</span>{/if}
       {/if}
       <span class="grow"></span>
-      <input class="filter" bind:value={query} placeholder={t('Filter lines…')} spellcheck="false" />
-      {#if firstError !== -1}<button class="txt" onclick={() => toLine(firstError)} title={t('Scroll to the first error line')}>{t('First error')}</button>{/if}
-      <button class="txt" onclick={() => toLine(lines.length - 1)} title={t('Scroll to the end and follow')}>{t('End')} <Icon name="down" /></button>
-      {#if changed}<button class="txt" onclick={() => openWhatChanged(changed.env, changed.app)} title={t('The timeline of {env} around the crash, the change just before it highlighted', { env: changed.env ?? '' })}><Icon name="activity" /> {t('What changed')}</button>{/if}
-      {#if canUsage}<button class="txt" class:on={usage} onclick={toggleUsage} aria-pressed={usage} title={t('CPU and memory of this pod over time')}><Icon name="chart" /> {t('Usage')}</button>{/if}
-      {#if canShell}<button class="txt" onclick={shell} title={t('A shell in this container (kubectl exec): tmux keeps it after closing')}><Icon name="terminal" /> {t('Shell')}</button>{/if}
-      <button class="icon" onclick={() => reload(true)} disabled={podLogs.loading || !podLogs.pod} title={t('Reload the log')} aria-label={t('Reload')}><Icon name="refresh" /></button>
-      <button class="icon" onclick={toggleFull} title={full ? t('Exit full screen (f)') : t('Full screen (f)')} aria-label={t('Full screen')} aria-pressed={full}><Icon name={full ? 'shrink' : 'expand'} /></button>
-      <PinButton kind="pod-logs" />
-      <button class="icon" onclick={closePodLogs} title={t('Close (Esc)')} aria-label={t('Close')}><Icon name="close" /></button>
-    </header>
+      <input class="filter" bind:value={query} onkeydown={(e) => { if (e.key === 'Escape' && query) { e.preventDefault(); e.stopPropagation(); query = '' } }} placeholder={t('Filter lines…')} spellcheck="false" />
+      {#if firstError !== -1}<button class="btn sm" onclick={() => toLine(firstError)} title={t('Scroll to the first error line')}>{t('First error')}</button>{/if}
+      <button class="btn sm" onclick={() => toLine(lines.length - 1)} title={t('Scroll to the end and follow')}>{t('End')} <Icon name="down" /></button>
+      {#if changed}<button class="btn sm" onclick={() => openWhatChanged(changed.env, changed.app)} title={t('The timeline of {env} around the crash, the change just before it highlighted', { env: changed.env ?? '' })}><Icon name="activity" /> {t('What changed')}</button>{/if}
+      {#if canUsage}<button class="btn sm" class:on={usage} onclick={toggleUsage} aria-pressed={usage} title={t('CPU and memory of this pod over time')}><Icon name="chart" /> {t('Usage')}</button>{/if}
+      {#if canShell}<button class="btn sm" onclick={shell} title={t('A shell in this container (kubectl exec): tmux keeps it after closing')}><Icon name="terminal" /> {t('Shell')}</button>{/if}
+      <button class="btn sm icon ghost" onclick={() => reload(true)} disabled={podLogs.loading || !podLogs.pod} title={t('Reload the log')} aria-label={t('Reload')}><Icon name="refresh" /></button>
+      <button class="btn sm icon ghost" onclick={toggleFull} title={full ? t('Exit full screen (f)') : t('Full screen (f)')} aria-label={t('Full screen')} aria-pressed={full}><Icon name={full ? 'shrink' : 'expand'} /></button>
+    {/if}
+  {/snippet}
+  {#if podLogs.target}
     <div class="body">
       <nav class="pods" aria-label={t('Pods')}>
         <p class="stage">{podLogs.target.namespace}</p>
@@ -183,23 +172,23 @@
             {#if !p.ready}<span class="why">{p.status}</span>{/if}
           </button>
         {:else}
-          <p class="muted pad">{podLogs.loading ? t('Loading…') : t('No pod.')}</p>
+          {#if podLogs.loading}<State kind="loading" lines={3} />{:else}<p class="muted pad">{t('No pod.')}</p>{/if}
         {/each}
       </nav>
       <div class="main">
       {#if canUsage && usage && pod && podLogs.target}<PodUsage context={podLogs.target.context} namespace={podLogs.target.namespace} pod={pod.name} />{/if}
       <div class="log" bind:this={view} onscroll={onScroll}>
         {#if podLogs.error}
-          <p class="error">{podLogs.error}</p>
+          <State kind="error" title={t('Could not read the log')} detail={podLogs.error} retry={() => reload(true)} />
         {:else if !podLogs.log && podLogs.loading}
-          <p class="muted pad">{t('Loading the log…')}</p>
+          <State kind="loading" title={t('Loading the log…')} />
         {:else if !podLogs.log}
           <p class="muted pad">{t('Empty log.')}</p>
         {:else}
           {#if podLogs.older}
-            <p class="muted pad">{t('Reading older lines…')}</p>
+            <State kind="loading" title={t('Reading older lines…')} />
           {:else if podLogs.truncated && !podLogs.target.read}
-            <p class="muted pad">{t('Only the last lines of this log are shown.')} <button class="txt" onclick={older}>{t('Older lines')} <Icon name="up" /></button></p>
+            <p class="muted pad">{t('Only the last lines of this log are shown.')} <button class="btn sm" onclick={older}>{t('Older lines')} <Icon name="up" /></button></p>
           {:else if podLogs.truncated}
             <p class="muted pad">{t('Only the last lines of this log are shown.')}</p>
           {:else if podLogs.depth !== null}
@@ -211,55 +200,36 @@
       </div>
       </div>
     </div>
-  </aside>
-{/if}
+  {/if}
+</Drawer>
 
 <style>
-  .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 51; width: min(1100px, 94vw);
-    display: flex; flex-direction: column; background: var(--surface);
-    border-left: 1px solid color-mix(in srgb, var(--src-k8s) 45%, var(--border));
-    box-shadow: var(--shadow-drawer);
-  }
-  /* Full screen: the whole window, no shadow or border. */
-  .drawer.full { left: 0; width: auto; border-left: none; box-shadow: none; }
-  header {
-    display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-shrink: 0; min-width: 0; white-space: nowrap;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface); box-shadow: inset 0 2px var(--src-k8s);
-  }
-  .what { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  .what { min-width: 0; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  b.mono { color: var(--text); white-space: nowrap; }
+  .st { white-space: nowrap; }
+  .btn.sm.on { color: var(--text); border-color: color-mix(in srgb, var(--src-k8s) 55%, var(--border)); }
   .sep, .muted { color: var(--text-muted); }
   .mono { font-family: var(--mono); font-size: var(--fs-mono); }
   .grow { flex: 1; }
   .st { font-size: var(--fs-meta); }
   .ok { color: var(--ok); } .ko { color: var(--ko); } .run { color: var(--info); }
   select { font: inherit; font-size: var(--fs-meta); padding: 1px 4px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); }
-  .seg { display: inline-flex; gap: 1px; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
-  .seg button { padding: 0 8px; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
-  .seg button.on { background: var(--surface); color: var(--text); font-weight: 500; }
   .filter { width: 160px; height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); outline: none; }
   .filter:focus { border-color: var(--info); }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
-  .icon:hover, .txt:hover { background: var(--surface-muted); color: var(--text); }
-  .icon:disabled { opacity: 0.4; cursor: progress; }
-  .txt { border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); padding: 1px 8px; cursor: pointer; }
   .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 240px 1fr; }
   .pods { overflow: auto; border-right: 1px solid var(--border); padding: 4px 0 12px; }
   .stage { margin: 8px 10px 2px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .pod { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 6px; width: 100%; padding: 3px 10px; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
   .pod:hover { background: var(--surface-muted); }
   .pod.on { background: color-mix(in srgb, var(--src-k8s) 14%, transparent); }
-  .pod .i { display: inline-flex; justify-content: center; font-size: 11px; }
+  .pod .i { display: inline-flex; justify-content: center; font-size: var(--fs-meta); }
   .pod .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-tag); }
   .pod .d { font-family: var(--mono); font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; }
   .pod .why { grid-column: 2 / -1; font-size: var(--fs-tag); color: var(--ko); }
   .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  .txt.on { color: var(--text); border-color: color-mix(in srgb, var(--src-k8s) 55%, var(--border)); }
   .log { flex: 1; min-height: 0; overflow: auto; background: var(--bg); color: var(--text); }
   .pad { padding: 10px 14px; margin: 0; font-size: var(--fs-body); }
   .log .muted { color: var(--text-muted); }
-  .error { margin: 0; padding: 10px 14px; color: var(--ko); font-size: var(--fs-body); white-space: pre-wrap; }
   pre { margin: 0; padding: 6px 0 16px; font: 11.5px/1.5 var(--mono); }
   /* Off screen, a line is neither laid out nor painted: a long log scrolls and slides lightly. */
   .line { display: flex; padding-right: 14px; content-visibility: auto; contain-intrinsic-size: auto 1.5em; }
@@ -287,8 +257,7 @@
   .b { font-weight: 700; }
   /* A phone, a narrow window: the header wraps, the pods a strip above the log. */
   @media (max-width: 640px) {
-    .drawer { width: 100vw; }
-    header { flex-wrap: wrap; row-gap: 6px; white-space: normal; }
+    :global(.podlogs .dh) { flex-wrap: wrap; row-gap: 6px; }
     .filter { flex: 1; min-width: 120px; }
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
     .pods { display: flex; gap: 2px; overflow-x: auto; overflow-y: hidden; padding: 4px 6px; border-right: none; border-bottom: 1px solid var(--border); }

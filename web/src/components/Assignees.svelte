@@ -62,7 +62,7 @@
   .people { display: inline-flex; align-items: center; vertical-align: middle; border: none; background: none; padding: 0; font: inherit; cursor: default; }
   button.people { cursor: pointer; }
   button.people:disabled { cursor: progress; opacity: 0.6; }
-  .av { display: inline-flex; width: 18px; height: 18px; margin-left: -4px; border-radius: var(--r-avatar); align-items: center; justify-content: center; font-size: 8.5px; font-weight: 500; background: var(--surface-muted); color: var(--text-muted); border: 1px solid var(--surface); }
+  .av { display: inline-flex; width: 18px; height: 18px; margin-left: -4px; border-radius: var(--r-avatar); align-items: center; justify-content: center; font-size: var(--fs-micro); font-weight: 500; background: var(--surface-muted); color: var(--text-muted); border: 1px solid var(--surface); }
   .av:first-child { margin-left: 0; }
   .av.me { background: var(--info-bg); color: var(--info); }
   /* The tracker's color (ClickUp's), white initials on it; mine keeps a ring to stand out. */
@@ -75,7 +75,7 @@
   .av.none { background: none; border-color: transparent; }
   .more { margin-left: 2px; font-size: var(--fs-tag); color: var(--text-muted); }
   /* "+": visible on hover, or alone when the ticket has nobody. */
-  .av.add { border: 1px dashed var(--text-muted); background: var(--surface); font-size: 11px; opacity: 0; transition: opacity 0.15s; }
+  .av.add { border: 1px dashed var(--text-muted); background: var(--surface); font-size: var(--fs-meta); opacity: 0; transition: opacity 0.15s; }
   .people .av.add:first-child { opacity: 0.45; }
   button.people:hover .av.add, button.people:focus-visible .av.add { opacity: 1; border-color: var(--info); color: var(--info); }
   /* My pill struck through on hover: the click removes me. */

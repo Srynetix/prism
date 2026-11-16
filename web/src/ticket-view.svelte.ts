@@ -2,6 +2,7 @@ import { hasCore, invoke } from './bridge'
 import type { Mention } from './bindings/Mention'
 import { trackerOn } from './live.svelte'
 import { rememberPanel } from './recent-panels.svelte'
+import { reveal } from './layers.svelte'
 import { t } from './i18n.svelte'
 import type { StatusOption, TaskView } from './types'
 
@@ -29,6 +30,8 @@ export const canPreview = () => hasCore() && trackerOn()
 
 export function openTicket(id: string) {
   if (!trackerOn()) return
+  // Already shown, under other drawers perhaps: back to it, rather than read again.
+  if (ticketView.id === id && reveal('ticket')) return
   if (ticketView.id && ticketView.id !== id) ticketView.trail.push(ticketView.id)
   show(id)
 }

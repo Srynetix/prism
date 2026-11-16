@@ -10,13 +10,14 @@
   import { agentsSettings } from '../agents.svelte'
   import { t, tn } from '../i18n.svelte'
   import type { AgentProvider } from '../types'
+  import Modal from './ui/Modal.svelte'
 
   /**
    * Continue with… (agent-switch.svelte.ts): the CLI (or account of one) the agent continues with,
    * how it is told what was done — its whole conversation to another account of its CLI, Prism's
    * relay (its task, plan, last turns, branch), the former agent's own summary, or the task only —
-   * the relay itself, editable, and the new CLI's model, effort and mode. `phone`: the remote's,
-   * full screen.
+   * the relay itself, editable, and the new CLI's model, effort and mode. `phone`: the remote's.
+   * Escape or a click on the veil closes it, unless it is handing over.
    */
   let { phone = false }: { phone?: boolean } = $props()
 
@@ -77,11 +78,7 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      e.stopPropagation()
-      if (!switching.busy) closeSwitch()
-    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
       void confirmSwitch()
     }
@@ -92,17 +89,10 @@
   }
 </script>
 
-{#if switching.open && agent}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions : Escape closes from the keyboard -->
-  <div class="scrim" class:phone onclick={(e) => e.target === e.currentTarget && !switching.busy && closeSwitch()}>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label={t('Continue with…')} tabindex="-1" {onkeydown}>
-      <header>
-        <Icon name="retry" />
-        <b>{to ? t('Continue with {cli}', { cli: switching.account ?? CLIS[to].cli }) : t('Continue with…')}</b>
-        <button class="x" onclick={closeSwitch} aria-label={t('Close')} disabled={switching.busy}><Icon name="close" /></button>
-      </header>
-
-      <div class="body">
+{#if agent}
+  <Modal open={switching.open} key="agent-switch" label={t('Continue with…')} title={to ? t('Continue with {cli}', { cli: switching.account ?? CLIS[to].cli }) : t('Continue with…')} width={720} onclose={() => !switching.busy && closeSwitch()}>
+      <!-- svelte-ignore a11y_no_static_element_interactions : ⌘↵ hands over, the buttons do the same -->
+      <div class="body" {onkeydown}>
         <p class="sub">
           {t('Same agent, folder, branch and links: {from} stops, the next CLI starts there from the relay below.', { from: nameOf(agent) })}
           {#if working}<b class="warn">{t('It is working: its turn is cut short.')}</b>{/if}
@@ -180,32 +170,25 @@
             </label>
           </div>
         {/if}
-        {#if switching.error}<p class="error">{switching.error}</p>{/if}
+        {#if switching.error}<p class="err">{switching.error}</p>{/if}
+        {#if phone}<p class="note">{t('{cli} can be taken back: its Activity tab, Back to {cli}.', { cli: nameOf(agent) })}</p>{/if}
       </div>
 
-      <footer>
-        <span class="note">{t('{cli} can be taken back: its Activity tab, Back to {cli}.', { cli: nameOf(agent) })}</span>
-        <button class="btn quiet" onclick={closeSwitch} disabled={switching.busy}>{t('Cancel')}</button>
-        <button class="btn primary" onclick={confirmSwitch} disabled={switching.busy || !to || !switching.text.trim() || !!switching.asked}>{switching.busy ? t('Handing over…') : to ? t('Continue with {cli}', { cli: toName }) : t('Continue')}</button>
-      </footer>
-    </div>
-  </div>
+      {#snippet footer()}
+        {#if !phone}<span class="note">{t('{cli} can be taken back: its Activity tab, Back to {cli}.', { cli: nameOf(agent!) })}</span>{/if}
+        <button class="btn ghost" onclick={closeSwitch} disabled={switching.busy}>{t('Cancel')}</button>
+        <button class="btn primary" class:busy={switching.busy} onclick={confirmSwitch} disabled={switching.busy || !to || !switching.text.trim() || !!switching.asked}>{#if switching.busy}<span class="spinner"></span>{t('Handing over…')}{:else}{to ? t('Continue with {cli}', { cli: toName }) : t('Continue')}{/if}</button>
+      {/snippet}
+  </Modal>
 {/if}
 
 <style>
-  .scrim { position: fixed; inset: 0; z-index: 66; display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px 16px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(2px); }
-  .scrim.phone { padding: 0; align-items: stretch; }
-  .sheet { width: min(720px, 100%); max-height: 88vh; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r12, 12px); background: var(--surface); box-shadow: var(--shadow-modal, var(--shadow-pop)); outline: none; overflow: hidden; }
-  .phone .sheet { max-height: none; border-radius: 0; }
-  header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
-  header b { flex: 1; color: var(--text); font-size: var(--fs-title, 15px); }
-  .x { display: inline-flex; padding: 3px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .body { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; overflow: auto; }
+  .body { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 12px 14px; overflow: auto; }
   .sub { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .sub .warn { display: block; margin-top: 3px; color: var(--warn); font-weight: 500; }
   .relay { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .box { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--bg); }
-  .box small, .cli small { color: var(--text-muted); font-size: var(--fs-tag, 11px); }
+  .box small, .cli small { color: var(--text-muted); font-size: var(--fs-tag); }
   .cli small.hot { color: var(--ko); }
   .arrow { color: var(--text-muted); }
   .targets { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -222,7 +205,7 @@
   .choice:disabled { opacity: .5; cursor: default; }
   .what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .what small { color: var(--text-muted); font-size: var(--fs-meta); }
-  .cost { flex: none; color: var(--text-muted); font-size: var(--fs-tag, 11px); white-space: nowrap; }
+  .cost { flex: none; color: var(--text-muted); font-size: var(--fs-tag); white-space: nowrap; }
   .incl { display: flex; gap: 5px; flex-wrap: wrap; }
   .incl button { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .incl button.off { color: var(--text-muted); text-decoration: line-through; }
@@ -232,15 +215,8 @@
   .opts { display: flex; gap: 10px; flex-wrap: wrap; }
   .opts label { display: flex; flex-direction: column; gap: 3px; min-width: 140px; flex: 1; color: var(--text-muted); font-size: var(--fs-meta); }
   .opts input, .opts select { padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--bg); color: var(--text); font: inherit; }
-  .error { margin: 0; color: var(--ko); font-size: var(--fs-meta); }
+  .body .err { margin: 0; }
   .muted { color: var(--text-muted); }
   p.muted { margin: 0; font-size: var(--fs-meta); }
-  footer { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
-  footer .note { flex: 1; color: var(--text-muted); font-size: var(--fs-tag, 11px); }
-  .btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
-  .btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
-  .btn.quiet { background: none; }
-  .btn:disabled { opacity: .5; cursor: default; }
-  .phone footer { flex-wrap: wrap; }
-  .phone footer .note { flex-basis: 100%; }
+  .note { flex: 1; min-width: 0; margin: 0; color: var(--text-muted); font-size: var(--fs-tag); }
 </style>

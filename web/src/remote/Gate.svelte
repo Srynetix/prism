@@ -145,7 +145,7 @@
       {#if step === 'name'}
         <p>{t('Its name shows on the computer, in Settings › Remote › Devices.')}</p>
         <input bind:value={name} maxlength="40" aria-label={t('This phone’s name')} />
-        <button class="primary" onclick={begin} disabled={busy || !name.trim()}>{t('Continue')}</button>
+        <button class="btn primary" onclick={begin} disabled={busy || !name.trim()}>{t('Continue')}</button>
       {:else}
         <p>{step === 'passkey' ? t('The computer will ask you to check this code:') : t('Confirm this code on the computer, in Settings › Remote › Devices.')}</p>
         <div class="code" aria-label={t('Code {code}', { code })}>
@@ -153,7 +153,7 @@
         </div>
         {#if step === 'passkey'}
           <p class="muted">{t('A passkey for this Prism is created on this phone; biometrics or the screen lock unlock it.')}</p>
-          <button class="primary" onclick={makePasskey} disabled={busy}><Icon name="lock" /> {t('Create the passkey')}</button>
+          <button class="btn primary" onclick={makePasskey} disabled={busy}><Icon name="lock" /> {t('Create the passkey')}</button>
         {:else}
           <p class="wait"><Icon name="refresh" spin /> {t('Waiting for the computer…')}</p>
           <p class="muted">{t('Then install the app: Chrome’s menu › Install app (Safari: Share › Add to Home Screen).')}</p>
@@ -189,15 +189,15 @@
   .mark { width: 56px; height: 56px; fill: color-mix(in srgb, var(--accent) 25%, transparent); stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; }
   .mark.small { width: 18px; height: 18px; stroke-width: 2.4; }
   p { margin: 0; max-width: 340px; line-height: 1.45; }
-  .muted { color: var(--text-muted); font-size: 13px; }
-  .error { color: var(--ko); font-size: 13px; }
+  .muted { color: var(--text-muted); font-size: var(--fs-meta); }
+  .error { color: var(--ko); font-size: var(--fs-meta); }
 
   /* Locked. */
-  .top { display: flex; align-items: center; gap: 7px; color: var(--text-muted); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+  .top { display: flex; align-items: center; gap: 7px; color: var(--text-muted); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.04em; }
   .clock { margin-top: 9vh; }
   time { display: block; white-space: nowrap; font-size: min(84px, 24vw); font-weight: 250; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   time small { margin-left: 6px; font-size: 0.3em; font-weight: 500; letter-spacing: 0.02em; color: var(--text-muted); }
-  .date { margin-top: 8px; color: var(--text-muted); font-size: 17px; text-transform: capitalize; }
+  .date { margin-top: 8px; color: var(--text-muted); font-size: var(--fs-head); text-transform: capitalize; }
   .foot { margin-top: auto; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .unlock {
     width: 76px;
@@ -214,44 +214,31 @@
   }
   .unlock:active { transform: scale(0.94); }
   .unlock:disabled { opacity: 0.7; }
-  .card { width: min(340px, 100%); padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); text-align: left; }
-  .card ol { margin: 10px 0 0; padding-left: 20px; color: var(--text-muted); font-size: 14px; line-height: 1.7; }
+  .card { width: min(340px, 100%); padding: 16px; border: 1px solid var(--border); border-radius: var(--r14); background: var(--surface); text-align: left; }
+  .card ol { margin: 10px 0 0; padding-left: 20px; color: var(--text-muted); font-size: var(--fs-body); line-height: 1.7; }
   .card em { font-style: normal; color: var(--text); }
 
   /* Pairing. */
   .pair { width: 100%; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
-  h1 { margin: 0; font-size: 22px; }
-  .steps { list-style: none; margin: 0 0 6px; padding: 0; display: flex; gap: 6px; font-size: 12px; color: var(--text-muted); }
-  .steps li { display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 4px; border-radius: 14px; background: var(--surface-muted); }
-  .steps span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); font-size: 11px; font-weight: 600; }
+  h1 { margin: 0; font-size: var(--fs-display); }
+  .steps { list-style: none; margin: 0 0 6px; padding: 0; display: flex; gap: 6px; font-size: var(--fs-tag); color: var(--text-muted); }
+  .steps li { display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 4px; border-radius: var(--r14); background: var(--surface-muted); }
+  .steps span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); font-size: var(--fs-micro); font-weight: 600; }
   .steps li.on { color: var(--text); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
   .steps li.on span { background: var(--accent); color: var(--on-accent); }
   .steps li.done span { color: var(--ok); }
   .code { display: flex; gap: 6px; }
-  .code span { width: 42px; height: 54px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font: 600 28px ui-monospace, 'SF Mono', Menlo, monospace; color: var(--accent); }
-  .wait { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 14px; }
+  .code span { width: 42px; height: 54px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); font: 600 28px ui-monospace, 'SF Mono', Menlo, monospace; color: var(--accent); }
+  .wait { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--fs-body); }
   input {
     width: min(320px, 100%);
     padding: 11px 13px;
-    border-radius: 10px;
+    border-radius: var(--r10);
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 16px;
+    font-size: var(--fs-head);
   }
-  button.primary {
-    width: min(320px, 100%);
-    padding: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: none;
-    border-radius: 12px;
-    background: var(--accent);
-    color: var(--on-accent);
-    font-size: 16px;
-    font-weight: 600;
-  }
+  .pair .btn { width: min(320px, 100%); height: 48px; gap: 8px; border-radius: var(--r12); font-size: var(--fs-head); }
   button:disabled { opacity: 0.55; }
 </style>

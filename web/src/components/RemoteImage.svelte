@@ -62,7 +62,7 @@
 {:else if error || !hasCore() || !loadable}
   <a class="fallback" {href} target="_blank" rel="noreferrer" title={error ?? href}><Icon name="image" /> {alt}</a>
 {:else}
-  <span class="loading" aria-label={t('Loading {alt}', { alt })}><Icon name="image" /> {alt}…</span>
+  <span class="loading" aria-label={t('Loading {alt}', { alt })}><span class="spinner"></span> {alt}</span>
 {/if}
 
 <style>

@@ -39,12 +39,12 @@
       <b>{profile ?? local}</b>
       <span class="why" title={machineState.error ?? undefined}>{t('its Prism does not answer')}</span>
       <span class="mut">{t('its last state shown · trying again')}</span>
-      <button class="start" onclick={start} disabled={starting}>{starting ? t('Starting…') : t('Start')}</button>
+      <button class="btn sm start" class:busy={starting} onclick={start} disabled={starting}>{#if starting}<span class="spinner"></span>{t('Starting…')}{:else}{t('Start')}{/if}</button>
     </div>
   {/if}
 {:else}
 <div class="bar machine-bar" class:off={!machineState.connected && away >= GRACE}>
-  <span class="dot"></span>
+  <span class="dot {!machineState.connected && away >= GRACE ? 'warn' : 'info'}"></span>
   <b>{machineState.name}</b>
   {#if profile}<span>{profile}</span>{/if}
   {#if machineState.connected || away < GRACE}
@@ -57,11 +57,9 @@
 {/if}
 
 <style>
-  .start { margin-left: auto; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r5, 5px); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+  .start { margin-left: auto; }
   .bar { display: flex; align-items: center; gap: 8px; padding: 3px 12px; font-size: var(--fs-meta); color: var(--text); background: color-mix(in srgb, var(--info) 12%, var(--surface)); border-bottom: 1px solid color-mix(in srgb, var(--info) 35%, transparent); white-space: nowrap; overflow: hidden; }
   .bar.off { background: var(--warn-bg); border-bottom-color: color-mix(in srgb, var(--warn) 35%, transparent); }
-  .dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: var(--info); }
-  .off .dot { background: var(--warn); }
   .mut { color: var(--text-muted); }
   .why { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 </style>

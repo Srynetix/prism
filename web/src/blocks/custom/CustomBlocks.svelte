@@ -1,4 +1,5 @@
 <script lang="ts">
+  import State from '../../components/ui/State.svelte'
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
   import { isCollapsed } from '../../layout.svelte'
@@ -21,20 +22,15 @@
     <BlockControls id="custom_blocks" />
   </h2>
   <div class="scroll">
-    {#each state?.errors ?? [] as e (e)}<div class="err">{e}</div>{/each}
+    {#each state?.errors ?? [] as e (e)}<div class="fail"><State kind="error" inline title={e} /></div>{/each}
     {#each blocks as b (b.id)}
       <CustomBlock block={b} pageId="custom_blocks" embedded />
     {:else}
-      <div class="empty">
-        {t('No custom block yet: a command or a script that prints JSON, declared in [[custom_blocks]].')}
-        {#if isDesktop()}<button class="lnk" onclick={() => openSettings('custom-blocks')}>{t('Settings › Custom blocks')}</button>{/if}
-      </div>
+      <State kind="empty" icon="code" title={t('No custom block yet: a command or a script that prints JSON, declared in [[custom_blocks]].')} action={isDesktop() ? { label: t('Settings › Custom blocks'), run: () => openSettings('custom-blocks') } : undefined} />
     {/each}
   </div>
 </section>
 
 <style>
-  .empty { padding: 12px 14px; color: var(--text-muted); font-size: var(--fs-body); }
-  .lnk { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
-  .err { padding: 6px 12px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); }
+  .fail { padding: 6px 12px; background: color-mix(in srgb, var(--ko-bg) 50%, transparent); font-size: var(--fs-meta); }
 </style>

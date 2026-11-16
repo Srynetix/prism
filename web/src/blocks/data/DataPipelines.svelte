@@ -5,6 +5,7 @@
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
   import Logo from '../../components/Logo.svelte'
+  import State from '../../components/ui/State.svelte'
   import type { BlockProps } from '../block'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import DataRefresh from './DataRefresh.svelte'
@@ -60,7 +61,7 @@
 </script>
 
 {#snippet pill(s: DataState)}<span class="pill {s.tone === 'run' ? 'info' : s.tone === 'off' ? '' : s.tone}" title={s.why}>{s.label}</span>{/snippet}
-{#snippet dot(s: DataState)}<span class="dot {s.tone}"></span>{/snippet}
+{#snippet dot(s: DataState)}<span class="dot {s.tone === 'run' ? 'info pulse' : s.tone === 'off' ? '' : s.tone}"></span>{/snippet}
 
 <section class="panel" style="--src: var(--src-k8s)" class:collapsed={isCollapsed('data')}>
   <h2>
@@ -76,9 +77,9 @@
     <BlockControls id="data" />
   </h2>
   {#if !enabled}
-    <div class="empty">{t('GCP is not read. Turn on Settings › Infra › Data (GCP), or use the Data template of the pages wizard, then restart Prism.')}</div>
+    <State kind="off" title={t('GCP is not read. Turn on Settings › Infra › Data (GCP), or use the Data template of the pages wizard, then restart Prism.')} />
   {:else if !data}
-    <div class="empty">{error ? t('GCP unavailable: {error}', { error }) : t('Reading GCP…')}</div>
+    {#if error}<State kind="error" title={t('GCP unavailable: {error}', { error })} />{:else}<State kind="loading" title={t('Reading GCP…')} />{/if}
   {:else if isShort('data')}
     <div class="short-body">
       {#each problems as p (p.kind + p.name)}
@@ -177,28 +178,19 @@
       {#if !all && !problems.length}
         <div class="empty">{t('Nothing broken: {n} jobs, tables and streams are fine.', { n: healthy })}</div>
       {/if}
-      {#each data.errors as e (e)}<div class="row err" title={e}><Icon name="warning" /> <span class="grow">{e}</span></div>{/each}
+      {#each data.errors as e (e)}<div class="row problem" title={e}><Icon name="warning" /> <span class="grow">{e}</span></div>{/each}
     </div>
   {/if}
 </section>
 
 <style>
   .head { display: flex; gap: 10px; align-items: center; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { padding: 0 8px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); font-weight: 400; cursor: pointer; }
-  .seg button.on { background: color-mix(in srgb, var(--src) 18%, transparent); color: var(--text); }
   .section { padding: 4px 12px; background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); border-top: 1px solid var(--border); }
   .section:first-child { border-top: none; }
   .line { width: 100%; border: none; border-top: 1px solid var(--border); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: none; }
   .line:hover, .line.open { background: var(--surface-muted); }
   .line b { font-weight: 550; }
   .num { flex-shrink: 0; font-variant-numeric: tabular-nums; font-size: var(--fs-meta); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--text-muted); opacity: 0.5; }
-  .dot.ok { background: var(--ok); opacity: 1; }
-  .dot.ko { background: var(--ko); opacity: 1; }
-  .dot.warn { background: var(--warn); opacity: 1; }
-  .dot.run { background: var(--info); opacity: 1; animation: blink 1.4s infinite; }
-  .dot.off { background: none; border: 1.5px solid var(--text-muted); }
   @keyframes blink { 50% { opacity: 0.35; } }
   /* History: one cell per run, the most recent on the right. */
   .hist { display: inline-flex; gap: 2px; flex-shrink: 0; }
@@ -215,5 +207,5 @@
   .spark path { fill: none; stroke: var(--info); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   .axis { display: flex; justify-content: space-between; color: var(--text-muted); font-size: var(--fs-tag); }
   .fed { margin-left: 6px; }
-  .err { color: var(--warn); font-size: var(--fs-meta); }
+  .problem { color: var(--warn); font-size: var(--fs-meta); }
 </style>

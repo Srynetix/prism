@@ -98,7 +98,7 @@
 <style>
   .table { display: flex; flex-direction: column; gap: 5px; width: 100%; }
   .head, .row { display: grid; grid-template-columns: var(--grid); gap: 8px; align-items: center; }
-  .head span { font-size: 10px; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; color: var(--text-muted); }
+  .head span { font-size: var(--fs-tag); font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; color: var(--text-muted); }
   .cell { min-width: 0; display: flex; align-items: center; gap: 4px; }
   .tall .row { align-items: start; }
   .tall .row .cell { min-height: 26px; }
@@ -109,7 +109,7 @@
   .acts button:hover:not(:disabled) { color: var(--text); background: var(--surface-muted); }
   .acts .rm:hover { color: var(--ko); background: var(--ko-bg); }
   .acts button:disabled { opacity: 0.3; cursor: default; }
-  .pk { width: 24px; font-size: 9px; text-align: center; color: var(--info); }
+  .pk { width: 24px; font-size: var(--fs-micro); text-align: center; color: var(--info); }
   .add { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; padding: 3px 10px; border: 1px dashed var(--border); border-radius: var(--r6); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .add:hover { color: var(--text); border-color: var(--accent); }
   .card { display: flex; flex-direction: column; gap: 7px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--bg); }
@@ -118,9 +118,9 @@
   .top .acts { margin-left: auto; }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 12px; }
   .field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .field > span { font-size: 10px; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; color: var(--text-muted); }
+  .field > span { font-size: var(--fs-tag); font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; color: var(--text-muted); }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 9px; border: 1px solid var(--border); border-radius: 11px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
+  .chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 9px; border: 1px solid var(--border); border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
   .chip:hover { border-color: var(--accent); color: var(--text); }
   .chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); }
   .none { margin: 0; font-size: var(--fs-meta); color: var(--text-muted); }

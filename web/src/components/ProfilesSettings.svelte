@@ -44,7 +44,7 @@
   })
 
   /** Remove arms on the first click (no confirm(): the webview always answers no). */
-  const armed = armer(3500)
+  const armed = armer()
   function askRemove(p: ProfileInfo) {
     if (!armed.confirm(p.id)) return
     void run(`remove:${p.id}`, async () => {
@@ -56,7 +56,7 @@
   const whyKept = (p: ProfileInfo) => (p.id === 'default' ? t('The default profile stays') : p.active ? t('The app’s own profile: open the app on another first') : p.open ? t('Its Prism runs: stop it first') : p.agents ? tn(p.agents, '{n} agent running: stop it first', '{n} agents running: stop them first') : t('Remove its config, packs, agents’ records and notes (click twice)'))
 
   /** Stop arms on the first click too. */
-  const stopping = armer(3500)
+  const stopping = armer()
   function askStop(p: ProfileInfo) {
     if (!stopping.confirm(p.id)) return
     void run(`stop:${p.id}`, async () => {
@@ -92,7 +92,7 @@
       <div class="info">
         {#if editing?.id === p.id}
           <div class="row">
-            <input class="t" bind:value={editing.name} aria-label={t('Profile name')} onkeydown={(e) => { if (e.key === 'Enter') void saveEdit(); if (e.key === 'Escape') editing = null }} />
+            <input class="t" bind:value={editing.name} aria-label={t('Profile name')} onkeydown={(e) => { if (e.key === 'Enter') void saveEdit(); if (e.key === 'Escape') { e.preventDefault(); editing = null } }} />
             <span class="colors">{#each PROFILE_COLORS as c (c)}<button class="sw" class:on={editing.color === c || (!editing.color && c === 'accent')} style:--c={profileColor(c)} onclick={() => (editing!.color = c)} aria-label={t('Color {name}', { name: c })}></button>{/each}</span>
           </div>
         {:else}
@@ -106,13 +106,13 @@
       </div>
       <div class="acts">
         {#if editing?.id === p.id}
-          <button class="btn" onclick={() => (editing = null)}>{t('Cancel')}</button>
-          <button class="btn primary" onclick={saveEdit} disabled={!editing.name.trim() || !!busy}>{t('Save')}</button>
+          <button class="btn sm" onclick={() => (editing = null)}>{t('Cancel')}</button>
+          <button class="btn sm primary" onclick={saveEdit} disabled={!editing.name.trim() || !!busy}>{t('Save')}</button>
         {:else}
-          {#if p.id !== currentProfileId()}<button class="btn primary" onclick={() => run(`open:${p.id}`, () => openProfile(p))} disabled={!!busy} title={p.state === 'closed' ? t('Open {name} in a window', { name: p.name }) : t('Show {name}’s window', { name: p.name })}>{p.state === 'closed' ? t('Open') : t('Show')}</button>{/if}
-          {#if !p.active && p.state !== 'closed'}<button class="btn" class:armed={stopping.is(p.id)} onclick={() => askStop(p)} disabled={!!busy} title={t('Close its window and stop its Prism: its agents go on in tmux (click twice)')}><ArmedLabel label={t('Stop')} armedLabel={t('Click again to stop')} armed={stopping.is(p.id)} /></button>{/if}
-          <button class="btn" onclick={() => edit(p)} disabled={!!busy} title={t('Rename it, or change its color')}>{t('Edit')}</button>
-          <button class="btn" class:armed={armed.is(p.id)} onclick={() => askRemove(p)} disabled={!removable(p) || !!busy} title={whyKept(p)}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to remove')} armed={armed.is(p.id)} /></button>
+          {#if p.id !== currentProfileId()}<button class="btn sm primary" onclick={() => run(`open:${p.id}`, () => openProfile(p))} disabled={!!busy} title={p.state === 'closed' ? t('Open {name} in a window', { name: p.name }) : t('Show {name}’s window', { name: p.name })}>{p.state === 'closed' ? t('Open') : t('Show')}</button>{/if}
+          {#if !p.active && p.state !== 'closed'}<button class="btn sm" class:armed={stopping.is(p.id)} onclick={() => askStop(p)} disabled={!!busy} title={t('Close its window and stop its Prism: its agents go on in tmux (click twice)')}><ArmedLabel label={t('Stop')} armedLabel={t('Click again to confirm')} armed={stopping.is(p.id)} /></button>{/if}
+          <button class="btn sm" onclick={() => edit(p)} disabled={!!busy} title={t('Rename it, or change its color')}>{t('Edit')}</button>
+          <button class="btn sm" class:armed={armed.is(p.id)} onclick={() => askRemove(p)} disabled={!removable(p) || !!busy} title={whyKept(p)}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={armed.is(p.id)} /></button>
         {/if}
       </div>
     </div>
@@ -131,7 +131,7 @@
     <div class="foot">
       <span class="row">
         <button class="btn" onclick={() => (profilesView.creating = false)}>{t('Cancel')}</button>
-        <button class="btn primary" onclick={create} disabled={!ready || !!busy}>{busy === 'create' ? t('Creating…') : t('Create')}</button>
+        <button class="btn primary" class:busy={busy === 'create'} onclick={create} disabled={!ready || !!busy}>{#if busy === 'create'}<span class="spinner"></span>{t('Creating…')}{:else}{t('Create')}{/if}</button>
       </span>
     </div>
   </div>
@@ -141,33 +141,25 @@
 
 <style>
   .intro { margin: 0 0 12px; font-size: var(--fs-meta); color: var(--text-muted); max-width: 760px; }
-  .err { margin: 0 0 10px; color: var(--ko); font-size: var(--fs-meta); }
+  .intro + .err { margin: 0 0 10px; }
   .list { display: flex; flex-direction: column; gap: 8px; }
   .prof { --c: var(--accent); display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r9); background: var(--surface); }
   .prof.cur { border-color: color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) 5%, var(--surface)); }
-  .pf { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--r9); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); font-weight: 700; font-size: 14px; }
+  .pf { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--r9); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); font-weight: 700; font-size: var(--fs-head); }
   .info { min-width: 0; }
-  .nm { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; }
+  .nm { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: var(--fs-title); }
   .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; font-size: var(--fs-meta); color: var(--text-muted); }
   .meta code { font: var(--fs-tag) var(--mono); }
   .meta .warn { color: var(--warn); }
-  .pill { padding: 0 7px; border-radius: var(--r8); font-size: var(--fs-tag); font-weight: 600; background: var(--surface-muted); color: var(--text-muted); }
-  .pill.ok { background: var(--ok-bg); color: var(--ok); }
-  .pill.warn { background: var(--warn-bg); color: var(--warn); }
   .acts, .row { display: flex; align-items: center; gap: 6px; }
   .t { height: 28px; min-width: 0; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-body); outline: none; }
   .t:focus { border-color: var(--accent); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.45; cursor: default; }
-  .btn.primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
-  .btn.armed { color: var(--ko); border-color: var(--ko); background: var(--ko-bg); }
   .add { margin-top: 12px; }
   .colors { display: inline-flex; flex-wrap: wrap; gap: 6px; }
   .sw { width: 18px; height: 18px; padding: 0; border: none; border-radius: var(--r5); background: var(--c); cursor: pointer; }
   .sw.on { outline: 2px solid var(--text); outline-offset: 2px; }
   .form { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); max-width: 680px; }
-  .form h3 { margin: 0 0 12px; font-size: 14px; }
+  .form h3 { margin: 0 0 12px; font-size: var(--fs-head); }
   .check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-meta); }
   .foot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 </style>

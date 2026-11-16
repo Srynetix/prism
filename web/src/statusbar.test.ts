@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrange, DEFAULT_ORDER, fullOrder, overflow, SIDE_BREAK } from './statusbar'
+import { arrange, DEFAULT_HIDDEN, DEFAULT_ORDER, fullOrder, overflow, readHidden, SIDE_BREAK } from './statusbar'
 
 describe('fullOrder', () => {
   it('reads an empty order as the default one', () => {
@@ -17,6 +17,27 @@ describe('fullOrder', () => {
     expect(order.filter((id) => id === 'clock')).toHaveLength(1)
     expect(order).not.toContain('nope')
     expect(order).toContain(SIDE_BREAK)
+  })
+})
+
+describe('former ids', () => {
+  it('read update, packs and problems as the one prism item', () => {
+    const order = fullOrder(['clock', 'update', 'problems', SIDE_BREAK, 'claude'])
+    expect(order.slice(0, 2)).toEqual(['clock', 'prism'])
+    expect(order).not.toContain('update')
+    expect(order).not.toContain('problems')
+  })
+  it('hide prism only once every former id it replaces is hidden', () => {
+    expect(readHidden(['problems', 'shells'])).toEqual(['shells'])
+    expect(readHidden(['problems', 'update', 'packs'])).toEqual(['prism'])
+  })
+})
+
+describe('the default bar', () => {
+  it('shows what waits for you, the work and the computer, and hides the rest', () => {
+    const [left, right] = arrange([], DEFAULT_HIDDEN)
+    expect(left.zones.map((z) => [z.zone, z.items.map((i) => i.id)])).toEqual([['you', ['claude', 'pipeline', 'meeting']], ['work', ['repos', 'sprint']]])
+    expect(right.zones.map((z) => [z.zone, z.items.map((i) => i.id)])).toEqual([['machine', ['usage', 'prism', 'clock']]])
   })
 })
 

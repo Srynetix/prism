@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdEscape } from '../layers.svelte'
   import { onMount } from 'svelte'
   import { Terminal } from '@xterm/xterm'
   import { FitAddon } from '@xterm/addon-fit'
@@ -9,7 +10,7 @@
   import { live } from '../live.svelte'
   import { openRef, openUrlOrRef } from '../ref-links'
   import { invoke } from '../bridge'
-  import { toast } from '../toast.svelte'
+  import { toast, toastError } from '../toast.svelte'
   import { isMac } from '../platform'
   import '@xterm/xterm/css/xterm.css'
   import { terminalTheme } from '../terminal-theme'
@@ -44,7 +45,7 @@
         await invoke('copy_text', { text })
         toast(t('Copied'))
       } catch (e) {
-        toast(t('Could not copy: {error}', { error: String(e) }))
+        toastError(t('Could not copy: {error}', { error: String(e) }))
       }
     },
   }
@@ -104,13 +105,17 @@
    * right button never reaches tmux; `selection`: xterm's (⌥-drag), a tmux one being copied at once.
    */
   let menu = $state<{ x: number; y: number; selection: string } | null>(null)
+  // Over a drawer or a dialog, its Escape closes this first.
+  $effect(() => {
+    if (menu) return holdEscape(() => (menu = null))
+  })
   async function copySelection(text: string) {
     menu = null
     try {
       await invoke('copy_text', { text })
       toast(t('Copied'))
     } catch (e) {
-      toast(t('Could not copy: {error}', { error: String(e) }))
+      toastError(t('Could not copy: {error}', { error: String(e) }))
     }
   }
   async function paste() {
@@ -120,7 +125,7 @@
       if (text) term?.paste(text)
       term?.focus()
     } catch (e) {
-      toast(t('Could not paste: {error}', { error: String(e) }))
+      toastError(t('Could not paste: {error}', { error: String(e) }))
     }
   }
   const terminalFont = () => getComputedStyle(document.documentElement).getPropertyValue('--mono-term').trim()
@@ -208,7 +213,7 @@
       if (!(e.ctrlKey && e.shiftKey)) return true
       if (e.type === 'keydown' && e.code === 'KeyV') {
         e.preventDefault()
-        invoke<string>('paste_text').then((text) => text && xt.paste(text)).catch((err) => toast(t('Could not paste: {error}', { error: String(err) })))
+        invoke<string>('paste_text').then((text) => text && xt.paste(text)).catch((err) => toastError(t('Could not paste: {error}', { error: String(err) })))
       }
       return false
     })
@@ -295,18 +300,18 @@
   })
 </script>
 
-<svelte:window onmousedown={(e) => menu && !(e.target as HTMLElement).closest('.tmenu') && (menu = null)} onkeydown={(e) => menu && e.key === 'Escape' && (menu = null)} onblur={() => (menu = null)} />
+<svelte:window onmousedown={(e) => menu && !(e.target as HTMLElement).closest('.tmenu') && (menu = null)} onblur={() => (menu = null)} />
 
 <div class="term" bind:this={el}>
   {#if copyMode}
     <!-- tmux shows a still view while in copy mode: the agent goes on behind it. -->
-    <button class="copymode" onclick={leave} title={t('tmux’s copy mode: the view is frozen while the agent goes on. A key, a click here, or scrolling to the bottom leaves it.')}>{t('Copy mode · view paused — press a key')}</button>
+    <button class="pill warn copymode" onclick={leave} title={t('tmux’s copy mode: the view is frozen while the agent goes on. A key, a click here, or scrolling to the bottom leaves it.')}>{t('Copy mode · view paused — press a key')}</button>
   {/if}
   {#if menu}
     {@const m = menu}
-    <div class="tmenu" role="menu" style:left="{m.x}px" style:top="{m.y}px">
-      <button role="menuitem" disabled={!m.selection} onclick={() => copySelection(m.selection)} title={m.selection ? undefined : t('Drag to select: the selection is copied at once (⌥-drag: a selection kept to copy here)')}>{t('Copy')}{#if isMac}<kbd>⌘C</kbd>{/if}</button>
-      <button role="menuitem" onclick={paste}>{t('Paste')}<kbd>{isMac ? '⌘V' : 'Ctrl+Shift+V'}</kbd></button>
+    <div class="popover tmenu" role="menu" style:left="{m.x}px" style:top="{m.y}px">
+      <button class="mi" role="menuitem" disabled={!m.selection} onclick={() => copySelection(m.selection)} title={m.selection ? undefined : t('Drag to select: the selection is copied at once (⌥-drag: a selection kept to copy here)')}>{t('Copy')}{#if isMac}<kbd class="k">⌘C</kbd>{/if}</button>
+      <button class="mi" role="menuitem" onclick={paste}>{t('Paste')}<kbd class="k">{isMac ? '⌘V' : 'Ctrl+Shift+V'}</kbd></button>
     </div>
   {/if}
 </div>
@@ -315,15 +320,12 @@
   /* content-box: xterm's fit reads this frame's height and width as the room for the rows and
      columns; with the padding counted in, a last row went under the frame (in the status bar). */
   .term { position: relative; flex: 1; min-height: 0; padding: 8px 4px 4px 10px; box-sizing: content-box; background: var(--surface); }
-  .tmenu { position: absolute; z-index: 10; display: flex; flex-direction: column; min-width: 160px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-pop); }
-  .tmenu button { display: flex; justify-content: space-between; gap: 16px; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
-  .tmenu button:hover:not(:disabled) { background: var(--surface-muted); }
-  .tmenu button:disabled { color: var(--text-muted); cursor: default; }
-  .tmenu kbd { color: var(--text-muted); font: inherit; font-size: var(--fs-tag); }
-  .copymode { position: absolute; top: 8px; right: 12px; z-index: 5; padding: 2px 8px; border: 1px solid var(--warn); border-radius: 999px; background: var(--surface); color: var(--warn); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
-  .copymode:hover { background: var(--surface-muted); }
+  .tmenu { position: absolute; min-width: 160px; }
+  .tmenu kbd { font: inherit; font-size: var(--fs-tag); }
+  .copymode { position: absolute; top: 8px; right: 12px; z-index: 5; padding: 2px 8px; box-shadow: inset 0 0 0 1px var(--warn); }
+  .copymode:hover { filter: brightness(1.1); }
   .term :global(.xterm) { height: 100%; }
   .term :global(.xterm-viewport) { background: var(--surface) !important; }
   /* xterm 6 draws its own scrollbar (VS Code's): its slider as the app's. */
-  .term :global(.xterm .scrollbar > .slider) { background: var(--scroll-thumb) !important; border-radius: 5px; }
+  .term :global(.xterm .scrollbar > .slider) { background: var(--scroll-thumb) !important; border-radius: var(--r5); }
 </style>

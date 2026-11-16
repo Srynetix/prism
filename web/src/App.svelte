@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { inField, inLayer } from './layers.svelte'
   import { reopenLastPanel } from './recent-panels.svelte'
   // Agents' chains run while Prism does, the Agents view open or not.
   import { clock } from './clock.svelte'
@@ -118,9 +119,10 @@
   import AgentsView from './components/AgentsView.svelte'
   import ProjectsView from './components/ProjectsView.svelte'
   import { waitingWorkstreams } from './workstreams'
-  import { agentsEnabled, agentsView, closeAgents, openAgents, openProjects, projectsDigit, projectsView, terminalKeeps } from './agents.svelte'
+  import { agentsEnabled, agentsView, newAgent, openAgents, openProjects, projectsView, terminalKeeps } from './agents.svelte'
+  import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys } from './shortcuts'
   import { BLOCK_HELP } from './block-help'
-  import { chord, chordKey, extraShift, inTerminal, isMac, keys, pageDigit } from './platform'
+  import { chord, inTerminal, keys, pageDigit } from './platform'
   import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
   import { consoleKey, toggleConsole } from './console.svelte'
   import { matches, worksWhileTyping } from './shortcut'
@@ -285,12 +287,12 @@
 
   let input: HTMLInputElement | undefined = $state()
   /** Typing in a field (filter, note, time entry…): no shortcut. */
-  const typing = (e: KeyboardEvent) => !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')
+  const typing = (e: KeyboardEvent) => inField(e.target)
   /** The Agents view comes after the grid views: ⌘5 with four views. */
-  const agentsDigit = $derived(String(views().length + 1))
+  const agentsDigit = $derived(agentsDigitOf())
   /** The Projects page, after the Agents view: shown once a repository is configured. */
   const projectsOn = $derived((full?.repositories?.length ?? 0) > 0)
-  const projectsKey = $derived(String(projectsDigit(views().length)))
+  const projectsKey = $derived(projectsKeyOf())
 
   /** Zen mode: the filter shown while `/` puts the cursor in it, until it loses it. */
   let filterPeek = $state(false)
@@ -318,12 +320,13 @@
   const headerShown = $derived(!zen.on || !!filter.query || filterPeek || !!headerStats.open)
 
   function onKey(e: KeyboardEvent) {
+    // Escape inside a drawer, a dialog or a menu is the stack's (layers.svelte.ts), not the page's.
+    if (e.key === 'Escape' && inLayer(e.target)) return
     // A shortcut an agent's terminal keeps (`[agents] terminal_keys`): Prism leaves it there, and
     // ignores the menu bar's echo of it (⌘N, ⌘,).
     if (inTerminal(e) && terminalKeeps(e)) {
-      const echo = chord(e) ? ({ n: 'new-agent', ',': 'settings' } as Record<string, string>)[chordKey(e)] : undefined
+      const echo = (['new-agent', 'settings', 'zen'] as const).find((id) => hit(id, e))
       if (echo) keyedAction(echo)
-      else if (chord(e) && e.shiftKey && chordKey(e).toLowerCase() === 'f') keyedAction('zen')
       return
     }
     // The command palette (`[palette] key`, ⌘K), over anything.
@@ -332,41 +335,41 @@
       togglePalette()
       return
     }
+    // The chords below: shortcuts.ts declares them (and the help lists them from there).
     // ⌘⇧F: Zen mode, the rail and the header folded away.
-    if (chord(e) && e.shiftKey && chordKey(e).toLowerCase() === 'f') {
+    if (hit('zen', e)) {
       e.preventDefault()
       keyedAction('zen')
       toggleZen()
-      if (zen.on) toast(t('Zen mode · {keys} to leave it', { keys: keys('⌘⇧F') }))
+      if (zen.on) toast(t('Zen mode · {keys} to leave it', { keys: shortcutKeys('zen') }))
       return
     }
-    // ⌘, : Settings, as in any macOS app.
-    if (chord(e) && chordKey(e) === ',') {
+    // ⌘, : Settings, as in any macOS app; closed, back to where it was opened from.
+    if (hit('settings', e)) {
       e.preventDefault()
       keyedAction('settings')
-      closeAgents()
       toggleSettings()
       return
     }
     // Ctrl+Q and F11 where no menu bar does it (Linux): quit, full screen.
-    if (!isMac && isDesktop() && chord(e) && chordKey(e) === 'q') {
+    if (isDesktop() && hit('quit', e)) {
       e.preventDefault()
       void quitApp()
       return
     }
-    if (!isMac && isDesktop() && e.key === 'F11') {
+    if (isDesktop() && hit('fullscreen', e)) {
       e.preventDefault()
       void toggleFullscreen()
       return
     }
     // ⌘? or F1: Help.
-    if ((chord(e) && chordKey(e) === '?') || e.key === 'F1') {
+    if (hit('help', e)) {
       e.preventDefault()
       toggleHelp()
       return
     }
-    // F2: renames the page shown, in the rail (not in Zen mode: the rail is not there).
-    if (e.key === 'F2' && !zen.on && !typing(e) && !inTerminal(e) && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open) {
+    // F2: renames the page shown, in the rail (not in Zen mode: the rail is not there); the Agents view renames its agent.
+    if (hit('rename', e) && !zen.on && !typing(e) && !inTerminal(e) && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open) {
       e.preventDefault()
       startRename(view.id)
       return
@@ -412,16 +415,14 @@
       openProjects()
       return
     }
-    if (chord(e) && chordKey(e) === 'n' && !(e.shiftKey && !extraShift(e)) && agentsEnabled()) {
+    if (hit('new-agent', e) && agentsEnabled()) {
       e.preventDefault()
       keyedAction('new-agent')
-      openAgents()
-      agentsView.creating = true
-      agentsView.desktopHref = null
+      newAgent()
       return
     }
     // ⌘⇧T: the panel closed last comes back (recent-panels.svelte.ts).
-    if (chord(e) && e.shiftKey && chordKey(e) === 't') {
+    if (hit('reopen', e)) {
       e.preventDefault()
       reopenLastPanel()
       return
@@ -612,7 +613,7 @@
     <span class="grow"></span>
     <button class="v" class:on={helpView.open} onclick={toggleHelp} title={keys(t('Help (⌘? or F1)'))} aria-pressed={helpView.open}><Icon name="help" /><span>{t('Help')}</span></button>
     <ThemeMenu />
-    <button class="v settings" class:on={settingsView.open} onclick={() => { closeAgents(); toggleSettings() }} title={keys(t('Settings (⌘,)'))} aria-pressed={settingsView.open}><Icon name="settings" /><span>{t('Settings')}</span></button>
+    <button class="v settings" class:on={settingsView.open} onclick={toggleSettings} title={keys(t('Settings (⌘,)'))} aria-pressed={settingsView.open}><Icon name="settings" /><span>{t('Settings')}</span></button>
     <ProfileMenu />
   </nav>
   <div class="content">
@@ -801,7 +802,7 @@
   /* X-rays (⌥): each block shows its identifier and its source. */
   main.xray [data-block] { position: relative; outline: 1px dashed var(--accent); outline-offset: -1px; border-radius: var(--r10); }
   main.xray [data-block]::before { content: attr(data-xray); position: absolute; right: 8px; top: 6px; z-index: 5; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 7px; border-radius: var(--r5); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--accent); font: 10.5px var(--mono); pointer-events: none; }
-  .rail :global(.v) { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 56px; padding: 6px 0 5px; border: none; border-radius: var(--r8); background: none; color: var(--text-muted); font: inherit; font-size: 9.5px; line-height: 1.1; cursor: pointer; }
+  .rail :global(.v) { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 56px; padding: 6px 0 5px; border: none; border-radius: var(--r8); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-micro); line-height: 1.1; cursor: pointer; }
   .rail :global(.v:hover) { color: var(--text); background: var(--surface-muted); }
   .rail :global(.v svg) { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   /* Icons tinted with their view's color, even inactive; the active one has a stroke on the left. */
@@ -815,18 +816,18 @@
   .rail .grow { flex: 1; }
   /* Managing the pages from the rail: drag and drop, the name typed in place, ⋯ and « + » in Edit layout. */
   .rail .pg { position: relative; display: flex; flex-direction: column; align-items: center; }
-  .rail .pg.drop::before, .rail .pg.drop-after::after { content: ''; position: absolute; top: -3px; left: 8px; right: 8px; height: 2px; border-radius: 1px; background: var(--accent); }
+  .rail .pg.drop::before, .rail .pg.drop-after::after { content: ''; position: absolute; top: -3px; left: 8px; right: 8px; height: 2px; border-radius: var(--r1); background: var(--accent); }
   .rail .pg.drop-after::after { top: auto; bottom: -3px; }
   .rail .pg.dragged { opacity: 0.45; }
   .rail .v.renaming { cursor: default; }
-  .rail .rename { width: 54px; padding: 1px 3px; border: 1px solid var(--accent); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: 9.5px; text-align: center; }
+  .rail .rename { width: 54px; padding: 1px 3px; border: 1px solid var(--accent); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-micro); text-align: center; }
   .rail .pmore { position: absolute; top: 0; right: -2px; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-muted); cursor: pointer; }
   .rail .pmore :global(svg) { width: 11px; height: 11px; }
   .rail .pmore:hover { color: var(--text); }
-  .rail .packmark { position: absolute; bottom: -2px; padding: 0 3px; border-radius: var(--r3); background: var(--surface-muted); color: var(--text-muted); font-size: 8px; font-weight: 600; letter-spacing: 0.2px; }
+  .rail .packmark { position: absolute; bottom: -2px; padding: 0 3px; border-radius: var(--r3); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.2px; }
   .rail .packmark.changed { color: var(--warn); }
   .rail .v.add { border: 1px dashed var(--border); }
-  .rail .hiddenp { display: inline-flex; align-items: center; gap: 3px; margin-top: 2px; padding: 2px 6px; border: none; border-radius: var(--r8); background: none; color: var(--text-muted); font: inherit; font-size: 10px; cursor: pointer; }
+  .rail .hiddenp { display: inline-flex; align-items: center; gap: 3px; margin-top: 2px; padding: 2px 6px; border: none; border-radius: var(--r8); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
   .rail .hiddenp:hover { background: var(--surface-muted); color: var(--text); }
   .rail .hiddenp :global(svg) { width: 13px; height: 13px; }
   /* Zen mode: the rail and the header fold away (the header comes back for the filter). */
@@ -834,7 +835,7 @@
   /* A page as the others: it slides in and out as they do (`pageTransition`). */
   .agents-host { flex: 1; min-height: 0; display: flex; view-transition-name: view-main; }
   .agents-host[hidden] { display: none; }
-  .rail .count { position: absolute; top: 2px; right: 9px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: var(--r8); background: var(--src-claude); color: #fff; font-size: 9px; font-weight: 700; line-height: 15px; text-align: center; }
+  .rail .count { position: absolute; top: 2px; right: 9px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: var(--r8); background: var(--src-claude); color: #fff; font-size: var(--fs-micro); font-weight: 700; line-height: 15px; text-align: center; }
   .rail .count.stale { background: var(--warn-bg); color: var(--warn); }
   .rail .count.rv { background: var(--surface); color: var(--src-claude); box-shadow: inset 0 0 0 1px var(--src-claude); }
   .rail .count.ko { background: var(--ko-bg); color: var(--ko); }
@@ -861,7 +862,7 @@
   .filter .match.none { color: var(--warn); }
   .mine { flex-shrink: 0; font: inherit; font-size: var(--fs-body); padding: 3px 10px; border-radius: var(--r6); border: 1px solid var(--border); background: none; color: var(--text-muted); cursor: pointer; }
   .mine.on { background: var(--info-bg); color: var(--info); border-color: transparent; font-weight: 500; }
-  .filter button { display: inline-flex; align-items: center; border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px; }
+  .filter button { display: inline-flex; align-items: center; border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: var(--fs-title); line-height: 1; padding: 0 2px; }
   /* Proportions come from layout.svelte.ts; the handles act as spacing. */
   main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px; view-transition-name: view-main; }
   .band { display: flex; min-height: 0; }

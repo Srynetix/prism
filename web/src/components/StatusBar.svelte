@@ -5,11 +5,12 @@
   import { agentIcon, agentName } from '../agent-cli'
   import { live } from '../live.svelte'
   import { pref, setPref, showBlock } from '../layout.svelte'
+  import { openWaiting, showPipeline } from '../doors'
+  import { openQuickNotes } from '../quick-notes.svelte'
   import { isBusy, openEvent } from '../agenda.svelte'
-  import { openMr } from '../mr-view.svelte'
   import { countedSessions, waitingAlert } from '../rules'
   import { planSections } from '../usage'
-  import { DEFAULT_ORDER, SIDE_BREAK, STATUS_ITEMS, arrange, fullOrder, overflow, statusItem, type StatusId } from '../statusbar'
+  import { DEFAULT_HIDDEN, DEFAULT_ORDER, SIDE_BREAK, STATUS_ITEMS, arrange, fullOrder, overflow, readHidden, statusItem, type StatusId } from '../statusbar'
   import { statusbarEditing } from '../statusbar-edit.svelte'
   import { appearance } from '../fun.svelte'
   import { saveEdits } from '../settings.svelte'
@@ -34,7 +35,6 @@
   import type { Alert } from '../rules'
   import Icon from './Icon.svelte'
   import { isDue, pendingReminders } from '../notes.svelte'
-  import { modulesReady, packsReady, updateReady, updates } from '../updates.svelte'
   import { openSettings } from '../settings.svelte'
   import { feedbackOn, newlyShipped, openFeedback } from '../feedback.svelte'
   import { t, tn, tc } from '../i18n.svelte'
@@ -47,28 +47,34 @@
    */
   let { snap, now, status, alerts = [] }: { snap: Snapshot | null; now: number; status: string; alerts?: Alert[] } = $props()
 
-  // The order and the hidden items: `[appearance] statusbar` and `statusbar_hidden`; before them,
-  // the hidden items were a pref, read until the first change writes the config.
+  // The order and the hidden items: `[appearance] statusbar` and `statusbar_hidden`, as written
+  // (a config that sets either keeps its bar, `statusbar_hidden = []` hiding nothing); before them,
+  // the hidden items were a pref, read until the first change writes the config; neither: the
+  // default bar (`DEFAULT_HIDDEN`).
   let legacy = $state<StatusId[]>(pref<StatusId[]>('statusbarHidden', []))
-  const saved = $derived.by(() => {
+  type Written = { order: string[]; hidden: string[] | null }
+  const resolve = (w: Written) => ({ order: w.order, hidden: readHidden(w.hidden ?? (w.order.length ? [] : legacy.length ? legacy : DEFAULT_HIDDEN)) })
+  const written = $derived.by((): Written => {
     const a = appearance()
-    const order = a.statusbar ?? []
-    const hidden = a.statusbar_hidden ?? []
-    return { order, hidden: order.length || hidden.length ? hidden : legacy }
+    return { order: a.statusbar ?? [], hidden: a.statusbar_hidden ?? null }
   })
   /** A change saved, until the config reads it back. */
-  let local = $state<{ order: string[]; hidden: string[] } | null>(null)
+  let local = $state<Written | null>(null)
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
+  const sameHidden = (a: string[] | null, b: string[] | null) => (a === null || b === null ? a === b : same(a, b))
   $effect(() => {
-    if (local && same(local.order, saved.order) && same(local.hidden, saved.hidden)) local = null
+    if (local && same(local.order, written.order) && sameHidden(local.hidden, written.hidden)) local = null
   })
-  const current = $derived(local ?? saved)
+  const current = $derived(resolve(local ?? written))
   const sides = $derived(arrange(current.order, current.hidden))
 
   async function save(order: string[], hidden: string[]) {
-    // The default order is written as none: Prism's later changes to it then apply.
     const full = fullOrder(order)
-    const next = { order: same(full, DEFAULT_ORDER) ? [] : full, hidden: STATUS_ITEMS.map((i) => i.id).filter((id) => hidden.includes(id)) }
+    const kept = STATUS_ITEMS.map((i) => i.id).filter((id) => hidden.includes(id))
+    // The default bar is written as none (Prism's later changes to it then apply); the default
+    // order as none too, its hidden items as they are, even none.
+    const byDefault = same(full, DEFAULT_ORDER)
+    const next: Written = byDefault && same(kept, DEFAULT_HIDDEN) ? { order: [], hidden: null } : { order: byDefault ? [] : full, hidden: kept }
     local = next
     try {
       await saveEdits([{ path: ['appearance', 'statusbar'], value: next.order }, { path: ['appearance', 'statusbar_hidden'], value: next.hidden }])
@@ -238,12 +244,12 @@
     <span class="sbi" title={status} aria-label={status}><span class="ld" class:on={live.connected}></span></span>
   {:else if id === 'alerts'}
     <AlertsItem {alerts} {now} />
-  {:else if id === 'problems'}
+  {:else if id === 'prism'}
     <ProblemsItem {snap} {now} />
   {:else if id === 'repos'}
     <RepoMenu {snap} />
   {:else if id === 'pipeline' && pipeline}
-    <button class="sbi gitlab" class:ko={pipeline.failed} onclick={() => openMr(pipeline.mr)} title={pipeline.failed ? t('{title} · pipeline failed', { title: pipeline.mr.title }) : t('{title} · pipeline running', { title: pipeline.mr.title })}>
+    <button class="sbi gitlab" class:ko={pipeline.failed} onclick={() => showPipeline(pipeline.mr.head_pipeline!, pipeline.mr)} title={pipeline.failed ? t('{title} · pipeline failed', { title: pipeline.mr.title }) : t('{title} · pipeline running', { title: pipeline.mr.title })}>
       <span class="g"><Icon name={pipeline.failed ? 'fail' : 'play'} /></span><b>{mrNumber(pipeline.mr.iid, pipeline.mr.forge)}</b>
       {#if pipeline.failed}{t('failed')}{:else}{pipeline.stage}<span class="mini"><i style:width="{(100 * pipeline.done) / Math.max(1, pipeline.jobs)}%"></i></span>{pipeline.done}/{pipeline.jobs}{/if}
     </button>
@@ -252,11 +258,11 @@
       <span class="g"><Icon name="clock" /></span><span class="clip">{meeting.e.title}</span><b>{meeting.when}</b>
     </button>
   {:else if id === 'reminder' && reminder}
-    <button class="sbi alert" class:ko={reminder.due > 0} onclick={() => showBlock('notes')} title={reminder.due ? tn(reminder.due, '{n} reminder due · {text}', '{n} reminders due · {text}', { text: reminder.text }) : t('Next reminder {when} · {text}', { when: reminder.when, text: reminder.text })}>
+    <button class="sbi alert" class:ko={reminder.due > 0} onclick={openQuickNotes} title={reminder.due ? tn(reminder.due, '{n} reminder due · {text}', '{n} reminders due · {text}', { text: reminder.text }) : t('Next reminder {when} · {text}', { when: reminder.when, text: reminder.text })}>
       <span class="g"><Icon name="alarm" /></span>{#if reminder.due}<b>{reminder.due}</b> {t('due')} ·{' '}{/if}<span class="clip">{firstLine(reminder.text)}</span>{#if reminder.when}<b>{reminder.when}</b>{/if}
     </button>
   {:else if id === 'claude' && waiting}
-    <button class="sbi claude" onclick={() => showBlock('sessions')} title={t('{agent} sessions waiting for you', { agent: agentName() })}><span class="g fun-beat"><Icon name={agentIcon()} /></span><b>{waiting}</b> {t('{agent} waiting', { agent: agentName() })}</button>
+    <button class="sbi claude" onclick={() => openWaiting()} title={t('{agent} sessions waiting for you', { agent: agentName() })}><span class="g fun-beat"><Icon name={agentIcon()} /></span><b>{waiting}</b> {t('{agent} waiting', { agent: agentName() })}</button>
   {:else if id === 'profiles' && snap?.other_profiles?.length}
     <!-- The other profiles open beside this one: who waits there, a click brings its Prism forward. -->
     {#each snap.other_profiles as p (p.id)}
@@ -299,13 +305,6 @@
     <button class="sbi clickup" onclick={() => showBlock('sprint')} title={t('{name} · day {day} of {total}', { name: sprintDay.name, day: sprintDay.day, total: sprintDay.total })}><span class="g"><Icon name="sprint" /></span><span class="clip">{sprintDay.name}</span>· {t('day')} <b>{sprintDay.day}</b>/{sprintDay.total}</button>
   {:else if id === 'audio'}
     <AudioControl />
-  {:else if id === 'update' && updateReady()}
-    <button class="sbi update" onclick={() => openSettings('updates')} title={t('Prism {version} is out (this one: {current}) · Settings › Updates', { version: updates.info!.latest!.version, current: updates.info!.current })}><span class="g"><Icon name="up" /></span>Prism <b>{updates.info!.latest!.version}</b></button>
-  {:else if id === 'packs' && (packsReady().length || modulesReady().length)}
-    {@const ps = packsReady()}
-    {@const ms = modulesReady()}
-    {@const names = [...ps.map((p) => `${p.name}${p.latest ? ` ${p.latest}` : ''}`), ...ms.map((m) => `${m.id}${m.latest ? ` ${m.latest}` : ''}`)]}
-    <button class="sbi update" onclick={() => openSettings('packs')} title={tn(names.length, '{packs} changed at its source · Settings › Packs', '{packs} changed at their sources · Settings › Packs', { packs: names.join(', ') })}><span class="g"><Icon name="up" /></span>{#if names.length > 1}<b>{names.length}</b> {ms.length ? t('updates') : t('packs')}{:else if ps.length}Pack <b>{ps[0].name}{#if ps[0].latest} {ps[0].latest}{/if}</b>{:else}{t('Module')} <b>{ms[0].id}{#if ms[0].latest} {ms[0].latest}{/if}</b>{/if}</button>
   {:else if id === 'feedback' && feedbackOn()}
     {@const done = newlyShipped()}
     {#if done.length}
@@ -340,10 +339,10 @@
       {/each}
     </div>
     <div class="acts">
-      <button onclick={() => (edit = { order: [...DEFAULT_ORDER], hidden: [] })}>{t('Default order')}</button>
+      <button class="btn sm" onclick={() => (edit = { order: [...DEFAULT_ORDER], hidden: [...DEFAULT_HIDDEN] })}>{t('Default order')}</button>
       <span class="grow"></span>
-      <button onclick={() => (edit = null)}>{t('Cancel')}</button>
-      <button class="pri" onclick={finishEdit}>{t('Done')}</button>
+      <button class="btn sm" onclick={() => (edit = null)}>{t('Cancel')}</button>
+      <button class="btn sm primary" onclick={finishEdit}>{t('Done')}</button>
     </div>
   </div>
 {:else}
@@ -370,7 +369,7 @@
 {/if}
 
 {#if moreOpen && over.length && !edit}
-  <div class="overflow items" role="dialog" aria-label={t('Items without room in the bar')} {@attach anchored(() => moreButton, { align: 'end' })} {@attach dismissable(() => (moreOpen = false), { trigger: () => moreButton })}>
+  <div class="overflow items popover" role="dialog" aria-label={t('Items without room in the bar')} {@attach anchored(() => moreButton, { align: 'end' })} {@attach dismissable(() => (moreOpen = false), { trigger: () => moreButton })}>
     {#each over as id (id)}
       <div class="row">{@render item(id)}</div>
     {/each}
@@ -378,15 +377,15 @@
 {/if}
 
 {#if menu}
-  <div class="ctx" role="menu" tabindex="-1" {@attach dismissable(() => (menu = null))} style:left="{Math.min(menu.x, innerWidth - 200)}px" style:bottom="{innerHeight - menu.y + 4}px">
-    <p>{t('Status bar')}</p>
+  <div class="ctx popover" role="menu" tabindex="-1" {@attach dismissable(() => (menu = null))} style:left="{Math.min(menu.x, innerWidth - 200)}px" style:bottom="{innerHeight - menu.y + 4}px">
+    <p class="hd">{t('Status bar')}</p>
     {#each STATUS_ITEMS as b (b.id)}
-      <button role="menuitemcheckbox" aria-checked={shows(b.id)} onclick={(e) => { e.stopPropagation(); flip(b.id) }}>
+      <button class="mi" role="menuitemcheckbox" aria-checked={shows(b.id)} onclick={(e) => { e.stopPropagation(); flip(b.id) }}>
         <span class="check">{#if shows(b.id)}<Icon name="check" />{/if}</span>{t(b.label)}
       </button>
     {/each}
     <hr />
-    <button role="menuitem" onclick={() => { menu = null; startEdit() }}><span class="check"></span>{t('Customize…')}</button>
+    <button class="mi" role="menuitem" onclick={() => { menu = null; startEdit() }}><span class="check"></span>{t('Customize…')}</button>
   </div>
 {/if}
 
@@ -406,7 +405,7 @@
   .slot:not(:has(> *)) { display: none; }
   .fixed { display: flex; flex-shrink: 0; }
   .more.open { background: var(--surface-muted); color: var(--text); }
-  .overflow { position: fixed; z-index: 45; display: flex; flex-direction: column; gap: 2px; min-width: 200px; max-width: calc(100vw - 24px); padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); color: var(--text-muted); }
+  .overflow { position: fixed; display: flex; flex-direction: column; gap: 2px; min-width: 200px; max-width: calc(100vw - 24px); color: var(--text-muted); }
   .overflow .row { display: flex; align-items: center; min-height: 22px; }
   .overflow .row:not(:has(> *)) { display: none; }
   /* Customize: the labels on the bar, dashed; the line between the sides; the tray of hidden items. */
@@ -415,15 +414,12 @@
   .chip.you { background: color-mix(in srgb, var(--warn) 10%, transparent); }
   .chip.dragging, .sep.dragging { opacity: 0.35; }
   .sep { flex-shrink: 0; width: 6px; height: 18px; margin: 0 2px; border-left: 2px solid var(--accent); cursor: grab; }
-  .editor { position: fixed; z-index: 46; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; width: min(640px, calc(100vw - 24px)); padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); color: var(--text-muted); }
+  .editor { position: fixed; z-index: var(--z-menu); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; width: min(640px, calc(100vw - 24px)); padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); font-size: var(--fs-meta); color: var(--text-muted); }
   .editor p { margin: 0; }
   .tray { display: flex; flex-wrap: wrap; gap: 4px; min-height: 30px; padding: 4px; border: 1px dashed var(--border); border-radius: var(--r8); }
   .tray .chip { border-color: var(--border); color: var(--text-muted); }
   .tray .empty { align-self: center; padding: 0 6px; opacity: 0.7; }
   .acts { display: flex; gap: 6px; }
-  .acts button { padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text); font: inherit; cursor: pointer; }
-  .acts button:hover { background: var(--surface-muted); }
-  .acts .pri { border-color: var(--accent); color: var(--accent); }
   /* Squeezed, a block cuts its text rather than drawing over its neighbour. */
   /* The items' vocabulary, global: a block's item uses it too (`BlockDef.status`). */
   .items :global(.sbi) { display: flex; align-items: center; gap: 5px; height: 20px; min-width: 0; overflow: hidden; padding: 0 7px; border: none; border-radius: var(--r5); background: none; color: inherit; font: inherit; cursor: default; }
@@ -449,7 +445,7 @@
   .me { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px 0 2px; margin-right: 2px; color: var(--text); font-weight: 600; border-right: 1px solid var(--border); }
   .me .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pc); }
   .sbi.prof { flex: none; }
-  .sbi.prof .pb { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: var(--r4); border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent); background: color-mix(in srgb, var(--pc) 20%, transparent); color: var(--pc); font-size: 9px; font-weight: 700; }
+  .sbi.prof .pb { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: var(--r4); border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent); background: color-mix(in srgb, var(--pc) 20%, transparent); color: var(--pc); font-size: var(--fs-micro); font-weight: 700; }
   .sbi.prof.waits { background: color-mix(in srgb, var(--pc) 14%, transparent); }
   .sbi.prof.waits b { color: var(--warn); }
   /* Another computer's: its badge round, as its dot elsewhere; out of reach, faded. */
@@ -457,10 +453,7 @@
   .sbi.mach.off { opacity: 0.55; }
   .mini { width: 38px; height: 4px; border-radius: var(--r2); overflow: hidden; background: var(--surface-muted); }
   .mini i { display: block; height: 100%; background: var(--src-gitlab); }
-  .ctx { position: fixed; z-index: 50; width: 190px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
-  .ctx p { margin: 2px 8px 4px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
-  .ctx button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-  .ctx button:hover { background: var(--surface-muted); }
-  .ctx hr { margin: 4px 6px; border: none; border-top: 1px solid var(--border); }
+  .ctx { position: fixed; width: 220px; max-height: calc(100vh - 60px); overflow-y: auto; font-size: var(--fs-body); }
+  .ctx .hd { margin: 0; }
   .check { display: inline-flex; width: 12px; color: var(--accent); }
 </style>

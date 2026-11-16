@@ -85,26 +85,26 @@
   .bars { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; gap: 6px 10px; align-items: center; font-size: var(--fs-meta); }
   .l { color: var(--text-muted); }
   .r { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
-  .bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-muted); }
-  .bar i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 5px; }
+  .bar { position: relative; height: 10px; border-radius: var(--r5); background: var(--surface-muted); }
+  .bar i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: var(--r5); }
   .bar .est { background: color-mix(in srgb, var(--info) 55%, var(--surface-muted)); }
   .bar .real { background: var(--ok); }
   .bar .real.warn { background: var(--warn); }
   .bar .real.ko { background: var(--ko); }
   /* The agents' share of the actual, hatched over its end. */
-  .bar .agents { border-radius: 0 5px 5px 0; background: repeating-linear-gradient(135deg, transparent 0 3px, color-mix(in srgb, var(--surface) 55%, transparent) 3px 5px); }
+  .bar .agents { border-radius: 0 var(--r5) var(--r5) 0; background: repeating-linear-gradient(135deg, transparent 0 3px, color-mix(in srgb, var(--surface) 55%, transparent) 3px 5px); }
   .bar .mark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--info); }
   .verdict { margin: 10px 0 0; padding: 6px 9px; border-radius: var(--r7); font-size: var(--fs-meta); background: color-mix(in srgb, var(--c, var(--text-muted)) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c, var(--text-muted)) 35%, var(--border)); }
   .ok { --c: var(--ok); } .warn { --c: var(--warn); } .ko { --c: var(--ko); }
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
   .card { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: color-mix(in srgb, var(--surface-muted) 50%, transparent); min-width: 0; }
   .card small { display: block; color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .card b { display: block; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .card b { display: block; font-size: var(--fs-head); font-weight: 600; font-variant-numeric: tabular-nums; }
   .runs { list-style: none; margin: 8px 0 0; padding: 0; font-size: var(--fs-meta); }
   .runs li { display: grid; grid-template-columns: minmax(70px, max-content) minmax(0, 1fr) max-content; gap: 8px; padding: 4px 0; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
   .runs .k { color: var(--text-muted); }
   .runs .m { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .runs .v { color: var(--text-muted); font-family: var(--mono); font-variant-numeric: tabular-nums; }
-  .phone .bars, .phone .runs { font-size: 14px; }
+  .phone .bars, .phone .runs { font-size: var(--fs-body); }
   .phone .runs li { padding: 6px 0; }
 </style>

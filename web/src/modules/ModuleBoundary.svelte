@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import Icon from '../components/Icon.svelte'
+  import State from '../components/ui/State.svelte'
   import { blockLabel } from '../views'
   import { problems } from '../problems.svelte'
   import { t } from '../i18n.svelte'
@@ -31,10 +32,7 @@
   {:else}
     <section class="panel">
       <h2><span class="title"><Icon name="warning" />{blockLabel(id)}</span></h2>
-      <div class="empty">
-        <p>{t('This block of the module {name} failed: {error}', { name: module, error: message })}</p>
-        {#if retry}<button class="btn" onclick={retry}>{t('Retry')}</button>{/if}
-      </div>
+      <State kind="error" title={t('This block of the module {name} failed: {error}', { name: module, error: message })} {retry} />
     </section>
   {/if}
 {/snippet}
@@ -53,7 +51,5 @@
 {/if}
 
 <style>
-  .empty { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-  .empty p { margin: 0; overflow-wrap: anywhere; }
   .mark { color: var(--ko); background: none; border: 0; padding: 0 4px; cursor: pointer; }
 </style>

@@ -2,8 +2,10 @@
   import { t } from '../i18n.svelte'
   import { invoke, isDesktop } from '../bridge'
   import { openLink } from '../links'
-  import { toast, writeClipboard } from '../toast.svelte'
+  import { toastError, writeClipboard } from '../toast.svelte'
   import { anchored, dismissable } from '../popup'
+  import { untrack } from 'svelte'
+  import { pushLayer } from '../layers.svelte'
 
   /**
    * The right-click menu, the app's in place of the webview's (Reload, Back, Inspect… on Linux,
@@ -21,6 +23,7 @@
     link: string | null
   }
   let menu = $state<Menu | null>(null)
+  let menuEl: HTMLDivElement | undefined = $state()
   const close = () => (menu = null)
 
   const TEXT = /^(text|search|url|email|tel|password|number|)$/
@@ -47,21 +50,18 @@
     menu = next.field || next.selected || next.link ? next : null
   }
 
-  /** Esc closes the menu only, not a popup the field is in. */
-  function onKey(e: KeyboardEvent) {
-    if (menu && e.key === 'Escape') {
-      e.stopImmediatePropagation()
-      close()
-    }
-  }
-
   $effect(() => {
     document.addEventListener('contextmenu', onContext)
-    document.addEventListener('keydown', onKey, true)
-    return () => {
-      document.removeEventListener('contextmenu', onContext)
-      document.removeEventListener('keydown', onKey, true)
-    }
+    return () => document.removeEventListener('contextmenu', onContext)
+  })
+  /**
+   * Open, a layer on top: Esc closes the menu only, not a drawer the field is in. The field keeps
+   * the focus (`focus: false`).
+   */
+  $effect(() => {
+    if (!menu) return
+    const layer = untrack(() => pushLayer({ kind: 'menu', key: 'context-menu', el: () => menuEl, close, outside: false, focus: false }))
+    return layer.remove
   })
 
   /**
@@ -102,7 +102,7 @@
     // From a `then`: an action that throws at once is caught too.
     void Promise.resolve()
       .then(action)
-      .catch((e) => failed && toast(failed(String(e)), 5000))
+      .catch((e) => failed && toastError(failed(String(e))))
   }
   // The clipboard read or written through the core may fail (Linux: one that does not answer).
   const notCopied = (error: string) => t('Could not copy: {error}', { error })
@@ -116,30 +116,26 @@
 {#each menu ? [menu] : [] as m (m)}
   {@const canEdit = !!m.field && editable(m.field)}
   <!-- The field keeps its focus and its selection while a choice is clicked. -->
-  <div class="ctxmenu" role="menu" tabindex="-1" onmousedown={(e) => e.preventDefault()} {@attach anchored(() => at(m), { align: 'start', gap: 0 })} {@attach dismissable(close, { resize: true })}>
+  <div class="ctxmenu popover" role="menu" tabindex="-1" bind:this={menuEl} onmousedown={(e) => e.preventDefault()} {@attach anchored(() => at(m), { align: 'start', gap: 0 })} {@attach dismissable(close, { resize: true, escape: false })}>
     {#if m.link}
-      <button role="menuitem" onclick={() => run(() => openLink(m.link!))}>{t('Open link')}</button>
-      <button role="menuitem" onclick={() => run(() => writeClipboard(m.link!), notCopied)}>{t('Copy link')}</button>
+      <button class="mi" role="menuitem" onclick={() => run(() => openLink(m.link!))}>{t('Open link')}</button>
+      <button class="mi" role="menuitem" onclick={() => run(() => writeClipboard(m.link!), notCopied)}>{t('Copy link')}</button>
       {#if m.field || m.selected}<hr />{/if}
     {/if}
     {#if m.field}
-      <button role="menuitem" disabled={!canEdit || !m.selected} onclick={() => run(() => cut(m), notCopied)}>{t('Cut')}</button>
+      <button class="mi" role="menuitem" disabled={!canEdit || !m.selected} onclick={() => run(() => cut(m), notCopied)}>{t('Cut')}</button>
     {/if}
     {#if m.field || m.selected}
-      <button role="menuitem" disabled={!m.selected} onclick={() => run(() => writeClipboard(m.selected), notCopied)}>{t('Copy')}</button>
+      <button class="mi" role="menuitem" disabled={!m.selected} onclick={() => run(() => writeClipboard(m.selected), notCopied)}>{t('Copy')}</button>
     {/if}
     {#if m.field}
-      <button role="menuitem" disabled={!canEdit} onclick={() => run(() => paste(m), notPasted)}>{t('Paste')}</button>
+      <button class="mi" role="menuitem" disabled={!canEdit} onclick={() => run(() => paste(m), notPasted)}>{t('Paste')}</button>
       <hr />
-      <button role="menuitem" onclick={() => run(() => selectAll(m))}>{t('Select all')}</button>
+      <button class="mi" role="menuitem" onclick={() => run(() => selectAll(m))}>{t('Select all')}</button>
     {/if}
   </div>
 {/each}
 
 <style>
-  .ctxmenu { position: fixed; z-index: 200; min-width: 150px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r8); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); outline: none; }
-  .ctxmenu button { display: flex; align-items: center; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r5); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-  .ctxmenu button:hover:not(:disabled) { background: var(--surface-muted); }
-  .ctxmenu button:disabled { color: var(--text-muted); opacity: 0.6; cursor: default; }
-  .ctxmenu hr { margin: 4px 6px; border: none; border-top: 1px solid var(--border); }
+  .ctxmenu { position: fixed; min-width: 150px; outline: none; }
 </style>

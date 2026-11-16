@@ -202,8 +202,15 @@ ticket_threads = false          # a ticket row shows its thread as small squares
 pin_drawers = false             # a pin in the side panes (MR, ticket, logs, shells…): pinned, a click outside no longer closes it
 # The status bar's order (right-click › Customize… writes it): item ids, "|" parts left from right;
 # an item left out takes its default place. Empty: by zone, what waits for you first.
-# statusbar = ["claude", "pipeline", "meeting", "reminder", "digest", "repos", "sprint", "profiles", "shells", "|", "problems", "update", "packs", "usage", "audio", "feedback", "live", "clock"]
-statusbar_hidden = []           # items not shown (right-click on the bar)
+# Its items: claude, pipeline, meeting, reminder, digest, routines, mcp, alerts (waiting for you);
+# repos, sprint, profiles, machines, shells, aside (the work); usage, prism, audio, feedback, live,
+# clock (the computer), and the blocks' own (pet, system, sound, status, custom_blocks…).
+# "prism" is one item for Prism's update, the packs and modules to update and its problems: the
+# former "update", "packs" and "problems" still read as it.
+# statusbar = ["claude", "pipeline", "meeting", "repos", "sprint", "|", "usage", "prism", "clock"]
+# Neither set: claude, pipeline, meeting | repos, sprint | usage, prism, clock shown, every other
+# item hidden. Set either and the bar is yours as written (nothing listed here: nothing hidden).
+# statusbar_hidden = ["reminder", "digest", "shells", "audio", "live"]   # items not shown (right-click on the bar)
 
 # Prism's own updates: the releases of a repository (prism-v… tags, scripts/release.sh), read
 # with glab or gh: Prism's public ones at gh:Srynetix/prism, or the repository a team's pack names.

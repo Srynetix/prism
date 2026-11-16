@@ -9,7 +9,7 @@
   import { actualRows, actualsCsv, agentCost, agentMinutes, agentsByTicket, pct, tierOf, tone, totals, trends, unlinked, type ActualRow, type Trend } from '../actuals'
   import { canPreview, openTicket } from '../ticket-view.svelte'
   import { invoke, isDesktop } from '../bridge'
-  import { toast } from '../toast.svelte'
+  import { toast, toastError } from '../toast.svelte'
   import type { Snapshot } from '../types'
   import { useAgentCosts } from '../agent-costs.svelte'
 
@@ -107,7 +107,7 @@
       link.remove()
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
     } catch (e) {
-      toast(t('Could not export: {error}', { error: String(e) }), 5000)
+      toastError(t('Could not export: {error}', { error: String(e) }), exportCsv)
     }
   }
 </script>
@@ -120,7 +120,7 @@
       <button class:on={range === 'last3'} aria-pressed={range === 'last3'} onclick={() => setRange('last3')} title={t('This sprint and the two before, as kept when My sprint showed them')}>{t('Last 3')}</button>
       <button class:on={range === 'quarter'} aria-pressed={range === 'quarter'} onclick={() => setRange('quarter')} title={t('The sprints kept that ended in the last three months')}>{t('Quarter')}</button>
     </span>
-    <button class="btn" onclick={exportCsv} disabled={!rows.length} title={t('The table as CSV: durations in hours, the gap in percent')}><Icon name="download" />{t('Export CSV')}</button>
+    <button class="btn sm" onclick={exportCsv} disabled={!rows.length} title={t('The table as CSV: durations in hours, the gap in percent')}><Icon name="download" />{t('Export CSV')}</button>
   </div>
   {#if !rows.length}
     <p class="muted pad">{t('No done ticket yet in this sprint.')}</p>
@@ -176,12 +176,7 @@
   .actuals { display: flex; flex-direction: column; min-height: 0; }
   .bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   .bar .muted { margin-right: auto; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { padding: 1px 8px; border: none; background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .seg button.on { background: var(--surface-muted); color: var(--text); }
-  .btn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
-  .btn:disabled { opacity: 0.5; cursor: default; }
+  .seg > button { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
   .scroll { overflow: auto; }
   table { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); }
   th { text-align: left; padding: 5px 12px; color: var(--text-muted); font-weight: 500; font-size: var(--fs-tag); border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -204,7 +199,7 @@
   .sum { display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
   .card { flex: 1; min-width: 130px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r8); background: color-mix(in srgb, var(--surface-muted) 50%, transparent); }
   .card small { display: block; color: var(--text-muted); font-size: var(--fs-tag); }
-  .card b { display: inline-block; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .card b { display: inline-block; font-size: var(--fs-head); font-weight: 600; font-variant-numeric: tabular-nums; }
   .card b.ratio { min-width: 0; padding: 0 6px; }
   .learn { padding: 8px 12px 10px; border-top: 1px solid var(--border); }
   h3 { margin: 0 0 6px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }

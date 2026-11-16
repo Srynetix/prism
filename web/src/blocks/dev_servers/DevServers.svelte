@@ -4,12 +4,14 @@
   import { agentsView, openAgents, openAgentShell, runInShell } from '../../agents.svelte'
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
+  import ArmedLabel from '../../components/ArmedLabel.svelte'
+  import State from '../../components/ui/State.svelte'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import { devPreview, openDevServer } from '../../dev-preview.svelte'
   import { starredTasks } from '../../task-stars.svelte'
   import { taskFilesChanged } from '../../task-guard'
   import { ago } from '../../time'
-  import { toast } from '../../toast.svelte'
+  import { toastInfo } from '../../toast.svelte'
   import { t, tn } from '../../i18n.svelte'
   import { withoutTicket } from '../trail/trail'
   import type { Agent } from '../../types'
@@ -81,7 +83,7 @@
       const changed = await taskFilesChanged(a.id)
       if (changed.length) {
         arming.confirm(`start:${a.id}`)
-        toast(t('{agent} changed {files}: check what its tasks run, then Start again', { agent: a.title, files: changed.slice(0, 3).join(', ') }), 6000)
+        toastInfo(t('{agent} changed {files}: check what its tasks run, then Start again', { agent: a.title, files: changed.slice(0, 3).join(', ') }), 6000)
         return
       }
     }
@@ -105,9 +107,9 @@
     <BlockControls id="dev_servers" />
   </h2>
   {#if !enabled}
-    <div class="empty">{t('The dev servers are not read. Turn on Settings › Agents › Dev servers, then restart Prism.')}</div>
+    <State kind="off" title={t('The dev servers are not read. Turn on Settings › Agents › Dev servers, then restart Prism.')} />
   {:else if !dev?.read_at}
-    <div class="empty">{error ? t('Cannot read the processes: {error}', { error }) : t('Reading the processes…')}</div>
+    {#if error}<State kind="error" title={t('Cannot read the processes: {error}', { error })} />{:else}<State kind="loading" title={t('Reading the processes…')} />{/if}
   {:else if isShort('dev_servers')}
     <div class="short-body">
       {#each broken as s (s.key)}
@@ -117,8 +119,8 @@
       {/each}
     </div>
   {:else}
-    {#if failed}<p class="err" title={failed}>{failed}</p>{/if}
-    {#if error}<p class="err" title={error}>{error}</p>{/if}
+    {#if failed}<div class="fail" title={failed}><State kind="error" inline title={failed} /></div>{/if}
+    {#if error}<div class="fail" title={error}><State kind="error" inline title={error} /></div>{/if}
     <div class="scroll">
       {#each groups as g (g.a.id)}
         {@const port = firstPort(g.servers)}
@@ -129,7 +131,7 @@
             <span class="tt">{g.a.ticket ? withoutTicket(g.a.title, g.a.ticket) : g.a.title}</span>
             {#if g.a.branch}<span class="br mono muted">{g.a.branch}</span>{/if}
           </button>
-          {#if port}<button class="act" onclick={() => open(port)} title={openTitle(port)}>:{port} ↗</button>{/if}
+          {#if port}<button class="btn sm" onclick={() => open(port)} title={openTitle(port)}>:{port} <Icon name="external" /></button>{/if}
         </div>
         {#each g.servers as s (s.key)}
           <div class="srv" class:stopped={s.state === 'stopped'}>
@@ -143,12 +145,12 @@
             </span>
             <span class="acts">
               {#if hasCore()}
-                {#if !s.docker}<button class="icon" onclick={() => show(s)} title={s.shell !== null ? t('Show shell {n} in the agent’s panel', { n: s.shell }) : t('Open the agent')} aria-label={t('Show')}><Icon name="terminal" /></button>{/if}
+                {#if !s.docker}<button class="btn sm icon ghost" onclick={() => show(s)} title={s.shell !== null ? t('Show shell {n} in the agent’s panel', { n: s.shell }) : t('Open the agent')} aria-label={t('Show')}><Icon name="terminal" /></button>{/if}
                 {#if s.state === 'stopped'}
-                  {#if s.shell !== null && s.typed}<button class="icon" disabled={busy !== null} onclick={() => again(s)} title={t('Run {command} again in shell {n}', { command: s.command, n: s.shell })} aria-label={t('Run again')}><Icon name="retry" /></button>{/if}
-                  <button class="icon" disabled={busy !== null} onclick={() => dismiss(s)} title={t('Forget this line')} aria-label={t('Dismiss')}><Icon name="close" /></button>
+                  {#if s.shell !== null && s.typed}<button class="btn sm icon ghost" disabled={busy !== null} onclick={() => again(s)} title={t('Run {command} again in shell {n}', { command: s.command, n: s.shell })} aria-label={t('Run again')}><Icon name="retry" /></button>{/if}
+                  <button class="btn sm icon ghost" disabled={busy !== null} onclick={() => dismiss(s)} title={t('Forget this line')} aria-label={t('Dismiss')}><Icon name="close" /></button>
                 {:else}
-                  <button class="icon" disabled={busy !== null} onclick={() => stop(s)} title={s.docker ? 'docker stop' : s.shell !== null ? t('Stop: Ctrl-C in its shell') : t('Stop: SIGTERM')} aria-label={t('Stop')}><Icon name="stop" /></button>
+                  <button class="btn sm icon ghost" disabled={busy !== null} onclick={() => stop(s)} title={s.docker ? 'docker stop' : s.shell !== null ? t('Stop: Ctrl-C in its shell') : t('Stop: SIGTERM')} aria-label={t('Stop')}><Icon name="stop" /></button>
                 {/if}
               {/if}
             </span>
@@ -170,8 +172,8 @@
             <span></span>
             <span class="acts">
               {#if hasCore()}
-                <button class="act" class:primary={list.length > 0} class:armed={arming.is(`start:${a.id}`)} disabled={busy !== null} onclick={() => start(a)} title={list.length ? t('Start {tasks}, one shell each', { tasks: list.map((task) => task.name).join(', ') }) : t('Open its Tasks panel')}>
-                  {busy === `start:${a.id}` ? '…' : list.length ? `▶ ${t('Start')}` : t('Tasks…')}
+                <button class="btn sm" class:primary={list.length > 0 && !arming.is(`start:${a.id}`)} class:armed={arming.is(`start:${a.id}`)} class:busy={busy === `start:${a.id}`} disabled={busy !== null} onclick={() => start(a)} title={list.length ? t('Start {tasks}, one shell each', { tasks: list.map((task) => task.name).join(', ') }) : t('Open its Tasks panel')}>
+                  {#if busy === `start:${a.id}`}<span class="spinner"></span>{t('Starting…')}{:else if list.length}<Icon name="play" /><ArmedLabel label={t('Start')} armedLabel={t('Click again to confirm')} armed={arming.is(`start:${a.id}`)} />{:else}{t('Tasks…')}{/if}
                 </button>
               {/if}
             </span>
@@ -180,7 +182,7 @@
       {/if}
 
       {#if !groups.length && !idle.length}
-        <div class="empty">{t('No agent runs a server. Launch an agent, then run its dev task from its Tasks panel (★ to start it from here next time).')}</div>
+        <State kind="empty" icon="terminal" title={t('No agent runs a server. Launch an agent, then run its dev task from its Tasks panel (★ to start it from here next time).')} />
       {/if}
 
       {#if dev.scan_outside && dev.outside.length}
@@ -195,8 +197,8 @@
             <span class="ports">{#if devPreview.phone}<span class="port mono" title={t('Outside Prism: not previewed from a phone')}>:{l.port}</span>{:else}<button class="port mono" onclick={() => open(l.port)} title={t('Open http://localhost:{port}', { port: l.port })}>:{l.port}</button>{/if}</span>
             <span class="acts">
               {#if hasCore()}
-                <button class="act" class:armed={arming.is(`kill:${l.pid}`)} disabled={busy !== null} onclick={() => kill(l)} title={arming.is(`kill:${l.pid}`) ? t('Click again to stop it') : l.docker ? 'docker stop' : 'SIGTERM'}>
-                  {arming.is(`kill:${l.pid}`) ? t('Sure?') : l.docker ? t('Stop') : t('Kill')}
+                <button class="btn sm danger" class:armed={arming.is(`kill:${l.pid}`)} disabled={busy !== null} onclick={() => kill(l)} title={arming.is(`kill:${l.pid}`) ? t('Click again to stop it') : l.docker ? 'docker stop' : 'SIGTERM'}>
+                  <ArmedLabel label={l.docker ? t('Stop') : t('Kill')} armedLabel={t('Click again to confirm')} armed={arming.is(`kill:${l.pid}`)} />
                 </button>
               {/if}
             </span>
@@ -208,7 +210,7 @@
 </section>
 
 <style>
-  .err { margin: 0; padding: 4px 12px; color: var(--ko); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fail { padding: 4px 12px; font-size: var(--fs-meta); }
   .agent { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 12px 3px; border-top: 1px solid var(--border); }
   .agent:first-child { border-top: none; }
   .who { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0; border: none; background: none; color: var(--text); font: inherit; font-weight: 600; font-size: var(--fs-body); text-align: left; cursor: pointer; }
@@ -231,15 +233,5 @@
   .tail { margin: 0 12px 6px 26px; padding: 5px 8px; max-height: 120px; overflow: auto; border-left: 3px solid var(--border); border-radius: var(--r4); background: var(--surface-muted); color: var(--text-muted); font: var(--fs-tag) / 1.45 var(--mono); white-space: pre-wrap; word-break: break-word; }
   .tail.ko { border-left-color: var(--ko); color: var(--text); }
   .section { padding: 4px 12px; background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); border-top: 1px solid var(--border); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; }
-  .dot.ok { background: var(--ok); opacity: 1; }
-  .dot.warn { background: var(--warn); opacity: 1; }
-  .dot.ko { background: var(--ko); opacity: 1; }
   .acts { display: flex; gap: 2px; justify-content: flex-end; }
-  .act { padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); cursor: pointer; white-space: nowrap; }
-  .act.primary { border-color: color-mix(in srgb, var(--src) 55%, var(--border)); color: var(--src); }
-  .act.armed { border-color: var(--ko); color: var(--ko); }
-  .act:disabled, .icon:disabled { opacity: 0.5; cursor: default; }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
 </style>

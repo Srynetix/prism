@@ -6,6 +6,7 @@
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
+  import State from './ui/State.svelte'
   import MrRow from './MrRow.svelte'
   import PipelineBar from './PipelineBar.svelte'
   import type { MergeRequest, Snapshot, Ticket } from '../types'
@@ -74,9 +75,9 @@
   <h2>
     <span class="title"><Logo name={forgeLogo()} />{t('Merge queue')}</span>
     <span class="head">
-      {#if q.hasQueue}<small class="pill auto" title={t('MRs with the “{label}” label', { label: queueLabel ?? '' })}>{t('{n} queued', { n: q.queued.length })}</small>{/if}
+      {#if q.hasQueue}<small class="pill src" title={t('MRs with the “{label}” label', { label: queueLabel ?? '' })}>{t('{n} queued', { n: q.queued.length })}</small>{/if}
       {#if stuckCount}<small class="pill ko" title={t('In the queue, but conflicts, a failed rebase or a failed CI hold them up')}>{t('{n} stuck', { n: stuckCount })}</small>{/if}
-      {#if q.auto.length}<small class="pill auto" title={t('Auto-merge on: the forge merges them once their checks pass')}>{t('{n} auto-merge', { n: q.auto.length })}</small>{/if}
+      {#if q.auto.length}<small class="pill src" title={t('Auto-merge on: the forge merges them once their checks pass')}>{t('{n} auto-merge', { n: q.auto.length })}</small>{/if}
     </span>
     <BlockControls id="queue" />
   </h2>
@@ -94,7 +95,7 @@
         {@const st = nextStep(m, meOn(snap, m), queueLabel)}
         {@const prio = q.queued.length ? mergePriority(m, prefix) : null}
         <div class="srow">
-          <span class="pos" class:head={q.queued.length > 0 && i === 0}>{q.queued.length ? (i === 0 ? '▶' : i + 1) : ''}</span>
+          <span class="pos" class:head={q.queued.length > 0 && i === 0}>{#if q.queued.length}{#if i === 0}<Icon name="play" />{:else}{i + 1}{/if}{/if}</span>
           {#if prio !== null}<span class="prio" title={t('Merge priority {n} (label {label})', { n: prio, label: `${prefix}${prio}` })}>P{prio}</span>{/if}
           <span class="am" title={m.auto_merge ? t('Auto-merge on: the forge merges it once its checks pass') : undefined}>{#if m.auto_merge}<Icon name="automerge" />{/if}</span>
           {#if split}<span class="target" title={t('Target branch')}>→ {m.target_branch}</span>{/if}
@@ -118,7 +119,7 @@
         {@render sections(q)}
       {/if}
       {#if !q.hasQueue && !q.auto.length && !q.ready.length}
-        <div class="empty">{repo ? t('Nothing waiting to merge in {repo}.', { repo }) : t('No repository with a merge queue or an MR waiting to merge.')}</div>
+        <State kind="empty" icon="queue" title={repo ? t('Nothing waiting to merge in {repo}.', { repo }) : t('No repository with a merge queue or an MR waiting to merge.')} />
       {/if}
     </div>
   {/if}
@@ -126,8 +127,6 @@
 
 <style>
   .head { display: flex; gap: 6px; align-items: baseline; }
-  .pill { font-size: var(--fs-tag); font-weight: 500; padding: 0 7px; border-radius: var(--r10); --c: var(--text-muted); background: color-mix(in srgb, var(--c) 15%, transparent); color: color-mix(in srgb, var(--c) 70%, var(--text)); }
-  .pill.auto { --c: var(--accent); } .pill.ko { --c: var(--ko); }
   .repos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 5px 10px; border-bottom: 1px solid var(--border); }
   .repos .rp { --c: var(--text-muted); display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); line-height: 19px; cursor: pointer; }
   .repos .rp b { color: var(--text); font-weight: 600; }

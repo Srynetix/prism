@@ -26,7 +26,7 @@
     {onclick}
     title={task.error ? t('Rebase failed: {error}', { error: task.error }) : t('Behind {branch}: {forge} rebases {mr} onto it', { branch: mr.target_branch, forge: forgeName(mr.forge), mr: mrNumber(mr.iid, mr.forge) })}
     aria-label={t('Rebase {mr}', { mr: mrNumber(mr.iid, mr.forge) })}
-  ><Icon name="rebase" />{#if task.busy}<span>{t('rebasing…')}</span>{/if}</button>
+  >{#if task.busy}<span class="spinner"></span><span>{t('rebasing…')}</span>{:else}<Icon name="rebase" />{/if}</button>
 {:else}
   <span class="rebase" title={t('Behind {branch}: rebase needed before merging', { branch: mr.target_branch })}><Icon name="rebase" /></span>
 {/if}

@@ -65,7 +65,7 @@
 
 <style>
   .month { outline: none; }
-  button { border: none; background: none; color: var(--text-muted); cursor: pointer; font: inherit; font-size: 14px; padding: 0 4px; line-height: 1; }
+  button { border: none; background: none; color: var(--text-muted); cursor: pointer; font: inherit; font-size: var(--fs-head); padding: 0 4px; line-height: 1; }
   button:disabled { opacity: 0.3; cursor: default; }
   button:not(:disabled):hover { color: var(--text); }
   .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }

@@ -79,8 +79,6 @@
   .t { height: 28px; min-width: 0; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-body); outline: none; }
   .t:focus { border-color: var(--accent); }
   .mono { font-family: var(--mono); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn:hover { border-color: var(--accent); }
   .colors { display: inline-flex; flex-wrap: wrap; gap: 6px; }
   .sw { width: 18px; height: 18px; padding: 0; border: none; border-radius: var(--r5); background: var(--c); cursor: pointer; }
   .sw.on { outline: 2px solid var(--text); outline-offset: 2px; }

@@ -3,6 +3,7 @@
   import BlockControls from './BlockControls.svelte'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
+  import State from './ui/State.svelte'
   import { invoke } from '../bridge'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import { hours } from '../retro'
@@ -133,15 +134,15 @@
     <BlockControls id="retro" />
   </h2>
   {#if !snap.sprint}
-    <div class="empty">{t('No current sprint read from the tracker.')}</div>
+    <State kind="empty" title={t('No current sprint read from the tracker.')} />
   {:else if actuals}
     {#if !isShort('retro')}<SprintActuals {snap} />{/if}
   {:else if r === undefined}
     <!-- The core has not answered yet. -->
   {:else if !r}
-    <div class="empty">{t('The sprint has no start date: Prism cannot tell its days.')}</div>
+    <State kind="empty" title={t('The sprint has no start date: Prism cannot tell its days.')} />
   {:else if !snap.tracker_me}
-    <div class="empty">{t('Prism does not know you in the tracker yet: your tickets show once it does.')}</div>
+    <State kind="off" title={t('Prism does not know you in the tracker yet: your tickets show once it does.')} />
   {:else}
     <div class="kpis">
       <div class="kpi" title={t('Your tickets of the sprint done, of those assigned to you')}>
@@ -241,12 +242,12 @@
                   <!-- svelte-ignore a11y_no_static_element_interactions -->
                   <span class="tx" ondblclick={() => { editing = p.id; editText = p.text }} title={t('Double-click to edit')}>{p.text}</span>
                 {/if}
-                <button class="rm" onclick={() => removePoint(shown, p.id)} title={t('Remove this point')} aria-label={t('Remove')}>×</button>
+                <button class="rm" onclick={() => removePoint(shown, p.id)} title={t('Remove this point')} aria-label={t('Remove')}><Icon name="close" /></button>
               </div>
             {:else}
               <p class="muted">{t('What to keep, change or try, as it comes during the sprint: it is kept with {sprint}.', { sprint: shown })}</p>
             {/each}
-            {#if pointsStorage.failed}<p class="err">{t('Could not save the points.')}</p>{/if}
+            {#if pointsStorage.failed}<p class="fail"><State kind="error" inline title={t('Could not save the points.')} /></p>{/if}
             {#if r.notes.length}
               <h3 class="sub">{t('From my notes')} <span>#retro</span></h3>
               {#each r.notes as n (n.id)}
@@ -260,8 +261,8 @@
       </div>
       <div class="foot">
         <span class="muted">{t('From the tracker, the Day trail, your time, agents and notes. Stays in Prism.')}</span>
-        <button class="btn" onclick={() => copy(md, t('My sprint copied as Markdown'))}><Icon name="copy" />{t('Copy as Markdown')}</button>
-        {#if draft && (draft.launch || draft.href)}<a class="btn claude" href={draft.href} onclick={claudeClick(draft)} title={draft.prompt}><Logo name="agent" size={10} />{t('Draft my points')}</a>{/if}
+        <button class="btn sm" onclick={() => copy(md, t('My sprint copied as Markdown'))}><Icon name="copy" />{t('Copy as Markdown')}</button>
+        {#if draft && (draft.launch || draft.href)}<a class="btn sm claude" href={draft.href} onclick={claudeClick(draft)} title={draft.prompt}><Logo name="agent" size={10} />{t('Draft my points')}</a>{/if}
       </div>
     {/if}
   {/if}
@@ -276,7 +277,7 @@
   .kpi { display: flex; flex-direction: column; padding: 7px 12px; border-right: 1px solid var(--border); min-width: 0; }
   .kpi:last-child { border-right: none; }
   .kpi .l { font-size: var(--fs-tag); color: var(--text-muted); white-space: nowrap; }
-  .kpi .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kpi .v { font-size: var(--fs-big); font-weight: 600; font-variant-numeric: tabular-nums; }
   .kpi .v small { font-size: var(--fs-meta); font-weight: 400; color: var(--text-muted); }
   .kpi .d { font: var(--fs-tag) var(--mono); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
@@ -287,16 +288,16 @@
   .split { display: flex; height: 12px; border-radius: var(--r4); overflow: hidden; background: var(--surface-muted); margin-bottom: 6px; }
   .split i { display: block; height: 100%; }
   .legend { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 40px; gap: 2px 8px; align-items: center; font-size: var(--fs-meta); }
-  .legend i { width: 10px; height: 10px; border-radius: 2px; }
+  .legend i { width: 10px; height: 10px; border-radius: var(--r2); }
   .legend .n { font-family: var(--mono); text-align: right; }
   .legend .p { font: var(--fs-tag) var(--mono); color: var(--text-muted); text-align: right; }
   .days { display: flex; gap: 4px; align-items: flex-end; height: 70px; }
   .day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; min-width: 12px; }
-  .day .bar { flex: 1; width: 100%; display: flex; align-items: flex-end; border-radius: 3px; background: var(--surface-muted); overflow: hidden; }
+  .day .bar { flex: 1; width: 100%; display: flex; align-items: flex-end; border-radius: var(--r3); background: var(--surface-muted); overflow: hidden; }
   .day .bar i { display: block; width: 100%; background: var(--info); }
   .day .sw { font: 10px var(--mono); color: var(--text-muted); }
   .day .sw.many { color: var(--warn); }
-  .day .dl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+  .day .dl { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; }
   .tk { display: grid; grid-template-columns: auto minmax(0, 1fr) 48px 52px 40px; gap: 6px; align-items: center; padding: 2px 0; font-size: var(--fs-meta); }
   .tk .id { padding: 0; border: none; background: none; color: var(--info); cursor: pointer; font-size: var(--fs-tag); }
   .tk .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -322,10 +323,8 @@
   .pt .tx { overflow-wrap: anywhere; }
   .pt .edit { padding: 0 4px; border: 1px solid var(--border); border-radius: var(--r4); font: inherit; background: var(--surface); color: var(--text); }
   .sprint { max-width: 150px; padding: 0 4px; border: 1px solid var(--border); border-radius: var(--r4); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); }
-  .err { margin: 4px 0 0; color: var(--ko); font-size: var(--fs-tag); }
+  .fail { margin: 4px 0 0; font-size: var(--fs-tag); }
   .link { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
   .foot { display: flex; align-items: center; gap: 6px; padding: 6px 12px; flex-wrap: wrap; }
   .foot .muted { margin-right: auto; font-size: var(--fs-tag); }
-  .btn { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); cursor: pointer; text-decoration: none; }
-  .btn.claude { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); }
 </style>

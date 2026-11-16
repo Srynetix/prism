@@ -6,6 +6,7 @@
   import type { BlockId } from '../views'
   import { t } from '../i18n.svelte'
   import { live } from '../live.svelte'
+  import State from './ui/State.svelte'
 
   /**
    * A block whose source is off (`[renovate] enabled`, `[docker] enabled`…): its title, and how
@@ -22,14 +23,8 @@
     <BlockControls {id} />
   </h2>
   {#if noRepo}
-    <div class="empty">{t('{title} reads a repository: none is chosen.', { title: t(title) })} <button class="link" onclick={() => openSettings('repo-blocks')}>{t('Choose one')}</button> {t('(Settings › Repositories), or turn it off:')} <code>{setting}</code></div>
+    <State kind="off" title={t('{title} reads a repository: none is chosen.', { title: t(title) })} detail={`${t('(Settings › Repositories), or turn it off:')} ${setting}`} action={{ label: t('Choose one'), run: () => openSettings('repo-blocks') }} />
   {:else}
-    <div class="empty">{t('{title} is off.', { title: t(title) })} <button class="link" onclick={() => openSettings(section)}>{t('Turn it on')}</button> (<code>{setting}</code>).</div>
+    <State kind="off" title={t('{title} is off.', { title: t(title) })} detail={setting} action={{ label: t('Turn it on'), run: () => openSettings(section) }} />
   {/if}
 </section>
-
-<style>
-  .link { padding: 0; border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; }
-  .link:hover { text-decoration: underline; }
-  code { font: var(--fs-meta) var(--mono); }
-</style>

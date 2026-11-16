@@ -6,7 +6,8 @@
   import { agentWorking, checkStamps, filesSettings, metaOf, openFile } from '../../files-editor.svelte'
   import { armer } from '../../armed.svelte'
   import { pref, setPref } from '../../layout.svelte'
-  import { toast } from '../../toast.svelte'
+  import { toast, toastError } from '../../toast.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
   import { t, tn } from '../../i18n.svelte'
   import type { FileSearch } from '../../bindings/FileSearch'
   import type { FileQuery } from '../../bindings/FileQuery'
@@ -141,7 +142,7 @@
       }
       toast(tn(done, '{n} file changed', '{n} files changed') + (skipped.length ? ` · ${tn(skipped.length, '{n} edited and not saved: left as it is', '{n} edited and not saved: left as they are')}` : ''), 5000)
     } catch (e) {
-      toast(String(e), 6000)
+      toastError(String(e))
     } finally {
       writing = false
       await checkStamps(agent.id)
@@ -152,21 +153,21 @@
 
 <div class="search">
   <div class="row">
-    <button class="tw" onclick={() => (replacing = !replacing)} title={t('Replace')}><Icon name={replacing ? 'chevronDown' : 'chevronRight'} size={10} /></button>
-    <input bind:this={input} bind:value={text} placeholder={t('Search in every file')} spellcheck="false" autocomplete="off" onkeydown={(e) => { if (e.key === 'Escape') text = '' }} />
-    <button class="tog" class:on={caseSensitive} onclick={() => remember('case', (caseSensitive = !caseSensitive))} title={t('Match case')}>Aa</button>
-    <button class="tog" class:on={word} onclick={() => remember('word', (word = !word))} title={t('Whole words')}>W</button>
-    <button class="tog" class:on={regex} onclick={() => remember('regex', (regex = !regex))} title={t('Regular expression')}>.*</button>
+    <button class="btn sm icon ghost tw" onclick={() => (replacing = !replacing)} title={t('Replace')}><Icon name={replacing ? 'chevronDown' : 'chevronRight'} size={10} /></button>
+    <input bind:this={input} bind:value={text} placeholder={t('Search in every file')} spellcheck="false" autocomplete="off" onkeydown={(e) => { if (e.key === 'Escape' && text) { e.preventDefault(); text = '' } }} />
+    <button class="btn sm ghost tog" class:on={caseSensitive} onclick={() => remember('case', (caseSensitive = !caseSensitive))} title={t('Match case')}>Aa</button>
+    <button class="btn sm ghost tog" class:on={word} onclick={() => remember('word', (word = !word))} title={t('Whole words')}>W</button>
+    <button class="btn sm ghost tog" class:on={regex} onclick={() => remember('regex', (regex = !regex))} title={t('Regular expression')}>.*</button>
   </div>
   {#if replacing}
     <div class="row in">
       <input bind:value={replacement} placeholder={regex ? t('Replace ($1 for a group)') : t('Replace')} spellcheck="false" autocomplete="off" />
-      <button class="all" class:armed={armed.is('replace')} onclick={replaceAll} disabled={!found?.matches.length || working || writing || !pattern} title={working ? t('The agent works: its files are not written under it') : t('Replace in every file found (a second click confirms)')}>{writing ? t('Replacing…') : armed.is('replace') ? t('Sure?') : t('All')}</button>
+      <button class="btn sm all" class:armed={armed.is('replace')} class:busy={writing} onclick={replaceAll} disabled={!found?.matches.length || working || writing || !pattern} title={working ? t('The agent works: its files are not written under it') : t('Replace in every file found (a second click confirms)')}>{#if writing}<span class="spinner"></span>{t('Replacing…')}{:else}<ArmedLabel armed={armed.is('replace')} label={t('All')} armedLabel={t('Click again to confirm')} />{/if}</button>
     </div>
   {/if}
   <div class="row in">
     <input bind:value={include} oninput={() => remember('include', include)} placeholder={t('Files to include · src/**, !*.test.ts')} spellcheck="false" autocomplete="off" />
-    <button class="tog wide" class:on={changedOnly} onclick={() => remember('changed', (changedOnly = !changedOnly))} title={t('Only the files git sees as changed')}>{t('Changed')}</button>
+    <button class="btn sm tog wide" class:on={changedOnly} onclick={() => remember('changed', (changedOnly = !changedOnly))} title={t('Only the files git sees as changed')}>{t('Changed')}</button>
   </div>
   {#if error}<p class="err">{error}</p>{/if}
   {#if found}
@@ -181,7 +182,7 @@
         <Icon name={folded[path] ? 'chevronRight' : 'chevronDown'} size={10} />
         <span class="nm">{path.slice(path.lastIndexOf('/') + 1)}</span>
         <span class="p">{path.slice(0, path.lastIndexOf('/') + 1)}</span>
-        <span class="c">{lines.length}</span>
+        <span class="pill c">{lines.length}</span>
       </button>
       {#if !folded[path]}
         {#each lines as l (l.line)}
@@ -199,25 +200,22 @@
   .row:last-of-type { padding-bottom: 6px; }
   input { flex: 1; min-width: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: var(--fs-meta) var(--mono); outline: none; }
   input:focus { border-color: var(--src-claude); }
-  .tw { display: inline-flex; padding: 0 2px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .tog, .all { padding: 1px 5px; border: 1px solid transparent; border-radius: var(--r4); background: none; color: var(--text-muted); font: 600 var(--fs-tag) var(--mono); cursor: pointer; }
-  .tog.wide { font-family: var(--sans); font-weight: 400; border-color: var(--border); }
+  .tw { width: 16px; }
+  .tog { padding: 0 5px; font: 600 var(--fs-tag) var(--mono); }
+  .tog.wide { font-family: var(--sans); font-weight: 400; }
   .tog.on { border-color: var(--src-claude); color: var(--src-claude); background: color-mix(in srgb, var(--src-claude) 8%, transparent); }
-  .all { border-color: var(--border); font-family: var(--sans); font-weight: 400; font-size: var(--fs-meta); }
-  .all.armed { border-color: var(--ko); color: var(--ko); }
-  .all:disabled { opacity: 0.5; cursor: default; }
-  .err { margin: 6px 8px 0; padding: 4px 8px; border-radius: var(--r4); background: var(--ko-bg); color: var(--ko); font-size: var(--fs-tag); white-space: pre-wrap; }
+  .search > .err { margin: 6px 8px 0; padding: 4px 8px; border-radius: var(--r4); background: var(--ko-bg); font-size: var(--fs-tag); }
   .sum { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-block: 1px solid var(--border); font-size: var(--fs-tag); color: var(--text-muted); }
   .res { flex: 1; min-height: 0; overflow: auto; padding: 3px 4px 8px; }
   .rf, .rl { display: flex; align-items: center; gap: 5px; width: 100%; border: none; border-radius: var(--r4); background: none; color: var(--text); text-align: left; cursor: pointer; white-space: nowrap; }
   .rf { padding: 3px 6px; font: 600 var(--fs-meta) var(--sans); }
   .rf .p { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--fs-tag) var(--mono); color: var(--text-muted); font-weight: 400; direction: rtl; text-align: left; }
-  .rf .c { margin-left: auto; padding: 0 5px; border-radius: 8px; background: var(--surface); font-size: var(--fs-tag); color: var(--text-muted); font-weight: 400; }
+  .rf .c { margin-left: auto; font-weight: 400; }
   .rl { padding: 1px 6px 1px 20px; font: var(--fs-tag)/1.6 var(--mono); overflow: hidden; }
   .rf:hover, .rl:hover { background: color-mix(in srgb, var(--src-claude) 10%, transparent); }
   .rl .ln { flex: 0 0 26px; text-align: right; color: var(--text-muted); opacity: 0.7; }
   .rl .t { overflow: hidden; text-overflow: ellipsis; }
-  mark { background: color-mix(in srgb, var(--warn) 35%, transparent); color: inherit; border-radius: 2px; }
-  :global(html.remote) input { font-size: 16px; }
+  mark { background: color-mix(in srgb, var(--warn) 35%, transparent); color: inherit; border-radius: var(--r2); }
+  :global(html.remote) input { font-size: var(--fs-head); }
   :global(html.remote) .rl { padding-block: 6px; }
 </style>

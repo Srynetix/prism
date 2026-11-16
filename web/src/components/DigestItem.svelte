@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdEscape } from '../layers.svelte'
   import { t } from '../i18n.svelte'
   import { alertSettings } from '../conventions'
   import { clearDelivered, deliver, digest, nextDue, silenced, type Held } from '../digest.svelte'
@@ -24,10 +25,14 @@
   const shown = $derived(cfg.digest || !!off || waiting > 0 || unread > 0)
 
   let open = $state(false)
+  // Over a drawer or a dialog, its Escape closes this first.
+  $effect(() => {
+    if (open) return holdEscape(() => (open = false))
+  })
   const KIND: Record<Held['kind'], string> = { infra: t('Infra'), deploy: t('Deploy'), agent: t('Agent'), pipeline: 'CI', review: t('Review'), data: t('Data'), block: t('Block'), routine: t('Routine') }
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (open = false)} onclick={() => (open = false)} />
+<svelte:window onclick={() => (open = false)} />
 
 {#snippet list(items: Held[], tone: string)}
   {#each items as h (h.key + h.at)}
@@ -55,7 +60,7 @@
       <b>{cfg.digest ? t('Digest') : t('Notifications')}</b>
       <span class="muted">{cfg.digest ? t('at {times}', { times: (cfg.digest_times ?? []).join(', ') }) : t('live')}{cfg.quiet_hours ? ` · ${t('quiet {hours}', { hours: cfg.quiet_hours })}` : ''}</span>
       <span class="grow"></span>
-      <button class="x" onclick={() => (open = false)} aria-label={t('Close')}><Icon name="close" /></button>
+      <button class="btn sm icon ghost" onclick={() => (open = false)} aria-label={t('Close')}><Icon name="close" /></button>
     </div>
     {#if digest.delivered}
       {@const d = digest.delivered}
@@ -84,19 +89,16 @@
   .digest.hot { color: var(--accent); }
   .muted { color: var(--text-muted); }
   .pop {
-    position: fixed; left: 50%; bottom: 30px; z-index: 60; width: min(480px, 94vw); max-height: 60vh; overflow: auto; transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: 30px; z-index: var(--z-menu); width: min(480px, 94vw); max-height: 60vh; overflow: auto; transform: translateX(-50%);
     border: 1px solid var(--border); border-radius: var(--r8); background: var(--surface); box-shadow: var(--shadow-drawer); font-size: var(--fs-meta);
   }
   .hd { display: flex; align-items: baseline; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
   .grow { flex: 1; }
-  .x { display: inline-flex; padding: 2px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
   .sec { padding: 6px 12px 8px; border-bottom: 1px solid var(--border); }
   h4 { margin: 2px 0 4px; font-size: var(--fs-meta); font-weight: 600; display: flex; gap: 6px; }
   h5 { margin: 6px 0 2px; font-size: var(--fs-tag); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   h5 span { font-family: var(--mono); color: var(--text); margin-left: 4px; }
   .it { display: grid; grid-template-columns: 8px 48px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 2px 0; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
-  .dot.warn { background: var(--warn); } .dot.ok { background: var(--ok); } .dot.ko { background: var(--ko); }
   .k { font-size: var(--fs-tag); color: var(--text-muted); }
   .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tx b { font-weight: 500; }

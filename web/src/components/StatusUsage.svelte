@@ -108,7 +108,7 @@
   .bar7 i { position: relative; width: 7px; border-radius: calc(1.5px * var(--round)); background-color: var(--border); }
   .bar7 i.current { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-muted) 60%, transparent); }
   .bar7 .now { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; border-radius: var(--r1); background: var(--text); }
-  .pop { position: fixed; z-index: 45; width: 420px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); }
+  .pop { position: fixed; z-index: var(--z-menu); width: 420px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); }
   /* The other CLIs in use: their glyphs, tinted once one of them nears a limit. */
   .more { display: inline-flex; align-items: center; gap: 2px; height: 15px; padding: 0 5px; border-radius: var(--r8); background: var(--surface-muted); font-size: var(--fs-tag); color: var(--text-muted); }
   .more.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }

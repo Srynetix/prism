@@ -30,9 +30,9 @@
 <div class="card">
   <div class="head">
     <b>{t('Before leaving')}</b>
-    <button class="btn" onclick={read} disabled={reading}><Icon name="retry" />{reading ? t('Checking…') : t('Check again')}</button>
+    <button class="btn sm" class:busy={reading} onclick={read} disabled={reading}>{#if reading}<span class="spinner"></span>{t('Checking…')}{:else}<Icon name="retry" />{t('Check again')}{/if}</button>
   </div>
-  {#if error}<p class="ko pad">{error}</p>{/if}
+  {#if error}<p class="err pad">{error}</p>{/if}
   {#each checks ?? [] as c, i (i)}
     <div class="row" class:warn={!c.ok}><Icon name={c.ok ? 'check' : 'warning'} /><span>{c.text}</span></div>
   {/each}
@@ -40,14 +40,10 @@
 
 <style>
   .card { margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
   .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
-  .row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--text); }
+  .row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 14px; font-size: var(--fs-title); color: var(--text); }
   .row + .row { border-top: 1px solid var(--border); }
   .row :global(svg) { flex: none; margin-top: 2px; color: var(--ok); }
   .row.warn :global(svg) { color: var(--warn); }
   .pad { padding: 8px 14px; margin: 0; }
-  .ko { color: var(--ko); }
 </style>

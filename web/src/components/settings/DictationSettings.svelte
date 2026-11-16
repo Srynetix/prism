@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
   import Icon from '../Icon.svelte'
+  import State from '../ui/State.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
   import DictateButton from '../chat/DictateButton.svelte'
   import DictationBar from '../chat/DictationBar.svelte'
   import { hasCore, isDesktop, localInvoke, localListen } from '../../bridge'
@@ -93,7 +95,7 @@
   <div class="card"><p class="hint">{t('On the computer only: a phone has its keyboard’s dictation.')}</p></div>
 {:else}
   <div class="card">
-    <div class="head"><b>{t('On this computer')}</b><span class="grow"></span><button class="btn ghost" onclick={load} title={t('Read again')}><Icon name="refresh" /></button></div>
+    <div class="head"><b>{t('On this computer')}</b><span class="grow"></span><button class="btn sm icon ghost" onclick={load} title={t('Read again')} aria-label={t('Read again')}><Icon name="refresh" /></button></div>
     {#if status}
       <p class="line"><Icon name="mic" />
         {#if status.engine === 'system'}{t('Dictation goes to macOS’s speech recognition ({language}), on this Mac only.', { language: status.system_language })}
@@ -115,9 +117,9 @@
       {/if}
       {#if status.demo}<p class="hint">{t('Demo profile: nothing is recorded, a sample sentence comes back.')}</p>{/if}
     {:else if error}
-      <p class="warn">{error}</p>
+      <State kind="error" inline title={error} retry={load} />
     {:else}
-      <p class="hint">{t('Reading…')}</p>
+      <State kind="loading" inline title={t('Reading…')} />
     {/if}
   </div>
 
@@ -130,16 +132,16 @@
         <b class="name">{m.name}</b><span class="hint sz">{size(m.bytes)}</span><span class="hint grow">{NOTES[m.name] ?? ''}</span>
         {#if p !== undefined}
           <span class="prog"><i style:width="{Math.round(p * 100)}%"></i></span><span class="hint">{Math.round(p * 100)} %</span>
-          <button class="btn ghost" onclick={() => localInvoke('dictation_cancel_download', { model: m.name })}>{t('Cancel')}</button>
+          <button class="btn sm ghost" onclick={() => localInvoke('dictation_cancel_download', { model: m.name })}>{t('Cancel')}</button>
         {:else if m.installed}
-          <span class="chip ok">{t('downloaded')}</span>
-          <button class="btn ghost" onclick={() => remove(m.name)}>{arm.is(`rm:${m.name}`) ? t('Remove?') : t('Remove')}</button>
+          <span class="pill ok">{t('downloaded')}</span>
+          <button class="btn sm ghost" class:armed={arm.is(`rm:${m.name}`)} onclick={() => remove(m.name)}><ArmedLabel label={t('Remove')} armedLabel={t('Click again to confirm')} armed={arm.is(`rm:${m.name}`)} /></button>
         {:else}
-          <button class="btn" disabled={status?.demo} onclick={() => download(m.name)}>{t('Download')}</button>
+          <button class="btn sm" disabled={status?.demo} onclick={() => download(m.name)}>{t('Download')}</button>
         {/if}
       </div>
     {/each}
-    {#if error && status}<p class="warn">{error}</p>{/if}
+    {#if error && status}<p class="err">{error}</p>{/if}
   </div>
 
   <div class="card">
@@ -173,14 +175,8 @@
   .sz { min-width: 56px; }
   .radio { flex: none; width: 13px; height: 13px; padding: 0; border-radius: 50%; border: 1.5px solid var(--text-muted); background: none; cursor: pointer; }
   .radio.on { border: 4px solid var(--accent); }
-  .chip { padding: 0 8px; border-radius: var(--r9, 9px); background: var(--surface-muted); font-size: var(--fs-tag); line-height: 18px; }
-  .chip.ok { color: var(--ok); background: var(--ok-bg); }
-  .prog { width: 110px; height: 5px; border-radius: 3px; background: var(--surface-muted); overflow: hidden; }
+  .prog { width: 110px; height: 5px; border-radius: var(--r3); background: var(--surface-muted); overflow: hidden; }
   .prog i { display: block; height: 100%; background: var(--info, var(--accent)); }
-  .btn { display: inline-flex; align-items: center; font: inherit; font-size: var(--fs-meta); padding: 3px 10px; border-radius: var(--r6, 6px); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
-  .btn:hover:not(:disabled) { background: var(--surface-muted); }
-  .btn:disabled { opacity: 0.5; }
-  .btn.ghost { border-color: transparent; }
   .test { display: flex; align-items: flex-start; gap: 6px; }
-  .test textarea { flex: 1; min-width: 0; resize: vertical; border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+  .test textarea { flex: 1; min-width: 0; resize: vertical; border: 1px solid var(--border); border-radius: var(--r7); padding: 5px 8px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); }
 </style>

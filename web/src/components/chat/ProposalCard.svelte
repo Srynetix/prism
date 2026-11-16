@@ -2,6 +2,7 @@
   import Icon from '../Icon.svelte'
   import { t, tn } from '../../i18n.svelte'
   import { armer } from '../../armed.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
   import { isDesktop } from '../../bridge'
   import { answer, counts, openProposal, title } from '../../mcp-view.svelte'
   import type { Proposal } from '../../bindings/Proposal'
@@ -31,7 +32,7 @@
       return null
     }
   })
-  const arm = armer(4000)
+  const arm = armer()
   let refusing = $state(false)
   let reason = $state('')
   let busy = $state(false)
@@ -72,7 +73,7 @@
     <div class="head">
       <Icon name={proposal.kind === 'custom_block' ? 'blockNormal' : 'settings'} size={13} />
       <b>{title(proposal)}</b>
-      <span class="pill">{t('waits for you')}</span>
+      <span class="pill src wait">{t('waits for you')}</span>
     </div>
     {#if proposal.why}<p class="why-q">« {proposal.why} »</p>{/if}
     <p class="sum">
@@ -88,17 +89,17 @@
     {:else if refusing}
       <div class="refuse">
         <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={reason} placeholder={t('Why (sent to the agent): not this repository, rather…')} onkeydown={(e) => { if (e.key === 'Enter') void act('refuse'); if (e.key === 'Escape') refusing = false }} autofocus />
-        <button disabled={busy} onclick={() => act('refuse')}>{t('Refuse')}</button>
-        <button class="ghost" onclick={() => (refusing = false)}>{t('Cancel')}</button>
+        <input bind:value={reason} placeholder={t('Why (sent to the agent): not this repository, rather…')} onkeydown={(e) => { if (e.key === 'Enter') void act('refuse'); if (e.key === 'Escape') { e.preventDefault(); refusing = false } }} autofocus />
+        <button class="btn sm" class:busy disabled={busy} onclick={() => act('refuse')}>{#if busy}<span class="spinner"></span>{/if}{t('Refuse')}</button>
+        <button class="btn sm ghost" onclick={() => (refusing = false)}>{t('Cancel')}</button>
       </div>
     {:else}
       <div class="acts">
-        <button class="ghost" onclick={() => openProposal(proposal.id)}><Icon name="diff" size={12} /> {t('See the diff')}</button>
+        <button class="btn sm ghost" onclick={() => openProposal(proposal.id)}><Icon name="diff" size={12} /> {t('Open the diff')}</button>
         <span class="grow"></span>
-        <button disabled={busy} onclick={() => (refusing = true)}>{t('Refuse…')}</button>
-        <button class="primary" class:armed={arm.is(armKey)} disabled={busy} onclick={() => act('apply')}>
-          {#if arm.is(armKey)}{proposal.kind === 'custom_block' ? t('Trust and add?') : t('Apply?')}{:else if proposal.kind === 'custom_block'}{t('Trust and add')}{:else if proposal.stale}{t('Apply on the current version')}{:else}{t('Apply')}{/if}
+        <button class="btn sm" disabled={busy} onclick={() => (refusing = true)}>{t('Refuse…')}</button>
+        <button class="btn sm primary" class:armed={arm.is(armKey)} class:busy disabled={busy} onclick={() => act('apply')}>
+          {#if busy}<span class="spinner"></span>{t('Applying…')}{:else}<ArmedLabel armed={arm.is(armKey)} label={proposal.kind === 'custom_block' ? t('Trust and add') : proposal.stale ? t('Apply on the current version') : t('Apply')} armedLabel={t('Click again to confirm')} />{/if}
         </button>
       </div>
     {/if}
@@ -114,24 +115,18 @@
   .card { margin: 6px 0; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: var(--r8); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); font-size: var(--fs-body); }
   .head { display: flex; align-items: center; gap: 6px; color: var(--accent); }
   .head b { color: var(--text); font-weight: 600; }
-  .pill { margin-left: auto; padding: 0 7px; border-radius: var(--r9); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-size: var(--fs-tag); font-weight: 600; }
+  .wait { margin-left: auto; font-weight: 600; }
   .why-q { margin: 6px 0 4px; font-style: italic; }
   .sum { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .add { color: var(--ok); font-weight: 600; }
   .del { color: var(--ko); font-weight: 600; }
   .warn { display: flex; align-items: center; gap: 5px; margin: 4px 0 0; color: var(--warn); font-size: var(--fs-meta); }
-  .err { margin: 4px 0 0; color: var(--ko); font-size: var(--fs-meta); }
+  .card .err { margin: 4px 0 0; }
   .muted { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .acts, .refuse { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
   .grow { flex: 1; }
   .refuse input { flex: 1; min-width: 0; font: inherit; font-size: var(--fs-meta); padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); }
-  button { font: inherit; font-size: var(--fs-meta); padding: 3px 11px; border-radius: var(--r6); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
-  button:hover:not(:disabled) { background: var(--surface-muted); }
-  button:disabled { opacity: 0.5; cursor: default; }
-  button.ghost { border-color: transparent; background: none; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, white); }
-  button.primary.armed { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); font-weight: 600; }
-  button.link { border: none; background: none; padding: 0 0 0 6px; color: var(--accent); }
+  button.link { border: none; background: none; padding: 0 0 0 6px; color: var(--accent); font: inherit; cursor: pointer; }
   .line { display: flex; align-items: center; gap: 6px; margin: 4px 0; color: var(--text-muted); font-size: var(--fs-meta); }
   .line.ok { color: var(--ok); }
   .line.ko { color: var(--ko); }

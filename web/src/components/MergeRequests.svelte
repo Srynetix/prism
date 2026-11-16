@@ -5,6 +5,7 @@
   import { forgeLogo, forgeName, meOn, onGithub } from '../forge'
   import { branchName } from '../pipeline'
   import BlockControls from './BlockControls.svelte'
+  import State from './ui/State.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import Logo from './Logo.svelte'
   import Icon from './Icon.svelte'
@@ -172,7 +173,7 @@
       {#each shown as m (mrKey(m))}
         {@render row(m)}
       {:else}
-        <div class="empty">{t('No merge request here.')}</div>
+        <State kind="empty" icon="mr" title={t('No merge request here.')} />
       {/each}
       {#if beyondHistory}
         <div class="section">{mergedLabel} · {t('merged MRs are only kept for the last 7 days')}</div>
@@ -204,12 +205,9 @@
   .who.on { border-color: var(--src-gitlab); background: color-mix(in srgb, var(--src-gitlab) 12%, transparent); }
   .who.dim { opacity: 0.5; }
   .who b { color: var(--text-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .who .av { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--r-avatar); background: var(--c); color: #fff; font-size: 8.5px; font-weight: 700; }
+  .who .av { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--r-avatar); background: var(--c); color: #fff; font-size: var(--fs-micro); font-weight: 700; }
   .who .av.pic { overflow: hidden; }
   .who .av.pic img { width: 100%; height: 100%; object-fit: cover; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { font: inherit; font-size: var(--fs-meta); padding: 2px 8px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .seg button.on { background: var(--surface-muted); color: var(--text); }
   .muted { color: var(--text-muted); }
   .mono { font-family: var(--mono); }
   .branches { display: flex; gap: 6px 18px; flex-wrap: wrap; padding: 5px 12px; border-bottom: 1px solid var(--border); background: var(--surface-muted); }

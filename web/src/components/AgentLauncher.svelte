@@ -364,7 +364,7 @@
 </script>
 
 {#if !agentsAvailable()}
-  <p class="muted empty">{t('Agents run in the Prism app only (tmux server and terminals), not in the browser preview.')}</p>
+  <p class="empty off">{t('Agents run in the Prism app only (tmux server and terminals), not in the browser preview.')}</p>
 {:else}
   <form class="launch" class:inside={drawer} onsubmit={(e) => { e.preventDefault(); void launch() }}>
     {#if quick}<h3><Icon name="terminal" />{t('New agent in {repo}', { repo: launchRepo ?? tildePath(folder) })}</h3>
@@ -384,13 +384,13 @@
         <span class="thumb" title={a.path}>
           {#if a.url}<img src={a.url} alt={a.name} />{:else}<span class="file"><Icon name="files" /></span>{/if}
           <span class="nm">{a.name}<small>{kb(a.size)}</small></span>
-          <button type="button" class="x" onclick={() => detach(i)} aria-label={t('Remove {name}', { name: a.name })}>×</button>
+          <button type="button" class="btn sm icon ghost x" onclick={() => detach(i)} aria-label={t('Remove {name}', { name: a.name })}><Icon name="close" /></button>
         </span>
       {/each}
       <button type="button" class="drop" disabled={att.busy} onclick={() => fileInput?.click()}
         ondragover={(e) => { if (draggedFiles(e)) e.preventDefault() }}
         ondrop={(e) => { const files = filesOf(e.dataTransfer?.files); if (files.length) { e.preventDefault(); void attachToLaunch(files) } }}>
-        {att.busy ? t('Attaching…') : t('Attach images or files: drop, paste (⌘V) or click')}
+        {#if att.busy}<span class="spinner"></span>{t('Attaching…')}{:else}{t('Attach images or files: drop, paste (⌘V) or click')}{/if}
       </button>
       <input bind:this={fileInput} type="file" multiple hidden onchange={(e) => { void attachToLaunch(filesOf(e.currentTarget.files)); e.currentTarget.value = '' }} />
     </div>
@@ -432,7 +432,7 @@
               <span>{t('Also in')}</span>
               <div class="also">
                 {#each wtRepos.filter((r) => r.name !== wtRepo) as r (r.name)}
-                  <button type="button" class:on={also.includes(r.name)} disabled={!takesDirs} onclick={() => toggleAlso(r.name)} aria-pressed={also.includes(r.name)} title={takesDirs ? t('A worktree of {repo} too, same name and branch: the agent works in both', { repo: r.name }) : t('{cli} works in one folder only: Claude Code or Codex for several repositories', { cli: launchCli.name })}>{r.name}</button>
+                  <button type="button" class="btn sm" class:on={also.includes(r.name)} disabled={!takesDirs} onclick={() => toggleAlso(r.name)} aria-pressed={also.includes(r.name)} title={takesDirs ? t('A worktree of {repo} too, same name and branch: the agent works in both', { repo: r.name }) : t('{cli} works in one folder only: Claude Code or Codex for several repositories', { cli: launchCli.name })}>{r.name}</button>
                 {/each}
               </div>
               {#if also.length}<small class="alsonote">{t('{name} in each, from its own base; an MR per repository at Draft MR, linked to one another.', { name: planName })}</small>{/if}
@@ -446,7 +446,7 @@
               {#each plain as f (f.path)}<option value={f.path}>{f.label}</option>{/each}
               {#if folder && !plain.some((f) => f.path === folder)}<option value={folder}>{tildePath(folder)}</option>{/if}
             </select>
-            {#if canPick()}<button type="button" onclick={chooseFolder} title={t('Any folder, outside the repositories too')}>{t('Choose…')}</button>{/if}
+            {#if canPick()}<button type="button" class="btn" onclick={chooseFolder} title={t('Any folder, outside the repositories too')}>{t('Choose…')}</button>{/if}
           </div>
           {#if !canPick()}<input class="typed" placeholder={t('Other folder: ~/path or /path')} spellcheck="false" autocapitalize="off" onchange={(e) => { const v = e.currentTarget.value.trim(); if (v) folder = v; e.currentTarget.value = '' }} />{/if}
           {#if checkouts.some((w) => w.path === folder)}<small class="muted">{t('Shared checkout: best for read-only work (refine, review, investigate).')}</small>{/if}
@@ -503,13 +503,13 @@
             {:else if s.kind === 'prompt' || s.kind === 'agent'}<input bind:value={s.text} placeholder={s.kind === 'agent' ? t('Its prompt: {mr}, {ticket}, {branch} filled in', { mr: '{mr}', ticket: '{ticket}', branch: '{branch}' }) : t('Sent to this agent when it waits for you')} spellcheck="false" writingsuggestions="false" aria-label={t('Prompt')} />
             {:else}<span class="grow"></span>{/if}
             <select bind:value={s.when} aria-label={t('When')}>{#each Object.entries(WHEN_LABEL) as [w, label] (w)}<option value={w}>{label}</option>{/each}</select>
-            <button type="button" class="x" onclick={() => steps.splice(i, 1)} aria-label={t('Remove step {n}', { n: i + 1 })}>×</button>
+            <button type="button" class="btn sm icon ghost x" onclick={() => steps.splice(i, 1)} aria-label={t('Remove step {n}', { n: i + 1 })}><Icon name="close" /></button>
           </div>
         {/each}
         <div class="adds">
-          {#each STEP_KINDS as [k, label] (k)}<button type="button" onclick={() => addStep(k)}>+ {label}</button>{/each}
+          {#each STEP_KINDS as [k, label] (k)}<button type="button" class="btn sm" onclick={() => addStep(k)}>+ {label}</button>{/each}
           <span class="muted">{t('or')}</span>
-          {#each RECIPES as r (r.name)}<button type="button" class="recipe" onclick={() => useRecipe(r)} title={r.steps.map((s) => STEP_LABEL[s.kind]).join(' → ')}>{r.name}</button>{/each}
+          {#each RECIPES as r (r.name)}<button type="button" class="btn sm recipe" onclick={() => useRecipe(r)} title={r.steps.map((s) => STEP_LABEL[s.kind]).join(' → ')}>{r.name}</button>{/each}
         </div>
         {#if steps.length}<small class="muted">{t('After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.')}</small>{/if}
       </div>
@@ -525,7 +525,7 @@
     <div class="field"><span>{t('Tags')}</span>
       <div class="tags">
         {#each launchTags as tag (tag)}
-          <span class="pill tag">#{tag}<button type="button" class="untag" onclick={() => (launchTags = launchTags.filter((x) => x !== tag))} title={t('Remove #{tag}', { tag })} aria-label={t('Remove tag {tag}', { tag })}><Icon name="close" size={9} /></button></span>
+          <span class="pill info tag">#{tag}<button type="button" class="untag" onclick={() => (launchTags = launchTags.filter((x) => x !== tag))} title={t('Remove #{tag}', { tag })} aria-label={t('Remove tag {tag}', { tag })}><Icon name="close" size={9} /></button></span>
         {/each}
         {#each (agentsSettings().tags ?? []).filter((tag) => !launchTags.includes(tag)) as tag (tag)}
           <button type="button" class="sugg" onclick={() => (launchTags = [...launchTags, tag])} title={t('Add #{tag}', { tag })}>+ #{tag}</button>
@@ -542,30 +542,26 @@
       <!-- Claude Desktop as an alternative only where its sessions are shown: only with Claude Code. -->
       {#if slot.desktopHref && withDesktop && !quick}<a class="desk" href={slot.desktopHref} onclick={() => { const effect = slot.onLaunch; slot.onLaunch = null; void afterLaunch(effect, t('Claude Desktop opened')) }} title={t('The former behaviour: a Claude Desktop session, prompt not sent')}>{t('Open in Claude Desktop instead')}</a>{/if}
       <span class="grow"></span>
-      {#if canCancel}<button type="button" onclick={() => (onclose ? onclose() : (agentsView.creating = false))}>{t('Cancel')}</button>{/if}
-      <button type="button" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)} onclick={() => void launch(true)} title={slot.onLaunch ? t('Declare it without starting it: it waits in the list for Start, its worktree made then. The action’s effect (ticket moved…) applies now') : t('Declare it without starting it: it waits in the list for Start, its worktree made then')}>{t('Prepare')}</button>
-      <button type="submit" class="primary" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)}>{busy ? t('Starting…') : t('Launch')} <kbd>{keys('⌘↩')}</kbd></button>
+      {#if canCancel}<button type="button" class="btn" onclick={() => (onclose ? onclose() : (agentsView.creating = false))}>{t('Cancel')}</button>{/if}
+      <button type="button" class="btn" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)} onclick={() => void launch(true)} title={slot.onLaunch ? t('Declare it without starting it: it waits in the list for Start, its worktree made then. The action’s effect (ticket moved…) applies now') : t('Declare it without starting it: it waits in the list for Start, its worktree made then')}>{t('Prepare')}</button>
+      <button type="submit" class="btn primary claude" class:busy disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)}>{#if busy}<span class="spinner"></span>{t('Starting…')}{:else}{t('Launch')} <kbd>{keys('⌘↩')}</kbd>{/if}</button>
     </div>
   </form>
 {/if}
 
 <style>
   .grow { flex: 1; }
-  .empty { margin: auto; max-width: 420px; padding: 14px 10px; font-size: var(--fs-meta); line-height: 1.5; text-align: center; }
+  .off { margin: auto; max-width: 420px; padding: 14px 10px; font-size: var(--fs-meta); line-height: 1.5; text-align: center; }
 
-  button { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); cursor: pointer; white-space: nowrap; }
-  button:hover:not(:disabled) { border-color: var(--src-claude); }
-  button:disabled { opacity: 0.5; cursor: default; }
-  button.primary { background: var(--src-claude); border-color: var(--src-claude); color: #fff; background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--src-claude); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
   kbd { font: 600 10px var(--mono); opacity: 0.8; }
-  .err { margin: 0; color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
+  .launch > .err { margin: 0; }
 
   .launch { width: min(620px, 92%); margin: 40px auto; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--r12); background: var(--surface); }
   /* In the drawer: the panel's width, no frame of its own. */
   .launch.inside { width: auto; margin: 0; padding: 12px 14px 16px; border: none; border-radius: 0; background: none; }
   .more { align-self: flex-start; padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .more small { color: var(--text-muted); font-size: inherit; }
-  .launch h3 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .launch h3 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: var(--fs-head); }
   .launch h3 :global(svg) { color: var(--src-claude); }
   .same { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: var(--r7); background: var(--info-bg); color: var(--info); font-size: var(--fs-meta); }
   .same .grow { flex: 1; }
@@ -581,19 +577,14 @@
   .launch .field > span { padding-top: 4px; color: var(--text-muted); font-size: var(--fs-meta); }
   .launch .field small { display: block; margin-top: 5px; font-size: var(--fs-meta); }
   .launch .field select { margin-top: 6px; width: 100%; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r7); overflow: hidden; }
   /* The phone: the CLIs wrap rather than run off the screen; larger targets. */
-  :global(html.remote) .seg { flex-wrap: wrap; }
+  :global(html.remote) .launch .seg { flex-wrap: wrap; }
   :global(html.remote) .launch button { min-height: 36px; }
-  :global(html.remote) .launch input, :global(html.remote) .launch select, :global(html.remote) .launch textarea { font-size: 16px; }
-  .seg button { border: none; border-radius: 0; background: var(--surface); color: var(--text-muted); }
-  .seg button + button { border-left: 1px solid var(--border); }
-  .clis button { display: inline-flex; align-items: center; gap: 5px; }
+  :global(html.remote) .launch input, :global(html.remote) .launch select, :global(html.remote) .launch textarea { font-size: var(--fs-head); }
   .clis .def { font-style: normal; font-size: var(--fs-tag); opacity: 0.7; }
-  .seg button.on { background: var(--src-claude); color: #fff; }
   .pick { display: flex; gap: 6px; align-items: center; }
   .pick select { flex: 1; min-width: 0; }
-  .pick button { margin-top: 6px; flex-shrink: 0; }
+  .pick .btn { margin-top: 6px; }
   .typed { margin-top: 6px; width: 100%; }
   /* The short form's Where: a line, Change for the whole field. */
   .short { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; padding-top: 4px; font-size: var(--fs-meta); color: var(--text-muted); }
@@ -605,8 +596,8 @@
   .where .taken { grid-column: 1 / -1; color: var(--warn); }
   /* The other repositories it works in too: toggles. */
   .where .also { display: flex; flex-wrap: wrap; gap: 4px; }
-  .where .also button { padding: 0 8px; border-radius: var(--r9); font-family: var(--mono); font-size: var(--fs-meta); color: var(--text-muted); }
-  .where .also button.on { border-color: var(--src-claude); background: color-mix(in srgb, var(--src-claude) 13%, transparent); color: var(--src-claude); }
+  .where .also .btn { font-family: var(--mono); color: var(--text-muted); }
+  .where .also .btn.on { border-color: var(--src-claude); background: color-mix(in srgb, var(--src-claude) 13%, transparent); color: var(--src-claude); }
   .where .alsonote { grid-column: 1 / -1; margin: 0; color: var(--text-muted); }
   .where code { font-family: var(--mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .where i { color: var(--text-muted); font-style: normal; }
@@ -614,13 +605,10 @@
   .where .base span { font-family: var(--mono); color: var(--text-muted); }
   .where .base input { flex: 1; min-width: 0; font-family: var(--mono); }
   .cmd { padding: 7px 9px; border-radius: var(--r7); background: var(--bg); border: 1px solid var(--border); font: var(--fs-meta) var(--mono); color: var(--text-muted); white-space: pre-wrap; word-break: break-all; }
-  .seg { display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { padding: 1px 8px; border: none; border-right: 1px solid var(--border); border-radius: 0; background: none; color: var(--text-muted); font-size: var(--fs-meta); }
-  .seg button:last-child { border-right: none; }
-  .seg button.on { background: color-mix(in srgb, var(--src-claude) 13%, transparent); color: var(--src-claude); }
-  .pill.tag { background: var(--info-bg); color: var(--info); }
+  .launch .field .seg { flex-wrap: wrap; justify-self: start; }
+  .launch .seg > button:disabled { opacity: 0.5; cursor: default; }
   .tags { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
-  .tags .pill.tag { display: inline-flex; align-items: center; gap: 2px; padding-right: 2px; }
+  .tags .tag { display: inline-flex; align-items: center; gap: 2px; padding-right: 2px; }
   .untag { display: inline-flex; padding: 1px; border: none; border-radius: 50%; background: none; color: inherit; opacity: 0.6; cursor: pointer; }
   .untag:hover { opacity: 1; background: color-mix(in srgb, var(--info) 18%, transparent); }
   .addtag { width: 58px; padding: 0 6px; border: 1px dashed var(--border); border-radius: var(--r9); background: none; color: var(--text); font: inherit; font-size: var(--fs-tag); outline: none; }
@@ -633,17 +621,17 @@
   .attach img, .attach .file { width: 34px; height: 34px; flex-shrink: 0; border-radius: var(--r4); object-fit: cover; background: var(--surface-muted); display: grid; place-items: center; }
   .attach .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .attach .nm small { display: block; color: var(--text-muted); }
-  .attach .x { position: absolute; top: 2px; right: 3px; padding: 0 3px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .attach .drop { flex: 1; min-width: 200px; padding: 6px 10px; border: 1.5px dashed color-mix(in srgb, var(--src-claude) 45%, var(--border)); border-radius: var(--r7); background: color-mix(in srgb, var(--src-claude) 5%, transparent); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .attach .x { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; }
+  .attach .drop { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 200px; padding: 6px 10px; border: 1.5px dashed color-mix(in srgb, var(--src-claude) 45%, var(--border)); border-radius: var(--r7); background: color-mix(in srgb, var(--src-claude) 5%, transparent); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .then { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
   .then .step { display: grid; grid-template-columns: 20px auto minmax(0, 1fr) auto 18px; gap: 6px; align-items: center; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); font-size: var(--fs-meta); }
-  .then .n { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface-muted); font-size: 10px; font-weight: 700; }
+  .then .n { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface-muted); font-size: var(--fs-tag); font-weight: 700; }
   .then .k { white-space: nowrap; }
   .then input, .then select { min-width: 0; padding: 2px 6px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
-  .then .x { padding: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
+  .then .x { width: 18px; height: 18px; }
   .then .adds { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-  .then .adds button { padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r9); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
-  .then .adds button:hover { border-color: var(--src-claude); color: var(--text); }
+  .then .adds .btn { color: var(--text-muted); font-size: var(--fs-tag); }
+  .then .adds .btn:hover { border-color: var(--src-claude); color: var(--text); }
   .then .adds .recipe { border-style: dashed; }
   .then .grow { flex: 1; }
 </style>

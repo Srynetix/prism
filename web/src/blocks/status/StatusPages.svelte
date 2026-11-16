@@ -3,6 +3,7 @@
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
   import Logo from '../../components/Logo.svelte'
+  import State from '../../components/ui/State.svelte'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import { openLink } from '../../links'
   import { ago } from '../../time'
@@ -40,14 +41,14 @@
     <span class="title"><Icon name="activity" />{t('Status pages')}</span>
     {#if status && services.length}
       <small>{incidents ? tn(incidents, '{n} incident', '{n} incidents') : bad.length ? tn(bad.length, '{n} degraded', '{n} degraded') : t('All operational')}</small>
-      {#if hasCore()}<button class="icon" class:spin={refreshing} onclick={refresh} title={t('Read the status pages again now')} aria-label={t('Refresh')}><Icon name="refresh" /></button>{/if}
+      {#if hasCore()}<button class="btn sm icon ghost" onclick={refresh} title={t('Read the status pages again now')} aria-label={t('Refresh')}><Icon name="refresh" spin={refreshing} /></button>{/if}
     {/if}
     <BlockControls id="status" />
   </h2>
   {#if !status}
-    <div class="empty">{t('Status pages are not read. Turn on Settings › General › Status pages, then restart Prism.')}</div>
+    <State kind="off" title={t('Status pages are not read. Turn on Settings › General › Status pages, then restart Prism.')} />
   {:else if !services.length}
-    <div class="empty">{error ?? t('Reading the status pages…')}</div>
+    {#if error}<State kind="error" title={error} />{:else}<State kind="loading" title={t('Reading the status pages…')} />{/if}
   {:else}
     <div class="scroll">
       {#each shown as s (s.id)}
@@ -60,37 +61,28 @@
         {#each s.incidents as i (i.id)}
           <button class="inc {toneOf(i.impact)}" class:maint={i.maintenance} onclick={() => openLink(i.url)} title={t('Open the incident on {name}’s status page', { name: s.name })}>
             <span class="line">
-              <span class="pill">{i.maintenance ? t('maintenance') : t(i.impact)}</span>
+              <span class="pill {i.maintenance ? '' : toneOf(i.impact)}">{i.maintenance ? t('maintenance') : t(i.impact)}</span>
               <b>{i.name}</b>
             </span>
             <span class="meta muted">{[i.status, i.started_at && t('since {time}', { time: ago(i.started_at) }), i.updated_at && t('updated {time} ago', { time: ago(i.updated_at) })].filter(Boolean).join(' · ')}</span>
             {#if i.update && !isShort('status')}<span class="upd">{i.update}</span>{/if}
-            {#if i.components.length}<span class="comps">{#each i.components as c (c)}<span class="chip">{c}</span>{/each}</span>{/if}
+            {#if i.components.length}<span class="comps">{#each i.components as c (c)}<span class="pill outline">{c}</span>{/each}</span>{/if}
           </button>
         {/each}
         {#if !s.incidents.length && s.components.length}
-          <div class="comps alone">{#each s.components as c (c.name)}<span class="chip {toneOf(c.level)}" title={LEVEL[c.level]}>{c.name}</span>{/each}</div>
+          <div class="comps alone">{#each s.components as c (c.name)}<span class="pill outline {toneOf(c.level)}" title={LEVEL[c.level]}>{c.name}</span>{/each}</div>
         {/if}
       {:else}
-        <div class="empty">{t('All {n} services operational.', { n: services.length })}</div>
+        <State kind="empty" title={t('All {n} services operational.', { n: services.length })} />
       {/each}
     </div>
   {/if}
 </section>
 
 <style>
-  .empty { padding: 14px 16px; color: var(--text-muted); font-size: var(--fs-body); }
   .muted { color: var(--text-muted); }
-  .icon { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover { background: var(--surface-muted); color: var(--text); }
-  .icon :global(svg) { width: 13px; height: 13px; }
-  .spin :global(svg) { animation: spin 0.8s linear infinite; }
   .svc { display: flex; align-items: center; gap: 7px; padding: 6px 12px; border-top: 1px solid var(--border); font-size: var(--fs-body); }
   .svc:first-child { border-top: none; }
-  .dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; }
-  .dot.ok { background: var(--ok); opacity: 1; }
-  .dot.warn { background: var(--warn); opacity: 1; }
-  .dot.ko { background: var(--ko); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ko) 20%, transparent); }
   .name { padding: 0; border: none; background: none; color: var(--text); font: inherit; font-weight: 500; cursor: pointer; white-space: nowrap; }
   .name:hover { color: var(--info); }
   .sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); }
@@ -100,14 +92,9 @@
   .inc.ko { border-left-color: var(--ko); }
   .line { display: flex; align-items: baseline; gap: 6px; }
   .line b { font-weight: 500; }
-  .pill { flex-shrink: 0; padding: 0 6px; border-radius: 9px; background: var(--surface); color: var(--text-muted); font-size: var(--fs-tag); text-transform: capitalize; }
-  .inc.warn .pill { background: var(--warn-bg); color: var(--warn); }
-  .inc.ko .pill { background: var(--ko-bg); color: var(--ko); }
+  .line .pill { flex-shrink: 0; text-transform: capitalize; }
   .meta { font-size: var(--fs-meta); }
   .upd { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-meta); color: var(--text-muted); }
   .comps { display: flex; flex-wrap: wrap; gap: 4px; }
   .comps.alone { padding: 0 12px 6px 27px; }
-  .chip { padding: 0 6px; border: 1px solid var(--border); border-radius: 9px; font-size: var(--fs-tag); color: var(--text-muted); }
-  .chip.warn { color: var(--warn); }
-  .chip.ko { color: var(--ko); }
 </style>

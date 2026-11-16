@@ -81,7 +81,7 @@
   <div class="clones">
     <div class="top">
       <span><b>{t('Without a local clone')}</b> · {t('only their MRs are read. Your clones’ place is yours: a pack never sets it.')}</span>
-      {#if canPick() && list.some((c) => c.project)}<button class="btn" onclick={findIn} disabled={!!busy['*']} title={t('Pick the folder where you keep your repositories: Prism looks there only, a few levels down, for clones of these projects (by their remote)')}><Icon name="folder" />{busy['*'] ?? t('Find in a folder…')}</button>{/if}
+      {#if canPick() && list.some((c) => c.project)}<button class="btn sm" onclick={findIn} class:busy={!!busy['*']} disabled={!!busy['*']} title={t('Pick the folder where you keep your repositories: Prism looks there only, a few levels down, for clones of these projects (by their remote)')}>{#if busy['*']}<span class="spinner"></span>{busy['*']}{:else}<Icon name="folder" />{t('Find in a folder…')}{/if}</button>{/if}
     </div>
     {#if summary}<p class="sum">{summary}</p>{/if}
     {#each list as c (c.name)}
@@ -91,8 +91,8 @@
         <small>{c.note}</small>
         {#if canPick()}
           <span class="acts">
-            <button class="btn" onclick={() => choose(c)} disabled={!!busy[c.name]} title={t('Pick its clone: checked against the project’s remote')}>{t('Choose…')}</button>
-            {#if c.project}<button class="btn" onclick={() => cloneInto(c)} disabled={!!busy[c.name]} title={t('Clone {project} into a folder you pick (glab or gh, with their login)', { project: c.project })}>{busy[c.name] ?? t('Clone into…')}</button>{/if}
+            <button class="btn sm" onclick={() => choose(c)} disabled={!!busy[c.name]} title={t('Pick its clone: checked against the project’s remote')}>{t('Choose…')}</button>
+            {#if c.project}<button class="btn sm" class:busy={!!busy[c.name]} onclick={() => cloneInto(c)} disabled={!!busy[c.name]} title={t('Clone {project} into a folder you pick (glab or gh, with their login)', { project: c.project })}>{#if busy[c.name]}<span class="spinner"></span>{busy[c.name]}{:else}{t('Clone into…')}{/if}</button>{/if}
           </span>
         {/if}
         {#if errors[c.name]}<p class="err">{errors[c.name]}</p>{/if}
@@ -111,8 +111,5 @@
   .proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-meta) var(--mono); color: var(--text-muted); }
   .item small { font-size: var(--fs-meta); color: var(--warn); }
   .acts { display: flex; gap: 6px; }
-  .err { grid-column: 1 / -1; margin: 0; font-size: var(--fs-meta); color: var(--ko); }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.6; cursor: default; }
+  .item .err { grid-column: 1 / -1; margin: 0; }
 </style>

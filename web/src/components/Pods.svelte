@@ -5,6 +5,7 @@
   import { isCollapsed, isShort } from '../layout.svelte'
   import Icon from './Icon.svelte'
   import Logo from './Logo.svelte'
+  import State from './ui/State.svelte'
   import type { NodeLoad, PodView, Usage } from '../types'
   import { ago, cpu, mem } from '../time'
   import { podDown, usageKey } from '../rules'
@@ -64,8 +65,8 @@
   const jobLabel = (p: PodView) => p.job_ref?.replace(/^refs\/merge-requests\/(\d+)\/head$/, '!$1') ?? null
   const nameOf = (p: PodView) => (p.role === 'job' ? (p.job_name ?? p.name) : (p.workload ?? p.name))
   /** The dot: ok, pending (hollow), failing. */
-  const tone = (p: PodView) => (p.healthy ? 'ok' : podDown(p) ? 'ko' : 'pend')
-  const worst = (ps: PodView[]) => (ps.some(podDown) ? 'ko' : ps.some((p) => !p.healthy) ? 'pend' : 'ok')
+  const tone = (p: PodView) => (p.healthy ? 'ok' : podDown(p) ? 'ko' : 'warn')
+  const worst = (ps: PodView[]) => (ps.some(podDown) ? 'ko' : ps.some((p) => !p.healthy) ? 'warn' : 'ok')
   /** Why it needs a look, in words: the window's language; `say = plain` for the agent's prompt, in English. */
   const why = (p: PodView, say: typeof t = t) =>
     [
@@ -142,9 +143,9 @@
       <span class="pill" class:ko={down} class:warn={!down}>{p.status}{#if !down && p.started_at}{` ${ago(p.started_at)}`}{/if}</span>
     </span>
     <span class="acts">
-      {#if hasLogs(p)}<button class="btn" onclick={logs(p)} title={p.last_exit ? t('Logs of {name}, before its last restart', { name: p.name }) : t('Logs of {name}', { name: p.name })}>{t('Logs')}</button>{/if}
-      {#if p.job_url}<button class="btn" onclick={() => openLink(p.job_url!)} title={t('Open the CI job')}>{t('Job')} ↗</button>{/if}
-      {#if a?.href}<a class="btn act" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{/if}
+      {#if hasLogs(p)}<button class="btn sm" onclick={logs(p)} title={p.last_exit ? t('Logs of {name}, before its last restart', { name: p.name }) : t('Logs of {name}', { name: p.name })}>{t('Logs')}</button>{/if}
+      {#if p.job_url}<button class="btn sm" onclick={() => openLink(p.job_url!)} title={t('Open the CI job')}>{t('Job')} <Icon name="external" /></button>{/if}
+      {#if a?.href}<a class="btn sm claude" href={a.href} onclick={claudeClick(a)} title={`${a.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{a.label}</a>{/if}
     </span>
     <span class="what" title={p.unscheduled ?? ''}>{[targets > 1 ? p.target : '', p.namespace, why(p)].filter(Boolean).join(' · ')}</span>
   </div>
@@ -225,7 +226,7 @@
             {/each}
           </div>
         {:else}
-          <div class="empty">{t('No pod.')}</div>
+          <State kind="empty" title={t('No pod.')} />
         {/each}
       </div>
     </div>
@@ -247,10 +248,6 @@
   .card .head { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; }
   .card .what { grid-column: 2 / 4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); color: var(--text-muted); }
   .acts { display: flex; gap: 4px; }
-  .btn { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r5); background: var(--surface-muted); color: var(--text); font: inherit; font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; cursor: pointer; }
-  .btn:hover { border-color: color-mix(in srgb, var(--src-k8s) 60%, var(--border)); text-decoration: none; }
-  .btn.act { border-color: color-mix(in srgb, var(--src-claude) 60%, var(--border)); background: var(--surface); }
-  .btn.act:hover { background: color-mix(in srgb, var(--src-claude) 12%, var(--surface)); }
 
   /* Targets: one under the other, side by side when the block is wide. */
   .targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
@@ -285,9 +282,6 @@
   .rep { flex-shrink: 0; padding: 0 4px; border: 1px solid var(--border); border-radius: var(--r4); font: var(--fs-tag) var(--mono); color: var(--text-muted); }
   .rep.ko { color: var(--ko); }
   .age { text-align: right; font: var(--fs-tag) var(--mono); color: var(--text-muted); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
-  .dot.pend { background: none; border: 1.5px solid var(--warn); }
-  .dot.ko { background: var(--ko); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ko) 20%, transparent); }
   .mini { display: grid; gap: 1px; }
   .mini > span:first-child { display: flex; justify-content: space-between; font: 10px var(--mono); color: var(--text-muted); }
   .mini em { font-style: normal; }
@@ -297,5 +291,4 @@
   .bar i { display: block; height: 100%; background: var(--ok); }
   .bar i.hi { background: var(--warn); }
   .bar i.crit { background: var(--ko); }
-  .empty { padding: 14px 16px; color: var(--text-muted); font-size: var(--fs-body); }
 </style>

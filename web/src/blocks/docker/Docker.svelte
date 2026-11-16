@@ -4,6 +4,8 @@
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
   import Logo from '../../components/Logo.svelte'
+  import ArmedLabel from '../../components/ArmedLabel.svelte'
+  import State from '../../components/ui/State.svelte'
   import { isCollapsed, isShort } from '../../layout.svelte'
   import { ago } from '../../time'
   import { t, tn, tc } from '../../i18n.svelte'
@@ -100,11 +102,11 @@
     <BlockControls id="docker" />
   </h2>
   {#if !enabled}
-    <div class="empty">{t('Docker is not read. Turn on Settings › Infra › Docker, then restart Prism.')}</div>
+    <State kind="off" title={t('Docker is not read. Turn on Settings › Infra › Docker, then restart Prism.')} />
   {:else if !docker || (!up && !error)}
-    <div class="empty">{t('Reading Docker…')}</div>
+    <State kind="loading" title={t('Reading Docker…')} />
   {:else if !up}
-    <div class="empty">{docker.context ? t('Docker does not answer (context {name}): is Docker Desktop, OrbStack or colima running?', { name: docker.context }) : t('Docker does not answer: is Docker Desktop, OrbStack or colima running?')}{#if error}<br /><small>{error}</small>{/if}</div>
+    <State kind="error" title={docker.context ? t('Docker does not answer (context {name}): is Docker Desktop, OrbStack or colima running?', { name: docker.context }) : t('Docker does not answer: is Docker Desktop, OrbStack or colima running?')} detail={error ?? ''} />
   {:else if isShort('docker')}
     <div class="short-body">
       {#each failing as c (c.id)}
@@ -122,15 +124,15 @@
           <span class="bar" title={t('{part} of {size} reclaimable', { part: size(k.reclaimable_bytes), size: size(k.size_bytes) })}><i style="width: {100 - share}%"></i></span>
           <span class="mono num">{size(k.size_bytes)}</span>
           {#if k.reclaimable_bytes > 0 && hasCore()}
-            <button class="act" class:armed={arming.is(`prune:${k.kind}`)} disabled={busy !== null} onclick={() => prune(k.kind)} title={arming.is(`prune:${k.kind}`) ? t('Click again: removes {what}', { what: KINDS[k.kind].what }) : t('Free {size}: removes {what}', { size: size(k.reclaimable_bytes), what: KINDS[k.kind].what })}>
-              {busy === `prune:${k.kind}` ? '…' : arming.is(`prune:${k.kind}`) ? t('Sure?') : `${KINDS[k.kind].prune} · ${size(k.reclaimable_bytes)}`}
+            <button class="btn sm" class:armed={arming.is(`prune:${k.kind}`)} class:busy={busy === `prune:${k.kind}`} disabled={busy !== null} onclick={() => prune(k.kind)} title={arming.is(`prune:${k.kind}`) ? t('Click again: removes {what}', { what: KINDS[k.kind].what }) : t('Free {size}: removes {what}', { size: size(k.reclaimable_bytes), what: KINDS[k.kind].what })}>
+              {#if busy === `prune:${k.kind}`}<span class="spinner"></span>{t('Removing…')}{:else}<ArmedLabel label={`${KINDS[k.kind].prune} · ${size(k.reclaimable_bytes)}`} armedLabel={t('Click again to confirm')} armed={arming.is(`prune:${k.kind}`)} />{/if}
             </button>
           {:else}<span></span>{/if}
         </div>
       {/each}
       {#if docker.disk_at}<div class="measured muted">{t('Measured {time}', { time: ago(docker.disk_at) })}{reclaimable ? ` · ${t('{size} reclaimable in all', { size: size(reclaimable) })}` : ''}</div>{/if}
     </div>
-    {#if failed}<p class="err" title={failed.message}>{failed.message}</p>{/if}
+    {#if failed}<div class="fail" title={failed.message}><State kind="error" inline title={failed.message} /></div>{/if}
     {#if done}<p class="ok-msg">{done}</p>{/if}
     <div class="scroll">
       {#if tab === 'containers'}
@@ -147,20 +149,20 @@
               <span class="mono num" title="{t('CPU · memory')}{c.size_bytes !== null ? ` · ${t('writable layer {size}', { size: size(c.size_bytes) })}` : ''}">{c.cpu_percent !== null ? `${c.cpu_percent.toFixed(1)}%` : ''}{c.mem_bytes !== null ? ` · ${size(c.mem_bytes)}` : ''}</span>
               <span class="acts">
                 {#if hasCore()}
-                  <button class="icon" onclick={() => logs(c)} title={t('Log')} aria-label={t('Log of {name}', { name: c.name })}><Icon name="logs" /></button>
+                  <button class="btn sm icon ghost" onclick={() => logs(c)} title={t('Log')} aria-label={t('Log of {name}', { name: c.name })}><Icon name="logs" /></button>
                   {#if c.state === 'running'}
-                    <button class="icon" disabled={busy !== null} onclick={() => act(c, 'restart')} title={t('Restart')} aria-label={t('Restart {name}', { name: c.name })}><Icon name="retry" /></button>
-                    <button class="icon" class:armed={arming.is(`stop:${c.id}`)} disabled={busy !== null} onclick={() => act(c, 'stop')} title={arming.is(`stop:${c.id}`) ? t('Click again to stop it') : t('Stop')} aria-label={t('Stop {name}', { name: c.name })}><Icon name="stop" /></button>
+                    <button class="btn sm icon ghost" disabled={busy !== null} onclick={() => act(c, 'restart')} title={t('Restart')} aria-label={t('Restart {name}', { name: c.name })}><Icon name="retry" /></button>
+                    <button class="btn sm icon ghost" class:armed={arming.is(`stop:${c.id}`)} disabled={busy !== null} onclick={() => act(c, 'stop')} title={arming.is(`stop:${c.id}`) ? t('Click again to stop it') : t('Stop')} aria-label={t('Stop {name}', { name: c.name })}><Icon name="stop" /></button>
                   {:else}
-                    <button class="icon" disabled={busy !== null} onclick={() => act(c, 'start')} title={t('Start')} aria-label={t('Start {name}', { name: c.name })}><Icon name="play" /></button>
-                    <button class="icon" class:armed={arming.is(`remove:${c.id}`)} disabled={busy !== null} onclick={() => act(c, 'remove')} title={arming.is(`remove:${c.id}`) ? t('Click again to remove it') : t('Remove')} aria-label={tc('blocks', 'Remove {name}', { name: c.name })}><Icon name="trash" /></button>
+                    <button class="btn sm icon ghost" disabled={busy !== null} onclick={() => act(c, 'start')} title={t('Start')} aria-label={t('Start {name}', { name: c.name })}><Icon name="play" /></button>
+                    <button class="btn sm icon ghost" class:armed={arming.is(`remove:${c.id}`)} disabled={busy !== null} onclick={() => act(c, 'remove')} title={arming.is(`remove:${c.id}`) ? t('Click again to remove it') : t('Remove')} aria-label={tc('blocks', 'Remove {name}', { name: c.name })}><Icon name="trash" /></button>
                   {/if}
                 {/if}
               </span>
             </div>
           {/each}
         {:else}
-          <div class="empty">{t('No container.')}</div>
+          <State kind="empty" title={t('No container.')} />
         {/each}
       {:else if tab === 'images'}
         {#each docker.images as i (i.id)}
@@ -173,12 +175,12 @@
             <span class="mono num" title={i.unique_bytes !== null ? t('Its own part {own}, layers shared included {size}', { own: size(i.unique_bytes), size: size(i.size_bytes) }) : t('Layers shared included {size}', { size: size(i.size_bytes) })}>{size(i.unique_bytes ?? i.size_bytes)}</span>
             <span class="acts">
               {#if hasCore() && i.containers === 0}
-                <button class="icon" class:armed={arming.is(`rmi:${i.id}`)} disabled={busy !== null} onclick={() => removeImage(i.id)} title={arming.is(`rmi:${i.id}`) ? t('Click again to remove it') : t('Remove (frees {size})', { size: size(i.unique_bytes ?? i.size_bytes) })} aria-label={tc('blocks', 'Remove {name}', { name: i.name })}><Icon name="trash" /></button>
+                <button class="btn sm icon ghost" class:armed={arming.is(`rmi:${i.id}`)} disabled={busy !== null} onclick={() => removeImage(i.id)} title={arming.is(`rmi:${i.id}`) ? t('Click again to remove it') : t('Remove (frees {size})', { size: size(i.unique_bytes ?? i.size_bytes) })} aria-label={tc('blocks', 'Remove {name}', { name: i.name })}><Icon name="trash" /></button>
               {/if}
             </span>
           </div>
         {:else}
-          <div class="empty">{docker.disk_at ? t('No image.') : t('Measuring the disk…')}</div>
+          {#if docker.disk_at}<State kind="empty" title={t('No image.')} />{:else}<State kind="loading" title={t('Measuring the disk…')} />{/if}
         {/each}
       {:else}
         {#each docker.volumes as v (v.name)}
@@ -192,7 +194,7 @@
             <span class="acts"></span>
           </div>
         {:else}
-          <div class="empty">{docker.disk_at ? t('No volume.') : t('Measuring the disk…')}</div>
+          {#if docker.disk_at}<State kind="empty" title={t('No volume.')} />{:else}<State kind="loading" title={t('Measuring the disk…')} />{/if}
         {/each}
       {/if}
     </div>
@@ -201,20 +203,13 @@
 
 <style>
   .head { display: flex; gap: 10px; align-items: center; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
-  .seg button { padding: 0 8px; border: none; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); font-weight: 400; cursor: pointer; }
-  .seg button.on { background: color-mix(in srgb, var(--src) 18%, transparent); color: var(--text); }
   .disk { padding: 6px 12px 4px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
   .kind { display: grid; grid-template-columns: 120px minmax(40px, 1fr) 64px auto; gap: 8px; align-items: center; font-size: var(--fs-meta); }
   .bar { height: 6px; border-radius: var(--r3); background: color-mix(in srgb, var(--warn) 45%, var(--surface-muted)); overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--ok); }
   .measured { font-size: var(--fs-tag); }
   .num { text-align: right; font-size: var(--fs-tag); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .act { padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-tag); cursor: pointer; white-space: nowrap; }
-  .act:hover:not(:disabled) { border-color: var(--warn); }
-  .act.armed, .icon.armed { border-color: var(--ko); color: var(--ko); }
-  .act:disabled, .icon:disabled { opacity: 0.5; cursor: default; }
-  .err { margin: 0; padding: 4px 12px; color: var(--ko); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fail { padding: 4px 12px; font-size: var(--fs-meta); }
   .ok-msg { margin: 0; padding: 4px 12px; color: var(--ok); font-size: var(--fs-meta); }
   .section { padding: 4px 12px; background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); border-top: 1px solid var(--border); }
   .section:first-child { border-top: none; }
@@ -222,11 +217,5 @@
   .main { display: flex; flex-direction: column; min-width: 0; }
   .name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-mono); }
   .sub { font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; }
-  .dot.ok { background: var(--ok); opacity: 1; }
-  .dot.warn { background: var(--warn); opacity: 1; }
-  .dot.ko { background: var(--ko); opacity: 1; }
   .acts { display: flex; gap: 2px; justify-content: flex-end; }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
 </style>

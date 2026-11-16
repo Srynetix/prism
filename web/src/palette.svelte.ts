@@ -4,7 +4,7 @@ import { openNewTicket, ticketBoards } from './new-ticket.svelte'
 import { mrTickets } from './conventions'
 import { live, trackerOn } from './live.svelte'
 import { pref, setPref, showBlock, setView, toggleEditing, toggleZen } from './layout.svelte'
-import { agentsEnabled, agentsSettings, agentsView, allowAgent, clearAgent, interruptAgent, openAgents, openProjects, projectsDigit, projectsOn, restartAgent } from './agents.svelte'
+import { agentsEnabled, agentsSettings, agentsView, allowAgent, newAgent, clearAgent, interruptAgent, openAgents, openProjects, projectsOn, restartAgent } from './agents.svelte'
 import { sendPrompt } from './agent-inbox.svelte'
 import { CLIS, cliOf } from './agent-cli'
 import { continueWith, targetsOf } from './agent-switch.svelte'
@@ -15,7 +15,7 @@ import { KIND_LABEL, KIND_ONE, search as searchEntries, type Entry, type Group, 
 import { flatten, mrMenu, ticketMenu, type Menu } from './menus'
 import { openMr } from './mr-view.svelte'
 import { openTicket } from './ticket-view.svelte'
-import { canShowLogs, openPipeline } from './logs.svelte'
+import { showPipeline } from './doors'
 import { openSettings, quitApp, toggleFullscreen } from './settings.svelte'
 import { repoAdd, type AddMode } from './clones.svelte'
 import { openHelp } from './help.svelte'
@@ -28,7 +28,7 @@ import { awaitsMyReview, mergeState, ticketIndex, waitsForYou } from './rules'
 import { paletteFiles } from './palette-files.svelte'
 import { mrKey } from './mr-ref'
 import { forgeName, meOn } from './forge'
-import { parseShortcut, shortcutLabel } from './shortcut'
+import { shortcutLabel } from './shortcut'
 import { isMac, keys } from './platform'
 import { invoke, isDesktop } from './bridge'
 import { toast } from './toast.svelte'
@@ -59,7 +59,9 @@ export const usePhonePages = (pages: { id: string; label: string; go: () => void
 const phone = () => phonePages !== null
 
 export const paletteOn = () => live.snapshot?.palette?.enabled !== false
-export const paletteKey = () => parseShortcut(live.snapshot?.palette?.key || 'Cmd+K')
+/** Its key: declared with every other shortcut (shortcuts.ts). */
+export { paletteKey } from './shortcuts'
+import { shortcutKeys } from './shortcuts'
 
 export function openPalette(query = '') {
   if (!paletteOn()) return
@@ -95,7 +97,7 @@ function agentActions(a: Agent): PaletteAction[] {
     run: () => onPhone() ? sendFromPhone(a, q).then(() => toast(t('“{label}” sent to {agent}', { label: q.label, agent: a.title })), (e) => toast(t('Not sent to {agent}: {error}', { agent: a.title, error: String(e) }), 6000)) : sendPrompt(a.id, q.sent).then((r) => toast(r === 'sent' ? t('“{label}” sent to {agent}', { label: q.label, agent: a.title }) : r === 'queued' ? t('“{label}” goes once its menu is answered', { label: q.label }) : t('Already sent to {agent}', { agent: a.title }))),
   }))
   if (a.state === 'running' && a.status === 'waiting_tool') out.push({ key: 'allow', label: t('Allow once'), hint: a.needs_action ?? undefined, run: () => allowAgent(a.id) })
-  if (a.state === 'running' && a.status === 'running') out.push({ key: 'interrupt', label: t('Interrupt'), hint: keys('⌘.'), run: () => interruptAgent(a.id) })
+  if (a.state === 'running' && a.status === 'running') out.push({ key: 'interrupt', label: t('Interrupt'), hint: shortcutKeys('interrupt'), run: () => interruptAgent(a.id) })
   if (a.state === 'running' && cliOf(a.provider).transcript && !['running', 'waiting_tool'].includes(a.status)) out.push({ key: 'clear', label: t('Clear conversation'), hint: t('/clear: the transcript stays'), confirm: t('Its context empties: ↵ again to clear'), run: () => clearAgent(a.id).catch((e) => toast(tc('shell', 'Could not clear: {error}', { error: String(e) }), 6000)) })
   // Continue with each of the other CLIs: "codex" finds the one to hand it over to.
   if (a.state !== 'prepared') for (const to of targetsOf(a)) out.push({ key: `switch-${to.provider}-${to.account ?? ''}`, label: t('Continue with {cli}', { cli: to.account ?? CLIS[to.provider].cli }), hint: to.provider === a.provider ? t('its conversation goes too') : t('from a relay'), run: () => continueWith(a, to) })
@@ -196,7 +198,7 @@ function pipelineEntries(s: Snapshot): Entry[] {
     title: `${p.target} #${p.id}`,
     hint: [p.repo, p.status].filter(Boolean).join(' · '),
     pill: { label: tc('pipeline', p.status), tone: p.status === 'failed' ? 'ko' : p.status === 'success' ? 'ok' : 'info' },
-    run: () => (canShowLogs() ? openPipeline(p.id, p.target, p.project ?? null) : showBlock('ci')),
+    run: () => showPipeline(p),
     actions: () => [{ key: 'forge', label: t('In {forge}', { forge: forgeName() }), href: p.url }],
   } satisfies Entry))
 }
@@ -233,15 +235,15 @@ function backEntries(): Entry[] {
     run: () => goToShells(g),
   }))
   // A shell's drawer closed: its shells are listed above.
-  const closed = recentPanels.list.filter((p) => p.kind !== 'shell').map((p) => ({ id: `closed:${p.key}`, kind: 'closed' as const, title: p.title, hint: p.hint || undefined, keys: p === recentPanels.list[0] ? keys('⌘⇧T') : undefined, run: () => reopenPanel(p) }))
+  const closed = recentPanels.list.filter((p) => p.kind !== 'shell').map((p) => ({ id: `closed:${p.key}`, kind: 'closed' as const, title: p.title, hint: p.hint || undefined, keys: p === recentPanels.list[0] ? shortcutKeys('reopen') : undefined, run: () => reopenPanel(p) }))
   return [...shells, ...closed]
 }
 
 function pageEntries(): Entry[] {
   if (phonePages) return phonePages.map((p) => ({ id: `page:${p.id}`, kind: 'page', title: p.label, run: p.go }))
   const pages: Entry[] = views().map((v, i) => ({ id: `page:${v.id}`, kind: 'page', title: v.label, keys: keys(`⌘${i + 1}`), run: () => setView(v.id) }))
-  if (agentsEnabled()) pages.push({ id: 'page:agents', kind: 'page', title: t('Agents'), keys: keys(`⌘${views().length + 1}`), run: () => openAgents() })
-  if (projectsOn()) pages.push({ id: 'page:projects', kind: 'page', title: t('Projects'), words: 'workstreams worktrees', keys: keys(`⌘${projectsDigit(views().length)}`), run: () => openProjects() })
+  if (agentsEnabled()) pages.push({ id: 'page:agents', kind: 'page', title: t('Agents'), keys: shortcutKeys('agents'), run: () => openAgents() })
+  if (projectsOn()) pages.push({ id: 'page:projects', kind: 'page', title: t('Projects'), words: 'workstreams worktrees', keys: shortcutKeys('projects'), run: () => openProjects() })
   const blocks: Entry[] = [...new Set<string>([...Object.keys(BLOCK_LABELS), ...BLOCK_DEFS.map((b) => b.id)])].map((id) => ({
     id: `block:${id}`,
     kind: 'block',
@@ -250,13 +252,6 @@ function pageEntries(): Entry[] {
     run: () => showBlock(id),
   }))
   return [...pages, ...blocks]
-}
-
-/** As ⌘N: the Agents view, its launcher open. */
-function newAgent() {
-  openAgents()
-  agentsView.creating = true
-  agentsView.desktopHref = null
 }
 
 /** Settings › Repositories, its Add panel open on `mode`. */
@@ -269,21 +264,21 @@ function addRepo(mode: AddMode) {
 /** The palette's own commands, then the console's: one registry. */
 function commandEntries(): Entry[] {
   const own: Entry[] = phone() ? [] : [
-    ...(agentsEnabled() ? [{ id: 'cmd:new-agent', kind: 'command' as const, title: t('New agent'), words: 'new agent', keys: keys('⌘N'), run: newAgent }] : []),
+    ...(agentsEnabled() ? [{ id: 'cmd:new-agent', kind: 'command' as const, title: t('New agent'), words: 'new agent', keys: shortcutKeys('new-agent'), run: newAgent }] : []),
     ...(ticketBoards().length ? [{ id: 'cmd:new-ticket', kind: 'command' as const, title: t('New ticket…'), hint: t('On one of the sprint\'s boards'), words: 'new ticket create task card issue', run: () => openNewTicket() }] : []),
     ...(assistantOn() ? [
       { id: 'cmd:assistant', kind: 'command' as const, title: t('Assistant'), hint: t('Its conversations and its memory'), words: 'assistant ask prism conversations memory brain', run: () => openAssistant() },
       { id: 'cmd:assistant-memory', kind: 'command' as const, title: t('Assistant memory'), hint: t('What the assistant remembers'), words: 'assistant memory remember forget facts', run: () => openAssistant(undefined, 'memory') },
     ] : []),
-    { id: 'cmd:reopen', kind: 'command', title: t('Reopen the last closed panel'), words: 'reopen closed panel undo restore', keys: keys('⌘⇧T'), run: reopenLastPanel },
-    { id: 'cmd:zen', kind: 'command', title: t('Zen mode'), words: 'zen', keys: keys('⌘⇧F'), run: toggleZen },
+    { id: 'cmd:reopen', kind: 'command', title: t('Reopen the last closed panel'), words: 'reopen closed panel undo restore', keys: shortcutKeys('reopen'), run: reopenLastPanel },
+    { id: 'cmd:zen', kind: 'command', title: t('Zen mode'), words: 'zen', keys: shortcutKeys('zen'), run: toggleZen },
     { id: 'cmd:edit-layout', kind: 'command', title: t('Edit layout'), words: 'edit layout', run: toggleEditing },
     { id: 'cmd:problems', kind: 'command', title: t('Problems'), hint: t('What fails now, and what failed lately'), words: 'problems errors warnings failures log', run: () => openProblems() },
-    { id: 'cmd:settings', kind: 'command', title: t('Settings'), words: 'settings', keys: keys('⌘,'), run: () => openSettings() },
+    { id: 'cmd:settings', kind: 'command', title: t('Settings'), words: 'settings', keys: shortcutKeys('settings'), run: () => openSettings() },
     { id: 'cmd:repo-add', kind: 'command', title: t('Add a repository'), hint: t('An existing folder, or a clone'), words: 'add repository', run: () => addRepo('folder') },
     { id: 'cmd:repo-new', kind: 'command', title: t('New project'), hint: t('A folder with a git repository'), words: 'new project create repository git init', run: () => addRepo('new') },
     { id: 'cmd:repo-publish', kind: 'command', title: t('Publish a local project'), hint: t('Its project on the forge, its branch pushed'), words: 'publish push forge gitlab github remote origin', run: () => addRepo('publish') },
-    { id: 'cmd:help', kind: 'command', title: t('Help'), words: 'help', keys: keys('⌘?'), run: () => openHelp() },
+    { id: 'cmd:help', kind: 'command', title: t('Help'), words: 'help', keys: shortcutKeys('help'), run: () => openHelp() },
     { id: 'cmd:console', kind: 'command', title: t('Console'), words: 'console', keys: shortcutLabel(consoleKey()), run: () => toggleConsole(true) },
     // The macOS menu bar's own, which Linux has not.
     ...(isDesktop() ? [

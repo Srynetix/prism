@@ -9,6 +9,7 @@ import type { AppearanceConfig } from "./AppearanceConfig";
 import type { ArchivedSession } from "./ArchivedSession";
 import type { ArgoCd } from "./ArgoCd";
 import type { Aside } from "./Aside";
+import type { AssistantState } from "./AssistantState";
 import type { Board } from "./Board";
 import type { Chain } from "./Chain";
 import type { CiHealth } from "./CiHealth";
@@ -341,6 +342,10 @@ waiting_restart: Array<string>,
  * Prism's MCP server: the agents connected, the proposals waiting for an answer (`mcp`).
  */
 mcp: McpState, 
+/**
+ * Prism's assistant: its proposals waiting for a click (`assistant`).
+ */
+assistant: AssistantState, 
 /**
  * Sources that have responded at least once (success or error): the startup screen waits for them.
  */

@@ -2,7 +2,7 @@ import { hasCore, invoke, isDesktop } from './bridge'
 import { live } from './live.svelte'
 import { agentsEnabled, agentsSettings } from './agents.svelte'
 import { t } from './i18n.svelte'
-import { toast } from './toast.svelte'
+import { toastError } from './toast.svelte'
 import type { Agent } from './types'
 import type { Snapshot } from './bindings/Snapshot'
 import type { AssistantProposal } from './bindings/AssistantProposal'
@@ -52,7 +52,7 @@ export async function askPrism(text: string): Promise<string | null> {
     openAssistant(id)
     return id
   } catch (e) {
-    toast(String(e), 8000)
+    toastError(String(e))
     return null
   } finally {
     assistantView.asking = false
@@ -142,7 +142,7 @@ export function watchRepoAdds(s: Snapshot | null | undefined) {
     if (!waiting.has(id)) repoAdds.delete(id)
     else if (known.has(name)) {
       repoAdds.delete(id)
-      void answerProposal(id, 'added', { repo: name }).catch((e) => toast(String(e)))
+      void answerProposal(id, 'added', { repo: name }).catch((e) => toastError(String(e)))
     }
   }
 }

@@ -33,7 +33,7 @@
   .mini { gap: 3px; align-items: center; }
   .mini .st { flex: 0 0 auto; }
   .mini .st::before { display: none; }
-  .mini .st i { width: 16px; height: 5px; border: none; border-radius: 3px; background: var(--border); box-shadow: none; }
+  .mini .st i { width: 16px; height: 5px; border: none; border-radius: var(--r3); background: var(--border); box-shadow: none; }
   .mini .st.done i { background: var(--ok); }
   .mini .st.now i { background: var(--accent); }
   .mini .st.ko i { background: var(--ko); }

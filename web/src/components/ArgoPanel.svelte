@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { clickedOutside } from '../drawers'
-  import { isPinned } from '../drawer-pins'
-  import PinButton from './PinButton.svelte'
+  import Drawer from './ui/Drawer.svelte'
+  import State from './ui/State.svelte'
   import { t, tn } from '../i18n.svelte'
   import { live } from '../live.svelte'
   import { argoKey, argoView, closeArgo } from '../argo-view.svelte'
@@ -34,37 +33,21 @@
     a.started_at ? span((a.operation === 'Running' || !a.synced_at ? Date.now() : new Date(a.synced_at).getTime()) - new Date(a.started_at).getTime()) : null
   const url = (a: ArgoApp, i: ArgoInstance) => argoUrl({ app: a, instance: i })
 
-  function onKey(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || !argoView.open) return
-    e.stopImmediatePropagation()
-    closeArgo()
-  }
-  let drawerEl: HTMLElement | undefined = $state()
+  const phone = document.documentElement.classList.contains('remote')
   /** On the phone, the detail is under the list: another Application chosen, it starts from its top. */
   let detailEl: HTMLElement | undefined = $state()
   $effect(() => {
     void chosen?.key
-    if (document.documentElement.classList.contains('remote') && detailEl) detailEl.scrollTop = 0
+    if (phone && detailEl) detailEl.scrollTop = 0
   })
-  function onOutside(e: PointerEvent) {
-    if (argoView.open && clickedOutside(e, drawerEl)) {
-      closeArgo()
-    }
-  }
 </script>
 
-<svelte:window onkeydowncapture={onKey} onpointerdowncapture={onOutside} />
-
-{#if argoView.open}
-  <aside class="drawer" bind:this={drawerEl} data-drawer="51" data-pinned={isPinned('argo')} aria-label={t('ArgoCD syncs')}>
-    <header>
-      <Icon name="argocd" />
-      <span class="what">ArgoCD{argoView.cluster ? ` · ${argoView.cluster}` : ''}</span>
-      <span class="muted">{t('{n} of {total} need a look', { n: rows.filter((r) => argoTone(r.app) !== 'ok').length, total: rows.length })}</span>
-      <span class="grow"></span>
-      <PinButton kind="argo" />
-      <button class="icon" onclick={closeArgo} title={t('Close (Esc)')} aria-label={t('Close')}><Icon name="close" /></button>
-    </header>
+<Drawer open={argoView.open} key="argo" identity={argoView.cluster ?? ''} crumb={`ArgoCD${argoView.cluster ? ` · ${argoView.cluster}` : ''}`} label={t('ArgoCD syncs')} size={phone ? 'full' : 'l'} source="var(--src-k8s)" pin="argo" onclose={closeArgo}>
+  {#snippet head()}
+    <Icon name="argocd" />
+    <span class="what">ArgoCD{argoView.cluster ? ` · ${argoView.cluster}` : ''}</span>
+    <span class="muted">{t('{n} of {total} need a look', { n: rows.filter((r) => argoTone(r.app) !== 'ok').length, total: rows.length })}</span>
+  {/snippet}
     <div class="body">
       <nav class="apps" aria-label={t('Applications')}>
         {#each rows as r (r.key)}
@@ -74,7 +57,7 @@
             <span class="l {argoTone(r.app)}">{t(argoLabel(r.app))}</span>
           </button>
         {:else}
-          <p class="muted pad">{t('No Application read.')}</p>
+          <State kind="empty" title={t('No Application read.')} />
         {/each}
       </nav>
       <div class="detail" bind:this={detailEl}>
@@ -83,8 +66,8 @@
           {@const link = url(a, chosen.instance)}
           <div class="head">
             <h3>{a.name}</h3>
-            {#if changesOn() && (a.health === 'Degraded' || a.health === 'Missing' || a.operation === 'Failed' || a.operation === 'Error')}<button class="txt" onclick={() => openWhatChanged(a.env ?? null, a.app ?? a.deployments[0] ?? a.name)} title={t('The timeline of {env} around the crash, the change just before it highlighted', { env: a.env ?? '' })}><Icon name="activity" /> {t('What changed')}</button>{/if}
-            {#if link}<button class="txt" onclick={() => openLink(link)} title={t('Open it in ArgoCD')}>ArgoCD <Icon name="external" /></button>{/if}
+            {#if changesOn() && (a.health === 'Degraded' || a.health === 'Missing' || a.operation === 'Failed' || a.operation === 'Error')}<button class="btn sm" onclick={() => openWhatChanged(a.env ?? null, a.app ?? a.deployments[0] ?? a.name)} title={t('The timeline of {env} around the crash, the change just before it highlighted', { env: a.env ?? '' })}><Icon name="activity" /> {t('What changed')}</button>{/if}
+            {#if link}<button class="btn sm" onclick={() => openLink(link)} title={t('Open it in ArgoCD')}>ArgoCD <Icon name="external" /></button>{/if}
           </div>
           <p class="meta">
             {[a.env, a.group, a.namespace].filter(Boolean).join(' · ')}
@@ -127,8 +110,7 @@
         {/if}
       </div>
     </div>
-  </aside>
-{/if}
+</Drawer>
 
 {#snippet resources(list: ArgoResource[])}
   <div class="res">
@@ -145,21 +127,8 @@
 {/snippet}
 
 <style>
-  .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 51; width: min(880px, 94vw);
-    display: flex; flex-direction: column; background: var(--surface);
-    border-left: 1px solid color-mix(in srgb, var(--src-k8s) 45%, var(--border));
-    box-shadow: var(--shadow-drawer);
-  }
-  header {
-    display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-shrink: 0; white-space: nowrap;
-    border-bottom: 1px solid var(--border); box-shadow: inset 0 2px var(--src-k8s);
-    font-size: var(--fs-meta); color: var(--text-muted);
-  }
-  .what { color: var(--text); font-weight: 600; }
+  .what { color: var(--text); font-weight: 600; white-space: nowrap; }
   .grow { flex: 1; }
-  .icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); cursor: pointer; }
-  .icon:hover { background: var(--surface-muted); color: var(--text); }
   .body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); }
   .apps { overflow: auto; border-right: 1px solid var(--border); padding: 4px 0; }
   .app { display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 12px; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
@@ -168,10 +137,6 @@
   .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .n small { color: var(--text-muted); }
   .l { flex-shrink: 0; font-size: var(--fs-tag); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--ok); }
-  .dot.info { background: var(--info); }
-  .dot.warn { background: var(--warn); }
-  .dot.ko { background: var(--ko); }
   .l.ok, .o.ok { color: var(--ok); } .l.info, .o.info { color: var(--info); } .l.warn, .o.warn { color: var(--warn); } .l.ko, .o.ko { color: var(--ko); }
   .detail { overflow: auto; padding: 12px 16px 24px; font-size: var(--fs-body); }
   .head { display: flex; align-items: center; gap: 10px; }
@@ -179,9 +144,6 @@
   h4 { margin: 16px 0 6px; font-size: var(--fs-meta); font-weight: 600; color: var(--text); }
   h4 .muted { font-weight: 400; margin-left: 4px; }
   .meta { margin: 4px 0 8px; color: var(--text-muted); font-size: var(--fs-meta); overflow-wrap: anywhere; }
-  .pills, .op { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; font-size: var(--fs-meta); }
-  .pill { padding: 0 7px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 500; line-height: 17px; background: var(--surface-muted); color: var(--text-muted); }
-  .pill.ok { color: var(--ok); background: var(--ok-bg); } .pill.info { color: var(--info); background: var(--info-bg); } .pill.warn { color: var(--warn); background: var(--warn-bg); } .pill.ko { color: var(--ko); background: var(--ko-bg); }
   .msg { margin: 6px 0 0; padding: 6px 8px; border-radius: var(--r6); background: var(--surface-muted); font-size: var(--fs-meta); white-space: pre-wrap; overflow-wrap: anywhere; }
   .msg.ko { color: var(--ko); background: var(--ko-bg); }
   .res { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r6); overflow: hidden; }
@@ -192,11 +154,7 @@
   .o { font-size: var(--fs-tag); white-space: nowrap; }
   .rm { grid-column: 3 / 5; color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hist { display: flex; gap: 10px; margin: 2px 0; font-size: var(--fs-meta); }
-  .txt { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .txt:hover { border-color: var(--src-k8s); }
   /* On the phone: the whole screen, the Applications on top (a third of it, scrolled), the chosen one's detail under them. */
-  :global(html.remote) .drawer { width: 100vw; border-left: none; }
-  :global(html.remote) header { padding-top: calc(10px + env(safe-area-inset-top)); }
   :global(html.remote) .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, auto) minmax(0, 1fr); }
   :global(html.remote) .apps { max-height: 34dvh; border-right: none; border-bottom: 1px solid var(--border); }
   :global(html.remote) .app { padding-block: 9px; }

@@ -8,6 +8,7 @@
   import BlockControls from './BlockControls.svelte'
   import Icon from './Icon.svelte'
   import Logo from './Logo.svelte'
+  import State from './ui/State.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
   import { claudeClick, investigateAction } from '../claude-actions'
   import { ago, span } from '../time'
@@ -132,18 +133,18 @@
       <small>{tn(rows.length, '{n} app', '{n} apps')}{#if trouble.length}{' '}· <span class="warn">{tn(trouble.length, '{n} needs a look', '{n} need a look')}</span>{/if}</small>
     {/if}
     {#if tabs.length > 1}
-      <span class="tabs" role="group" aria-label={t('Group')}>
+      <span class="seg" role="group" aria-label={t('Group')}>
         {#each tabs as tb (tb)}
           {@const n = troubledIn(tb)}
-          <button class:on={tb === tab} onclick={() => setTab(tb)}>{tb || t('default')}{#if n}<b class="dot-n">{n}</b>{/if}</button>
+          <button class:on={tb === tab} aria-pressed={tb === tab} onclick={() => setTab(tb)}>{tb || t('default')}{#if n}<b class="dot-n">{n}</b>{/if}</button>
         {/each}
       </span>
     {/if}
-    {#if url}<button class="txt" onclick={() => openLink(url)} title={t('Open ArgoCD')}>ArgoCD <Icon name="external" /></button>{/if}
+    {#if url}<button class="txt" onclick={() => openLink(url)} title={t('Open in {app}', { app: 'ArgoCD' })}>ArgoCD <Icon name="external" /></button>{/if}
     <BlockControls id="argocd" />
   </h2>
   {#if !instances.length}
-    <div class="empty">{error ? t('Unavailable: {error}', { error }) : t('No ArgoCD read: declare [[argocd]], or an argocd namespace on the default cluster ([clusters] default_context).')}</div>
+    {#if error}<State kind="error" title={t('Unavailable: {error}', { error })} />{:else}<State kind="off" title={t('No ArgoCD read: declare [[argocd]], or an argocd namespace on the default cluster ([clusters] default_context).')} />{/if}
   {:else if isShort('argocd')}
     <div class="short-body">
       {#each places as p (p)}
@@ -166,7 +167,7 @@
       </div>
 
       {#each instances.filter((i) => i.error) as i (i.namespace)}
-        <p class="err">{t('{cluster} · {namespace} unreadable: {error}', { cluster: i.cluster, namespace: i.namespace, error: i.error ?? '' })}</p>
+        <div class="fail"><State kind="error" inline title={t('{cluster} · {namespace} unreadable: {error}', { cluster: i.cluster, namespace: i.namespace, error: i.error ?? '' })} /></div>
       {/each}
 
       {#if trouble.length}
@@ -176,15 +177,15 @@
           {@const act = investigate(r)}
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
           <div class="app" onclick={() => open(r)} title="{r.app.name} · {r.app.sync} · {r.app.health} — {t('open its syncs')}">
-            <span class="dot {r.tone}"></span>
+            <span class="dot {r.tone}" class:pulse={r.tone === 'info'}></span>
             <span class="n"><b>{r.app.name}</b><small>{[r.app.group, r.app.env, r.app.namespace].filter(Boolean).join(' · ')}{#if r.app.operation}<span class="why">{r.app.automated ? t('auto-sync') : t('by hand')}</span>{/if}<span class="ago-s">{age(r.app)}</span></small></span>
             <span class="pill {r.tone}">{t(argoLabel(r.app))}</span>
-            {#if act?.href}<a class="act" href={act.href} onclick={(e) => { e.stopPropagation(); claudeClick(act)(e) }} title={`${act.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{act.label}</a>{/if}
+            {#if act?.href}<a class="btn sm claude act" href={act.href} onclick={(e) => { e.stopPropagation(); claudeClick(act)(e) }} title={`${act.prompt}\n${t('{key}: launch at once', { key: keys('⇧-click') })}`}><Logo name="agent" size={10} />{act.label}</a>{/if}
             <span class="ago">{age(r.app)}</span>
             {#if list.length || (r.tone === 'ko' && r.app.message)}
               <span class="res">
                 {#each list.slice(0, 3) as c, i (i)}
-                  <span class="{resourceTone(c)}"><i>{resourceTone(c) === 'ko' ? '✕' : resourceTone(c) === 'info' ? '◌' : '◐'}</i> <b>{c.kind}</b> {c.name} · {resourceOutcome(c)}{c.message ? ` — ${c.message}` : ''}</span>
+                  <span class="{resourceTone(c)}"><i><Icon name={resourceTone(c) === 'ko' ? 'fail' : resourceTone(c) === 'info' ? 'running' : 'pending'} /></i> <b>{c.kind}</b> {c.name} · {resourceOutcome(c)}{c.message ? ` — ${c.message}` : ''}</span>
                 {/each}
                 {#if list.length > 3}<span>{t('+{n} more', { n: list.length - 3 })}</span>{/if}
                 {#if !list.length && r.app.message}<span class="ko">{r.app.message}</span>{/if}
@@ -212,7 +213,7 @@
         {#each operations.slice(0, 8) as r (r.key)}
           <button class="op" onclick={() => open(r)}>
             <span class="t">{clock(r.app.started_at!)}</span>
-            <span class="dot {opTone(r.app)}"></span>
+            <span class="dot {opTone(r.app)}" class:pulse={opTone(r.app) === 'info'}></span>
             <span class="w"><b>{r.app.name}</b> — {opText(r.app)}</span>
             {#if r.app.revision}<span class="rev">{r.app.revision}</span>{/if}
             <span class="how">{r.app.automated ? t('auto') : t('by hand')}</span>
@@ -226,18 +227,15 @@
 <style>
   .argo-block { container-type: inline-size; }
   h2 small .warn { color: var(--warn); }
-  .tabs { display: inline-flex; gap: 1px; padding: 2px; border-radius: var(--r6); background: var(--surface-muted); }
-  .tabs button { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); line-height: 18px; cursor: pointer; }
-  .tabs button.on { background: var(--surface); color: var(--text); font-weight: 500; }
-  .dot-n { min-width: 14px; padding: 0 3px; border-radius: 7px; background: var(--ko); color: #fff; font-size: 9.5px; line-height: 14px; text-align: center; }
+  .dot-n { min-width: 14px; padding: 0 3px; border-radius: var(--r7); background: var(--ko); color: #fff; font-size: var(--fs-micro); line-height: 14px; text-align: center; }
   .txt { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); font-weight: 400; cursor: pointer; }
   .txt:hover { text-decoration: underline; }
-  .err { margin: 0; padding: 6px 12px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); }
+  .fail { padding: 6px 12px; background: color-mix(in srgb, var(--ko-bg) 50%, transparent); font-size: var(--fs-meta); }
 
   .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
   .kpi { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 6px 12px; background: var(--surface); }
   .kpi span { font-size: var(--fs-tag); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
-  .kpi b { font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .kpi b { font-size: var(--fs-head); font-weight: 600; white-space: nowrap; }
   .kpi b small { font-size: var(--fs-meta); font-weight: 400; color: var(--text-muted); }
   .kpi b.ko { color: var(--ko); }
   .kpi b.warn { color: var(--warn); }
@@ -247,10 +245,6 @@
   h5 b { font-weight: 600; color: var(--text); }
   h5 .muted { margin-left: auto; text-transform: none; letter-spacing: 0; }
 
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; background: var(--ok); }
-  .dot.warn { background: var(--warn); }
-  .dot.ko { background: var(--ko); }
-  .dot.info { background: var(--info); animation: pulse 1.4s infinite; }
 
   .app { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto auto 56px; gap: 2px 8px; align-items: center; padding: 6px 12px; border-top: 1px solid var(--border); font-size: var(--fs-body); cursor: pointer; }
   .app:hover { background: var(--surface-muted); }
@@ -260,8 +254,7 @@
   .why { padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); }
   .app > .pill { grid-area: 1 / 3; }
   .ago { grid-area: 1 / 5; text-align: right; color: var(--text-muted); font-size: var(--fs-meta); white-space: nowrap; }
-  .act { grid-area: 1 / 4; display: inline-flex; justify-self: end; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--src-claude) 60%, var(--border)); border-radius: var(--r5); background: var(--surface); color: var(--text); font-size: var(--fs-tag); line-height: 18px; white-space: nowrap; }
-  .act:hover { background: color-mix(in srgb, var(--src-claude) 12%, var(--surface)); text-decoration: none; }
+  .act { grid-area: 1 / 4; justify-self: end; }
   .res { grid-area: 2 / 2 / auto / -1; display: flex; flex-direction: column; gap: 1px; font: var(--fs-tag) var(--mono); color: var(--text-muted); }
   .res > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .res b { font-weight: 500; color: var(--text); }
@@ -287,7 +280,7 @@
   .how { padding: 0 5px; border-radius: var(--r4); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); }
 
   .short-body .k { width: 76px; flex: none; color: var(--text-muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; }
-  .stack { flex: 1; height: 6px; border-radius: 3px; overflow: hidden; display: flex; background: var(--surface-muted); }
+  .stack { flex: 1; height: 6px; border-radius: var(--r3); overflow: hidden; display: flex; background: var(--surface-muted); }
   .stack i { display: block; height: 100%; background: var(--ok); }
   .stack i.info { background: var(--info); } .stack i.warn { background: var(--warn); } .stack i.ko { background: var(--ko); }
 

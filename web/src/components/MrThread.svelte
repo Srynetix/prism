@@ -80,7 +80,7 @@
       <div class="acts">
         <button class="reply" onclick={() => (replying = true)}>{t('Reply')}</button>
         {#if d.resolvable && onresolve}
-          <button class="reply" class:err={!!resolveError} disabled={resolving} onclick={toggleResolved} title={resolveError ?? ''}>{resolving ? '…' : d.resolved ? t('Reopen thread') : t('Resolve thread')}</button>
+          <button class="reply" class:failed={!!resolveError} disabled={resolving} onclick={toggleResolved} title={resolveError ?? ''}>{#if resolving}<span class="spinner"></span> {/if}{d.resolved ? t('Reopen thread') : t('Resolve thread')}</button>
         {/if}
       </div>
     {/if}
@@ -106,7 +106,7 @@
   .folded { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); }
   .mono { font-family: var(--mono); }
   .acts { display: flex; gap: 14px; }
-  .reply.err { color: var(--ko); }
+  .reply.failed { color: var(--ko); }
   .reply:disabled { cursor: progress; opacity: 0.6; }
   .reply { align-self: flex-start; border: none; background: none; padding: 0; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .reply:hover { text-decoration: underline; }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke, isDesktop } from '../../bridge'
   import Field from './Field.svelte'
+  import Icon from '../Icon.svelte'
   import { t } from '../../i18n.svelte'
   import ConnectionCheck from './ConnectionCheck.svelte'
   import type { CheckRequest } from '../../settings-checks.svelte'
@@ -54,10 +55,10 @@
 </script>
 
 <Field {label} {hint}>
-  {#if create}<a class="create" href={create.url} target="_blank" rel="noreferrer">{create.label} ↗</a>{/if}
+  {#if create}<a class="create" href={create.url} target="_blank" rel="noreferrer">{create.label} <Icon name="external" /></a>{/if}
   <span class="row">
     <input class="t" type="password" autocomplete="off" spellcheck="false" placeholder={length ? t('replace it') : t('paste it')} bind:value onkeydown={(e) => e.key === 'Enter' && save()} disabled={!isDesktop()} />
-    <button class="btn" onclick={save} disabled={busy || !value.trim()}>{busy ? t('Saving…') : t('Save to keychain')}</button>
+    <button class="btn" class:busy onclick={save} disabled={busy || !value.trim()}>{#if busy}<span class="spinner"></span>{t('Saving…')}{:else}{t('Save to keychain')}{/if}</button>
   </span>
   <small class:ko={!!error} class:ok={stored && !error}>
     {#if error}{error}
@@ -72,9 +73,6 @@
   .row { display: flex; gap: 8px; width: 100%; }
   .t { flex: 1; height: 28px; min-width: 0; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); color: var(--text); font: inherit; font-family: var(--mono); font-size: var(--fs-mono); outline: none; }
   .t:focus { border-color: var(--accent); }
-  .btn { flex-shrink: 0; padding: 0 10px; height: 28px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
   small { color: var(--text-muted); font-size: var(--fs-meta); }
   small.ok { color: var(--ok); }
   small.ko { color: var(--ko); }

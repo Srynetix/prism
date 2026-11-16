@@ -81,7 +81,7 @@
 
 <div class="bar">
   <input bind:value={query} placeholder={t('Filter tasks')} spellcheck="false" />
-  <button onclick={load} disabled={busy} title={t('Read the task files again')}><Icon name="refresh" spin={busy} /></button>
+  <button class="btn sm icon" onclick={load} disabled={busy} title={t('Read the task files again')}><Icon name="refresh" spin={busy} /></button>
 </div>
 {#if error}<p class="err">{error}</p>{/if}
 {#if held}
@@ -89,7 +89,7 @@
     {t('Shell {n} is busy ({what}).', { n: held.n, what: held.reason.replace(/^.*busy with /, '') })}
     <button class="link" onclick={() => run(held!.task, { n: null })}>{t('Run {task} in a new shell', { task: held.task.name })}</button>
     · <button class="link" onclick={() => run(held!.task, { n: held!.n, interrupt: true })}>{t('Ctrl-C it and run')}</button>
-    · <button class="link" onclick={() => { shellTabs[agent.id] = held!.n; onrun() }}>{t('See it')}</button>
+    · <button class="link" onclick={() => { shellTabs[agent.id] = held!.n; onrun() }}>{t('Open it')}</button>
   </p>
 {/if}
 <div class="list">
@@ -99,7 +99,7 @@
       <span class="chev"><Icon name={shut ? 'chevronRight' : 'chevronDown'} size={11} /></span>
       <span class="k">{KIND[s.kind]}</span>
       <span class="f">{s.file}</span>
-      {#if shut}<span class="c">{s.tasks.length}</span>{/if}
+      {#if shut}<span class="pill c">{s.tasks.length}</span>{/if}
       <span class="r">{s.runner}</span>
     </button>
     {#if s.note && !shut}<p class="note" title={s.note}>{s.note}{s.tasks.length ? ` · ${t('read by Prism')}` : ''}</p>{/if}
@@ -118,7 +118,7 @@
     {/each}
   {:else}
     {#if sources}
-      <p class="muted empty">{query.trim() ? t('No task matches.') : t('No justfile, Taskfile nor package.json scripts in this folder or its first-level subfolders.')}</p>
+      <p class="empty">{query.trim() ? t('No task matches.') : t('No justfile, Taskfile nor package.json scripts in this folder or its first-level subfolders.')}</p>
     {/if}
   {/each}
 </div>
@@ -127,17 +127,14 @@
   .bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   .bar input { flex: 1; min-width: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: var(--fs-meta) var(--mono); outline: none; }
   .bar input:focus { border-color: var(--src-claude); }
-  .bar button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; white-space: nowrap; }
-  .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); color: var(--ko); font-size: var(--fs-meta); white-space: pre-wrap; }
+  .bar + .err { margin: 0; padding: 6px 10px; background: var(--ko-bg); }
   .ask { margin: 0; padding: 6px 10px; background: var(--warn-bg); color: var(--warn); font-size: var(--fs-meta); }
   .link { padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
-  .empty { padding: 12px; font-size: var(--fs-meta); }
   .list { flex: 1; min-height: 0; overflow: auto; padding: 4px; display: flex; flex-direction: column; }
   .grp { display: flex; align-items: center; gap: 6px; margin: 6px 0 1px; padding: 2px 6px; border: none; border-radius: var(--r4); background: none; color: var(--text); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
   .grp:hover { background: var(--surface-muted); }
   .grp .chev { display: inline-flex; color: var(--text-muted); }
-  .grp .c { padding: 0 5px; border-radius: var(--r8); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-tag); }
-  .grp .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+  .grp .k { font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .grp .f { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
   .grp .r { margin-left: auto; color: var(--text-muted); font-family: var(--mono); }
   .note { margin: 0 6px 3px; color: var(--warn); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

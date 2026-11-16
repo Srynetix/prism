@@ -44,6 +44,6 @@
   i::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--info); }
   i.now::before { background: var(--ko); }
   i.today::before { background: var(--warn); }
-  .pop { position: fixed; z-index: 45; width: min(520px, calc(100vw - 24px)); padding: 4px 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); white-space: normal; }
+  .pop { position: fixed; z-index: var(--z-menu); width: min(520px, calc(100vw - 24px)); padding: 4px 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r10); box-shadow: var(--shadow-pop); color: var(--text); font-size: var(--fs-body); white-space: normal; }
   .head { margin: 4px 12px 2px; font-weight: 600; }
 </style>

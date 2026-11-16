@@ -6,7 +6,8 @@
   import { isCollapsed, isShort } from '../layout.svelte'
   import { openSettings } from '../settings.svelte'
   import { ago } from '../time'
-  import { toast } from '../toast.svelte'
+  import { toastError } from '../toast.svelte'
+  import State from './ui/State.svelte'
   import type { MailMessage, MailState } from '../types'
 
   /**
@@ -24,7 +25,7 @@
   /** Short: the five newest. */
   const listed = $derived(isShort('mail') ? messages.slice(0, 5) : messages)
 
-  const open = (m: MailMessage) => invoke('mail_open', { id: m.id }).catch((e) => toast(String(e), 6000))
+  const open = (m: MailMessage) => invoke('mail_open', { id: m.id }).catch((e) => toastError(String(e), () => open(m)))
 </script>
 
 <section class="panel" style="--src: var(--info)" class:collapsed={isCollapsed('mail')}>
@@ -36,16 +37,16 @@
   {#if !enabled}
     <div class="empty">{t('Mail is not read.')} <button class="link" onclick={() => openSettings('mail')}>{t('Turn on Mail')}</button> {t('in Settings › Work › Mail, restart Prism, then sign in there (Microsoft 365, or Gmail with your Google account).')}</div>
   {:else if error}
-    <div class="empty ko">{error}</div>
+    <State kind="error" title={error} />
   {:else if !mail?.read_at}
-    <div class="empty">{t('Reading the inbox…')}</div>
+    <State kind="loading" title={t('Reading the inbox…')} />
   {:else if !mail.signed_in}
     <div class="empty">{t('Not signed in to {account}.', { account })} <button class="link" onclick={() => openSettings(gmail ? 'mail-gmail' : 'mail-microsoft')}>{t('Sign in')}</button> {t('in Settings › Work › Mail › {provider}.', { provider: gmail ? 'Gmail' : 'Microsoft 365' })}</div>
   {:else}
     <div class="list">
       {#each listed as m (m.id)}
-        <button class="msg" class:unread={m.unread} onclick={() => open(m)} title="{m.from} <{m.address}> · {t('open in {app}', { app: gmail ? 'Gmail' : 'Outlook' })}" disabled={!isDesktop()}>
-          <span class="dot" aria-label={m.unread ? t('unread') : undefined}></span>
+        <button class="msg" class:unread={m.unread} onclick={() => open(m)} title="{m.from} <{m.address}> · {t('Open in {app}', { app: gmail ? 'Gmail' : 'Outlook' })}" disabled={!isDesktop()}>
+          <span class="dot info" class:read={!m.unread} aria-label={m.unread ? t('unread') : undefined}></span>
           <span class="what">
             <span class="from">{m.from}</span>
             <span class="subject">{m.subject || t('(no subject)')}</span>
@@ -56,7 +57,7 @@
           </span>
         </button>
       {:else}
-        <div class="empty">{t('Nothing unread.')}</div>
+        <State kind="empty" icon="mail" title={t('Nothing unread.')} />
       {/each}
       {#if listed.length < messages.length}<div class="more muted">{t('{n} more: expand the block.', { n: messages.length - listed.length })}</div>{/if}
     </div>
@@ -65,14 +66,12 @@
 
 <style>
   .link { padding: 0; border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-  .ko { color: var(--ko); }
   .list { flex: 1; min-height: 0; overflow: auto; padding: 2px 0 6px; }
   .msg { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; padding: 5px 12px; border: none; border-top: 1px solid var(--border); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   .msg:first-child { border-top: none; }
   .msg:hover:not(:disabled) { background: color-mix(in srgb, var(--src) 8%, transparent); }
   .msg:disabled { cursor: default; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; }
-  .unread .dot { background: var(--src); }
+  .dot.read { visibility: hidden; }
   .what { display: flex; flex-direction: column; min-width: 0; }
   .from, .subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .from { font-size: var(--fs-body); color: var(--text-muted); }

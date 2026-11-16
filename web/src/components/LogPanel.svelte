@@ -1,9 +1,8 @@
 <script lang="ts">
   import { t } from '../i18n.svelte'
   import { forgeName } from '../forge'
-  import { clickedOutside } from '../drawers'
-  import { isPinned } from '../drawer-pins'
-  import PinButton from './PinButton.svelte'
+  import Drawer from './ui/Drawer.svelte'
+  import State from './ui/State.svelte'
   import { tick } from 'svelte'
   import { closeLogs, LIVE, logs, RERUNNABLE, RETRYABLE, selectJob, type JobInfo } from '../logs.svelte'
   import Icon from './Icon.svelte'
@@ -19,7 +18,7 @@
    * GitLab logs drawer: on the left the pipeline's jobs by stage, on the right the chosen
    * job's log, colors included. Reloaded every few seconds while the job runs,
    * staying pinned to the bottom if it was there. ⤢ or "f" switches to full screen (remembered under
-   * `logs.full`, like the pod logs drawer). Escape closes.
+   * `logs.full`, like the pod logs drawer). Its shell is Drawer's (Escape, a click outside, the pin).
    */
   /**
    * Parsed as it grows: the lines already read keep their objects and their keys, so a poll renders
@@ -75,27 +74,16 @@
     if (e.key === 'f' && !typing(e) && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
       e.stopImmediatePropagation()
-      return toggleFull()
-    }
-    if (e.key !== 'Escape') return
-    e.stopImmediatePropagation()
-    closeLogs()
-  }
-
-  let drawerEl: HTMLElement | undefined = $state()
-  /** A click outside the drawer closes it (see drawers.ts). */
-  function onOutside(e: PointerEvent) {
-    if (logs.open && clickedOutside(e, drawerEl)) {
-      closeLogs()
+      toggleFull()
     }
   }
+  const phone = document.documentElement.classList.contains('remote')
 </script>
 
-<svelte:window onkeydowncapture={onKey} onpointerdowncapture={onOutside} />
+<svelte:window onkeydowncapture={onKey} />
 
-{#if logs.open}
-  <aside class="drawer" class:full bind:this={drawerEl} data-drawer="51" data-pinned={isPinned('logs')} aria-label={t('Pipeline logs')}>
-    <header>
+<Drawer open={logs.open} key="logs" identity={`${logs.project ?? ''}:${logs.jobId ?? `p${logs.pipelineId}`}`} crumb={logs.job?.name ?? logs.label} label={t('Pipeline logs')} size={full || phone ? 'full' : 'l'} source="var(--src-gitlab)" pin="logs" onclose={closeLogs}>
+  {#snippet head()}
       <span class="what">{logs.label}</span>
       {#if logs.job}
         <span class="sep">›</span>
@@ -104,16 +92,14 @@
         {#if duration(logs.job)}<span class="muted mono">{duration(logs.job)}</span>{/if}
       {/if}
       <span class="grow"></span>
-      {#if firstError !== -1}<button class="txt" onclick={() => toLine(firstError)} title={t('Scroll to the first error line')}>{t('First error')}</button>{/if}
-      <button class="txt" onclick={() => toLine(lines.length - 1)} title={t('Scroll to the end and follow')}>{t('End')} <Icon name="down" /></button>
-      <button class="icon" onclick={() => logs.jobId && selectJob(logs.jobId)} disabled={logs.loading || !logs.jobId} title={t('Reload the log')} aria-label={t('Reload')}><Icon name="refresh" /></button>
-      {#if diagnose && (diagnose.launch || diagnose.href)}<a class="txt" href={diagnose.href ?? undefined} onclick={claudeClick(diagnose)} title={t('An agent finds the cause of this failure and proposes a fix, changing nothing ({note}) — ⇧-click to launch at once', { note: diagnose.note ?? '' })}><Icon name={agentIcon()} /> {t('Diagnose')}</a>{/if}
+      {#if firstError !== -1}<button class="btn sm" onclick={() => toLine(firstError)} title={t('Scroll to the first error line')}>{t('First error')}</button>{/if}
+      <button class="btn sm" onclick={() => toLine(lines.length - 1)} title={t('Scroll to the end and follow')}>{t('End')} <Icon name="down" /></button>
+      <button class="btn sm icon ghost" onclick={() => logs.jobId && selectJob(logs.jobId)} disabled={logs.loading || !logs.jobId} title={t('Reload the log')} aria-label={t('Reload')}><Icon name="refresh" /></button>
+      {#if diagnose && (diagnose.launch || diagnose.href)}<a class="btn sm claude" href={diagnose.href ?? undefined} onclick={claudeClick(diagnose)} title={t('An agent finds the cause of this failure and proposes a fix, changing nothing ({note}) — ⇧-click to launch at once', { note: diagnose.note ?? '' })}><Icon name={agentIcon()} /> {t('Diagnose')}</a>{/if}
       {#if logs.job && (RETRYABLE.has(logs.job.status) || RERUNNABLE.has(logs.job.status))}{#key logs.job.id}<RetryJob job={logs.job.id} name={logs.job.name} label rerun={RERUNNABLE.has(logs.job.status)} project={logs.project} />{/key}{/if}
-      {#if logs.job}<a class="icon" href={logs.job.url} target="_blank" rel="noreferrer" title={t('Open the job in {forge}', { forge: forgeName() })} aria-label={t('Open in {forge}', { forge: forgeName() })}><Icon name="external" /></a>{/if}
-      <button class="icon" onclick={toggleFull} title={full ? t('Exit full screen (f)') : t('Full screen (f)')} aria-label={t('Full screen')} aria-pressed={full}><Icon name={full ? 'shrink' : 'expand'} /></button>
-      <PinButton kind="logs" />
-      <button class="icon" onclick={closeLogs} title={t('Close (Esc)')} aria-label={t('Close')}><Icon name="close" /></button>
-    </header>
+      {#if logs.job}<a class="btn sm icon ghost" href={logs.job.url} target="_blank" rel="noreferrer" title={t('Open the job in {forge}', { forge: forgeName() })} aria-label={t('Open in {forge}', { forge: forgeName() })}><Icon name="external" /></a>{/if}
+      <button class="btn sm icon ghost" onclick={toggleFull} title={full ? t('Exit full screen (f)') : t('Full screen (f)')} aria-label={t('Full screen')} aria-pressed={full}><Icon name={full ? 'shrink' : 'expand'} /></button>
+  {/snippet}
     <div class="body">
       <nav class="jobs" aria-label={t('Jobs')}>
         {#each stages as stage (stage)}
@@ -128,14 +114,14 @@
             </div>
           {/each}
         {:else}
-          <p class="muted pad">{logs.pipelineId === null && logs.loading ? t('Loading…') : t('No job list.')}</p>
+          {#if logs.pipelineId === null && logs.loading}<State kind="loading" lines={4} />{:else}<p class="muted pad">{t('No job list.')}</p>{/if}
         {/each}
       </nav>
       <div class="log" bind:this={view} onscroll={onScroll}>
         {#if logs.error}
-          <p class="error">{logs.error}</p>
+          <State kind="error" title={t('Could not read the log')} detail={logs.error} retry={() => logs.jobId && selectJob(logs.jobId)} />
         {:else if !logs.log && logs.loading}
-          <p class="muted pad">{t('Loading the log…')}</p>
+          <State kind="loading" title={t('Loading the log…')} />
         {:else if !logs.log}
           <p class="muted pad">{logs.job && ['created', 'pending', 'manual', 'skipped'].includes(logs.job.status) ? t('This job is {status}: no log yet.', { status: logs.job.status }) : t('Empty log.')}</p>
         {:else}
@@ -144,34 +130,16 @@
         {/if}
       </div>
     </div>
-  </aside>
-{/if}
+</Drawer>
 
 <style>
-  .drawer {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 51; width: min(1100px, 94vw);
-    display: flex; flex-direction: column; background: var(--surface);
-    border-left: 1px solid color-mix(in srgb, var(--src-gitlab) 45%, var(--border));
-    box-shadow: var(--shadow-drawer);
-  }
-  /* Full screen: the whole window, with no shadow or border. */
-  .drawer.full { left: 0; width: auto; border-left: none; box-shadow: none; }
-  header {
-    display: flex; align-items: center; gap: 8px; padding: 9px 12px; flex-shrink: 0; min-width: 0; white-space: nowrap;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface); box-shadow: inset 0 2px var(--src-gitlab);
-  }
-  .what { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  .what { min-width: 0; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  b.mono { color: var(--text); white-space: nowrap; }
   .sep, .muted { color: var(--text-muted); }
   .mono { font-family: var(--mono); font-size: var(--fs-mono); }
   .grow { flex: 1; }
-  .st { font-size: var(--fs-meta); color: var(--text-muted); }
+  .st { font-size: var(--fs-meta); color: var(--text-muted); white-space: nowrap; }
   .ok { color: var(--ok); } .ko { color: var(--ko); } .warn { color: var(--warn); } .run { color: var(--info); }
-  .icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: none; border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
-  .icon:hover, .txt:hover { background: var(--surface-muted); color: var(--text); }
-  .icon:disabled { opacity: 0.4; cursor: progress; }
-  .txt { border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); padding: 1px 8px; cursor: pointer; }
-  a.txt { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
   .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px 1fr; }
   .jobs { overflow: auto; border-right: 1px solid var(--border); padding: 4px 0 12px; }
   .stage { margin: 8px 10px 2px; font-size: var(--fs-tag); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
@@ -190,7 +158,6 @@
   .log { overflow: auto; background: var(--bg); color: var(--text); }
   .pad { padding: 10px 14px; margin: 0; font-size: var(--fs-body); }
   .log .muted { color: var(--text-muted); }
-  .error { margin: 0; padding: 10px 14px; color: var(--ko); font-size: var(--fs-body); white-space: pre-wrap; }
   pre { margin: 0; padding: 6px 0 16px; font: 11.5px/1.5 var(--mono); }
   /* Off screen, a line is neither laid out nor painted: a long log scrolls and grows lightly. */
   .line { display: flex; padding-right: 14px; content-visibility: auto; contain-intrinsic-size: auto 1.5em; }

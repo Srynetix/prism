@@ -2,6 +2,7 @@
   import { t as tr, tc } from '../i18n.svelte'
   import { offers, queuesSource, trackerLogo, trackerName, trackerProvider } from '../tracker'
   import BlockControls from './BlockControls.svelte'
+  import State from './ui/State.svelte'
   import { live } from '../live.svelte'
   import RefreshTickets from './RefreshTickets.svelte'
   import TrackerOff from './TrackerOff.svelte'
@@ -99,7 +100,7 @@
   {:else if !offers('refinement')}
     <div class="empty">{tr('{tracker} has no refinement queue: its open cards are in the Sprint block.', { tracker: trackerName() })}</div>
   {:else if !live.snapshot?.answered?.includes(queuesSource())}
-    <div class="empty">{tr('Loading the refinement queue…')}</div>
+    <State kind="loading" title={tr('Loading the refinement queue…')} />
   {:else if !boards.length && trackerProvider() === 'jira'}
     <div class="empty">{tr('No refinement queue: add a')} <code>[[jira.queues]]</code> {tr('with')} <code>uses = ["refinement"]</code> {tr('(Settings › Work › Tracker › Jira).')}</div>
   {:else if !boards.length}

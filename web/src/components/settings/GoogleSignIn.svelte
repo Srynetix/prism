@@ -1,5 +1,7 @@
 <script lang="ts">
   import { armer } from '../../armed.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
+  import State from '../ui/State.svelte'
   import { invoke, isDesktop, isLocal } from '../../bridge'
   import Field from './Field.svelte'
   import { t } from '../../i18n.svelte'
@@ -17,7 +19,7 @@
   let google = $state<{ signed_in: boolean; scopes: string[] } | null>(null)
   let busy = $state(false)
   let error = $state('')
-  const arm = armer(4000)
+  const arm = armer()
 
   async function load() {
     if (!isDesktop()) return
@@ -58,15 +60,15 @@
   {:else if !isLocal()}
     <small>{t('Google signs in through a browser on the computer Prism runs on: there, in its own window.')}</small>
   {:else if !google}
-    <small>…</small>
+    <State kind="loading" inline title={t('Loading…')} />
   {:else if !google.scopes.length}
     <small>{t('Choose Gmail as the mail provider, or Google Calendar as the calendar, then save to sign in.')}</small>
   {:else if busy}
     <small>{t('Waiting for Google in your browser: sign in and allow every permission…')}</small>
   {:else if google.signed_in}
-    <span class="row"><small class="ok grow">{t('Signed in.')}</small><button class="btn" onclick={signIn}>{t('Sign in again')}</button><button class="btn" class:armed={arm.is()} onclick={signOut}>{arm.is() ? t('Click again to sign out') : t('Sign out')}</button></span>
+    <span class="row"><small class="ok grow">{t('Signed in.')}</small><button class="btn sm" onclick={signIn}>{t('Sign in again')}</button><button class="btn sm" class:armed={arm.is()} onclick={signOut}><ArmedLabel label={t('Sign out')} armedLabel={t('Click again to confirm')} armed={arm.is()} /></button></span>
   {:else}
-    <span class="row"><small class="grow">{t('Not signed in.')}</small><button class="btn primary" onclick={signIn}>{t('Sign in with Google')}</button></span>
+    <span class="row"><small class="grow">{t('Not signed in.')}</small><button class="btn sm primary" onclick={signIn}>{t('Sign in with Google')}</button></span>
   {/if}
   {#if error}<small class="ko">{error}</small>{/if}
 </Field>
@@ -74,10 +76,6 @@
 <style>
   .row { display: flex; gap: 8px; align-items: center; width: 100%; }
   .grow { flex: 1; }
-  .btn { flex-shrink: 0; padding: 0 10px; height: 28px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .btn:hover:not(:disabled) { border-color: var(--accent); }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); }
-  .btn.armed { border-color: var(--ko); color: var(--ko); }
   small { color: var(--text-muted); font-size: var(--fs-meta); }
   small.ok { color: var(--ok); }
   small.ko { color: var(--ko); }

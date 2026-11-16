@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte'
   import { agentAttachment, withoutMention } from '../../agents.svelte'
   import { base, promptImages } from './turns'
   import { t } from '../../i18n.svelte'
@@ -23,7 +24,7 @@
         {:catch}
           <span class="nm">{base(path)}</span>
         {/await}
-        <button type="button" class="x" onclick={() => write(withoutMention(text, path))} aria-label={t('Remove {name}', { name: base(path) })}>×</button>
+        <button type="button" class="x" onclick={() => write(withoutMention(text, path))} aria-label={t('Remove {name}', { name: base(path) })}><Icon name="close" /></button>
       </span>
     {/each}
   </div>
@@ -31,9 +32,9 @@
 
 <style>
   .strip { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 4px; }
-  .thumb { position: relative; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: var(--surface-muted); border: 1px solid var(--border); }
+  .thumb { position: relative; display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--r8); overflow: hidden; background: var(--surface-muted); border: 1px solid var(--border); }
   .thumb img { width: 100%; height: 100%; object-fit: cover; }
   .ph { width: 100%; height: 100%; }
-  .nm { padding: 2px; font-size: 9px; color: var(--text-muted); overflow-wrap: anywhere; text-align: center; }
-  .x { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%; background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 13px; line-height: 1; cursor: pointer; }
+  .nm { padding: 2px; font-size: var(--fs-micro); color: var(--text-muted); overflow-wrap: anywhere; text-align: center; }
+  .x { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%; background: rgba(0, 0, 0, 0.6); color: #fff; font-size: var(--fs-title); line-height: 1; cursor: pointer; }
 </style>

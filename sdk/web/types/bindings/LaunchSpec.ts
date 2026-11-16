@@ -50,4 +50,9 @@ from: string | null,
  * Prism's MCP server and skill given to it whatever `[agents] prism_mcp` says ("Configure
  * Prism"), kept on resume.
  */
-prism_mcp?: boolean, };
+prism_mcp?: boolean, 
+/**
+ * A conversation of Prism's assistant (`[agents.assistant]`): launched in its folder, with its
+ * tools and its memory, shown in the Assistant panel rather than among the agents.
+ */
+assistant?: boolean, };

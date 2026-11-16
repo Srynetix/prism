@@ -9,6 +9,7 @@
   import { compose, lineDiff, passages, quoteOf } from '../../comments'
   import { carryTo, commentsOf, draftsOf, forget, generalOf, markSent, setGeneral } from '../../comments.svelte'
   import { armer } from '../../armed.svelte'
+  import ArmedLabel from '../ArmedLabel.svelte'
   import { onPhone } from '../../quick-answers'
   import DictateButton from './DictateButton.svelte'
   import DictationBar from './DictationBar.svelte'
@@ -98,9 +99,9 @@
     <span class="pill {VERDICT[plan.verdict][1]}">{VERDICT[plan.verdict][0]}</span>
     <span class="grow"></span>
     {#if open && previous !== null}
-      <button class="seg" class:on={changes} onclick={() => (changes = !changes)} title={t('Its lines added and removed since v{version}', { version: plan.version - 1 })}>{t('Changes')}</button>
+      <button class="btn sm chg" class:on={changes} onclick={() => (changes = !changes)} title={t('Its lines added and removed since v{version}', { version: plan.version - 1 })}>{t('Changes')}</button>
     {/if}
-    {#if onwide && !wide}<button class="ic" onclick={onwide} title={t('Open in its Plan tab')}><Icon name="expand" size={12} /></button>{/if}
+    {#if onwide && !wide}<button class="btn sm icon ghost" onclick={onwide} title={t('Open in its Plan tab')}><Icon name="expand" size={12} /></button>{/if}
   </div>
   {#if open}
     <div class="body">
@@ -120,8 +121,8 @@
       {/if}
       {#if addressed.length}
         <div class="addressed">
-          <span>✓ {tn(addressed.length, '{n} comment addressed:', '{n} comments addressed:')} {addressed.map((c) => `“${quoteOf(c.quote, 40)}”`).join(', ')}</span>
-          <button class="lnk" onclick={() => forget(id, 'plan', 'addressed')}>{t('Put away')}</button>
+          <span><Icon name="check" size={12} /> {tn(addressed.length, '{n} comment addressed:', '{n} comments addressed:')} {addressed.map((c) => `“${quoteOf(c.quote, 40)}”`).join(', ')}</span>
+          <button class="btn sm ghost" onclick={() => forget(id, 'plan', 'addressed')}>{t('Put away')}</button>
         </div>
       {/if}
     </div>
@@ -132,8 +133,8 @@
             <div class="tray">
               <Icon name="comment" size={12} /><b>{tn(drafts.length, '{n} comment', '{n} comments')}</b>{#if general.trim()}<span>{t('+ general words')}</span>{/if}
               <span class="grow"></span>
-              <button class="lnk" onclick={() => (preview = !preview)}>{preview ? t('Hide') : t('Preview')}</button>
-              <button class="lnk" class:armed={armed.is('clear')} onclick={clear}>{armed.is('clear') ? t('Clear them?') : t('Clear')}</button>
+              <button class="btn sm ghost lnk" onclick={() => (preview = !preview)}>{preview ? t('Hide') : t('Preview')}</button>
+              <button class="btn sm ghost lnk" class:armed={armed.is('clear')} onclick={clear}><ArmedLabel armed={armed.is('clear')} label={t('Clear')} armedLabel={t('Click again to confirm')} /></button>
             </div>
             {#if preview}<pre class="pv">{compose('plan', drafts, general, ps, true)}</pre>{/if}
           {/if}
@@ -145,18 +146,18 @@
         {/if}
         <div class="row">
           {#if typing}
-            <button class="b primary" disabled={busy || !worded} onclick={() => answer('changes')} title={t('Refused: your comments go to it as one message, it plans again')}>↺ {t('Send comments · keep planning')}</button>
+            <button class="btn primary" disabled={busy || !worded} onclick={() => answer('changes')} title={t('Refused: your comments go to it as one message, it plans again')}><Icon name="retry" />{t('Send comments · keep planning')}</button>
           {/if}
           <span class="grow"></span>
           {#if worded}
-            <button class="b ok" disabled={busy} onclick={() => answer('approve_with')} title={t('Approved: your comments go with it')}>✓ {t('Approve with comments')}</button>
+            <button class="btn primary ok" disabled={busy} onclick={() => answer('approve_with')} title={t('Approved: your comments go with it')}><Icon name="check" />{t('Approve with comments')}</button>
           {:else}
-            <button class="b ok" disabled={busy} onclick={() => answer('approve')} title={t('Approved: it goes on, its edits allowed (where its menu offers only auto mode, each edit asks you)')}>✓ {t('Approve')}</button>
+            <button class="btn primary ok" disabled={busy} onclick={() => answer('approve')} title={t('Approved: it goes on, its edits allowed (where its menu offers only auto mode, each edit asks you)')}><Icon name="check" />{t('Approve')}</button>
             {#if !onPhone()}
-              <button class="b" disabled={busy} class:armed={armed.is('auto')} onclick={() => armed.confirm('auto') && answer('approve_auto')} title={t('Approved in auto mode: its commands run without asking you (a second click)')}>{armed.is('auto') ? t('Auto mode?') : t('Approve, auto mode')}</button>
+              <button class="btn" disabled={busy} class:armed={armed.is('auto')} onclick={() => armed.confirm('auto') && answer('approve_auto')} title={t('Approved in auto mode: its commands run without asking you (a second click)')}><ArmedLabel armed={armed.is('auto')} label={t('Approve, auto mode')} armedLabel={t('Click again to confirm')} /></button>
             {/if}
           {/if}
-          <button class="b" disabled={busy || worded} onclick={() => answer('approve_each')} title={worded ? t('Your comments go with Approve: clear them to approve each edit') : t('Approved: each of its edits asks you')}>{t('Approve, ask each edit')}</button>
+          <button class="btn" disabled={busy || worded} onclick={() => answer('approve_each')} title={worded ? t('Your comments go with Approve: clear them to approve each edit') : t('Approved: each of its edits asks you')}>{t('Approve, ask each edit')}</button>
         </div>
         {#if error}<p class="err">{error}</p>{/if}
       </div>
@@ -165,45 +166,36 @@
 </div>
 
 <style>
-  .plan { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+  .plan { border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); overflow: hidden; }
   .plan.waiting { border-color: var(--info); }
-  .head { display: flex; align-items: center; gap: 7px; padding: 5px 10px; background: color-mix(in srgb, var(--info) 10%, transparent); font-size: 12px; }
+  .head { display: flex; align-items: center; gap: 7px; padding: 5px 10px; background: color-mix(in srgb, var(--info) 10%, transparent); font-size: var(--fs-body); }
   .t { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: none; background: none; color: var(--info); font: inherit; cursor: pointer; }
   .t b { font-weight: 600; }
   .t .v { color: var(--text-muted); }
-  .pill { font-size: 11px; padding: 0 7px; border-radius: 8px; background: var(--surface-muted); color: var(--text-muted); white-space: nowrap; }
-  .pill.warn { background: var(--warn-bg, color-mix(in srgb, var(--warn) 15%, transparent)); color: var(--warn); }
-  .pill.ok { background: var(--ok-bg); color: var(--ok); }
-  .pill.info { background: var(--info-bg); color: var(--info); }
+  .head .pill { font-size: var(--fs-meta); }
   .grow { flex: 1; }
-  .seg { height: 20px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-muted); font: inherit; font-size: 11px; cursor: pointer; }
-  .seg.on { border-color: var(--info); color: var(--info); }
-  .ic { display: grid; place-items: center; width: 22px; height: 20px; padding: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .ic:hover { color: var(--text); }
-  .body { padding: 8px 12px 10px; font-size: 13.5px; line-height: 1.5; }
-  .muted { margin: 0; color: var(--text-muted); font-size: 12.5px; }
+  .chg { color: var(--text-muted); }
+  .chg.on { border-color: var(--info); color: var(--info); }
+  .body { padding: 8px 12px 10px; font-size: var(--fs-title); line-height: 1.5; }
+  .muted { margin: 0; color: var(--text-muted); font-size: var(--fs-title); }
   .diff { font: 12px/1.5 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-muted); }
   .diff .add { background: var(--ok-bg); color: var(--ok); }
   .diff .del { background: color-mix(in srgb, var(--ko) 14%, transparent); color: var(--ko); text-decoration: line-through; }
-  .said { margin-top: 8px; padding: 6px 9px; border-left: 2px solid var(--accent); background: var(--surface-muted); border-radius: 0 6px 6px 0; font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .said small { display: block; color: var(--text-muted); font-size: 11px; }
-  .addressed { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--ok); }
+  .said { margin-top: 8px; padding: 6px 9px; border-left: 2px solid var(--accent); background: var(--surface-muted); border-radius: 0 var(--r6) var(--r6) 0; font-size: var(--fs-title); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .said small { display: block; color: var(--text-muted); font-size: var(--fs-meta); }
+  .addressed { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: var(--fs-body); color: var(--ok); }
   .addressed span { flex: 1; min-width: 0; }
+  .addressed .btn { color: var(--info); }
   .dock { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--bg, var(--surface-muted)); }
-  .tray { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 7px; background: color-mix(in srgb, var(--warn) 14%, transparent); font-size: 12px; }
+  .tray { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: var(--r7); background: color-mix(in srgb, var(--warn) 14%, transparent); font-size: var(--fs-body); }
   .tray span { color: var(--text-muted); }
-  .pv { margin: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow-y: auto; }
+  .pv { margin: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--surface); font: 11.5px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow-y: auto; }
   .gen { display: flex; align-items: flex-start; gap: 4px; }
-  textarea { width: 100%; resize: vertical; min-height: 30px; border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+  textarea { width: 100%; resize: vertical; min-height: 30px; border: 1px solid var(--border); border-radius: var(--r7); padding: 5px 8px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-title); }
   .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .b { height: 26px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; }
-  .b.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-  .b.ok { background: var(--ok); border-color: var(--ok); color: var(--surface); }
-  .b:disabled { opacity: 0.5; cursor: default; }
-  .lnk { border: none; background: none; padding: 0 2px; color: var(--info); font: inherit; font-size: 12px; cursor: pointer; }
-  .lnk.armed { color: var(--ko); font-weight: 600; }
-  .b.armed { color: var(--ko); border-color: var(--ko); }
-  .err { margin: 0; color: var(--ko); font-size: 12px; }
-  :global(html.remote) textarea { font-size: 16px; }
-  :global(html.remote) .b { height: 34px; }
+  .row .ok { --btn-c: var(--ok); --btn-on: var(--surface); }
+  .lnk:not(.armed) { color: var(--info); }
+  .dock > .err { margin: 0; font-size: var(--fs-body); }
+  :global(html.remote) textarea { font-size: var(--fs-head); }
+  :global(html.remote) .row .btn { height: 34px; }
 </style>

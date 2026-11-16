@@ -31,7 +31,7 @@
 
 {#if hasCore()}
   <button class="am" class:on={mr.auto_merge} class:error={!!task.error} disabled={task.busy} {onclick} {title} aria-label={mr.auto_merge ? t('Cancel auto-merge of {mr}', { mr: mrNumber(mr.iid, mr.forge) }) : t('Auto-merge {mr}', { mr: mrNumber(mr.iid, mr.forge) })}>
-    {#if task.busy}…{:else if mr.auto_merge}<Icon name="close" />{:else}<Icon name="automerge" />{/if}
+    {#if task.busy}<span class="spinner"></span>{:else if mr.auto_merge}<Icon name="close" />{:else}<Icon name="automerge" />{/if}
   </button>
 {/if}
 

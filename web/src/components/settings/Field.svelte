@@ -43,7 +43,7 @@
   .key { font: var(--fs-tag) var(--mono); color: var(--text-muted); opacity: 0.75; }
   .ctl { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
   .state { min-height: 16px; }
-  .badge { padding: 0 6px; border-radius: var(--r9); font-size: 10px; font-weight: 500; line-height: 16px; }
+  .badge { padding: 0 6px; border-radius: var(--r9); font-size: var(--fs-tag); font-weight: 500; line-height: 16px; }
   .badge.def { background: var(--surface-muted); color: var(--text-muted); }
   .badge.def.pack { background: var(--info-bg); color: var(--info); }
   .reset { padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-tag); cursor: pointer; }

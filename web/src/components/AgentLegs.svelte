@@ -48,7 +48,7 @@
       <div class="back">
         {#each left as target (`${target.provider}:${target.account ?? ''}`)}
           {@const p = target.provider}
-          <button onclick={() => backTo(agent, target)} title={CLIS[p].resumes_with_prompt ? t('{cli} picks its conversation up again, told what happened since', { cli: targetName(target) }) : t('{cli} starts a new conversation from a relay', { cli: CLIS[p].cli })}><Icon name="retry" size={11} />{t('Back to {cli}', { cli: targetName(target) })}</button>
+          <button class="btn sm" onclick={() => backTo(agent, target)} title={CLIS[p].resumes_with_prompt ? t('{cli} picks its conversation up again, told what happened since', { cli: targetName(target) }) : t('{cli} starts a new conversation from a relay', { cli: CLIS[p].cli })}><Icon name="retry" size={11} />{t('Back to {cli}', { cli: targetName(target) })}</button>
         {/each}
       </div>
     {/if}
@@ -59,12 +59,11 @@
   .legs { display: flex; flex-direction: column; gap: 4px; padding: 8px 0 10px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
   .head { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-meta); }
   .muted { color: var(--text-muted); }
-  .bar { display: flex; height: 7px; border-radius: 4px; overflow: hidden; background: var(--surface-muted); }
+  .bar { display: flex; height: 7px; border-radius: var(--r4); overflow: hidden; background: var(--surface-muted); }
   .leg { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: var(--fs-meta); }
   .leg.now .what { font-weight: 500; }
   .what { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .what small { color: var(--text-muted); font-weight: 400; }
-  .amt { color: var(--text-muted); font-size: var(--fs-tag, 11px); }
+  .amt { color: var(--text-muted); font-size: var(--fs-tag); }
   .back { display: flex; gap: 6px; flex-wrap: wrap; }
-  .back button { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: var(--r6, 6px); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
 </style>

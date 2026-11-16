@@ -26,6 +26,7 @@ import SquareSquare from '@lucide/svelte/icons/square-square'
 import SquareChevronRight from '@lucide/svelte/icons/square-chevron-right'
 import CheckCheck from '@lucide/svelte/icons/check-check'
 import Check from '@lucide/svelte/icons/check'
+import Info from '@lucide/svelte/icons/info'
 import ChevronDown from '@lucide/svelte/icons/chevron-down'
 import ChevronUp from '@lucide/svelte/icons/chevron-up'
 import ChevronLeft from '@lucide/svelte/icons/chevron-left'
@@ -114,6 +115,7 @@ import Volume2 from '@lucide/svelte/icons/volume-2'
 import VolumeX from '@lucide/svelte/icons/volume-x'
 import X from '@lucide/svelte/icons/x'
 import Zap from '@lucide/svelte/icons/zap'
+import Diamond from '@lucide/svelte/icons/diamond'
 
 /**
  * Interface icons (Lucide), by role rather than by drawing: the data (menus, steps
@@ -139,6 +141,7 @@ export const ICONS = {
   sortAz: ArrowDownAZ, // sort a list by name
   search: Search, // filter (⌕)
   help: CircleHelp, // in-app Help (?)
+  info: Info, // something under way, nothing done (a toast's ⓘ)
   edit: Pencil, // draft, daily (✎)
   add: CirclePlus, // add to sprint (⊕)
   plus: Plus, // create (+ New)
@@ -204,6 +207,8 @@ export const ICONS = {
   queue: ListOrdered, // merge queue (⇶)
   automerge: Zap, // ⚡ ⇥
   quick: Zap, // a quick action: an agent in one click
+  bolt: Zap, // an EPIC (task type)
+  milestone: Diamond, // a milestone (task type)
   security: ShieldAlert, // ⛨
   secure: ShieldCheck, // nothing to fix
   logs: ScrollText, // ≡
