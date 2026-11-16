@@ -139,8 +139,8 @@ impl Book {
 
     fn write(&self, name: &str, value: &impl Serialize) {
         let path = self.dir.join(name);
-        let tmp = path.with_extension("json.tmp");
-        let done = serde_json::to_vec_pretty(value).map_err(anyhow::Error::from).and_then(|raw| prism_base::files::write_private(&tmp, raw).and_then(|()| std::fs::rename(&tmp, &path)).map_err(Into::into));
+        // `write_private` writes it whole or not at all (a temporary file renamed).
+        let done = serde_json::to_vec_pretty(value).map_err(anyhow::Error::from).and_then(|raw| prism_base::files::write_private(&path, raw).map_err(Into::into));
         if let Err(e) = done {
             tracing::warn!("routines: writing {}: {e:#}", path.display());
         }
