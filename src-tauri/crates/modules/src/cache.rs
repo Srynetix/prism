@@ -109,3 +109,60 @@ impl std::hash::Hasher for Hasher<'_> {
         self.0.update(bytes);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The smallest component there is: its header, nothing in it.
+    const EMPTY: &[u8] = &[0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00];
+
+    /// The same component with a custom section `test`: other bytes, another key.
+    fn named() -> Vec<u8> {
+        let mut bytes = EMPTY.to_vec();
+        bytes.extend_from_slice(&[0x00, 0x05, 0x04, b't', b'e', b's', b't']);
+        bytes
+    }
+
+    fn temp(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("prism-modules-cache-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    fn kept(cache: &Path) -> Vec<PathBuf> {
+        let mut files: Vec<PathBuf> = std::fs::read_dir(cache).unwrap().map(|e| e.unwrap().path()).collect();
+        files.sort();
+        files
+    }
+
+    #[test]
+    fn compiled_once_per_component() {
+        let cache = temp("once");
+        let file = Path::new("empty.wasm");
+        component_of(&cache, file, EMPTY).unwrap();
+        let first = kept(&cache);
+        assert_eq!(first.len(), 1, "{first:?}");
+        assert_eq!(first[0].extension().unwrap(), "cwasm", "no part left behind");
+        let written = std::fs::metadata(&first[0]).unwrap().modified().unwrap();
+        component_of(&cache, file, EMPTY).unwrap();
+        assert_eq!(kept(&cache), first, "the same bytes: the same file");
+        assert_eq!(std::fs::metadata(&first[0]).unwrap().modified().unwrap(), written, "read, not written again");
+        component_of(&cache, file, &named()).unwrap();
+        assert_eq!(kept(&cache).len(), 2, "other bytes: compiled apart");
+        let _ = std::fs::remove_dir_all(&cache);
+    }
+
+    #[test]
+    fn an_unreadable_cache_is_compiled_again() {
+        let cache = temp("unreadable");
+        let file = Path::new("empty.wasm");
+        component_of(&cache, file, EMPTY).unwrap();
+        let cached = kept(&cache).remove(0);
+        std::fs::write(&cached, b"not native code").unwrap();
+        component_of(&cache, file, EMPTY).unwrap();
+        assert_ne!(std::fs::read(&cached).unwrap(), b"not native code", "written again");
+        component_of(&cache, file, EMPTY).unwrap();
+        let _ = std::fs::remove_dir_all(&cache);
+    }
+}

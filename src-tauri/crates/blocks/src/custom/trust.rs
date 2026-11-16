@@ -12,36 +12,32 @@ pub use prism_core::trust::{Store, Trusted};
 
 use super::{config::Def, diff};
 
-/// One lock for the file: the window's trust and the collector's reads never cross.
-static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 pub fn path(data: &Path) -> PathBuf {
     data.join("custom-blocks-trust.json")
 }
 
+/// The store, the text of its former entries filled.
 pub fn load(data: &Path) -> Store {
-    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    read(data)
+    let mut store = prism_core::trust::read(&path(data));
+    fill_text(&mut store);
+    store
 }
 
-fn read(data: &Path) -> Store {
-    let mut store = prism_core::trust::read(&path(data));
-    // Trusted before the store kept its text: its declaration's.
+/// Trusted before the store kept its text: its declaration's.
+fn fill_text(store: &mut Store) {
     for t in store.trusted.values_mut().filter(|t| t.text.is_empty()) {
         if let Some(d) = def(t) {
             t.text = diff::text(&d);
         }
     }
-    store
 }
 
-/// Changes the store under its lock, and writes it.
+/// Changes the store under its lock (`prism_core::trust::update`), and writes it.
 pub fn update<T>(data: &Path, f: impl FnOnce(&mut Store) -> T) -> Result<T> {
-    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut store = read(data);
-    let out = f(&mut store);
-    store.write(&path(data))?;
-    Ok(out)
+    prism_core::trust::update(&path(data), |store| {
+        fill_text(store);
+        f(store)
+    })
 }
 
 /// `def` trusted as it is.

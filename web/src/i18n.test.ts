@@ -39,8 +39,9 @@ describe('dictionaries', () => {
   }, 30_000)
 
   /**
-   * And the other way: each literal the code gives `t()` or `tn()` has its French. Those `SAME` are
-   * written the same in both (names, symbols).
+   * And the other way: each literal the code gives `t()` (or `tr()`, where `t` is imported as
+   * `tr`), `tn()` or `tc()` has its French; `tc()`'s under its `context|text` key or its plain one.
+   * Those `SAME` are written the same in both (names, symbols).
    */
   it('say every word of the code in French', () => {
     const SAME = new Set<string>([
@@ -49,8 +50,14 @@ describe('dictionaries', () => {
     const code = Object.values(import.meta.glob(['./**/*.{ts,svelte}', '!./i18n/**', '!./bindings/**', '!./**/*.test.ts'], { query: '?raw', import: 'default', eager: true })) as string[]
     const unescape = (s: string) => s.replace(/\\n/g, '\n').replace(/\\(['"\\])/g, '$1')
     const used = new Set<string>()
+    const literal = `'((?:[^'\\\\\\n]|\\\\.)*)'`
     for (const text of code) {
-      for (const m of text.matchAll(/\bt\(\s*'((?:[^'\\\n]|\\.)*)'\s*[,)]/g)) used.add(unescape(m[1]))
+      const names = /\bt as tr\b/.test(text) ? 't|tr' : 't'
+      for (const m of text.matchAll(new RegExp(`\\b(?:${names})\\(\\s*${literal}\\s*[,)]`, 'g'))) used.add(unescape(m[1]))
+      for (const m of text.matchAll(new RegExp(`\\btc\\(\\s*'([\\w-]+)',\\s*${literal}\\s*[,)]`, 'g'))) {
+        const en = unescape(m[2])
+        if (!(`${m[1]}|${en}` in DICTIONARIES.fr)) used.add(en)
+      }
       for (const m of text.matchAll(/\btn\([^,()]+(?:\([^()]*\))?[^,()]*,\s*'((?:[^'\\\n]|\\.)*)',\s*'((?:[^'\\\n]|\\.)*)'/g)) {
         used.add(unescape(m[1]))
         used.add(unescape(m[2]))

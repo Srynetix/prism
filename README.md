@@ -74,14 +74,23 @@ Launch Claude Code, Command Code, OpenCode or Codex agents in real terminals ins
 per ticket. Prism shows which agent is working, which one waits for you, what it changed, and
 sends your review notes back as a prompt. Stale worktrees are spotted and cleaned up safely.
 
+The **Projects** page shows each repository as a project, and the work under way in it as
+workstreams: worktree, agents, ticket, MR and pipeline in one card.
+
+**Ask Prism**, from the palette, takes a request in your own words, finds the repository, reads its tickets
+and its code, and proposes a ticket or an agent to launch, applied in one click.
+
 ### Make it yours
 
 ![The first launch](docs/screenshots/first-launch.png)
 
-- **Pages and blocks**: arrange the blocks on as many pages as you like, or start from a template.
+- **Pages and blocks**: arrange the blocks on as many pages as you like, or start from a template;
+  rename, recolor, duplicate or hide a page right from the rail.
 - **Profiles**: work, personal, a demo; each with its own config, pages and agents.
 - **Team packs**: share a team's setup (repositories, boards, environments) as one TOML file read
   from a repository; everyone keeps their own choices on top, and their clones where they like.
+- **Modules**: a team's own blocks loaded at run time, without rebuilding Prism, their back end
+  run in a sandbox (WebAssembly); nothing of a module runs before you trust it.
 - **Themes, fonts, keyboard shortcuts and a console**, plus a few playful touches.
 
 ### From your phone, or another computer

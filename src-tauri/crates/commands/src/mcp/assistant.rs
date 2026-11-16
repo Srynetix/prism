@@ -415,3 +415,75 @@ pub fn tools() -> Value {
 
 /// What the assistant is told by the server (its role is in its folder's instructions).
 pub const INSTRUCTIONS: &str = "You are Prism's assistant: find the repository (assistant_find_repo, your memory), read code only through assistant_explore, and propose with the assistant_propose_* tools; never write, never launch, never guess a repository (ask). Nothing of a repository out of your reach is listed nor read.";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cfg() -> Config {
+        toml::from_str(
+            r#"
+            [[repos]]
+            name = "shop"
+            aliases = ["the front"]
+
+            [[repos]]
+            name = "payroll"
+            assistant = false
+            "#,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn visible_hides_the_repositories_out_of_reach_only() {
+        let cfg = cfg();
+        assert!(visible(&cfg, "shop"));
+        assert!(visible(&cfg, "SHOP"), "names compared without case");
+        assert!(!visible(&cfg, "payroll"));
+        assert!(!visible(&cfg, "Payroll"));
+        assert!(visible(&cfg, "unknown"), "an unknown name is not refused here");
+    }
+
+    #[test]
+    fn pick_keeps_the_keys_asked_and_set() {
+        let v = json!({ "id": "SHOP-1", "name": "Cart", "status": null, "secret": "x" });
+        assert_eq!(pick(&v, &["id", "name", "status", "missing"]), json!({ "id": "SHOP-1", "name": "Cart" }));
+        assert_eq!(pick(&json!("text"), &["id"]), json!({}));
+    }
+
+    #[test]
+    fn repos_lists_the_visible_ones() {
+        let out = repos(&cfg(), &prism_core::state::Snapshot::default());
+        let names: Vec<&str> = out["repositories"].as_array().unwrap().iter().map(|r| r["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["shop"]);
+        assert_eq!(out["repositories"][0]["aliases"][0], "the front");
+        assert!(out["tracker"]["sprint"].is_null(), "no sprint read");
+    }
+
+    #[test]
+    fn tools_are_named_once_and_require_what_they_declare() {
+        let tools = tools();
+        let tools = tools.as_array().unwrap();
+        let mut names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert!(names.iter().all(|n| n.starts_with("assistant_")));
+        let count = names.len();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), count, "a tool named twice");
+        for t in tools {
+            let schema = &t["inputSchema"];
+            assert_eq!(schema["type"], "object", "{}", t["name"]);
+            for r in schema["required"].as_array().unwrap() {
+                assert!(schema["properties"].get(r.as_str().unwrap()).is_some(), "{} requires {r}, not among its properties", t["name"]);
+            }
+            assert!(!t["description"].as_str().unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn waiting_for_an_unknown_proposal_is_refused() {
+        let err = wait(u64::MAX).await.unwrap_err();
+        assert!(err.to_string().contains("no such proposal"), "{err}");
+    }
+}
