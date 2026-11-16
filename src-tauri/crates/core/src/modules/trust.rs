@@ -17,7 +17,8 @@ pub fn trust_path_for(id: &str) -> PathBuf {
 
 /// The fingerprint of a module's folder: every file but the mark of its pack (`.pack`), by its
 /// path, and every symbolic link by where it points (not followed: what it points to inside the
-/// folder is a file of it, hashed as such). Kept while no file of it changes (sizes, times, links):
+/// folder is a file of it, hashed as such). Kept while no file of it changes (sizes, times of
+/// writing and of change, inodes, links):
 /// a window's files are served without hashing the component again each time.
 pub fn fingerprint_of(folder: &Path) -> String {
     enum Entry {
@@ -41,7 +42,14 @@ pub fn fingerprint_of(folder: &Path) -> String {
             } else if kind.is_file() {
                 let meta = e.metadata().ok();
                 let len = meta.as_ref().map_or(0, |m| m.len());
-                let at = meta.and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos());
+                let at = meta.as_ref().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos());
+                // Its inode and change time too: a file rewritten at the same size, its time of
+                // writing set back (`touch -r`), is another one.
+                #[cfg(unix)]
+                let at = meta.as_ref().map_or(at, |m| {
+                    use std::os::unix::fs::MetadataExt;
+                    at ^ (u128::from(m.ino()) << 64) ^ ((m.ctime() as u128) << 32) ^ m.ctime_nsec() as u128
+                });
                 out.push((rel, Entry::File(path, len, at)));
             }
         }

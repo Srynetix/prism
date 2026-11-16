@@ -504,6 +504,22 @@ mod tests {
         std::fs::remove_dir_all(r).unwrap();
     }
 
+    /// A file rewritten at the same size, its time of writing set back as it was: another module.
+    #[cfg(unix)]
+    #[test]
+    fn a_same_size_rewrite_is_another_version() {
+        let r = root();
+        module(&r, "m", "[module]\n[web]\n", &[("web/defs.js", "defs one")]);
+        let file = r.join("m/web/defs.js");
+        let before = fingerprint_of(&r.join("m"));
+        let modified = std::fs::metadata(&file).unwrap().modified().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&file, "defs two").unwrap();
+        std::fs::File::options().write(true).open(&file).unwrap().set_modified(modified).unwrap();
+        assert_ne!(fingerprint_of(&r.join("m")), before);
+        std::fs::remove_dir_all(r).unwrap();
+    }
+
     /// A link re-pointed inside the folder is another module: not trusted any more.
     #[cfg(unix)]
     #[test]

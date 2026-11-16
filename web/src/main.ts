@@ -20,6 +20,10 @@ document.addEventListener('click', (e) => {
     openLink(href)
   } else if (href === '#') {
     e.preventDefault()
+  } else if (/^[a-z][a-z\d+.-]*:/i.test(href) && !/^(https?|claude|obsidian|mailto):/i.test(href)) {
+    // Another scheme (`file:`, `data:`…) from a forge's or a tracker's data: the window stays Prism.
+    e.preventDefault()
+    console.warn('open: refused', href)
   }
 })
 

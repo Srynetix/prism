@@ -134,6 +134,11 @@ type Work = std::pin::Pin<Box<dyn std::future::Future<Output = Answer> + Send>>;
 pub const MEMORY: usize = 512 << 20;
 /// The most elements one of its tables holds.
 const TABLE_ELEMENTS: usize = 1 << 20;
+/// How many memories, tables and core instances a module's component may make: a few each (its
+/// code, WASI's adapter); with `MEMORY`, what it takes at most stays bounded.
+const MEMORIES: usize = 8;
+const TABLES: usize = 32;
+const INSTANCES: usize = 32;
 
 pub struct HostState {
     pub module: String,
@@ -167,7 +172,7 @@ impl HostState {
         let stderr = Stderr { module: module.clone(), lines: Default::default() };
         // No preopened folder, no environment, no socket: clocks and randomness.
         let wasi = WasiCtx::builder().stderr(stderr.clone()).build();
-        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), mark: None, calls: Default::default(), part: String::new(), woke: None, limits: wasmtime::StoreLimitsBuilder::new().memory_size(MEMORY).table_elements(TABLE_ELEMENTS).build(), wasi, table: ResourceTable::new() }
+        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), mark: None, calls: Default::default(), part: String::new(), woke: None, limits: wasmtime::StoreLimitsBuilder::new().memory_size(MEMORY).table_elements(TABLE_ELEMENTS).memories(MEMORIES).tables(TABLES).instances(INSTANCES).build(), wasi, table: ResourceTable::new() }
     }
 
     /// What Prism does for it, its time counted apart from the call's own (`waited`).
@@ -249,12 +254,14 @@ fn api_path(path: &str) -> bool {
     !path.is_empty() && !path.starts_with('-') && !path.starts_with('/') && !path.contains("://") && !path.chars().any(|c| c.is_control() || c.is_whitespace())
 }
 
-/// The modules' HTTP client: a redirect followed on the same host only (another one, a local
-/// service say, is not among the module's capabilities).
+/// The modules' HTTP client: a redirect followed on the same host and port only (another one, a
+/// local service say, is not among the module's capabilities), never from https down to http.
 static HTTP: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| {
     let policy = reqwest::redirect::Policy::custom(|attempt| {
         let same = attempt.previous().first().is_some_and(|first| first.host_str() == attempt.url().host_str() && first.port_or_known_default() == attempt.url().port_or_known_default());
-        if attempt.previous().len() >= 10 || !same || attempt.url().scheme() != "https" && attempt.url().scheme() != "http" {
+        // Never from https down to http, even on the same host and port.
+        let down = attempt.previous().first().is_some_and(|first| first.scheme() == "https") && attempt.url().scheme() != "https";
+        if attempt.previous().len() >= 10 || !same || down || attempt.url().scheme() != "https" && attempt.url().scheme() != "http" {
             attempt.stop()
         } else {
             attempt.follow()
