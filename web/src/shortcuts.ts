@@ -66,6 +66,7 @@ export const REGISTRY: ShortcutDef[] = [
   { id: 'diff-file', keys: '] / [', label: 'diff: next / previous file', group: 'Side panel' },
   { id: 'diff-message', keys: 'n / N', label: 'diff: next / previous message (thread, or note to the agent)', group: 'Side panel' },
   { id: 'diff-viewed', keys: 'v', label: 'diff: mark the current file as viewed', group: 'Side panel' },
+  { id: 'logs-full', keys: 'f', label: 'logs: full screen, or back', group: 'Side panel', match: (e) => e.key === 'f' && !e.metaKey && !e.ctrlKey && !e.altKey },
   { id: 'pane-back', keys: 'Ctrl-w h / Tab / Esc', label: 'back to the blocks (Esc again closes)', group: 'Side panel' },
   // Block and view
   { id: 'reload', keys: 'r', label: 'reload ClickUp now', group: 'Block and view' },

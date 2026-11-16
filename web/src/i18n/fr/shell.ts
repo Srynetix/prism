@@ -184,6 +184,7 @@ export default {
   'diff: next / previous file': 'diff : fichier suivant / précédent',
   'diff: next / previous message (thread, or note to the agent)': 'diff : message suivant / précédent (fil, ou note à l’agent)',
   'diff: mark the current file as viewed': 'diff : marquer le fichier courant comme vu',
+  'logs: full screen, or back': 'logs : plein écran, ou retour',
   'back to the blocks (Esc again closes)': 'retour aux blocs (Échap à nouveau ferme)',
   'Block and view': 'Bloc et vue',
   'reload ClickUp now': 'relire ClickUp maintenant',

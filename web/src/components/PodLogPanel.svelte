@@ -9,6 +9,7 @@
   import { highlight } from '../log-highlight'
   import { ago } from '../time'
   import { pref, setPref } from '../layout.svelte'
+  import { hit } from '../shortcuts'
   import { live } from '../live.svelte'
   import { isDesktop } from '../bridge'
   import { openPodShell } from '../shell-drawer.svelte'
@@ -95,7 +96,7 @@
 
   function onKey(e: KeyboardEvent) {
     if (!podLogs.open) return
-    if (e.key === 'f' && !typing(e) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (hit('logs-full', e) && !typing(e)) {
       e.preventDefault()
       e.stopImmediatePropagation()
       toggleFull()
