@@ -482,14 +482,10 @@ impl Agents {
         self.is_assistant(id) && !key.is_empty() && self.assistant_key(id) == key
     }
 
-    /// Whether the process `pid` (the other end of an MCP connection, as the system tells it) is a
-    /// conversation of the assistant `id`: its key given, and the process one its session started.
-    /// A key alone can be read by another agent (the same user's processes see each other's
-    /// environment); being started by the assistant's session cannot be claimed.
-    pub async fn assistant_proven(&self, id: &str, key: &str, pid: Option<u32>) -> bool {
-        if !self.is_assistant_by(id, key) {
-            return false;
-        }
+    /// Whether the process `pid` (the other end of an MCP connection, as the system tells it) is
+    /// agent `id`'s: its session's pane process or one that started, however deep. What an MCP
+    /// client says it is (`PRISM_AGENT`) any process may say; this, none can claim.
+    pub async fn started_by(&self, id: &str, pid: Option<u32>) -> bool {
         let (Some(pid), Some(root)) = (pid, self.inner.tmux.pane_pid(id).await) else { return false };
         tokio::task::spawn_blocking(move || descends(pid, root)).await.unwrap_or(false)
     }

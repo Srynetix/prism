@@ -30,7 +30,7 @@ struct Host {
     state: Arc<AppState>,
     next: AtomicU64,
     clients: Mutex<Vec<McpClient>>,
-    /// The connections of the assistant's conversations, proven at `hello` (`Agents::assistant_proven`).
+    /// The connections of the assistant's conversations, proven at `hello`: its key, and its process one the assistant's session started (`Agents::started_by`).
     assistants: Mutex<std::collections::HashSet<u64>>,
     /// Each connection's process, as the system told it when it connected.
     pids: Mutex<std::collections::HashMap<u64, u32>>,
@@ -200,10 +200,19 @@ impl Host {
         match method {
             "hello" => {
                 let name = str_param("client").unwrap_or_else(|| "agent".into());
-                let agent = str_param("agent").filter(|a| !a.is_empty());
+                // The agent it says it runs in, kept only when its process is one that agent's
+                // session started: the assistant's tools and « in passing » answer that one alone.
                 let pid = self.pids.lock().unwrap().get(&client).copied();
+                let agent = match str_param("agent").filter(|a| !a.is_empty()) {
+                    Some(a) if self.state.agents.started_by(&a, pid).await => Some(a),
+                    Some(a) => {
+                        tracing::warn!("mcp: {name} says it runs in agent {a}, but its process is not one that agent started");
+                        None
+                    }
+                    None => None,
+                };
                 if let Some(a) = agent.as_deref()
-                    && self.state.agents.assistant_proven(a, &str_param("key").unwrap_or_default(), pid).await
+                    && self.state.agents.is_assistant_by(a, &str_param("key").unwrap_or_default())
                 {
                     self.assistants.lock().unwrap().insert(client);
                 }
