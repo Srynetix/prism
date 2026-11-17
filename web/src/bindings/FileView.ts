@@ -30,7 +30,7 @@ unread: Array<string>,
 inherited: Record<string, unknown> | null, 
 /**
  * Which pack gives each of those values, by dotted key (`forge.provider` → `team`): a
- * table's keys one by one, a list or `[[repos]]` as a whole.
+ * table's keys one by one, a list as a whole, `[[repos]]` every pack adding to it (`a, b`).
  */
 inherited_from: { [key in string]: string }, 
 /**

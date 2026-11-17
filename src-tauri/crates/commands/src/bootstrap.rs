@@ -466,16 +466,14 @@ where
 }
 
 /// The stages Environments, ArgoCD and Settings read (`[clusters] stages`): their provider's, or
-/// `[[environments]]`' names.
+/// `[[environments]]`' names, with a setup warning when the provider named gives none; the warning
+/// goes once it does (a module trusted, installed, the config changed).
 fn set_stages(cfg: &config::Config, hub: &state::Hub) {
-    let provider = stages::provider(&cfg.clusters.stages).unwrap_or_else(|e| {
-        hub.set_error("stages", Some(format!("{e:#}")));
-        None
-    });
-    let staged = provider.map_or_else(|| stages::Stages::of_environments(&cfg.environments), |p| p.stages());
-    stages::set(staged.clone(), provider);
+    let resolved = stages::resolve(&cfg.clusters.stages, &cfg.environments, blocks::find);
+    hub.set_error("stages", resolved.warning);
+    stages::set(resolved.stages.clone(), resolved.provider);
     hub.update(|s| {
-        s.stages = staged.0.clone();
+        s.stages = resolved.stages.0.clone();
         true
     });
 }

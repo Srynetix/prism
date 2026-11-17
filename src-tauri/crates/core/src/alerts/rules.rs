@@ -321,6 +321,8 @@ impl<'a> Ctx<'a> {
                     "config" => Alert::new("Source", if err.starts_with("no config yet") { Severity::Warn } else { Severity::Ko }, tr!("Config: {err}", err = err)),
                     // Setup warnings rather than an unreachable source: the source answers, the config points at nothing.
                     "clickup-setup" => Alert::new("Source", Severity::Warn, format!("{}: {err}", tr("ClickUp config"))),
+                    // `[clusters] stages` names a block that gives none: what Prism does meanwhile, and where to fix it.
+                    "stages" => Alert::new("Source", Severity::Warn, tr!("Stages: {err}", err = err)),
                     _ => Alert::new("Source", Severity::Ko, tr!("{source} unreachable: {err}", source = source, err = err)),
                 })
                 // Its source: a phone kept from it (the mail) is not told its error either.
