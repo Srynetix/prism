@@ -41,7 +41,7 @@ export const pet = {
   id: 'pet' as const,
   status: { label: t('Pet'), side: 'right', after: 'usage' },
   settings: {
-    parent: 'interface',
+    parent: 'interface', group: 'look',
     node: { id: 'pet', label: t('Pet'), sections: ['pet'] },
     sections: [
       {

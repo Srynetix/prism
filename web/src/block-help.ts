@@ -189,7 +189,7 @@ export const BLOCK_HELP: Record<BlockId, BlockHelp> = {
   pods: {
     purpose: t('Are the pods you follow healthy, and is there room on their nodes?'),
     points: [
-      t('Grouped by target (a cluster, Settings › Infra › Kubernetes › Pods), then namespace; a finished pod is hidden.'),
+      t('Grouped by target (a cluster, Settings › Infra › Pods), then namespace; a finished pod is hidden.'),
       t('One card per node: CPU and memory used, requests reserved (what keeps a pod Pending), pods.'),
       t('GitLab runners and the CI jobs of their Kubernetes executor are recognized: a job links to its CI job (GitLab only).'),
     ],

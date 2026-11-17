@@ -102,6 +102,35 @@ pub fn layered(config: &Path, raw: &str) -> Result<(Table, Table, Vec<PackInfo>)
     Ok((table, inherited, infos))
 }
 
+/// Which pack gives each key the packs set, by dotted path (`forge.provider`), the last one read
+/// winning as the merge does: a table's keys one by one, any other value (a list, `[[repos]]`)
+/// as a whole. What Settings shows as a value's origin.
+pub fn origins(config: &Path, raw: &str) -> Result<std::collections::BTreeMap<String, String>> {
+    let own: Table = raw.parse().context("invalid config.toml")?;
+    let names = own.get("packs").and_then(|v| v.as_array()).into_iter().flatten().filter_map(|n| n.as_str());
+    let mut out = std::collections::BTreeMap::new();
+    for name in names {
+        let Ok(text) = std::fs::read_to_string(file(config, name)) else { continue };
+        let (_, mut values) = parse(&text).with_context(|| format!("pack {name}"))?;
+        crate::config::migrate(&mut values);
+        leaves(&values, "", &mut |key| {
+            out.insert(key, name.to_string());
+        });
+    }
+    Ok(out)
+}
+
+/// Every key of `table` that is not itself a table, by dotted path.
+fn leaves(table: &Table, prefix: &str, found: &mut impl FnMut(String)) {
+    for (k, v) in table {
+        let key = if prefix.is_empty() { k.clone() } else { format!("{prefix}.{k}") };
+        match v {
+            toml::Value::Table(t) => leaves(t, &key, found),
+            _ => found(key),
+        }
+    }
+}
+
 /// A pack's description (`[pack]`) and its values, without the sections it may not set.
 fn parse(text: &str) -> Result<(PackInfo, Table)> {
     let mut values: Table = text.parse().context(tr("not valid TOML"))?;
@@ -615,6 +644,23 @@ fn decode(content: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+
+    /// Each key a pack sets is its own, the last pack read taking it over; a table's keys one by
+    /// one, a list or `[[repos]]` as a whole; a pack missing gives nothing.
+    #[test]
+    fn origins_name_the_pack_giving_each_key() {
+        let dir = std::env::temp_dir().join(format!("prism-pack-origins-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("packs")).unwrap();
+        std::fs::write(dir.join("packs/a.toml"), "[pack]\nname = \"a\"\n[forge]\nprovider = \"gitlab\"\nmain_branch = \"main\"\n[[repos]]\nname = \"app\"\n").unwrap();
+        std::fs::write(dir.join("packs/b.toml"), "[pack]\nname = \"b\"\n[forge]\nmain_branch = \"develop\"\n[alerts]\ndigest_times = [\"09:00\"]\n").unwrap();
+        let config = dir.join("config.toml");
+        let o = super::origins(&config, "packs = [\"a\", \"b\", \"gone\"]\n[forge]\nprovider = \"github\"\n").unwrap();
+        let of = |k: &str| o.get(k).map(String::as_str);
+        assert_eq!((of("forge.provider"), of("forge.main_branch"), of("repos"), of("alerts.digest_times")), (Some("a"), Some("b"), Some("a"), Some("b")));
+        assert!(of("pack.name").is_none() && of("forge").is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     /// A pack that brings a module installs it, its update replaces it, and the pack removed takes
     /// it out with it; installed, it is not trusted for that.

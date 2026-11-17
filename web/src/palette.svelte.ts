@@ -80,7 +80,7 @@ export const togglePalette = () => (palette.open ? closePalette() : openPalette(
 const RECENT = 'palette.recent'
 const recent = () => pref<string[]>(RECENT, [])
 function remember(e: Entry) {
-  // Settings › Cleanup: the palette's use, a ticket the tracker found apart.
+  // Settings › General › Cleanup: the palette's use, a ticket the tracker found apart.
   used(e.found ? 'palette:tracker-search' : `palette:${e.kind}`)
   setPref(RECENT, [e.id, ...recent().filter((id) => id !== e.id)].slice(0, 8))
 }
@@ -331,7 +331,7 @@ function settingEntries(): Entry[] {
       words: [...specs.flatMap((sp) => sp.fields.map((f) => `${f.key} ${f.label}`)), ...(n.sections ?? []).map((id) => CUSTOM_KEYS[id] ?? '')].join(' '),
       run: () => openSettings(n.id),
     }
-    const keyed: Entry[] = specs.flatMap((sp) => sp.fields.map((f) => ({ id: `setting:${n.id}:${f.key}`, kind: 'setting' as const, title: t(f.label), hint: `${t('Settings')} › ${path} · ${f.key}`, words: `${f.key} ${f.label}`, run: () => openSettings(n.id) })))
+    const keyed: Entry[] = specs.flatMap((sp) => sp.fields.map((f) => ({ id: `setting:${n.id}:${f.key}`, kind: 'setting' as const, title: t(f.label), hint: `${t('Settings')} › ${path} · ${f.key}`, words: `${f.key} ${f.label} ${f.syn ?? ''}`, run: () => openSettings(n.id, [...sp.path, f.key].join('.')) })))
     return [page, ...keyed]
   })
 }

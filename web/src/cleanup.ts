@@ -3,7 +3,7 @@ import { BLOCK_LABELS, type BlockId } from './views'
 import { t } from './i18n.svelte'
 
 /**
- * Settings › Cleanup: what is on and never used, what is used most, and what differs from its
+ * Settings › General › Cleanup: what is on and never used, what is used most, and what differs from its
  * default, from the counts of feature-use.svelte.ts. Pure, for the tests: the page gives the values.
  */
 

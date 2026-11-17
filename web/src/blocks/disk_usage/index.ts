@@ -19,7 +19,7 @@ export const diskUsage = {
     source: t('Local: the folder read once per scan, on several threads, what the files take on the disk (a sparse disk image counts what it holds, a hard link once). Other disks mounted inside it and folders kept in the cloud only (iCloud Drive, OneDrive…) are not entered. The last scan of each folder is kept in Prism’s data folder, for Δ and to show it again after a restart. macOS, Linux and Windows.'),
   },
   settings: {
-    parent: 'infra',
+    parent: 'infra', group: 'machine',
     node: { id: 'disk_usage', label: t('Disk usage'), sections: ['disk_usage'], toggle: 'disk_usage' },
     sections: [
       {

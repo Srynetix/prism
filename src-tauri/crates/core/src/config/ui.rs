@@ -356,7 +356,7 @@ impl Default for PaletteConfig {
     }
 }
 
-/// Settings › Cleanup (`[cleanup]`): what each feature is used for, counted on this machine only
+/// Settings › General › Cleanup (`[cleanup]`): what each feature is used for, counted on this machine only
 /// (the profile's usage.json, never sent), read by the window alone.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]

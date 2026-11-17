@@ -59,6 +59,13 @@ export interface FieldSpec {
   check?: CheckSpec
   /** `views`: a button opens the pages wizard and its templates. */
   seed?: 'views'
+  /**
+   * Other words the search finds it by, comma-separated, written in English and translated like
+   * the label: « police » finds Font, « sombre » the theme.
+   */
+  syn?: string
+  /** Rarely changed: folded under the section's other keys, found by the search all the same. */
+  advanced?: boolean
 }
 
 export interface SectionSpec {
@@ -113,7 +120,7 @@ export const SCHEMA: SectionSpec[] = [
     fields: [
       { key: 'behind_commits', label: t('Branch behind'), hint: t('A branch further behind its base is flagged (worktrees, agents).'), kind: 'number', unit: 'commits' },
       { key: 'pending_job_minutes', label: t('Job waiting'), hint: t('A CI job waiting longer for a runner: runners are short.'), kind: 'number', unit: 'minutes' },
-      { key: 'review_wait_hours', label: t('Review waiting'), hint: t('A review waiting for you longer is flagged.'), kind: 'number', unit: 'hours' },
+      { key: 'review_wait_hours', syn: t('code review, reviewer'), label: t('Review waiting'), hint: t('A review waiting for you longer is flagged.'), kind: 'number', unit: 'hours' },
       { key: 'doing_idle_days', label: t('Ticket idle'), hint: t('A ticket in progress with no branch nor MR for longer is flagged.'), kind: 'number', unit: 'days' },
       { key: 'waiting_session_hours', label: t('Session waiting'), hint: t('An agent session waiting for you (a question, a permission, a plan) is flagged this long, then left aside.'), kind: 'number', unit: 'hours' },
       { key: 'your_turn_minutes', label: t('Your turn'), hint: t('An agent whose turn is just over, asking nothing, is flagged this long only: you may well stop there. 0: never.'), kind: 'number', unit: 'minutes' },
@@ -134,10 +141,10 @@ export const SCHEMA: SectionSpec[] = [
     id: 'digest', label: t('Notifications'), table: '[alerts]', path: ['alerts'],
     intro: t('When Prism interrupts you. Live: one notification per event as it appears. Digest: a summary at set times, the urgent kinds still at once. Meeting reminders and your own reminders always go out on time.'),
     fields: [
-      { key: 'digest', label: t('Digest'), hint: t('Off: one notification per event (live). On: events held, then one summary at the digest times; the status bar shows what waits.'), kind: 'toggle' },
+      { key: 'digest', syn: t('summary, batch, grouped notifications'), label: t('Digest'), hint: t('Off: one notification per event (live). On: events held, then one summary at the digest times; the status bar shows what waits.'), kind: 'toggle' },
       { key: 'digest_times', label: t('Digest at'), hint: t('When the summary goes out, HH:MM in local time.'), kind: 'list' },
       { key: 'digest_urgent', label: t('Still at once'), hint: t('What notifies at once in digest mode: infra (pods, runners), deploy (ArgoCD), agent (a permission asked), pipeline (a protected branch failed), review (asked of you), data, block (Docker, dev servers, status pages…), routine (a routine delivered to the Digest).'), kind: 'checks', options: ['infra', 'deploy', 'agent', 'pipeline', 'review', 'data', 'block', 'routine'] },
-      { key: 'quiet_hours', label: t('Quiet hours'), hint: t('No notification in this span, digest or not, urgent included: 19:00-08:00. Empty: none.'), kind: 'text', optional: true, placeholder: '19:00-08:00' },
+      { key: 'quiet_hours', syn: t('do not disturb, silence, night, mute'), label: t('Quiet hours'), hint: t('No notification in this span, digest or not, urgent included: 19:00-08:00. Empty: none.'), kind: 'text', optional: true, placeholder: '19:00-08:00' },
       { key: 'focus_events', label: t('Focus events'), hint: t('During a calendar event whose title holds this, nothing notifies, urgent included, and the digest waits for its end. Zen mode does the same. Empty: never.'), kind: 'text', optional: true, placeholder: 'Focus' },
     ],
   },
@@ -163,8 +170,8 @@ export const SCHEMA: SectionSpec[] = [
     id: 'openwith', label: t('Open with'), table: '[open_with]', path: ['open_with'],
     intro: t('Apps used by the Repos menu of the status bar.'),
     fields: [
-      { key: 'editor', label: t('Editor'), hint: t('Opens a repository. Empty: no Editor button.'), kind: 'select', options: 'apps', optional: true, placeholder: t('none') },
-      { key: 'terminal', label: t('Terminal'), hint: t('Opens a repository, or an agent (Open in terminal), in a terminal.'), kind: 'select', options: 'apps', optional: true, placeholder: 'Terminal' },
+      { key: 'editor', syn: t('ide, vscode, code editor'), label: t('Editor'), hint: t('Opens a repository. Empty: no Editor button.'), kind: 'select', options: 'apps', optional: true, placeholder: t('none') },
+      { key: 'terminal', syn: t('shell, console, iterm, ghostty'), label: t('Terminal'), hint: t('Opens a repository, or an agent (Open in terminal), in a terminal.'), kind: 'select', options: 'apps', optional: true, placeholder: 'Terminal' },
     ],
   },
   {
@@ -172,32 +179,32 @@ export const SCHEMA: SectionSpec[] = [
     intro: t('One field to go to anything Prism shows — a page, a block, an agent, an MR, a ticket, a pipeline, an environment, a pod, a Settings page or key, a guide — and to run its commands, the console’s included (note …, agent …, remind …: their words after them). ↵ goes or runs, ⌘↵ opens the chosen line’s actions (an MR’s or a ticket’s menu, an agent’s quick answers), ⇥ completes a command. On the phone too, from the search button. In an agent’s terminal, ⌘K stays the terminal’s (Agents › Agent › Keys kept by the terminal).'),
     fields: [
       { key: 'enabled', label: t('Palette'), kind: 'toggle' },
-      { key: 'key', label: t('Shortcut'), hint: t('A combination (Cmd+K, Cmd+P, Ctrl+Space). Applied at once.'), kind: 'text', placeholder: 'Cmd+K' },
+      { key: 'key', syn: t('shortcut, hotkey, command palette'), label: t('Shortcut'), hint: t('A combination (Cmd+K, Cmd+P, Ctrl+Space). Applied at once.'), kind: 'text', placeholder: 'Cmd+K' },
       { key: 'tracker_search', label: t('Search the tracker'), hint: t('From 3 characters, the tickets Prism does not show are searched in the tracker too (closed, another board): any ticket opens. ClickUp has no search: the tickets of the followed spaces are read once, closed ones included, and kept 10 minutes.'), kind: 'toggle' },
     ],
   },
   {
     id: 'cleanup', label: t('Cleanup'), table: '[cleanup]', path: ['cleanup'],
     fields: [
-      { key: 'hide_off', label: t('Hide turned-off features in Settings'), hint: t('A feature whose switch is off leaves the tree on the left; a search still finds it.'), kind: 'toggle' },
+      { key: 'hide_off', syn: t('hide disabled, unused'), label: t('Hide turned-off features in Settings'), hint: t('A feature whose switch is off leaves the tree on the left; a search still finds it.'), kind: 'toggle' },
     ],
   },
   {
     id: 'files', label: t('Files'), table: '[files]', path: ['files'],
     intro: t('The editor of an agent’s Files tab. ⌘P opens a file by its name (:42 a line, @ a symbol, # text in every file), ⌘⇧F searches the whole folder, ⌘F the file, ⌘S saves — once the agent’s turn is over. Lines selected go to the agent (Ask agent, Add to prompt) or to a note.'),
     fields: [
-      { key: 'vim', label: t('Vim keys'), hint: t('Normal, insert and visual modes; :w saves.'), kind: 'toggle' },
+      { key: 'vim', syn: t('vi, keybindings, modal editing'), label: t('Vim keys'), hint: t('Normal, insert and visual modes; :w saves.'), kind: 'toggle' },
       { key: 'wrap', label: t('Wrap long lines'), hint: t('Off: they scroll sideways.'), kind: 'toggle' },
-      { key: 'font_size', label: t('Font size'), kind: 'number', unit: 'px', step: 0.5, placeholder: '11.5' },
-      { key: 'live_reload', label: t('Live reload'), hint: t('A file open in the editor that the agent changes is read again, where you were kept. Edited by you and not saved: a banner lets you compare, take its version or keep yours.'), kind: 'toggle' },
-      { key: 'search_max', label: t('Search results'), hint: t('Lines found at most by the search in files.'), kind: 'number', unit: 'lines', placeholder: '2000' },
+      { key: 'font_size', syn: t('text size, zoom'), label: t('Font size'), kind: 'number', unit: 'px', step: 0.5, placeholder: '11.5' },
+      { key: 'live_reload', advanced: true, label: t('Live reload'), hint: t('A file open in the editor that the agent changes is read again, where you were kept. Edited by you and not saved: a banner lets you compare, take its version or keep yours.'), kind: 'toggle' },
+      { key: 'search_max', advanced: true, label: t('Search results'), hint: t('Lines found at most by the search in files.'), kind: 'number', unit: 'lines', placeholder: '2000' },
     ],
   },
   {
     id: 'agents-quick', label: t('Quick answers'), table: '[agents.quick_answers]', path: ['agents', 'quick_answers'],
     intro: t('One click answers an agent at its prompt: in its view (the line under the terminal), the panes side by side, the Agents block, its alert and the phone. Nothing while it works or asks for a permission. ⇧-click types the text into its input instead, to finish it there. A text may name the agent’s {ticket}, {branch}, {mr}, {title} or {folder}: an answer whose variable the agent lacks is not offered to it.'),
     fields: [
-      { key: 'enabled', label: t('Quick answers'), kind: 'toggle' },
+      { key: 'enabled', syn: t('canned answers, replies'), label: t('Quick answers'), kind: 'toggle' },
       {
         key: 'answers', label: t('Answers'), kind: 'table', blank: { label: '', text: '', submit: true },
         hint: t('In this order; the first three where room is short. Empty: Prism’s (OK, Do it, Continue, No wait, Commit), in the prompt language (Settings › Agents › Agent). Not submitted: typed into the agent’s input, to finish.'),
@@ -213,7 +220,7 @@ export const SCHEMA: SectionSpec[] = [
     id: 'agents-overlaps', label: t('Overlaps'), table: '[agents.overlaps]', path: ['agents', 'overlaps'],
     intro: t('Two agents (or worktrees) of a repository changing the same lines, or the same file, told before the merge rather than at the rebase. Each one’s changes against the merge-base of its base (its commits, its uncommitted changes, its new files) are compared with the others’ on the same base; read again as files are written, on a commit, a pull, an agent’s turn over. A chip on both agents (and their MRs, a worktree without agent), a panel of both sides’ hunks, an alert per pair.'),
     fields: [
-      { key: 'enabled', label: t('Overlaps'), kind: 'toggle' },
+      { key: 'enabled', syn: t('conflicts, collisions, same files'), label: t('Overlaps'), kind: 'toggle' },
       { key: 'level', label: t('Chip from'), hint: t('lines: only hunks on the same lines (a merge conflict all but certain); file: the same file too, other lines (a merge to check).'), kind: 'select', options: ['lines', 'file'] },
       { key: 'alert', label: t('Alert from'), hint: t('One alert per pair, gone with the overlap; off: chips only.'), kind: 'select', options: ['lines', 'file', 'off'] },
       { key: 'ignore', label: t('Files ignored'), hint: t('Never compared, one glob per line: a name without a folder (*.lock), or a path (**/bindings/**). Lockfiles and generated files are computed again, not merged.'), kind: 'list' },
@@ -224,10 +231,10 @@ export const SCHEMA: SectionSpec[] = [
     intro: t('What an agent sees while it works but is out of its task (dead code, a stale doc, a missing test, the same bug elsewhere): it flags it with suggest_task, a tool of Prism’s MCP server given to the agents Prism launches (Claude Code, Codex, OpenCode), rather than in a sentence of its summary. A card in its Chat, a ↗ chip on the agent, the « In passing » list of the Agents view (and the aside block): launch it in another agent, after this one, as a ticket, later, or dismiss it — the agent is told at its next step.'),
     fields: [
       { key: 'enabled', label: t('In passing'), hint: t('The suggest_task and dismiss_task tools given to the agents Prism launches, from their next launch or resume.'), kind: 'toggle' },
-      { key: 'desktop', label: t('Claude Desktop sessions'), hint: t('Their spawn_task calls, read from their transcripts, fill the list too (read only: Desktop keeps its own chip).'), kind: 'toggle' },
+      { key: 'desktop', advanced: true, label: t('Claude Desktop sessions'), hint: t('Their spawn_task calls, read from their transcripts, fill the list too (read only: Desktop keeps its own chip).'), kind: 'toggle' },
       { key: 'default_action', label: t('Main button'), hint: t('launch: the launcher, prefilled; then: after its agent, in its chain; ticket: a ticket of the tracker.'), kind: 'select', options: ['launch', 'then', 'ticket'] },
       { key: 'worktree', label: t('Launch in a worktree'), hint: t('Off: in the folder of the agent that saw it.'), kind: 'toggle' },
-      { key: 'stale_days', label: t('Older after'), hint: t('Open lines older than this fold under Older; nothing is removed on its own. 0: never.'), kind: 'number', unit: 'days' },
+      { key: 'stale_days', advanced: true, label: t('Older after'), hint: t('Open lines older than this fold under Older; nothing is removed on its own. 0: never.'), kind: 'number', unit: 'days' },
       { key: 'statusbar', label: t('Count in the status bar'), hint: t('The open ones; never an alert, never urgent.'), kind: 'toggle' },
     ],
   },
@@ -239,23 +246,23 @@ export const SCHEMA: SectionSpec[] = [
       { key: 'provider', label: t('Agent CLI'), hint: t('claude, codex or opencode (Command Code cannot explore a repository on its own). Empty: [agents] provider.'), kind: 'select', options: ['', 'claude', 'codex', 'opencode'], optional: true },
       { key: 'model', label: t('Model'), hint: t('Its model, in its CLI’s names. Empty: the CLI’s ([agents.<cli>] model).'), kind: 'text', optional: true, placeholder: t('the CLI’s default') },
       { key: 'effort', label: t('Effort'), hint: t('Its reasoning effort. Empty: the CLI’s.'), kind: 'text', optional: true, placeholder: t('the CLI’s default') },
-      { key: 'dir', label: t('Folder'), hint: t('Where it works, its memory in memory/. Empty: assistant/ in the profile’s folder (~/.config/prism/assistant for the default profile).'), kind: 'text', optional: true, placeholder: '~/.config/prism/assistant' },
-      { key: 'explore_seconds', label: t('Exploration time'), hint: t('How long its read-only subagent may take to explore a repository. Codex: 280 s at most, its own limit for a tool.'), kind: 'number', unit: 'seconds' },
+      { key: 'dir', advanced: true, label: t('Folder'), hint: t('Where it works, its memory in memory/. Empty: assistant/ in the profile’s folder (~/.config/prism/assistant for the default profile).'), kind: 'text', optional: true, placeholder: '~/.config/prism/assistant' },
+      { key: 'explore_seconds', advanced: true, label: t('Exploration time'), hint: t('How long its read-only subagent may take to explore a repository. Codex: 280 s at most, its own limit for a tool.'), kind: 'number', unit: 'seconds' },
     ],
   },
   {
     id: 'agents-dictation', label: t('Dictation'), table: '[dictation]', path: ['dictation'],
     intro: t('A prompt spoken rather than typed, at the computer: the microphone beside an agent’s Chat box, a plan’s comments, a question’s own words and the launcher’s prompt. Held, it records while held; clicked, it starts and the next click stops. The text goes in at the cursor, never sent on its own: you read it over and send it. Esc cancels. Transcribed on this computer only, never online: macOS’s speech recognition on the Mac, or whisper.cpp built into Prism (its model downloaded below). The audio stays in memory and is dropped once read.'),
     fields: [
-      { key: 'enabled', label: t('Dictation'), hint: t('The microphone button and the shortcut.'), kind: 'toggle' },
+      { key: 'enabled', syn: t('voice, speech, microphone, whisper'), label: t('Dictation'), hint: t('The microphone button and the shortcut.'), kind: 'toggle' },
       { key: 'engine', label: t('Engine'), hint: t('auto: macOS’s speech recognition where it recognizes the language on this Mac, whisper otherwise (Linux: whisper). system: macOS’s, forced on the device. whisper: whisper.cpp, the same everywhere, better on technical words.'), kind: 'select', options: ['auto', 'system', 'whisper'] },
       { key: 'whisper_model', label: t('whisper model'), hint: t('base (142 MB) by default; small is better on technical words, three times slower. Downloaded below, when needed.'), kind: 'select', options: ['tiny', 'base', 'small', 'medium'] },
       { key: 'language', label: t('Language'), hint: t('auto: whisper detects it, macOS’s recognition takes the prompts’ language ([agents] prompt_language). Otherwise a code: fr, en…'), kind: 'text', options: ['auto', 'fr', 'en', 'de', 'es', 'it'] },
-      { key: 'shortcut', label: t('Shortcut'), hint: isMac ? t('Held to dictate while a field that takes dictation has the focus: Fn (🌐), or a combination (Ctrl+Shift+Space). Fn pressed with another key (Fn+←) is not a dictation. Empty: the button only.') : t('Held to dictate while a field that takes dictation has the focus (Ctrl+Shift+Space). Empty: the button only.'), kind: 'text', optional: true, placeholder: isMac ? 'Fn' : 'Ctrl+Shift+Space' },
+      { key: 'shortcut', syn: t('hotkey, keyboard shortcut'), label: t('Shortcut'), hint: isMac ? t('Held to dictate while a field that takes dictation has the focus: Fn (🌐), or a combination (Ctrl+Shift+Space). Fn pressed with another key (Fn+←) is not a dictation. Empty: the button only.') : t('Held to dictate while a field that takes dictation has the focus (Ctrl+Shift+Space). Empty: the button only.'), kind: 'text', optional: true, placeholder: isMac ? 'Fn' : 'Ctrl+Shift+Space' },
       { key: 'toggle_on_click', label: t('Click to start and stop'), hint: t('A click on the microphone starts, another stops: for long dictations. Off: it records only while held.'), kind: 'toggle' },
-      { key: 'max_seconds', label: t('Longest recording'), hint: t('A recording forgotten stops by itself and is transcribed.'), kind: 'number', unit: 'seconds' },
-      { key: 'hints', label: t('Words to expect'), hint: t('The repository’s, branch’s, ticket’s and the agent’s files’ names, given to the engine to recognize them.'), kind: 'toggle' },
-      { key: 'input_device', label: t('Microphone'), hint: t('By name, as listed below. Empty: the system’s.'), kind: 'text', optional: true, placeholder: t('the system’s') },
+      { key: 'max_seconds', advanced: true, label: t('Longest recording'), hint: t('A recording forgotten stops by itself and is transcribed.'), kind: 'number', unit: 'seconds' },
+      { key: 'hints', advanced: true, label: t('Words to expect'), hint: t('The repository’s, branch’s, ticket’s and the agent’s files’ names, given to the engine to recognize them.'), kind: 'toggle' },
+      { key: 'input_device', advanced: true, label: t('Microphone'), hint: t('By name, as listed below. Empty: the system’s.'), kind: 'text', optional: true, placeholder: t('the system’s') },
     ],
   },
   {
@@ -297,14 +304,14 @@ export const SCHEMA: SectionSpec[] = [
     intro: t('Claude Code, Command Code, OpenCode or Codex sessions in Prism terminals, kept alive by tmux when Prism quits. The agent actions of the menus open their launcher. What every CLI shares is here; each CLI’s own keys (binary, arguments; Claude Desktop for Claude Code) are on its page below.'),
     fields: [
       { key: 'enabled', label: t('Agents view'), hint: t('Off: no Agents view, the agent actions open Claude Desktop.'), kind: 'toggle' },
-      { key: 'provider', label: t('Agent CLI'), hint: t('Run by new agents (claude: Claude Code, command-code: Command Code, opencode: OpenCode, codex: Codex) unless their repository names its own (Repositories › Agent), and whose plan usage the status bar shows (none for OpenCode). A running agent keeps its own.'), kind: 'select', options: [...AGENT_CLIS], check: 'agent_tools' },
+      { key: 'provider', syn: t('cli, default agent'), label: t('Agent CLI'), hint: t('Run by new agents (claude: Claude Code, command-code: Command Code, opencode: OpenCode, codex: Codex) unless their repository names its own (Repositories › Agent), and whose plan usage the status bar shows (none for OpenCode). A running agent keeps its own.'), kind: 'select', options: [...AGENT_CLIS], check: 'agent_tools' },
       { key: 'target', label: t('Agent actions open'), hint: keys(t('agent: the launcher of the Agents view (⇧-click launches at once). desktop: a Claude Desktop session, as before.')), kind: 'select', options: ['agent', 'desktop'] },
-      { key: 'worktrees_dir', label: t('Worktrees folder'), hint: t('Where new agent worktrees go. Empty: next to their repository (<repo>.worktrees).'), kind: 'path', optional: true, placeholder: '<repo>.worktrees', check: 'directory' },
-      { key: 'branch_prefix', label: t('Branch prefix'), hint: t('Branch of a new worktree: prefix + its name.'), kind: 'text', placeholder: 'agent/' },
-      { key: 'permission_mode', label: t('Permissions'), hint: t('Proposed by the launcher, in each CLI’s words (Codex: plan is its read-only sandbox, acceptEdits its workspace-write one). default: the mode of your agent CLI settings.'), kind: 'select', options: ['default', 'acceptEdits', 'plan'] },
-      { key: 'font_size', label: t('Terminal text size'), hint: keys(t('Text of the agents terminals, applied to the open ones at once. In the Agents view: ⌘+ / ⌘- to adjust, ⌘0 to reset.')), kind: 'number', unit: 'pt', step: 0.5 },
-      { key: 'chat_font_size', label: t('Chat text size'), hint: keys(t('Text of an agent’s Chat on the computer (its conversation, the default 13.5), its steps and cards scaled with it; applied at once. In the Agents view, an agent shown as its Chat: ⌘+ / ⌘- to adjust, ⌘0 to reset. The phone keeps its own size.')), kind: 'number', unit: 'pt', step: 0.5 },
-      { key: 'scrollback', label: t('Scrollback'), hint: t('Lines kept by an agent terminal, on top of tmux history.'), kind: 'number', unit: 'lines' },
+      { key: 'worktrees_dir', advanced: true, label: t('Worktrees folder'), hint: t('Where new agent worktrees go. Empty: next to their repository (<repo>.worktrees).'), kind: 'path', optional: true, placeholder: '<repo>.worktrees', check: 'directory' },
+      { key: 'branch_prefix', advanced: true, label: t('Branch prefix'), hint: t('Branch of a new worktree: prefix + its name.'), kind: 'text', placeholder: 'agent/' },
+      { key: 'permission_mode', syn: t('permissions, plan mode, accept edits'), label: t('Permissions'), hint: t('Proposed by the launcher, in each CLI’s words (Codex: plan is its read-only sandbox, acceptEdits its workspace-write one). default: the mode of your agent CLI settings.'), kind: 'select', options: ['default', 'acceptEdits', 'plan'] },
+      { key: 'font_size', syn: t('text size, terminal size, zoom'), label: t('Terminal text size'), hint: keys(t('Text of the agents terminals, applied to the open ones at once. In the Agents view: ⌘+ / ⌘- to adjust, ⌘0 to reset.')), kind: 'number', unit: 'pt', step: 0.5 },
+      { key: 'chat_font_size', syn: t('text size, zoom'), label: t('Chat text size'), hint: keys(t('Text of an agent’s Chat on the computer (its conversation, the default 13.5), its steps and cards scaled with it; applied at once. In the Agents view, an agent shown as its Chat: ⌘+ / ⌘- to adjust, ⌘0 to reset. The phone keeps its own size.')), kind: 'number', unit: 'pt', step: 0.5 },
+      { key: 'scrollback', advanced: true, label: t('Scrollback'), hint: t('Lines kept by an agent terminal, on top of tmux history.'), kind: 'number', unit: 'lines' },
       {
         key: 'accounts', label: t('Accounts'), kind: 'table', blank: { name: '', cli: 'claude', dir: '', default: false },
         hint: t('Claude Code or Codex logged in under folders of their own (a personal plan, a work one…), each with its plan: what your aliases set (CLAUDE_CONFIG_DIR, CODEX_HOME). A new agent runs under its CLI’s default account (or the one picked in the launcher); Continue with… offers the others, where another account of the same CLI takes its whole conversation. None: each CLI’s usual folder, as before. An account whose folder is the usual one (~/.claude, ~/.codex) runs as before, its login kept.'),
@@ -325,18 +332,18 @@ export const SCHEMA: SectionSpec[] = [
       },
       { key: 'tags', label: t('Tags'), hint: t('Suggested when tagging an agent (its header), besides the tags already in use; any other may be typed. Grouped by tag, the Agents view lists the suggested ones first, in this order. Also editable in the Agents view › Manage.'), kind: 'list' },
       { key: 'prompt_language', label: t('Prompt language'), hint: t('Language of the prompts the agent actions write (validate, fix the pipeline, investigate…), and so of the agent’s answers.'), kind: 'select', options: ['fr', 'en'] },
-      { key: 'terminal_keys', label: t('Keys kept by the terminal'), hint: t('Prism’s shortcuts an agent’s terminal keeps for itself: pressed there, Prism leaves them alone (Cmd+K clears the terminal; another goes to the program). The others go up to Prism, as everywhere. Cmd+K by default; add Cmd+N, Cmd+1… to keep them too.'), kind: 'list' },
+      { key: 'terminal_keys', advanced: true, label: t('Keys kept by the terminal'), hint: t('Prism’s shortcuts an agent’s terminal keeps for itself: pressed there, Prism leaves them alone (Cmd+K clears the terminal; another goes to the program). The others go up to Prism, as everywhere. Cmd+K by default; add Cmd+N, Cmd+1… to keep them too.'), kind: 'list' },
       { key: 'view', label: t('Agents shown as'), hint: t('How an agent reads on the computer: chat, its conversation from its transcript (its questions as cards, a box to write to it), its terminal running under it; terminal, its terminal. Claude Code and Codex only: the others always show their terminal. Terminal | Chat in an agent’s header changes it for that agent alone.'), kind: 'select', options: ['chat', 'terminal'] },
-      { key: 'fold_steps', label: t('Fold its steps'), hint: t('In an agent’s Chat, on the computer and the phone: the calls and thoughts between two of its answers on one line, with their counts (files edited, commands, failures in red); a click unfolds them. The turn under way stays unfolded, its last calls shown. Off: one line per call.'), kind: 'toggle' },
-      { key: 'chat_reminders', label: t('Claude Code’s reminders'), hint: t('In an agent’s Chat (Claude Code), on the computer and the phone, what Claude Code sends it besides your words: its reminders (<system-reminder>), a hook’s context, a file changed under it, a memory file read. marker, out of the conversation, ⓘ n reminders at the end of the turn shows them; hidden, never; shown, where they came (those after a call in its detail).'), kind: 'select', options: ['marker', 'hidden', 'shown'] },
-      { key: 'comment_answers', label: t('Comment its answers'), hint: t('In an agent’s Chat, on the computer and the phone: a long answer of its (several passages, or long) gets a + beside each passage, as its plans do — your comments, each under its passage, go to it as one prompt, each passage quoted. Its plans (plan mode) are always commented on. Off: its answers read only.'), kind: 'toggle' },
+      { key: 'fold_steps', advanced: true, label: t('Fold its steps'), hint: t('In an agent’s Chat, on the computer and the phone: the calls and thoughts between two of its answers on one line, with their counts (files edited, commands, failures in red); a click unfolds them. The turn under way stays unfolded, its last calls shown. Off: one line per call.'), kind: 'toggle' },
+      { key: 'chat_reminders', advanced: true, label: t('Claude Code’s reminders'), hint: t('In an agent’s Chat (Claude Code), on the computer and the phone, what Claude Code sends it besides your words: its reminders (<system-reminder>), a hook’s context, a file changed under it, a memory file read. marker, out of the conversation, ⓘ n reminders at the end of the turn shows them; hidden, never; shown, where they came (those after a call in its detail).'), kind: 'select', options: ['marker', 'hidden', 'shown'] },
+      { key: 'comment_answers', advanced: true, label: t('Comment its answers'), hint: t('In an agent’s Chat, on the computer and the phone: a long answer of its (several passages, or long) gets a + beside each passage, as its plans do — your comments, each under its passage, go to it as one prompt, each passage quoted. Its plans (plan mode) are always commented on. Off: its answers read only.'), kind: 'toggle' },
       { key: 'suggest_switch', label: t('Offer another CLI at the limit'), hint: t('An agent whose CLI’s plan is used up: a banner in its view and an alert offer the least used of the other CLIs found on the computer to continue with (Continue with…). Off: nothing offered; its CLI chip and ⋯ menu still hand it over.'), kind: 'toggle' },
       { key: 'handoff', label: t('Relay'), hint: t('How the CLI an agent continues with is told what was done: prism, a relay Prism writes from its transcript and git (its task, plan, last turns, files changed, commits), free and at once, even at its limit; agent, a summary the former agent writes when asked (one more turn of it, not at its limit); task, its first prompt and ticket only. Picked again in the window each time.'), kind: 'select', options: ['prism', 'agent', 'task'] },
-      { key: 'handoff_turns', label: t('Turns in the relay'), hint: t('The last turns Prism’s relay recalls: your words and the end of each answer.'), kind: 'number', unit: 'turns' },
+      { key: 'handoff_turns', advanced: true, label: t('Turns in the relay'), hint: t('The last turns Prism’s relay recalls: your words and the end of each answer.'), kind: 'number', unit: 'turns' },
       { key: 'handoff_review', label: t('Read the relay first'), hint: t('Continue with… opens a window showing the relay, to edit, before it goes. Off: from its CLI chip, the palette or the ⋯ menu, the relay goes as written, in one click (the agent’s own summary is always waited for there).'), kind: 'toggle' },
-      { key: 'header_meta', label: t('Header details'), hint: t('The second line of an agent’s header on the computer (ticket, MR, branch, kind, tags): read, a quiet line to read, changed behind Edit; edit, their fields always there.'), kind: 'select', options: ['read', 'edit'] },
-      { key: 'tasks_depth', label: t('Tasks depth'), hint: t('How deep the Tasks panel looks for justfiles, Taskfiles and package.json under the agent’s folder: 0, the folder alone; 1, its subfolders too (a monorepo’s web/); 3, down to apps/api/src. Never in hidden folders, node_modules, target, vendor, dist, build or out.'), kind: 'number', unit: 'levels' },
-      { key: 'fix_log_lines', label: t('Logs for a fix'), hint: t('An agent launched from Alerts to fix a failed pipeline gets the end of each failed job’s log in its prompt, this many lines, read by Prism (up to 3 jobs). 0: none, the agent reads the logs itself.'), kind: 'number', unit: 'lines' },
+      { key: 'header_meta', advanced: true, label: t('Header details'), hint: t('The second line of an agent’s header on the computer (ticket, MR, branch, kind, tags): read, a quiet line to read, changed behind Edit; edit, their fields always there.'), kind: 'select', options: ['read', 'edit'] },
+      { key: 'tasks_depth', advanced: true, label: t('Tasks depth'), hint: t('How deep the Tasks panel looks for justfiles, Taskfiles and package.json under the agent’s folder: 0, the folder alone; 1, its subfolders too (a monorepo’s web/); 3, down to apps/api/src. Never in hidden folders, node_modules, target, vendor, dist, build or out.'), kind: 'number', unit: 'levels' },
+      { key: 'fix_log_lines', advanced: true, label: t('Logs for a fix'), hint: t('An agent launched from Alerts to fix a failed pipeline gets the end of each failed job’s log in its prompt, this many lines, read by Prism (up to 3 jobs). 0: none, the agent reads the logs itself.'), kind: 'number', unit: 'lines' },
     ],
   },
   {
@@ -344,13 +351,13 @@ export const SCHEMA: SectionSpec[] = [
     intro: t('Claude Code’s own keys, wherever it runs: as the default CLI or for a repository (Repositories › Agent). Its Claude Desktop sessions, the cost of its conversations and its plan usage’s token too. These keys were [agents]’, [sessions]’ and [usage]’s: still read there, and moved here when changed.'),
     fields: [
       ...cliFields('claude'),
-      { key: 'cost_alert', label: t('Cost alert'), hint: t('An agent whose conversation is estimated beyond this (at the models’ API prices; on a subscription, a figure of comparison) is flagged in Alerts. 0: never.'), kind: 'number', unit: '$' },
+      { key: 'cost_alert', syn: t('price, budget, money, spend'), label: t('Cost alert'), hint: t('An agent whose conversation is estimated beyond this (at the models’ API prices; on a subscription, a figure of comparison) is flagged in Alerts. 0: never.'), kind: 'number', unit: '$' },
       { key: 'show_desktop', label: t('Show Desktop sessions'), hint: t('Claude Desktop sessions listed in the Agents view, next to the Prism agents. Only while Claude Code is the default CLI.'), kind: 'toggle' },
-      { key: 'count_desktop', label: t('Count Desktop sessions'), hint: t('Off: the agent counters (header, status bar, menu bar or tray, Alerts, notifications) count only Prism agents. On: Claude Desktop sessions too. The Agents view lists both either way.'), kind: 'toggle' },
-      { key: 'sessions_dir', label: t('Desktop sessions'), hint: t('Metadata of the Claude Code desktop sessions.'), kind: 'path', check: 'directory' },
-      { key: 'transcripts', label: t('Transcripts'), hint: t('To know whether a session is working.'), kind: 'path', check: 'directory' },
-      { key: 'sessions_poll', label: t('Poll every'), hint: t('The desktop sessions.'), kind: 'number', unit: 'seconds' },
-      { key: 'refresh_token', label: t('Refresh the token'), hint: t('Plan usage: when the Claude Code token has expired, run claude doctor (with the binary above), which renews it without calling the model (at most every 15 min).'), kind: 'toggle' },
+      { key: 'count_desktop', advanced: true, label: t('Count Desktop sessions'), hint: t('Off: the agent counters (header, status bar, menu bar or tray, Alerts, notifications) count only Prism agents. On: Claude Desktop sessions too. The Agents view lists both either way.'), kind: 'toggle' },
+      { key: 'sessions_dir', advanced: true, label: t('Desktop sessions'), hint: t('Metadata of the Claude Code desktop sessions.'), kind: 'path', check: 'directory' },
+      { key: 'transcripts', advanced: true, label: t('Transcripts'), hint: t('To know whether a session is working.'), kind: 'path', check: 'directory' },
+      { key: 'sessions_poll', advanced: true, label: t('Poll every'), hint: t('The desktop sessions.'), kind: 'number', unit: 'seconds' },
+      { key: 'refresh_token', advanced: true, label: t('Refresh the token'), hint: t('Plan usage: when the Claude Code token has expired, run claude doctor (with the binary above), which renews it without calling the model (at most every 15 min).'), kind: 'toggle' },
     ],
   },
   {
@@ -376,7 +383,7 @@ export const SCHEMA: SectionSpec[] = [
     },
     intro: t('Where the repositories live, one per profile, and what both forges share. Each forge’s login and own keys are on its page below. The switch, branches, merged window, polling and CI health were [gitlab]’s: still read there, and moved here when changed.'),
     fields: [
-      { key: 'provider', label: t('Provider'), hint: t('gitlab (glab) or github (gh): see its page below.'), kind: 'select', options: ['gitlab', 'github'] },
+      { key: 'provider', syn: t('gitlab, github, code host'), label: t('Provider'), hint: t('gitlab (glab) or github (gh): see its page below.'), kind: 'select', options: ['gitlab', 'github'] },
       {
         key: 'enabled', kind: 'toggle',
         get label() {
@@ -386,13 +393,13 @@ export const SCHEMA: SectionSpec[] = [
           return t('Off (no {forge} account, e.g. Product): neither {forge} nor the local repository are read — no {mrs}, pipelines, worktrees, vulnerabilities, repos or agents — so no access error in Alerts.', { forge: forgeName(), mrs: `${mrWord()}s` })
         },
       },
-      { key: 'main_branch', label: t('Main branch'), hint: t('Of every repository that names none of its own (Repositories › Branches); with the release branches, the protected branches whose pipelines are followed. Empty: each remote’s default branch.'), kind: 'text', optional: true, placeholder: t('the remote’s default') },
-      { key: 'release_prefix', label: t('Release prefix'), hint: t('Release branches (Git Flow) of every repository that names none of its own: the latest one is the base of new worktrees.'), kind: 'text', placeholder: 'release/' },
+      { key: 'main_branch', syn: t('default branch, master, trunk'), label: t('Main branch'), hint: t('Of every repository that names none of its own (Repositories › Branches); with the release branches, the protected branches whose pipelines are followed. Empty: each remote’s default branch.'), kind: 'text', optional: true, placeholder: t('the remote’s default') },
+      { key: 'release_prefix', advanced: true, label: t('Release prefix'), hint: t('Release branches (Git Flow) of every repository that names none of its own: the latest one is the base of new worktrees.'), kind: 'text', placeholder: 'release/' },
       { key: 'pipeline_branches', label: t('Branches followed'), hint: t('Whose pipelines every repository that names none of its own follows (Repositories › Branches): names, patterns (env/*), @main (the main branch), @release (the release prefix’s). Empty: the main branch and the release ones.'), kind: 'list', optional: true, options: ['@main', '@release'] },
-      { key: 'merged_days', label: t('Merged MRs'), hint: t('How long a merged MR (pull request on GitHub) stays tracked.'), kind: 'number', unit: 'days' },
-      { key: 'poll_seconds', label: t('Poll every'), hint: t('Merge requests and pipelines: no forge reaches your machine by webhook. On GitHub, each read of a repository costs about 3 of the 5000 points of the hourly API quota (shared with gh); Prism slows down when it runs low.'), kind: 'number', unit: 'seconds' },
+      { key: 'merged_days', advanced: true, label: t('Merged MRs'), hint: t('How long a merged MR (pull request on GitHub) stays tracked.'), kind: 'number', unit: 'days' },
+      { key: 'poll_seconds', advanced: true, label: t('Poll every'), hint: t('Merge requests and pipelines: no forge reaches your machine by webhook. On GitHub, each read of a repository costs about 3 of the 5000 points of the hourly API quota (shared with gh); Prism slows down when it runs low.'), kind: 'number', unit: 'seconds' },
       { key: 'ci_health', label: t('CI health'), hint: t('The CI health block: failure rate and durations of its repository’s pipelines (workflow runs on GitHub), chosen in Repositories › Blocks that read a repository.'), kind: 'toggle' },
-      { key: 'ci_health_days', label: t('CI health window'), kind: 'number', unit: 'days' },
+      { key: 'ci_health_days', advanced: true, label: t('CI health window'), kind: 'number', unit: 'days' },
       { key: 'avatars', label: t('Profile pictures'), hint: t('MR authors and project members shown with their GitLab / GitHub profile picture, read once per session. Off, or without one: their initials.'), kind: 'toggle' },
     ],
   },
@@ -401,7 +408,7 @@ export const SCHEMA: SectionSpec[] = [
     intro: t('What GitLab alone has. Authentication is glab’s (the system keychain), never this file.'),
     fields: [
       { key: 'project', label: t('Project (former)'), hint: t('Former way to name the project of the repository bare MR references name, still read. Prefer Repositories.'), kind: 'text', optional: true, placeholder: t('see Repositories'), check: 'gitlab_project' },
-      { key: 'host', label: t('Host'), hint: t('gitlab.com, or a self-hosted instance: links, glab, image registry (registry.<host>).'), kind: 'text', placeholder: 'gitlab.com' },
+      { key: 'host', syn: t('self-hosted, server, domain'), label: t('Host'), hint: t('gitlab.com, or a self-hosted instance: links, glab, image registry (registry.<host>).'), kind: 'text', placeholder: 'gitlab.com' },
       { key: 'merge_queue_label', label: t('Merge queue label'), hint: t('Your merge bot or CI job watching it rebases the MR, then sets auto-merge. Empty: no merge queue button.'), kind: 'text', placeholder: 'merge-queue' },
       { key: 'merge_priority_prefix', label: t('Merge priority prefix'), hint: t('Labels made of it and a number (merge-priority::0) order the merge queue: the lowest number first, then the MRs without one, the oldest first within each. Empty: the oldest first only.'), kind: 'text', optional: true, placeholder: 'merge-priority::' },
     ],
@@ -415,7 +422,7 @@ export const SCHEMA: SectionSpec[] = [
     id: 'tracker', label: t('Tracker'), table: '[tracker]', path: ['tracker'],
     intro: t('Where the tickets live, and the conventions every tracker shares: identifiers and the flow of statuses. These keys were ClickUp’s: still read there, and moved here when changed.'),
     fields: [
-      { key: 'provider', label: t('Provider'), hint: t('clickup, obsidian (Obsidian Kanban boards, see Obsidian) or jira (Jira Cloud, see Jira). Each is read only when its own section is on.'), kind: 'select', options: ['clickup', 'obsidian', 'jira'] },
+      { key: 'provider', syn: t('tickets, issues, project management'), label: t('Provider'), hint: t('clickup, obsidian (Obsidian Kanban boards, see Obsidian) or jira (Jira Cloud, see Jira). Each is read only when its own section is on.'), kind: 'select', options: ['clickup', 'obsidian', 'jira'] },
       { key: 'pick_statuses', label: t('Ready statuses'), hint: `${t('A ticket ready to be picked: To pick. ClickUp: of the next sprint and the pick boards; Obsidian: of every board, and they leave the Sprint block.')} ${STATUS_HINT}`, kind: 'list' },
       { key: 'ticket_prefix', label: t('Ticket prefix'), hint: t('Empty: no ticket ids. E.g. ABC for ABC-123: found in branches, MR titles, notes and the filter.'), kind: 'text', placeholder: 'ABC' },
       { key: 'workflow_statuses', label: t('Workflow'), hint: `${t('The ticket flow, in order: sorts the statuses in Sprint and the lists.')} ${STATUS_HINT}`, kind: 'list' },
@@ -428,11 +435,11 @@ export const SCHEMA: SectionSpec[] = [
       { key: 'done_statuses', label: tc('settings', 'Done'), hint: `${t('A finished ticket (a closed one always is).')} ${STATUS_HINT}`, kind: 'list' },
       { key: 'blocked_statuses', label: t('Blocked'), hint: `${t('A blocked ticket is left out of the Sync alerts (merged or open MR, missing branch…).')} ${STATUS_HINT}`, kind: 'list' },
       { key: 'validation_statuses', label: t('Validation'), hint: `${t('On a ticket in one of these, “Validate locally” (agent). Launched from the first, the ticket moves to the last and is assigned to you. Empty: no such action.')} ${STATUS_HINT}`, kind: 'list' },
-      { key: 'estimate_builtin', label: t('Enter the estimate'), hint: t('The tracker’s own estimate (ClickUp’s time estimate, Jira’s original estimate) typed in hours from the ticket rows and preview. Off: only shown, for a team estimating in custom fields (Estimate fields, ClickUp).'), kind: 'toggle' },
-      { key: 'branch_aliases', label: t('Branch aliases'), hint: t('Words standing for the ticket prefix in the branches of agent sessions: agent/<word>-512-… is ticket 512 (a skill plugin naming its branches after itself).'), kind: 'list' },
+      { key: 'estimate_builtin', advanced: true, label: t('Enter the estimate'), hint: t('The tracker’s own estimate (ClickUp’s time estimate, Jira’s original estimate) typed in hours from the ticket rows and preview. Off: only shown, for a team estimating in custom fields (Estimate fields, ClickUp).'), kind: 'toggle' },
+      { key: 'branch_aliases', advanced: true, label: t('Branch aliases'), hint: t('Words standing for the ticket prefix in the branches of agent sessions: agent/<word>-512-… is ticket 512 (a skill plugin naming its branches after itself).'), kind: 'list' },
       { key: 'next_action', label: t('Next action'), hint: t('The card at the top of a ticket’s panel: where it stands and why, with the one action that moves it on (Review-fix, Fix, Review, Implement…).'), kind: 'toggle' },
       { key: 'actuals', label: t('Actual vs estimate'), hint: t('A ticket’s actual time and cost against its estimate: the Actual section of its panel, and the Actuals of My sprint (its done tickets, their gap, the trend by type and by estimate over the last sprints). Actual: the time logged and the agents’ active time.'), kind: 'toggle' },
-      { key: 'actuals_logged_only', label: t('Logged time only'), hint: t('The actual is the time logged only, without the agents’ active time.'), kind: 'toggle' },
+      { key: 'actuals_logged_only', advanced: true, label: t('Logged time only'), hint: t('The actual is the time logged only, without the agents’ active time.'), kind: 'toggle' },
       { key: 'ticket_type', label: t('Ticket type'), hint: t('Where a ticket’s type comes from, for the trends of the Actuals: empty, the tracker’s task type; tags, its first tag (Jira: label); otherwise the name of a custom field of ClickUp’s Fields.'), kind: 'text', optional: true, placeholder: t('task type') },
     ],
   },
@@ -456,14 +463,14 @@ export const SCHEMA: SectionSpec[] = [
       },
       { key: 'refinement_statuses', label: t('Refinement statuses'), hint: `${t('One column each, in this order.')} ${STATUS_HINT}`, kind: 'list' },
       { key: 'ongoing_statuses', label: t('Ongoing statuses'), hint: `${t('In progress or further: shown in Sprint when outside the sprint.')} ${STATUS_HINT}`, kind: 'list' },
-      { key: 'time_tracking', label: t('Time tracking'), hint: t('Time entries on tickets: the Time block and Log time. Off: none read nor offered.'), kind: 'toggle' },
-      { key: 'time_history_days', label: t('Time history'), hint: t('Days of logged time read back (Time block, date picker).'), kind: 'number', unit: 'days' },
+      { key: 'time_tracking', syn: t('worklogs, hours, timesheet'), label: t('Time tracking'), hint: t('Time entries on tickets: the Time block and Log time. Off: none read nor offered.'), kind: 'toggle' },
+      { key: 'time_history_days', advanced: true, label: t('Time history'), hint: t('Days of logged time read back (Time block, date picker).'), kind: 'number', unit: 'days' },
       { key: 'day_hours', label: t('Hours per day'), hint: t('Time to log per working day (Time block); the week counts five.'), kind: 'number', unit: 'h' },
       { key: 'fields', label: t('Ticket fields'), hint: t('ClickUp custom fields shown on the tickets, by name (Type, Story points…): a pill in their option’s color on each row, a line in the preview. Only those with a value; in this order. Each one can sort the lists. Applied at the next read.'), kind: 'list' },
-      { key: 'filter_fields', label: t('Filter fields'), hint: t('Those of Ticket fields also offered as filters and groupings of the lists (a dropdown such as Type); the others are only shown, and sortable (an estimate in hours). Empty: all of them.'), kind: 'list', optional: true, placeholder: t('all the ticket fields') },
-      { key: 'estimate_fields', label: t('Estimate fields'), hint: t('Number custom fields holding an estimate in hours, by name (Dev estimate (h)…): typed in from the ticket rows and preview, even when empty; shown after Ticket fields unless listed there. A formula or any other type is never written to.'), kind: 'list' },
+      { key: 'filter_fields', advanced: true, label: t('Filter fields'), hint: t('Those of Ticket fields also offered as filters and groupings of the lists (a dropdown such as Type); the others are only shown, and sortable (an estimate in hours). Empty: all of them.'), kind: 'list', optional: true, placeholder: t('all the ticket fields') },
+      { key: 'estimate_fields', advanced: true, label: t('Estimate fields'), hint: t('Number custom fields holding an estimate in hours, by name (Dev estimate (h)…): typed in from the ticket rows and preview, even when empty; shown after Ticket fields unless listed there. A formula or any other type is never written to.'), kind: 'list' },
       { key: 'avatars', label: t('Profile pictures'), hint: t('Assignees shown with their ClickUp profile picture, read once per session. Off, or without one: their initials.'), kind: 'toggle' },
-      { key: 'poll_seconds', label: t('Poll every'), kind: 'number', unit: 'seconds' },
+      { key: 'poll_seconds', advanced: true, label: t('Poll every'), kind: 'number', unit: 'seconds' },
     ],
   },
   {
@@ -485,9 +492,9 @@ export const SCHEMA: SectionSpec[] = [
       },
       { key: 'refinement_statuses', label: t('Refinement statuses'), hint: `${t('One column each, in this order. Empty: every open status of the refinement queues’ issues.')} ${STATUS_HINT}`, kind: 'list' },
       { key: 'ongoing_statuses', label: t('Ongoing statuses'), hint: `${t('The board’s issues in these statuses outside the active sprint show in Sprint. Empty: Jira’s “In Progress” category.')} ${STATUS_HINT}`, kind: 'list' },
-      { key: 'issue_type', label: t('New issue type'), hint: t('The type of an issue created from the Sprint block’s +, as the board’s project names it (Task, Tâche, Story…). It goes into the active sprint.'), kind: 'text', placeholder: 'Task' },
-      { key: 'time_tracking', label: t('Time tracking'), hint: t('Your worklogs: the Time block and Log time, read every 3 minutes. Hours per day and history come from Settings › Work › Tracker › ClickUp. Off: none read nor offered.'), kind: 'toggle' },
-      { key: 'poll_seconds', label: t('Poll every'), kind: 'number', unit: 'seconds' },
+      { key: 'issue_type', advanced: true, label: t('New issue type'), hint: t('The type of an issue created from the Sprint block’s +, as the board’s project names it (Task, Tâche, Story…). It goes into the active sprint.'), kind: 'text', placeholder: 'Task' },
+      { key: 'time_tracking', syn: t('worklogs, hours, timesheet'), label: t('Time tracking'), hint: t('Your worklogs: the Time block and Log time, read every 3 minutes. Hours per day and history come from Settings › Work › Tracker › ClickUp. Off: none read nor offered.'), kind: 'toggle' },
+      { key: 'poll_seconds', advanced: true, label: t('Poll every'), kind: 'number', unit: 'seconds' },
     ],
   },
   {
@@ -511,8 +518,8 @@ export const SCHEMA: SectionSpec[] = [
     fields: [
       { key: 'repo', label: t('Repository (former)'), hint: t('Former way to name the clone of the repository bare MR references name, still read. Prefer Repositories.'), kind: 'path', optional: true, placeholder: t('see Repositories'), check: 'git_repo' },
       { key: 'base_branch', label: t('Base branch'), hint: t('Of the new worktrees of every repository that names none of its own: auto, the latest release branch, else the main one; or a branch name.'), kind: 'text' },
-      { key: 'stale_days', label: t('Stale after'), hint: t('A worktree without commit nor agent session for this long is stale (Worktrees view).'), kind: 'number', unit: 'days' },
-      { key: 'poll_seconds', label: t('Poll every'), kind: 'number', unit: 'seconds' },
+      { key: 'stale_days', syn: t('old, cleanup, prune'), label: t('Stale after'), hint: t('A worktree without commit nor agent session for this long is stale (Worktrees view).'), kind: 'number', unit: 'days' },
+      { key: 'poll_seconds', advanced: true, label: t('Poll every'), kind: 'number', unit: 'seconds' },
     ],
   },
   {
@@ -546,14 +553,14 @@ export const SCHEMA: SectionSpec[] = [
     id: 'logs', label: t('Logs'), table: '[logs]', path: ['logs'],
     intro: t('Prism writes its logs to a file of this profile, besides standard error: what to look at, or send, when a source does not read. The RUST_LOG environment variable takes precedence over the level. From config.toml alone (a pack does not set it).'),
     fields: [
-      { key: 'level', label: t('Level'), hint: t('info by default; debug to troubleshoot (more lines, the requests’ details), then back to info. error and warn keep only the problems.'), kind: 'select', options: ['error', 'warn', 'info', 'debug', 'trace'] },
+      { key: 'level', syn: t('debug, verbose, trace'), label: t('Level'), hint: t('info by default; debug to troubleshoot (more lines, the requests’ details), then back to info. error and warn keep only the problems.'), kind: 'select', options: ['error', 'warn', 'info', 'debug', 'trace'] },
     ],
   },
   {
     id: 'updates', label: t('Updates'), table: '[updates]', path: ['updates'],
     intro: t('Prism updates itself from the releases of a repository (prism-v… tags, scripts/release.sh), read with glab or gh: the access you already have, no token. Prism’s public releases are at gh:Srynetix/prism; a team’s pack may name it, or another repository, for its members (a team’s blocks come as modules of its pack, not in a build). On macOS and from an AppImage, Install replaces Prism and restarts it; a .deb or an Arch package is downloaded, for sudo apt install or sudo pacman -U.'),
     fields: [
-      { key: 'enabled', label: t('Check for updates'), hint: t('At launch and every 6 hours; a newer Prism shows in the status bar. Off: only Check now reads the releases.'), kind: 'toggle' },
+      { key: 'enabled', syn: t('upgrade, new version, release'), label: t('Check for updates'), hint: t('At launch and every 6 hours; a newer Prism shows in the status bar. Off: only Check now reads the releases.'), kind: 'toggle' },
       { key: 'source', label: t('Source'), hint: t('Where the releases are published: glab:group/project or gh:owner/repo. Empty: no updates. Checked once saved.'), kind: 'text', placeholder: 'glab:group/project', optional: true },
       { key: 'packs', label: t('Check the packs'), hint: t('At the same times, the packs’ sources are read again: a pack changed there shows in the status bar, Settings › Packs updates it. Off: only Check now reads them.'), kind: 'toggle' },
     ],
@@ -562,7 +569,7 @@ export const SCHEMA: SectionSpec[] = [
     id: 'feedback', label: t('Feedback'), table: '[feedback]', path: ['feedback'],
     intro: t('Send feedback opens an issue on the repository Prism comes from, or on a pack’s (the one it was imported from), with glab or gh: the access you already have, no token. The composer shows the issues that look like it, and exactly what goes with it: Prism’s version, where it was opened from, the packs; on request the theme, the last errors of the log (paths and addresses stripped) and a capture of the window. Never a value of the config, a ticket or a mail. Console: feedback.'),
     fields: [
-      { key: 'enabled', label: t('Send feedback'), hint: t('In the console (feedback), the Help menu, the status bar and each block’s “?”.'), kind: 'toggle' },
+      { key: 'enabled', syn: t('bug report, issues'), label: t('Send feedback'), hint: t('In the console (feedback), the Help menu, the status bar and each block’s “?”.'), kind: 'toggle' },
       { key: 'follow', label: t('Follow my requests'), hint: t('With the updates (at launch and every 6 hours), the issues opened from Prism are read again: a closed one shows in the status bar, a release that names one says so in its notes.'), kind: 'toggle' },
       { key: 'repo', label: t('Prism’s repository'), hint: t('Where Prism’s own feedback goes, glab:group/project or gh:owner/repo. Empty: [updates] source.'), kind: 'text', placeholder: 'glab:group/project', optional: true },
     ],
@@ -580,13 +587,13 @@ export const SCHEMA: SectionSpec[] = [
     id: 'remote', label: t('Access'), table: '[remote]', path: ['remote'],
     intro: t('Prism from a phone: a page the computer serves, which Chrome on Android installs as an app (Safari: Share › Add to Home Screen). Prism listens on 127.0.0.1 only; a tunnel brings the phone to it. Tailscale is the one Prism sets up itself (tailscale serve: an HTTPS name and certificate, the tailnet user checked); with another (WireGuard and a proxy, ssh -L), your proxy brings HTTPS. A tunnel that decrypts elsewhere (Cloudflare Tunnel, ngrok) sees all of Prism in clear. Each phone is paired in Remote › Devices and unlocked with a passkey. Applied on save.'),
     fields: [
-      { key: 'enabled', label: t('Remote access'), hint: t('Off by default. On: Prism answers phones through the tunnel below; the status bar says so as long as it is on.'), kind: 'toggle' },
+      { key: 'enabled', syn: t('phone, mobile, iphone'), label: t('Remote access'), hint: t('Off by default. On: Prism answers phones through the tunnel below; the status bar says so as long as it is on.'), kind: 'toggle' },
       { key: 'tunnel', label: t('Tunnel'), hint: t('tailscale: Prism runs tailscale serve and only lets your tailnet user in. other: your own tunnel brings HTTPS to the port below, at the address below. relay: this profile is reached through another profile’s Prism open beside it, whose remote has the tunnel: its phones, their passkeys, at /p/<profile>/ there; this one keeps its own rights below, and takes a free port of its own.'), kind: 'select', options: ['tailscale', 'other', 'relay'] },
       { key: 'port', label: t('Port'), hint: t('On 127.0.0.1, never another interface.'), kind: 'number' },
-      { key: 'tailscale_socket', label: t('Tailscale socket'), hint: t('Beside a VPN, the Tailscale app fights it for the network: `just tailscale` runs a tailscaled of its own in userspace mode (no interface, route nor DNS change) and prints its socket, to paste here. Empty: the Tailscale app.'), kind: 'text', placeholder: '~/.local/share/prism/tailscale/tailscaled.sock', optional: true },
+      { key: 'tailscale_socket', advanced: true, label: t('Tailscale socket'), hint: t('Beside a VPN, the Tailscale app fights it for the network: `just tailscale` runs a tailscaled of its own in userspace mode (no interface, route nor DNS change) and prints its socket, to paste here. Empty: the Tailscale app.'), kind: 'text', placeholder: '~/.local/share/prism/tailscale/tailscaled.sock', optional: true },
       { key: 'url', label: t('Address'), hint: t('Tunnel other: the HTTPS address the phone opens. Passkeys are bound to its host: changing it means pairing the phones again. Tailscale: empty, the computer’s tailnet name.'), kind: 'text', placeholder: 'https://prism.example.net', optional: true },
-      { key: 'preview_port', label: t('Preview port'), hint: t('The dev servers’ preview (Exposure › Dev servers preview) listens on 127.0.0.1 there, never another interface. Tailscale serves it on the computer’s tailnet name, port 8443.'), kind: 'number' },
-      { key: 'preview_url', label: t('Preview address'), hint: t('Tunnel other: the HTTPS address your tunnel brings to the preview port, on the same host as the address above (another port): the phone’s session goes there. Empty: no preview. Tailscale: empty.'), kind: 'text', placeholder: 'https://prism.example.net:8443', optional: true },
+      { key: 'preview_port', advanced: true, label: t('Preview port'), hint: t('The dev servers’ preview (Exposure › Dev servers preview) listens on 127.0.0.1 there, never another interface. Tailscale serves it on the computer’s tailnet name, port 8443.'), kind: 'number' },
+      { key: 'preview_url', advanced: true, label: t('Preview address'), hint: t('Tunnel other: the HTTPS address your tunnel brings to the preview port, on the same host as the address above (another port): the phone’s session goes there. Empty: no preview. Tailscale: empty.'), kind: 'text', placeholder: 'https://prism.example.net:8443', optional: true },
     ],
   },
   {
@@ -610,9 +617,9 @@ export const SCHEMA: SectionSpec[] = [
     fields: [
       { key: 'session_idle_minutes', label: t('Session idle'), hint: t('Without a request from the phone for this long, biometrics again.'), kind: 'number', unit: 'minutes' },
       { key: 'session_max_hours', label: t('Session length'), hint: t('Biometrics again after this long, active or not.'), kind: 'number', unit: 'hours' },
-      { key: 'step_up_minutes', label: t('Step-up window'), hint: t('Taking a terminal again within this long asks nothing more. Critical actions ask each time, whatever this says.'), kind: 'number', unit: 'minutes' },
-      { key: 'control_idle_minutes', label: t('Give a terminal back'), hint: t('After this long without a key from the phone, the terminal is watched again. 0: only on Release, or when the desk types.'), kind: 'number', unit: 'minutes' },
-      { key: 'push', label: t('Notifications'), hint: t('An agent that starts waiting (a permission, a question) wakes the paired phones that have Prism closed, at most once a minute each; each phone turns it on in More › Notifications. The push carries nothing: its text is written by the phone, nothing of Prism goes through Google’s or Apple’s push service. Brave: allow Google services for push messaging in its settings.'), kind: 'toggle' },
+      { key: 'step_up_minutes', advanced: true, label: t('Step-up window'), hint: t('Taking a terminal again within this long asks nothing more. Critical actions ask each time, whatever this says.'), kind: 'number', unit: 'minutes' },
+      { key: 'control_idle_minutes', advanced: true, label: t('Give a terminal back'), hint: t('After this long without a key from the phone, the terminal is watched again. 0: only on Release, or when the desk types.'), kind: 'number', unit: 'minutes' },
+      { key: 'push', syn: t('notifications, phone alerts'), label: t('Notifications'), hint: t('An agent that starts waiting (a permission, a question) wakes the paired phones that have Prism closed, at most once a minute each; each phone turns it on in More › Notifications. The push carries nothing: its text is written by the phone, nothing of Prism goes through Google’s or Apple’s push service. Brave: allow Google services for push messaging in its settings.'), kind: 'toggle' },
     ],
   },
   {
@@ -653,7 +660,7 @@ export const SCHEMA: SectionSpec[] = [
     id: 'calendar', label: t('Calendar'), table: '[calendar]', path: ['calendar'],
     intro: t('The Today block’s agenda, meeting countdown and reminders. Where it is read: the macOS Calendar, or Google Calendar on any system; each is set up in its own page below.'),
     fields: [
-      { key: 'enabled', label: t('Agenda'), hint: t('Off: no calendar is read, nor its access asked for. No Today block, meeting countdown or reminders.'), kind: 'toggle' },
+      { key: 'enabled', syn: t('agenda, meetings, events'), label: t('Agenda'), hint: t('Off: no calendar is read, nor its access asked for. No Today block, meeting countdown or reminders.'), kind: 'toggle' },
       { key: 'provider', label: t('Provider'), hint: t('macos (macOS only) or google (any system, Linux included).'), kind: 'select', options: ['macos', 'google'] },
       { key: 'calendars', label: t('Calendars'), hint: t('The calendars read, among the provider’s. None checked: all of them (birthdays and holidays included), or those checked in Google Calendar.'), kind: 'checks', options: 'calendars' },
     ],
@@ -667,7 +674,7 @@ export const SCHEMA: SectionSpec[] = [
     id: 'mail', source: 'mail', label: t('Mail'), table: '[mail]', path: ['mail'],
     intro: t('The Mail block: the unread messages of your inbox, and the flagged (starred) ones, read every minute. Your mailbox only, never a body, a preview nor an attachment. Where it is read: Microsoft 365 or Gmail; each is set up and signed in to in its own page below.'),
     fields: [
-      { key: 'enabled', label: t('Mail'), hint: t('Off by default. On: set up the provider below, sign in, then add the Mail block to a page.'), kind: 'toggle' },
+      { key: 'enabled', syn: t('email, outlook, inbox'), label: t('Mail'), hint: t('Off by default. On: set up the provider below, sign in, then add the Mail block to a page.'), kind: 'toggle' },
       { key: 'provider', label: t('Provider'), hint: t('microsoft or gmail.'), kind: 'select', options: ['microsoft', 'gmail'] },
       { key: 'flagged', label: t('Flagged'), hint: t('The flagged messages too (starred, in Gmail), read or not.'), kind: 'toggle' },
       { key: 'max', label: t('Messages'), hint: t('Listed at most, newest first.'), kind: 'number', unit: 'messages' },
@@ -694,11 +701,11 @@ export const SCHEMA: SectionSpec[] = [
     intro: t('Access to the Kubernetes clusters, read from your kubeconfig. These keys were [runners]’: still read there, and moved here when changed.'),
     fields: [
       { key: 'enabled', label: t('Cluster access'), hint: t('Off (no rights on the clusters): neither pods, environments nor ArgoCD are read, so no access error in Alerts.'), kind: 'toggle' },
-      { key: 'default_context', label: t('Default context'), hint: t('The cluster a Pods target or ArgoCD’s discovery reads when it names none.'), kind: 'select', options: 'kube', optional: true, check: 'kube_context' },
+      { key: 'default_context', syn: t('kubectl, kube context'), label: t('Default context'), hint: t('The cluster a Pods target or ArgoCD’s discovery reads when it names none.'), kind: 'select', options: 'kube', optional: true, check: 'kube_context' },
       { key: 'stages', label: t('Stages from'), hint: t('What names the stages and their environments, read by Environments, ArgoCD and the Env lists here: none (the default), the Env names of the environments below (staging, preprod, prod or production play those roles); otherwise a block of your team declaring them.'), kind: 'select', options: providers('stages') },
       { key: 'shell', label: t('Shell in a pod'), hint: t('A Shell button in a pod’s logs pane: kubectl exec into its container (bash, else sh), with your kubeconfig’s rights. tmux keeps it after closing; never from a phone.'), kind: 'toggle' },
-      { key: 'usage_history', label: t('Pod usage over time'), hint: t('A Usage button in a pod’s logs pane: its CPU and memory over time, against its limits. For it, Prism keeps 6 hours of the Pods targets’ readings (metrics-server).'), kind: 'toggle' },
-      { key: 'gcp_metrics', label: t('Google Managed Prometheus'), hint: t('For a GKE context (gke_<project>_<location>_<cluster>), that usage is read from Google Cloud Monitoring instead: any pod, an environment’s too, up to 7 days back. With gcloud’s login, which needs the monitoring.viewer role on the project.'), kind: 'toggle' },
+      { key: 'usage_history', advanced: true, label: t('Pod usage over time'), hint: t('A Usage button in a pod’s logs pane: its CPU and memory over time, against its limits. For it, Prism keeps 6 hours of the Pods targets’ readings (metrics-server).'), kind: 'toggle' },
+      { key: 'gcp_metrics', advanced: true, label: t('Google Managed Prometheus'), hint: t('For a GKE context (gke_<project>_<location>_<cluster>), that usage is read from Google Cloud Monitoring instead: any pod, an environment’s too, up to 7 days back. With gcloud’s login, which needs the monitoring.viewer role on the project.'), kind: 'toggle' },
     ],
   },
   {
@@ -759,12 +766,12 @@ export const SCHEMA: SectionSpec[] = [
     id: 'vulns', source: 'vulnerabilities', label: t('Vulnerabilities'), table: '[vulnerabilities]', path: ['vulnerabilities'],
     intro: t('Local Trivy scan of its repositories, once a day.'),
     fields: [
-      { key: 'enabled', label: t('Vulnerabilities'), hint: t('Off by default. On: Trivy scans the dependencies of its repositories (Repositories › Blocks that read a repository) and the images a block names (needs trivy).'), kind: 'toggle' },
+      { key: 'enabled', syn: t('cve, security, trivy'), label: t('Vulnerabilities'), hint: t('Off by default. On: Trivy scans the dependencies of its repositories (Repositories › Blocks that read a repository) and the images a block names (needs trivy).'), kind: 'toggle' },
       { key: 'branches', label: t('Branches'), hint: t('Whose dependencies are scanned, one per line: main (the default), release (the latest release branch, otherwise the main one), or a branch’s name. With several, each project’s line carries its branch.'), kind: 'list', placeholder: 'main' },
       { key: 'components', label: t('Components folder'), hint: t('Its project.json projects are scanned one by one (an Nx monorepo’s apps). Empty (default): the repository as a whole.'), kind: 'text', optional: true, placeholder: 'apps' },
       { key: 'libs', label: t('Libraries folder'), hint: t('Shared libraries scanned besides the components: the project.json projects of an Nx monorepo’s libs. Empty: none.'), kind: 'text', optional: true, placeholder: 'libs' },
       { key: 'images', label: t('Images from'), hint: t('What names the images to scan: none (the default), the dependencies only; otherwise a block of your team naming them, its own settings saying which.'), kind: 'select', options: providers('images') },
-      { key: 'skip_dirs', label: t('Skipped folders'), hint: t('Folders of an image Trivy skips (a tool’s cache).'), kind: 'list' },
+      { key: 'skip_dirs', advanced: true, label: t('Skipped folders'), hint: t('Folders of an image Trivy skips (a tool’s cache).'), kind: 'list' },
     ],
   },
   {
@@ -780,7 +787,7 @@ export const SCHEMA: SectionSpec[] = [
     id: 'audio', label: t('Audio'), table: '[audio]', path: ['audio'],
     intro: t('Sources of the Audio button of the status bar. A list given here replaces the built-in one.'),
     fields: [
-      { key: 'stations', label: t('Radio stations'), kind: 'table', blank: { label: '', url: '' }, columns: [{ key: 'label', label: t('Label'), kind: 'text', width: '180px' }, { key: 'url', label: t('Stream URL'), kind: 'text' }] },
+      { key: 'stations', syn: t('radio, music'), label: t('Radio stations'), kind: 'table', blank: { label: '', url: '' }, columns: [{ key: 'label', label: t('Label'), kind: 'text', width: '180px' }, { key: 'url', label: t('Stream URL'), kind: 'text' }] },
       { key: 'youtube', label: t('YouTube'), hint: t('Video, live or playlist.'), kind: 'table', blank: { label: '', url: '' }, columns: [{ key: 'label', label: t('Label'), kind: 'text', width: '180px' }, { key: 'url', label: t('URL'), kind: 'text' }] },
       { key: 'feeds', label: t('Podcasts'), hint: t('RSS feeds with an audio file per episode.'), kind: 'table', blank: { label: '', url: '' }, columns: [{ key: 'label', label: t('Label'), kind: 'text', width: '180px' }, { key: 'url', label: t('Feed URL'), kind: 'text' }] },
     ],

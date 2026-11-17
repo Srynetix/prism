@@ -17,12 +17,18 @@ export type { FileView, PackInfo, PackFile }
 /** A repository's pack source (`glab:…` / `gh:…`): its ref after `@`, empty for the default branch; otherwise null. */
 export const packRef = (source: string | null | undefined) => (source && /^(glab|gh):/.test(source) ? (source.split(':').pop()!.split('@')[1] ?? '') : null)
 
-export const settingsView = $state({ open: false, section: 'console' })
+/**
+ * The page shown (`section`: a page, a provider or a section, by id; `overview` for the
+ * overview), and the key a search result opened it on (`focus`, dotted: highlighted, its fold
+ * opened).
+ */
+export const settingsView = $state({ open: false, section: 'overview', focus: '' })
 
-export function openSettings(section?: string) {
+export function openSettings(section?: string, focus = '') {
   closeHelp()
   settingsView.open = true
   if (section) settingsView.section = section
+  settingsView.focus = focus
   if (!cfg.file && !cfg.loading) void loadConfig()
   void loadChoices()
 }
@@ -84,10 +90,42 @@ export function valueOf<T>(path: string[], fallback?: T): T {
 /** A pack gives this key: removing it from the file comes back to the pack's value. */
 export const hasInherited = (path: string[]) => inheritedValue(path) !== undefined
 
-/** Where an inherited value comes from: the pack's name when there is a single one. */
-export function packLabel(): string {
+/** The pack giving a key (`FileView.inherited_from`): its own, or its table's whole (`repos`). */
+export function packOf(path: string[]): string | undefined {
+  const from = cfg.file?.inherited_from ?? {}
+  for (let i = path.length; i > 0; i--) {
+    const name = from[key(path.slice(0, i))]
+    if (name) return name
+  }
+  return undefined
+}
+
+/** Where an inherited value comes from: the pack giving it, or the only pack. */
+export function packLabel(path?: string[]): string {
+  const named = path && packOf(path)
+  if (named) return t('pack {name}', { name: named })
   const packs = cfg.file?.packs.filter((p) => !p.missing) ?? []
   return packs.length === 1 ? t('pack {name}', { name: packs[0].name }) : t('a pack')
+}
+
+/**
+ * Where a key's value comes from: changed here and not saved, written in config.toml, given by a
+ * pack, or the default.
+ */
+export type Origin = 'changed' | 'file' | 'pack' | 'default'
+export function originOf(path: string[]): Origin {
+  if (isChanged(path) && cfg.edits[key(path)] !== null) return 'changed'
+  if (isSet(path)) return 'file'
+  return hasInherited(path) ? 'pack' : 'default'
+}
+
+/** The value before the pending change: config.toml's, otherwise the packs', otherwise the default. */
+export const savedValue = (path: string[]) => fileValue(path) ?? inheritedValue(path) ?? defaultOf(path)
+
+/** Drops a pending change of one key: the value saved comes back. */
+export function discardValue(path: string[]) {
+  delete cfg.edits[key(path)]
+  schedulePreview()
 }
 
 /** The key will be in the file after saving (otherwise: default value). */

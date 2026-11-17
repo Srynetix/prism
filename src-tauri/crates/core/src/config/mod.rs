@@ -112,7 +112,7 @@ pub struct Config {
     /// The command palette (`[palette]`).
     #[serde(default)]
     pub palette: PaletteConfig,
-    /// Settings › Cleanup (`[cleanup]`).
+    /// Settings › General › Cleanup (`[cleanup]`).
     #[serde(default)]
     pub cleanup: CleanupConfig,
     /// The editor of an agent's Files tab (`[files]`).

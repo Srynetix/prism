@@ -20,7 +20,7 @@ export const sound = {
   },
   status: { label: t('Sound'), side: 'right', after: 'system' },
   settings: {
-    parent: 'infra',
+    parent: 'infra', group: 'machine',
     node: { id: 'sound', label: t('Sound'), sections: ['sound'], toggle: 'sound' },
     sections: [
       {

@@ -48,8 +48,12 @@ export interface BlockDef<S = unknown> {
   status?: { label: string; side: 'left' | 'right'; after?: string }
   /** What it shows while off (its state absent): how to turn it on (`BlockOff`). */
   off?: { title: string; logo: string; color: string; section: string; setting: string }
-  /** Its Settings sections (its config table) and its page in the Settings tree, under `parent`. */
-  settings?: { sections: SectionSpec[]; parent: string; node: TreeNode }
+  /**
+   * Its Settings sections (its config table) and its page in the Settings tree: in the domain
+   * `parent` (`general`, `interface`, `work`, `code`, `agents-root`, `infra`, `remote-root`), in its
+   * group `group` (Infra's `kubernetes`, `machine`, `watch`…; absent: after the domain's groups).
+   */
+  settings?: { sections: SectionSpec[]; parent: string; group?: string; node: TreeNode }
   /**
    * Its lines in Alerts, from its state; `notification`: a notification when broken. For a module's
    * block only: Prism's own say theirs in Rust (`Block::alerts`), in `Snapshot.alerts`.

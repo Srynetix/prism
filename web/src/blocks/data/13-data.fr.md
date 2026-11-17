@@ -65,6 +65,6 @@ Le bloc Data est lu toutes les `[data] poll_seconds` (60 s par défaut) ; les jo
 
 Ce qui est cassé apparaît dans les **Alertes** et envoie une notification. Ce qui ne fait que dériver (un job lent, une table en retard, un flux à la traîne, un pic de coût) reste dans les **Alertes** sans notifier.
 
-Les trois seuils se trouvent dans **Réglages › Interface › Alertes et son** et s’appliquent dès l’enregistrement.
+Les trois seuils se trouvent dans **Réglages › Interface › Seuils** et s’appliquent dès l’enregistrement.
 
-[Ouvrir Réglages › Interface › Alertes et son](prism:settings/alerts)
+[Ouvrir Réglages › Interface › Seuils](prism:settings/alerts)

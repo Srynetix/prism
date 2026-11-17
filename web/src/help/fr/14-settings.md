@@ -6,29 +6,36 @@ related: setup, keyboard, fun, ref-settings
 Chaque réglage de Prism vit dans un seul fichier, `~/.config/prism/config.toml`, et la vue **Réglages** le reflète champ par champ. Changez une valeur à l’un ou l’autre endroit : c’est le même réglage.
 
 ## Ouvrir les Réglages
-![Réglages : l’arbre des domaines à gauche, la section ouverte à droite](images/settings.webp)
+![Réglages : l’arbre des domaines à gauche, la section ouverte à droite](images/settings.webp)
 
 
 Appuyez sur `⌘,`. `Esc` ferme la vue.
 
-La colonne de gauche est un arbre de pages, rangées selon ce qu’elles configurent :
-- **Général** : Profils, Packs, Fichier de config, Logs, Dépendances, Mises à jour, Retours.
-- **Interface** : Apparence, Pages, Alertes et son, Ouvrir avec.
-- **Travail** : Tracker (avec ClickUp, Jira et Obsidian en dessous), Calendrier, Mail, Notes.
-- **Code** : Forge (avec GitLab et GitHub en dessous), Dépôts.
-- **CI** : Renovate, et les pages des blocs d’une équipe, s’il y en a.
-- **Sécurité** : Vulnérabilités.
-- **Agents** : Agent (avec Claude Code, Command Code, OpenCode et Codex en dessous), Console.
-- **Infra** : Kubernetes (avec Pods et ArgoCD en dessous), Docker, Data (GCP), et les pages des blocs d’une équipe, s’il y en a.
-- **Accès à distance** : Accès, Appareils, Exposition, Sessions, Absence (Prism depuis un téléphone), et Machines (le Prism d’un autre ordinateur, et ce que les autres ordinateurs peuvent faire ici).
+Les Réglages s’ouvrent sur leur **Vue d’ensemble** : chaque fonction par domaine avec son interrupteur à côté, un clic sur son nom ouvrant sa page, et quatre compteurs au-dessus (modifications non enregistrées, clés à vous dans config.toml, clés venues d’un pack, pages à vérifier), chacun à un clic de leur liste.
 
-Partout où il y a plusieurs fournisseurs, la page de la fonctionnalité contient ce qu’ils partagent et le choix, et chaque fournisseur a sa propre page avec uniquement ses clés : Forge contient `[forge]`, Forge › GitLab `[gitlab]` (hôte, label de la file de merge) ; Agent contient `[agents]`, et chaque CLI son `[agents.<cli>]` (**Binaire** et **Arguments supplémentaires**, ajoutés à chaque lancement et reprise ; Claude Code aussi ses sessions Claude Desktop, l’alerte de coût et le jeton d’usage du forfait). Une page peut regrouper plusieurs tables du fichier : Dépôts contient `[[workspaces]]`, `[[repos]]` et `[worktrees]`, et une page faite de plusieurs étapes peut les montrer en onglets. Les tables d’une page sont listées à côté de son titre, et chaque partie de la page nomme la sienne. Le chevron replie une branche ; quand l’arbre a le focus, `←` et `→` replient et déplient la page courante.
+La colonne de gauche est un arbre de sept domaines, chacun rangé en groupes :
+- **Général** : Configuration (Profils, Packs, Fichier de config, Nettoyage), Prism (Mises à jour, Retours, Ligne de commande), Diagnostic (Logs, Dépendances).
+- **Interface** : Apparence (Apparence, Pages, Blocs perso, le compagnon), Alertes (Seuils, Notifications, Audio), Raccourcis et outils (Palette, Ouvrir avec, Pages de statut).
+- **Travail** : Tracker, Calendrier, Mail, Notes, le fil de la journée.
+- **Code** : Forge et dépôts (Forge, Dépôts, Worktrees), Qualité (Renovate, Vulnérabilités).
+- **Agents** : CLI (Agent), En session (Réponses rapides, Actions rapides, En passant, Chevauchements), Prism et les agents (Assistant, Routines, MCP de Prism, Dictée), Outils (Fichiers, Console, Serveurs de dev, Jetons).
+- **Infra** : Kubernetes (Clusters, Pods, ArgoCD), Machine (Docker, Système, Espace disque, Son), Suivi (Changements, Data).
+- **Accès à distance** : Accès, Appareils, Exposition, Sessions, Absence (Prism depuis un téléphone), et Machines (le Prism d’un autre ordinateur, et ce que les autres ordinateurs peuvent faire ici).
 
-Une fonctionnalité qui peut être désactivée (Docker, Vulnérabilités, ClickUp…) a son interrupteur dans l’en-tête de la page, et un point dans l’arbre : plein quand elle est activée, creux quand elle est désactivée. Un fournisseur autre que celui choisi affiche **inutilisé** (une CLI d’agent qu’un dépôt utilise, **N dépôts**) ; sa page reste modifiable, ses clés s’appliquent une fois qu’il est choisi.
+Un domaine se replie avec son chevron, et dit combien de ses fonctions sont allumées (`3/5`). Une fonctionnalité qui peut être désactivée (Docker, Vulnérabilités, ClickUp…) a son interrupteur dans l’en-tête de la page et un point dans l’arbre : plein quand elle est activée, creux quand elle est désactivée.
 
-Le champ **Rechercher un réglage ou une clé…** filtre l’arbre par nom de page, table (`[gitlab]`, `[[repos]]`) ou clé (`merge_queue_label`). **Activés**, **Modifiés** et **À vérifier** ne montrent que les fonctionnalités activées, les pages avec des modifications non enregistrées, ou celles où une vérification a échoué.
+Partout où il y a plusieurs fournisseurs, le choix se fait en haut de la page de la fonctionnalité : Tracker (ClickUp, Jira, Obsidian), Calendrier, Mail, Forge (GitLab, GitHub), Agent (Claude Code, Command Code, OpenCode, Codex). La page contient ce qu’ils partagent, puis les clés du fournisseur choisi (Forge › GitLab `[gitlab]` : hôte, label de la file de merge ; chaque CLI son `[agents.<cli>]` : **Binaire** et **Arguments supplémentaires**…). Les autres attendent repliés en bas, **Autres fournisseurs**, toujours modifiables : une CLI d’agent qu’un dépôt utilise le dit (**N dépôts**). Une page de plusieurs sections a leurs ancres en haut ; une page faite de plusieurs étapes les montre en onglets.
 
-[Ouvrir les Réglages](prism:settings/appearance)
+Les clés rarement changées sont repliées à la fin de leur section (**5 réglages avancés**, et leurs noms) : un clic les ouvre, et la recherche les trouve quand même.
+
+[Ouvrir les Réglages](prism:settings/overview)
+
+## Trouver un réglage
+Le champ de recherche en haut de l’arbre (`/` ou `⌘F`) liste les réglages eux-mêmes, pas leurs pages : chaque résultat dit où il vit (domaine › page › section), sa clé, sa valeur et d’où vient cette valeur, et un interrupteur, un choix ou un nombre se change sur place. `↑` et `↓` choisissent un résultat, `↵` ouvre sa page sur cette clé, mise en évidence (son pli ouvert si c’était un réglage avancé, ou celui d’un autre fournisseur), `Échap` efface. Les pages dont le nom répond s’affichent en puces au-dessus des résultats.
+
+Elle cherche dans le libellé, la clé (`agents.font_size`), l’aide, les choix, la valeur (`vim`, `gitlab`) et d’autres mots pour la même chose (« sombre » trouve le thème, « ne pas déranger » les heures calmes), sans tenir compte des accents ni de la casse, chaque mot tapé trouvé quelque part (« taille chat »). Des lettres dans l’ordre et rapprochées trouvent un mot mal tapé (`wrkt`). Une table entre crochets ne garde que ses clés : `[forge] branche`.
+
+Sous le champ, les filtres listent : **Allumés** (les fonctions activées), **Non enregistrés**, **Hors défaut** (vos propres clés dans config.toml), **Venus d’un pack**, **Attention** (une vérification a échoué, ou une source n’a pas pu être lue), chacun avec son compte.
 
 ## Lire un champ
 Chaque champ montre son libellé, une courte explication et sa clé dans le fichier. Deux badges indiquent quand une modification prend effet :
@@ -37,7 +44,7 @@ Chaque champ montre son libellé, une courte explication et sa clé dans le fich
 
 Un dossier (le clone d’un dépôt, le dossier des worktrees, le coffre Obsidian…) peut être tapé, ou choisi avec le bouton dossier à côté, qui ouvre le sélecteur du système ; un dossier de votre dossier personnel s’écrit `~/…`. Sous **Packs**, **Choisir…** sélectionne de la même façon un fichier de pack à importer.
 
-À droite, **par défaut** signifie que la clé n’est pas dans votre fichier et que la valeur intégrée s’applique. Une fois réglée, **Rétablir la valeur par défaut** retire à nouveau la clé. Un champ modifié est mis en évidence jusqu’à l’enregistrement.
+À droite, un badge dit d’où vient la valeur : **défaut** (la clé n’est dans aucun fichier, la valeur intégrée s’applique), **pack <nom>** (un pack la donne), **config.toml** (la vôtre), ou **non enregistré** (changée ici, jusqu’à l’enregistrement). `↺` revient en arrière : une modification non enregistrée est annulée ; une clé de config.toml est retirée, et la valeur du pack, sinon le défaut, s’applique à nouveau. Un champ modifié est mis en évidence jusqu’à l’enregistrement.
 
 Certaines valeurs sont vérifiées en direct : le projet d’un dépôt sur la forge, un contexte kube, un chemin de dépôt, un dossier, votre connexion gcloud. Le verdict apparaît à côté du champ, avec une coche ou un avertissement, et **Vérifier à nouveau** relance les vérifications. Pour une source (la forge, ClickUp, Worktrees…), le haut de la section indique aussi si elle a été **lue correctement avec la config actuelle** ou pourquoi la dernière lecture a échoué.
 
@@ -47,13 +54,13 @@ Certaines valeurs sont vérifiées en direct : le projet d’un dépôt sur la 
 ## Enregistrer
 Les modifications ne sont écrites qu’à l’enregistrement.
 
-1. Modifiez autant de champs que vous voulez, dans n’importe quelle section. Une barre en bas compte les modifications non enregistrées.
+1. Modifiez autant de champs que vous voulez, dans n’importe quelle section. Une barre en bas compte les modifications non enregistrées ; **Afficher les modifications** les liste clé par clé, avant → après, chacune avec `↺` pour l’annuler.
 2. Appuyez sur `⌘S` ou cliquez sur **Enregistrer dans config.toml**. **Annuler** les abandonne.
 3. Si un réglage enregistré est lu au lancement, la barre nomme les sections concernées et propose **Redémarrer Prism**.
 
 Après avoir modifié `config.toml` à la main, `restart` dans la console, ou `prism restart` dans un terminal, redémarre Prism pour qu’il le relise.
 
-Le bouton **TOML** montre le fichier à côté des réglages, avec ce que l’enregistrement écrirait. L’enregistrement ne réécrit que les clés modifiées : vos commentaires, l’ordre et la mise en forme du fichier sont conservés, et la version précédente est copiée dans `config.toml.bak`.
+Le bouton **TOML** (fermé au départ : chaque clé dit déjà sa table et son origine ; Prism s’en souvient une fois ouvert) montre le fichier à côté des réglages, avec ce que l’enregistrement écrirait. L’enregistrement ne réécrit que les clés modifiées : vos commentaires, l’ordre et la mise en forme du fichier sont conservés, et la version précédente est copiée dans `config.toml.bak`.
 
 Avec des packs, un menu en haut de ce panneau passe d’une vue à l’autre parmi trois :
 - **config.toml** : votre fichier, avec ce que l’enregistrement écrirait.
@@ -122,9 +129,9 @@ Le formulaire montre les issues qui ressemblent à la vôtre (un 👍 plutôt qu
 Prism affiche ses propres infobulles, aux couleurs du thème, avec les raccourcis sous forme de touches (`Only mine` `m`). Sous **Réglages › Interface › Apparence**, **Infobulles** règle le délai avant qu’une infobulle s’affiche (passer à la suivante l’affiche tout de suite), ou revient à celles du système.
 
 ## Où se trouvent les seuils d’alerte
-Chaque seuil derrière une ligne des **Alertes** ou un badge se trouve dans **Réglages › Interface › Alertes et son** (`[alerts]`), un par règle : une branche en retard sur sa base, un job qui attend un runner, une revue qui vous attend, un ticket inactif, une session Claude en attente, ArgoCD désynchronisé, le rappel de réunion, un worktree utilisé, les seuils des pipelines de données et la taille d’une grosse MR. Ils s’appliquent tous dès l’enregistrement.
+Chaque seuil derrière une ligne des **Alertes** ou un badge se trouve dans **Réglages › Interface › Seuils** (`[alerts]`), un par règle : une branche en retard sur sa base, un job qui attend un runner, une revue qui vous attend, un ticket inactif, une session Claude en attente, ArgoCD désynchronisé, le rappel de réunion, un worktree utilisé, les seuils des pipelines de données et la taille d’une grosse MR. Ils s’appliquent tous dès l’enregistrement.
 
-[Ouvrir Réglages › Interface › Alertes et son](prism:settings/alerts)
+[Ouvrir Réglages › Interface › Seuils](prism:settings/alerts)
 
 ## L’usage de Claude et la barre d’état
 La barre d’état en bas de la fenêtre, ses zones et comment l’arranger sont dans [Pages, blocs et disposition](prism:help/pages).

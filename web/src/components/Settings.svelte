@@ -27,11 +27,14 @@
   import ListInput from './settings/ListInput.svelte'
   import { DEFAULT_HIDDEN, STATUS_ITEMS, SIDE_BREAK } from '../statusbar'
   import { statusbarEditing } from '../statusbar-edit.svelte'
-  import { SCHEMA, type SectionSpec } from '../settings-schema'
+  import { SCHEMA } from '../settings-schema'
+  import Control from './settings/Control.svelte'
   import { ensure, failing, recheck, runs, sectionRequests } from '../settings-checks.svelte'
   import { live } from '../live.svelte'
-  import { chainOf, descendants, NODES, PARENT, pageOf, TREE, type TreeNode } from '../settings-tree'
-  import { cfg, changes, discardConfig, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, packBusy, packRef, removePack, restartApp, saveConfig, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
+  import { chainOf, descendants, groupsOf, isProvider, nodeOf, PARENT, pageOf, TREE, type TreeNode } from '../settings-tree'
+  import { fieldsOf, pathOf, SECTION, type Section } from '../settings-sections'
+  import { buildIndex, pageNode, pagesFor, search, shown as showValue, type Entry } from '../settings-search'
+  import { cfg, changes, discardConfig, discardValue, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, savedValue, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
   import { DEFAULT_APPEARANCE, system, replayBoot, SAVER_MODES, startSaver, type Feature, type SaverMode } from '../fun.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { THEMES } from '../theme.svelte'
@@ -45,56 +48,85 @@
   import ModulesSettings from './settings/ModulesSettings.svelte'
 
   /**
-   * Settings view: the mirror of config.toml. A tree of pages sorted by what they configure
-   * (settings-tree.ts), the chosen page — one or more sections, each a table of the file — and the
-   * file alongside, showing what saving would write. Appearance gathers the app preferences
-   * (theme, Fun), applied immediately; the rest is saved with ⌘S.
+   * Settings view: the mirror of config.toml. Seven domains of pages sorted by what they configure
+   * (settings-tree.ts), opening on their overview; the chosen page — one or more sections, each a
+   * table of the file, a provider's chosen at its top — and, when asked, the file alongside,
+   * showing what saving would write. A search lists the keys themselves (settings-search.ts).
+   * Appearance gathers the app preferences (theme, Fun), applied immediately; the rest is saved
+   * with ⌘S, the bar at the bottom listing each change.
    */
-  /** Profiles, Packs, Appearance, Console, Notes and Config file have their own layout; the others come from the schema. */
-  interface Section { id: string; label: string; table: string; spec?: SectionSpec }
-  const SECTIONS: Section[] = [
-    { id: 'profiles', label: t('Profiles'), table: 'profiles/' },
-    { id: 'packs', label: t('Packs'), table: 'packs = […]' },
-    { id: 'appearance', label: t('Appearance'), table: '[appearance]' },
-    { id: 'console', label: t('Console'), table: '[console]' },
-    { id: 'notes', label: t('Notes'), table: '[notes]' },
-    { id: 'updates-now', label: t('Updates'), table: '[updates]' },
-    { id: 'remote-devices', label: t('Devices'), table: '[remote]' },
-    { id: 'remote-away-checks', label: t('Before leaving'), table: '[remote]' },
-    { id: 'feedback-requests', label: t('My requests'), table: 'feedback.json' },
-    { id: 'dependencies', label: t('Dependencies'), table: 'PATH' },
-    { id: 'cli-command', label: t('Command line'), table: 'prism --help' },
-    { id: 'custom-blocks', label: t('Custom blocks'), table: '[[custom_blocks]]' },
-    { id: 'routines', label: t('Routines'), table: '[[agents.routines]]' },
-    { id: 'mcp-agents', label: t('Agents'), table: 'prism mcp' },
-    { id: 'dictation-panel', label: t('Engine and models'), table: '[dictation]' },
-    { id: 'cleanup-usage', label: t('What you use'), table: 'usage.json' },
-    ...SCHEMA.map((spec) => ({ id: spec.id, label: spec.label, table: spec.table, spec })),
-    { id: 'file', label: t('Config file'), table: 'config.toml' },
-  ]
-  const SECTION = new Map(SECTIONS.map((s) => [s.id, s]))
   const sectionsOf = (n: TreeNode) => (n.sections ?? []).map((id) => SECTION.get(id)).filter((s) => !!s)
 
-  /* ---------- Tree ---------- */
-  /** The page shown, and its sections; a link may name a section (settings/gitlab) or a page. */
-  const page = $derived(pageOf(settingsView.section) ?? NODES.get('appearance')!)
-  const chain = $derived(chainOf(page))
-  const pageSections = $derived(sectionsOf(page))
+  /* ---------- Page ---------- */
+  /**
+   * What a link names (`settingsView.section`): a page, a provider (shown in its page), a section
+   * (scrolled to), a domain (its pages), or nothing: the overview.
+   */
+  const target = $derived(settingsView.section === 'overview' ? undefined : nodeOf(settingsView.section))
+  const page = $derived(target ? (pageOf(target.id) ?? target) : undefined)
+  /** A domain shows its pages, as the overview does for all. */
+  const domain = $derived(page && !PARENT.get(page.id) ? page : undefined)
+  const chain = $derived(page ? chainOf(page) : [])
+  const pageSections = $derived(page && !domain ? sectionsOf(page) : [])
   /** A page in tabs (a delivery model's stages): its first section, then the chosen tab. */
-  const tab = $derived(page.tabs ? (pageSections.slice(1).find((s) => s.id === settingsView.section) ?? pageSections[1]) : undefined)
-  const shown = $derived(page.tabs ? [pageSections[0], tab!] : pageSections)
-  /** Once each: Repositories' two sections both live in `[[repos]]`. */
-  const tables = $derived([...new Set(pageSections.map((s) => s.table))])
-  const go = (id: string) => (settingsView.section = id)
+  const tab = $derived(page?.tabs ? (pageSections.slice(1).find((s) => s.id === settingsView.section) ?? pageSections[1]) : undefined)
+  const shownSections = $derived(page?.tabs ? [pageSections[0], tab!] : pageSections)
+  const go = (id: string) => {
+    settingsView.section = id
+    settingsView.focus = ''
+  }
   /** “Delivery · branch stage” → “Branch stage”: a tab's name. */
   const stageLabel = (label: string) => label.replace(/^.*· /, '').replace(/^./, (c) => c.toUpperCase())
-  // A link to a section lower on its page scrolls to it.
+
+  /* ---------- Providers ---------- */
+  /** The value of a page's choice (Tracker › Provider…). */
+  const chosen = (n: TreeNode | null | undefined) => (n?.choice ? String(valueOf(n.choice.path, n.choice.fallback)) : undefined)
+  const providers = $derived(page?.children?.filter(isProvider) ?? [])
+  const chosenProvider = $derived(providers.find((p) => p.provider === chosen(page)))
+  const otherProviders = $derived(providers.filter((p) => p !== chosenProvider))
+  /** Once each: Repositories' two sections both live in `[[repos]]`. */
+  const tables = $derived([...new Set([...pageSections, ...(chosenProvider ? sectionsOf(chosenProvider) : [])].map((s) => s.table))])
+  /** The repositories running an agent CLI of their own (`[[repos]] agent`), for its provider. */
+  const repoUses = (n: TreeNode) => (n.provider && PARENT.get(n.id)?.id === 'agents' ? mergedRows(['repos']).filter((r) => r.agent === n.provider).length : 0)
+  /** The other providers, folded: opened by a click, by a link or a result naming one of them. */
+  let othersUnfolded = $state(false)
+  const othersOpen = $derived(othersUnfolded || otherProviders.some((p) => p === target || (settingsView.focus && sectionsOf(p).some((s) => focusIn(s)))))
   $effect(() => {
-    const id = settingsView.section
-    if (page.tabs || id === page.id || id === pageSections[0]?.id) return
-    requestAnimationFrame(() => document.getElementById(`sec-${id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+    void page?.id
+    othersUnfolded = false
   })
 
+  /** The keys a section leaves to the page: the feature switch (header), the provider's choice (top). */
+  const hideOf = (s: Section): string[] => {
+    if (!page) return []
+    const out = page.toggle === s.id ? ['enabled'] : []
+    if (page.choice && s.spec && s.spec.path.join('.') === page.choice.path.slice(0, -1).join('.')) out.push(page.choice.path.at(-1)!)
+    return out
+  }
+  /** The page's anchors, when it has several sections: its own, then the chosen provider's. */
+  const anchors = $derived(page?.tabs ? [] : [...shownSections, ...(chosenProvider ? sectionsOf(chosenProvider) : [])])
+  const anchorTo = (id: string) => document.getElementById(`sec-${id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  // A link to a section, or to a provider, lower on its page scrolls to it.
+  $effect(() => {
+    const id = settingsView.section
+    if (!page || page.tabs || settingsView.focus || id === page.id || id === pageSections[0]?.id) return
+    const to = target && isProvider(target) ? (sectionsOf(target)[0]?.id ?? id) : id
+    requestAnimationFrame(() => document.getElementById(`sec-${to}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+  })
+  // A result opened on a key: scrolled to it once its fold is open, highlighted a moment.
+  $effect(() => {
+    const key = settingsView.focus
+    if (!key) return
+    const timer = setTimeout(() => document.getElementById(`f-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60)
+    const done = setTimeout(() => settingsView.focus === key && (settingsView.focus = ''), 3000)
+    return () => (clearTimeout(timer), clearTimeout(done))
+  })
+  const focusIn = (s: Section) => {
+    const base = pathOf(s)
+    return !!base && fieldsOf(s).some((f) => [...base, f.key].join('.') === settingsView.focus)
+  }
+
+  /* ---------- Switches and states ---------- */
   /** The feature switch of a node: its section's `enabled` key. */
   const switchPath = (n: TreeNode) => {
     const spec = n.toggle ? SECTION.get(n.toggle)?.spec : undefined
@@ -104,66 +136,20 @@
     const p = switchPath(n)
     return p && cfg.file ? !!valueOf(p) : undefined
   }
-  const pageSwitch = $derived(switchPath(page))
+  const flip = (n: TreeNode) => {
+    const p = switchPath(n)
+    if (p) setValue(p, !valueOf(p))
+  }
+  const pageSwitch = $derived(page ? switchPath(page) : null)
   const pageOn = $derived(!!pageSwitch && !!valueOf(pageSwitch))
   const switchField = (n: TreeNode) => SECTION.get(n.toggle ?? '')?.spec?.fields.find((f) => f.key === 'enabled')
-  /** The value of a node's choice (Tracker › Provider…), and of its parent's for a provider. */
-  const chosen = (n: TreeNode | null | undefined) => (n?.choice ? String(valueOf(n.choice.path, n.choice.fallback)) : undefined)
-  const parentOf = (n: TreeNode) => PARENT.get(n.id)
-  /** A provider other than its parent's choice. */
-  const unchosen = (n: TreeNode) => !!n.provider && n.provider !== chosen(parentOf(n))
-  /** The repositories running an agent CLI of their own (`[[repos]] agent`), for its node. */
-  const repoUses = (n: TreeNode) => (n.provider && parentOf(n)?.id === 'agents' ? mergedRows(['repos']).filter((r) => r.agent === n.provider).length : 0)
-  /** An unused provider's tag: the repositories that run it, if any. */
-  const unusedTag = (n: TreeNode) => (repoUses(n) ? tn(repoUses(n), '{n} repo', '{n} repos') : t('unused'))
-  // An unused provider stays plain: its keys are edited ahead, or apply to a repository's agents.
-  const inactive = (n: TreeNode) => isOn(n) === false
+  /** A page and its providers' sections. */
   const nodeSections = (n: TreeNode) => descendants(n).flatMap(sectionsOf)
   const nodeDirty = (n: TreeNode) => nodeSections(n).some(dirty)
   const nodeAttention = (n: TreeNode) => nodeSections(n).some(attention)
-
-  /** Search: names, tables, and the keys and labels of the fields. */
-  let query = $state('')
-  type Filter = 'all' | 'on' | 'changed' | 'attention'
-  let filter = $state<Filter>('all')
-  const FILTERS: { id: Filter; label: string; title: string }[] = [
-    { id: 'all', label: t('All'), title: t('Every page') },
-    { id: 'on', label: tc('filter', 'On'), title: t('The features switched on') },
-    { id: 'changed', label: tc('settings', 'Changed'), title: t('Unsaved changes') },
-    { id: 'attention', label: t('Attention'), title: t('A check failed, or a source could not be read') },
-  ]
-  const textOf = (n: TreeNode) =>
-    [n.label, ...sectionsOf(n).flatMap((s) => [s.label, s.table, ...(s.spec?.fields.flatMap((f) => [f.key, f.label]) ?? [])])].join(' ').toLowerCase()
-  const TEXT = new Map([...NODES.values()].map((n) => [n.id, textOf(n)]))
-  /** `[cleanup] hide_off`: a feature turned off leaves the tree, unless searched for or shown. */
-  const hideOff = $derived(!!valueOf(['cleanup', 'hide_off'], false))
-  const selfMatch = (n: TreeNode) => {
-    const q = query.trim().toLowerCase()
-    if (q && !TEXT.get(n.id)!.includes(q)) return false
-    if (filter === 'on') return isOn(n) === true
-    if (filter === 'changed') return nodeDirty(n)
-    if (filter === 'attention') return nodeAttention(n)
-    return true
-  }
-  const offHidden = (n: TreeNode) => hideOff && !query.trim() && inactive(n) && !chainOf(page).includes(n)
-  const visibleNode = (n: TreeNode): boolean => !offHidden(n) && (selfMatch(n) || (n.children ?? []).some(visibleNode))
-  const narrowed = $derived(!!query.trim() || filter !== 'all')
-  /** Folded nodes, remembered; a search or a filter unfolds every match. */
-  let folded = $state(new Set(pref<string[]>('settings.folded', [])))
-  const isOpen = (n: TreeNode) => narrowed || !folded.has(n.id)
-  function fold(n: TreeNode, open = folded.has(n.id)) {
-    const next = new Set(folded)
-    if (open) next.delete(n.id)
-    else next.add(n.id)
-    folded = next
-    setPref('settings.folded', [...next])
-  }
-  /** ← folds the page's node, → unfolds it, while the tree has the focus. */
-  function onTreeKey(e: KeyboardEvent) {
-    if (!page.children || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
-    e.preventDefault()
-    fold(page, e.key === 'ArrowRight')
-  }
+  const inactive = (n: TreeNode) => isOn(n) === false
+  /** A domain's pages with a switch, and those on. */
+  const switches = (root: TreeNode) => (root.children ?? []).filter((n) => switchPath(n))
   /** A section's key prefix: its table, or its `[[tables]]` key. */
   const prefix = (s: Section) => (s.spec ? (s.spec.path.length ? s.spec.path.join('.') : (s.spec.fields[0]?.key ?? s.id)) : s.id)
   const dirty = (s: Section) => changes().some((k) => (s.spec?.keys ? s.spec.keys.includes(k) : k === prefix(s) || k.startsWith(`${prefix(s)}.`)))
@@ -178,7 +164,98 @@
   /** A pack's blocks whose settings changed while they do not reload: they wait for a restart. */
   const waiting = $derived(live.snapshot?.waiting_restart ?? [])
 
-  let showToml = $state(pref<boolean>('settings.toml', true))
+  /* ---------- Search ---------- */
+  /**
+   * The search lists keys (settings-search.ts), each changed in place; ↵ opens the page on the
+   * one chosen. The filters keep the keys changed, written in config.toml or given by a pack, or
+   * the pages on or needing attention; each says how many.
+   */
+  const INDEX = buildIndex()
+  let query = $state('')
+  let searchInput = $state<HTMLInputElement>()
+  type Filter = 'all' | 'on' | 'changed' | 'file' | 'pack' | 'attention'
+  let filter = $state<Filter>('all')
+  const FILTERS: { id: Filter; label: string; title: string }[] = [
+    { id: 'all', label: t('All'), title: t('Every page') },
+    { id: 'on', label: tc('filter', 'On'), title: t('The features switched on') },
+    { id: 'changed', label: t('Not saved'), title: t('Unsaved changes') },
+    { id: 'file', label: t('Not default'), title: t('Written in config.toml: your own values') },
+    { id: 'pack', label: t('From a pack'), title: t('Given by a pack, not changed in config.toml') },
+    { id: 'attention', label: t('Attention'), title: t('A check failed, or a source could not be read') },
+  ]
+  /** The filters on keys; `on` and `attention` keep pages. */
+  const keyFilter = (f: Filter, e: Entry) => (f === 'changed' ? isChanged(e.path) : f === 'file' ? originOf(e.path) === 'file' : f === 'pack' ? originOf(e.path) === 'pack' : f === 'on' ? isOn(e.page) === true : f === 'attention' ? attention(e.section) : true)
+  const pages = $derived(TREE.flatMap((r) => r.children ?? []))
+  const pageFilter = (f: Filter, n: TreeNode) => (f === 'on' ? isOn(n) === true : f === 'attention' ? nodeAttention(n) : true)
+  const counts = $derived.by(() => ({
+    all: 0,
+    on: pages.filter((n) => isOn(n) === true).length,
+    changed: changes().length,
+    file: INDEX.filter((e) => originOf(e.path) === 'file').length,
+    pack: INDEX.filter((e) => originOf(e.path) === 'pack').length,
+    attention: pages.filter(nodeAttention).length,
+  }))
+  const searching = $derived(!!query.trim() || filter !== 'all')
+  const valueText = (e: Entry) => showValue(valueOf(e.path))
+  /** The keys listed: those answering the query, kept by the filter (a page filter alone lists pages). */
+  const results = $derived.by(() => {
+    if (!searching) return []
+    if (!query.trim() && (filter === 'on' || filter === 'attention')) return []
+    return (query.trim() ? search(INDEX, query, valueText) : INDEX).filter((e) => keyFilter(filter, e)).slice(0, 200)
+  })
+  /** The pages answering the query, or kept by a page filter: chips above the keys. */
+  const pageChips = $derived(searching ? (query.trim() ? pagesFor(query) : pages).filter((n) => pageFilter(filter, pageNode(n))) : [])
+  let selected = $state(0)
+  $effect(() => {
+    void query
+    void filter
+    selected = 0
+  })
+  function openEntry(e: Entry) {
+    settingsView.section = (e.provider ?? e.page).id
+    settingsView.focus = e.key
+    query = ''
+    filter = 'all'
+  }
+  function onSearchKey(e: KeyboardEvent) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const n = results.length
+      if (n) selected = (selected + (e.key === 'ArrowDown' ? 1 : n - 1)) % n
+      document.getElementById(`res-${selected}`)?.scrollIntoView({ block: 'nearest' })
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (results[selected]) openEntry(results[selected])
+      else if (pageChips[0]) go(pageChips[0].id)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      if (query || filter !== 'all') {
+        query = ''
+        filter = 'all'
+      } else searchInput?.blur()
+    }
+  }
+  /** In the tree while searching: the pages with a key listed, or listed themselves. */
+  const listedPages = $derived(new Set([...results.map((e) => e.page.id), ...pageChips.map((n) => pageNode(n).id)]))
+  const visiblePage = (n: TreeNode) => !searching || listedPages.has(n.id)
+
+  /** Folded domains, remembered; a search unfolds every match. */
+  let folded = $state(new Set(pref<string[]>('settings.folded', [])))
+  const isOpen = (n: TreeNode) => searching || !folded.has(n.id) || (!!page && chainOf(page).includes(n))
+  function fold(n: TreeNode) {
+    const next = new Set(folded)
+    if (isOpen(n)) next.add(n.id)
+    else next.delete(n.id)
+    folded = next
+    setPref('settings.folded', [...next])
+  }
+  /** `[cleanup] hide_off`: a feature turned off leaves the tree, unless searched for or shown. */
+  const hideOff = $derived(!!valueOf(['cleanup', 'hide_off'], false))
+  const offHidden = (n: TreeNode) => hideOff && !searching && inactive(n) && n !== page
+
+  /** The TOML panel: closed at first (each key says its table and origin), remembered once opened. */
+  let showToml = $state(pref<boolean>('settings.toml', false))
   function toggleToml() {
     showToml = !showToml
     setPref('settings.toml', showToml)
@@ -204,6 +281,10 @@
     )
     return () => (gone = true)
   })
+
+  /** The save bar's list of changes, key by key: before → after. */
+  let diffOpen = $state(false)
+  const diff = $derived(changes().map((k) => ({ key: k, path: k.split('.'), before: savedValue(k.split('.')), after: cfg.edits[k] })))
 
   /* ---------- Screensaver ---------- */
   const saverOn = $derived(valueOf(['appearance', 'screensaver'], true))
@@ -306,14 +387,14 @@
   /** Opening the page reads the releases, once (the periodic check reads nothing with its switch off). */
   let updatesRead = false
   $effect(() => {
-    if (page.id !== 'updates' || updatesRead) return
+    if (page?.id !== 'updates' || updatesRead) return
     updatesRead = true
     void checkUpdates()
   })
   /** The same for the packs' sources, on opening Packs. */
   let packsRead = false
   $effect(() => {
-    if (page.id !== 'packs' || packsRead) return
+    if (page?.id !== 'packs' || packsRead) return
     packsRead = true
     void checkPacks()
   })
@@ -330,11 +411,21 @@
     }
   }
 
+  /** ⌘S saves; / (out of a field) or ⌘F puts the cursor in the search. */
   function onkeydown(e: KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    const mod = e.metaKey || e.ctrlKey
+    if (mod && e.key === 's') {
       e.preventDefault()
       void saveConfig()
+    } else if ((mod && e.key === 'f') || (e.key === '/' && !mod && !typingIn(e))) {
+      e.preventDefault()
+      searchInput?.focus()
+      searchInput?.select()
     }
+  }
+  const typingIn = (e: KeyboardEvent) => {
+    const el = e.target as HTMLElement | null
+    return !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
   }
   /** "Saved" for a few seconds after saving. */
   let saved = $state(false)
@@ -350,51 +441,52 @@
 
 <div class="settings layer-in"><div class="layout" class:withtoml={showToml}>
   <aside class="toc">
-    <label class="search"><Icon name="search" /><input bind:value={query} placeholder={t('Search settings or keys…')} spellcheck="false" /></label>
+    <label class="search"><Icon name="search" /><input bind:this={searchInput} bind:value={query} onkeydown={onSearchKey} placeholder={t('Search a setting, a key, a value…')} spellcheck="false" aria-label={t('Search the settings')} />{#if query}<button class="clear" onclick={() => (query = '')} aria-label={t('Clear the search')}><Icon name="close" /></button>{:else}<kbd>/</kbd>{/if}</label>
     <div class="filters">
-      {#each FILTERS as f (f.id)}<button class:on={filter === f.id} onclick={() => (filter = f.id)} title={f.title}>{f.label}</button>{/each}
+      {#each FILTERS as f (f.id)}<button class:on={filter === f.id} onclick={() => (filter = filter === f.id && f.id !== 'all' ? 'all' : f.id)} title={f.title}>{f.label}{#if f.id !== 'all'}<span class="n" class:hot={counts[f.id] > 0}>{counts[f.id]}</span>{/if}</button>{/each}
     </div>
-    {#snippet branch(list: TreeNode[], depth: number)}
-      {#each list.filter(visibleNode) as n (n.id)}
-        <div class="node" class:root={depth === 0} class:on={n.id === page.id} class:off={inactive(n)}>
-          {#if n.children}<button class="car" class:open={isOpen(n)} tabindex="-1" onclick={() => fold(n)} aria-label={isOpen(n) ? t('Fold {name}', { name: n.label }) : t('Unfold {name}', { name: n.label })}><Icon name="chevronRight" /></button>{:else}<span class="car"></span>{/if}
-          <button class="lbl" onclick={() => go(n.id)} title={sectionsOf(n).map((s) => s.table).join(' ')}>
-            {#if depth === 0}<span class="sw" style:background={n.color}></span>{/if}
-            <span class="name">{n.label}</span>
-            {#if n.choice}<span class="tag">{chosen(n)}</span>{:else if unchosen(n)}<span class="tag" class:repo={repoUses(n) > 0}>{unusedTag(n)}</span>{/if}
-            {#if nodeDirty(n)}<span class="dot warn" title={t('Unsaved changes')}></span>
-            {:else if nodeAttention(n)}<span class="warn" title={t('A check failed, or this source could not be read')}><Icon name="warning" /></span>
-            {:else if isOn(n) !== undefined}<span class="dot" class:ok={isOn(n)} title={isOn(n) ? t('On') : t('Off')}></span>{/if}
-          </button>
-        </div>
-        {#if n.children && isOpen(n)}<div class="kids">{@render branch(n.children, depth + 1)}</div>{/if}
-      {:else}
-        {#if depth === 0}<p class="hint none">{t('Nothing matches.')}</p>{/if}
+    <nav class="tree">
+      <div class="node top" class:on={!page}><span class="car"></span><button class="lbl" onclick={() => go('overview')}><Icon name="kanban" /><span class="name">{t('Overview')}</span></button></div>
+      {#each TREE as root (root.id)}
+        {@const kids = (root.children ?? []).filter((n) => visiblePage(n) && !offHidden(n))}
+        {@const sw = switches(root)}
+        {#if kids.length || !searching}
+          <div class="node root" class:on={root === page}>
+            <button class="car" class:open={isOpen(root)} tabindex="-1" onclick={() => fold(root)} aria-label={isOpen(root) ? t('Fold {name}', { name: root.label }) : t('Unfold {name}', { name: root.label })}><Icon name="chevronRight" /></button>
+            <button class="lbl" onclick={() => go(root.id)}>
+              <span class="sw" style:background={root.color}></span><span class="name">{root.label}</span>
+              {#if sw.length}<span class="cnt" title={t('Features on')}>{sw.filter((n) => isOn(n)).length}/{sw.length}</span>{/if}
+            </button>
+          </div>
+          {#if isOpen(root)}
+            <div class="kids">
+              {#each groupsOf(root) as g (g.id)}
+                {@const shownPages = g.pages.filter((n) => kids.includes(n))}
+                {#if shownPages.length}
+                  {#if g.label}<span class="grp">{g.label}</span>{/if}
+                  {#each shownPages as n (n.id)}
+                    <div class="node" class:on={n === page} class:off={inactive(n)}>
+                      <button class="lbl" onclick={() => go(n.id)} title={sectionsOf(n).map((s) => s.table).join(' ')}>
+                        <span class="name">{n.label}</span>
+                        {#if n.choice}<span class="tag">{chosen(n)}</span>{/if}
+                        {#if nodeDirty(n)}<span class="dot warn" title={t('Unsaved changes')}></span>
+                        {:else if nodeAttention(n)}<span class="warn" title={t('A check failed, or this source could not be read')}><Icon name="warning" /></span>
+                        {:else if isOn(n) !== undefined}<span class="dot" class:ok={isOn(n)} title={isOn(n) ? t('On') : t('Off')}></span>{/if}
+                      </button>
+                    </div>
+                  {/each}
+                {/if}
+              {/each}
+            </div>
+          {/if}
+        {/if}
       {/each}
-    {/snippet}
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <nav class="tree" onkeydown={onTreeKey}>{@render branch(TREE, 0)}</nav>
+      {#if searching && !listedPages.size}<p class="hint none">{t('Nothing matches.')}</p>{/if}
+    </nav>
     <span class="ver" title="{t('Prism version, and the commit it was built from')}{COMMIT.endsWith('+') ? t(' (+: with uncommitted changes)') : ''}">Prism {versionLabel()}</span>
   </aside>
 
   <section class="body">
-    {#if chain.length > 1}<div class="crumb">{#each chain.slice(0, -1) as c (c.id)}<button onclick={() => go(c.id)}>{c.label}</button><span>›</span>{/each}</div>{/if}
-    <div class="head">
-      <h3>{page.label}</h3>
-      {#each tables.slice(0, 3) as tb (tb)}<span class="path">{tb}</span>{/each}
-      {#if tables.length > 3}<span class="path" title={tables.slice(3).join(' ')}>+{tables.length - 3}</span>{/if}
-      <span class="grow"></span>
-      {#if pageSwitch}
-        <span class="feat" class:changed={isChanged(pageSwitch)} title={switchField(page)?.hint}>
-          {switchField(page)?.label}
-          <button class="toggle" class:on={pageOn} role="switch" aria-checked={pageOn} aria-label={switchField(page)?.label} onclick={() => setValue(pageSwitch, !pageOn)}><i></i></button>
-        </span>
-      {/if}
-      {#if pageSections.some((s) => s.spec && sectionRequests(s.spec).length)}<button class="btn sm ghost" onclick={recheck} title={t('Run the checks of the settings again')}>{t('Check again')}</button>{/if}
-      {#if editable()}<button class="btn sm ghost" onclick={() => configurePrism({ page: chain.map((c) => c.label).join(' › '), table: tables.join(' ') })} title={t('Ask an agent about this page: it reads Prism’s docs and your config, and proposes the change')}>✦ {t('Ask an agent')}</button>{/if}
-      <button class="btn sm ghost" onclick={toggleToml} aria-pressed={showToml} title={t('Show config.toml next to the settings')}>TOML</button>
-    </div>
-
     {#if !editable()}
       <p class="note warn">{t('Settings are edited from the app: in the browser preview they are read-only.')}</p>
     {:else if cfg.loading && !cfg.file}
@@ -671,60 +763,199 @@
         <p class="hint pad">{t('A setting applies as it is saved, here or in the file by hand (an editor, an agent): the sources it concerns are read again, the agents and the phone untouched. Only a pack’s block that does not reload waits for Prism to restart.')}</p>
       </div>
     {:else if s.spec}
-      <SectionFields spec={s.spec} hide={page.toggle === s.id ? ['enabled'] : []} />
+      <SectionFields spec={s.spec} hide={hideOf(s)} />
     {/if}
     {/snippet}
 
-    {#if unchosen(page)}
-      {@const parent = parentOf(page)!}
-      {@const uses = repoUses(page)}
-      <p class="note">{t('Not {noun} (now {chosen})', { noun: parent.choice!.noun, chosen: chosen(parent) ?? '' })}{#if uses}{tn(uses, ', but {n} repository runs it (Repositories › Agent): its keys apply there', ', but {n} repositories run it (Repositories › Agent): its keys apply there')}{:else}{t(': its keys apply once it is chosen')}{/if}. <button class="link" onclick={() => setValue(parent.choice!.path, page.provider)}>{t('Make {name} {noun}', { name: page.label, noun: parent.choice!.noun })}</button></p>
-    {/if}
-    {#each shown as s, i (s.id)}
-      {#if page.tabs && i === 1}
-        <div class="tabs" role="tablist">
-          {#each pageSections.slice(1) as ts (ts.id)}
-            <button role="tab" class:on={ts.id === tab?.id} aria-selected={ts.id === tab?.id} onclick={() => go(ts.id)}>{stageLabel(ts.label)}<span class="path">{ts.table}</span>{#if dirty(ts)}<span class="dot warn" title={t('Unsaved changes')}></span>{/if}</button>
+    {#if searching}
+      <!-- The search: keys, each changed in place; ↵ opens its page on it. -->
+      <div class="rhead">
+        <b>{query.trim() || filter === 'changed' || filter === 'file' || filter === 'pack' ? tn(results.length, '{n} setting', '{n} settings') : FILTERS.find((f) => f.id === filter)?.title}</b>
+        {#if filter !== 'all'}<span class="path">{FILTERS.find((f) => f.id === filter)?.label}</span>{/if}
+        <span class="grow"></span>
+        <span class="hint">{t('↑ ↓ to choose, ↵ to open its page, Esc to clear')}</span>
+        <button class="btn sm ghost" onclick={toggleToml} aria-pressed={showToml} title={t('Show config.toml next to the settings')}>TOML</button>
+      </div>
+      {#if pageChips.length}
+        <div class="chips">
+          {#each pageChips.slice(0, 16) as n (n.id)}
+            {@const at = pageNode(n)}
+            <button class="chip" class:off={inactive(at)} onclick={() => go(n.id)}><span class="sw" style:background={chainOf(at)[0].color}></span>{chainOf(at)[0].label} › {n === at ? n.label : `${at.label} › ${n.label}`}{#if isOn(at) !== undefined}<span class="dot" class:ok={isOn(at)}></span>{/if}</button>
           {/each}
         </div>
       {/if}
-      <div class="sec" id="sec-{s.id}">
-        {#if shown.length > 1 && !(page.tabs && i === 1) && !(i === 0 && s.label === page.label)}<h4 class="sub">{s.label}<span class="path">{s.table}</span></h4>{/if}
-        {@render body(s)}
-      </div>
-    {/each}
-    {#if page.children}
-      {#if page.sections}<h4 class="sub">{page.choice ? t('Providers') : t('More')}</h4>{:else}<p class="intro">{tn(page.children.length, '{name}: {n} page.', '{name}: {n} pages.', { name: page.label })}</p>{/if}
-      <div class="subs">
-        {#each page.children as c (c.id)}
-          <button class="subp" class:off={inactive(c)} onclick={() => go(c.id)}>
-            <span class="ptop"><b>{c.label}</b><span class="grow"></span>
-              {#if unchosen(c)}<span class="tag" class:repo={repoUses(c) > 0}>{unusedTag(c)}</span>{:else if c.provider}<span class="tag on">{tc('settings', 'in use')}</span>{/if}
-              {#if nodeDirty(c)}<span class="dot warn" title={t('Unsaved changes')}></span>{:else if nodeAttention(c)}<span class="warn"><Icon name="warning" /></span>{:else if isOn(c) !== undefined}<span class="dot" class:ok={isOn(c)} title={isOn(c) ? t('On') : t('Off')}></span>{/if}
-            </span>
-            <small class="mono">{sectionsOf(c).map((x) => x.table).join(' ')}</small>
-            {#if c.children}<small>{c.children.map((k) => k.label).join(', ')}</small>{/if}
-          </button>
+      <div class="results">
+        {#each results as e, i (e.id)}
+          {@const o = originOf(e.path)}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="res" class:sel={i === selected} id="res-{i}" onmouseenter={() => (selected = i)}>
+            <button class="rl" onclick={() => openEntry(e)} title={t('Open its page on it (↵)')}>
+              <span class="rc">{e.crumb.join(' › ')}</span>
+              <b>{e.field.label}</b>
+              <span class="key">{e.key}</span>
+              {#if e.field.hint}<small>{e.field.hint}</small>{/if}
+            </button>
+            <div class="rv">
+              {#if e.field.kind === 'toggle' || e.field.kind === 'select' || e.field.kind === 'number' || e.field.kind === 'text'}
+                <Control kind={e.field.kind} value={valueOf(e.path)} onchange={(v) => setValue(e.path, v)} options={e.field.options} labels={e.field.labels} optional={e.field.optional} placeholder={e.field.placeholder} unit={e.field.unit} step={e.field.step} compact />
+              {:else}<span class="val mono" title={showValue(valueOf(e.path))}>{showValue(valueOf(e.path))}</span>{/if}
+              <span class="origin {o}">{o === 'changed' ? t('not saved') : o === 'file' ? 'config.toml' : o === 'pack' ? packLabel(e.path) : tc('settings', 'default')}</span>
+            </div>
+          </div>
+        {:else}
+          {#if !pageChips.length}<p class="hint none">{t('No setting matches. Try another word, its TOML key, or a table: [forge].')}</p>{/if}
         {/each}
       </div>
+    {:else if !page || domain}
+      <!-- The overview: every feature by domain, its switch beside it, and what to look at. -->
+      <div class="head">
+        {#if domain}<div class="crumb"><button onclick={() => go('overview')}>{t('Settings')}</button><span>›</span></div>{/if}
+        <h3>{domain ? domain.label : t('Settings')}</h3>
+        <span class="grow"></span>
+        <button class="btn sm ghost" onclick={toggleToml} aria-pressed={showToml} title={t('Show config.toml next to the settings')}>TOML</button>
+      </div>
+      {#if !domain}
+        <div class="counters">
+          {#each [['changed', t('not saved'), t('Changes waiting for ⌘S')], ['file', t('not default'), t('Keys written in config.toml')], ['pack', t('from a pack'), t('Keys a pack gives')], ['attention', t('to check'), t('Pages whose check failed or whose source does not read')]] as const as [f, label, title] (f)}
+            <button class="counter {f}" class:hot={counts[f] > 0} onclick={() => (filter = f)} title={title}><b>{counts[f]}</b><span>{label}</span></button>
+          {/each}
+        </div>
+      {/if}
+      <div class="domains">
+        {#each domain ? [domain] : TREE as root (root.id)}
+          {@const sw = switches(root)}
+          <div class="dom">
+            <div class="dh">
+              <span class="sw" style:background={root.color}></span>
+              <button class="dn" onclick={() => go(root.id)}>{root.label}</button>
+              <span class="grow"></span>
+              {#if sw.length}<span class="cnt" title={t('Features on')}>{sw.filter((n) => isOn(n)).length}/{sw.length}</span>{/if}
+            </div>
+            {#each groupsOf(root) as g (g.id)}
+              {#if g.label}<span class="grp">{g.label}</span>{/if}
+              {#each g.pages as n (n.id)}
+                <div class="frow" class:off={inactive(n)}>
+                  <button class="fname" onclick={() => go(n.id)}>{n.label}</button>
+                  {#if n.choice}<span class="tag">{chosen(n)}</span>{/if}
+                  {#if nodeDirty(n)}<span class="dot warn" title={t('Unsaved changes')}></span>{:else if nodeAttention(n)}<span class="warn" title={t('A check failed, or this source could not be read')}><Icon name="warning" /></span>{/if}
+                  <span class="grow"></span>
+                  {#if switchPath(n)}<button class="toggle" class:on={!!isOn(n)} role="switch" aria-checked={!!isOn(n)} aria-label={n.label} onclick={() => flip(n)}><i></i></button>{/if}
+                </div>
+              {/each}
+            {/each}
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <div class="crumb"><button onclick={() => go('overview')}>{t('Settings')}</button><span>›</span>{#each chain.slice(0, -1) as c (c.id)}<button onclick={() => go(c.id)}>{c.label}</button><span>›</span>{/each}</div>
+      <div class="head">
+        <h3>{page.label}</h3>
+        {#each tables.slice(0, 3) as tb (tb)}<span class="path">{tb}</span>{/each}
+        {#if tables.length > 3}<span class="path" title={tables.slice(3).join(' ')}>+{tables.length - 3}</span>{/if}
+        <span class="grow"></span>
+        {#if pageSwitch}
+          <span class="feat" class:changed={isChanged(pageSwitch)} title={switchField(page)?.hint}>
+            {switchField(page)?.label}
+            <button class="toggle" class:on={pageOn} role="switch" aria-checked={pageOn} aria-label={switchField(page)?.label} onclick={() => setValue(pageSwitch, !pageOn)}><i></i></button>
+          </span>
+        {/if}
+        {#if pageSections.some((s) => s.spec && sectionRequests(s.spec).length)}<button class="btn sm ghost" onclick={recheck} title={t('Run the checks of the settings again')}>{t('Check again')}</button>{/if}
+        {#if editable()}<button class="btn sm ghost" onclick={() => configurePrism({ page: chain.map((c) => c.label).join(' › '), table: tables.join(' ') })} title={t('Ask an agent about this page: it reads Prism’s docs and your config, and proposes the change')}>✦ {t('Ask an agent')}</button>{/if}
+        <button class="btn sm ghost" onclick={toggleToml} aria-pressed={showToml} title={t('Show config.toml next to the settings')}>TOML</button>
+      </div>
+
+      {#if page.choice && providers.length}
+        <!-- The provider, chosen at the top: its keys below the page's, the others folded after. -->
+        <div class="choice">
+          <span class="clbl">{t('Provider')}</span>
+          <div class="seg" role="radiogroup" aria-label={page.choice.noun}>
+            {#each providers as p (p.id)}
+              <button role="radio" aria-checked={p === chosenProvider} class:on={p === chosenProvider} onclick={() => setValue(page.choice!.path, p.provider, page.choice!.fallback)}>{p.label}{#if repoUses(p)}<small class="uses">{tn(repoUses(p), '{n} repo', '{n} repos')}</small>{/if}</button>
+            {/each}
+          </div>
+          {#if isChanged(page.choice.path)}<span class="hint warn">{t('not saved')}</span>{/if}
+        </div>
+      {/if}
+      {#if anchors.length > 1}
+        <nav class="anchors" aria-label={t('Sections of the page')}>
+          {#each anchors as s (s.id)}<button onclick={() => anchorTo(s.id)}>{s.label}{#if dirty(s)}<span class="dot warn"></span>{:else if attention(s)}<span class="warn"><Icon name="warning" /></span>{/if}</button>{/each}
+        </nav>
+      {/if}
+      {#each shownSections as s, i (s.id)}
+        {#if page.tabs && i === 1}
+          <div class="tabs" role="tablist">
+            {#each pageSections.slice(1) as ts (ts.id)}
+              <button role="tab" class:on={ts.id === tab?.id} aria-selected={ts.id === tab?.id} onclick={() => go(ts.id)}>{stageLabel(ts.label)}<span class="path">{ts.table}</span>{#if dirty(ts)}<span class="dot warn" title={t('Unsaved changes')}></span>{/if}</button>
+            {/each}
+          </div>
+        {/if}
+        <div class="sec" id="sec-{s.id}">
+          {#if (shownSections.length > 1 || chosenProvider) && !(page.tabs && i === 1) && !(i === 0 && s.label === page.label)}<h4 class="sub">{s.label}<span class="path">{s.table}</span></h4>{/if}
+          {@render body(s)}
+        </div>
+      {/each}
+      {#if chosenProvider}
+        {#each sectionsOf(chosenProvider) as s (s.id)}
+          <div class="sec" id="sec-{s.id}">
+            <h4 class="sub">{chosenProvider.label}{#if s.label !== chosenProvider.label}<span class="soft">· {s.label}</span>{/if}<span class="path">{s.table}</span><span class="tag on">{tc('settings', 'in use')}</span></h4>
+            {@render body(s)}
+          </div>
+        {/each}
+      {/if}
+      {#if otherProviders.length}
+        <button class="others" class:open={othersOpen} onclick={() => (othersUnfolded = !othersOpen)} aria-expanded={othersOpen}>
+          <Icon name="chevronRight" /><b>{t('Other providers')}</b>
+          <span>{otherProviders.map((p) => (repoUses(p) ? `${p.label} (${tn(repoUses(p), '{n} repo', '{n} repos')})` : p.label)).join(', ')}</span>
+          <small>{t('not used, editable all the same')}</small>
+        </button>
+        {#if othersOpen}
+          {#each otherProviders as p (p.id)}
+            {#each sectionsOf(p) as s (s.id)}
+              <div class="sec other" id="sec-{s.id}">
+                <h4 class="sub">{p.label}{#if s.label !== p.label}<span class="soft">· {s.label}</span>{/if}<span class="path">{s.table}</span>
+                  {#if repoUses(p)}<span class="tag repo">{tn(repoUses(p), '{n} repo', '{n} repos')}</span>{:else}<span class="tag">{t('unused')}</span>{/if}
+                  <span class="grow"></span><button class="link" onclick={() => setValue(page.choice!.path, p.provider, page.choice!.fallback)}>{t('Make {name} {noun}', { name: p.label, noun: page.choice!.noun })}</button>
+                </h4>
+                {@render body(s)}
+              </div>
+            {/each}
+          {/each}
+        {/if}
+      {/if}
     {/if}
     {#if cfg.file?.error}<p class="note err">{t('config.toml does not load: {error}', { error: cfg.file.error })}</p>{/if}
     {#if cfg.file?.unread?.length}<p class="note warn">{t('Read by nothing in this Prism: {tables}. A module not installed, or a typo.', { tables: cfg.file.unread.map((tb) => `[${tb}]`).join(', ') })}</p>{/if}
 
     {#if changes().length || saved || waiting.length}
-      <div class="savebar" class:done={!changes().length}>
-        {#if changes().length}
-          <Icon name="edit" /><b>{tn(changes().length, '{n} change', '{n} changes')}</b><span class="hint">{t('not saved yet')}</span>
-          <span class="grow"></span>
-          <button class="btn ghost" onclick={discardConfig}>{t('Discard')}</button>
-          <button class="btn primary" class:busy={cfg.saving} onclick={saveConfig} disabled={cfg.saving || !editable()}>{#if cfg.saving}<span class="spinner"></span>{t('Saving…')}{:else}{t('Save to config.toml')} <span class="mono kbd">{keys('⌘S')}</span>{/if}</button>
-        {:else if waiting.length}
-          <Icon name="retry" /><b>{t('Saved')}</b><span class="hint">{tn(waiting.length, '{tables}, a pack’s block, applies at the next launch', '{tables}, a pack’s blocks, apply at the next launch', { tables: waiting.map((id) => `[${id}]`).join(', ') })}</span>
-          <span class="grow"></span>
-          <button class="btn primary" onclick={restartApp}>{t('Restart Prism')}</button>
-        {:else}
-          <Icon name="check" /><b>{t('Saved')}</b><span class="hint">{t('config.toml updated and applied')}</span>
+      <div class="savewrap">
+        {#if diffOpen && changes().length}
+          <div class="diff">
+            {#each diff as d (d.key)}
+              <div class="drow">
+                <span class="mono dkey">{d.key}</span>
+                <span class="before mono" title={showValue(d.before)}>{showValue(d.before)}</span>
+                <span class="arrow">→</span>
+                <span class="after mono" title={d.after === null ? '' : showValue(d.after)}>{d.after === null ? t('removed: the pack’s value or the default') : showValue(d.after)}</span>
+                <button class="reset" onclick={() => discardValue(d.path)} title={t('Drop this change')} aria-label={t('Drop this change')}>↺</button>
+              </div>
+            {/each}
+          </div>
         {/if}
+        <div class="savebar" class:done={!changes().length}>
+          {#if changes().length}
+            <Icon name="edit" /><b>{tn(changes().length, '{n} change', '{n} changes')}</b><span class="hint">{t('not saved yet')}</span>
+            <button class="btn sm ghost" onclick={() => (diffOpen = !diffOpen)} aria-expanded={diffOpen}>{diffOpen ? t('Hide the changes') : t('Show the changes')}</button>
+            <span class="grow"></span>
+            <button class="btn ghost" onclick={discardConfig}>{t('Discard')}</button>
+            <button class="btn primary" class:busy={cfg.saving} onclick={saveConfig} disabled={cfg.saving || !editable()}>{#if cfg.saving}<span class="spinner"></span>{t('Saving…')}{:else}{t('Save to config.toml')} <span class="mono kbd">{keys('⌘S')}</span>{/if}</button>
+          {:else if waiting.length}
+            <Icon name="retry" /><b>{t('Saved')}</b><span class="hint">{tn(waiting.length, '{tables}, a pack’s block, applies at the next launch', '{tables}, a pack’s blocks, apply at the next launch', { tables: waiting.map((id) => `[${id}]`).join(', ') })}</span>
+            <span class="grow"></span>
+            <button class="btn primary" onclick={restartApp}>{t('Restart Prism')}</button>
+          {:else}
+            <Icon name="check" /><b>{t('Saved')}</b><span class="hint">{t('config.toml updated and applied')}</span>
+          {/if}
+        </div>
       </div>
     {/if}
   </section>
@@ -766,9 +997,17 @@
   .toc { display: flex; flex-direction: column; gap: 1px; padding: 12px 8px; overflow: auto; background: var(--surface); border-right: 1px solid var(--border); }
   .search { display: flex; align-items: center; gap: 6px; height: 28px; margin: 0 2px 8px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); color: var(--text-muted); }
   .search input { flex: 1; min-width: 0; border: none; outline: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); }
-  .filters { display: flex; gap: 4px; margin: 0 2px 6px; }
-  .filters button { padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
+  .search kbd { padding: 0 5px; border: 1px solid var(--border); border-radius: var(--r4); color: var(--text-muted); font: var(--fs-tag) var(--mono); }
+  .search .clear { display: inline-flex; padding: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
+  .filters { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 2px 6px; }
+  .filters button { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
   .filters button.on { color: var(--accent); border-color: var(--accent); }
+  .filters .n { font-family: var(--mono); opacity: 0.6; }
+  .filters .n.hot { opacity: 1; color: var(--text); }
+  .grp { margin: 7px 0 1px 6px; color: var(--text-muted); font-size: var(--fs-tag); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+  .cnt { color: var(--text-muted); font: var(--fs-tag) var(--mono); font-weight: 400; }
+  .node.top { margin-bottom: 2px; }
+  .node.top .lbl :global(svg) { color: var(--text-muted); }
   /* Tree: a caret to fold, then the page; children indented along a line. */
   .tree { display: flex; flex-direction: column; gap: 1px; }
   .node { display: flex; align-items: center; border-radius: var(--r6); }
@@ -802,17 +1041,69 @@
   .head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .feat { display: inline-flex; align-items: center; gap: 7px; padding: 2px 4px 2px 8px; border-radius: var(--r6); color: var(--text-muted); font-size: var(--fs-meta); }
   .feat.changed { background: color-mix(in srgb, var(--warn) 12%, transparent); box-shadow: inset 3px 0 0 var(--warn); }
-  .sec { scroll-margin-top: 8px; }
+  .sec { scroll-margin-top: 44px; }
+  .soft { color: var(--text-muted); font-weight: 400; }
+  /* A provider chosen at the top of its page; the others folded at the bottom. */
+  .choice { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); }
+  .clbl { color: var(--text-muted); font-size: var(--fs-meta); }
+  .uses { margin-left: 5px; color: var(--info); font-size: var(--fs-tag); font-weight: 400; }
+  .others { display: flex; align-items: center; gap: 8px; width: 100%; margin: 4px 0 14px; padding: 9px 12px; border: 1px dashed var(--border); border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
+  .others b { color: var(--text); font-weight: 550; }
+  .others small { margin-left: auto; }
+  .others :global(svg) { transition: transform 0.12s; }
+  .others.open :global(svg) { transform: rotate(90deg); }
+  .sec.other { opacity: 0.92; }
+  /* Several sections: their anchors, stuck to the top. */
+  .anchors { position: sticky; top: -16px; z-index: 2; display: flex; flex-wrap: wrap; gap: 4px; margin: -4px -22px 12px; padding: 8px 22px; background: color-mix(in srgb, var(--bg) 92%, transparent); border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); }
+  .anchors button { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .anchors button:hover { color: var(--text); border-color: var(--accent); }
+  /* Search results: a key per row, its value changed in place. */
+  .rhead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .rhead b { font-size: var(--fs-title); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.off { color: var(--text-muted); }
+  .results { display: flex; flex-direction: column; margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); overflow: hidden; flex-shrink: 0; }
+  .results:empty { display: none; }
+  .res { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 40%); gap: 14px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  .res:last-child { border-bottom: none; }
+  .res.sel { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+  .rl { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 0; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+  .rl b { font-weight: 550; font-size: var(--fs-body); }
+  .rl small { color: var(--text-muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rc { color: var(--text-muted); font-size: var(--fs-tag); }
+  .key { font: var(--fs-tag) var(--mono); color: var(--text-muted); opacity: 0.8; }
+  .rv { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+  .val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  .origin { flex-shrink: 0; padding: 0 6px; border-radius: var(--r9); font-size: var(--fs-tag); line-height: 16px; background: var(--surface-muted); color: var(--text-muted); }
+  .origin.file { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-family: var(--mono); }
+  .origin.pack { background: var(--info-bg); color: var(--info); }
+  .origin.changed { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  /* Overview: the counters, then each domain's features and their switches. */
+  .counters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .counter { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+  .counter b { color: var(--text-muted); font-size: var(--fs-head); font-weight: 650; }
+  .counter:hover { border-color: var(--accent); }
+  .counter.hot.changed b { color: var(--warn); }
+  .counter.hot.file b { color: var(--accent); }
+  .counter.hot.pack b { color: var(--info); }
+  .counter.hot.attention b { color: var(--ko); }
+  .domains { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; align-items: start; margin-bottom: 16px; }
+  .dom { display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); }
+  .dh { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .dn { padding: 0; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-title); font-weight: 650; cursor: pointer; }
+  .dn:hover { color: var(--accent); }
+  .frow { display: flex; align-items: center; gap: 6px; min-height: 26px; }
+  .fname { padding: 0; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
+  .fname:hover { color: var(--accent); text-decoration: underline; }
+  .frow.off .fname { color: var(--text-muted); }
+  .dom .grp { margin: 6px 0 0; }
+  @container (max-width: 700px) { .counters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .res { grid-template-columns: minmax(0, 1fr); } .rv { justify-content: flex-start; } }
   .sub { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: var(--fs-title); font-weight: 600; }
   .tabs { display: flex; gap: 0; margin: 4px 0 12px; border-bottom: 1px solid var(--border); }
   .tabs button { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); cursor: pointer; }
   .tabs button.on { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
-  .subs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 14px; }
-  .subp { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
-  .subp:hover { border-color: var(--accent); }
-  .ptop { display: flex; align-items: center; gap: 8px; }
-  .subp.off b { color: var(--text-muted); }
-  .subp small { color: var(--text-muted); font-size: var(--fs-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .link { padding: 0; border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
   .head h3 { margin: 0; font-size: var(--fs-head); font-weight: 650; }
   .path { padding: 1px 7px; border-radius: var(--r5); background: var(--surface-muted); color: var(--text-muted); font: var(--fs-tag) var(--mono); }
@@ -868,7 +1159,16 @@
   .kbd { opacity: 0.7; }
   code { font-family: var(--mono); font-size: var(--fs-tag); }
   /* Changes bar: stuck to the bottom of the area, even if the section is short. */
-  .savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 10px; margin: auto -22px 0; padding: 10px 22px; background: color-mix(in srgb, var(--warn) 12%, var(--surface)); border-top: 1px solid color-mix(in srgb, var(--warn) 40%, var(--border)); color: var(--warn); animation: up 0.2s ease-out; }
+  .savewrap { position: sticky; bottom: 0; z-index: 3; margin: auto -22px 0; }
+  .diff { max-height: 220px; overflow: auto; padding: 8px 22px; border-top: 1px solid var(--border); background: var(--surface); }
+  .drow { display: grid; grid-template-columns: minmax(120px, 30%) minmax(0, 1fr) auto minmax(0, 1fr) 24px; gap: 8px; align-items: center; padding: 3px 0; font-size: var(--fs-meta); }
+  .dkey { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .before { color: var(--text-muted); text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .after { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .arrow { color: var(--text-muted); }
+  .reset { padding: 0 4px; border: none; border-radius: var(--r4); background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
+  .reset:hover { color: var(--accent); background: var(--surface-muted); }
+  .savebar { display: flex; align-items: center; gap: 10px; padding: 10px 22px; background: color-mix(in srgb, var(--warn) 12%, var(--surface)); border-top: 1px solid color-mix(in srgb, var(--warn) 40%, var(--border)); color: var(--warn); animation: up 0.2s ease-out; }
   .savebar.done { background: color-mix(in srgb, var(--ok) 12%, var(--surface)); border-color: color-mix(in srgb, var(--ok) 40%, var(--border)); color: var(--ok); }
   .savebar b { color: var(--text); }
   @keyframes up { from { transform: translateY(100%); } }

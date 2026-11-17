@@ -73,13 +73,13 @@ Some worktrees are never removed, not even with **Remove anyway…**:
 > An agent's own worktree can also be removed from the Agents view, with **Remove worktree** once the agent is stopped. The same rule applies: only if nothing would be lost.
 
 ## Settings
-In Settings › Code › Repositories › Worktrees (`[worktrees]`):
+In Settings › Code › Worktrees (`[worktrees]`):
 
 - **Repository** (`repo`): the former way to name the clone of the repository bare MR references name, still read; the repositories with **Worktrees** on are the ones listed.
 - **Base branch** (`base_branch`) of every repository that names none of its own (its card's **Branches**): `auto` takes the latest release branch, otherwise the main one; or a branch name. Behind and ahead are counted against it.
 - **Stale after** (`stale_days`): days without commit nor Claude session before a worktree is stale, 14 by default.
 - **Poll every** (`poll_seconds`).
 
-Two related thresholds live in Settings › Interface › Alerts & sound: **Worktree in use** (`[alerts] worktree_in_use_hours`) and **Branch behind** (`[alerts] behind_commits`), past which a branch is flagged as behind its base.
+Two related thresholds live in Settings › Interface › Thresholds: **Worktree in use** (`[alerts] worktree_in_use_hours`) and **Branch behind** (`[alerts] behind_commits`), past which a branch is flagged as behind its base.
 
-[Open Settings › Code › Repositories › Worktrees](prism:settings/worktrees)
+[Open Settings › Code › Worktrees](prism:settings/worktrees)

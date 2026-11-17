@@ -10,10 +10,10 @@
   import ForgeLogin from './ForgeLogin.svelte'
   import { TOKEN_HINTS, TOKEN_PAGES, tokenCheck } from '../../credentials'
   import Icon from '../Icon.svelte'
-  import { t } from '../../i18n.svelte'
+  import { t, tn } from '../../i18n.svelte'
   import { requestOf } from '../../settings-checks.svelte'
   import { live } from '../../live.svelte'
-  import { fromPack, hasInherited, isChanged, isSet, keyedBy, mergedRows, packLabel, resetValue, setMergedRows, setValue, valueOf } from '../../settings.svelte'
+  import { fromPack, hasInherited, isChanged, isSet, keyedBy, mergedRows, packLabel, resetValue, setMergedRows, setValue, settingsView, valueOf } from '../../settings.svelte'
   import RepoAdd from './RepoAdd.svelte'
   import RepoClones from './RepoClones.svelte'
   import RepoCards from './RepoCards.svelte'
@@ -23,10 +23,17 @@
 
   /**
    * A section of settings-schema.ts: one row per key, one table per `[[table]]`. `hide`: keys
-   * shown elsewhere (the feature switch, in the page header).
+   * shown elsewhere (the feature switch, in the page header; the provider's choice, at the top of
+   * the page). The keys rarely changed (`advanced`) are folded after the others, with their names:
+   * opened by a click, by a search result naming one, or while one of them is changed.
    */
   let { spec, hide = [] }: { spec: SectionSpec; hide?: string[] } = $props()
   const pathOf = (key: string) => [...spec.path, key]
+  const shownFields = $derived(spec.fields.filter((f) => !hide.includes(f.key)))
+  const main = $derived(shownFields.filter((f) => !f.advanced))
+  const advanced = $derived(shownFields.filter((f) => f.advanced))
+  let unfolded = $state(false)
+  const advancedOpen = $derived(unfolded || advanced.some((f) => settingsView.focus === pathOf(f.key).join('.') || isChanged(pathOf(f.key))))
   /** The section's last read by its collector: successful, in error, or not yet. */
   const status = $derived.by(() => {
     const s = live.snapshot
@@ -59,10 +66,10 @@
   {#if spec.login}
     <Field label={t('Login')} hint={spec.login === 'github' ? t('gh’s own login, in the system keychain: Prism calls gh and never sees the token.') : t('glab’s own login, in the system keychain: Prism calls glab and never sees the token.')}><ForgeLogin forge={spec.login} host={spec.login === 'gitlab' ? valueOf<string>(['gitlab', 'host'], '') : ''} /></Field>
   {/if}
-  {#each spec.fields.filter((f) => !hide.includes(f.key)) as f (f.key)}
+  {#snippet row(f: FieldSpec)}
     {@const path = pathOf(f.key)}
     {#if f.kind === 'table'}
-      <div class="tfield" class:changed={isChanged(path)}>
+      <div class="tfield" class:changed={isChanged(path)} class:focused={settingsView.focus === path.join('.')} id="f-{path.join('.')}">
         <div class="lbl">
           <b>{f.label}</b>
           {#if f.hint}<small>{f.hint}</small>{/if}
@@ -70,7 +77,7 @@
           <!-- A list that has a default (Audio) reverts to it; [[repos]] and the like have none. A pack's list comes back from the pack. -->
           {#if hasInherited(path)}
             {#if isSet(path)}<button class="reset" onclick={() => resetValue(path)} title={t('Remove from config.toml: the pack’s list applies')}>{t('Back to pack value')}</button>
-            {:else}<span class="badge pack">{t('from {pack}', { pack: packLabel() })}</span>{/if}
+            {:else}<span class="badge pack">{t('from {pack}', { pack: packLabel(path) })}</span>{/if}
           {:else if (spec.path.length || f.seed) && isSet(path)}<button class="reset" onclick={() => resetValue(path)} title={f.seed === 'views' ? t('Remove from config.toml: one empty Dashboard') : t('Remove from config.toml: the built-in list applies')}>{t('Reset to default')}</button>{/if}
         </div>
         <!-- Emptying a pack's list writes an empty one, which overrides it. -->
@@ -90,7 +97,15 @@
         {#if f.check}<CheckBadge req={requestOf(f.check, valueOf(path), (k) => valueOf(pathOf(k)))} />{/if}
       </Field>
     {/if}
-  {/each}
+  {/snippet}
+  {#each main as f (f.key)}{@render row(f)}{/each}
+  {#if advanced.length}
+    <button class="adv" class:open={advancedOpen} onclick={() => (unfolded = !advancedOpen)} aria-expanded={advancedOpen}>
+      <Icon name="chevronRight" /><b>{tn(advanced.length, '{n} advanced setting', '{n} advanced settings')}</b>
+      {#if !advancedOpen}<small>{advanced.map((f) => f.label).join(' · ')}</small>{/if}
+    </button>
+    {#if advancedOpen}{#each advanced as f (f.key)}{@render row(f)}{/each}{/if}
+  {/if}
   <!-- Google: the client's id above, then its secret, then signing in. -->
   {#if spec.token === 'google'}<TokenField tracker="google" label={t('Client secret')} hint={t('The “Client secret” of the same OAuth client. Kept in the system keychain, this profile’s entry.')} />{/if}
   {#if spec.signin === 'google'}<GoogleSignIn />{/if}
@@ -108,6 +123,15 @@
   .card { margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); }
   .tfield { display: flex; flex-direction: column; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
   .tfield:last-child { border-bottom: none; }
+  .tfield.focused { animation: focus 2.4s ease-out; box-shadow: inset 3px 0 0 var(--accent); }
+  @keyframes focus { from { background: color-mix(in srgb, var(--accent) 22%, transparent); } to { background: transparent; } }
+  .tfield { scroll-margin: 60px; }
+  .adv { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 14px; border: none; border-bottom: 1px solid var(--border); background: var(--surface-muted); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
+  .adv:last-child { border-bottom: none; }
+  .adv b { flex-shrink: 0; font-weight: 550; color: var(--text); }
+  .adv small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adv :global(svg) { flex-shrink: 0; transition: transform 0.12s; }
+  .adv.open :global(svg) { transform: rotate(90deg); }
   .tfield.changed { background: color-mix(in srgb, var(--warn) 6%, transparent); box-shadow: inset 3px 0 0 var(--warn); }
   .lbl { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
   .lbl b { display: flex; align-items: center; gap: 6px; font-weight: 550; font-size: var(--fs-body); }

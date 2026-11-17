@@ -74,7 +74,7 @@ The **Today** block shows the meetings of the day, read locally from the macOS C
 
 The block follows the date picker in the header: pick another day to see its agenda.
 
-Prism also sends a notification before each meeting you are expected at, even when its window is closed. The delay is 5 minutes by default: `[alerts] meeting_lead_minutes` (Settings › Interface › Alerts & sound).
+Prism also sends a notification before each meeting you are expected at, even when its window is closed. The delay is 5 minutes by default: `[alerts] meeting_lead_minutes` (Settings › Interface › Thresholds).
 
 > [!NOTE]
 > With the macOS Calendar, on first launch, macOS asks whether Prism may read your calendars. If you refused, allow Prism in System Settings → Privacy & Security → Calendars, then reopen Prism.

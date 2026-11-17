@@ -220,7 +220,7 @@
    * the others share the rest.
    */
   const fitted = (b: number) => bands.length > 1 && columns.slice(...bands[b]).flat().every((id) => modeOf(id) !== 'normal')
-  // A page shown counts its blocks as used (Settings › Cleanup), once each time it comes up (its
+  // A page shown counts its blocks as used (Settings › General › Cleanup), once each time it comes up (its
   // blocks known: at launch, once the snapshot is there).
   const shownPage = $derived(columns.length ? view.id : '')
   $effect(() => {
@@ -435,8 +435,8 @@
       resetKeys()
       return
     }
-    // "/" puts the cursor in the filter, Esc clears it.
-    if (e.key === '/' && !typing(e)) {
+    // "/" puts the cursor in the filter, Esc clears it (Settings has its own search).
+    if (e.key === '/' && !typing(e) && !settingsView.open) {
       e.preventDefault()
       filterPeek = true
       void tick().then(() => input?.focus())

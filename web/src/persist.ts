@@ -1,7 +1,7 @@
 import { invoke, isDesktop } from './bridge'
 
 /**
- * Notes, layout, retro points, the pet and the usage counts (Settings › Cleanup), stored by the app in its data folder (`store_load` /
+ * Notes, layout, retro points, the pet and the usage counts (Settings › General › Cleanup), stored by the app in its data folder (`store_load` /
  * `store_save`). Loaded once before mounting, so that Svelte stores can
  * initialize synchronously.
  */
