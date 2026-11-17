@@ -15,7 +15,7 @@ Where does my work stand? The **Projects** page shows each repository as a proje
 [Open the Projects page](prism:projects)
 
 ## The list of projects
-On the left, the projects, grouped by working folder (`[[workspaces]]`). Each one shows its signals: a workstream waiting for you, its default branch's pipeline failed, its workstreams and MRs, how far its clone is behind. A project with nothing in progress is dimmed. The rail's **Projects** entry counts the workstreams waiting for you, and `⌘` with the digit after the Agents view's opens it.
+On the left, the projects, grouped by working folder (`[[workspaces]]`). Each one shows its signals: a workstream waiting for you, its default branch's pipeline failed, its workstreams and MRs, how far its clone is behind. A project with nothing in progress is dimmed. The band's filter (`/`) narrows the list: a project stays when its name, a branch, a ticket or an MR (`!12`) of it holds what is typed, and the band says how many do; the open project's workstreams are not filtered. The rail's **Projects** entry counts the workstreams waiting for you, and `⌘` with the digit after the Agents view's opens it.
 
 ## A project
 - **The header**: its forge, its clone's branch and how far behind it is, its default branch's pipeline, its open MRs, its notes (a click opens them, filtered on it) and the ports its agents listen on; **Editor**, **Terminal**, the file manager and the forge.

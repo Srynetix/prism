@@ -15,7 +15,7 @@ Où en est mon travail ? La page **Projets** montre chaque dépôt comme un proj
 [Ouvrir la page Projets](prism:projects)
 
 ## La liste des projets
-À gauche, les projets, groupés par dossier de travail (`[[workspaces]]`). Chacun montre ses signaux : un chantier qui vous attend, la pipeline de sa branche par défaut en échec, ses chantiers et ses MRs, le retard de son clone. Un projet sans rien en cours est grisé. L’entrée **Projets** du rail compte les chantiers qui vous attendent, et `⌘` avec le chiffre qui suit celui de la vue Agents l’ouvre.
+À gauche, les projets, groupés par dossier de travail (`[[workspaces]]`). Chacun montre ses signaux : un chantier qui vous attend, la pipeline de sa branche par défaut en échec, ses chantiers et ses MRs, le retard de son clone. Un projet sans rien en cours est grisé. Le filtre du bandeau (`/`) resserre la liste : un projet reste quand son nom, une de ses branches, un de ses tickets ou une de ses MR (`!12`) contient ce qui est tapé, et le bandeau dit combien ; les chantiers du projet ouvert ne sont pas filtrés. L’entrée **Projets** du rail compte les chantiers qui vous attendent, et `⌘` avec le chiffre qui suit celui de la vue Agents l’ouvre.
 
 ## Un projet
 - **L’en-tête** : sa forge, la branche de son clone et son retard, la pipeline de sa branche par défaut, ses MRs ouvertes, ses notes (un clic les ouvre, filtrées sur lui) et les ports où ses agents écoutent ; **Éditeur**, **Terminal**, le gestionnaire de fichiers et la forge.

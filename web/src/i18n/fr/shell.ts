@@ -340,4 +340,5 @@ export default {
   'Computer': 'Ordinateur',
   'Send its agent the error, to fix it:\n\n{text}': 'Envoyer l’erreur à son agent, pour qu’il la corrige\xa0:\n\n{text}',
   'Its agent is busy: the error is typed in its prompt, for you to send.\n\n{text}': 'Son agent est occupé\xa0: l’erreur est tapée dans son prompt, à vous de l’envoyer.\n\n{text}',
+  'the Assistant: ask Prism, its conversations (out of a field)': 'l’Assistant : demander à Prism, ses conversations (hors d’un champ)',
 } satisfies Dictionary

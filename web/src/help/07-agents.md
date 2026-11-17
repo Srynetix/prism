@@ -261,7 +261,7 @@ The agent learns what became of it at its next step (launched elsewhere: it leav
 
 ## The assistant: ask Prism in your own words
 
-Ask without knowing in advance which repository, tracker or agent your request will end in: « create a ticket for the shop app to export orders as CSV », « implement ticket SHOP-214 on the back », « where are we on the Postgres migration? ». Type it in the palette (`⌘K`): a sentence brings **Ask Prism** first, and **⌥↵** asks it whatever line is chosen. The **Assistant** button of the rail opens its panel.
+Ask without knowing in advance which repository, tracker or agent your request will end in: « create a ticket for the shop app to export orders as CSV », « implement ticket SHOP-214 on the back », « where are we on the Postgres migration? ». Type it in the palette (`⌘K`): a sentence brings **Ask Prism** first, and **⌥↵** asks it whatever line is chosen. The **Assistant** button, at the right end of the band of every page (blocks, Agents, Projects), opens its panel and counts the proposals waiting for you; **⌥↵** opens it from anywhere, Settings, Help and Zen mode included (out of a text field, where ⌥↵ is the field's).
 
 The assistant is an agent like the others — Claude Code, Codex or OpenCode, from **Settings › Agents › Assistant** — launched in a folder of its own with Prism's MCP server and tools of its own. It **finds the repository** (its memory first, then the names, **aliases** and **descriptions** of Settings › Code › Repositories), reads the tickets, MRs, agents and sprint, and **reads code through a read-only subagent** that explores a repository's clone and gives back only its synthesis. It never writes in a repository and never codes: it **proposes**, and you apply each proposal in one click.
 

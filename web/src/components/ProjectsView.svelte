@@ -23,7 +23,8 @@
   import { openSettings } from '../settings.svelte'
   import { quickActionsHere, runQuickAction } from '../quick-actions'
   import { implement, nextOf, reopenLeft } from '../project-actions'
-  import { byActivity, projectSummaries, ticketsFor, waitingAgent, type ProjectSummary, type Stage, type Workstream } from '../workstreams'
+  import { filter } from '../filter.svelte'
+  import { byActivity, projectMatches, projectSummaries, ticketsFor, waitingAgent, type ProjectSummary, type Stage, type Workstream } from '../workstreams'
   import type { Agent } from '../types'
   import Icon from './Icon.svelte'
   import ArmedLabel from './ArmedLabel.svelte'
@@ -41,8 +42,11 @@
    */
   const snap = $derived(live.snapshot)
   const projects = $derived(snap ? projectSummaries(snap, { hidden: isHidden }) : [])
-  let query = $state('')
-  const shown = $derived(query.trim() ? projects.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase())) : projects)
+  /** The band's filter narrows the list (`projectMatches`), never the open project's workstreams. */
+  const shown = $derived(filter.query.trim() ? projects.filter((p) => projectMatches(p, filter.query)) : projects)
+  $effect(() => {
+    projectsView.matching = shown.length
+  })
   const folders = $derived([...new Set(shown.map((p) => p.workspace))])
   const current = $derived(projects.find((p) => p.name === projectsView.repo) ?? projects.find((p) => p.waiting) ?? projects.find((p) => !p.resting) ?? projects[0])
   const cleanupCount = $derived(projects.reduce((n, p) => n + p.workstreams.filter((w) => w.stage === 'cleanup').length, 0))
@@ -168,7 +172,6 @@
       <span class="grow"></span>
       <button class="btn sm tab" class:on={projectsView.tab === 'cleanup'} onclick={() => (projectsView.tab = projectsView.tab === 'cleanup' ? 'project' : 'cleanup')} title={t('Every project’s worktrees: sizes, verdicts, removal and archiving in bulk')}><Icon name="trash" size={11} />{tc('projects', 'Cleanup')}{#if cleanupCount}<span class="n">{cleanupCount}</span>{/if}</button>
     </div>
-    <input class="filter" bind:value={query} placeholder={t('Filter…')} spellcheck="false" aria-label={t('Filter the projects')} />
     {#each folders as folder (folder ?? '')}
       {#if folders.length > 1 || folder}<p class="folder">{folder ?? t('Elsewhere')}</p>{/if}
       {#each shown.filter((p) => p.workspace === folder) as p (p.name)}
@@ -185,6 +188,7 @@
         </button>
       {/each}
     {/each}
+    {#if filter.query.trim() && !shown.length}<p class="none">{t('No project matches the filter.')}</p>{/if}
     {#if !projects.length}<p class="empty">{t('No repository yet: add one in Settings › Repositories.')}</p>{/if}
   </aside>
 
@@ -291,7 +295,6 @@
   .grow { flex: 1; }
   .tab.on { border-color: var(--accent); color: var(--accent); }
   .tab .n { padding: 0 4px; border-radius: var(--r7); background: var(--warn-bg); color: var(--warn); }
-  .filter { margin: 0 2px 6px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text); font: inherit; }
   .folder { margin: 8px 6px 2px; font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
   .proj { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 6px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
   .proj:hover { background: var(--surface-muted); }

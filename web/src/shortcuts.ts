@@ -6,6 +6,7 @@ import { live } from './live.svelte'
 import { views } from './views'
 import { agentsEnabled, projectsDigit, projectsOn } from './agents.svelte'
 import { t } from './i18n.svelte'
+import { assistantOn } from './assistant.svelte'
 
 /**
  * THE keyboard shortcuts' registry: each one declared once, here. App.svelte, keys.svelte.ts and
@@ -98,6 +99,7 @@ export const REGISTRY: ShortcutDef[] = [
   { id: 'notes', keys: () => shortcutLabel(quickNotesKey()), label: 'quick notes, over any view', group: 'Everywhere' },
   { id: 'palette', keys: () => shortcutLabel(paletteKey()), label: 'command palette: go to anything, run a command (in an agent’s terminal: clears it)', group: 'Everywhere' },
   { id: 'reopen', keys: '⌘⇧T', label: 'reopen the panel closed last (MR, ticket, logs, shell…)', group: 'Everywhere', match: cmdShift('t') },
+  { id: 'assistant', keys: '⌥↵', label: 'the Assistant: ask Prism, its conversations (out of a field)', group: 'Everywhere', when: () => assistantOn(), match: (e) => e.altKey && e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey },
   { id: 'settings', keys: '⌘,', label: 'settings', group: 'Everywhere', match: (e) => chord(e) && chordKey(e) === ',' },
   { id: 'zen', keys: '⌘⇧F', label: 'Zen mode: rail and header folded away', group: 'Everywhere', match: cmdShift('f') },
   { id: 'help', keys: '⌘? / F1', label: 'Help: guides and references', group: 'Everywhere', match: (e) => (chord(e) && chordKey(e) === '?') || e.key === 'F1' },

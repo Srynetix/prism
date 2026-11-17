@@ -2,6 +2,7 @@ import type { Agent, LeftSession, MergeRequest, Pipeline, Repo, RepoInfo, Snapsh
 import { describeWorktrees, isDone, latest, mrForSession, ticketIndex, waitsForYou, type WorktreeInfo } from './rules'
 import { agentRepo, repoName } from './repositories'
 import { ticketRef } from './tracker'
+import { asTicket, namesTicket, ticketPrefix } from './conventions'
 
 /**
  * The Projects page (`ProjectsView.svelte`): a project is a repository (`[[repos]]`), a workstream
@@ -180,6 +181,30 @@ export interface ProjectSummary {
   left: LeftSession | null
   /** Nothing in progress: shown dimmed. */
   resting: boolean
+}
+
+/**
+ * The band's filter on the Projects page, with the pages of blocks' grammar: a ticket id
+ * (`ABC-12`) keeps the projects having it (a workstream's, an MR's); an MR number (`!12`, `#12`,
+ * or `12`, then also the ticket `ABC-12`) those having that MR; any other text the projects whose
+ * name, workstreams (branch, ticket, MR) and open MRs, taken together, hold every word typed, case
+ * aside. Its workstreams themselves are not filtered.
+ */
+export function projectMatches(p: ProjectSummary, query: string): boolean {
+  const q = query.trim()
+  if (!q) return true
+  const mrs = [...p.workstreams.flatMap((w) => (w.mr ? [w.mr] : [])), ...p.mrs]
+  const hasTicket = (id: string) => p.workstreams.some((w) => w.ticketId?.toUpperCase() === id) || mrs.some((m) => namesTicket(m, id))
+  const ticket = asTicket(q)
+  if (ticket) return hasTicket(ticket)
+  const number = q.match(/^[!#]?(\d+)$/)
+  if (number) {
+    const n = Number(number[1])
+    return mrs.some((m) => m.iid === n) || (!/^[!#]/.test(q) && !!ticketPrefix() && hasTicket(`${ticketPrefix()}-${n}`))
+  }
+  const mrText = (m: MergeRequest | undefined) => (m ? `!${m.iid} #${m.iid} ${m.source_branch} ${m.title}` : '')
+  const text = [p.name, ...p.workstreams.map((w) => `${w.branch ?? ''} ${w.ticketId ?? ''} ${w.ticket?.name ?? ''} ${mrText(w.mr)}`), ...p.mrs.map(mrText)].join('\n').toLowerCase()
+  return q.toLowerCase().split(/\s+/).every((w) => text.includes(w))
 }
 
 /** The base branch's last pipeline (`main`), of those Prism reads. */
