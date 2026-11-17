@@ -8,7 +8,7 @@
   import { live } from '../../live.svelte'
   import { keys } from '../../platform'
   import { hit } from '../../shortcuts'
-  import { openAgents, resumeAgent } from '../../agents.svelte'
+  import { interruptAgent, openAgents, resumeAgent } from '../../agents.svelte'
   import { nameOf } from '../../agent-cli'
   import { toastError } from '../../toast.svelte'
   import { askPrism, assistantView, byDay, closeAssistant, conversations, conversationState, loadMemory, memory } from '../../assistant.svelte'
@@ -16,8 +16,9 @@
   /**
    * The Assistant panel, over the page: its conversations by day on the left (one per request,
    * reopened in a click), the chosen one's Chat on the right (AgentChat: its proposals as cards);
-   * the Memory tab reads, changes and empties what it remembers. « Ask » starts a new conversation.
-   * Its shell is Drawer's (Escape, a click outside); ⌥↵ closes it, from its question too.
+   * the Memory tab reads, changes and empties what it remembers. « New request » starts a new conversation.
+   * Its shell is Drawer's (Escape, a click outside); ⌥↵ closes it, from its question and its
+   * Chat too; ⌘. interrupts the conversation shown.
    */
   const list = $derived(conversations(live.snapshot))
   const days = $derived(byDay(list))
@@ -43,6 +44,15 @@
     box?.focus()
   }
 
+  let panel: HTMLElement | undefined = $state()
+  /** ⌘. in the panel: the conversation shown, at work, stops its turn, as in the Agents view. */
+  function interrupt(e: KeyboardEvent) {
+    if (!hit('interrupt', e) || !(e.target instanceof Node) || !panel?.contains(e.target)) return
+    if (assistantView.tab !== 'conversations' || shown?.state !== 'running' || shown.status !== 'running') return
+    e.preventDefault()
+    interruptAgent(shown.id).catch((err) => toastError(String(err)))
+  }
+
   const DOT = { wait: 'warn', run: 'ok pulse', done: 'info', idle: '' } as const
 
   const EXAMPLES = [
@@ -52,7 +62,9 @@
   ]
 </script>
 
-<Drawer open={assistantView.open} key="assistant" identity={assistantView.selected ?? ''} crumb={t('Assistant')} label={t('Assistant')} size="l" source="var(--info)" onclose={closeAssistant}>
+<svelte:window onkeydown={interrupt} />
+
+<Drawer bind:el={panel} open={assistantView.open} key="assistant" identity={assistantView.selected ?? ''} crumb={t('Assistant')} label={t('Assistant')} size="l" source="var(--info)" onclose={closeAssistant}>
   {#snippet head()}
     <b class="title"><Icon name="sparkles" />{t('Assistant')}</b>
     <div class="seg" role="tablist">
@@ -60,7 +72,7 @@
       <button role="tab" class:on={assistantView.tab === 'memory'} aria-selected={assistantView.tab === 'memory'} onclick={() => (assistantView.tab = 'memory')}>{t('Memory')}{#if memory.facts.length} · {memory.facts.length}{/if}</button>
     </div>
     <span class="grow"></span>
-    <button class="btn sm" onclick={newRequest} title={t('A new conversation')}><Icon name="plus" size={12} />{t('Ask')}</button>
+    <button class="btn sm" onclick={newRequest} title={t('A new conversation')}><Icon name="plus" size={12} />{t('New request')}</button>
   {/snippet}
 
   {#if assistantView.tab === 'memory'}
@@ -136,7 +148,8 @@
   .ch :global(svg) { color: var(--info); }
   .ch b { overflow: hidden; font-size: var(--fs-title); text-overflow: ellipsis; white-space: nowrap; }
   .meta { color: var(--text-muted); font-size: var(--fs-meta); white-space: nowrap; }
-  .host { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  /* The Chat fills its host (`.achat` is absolute): positioned, or it would cover the whole drawer. */
+  .host { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .ask { max-width: 620px; margin: 8vh auto 0; padding: 0 20px; }
   .ask h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: var(--fs-big); }
   .ask h2 :global(svg) { color: var(--info); }

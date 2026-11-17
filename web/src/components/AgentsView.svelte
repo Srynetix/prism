@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { holdEscape, inField, layers } from '../layers.svelte'
+  import { holdEscape, inField, inLayer, layers } from '../layers.svelte'
   import { suggest } from '../suggest'
   import { untrack } from 'svelte'
   import { chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
@@ -246,6 +246,8 @@
    */
   function onKey(e: KeyboardEvent) {
     if (!agentsShown()) return
+    // A key pressed in a drawer or a dialog over the view is theirs (the Assistant's ⌘.).
+    if (inLayer(e.target)) return
     // Kept by the terminal it was pressed in (`[agents] terminal_keys`).
     if (inTerminal(e) && terminalKeeps(e)) return
     const typing = inField(e.target)

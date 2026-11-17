@@ -1093,6 +1093,7 @@ export default {
   'Seen: out of the way until their next turn': 'Vues : elles ne vous attendent plus jusqu’à leur prochain tour',
   // Prism's assistant (assistant.svelte.ts, components/assistant/)
   'A new conversation': 'Une nouvelle conversation',
+  'New request': 'Nouvelle demande',
   'A new conversation with the assistant': 'Une nouvelle conversation avec l’assistant',
   'Add a fact': 'Ajouter un fait',
   'Add the repository': 'Ajouter le repo',
