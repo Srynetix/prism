@@ -7,6 +7,7 @@
   import { t, tn } from '../../i18n.svelte'
   import { live } from '../../live.svelte'
   import { keys } from '../../platform'
+  import { hit } from '../../shortcuts'
   import { openAgents, resumeAgent } from '../../agents.svelte'
   import { nameOf } from '../../agent-cli'
   import { toastError } from '../../toast.svelte'
@@ -16,7 +17,7 @@
    * The Assistant panel, over the page: its conversations by day on the left (one per request,
    * reopened in a click), the chosen one's Chat on the right (AgentChat: its proposals as cards);
    * the Memory tab reads, changes and empties what it remembers. « Ask » starts a new conversation.
-   * Its shell is Drawer's (Escape, a click outside).
+   * Its shell is Drawer's (Escape, a click outside); ⌥↵ closes it, from its question too.
    */
   const list = $derived(conversations(live.snapshot))
   const days = $derived(byDay(list))
@@ -100,7 +101,7 @@
             <p class="lead">{t('In your own words: it finds the repository, reads the tickets and the code, and proposes a ticket or an agent to launch. Nothing is created nor launched without your click.')}</p>
             <!-- svelte-ignore a11y_autofocus -->
             <textarea bind:this={box} bind:value={draft} rows="3" autofocus placeholder={t('Create a ticket for…, Implement…, Where are we on…?')}
-              onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); void ask() } }}></textarea>
+              onkeydown={(e) => { if (hit('assistant', e)) { e.preventDefault(); closeAssistant() } else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); void ask() } }}></textarea>
             <div class="row">
               <button class="btn primary" style:--btn-c="var(--info)" style:--btn-on="var(--surface)" onclick={ask} disabled={!draft.trim() || assistantView.asking}>{assistantView.asking ? t('Starting…') : t('Ask')}</button>
               <span class="hint">{keys('↵')} {t('asks')} · {keys('⇧↵')} {t('a new line')} · {t('from anywhere: the palette, then ⌥↵')}</span>

@@ -1230,7 +1230,7 @@ export default {
   '{n} workstreams wait for you': '{n} chantiers vous attendent',
   '{ticket}: its Implement': '{ticket} : son Implémenter',
   'projects|Cleanup': 'Nettoyage',
-  'Assistant: ask Prism in your own words (⌥↵, or from the palette)': 'Assistant : demandez à Prism avec vos mots (⌥↵, ou depuis la palette)',
+  'Assistant: ask Prism in your own words ({keys}, or from the palette)': 'Assistant : demandez à Prism avec vos mots ({keys}, ou depuis la palette)',
   'No project matches the filter.': 'Aucun projet ne correspond au filtre.',
   '{n} project': '{n} projet',
   '{n} projects': '{n} projets',

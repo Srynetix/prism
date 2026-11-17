@@ -132,6 +132,8 @@ export const projectsView = $state({
   open: false,
   repo: null as string | null,
   tab: 'project' as 'project' | 'cleanup',
+  /** The projects the band's filter keeps, as the page counts them, for the band. */
+  matching: 0,
 })
 
 /** The Projects page is on the rail once a repository is configured. */

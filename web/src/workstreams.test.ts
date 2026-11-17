@@ -99,8 +99,16 @@ describe('projectMatches', () => {
     expect(names('export')).toEqual(['shop'])
     expect(names('shop-12')).toEqual(['shop'])
     expect(names('!41')).toEqual(['shop'])
+    expect(names('#41')).toEqual(['shop'])
+    expect(names('41')).toEqual(['shop'])
+    expect(names('!4')).toEqual([])
     expect(names('cart total')).toEqual(['shop'])
     expect(names('nothing')).toEqual([])
+  })
+
+  it('combines the words over the whole project: its name and an MR', () => {
+    expect(names('shop cart')).toEqual(['shop'])
+    expect(names('api cart')).toEqual([])
   })
 })
 

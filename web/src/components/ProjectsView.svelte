@@ -44,6 +44,9 @@
   const projects = $derived(snap ? projectSummaries(snap, { hidden: isHidden }) : [])
   /** The band's filter narrows the list (`projectMatches`), never the open project's workstreams. */
   const shown = $derived(filter.query.trim() ? projects.filter((p) => projectMatches(p, filter.query)) : projects)
+  $effect(() => {
+    projectsView.matching = shown.length
+  })
   const folders = $derived([...new Set(shown.map((p) => p.workspace))])
   const current = $derived(projects.find((p) => p.name === projectsView.repo) ?? projects.find((p) => p.waiting) ?? projects.find((p) => !p.resting) ?? projects[0])
   const cleanupCount = $derived(projects.reduce((n, p) => n + p.workstreams.filter((w) => w.stage === 'cleanup').length, 0))

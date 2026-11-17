@@ -118,7 +118,7 @@
   import { closeSettings, quitApp, settingsView, toggleFullscreen, toggleSettings } from './settings.svelte'
   import AgentsView from './components/AgentsView.svelte'
   import ProjectsView from './components/ProjectsView.svelte'
-  import { projectMatches, projectSummaries, waitingWorkstreams } from './workstreams'
+  import { waitingWorkstreams } from './workstreams'
   import { agentsEnabled, agentsView, newAgent, openAgents, openProjects, projectsView, terminalKeeps } from './agents.svelte'
   import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys } from './shortcuts'
   import { BLOCK_HELP } from './block-help'
@@ -162,10 +162,8 @@
   // An agent's proposal (`prism mcp`) arriving: a toast to open it.
   $effect(() => watchProposals(live.snapshot))
   $effect(() => watchRepoAdds(live.snapshot))
-  /** The assistant's proposals waiting for a click: a count on its rail button. */
+  /** The assistant's proposals waiting for a click: a count on its button, in the band. */
   const assistantWaiting = $derived(assistantProposals(live.snapshot).length)
-  /** The projects the band's filter keeps, on the Projects page. */
-  const projectsMatching = $derived(projectsView.open && filter.query.trim() && full ? projectSummaries(full, { hidden: isHidden }).filter((p) => projectMatches(p, filter.query)).length : 0)
   const focus = $derived(full ? resolve(full, filter.query) : null)
   /** All blocks read the filtered view; the alerts, the core's on the full state, are filtered. */
   const snap = $derived(full ? apply(filter.mine ? applyMine(full) : full, focus) : null)
@@ -370,8 +368,9 @@
       toggleHelp()
       return
     }
-    // ⌥↵: the Assistant's panel, over any view (Settings, Help, Zen mode included); in a field, ⌥↵ is the field's (a Chat's In passing).
-    if (hit('assistant', e) && assistantOn() && !typing(e) && !inTerminal(e)) {
+    // ⌥↵: the Assistant's panel, over any view (Settings, Help, Zen mode included); in a field, ⌥↵ is the field's
+    // (a Chat's In passing; the panel's question closes it); in a drawer or a modal, the layer's, as Esc.
+    if (hit('assistant', e) && assistantOn() && !typing(e) && !inTerminal(e) && (assistantView.open || !inLayer(e.target))) {
       e.preventDefault()
       toggleAssistant()
       return
@@ -464,12 +463,14 @@
       handleKey(e)
     }
   }
-  const managers = $derived(snap?.pods.filter((p) => p.role === 'runner') ?? [])
-  const jobs = $derived(snap?.pods.filter((p) => p.role === 'job' && p.status === 'Running') ?? [])
+  /** The band's stats: of the filtered view, but of the whole state on Projects, whose filter narrows its list of projects only. */
+  const statsOf = $derived(projectsView.open ? full : snap)
+  const managers = $derived(statsOf?.pods.filter((p) => p.role === 'runner') ?? [])
+  const jobs = $derived(statsOf?.pods.filter((p) => p.role === 'job' && p.status === 'Running') ?? [])
   // Only protected branches' pipelines are collected, those of every repository with `[[repos]] pipelines`.
-  const protectedFailures = $derived(snap?.pipelines.filter((p) => p.status === 'failed') ?? [])
-  const reviews = $derived(snap?.merge_requests.filter((m) => awaitsMyReview(m, meOn(snap, m))) ?? [])
-  const waiting = $derived(snap ? countedSessions(snap).filter(waitingAlert) : [])
+  const protectedFailures = $derived(statsOf?.pipelines.filter((p) => p.status === 'failed') ?? [])
+  const reviews = $derived(statsOf?.merge_requests.filter((m) => awaitsMyReview(m, meOn(statsOf, m))) ?? [])
+  const waiting = $derived(statsOf ? countedSessions(statsOf).filter(waitingAlert) : [])
   /** The Agents view has been opened: it stays mounted afterwards (see the template). */
   let agentsShown = $state(false)
   $effect(() => {
@@ -497,7 +498,7 @@
   const staleOnProjects = $derived(!views().some((v) => columnsOf(v).flat().includes('worktrees')) ? staleWorktrees : 0)
   /** The routines' runs waiting in "To review": a badge of their own on the Agents tab. */
   const toReview = $derived(reviewPile(full).length)
-  const syncs = $derived(alerts.filter((a) => a.kind === 'Sync' && !isSeen(a)))
+  const syncs = $derived((projectsView.open ? allAlerts : alerts).filter((a) => a.kind === 'Sync' && !isSeen(a)))
   const ago = $derived(snap?.updated_at ? Math.max(0, Math.round((now - new Date(snap.updated_at).getTime()) / 1000)) : null)
   /** The live dot's tooltip: connected, and the age of the snapshot. */
   const status = $derived(!live.connected ? t('Reconnecting…') : ago !== null ? t('Live · {age} ago', { age: ago < 60 ? `${ago}s` : `${Math.floor(ago / 60)}m` }) : t('Live'))
@@ -545,7 +546,7 @@
         spellcheck="false"
       />
       {#if kind === 'projects' && filter.query.trim()}
-        <span class="match" class:none={!projectsMatching}>{projectsMatching ? tn(projectsMatching, '{n} project', '{n} projects') : t('no match')}</span>
+        <span class="match" class:none={!projectsView.matching}>{projectsView.matching ? tn(projectsView.matching, '{n} project', '{n} projects') : t('no match')}</span>
         <button onclick={() => setQuery('')} aria-label={t('Clear filter')}><Icon name="close" /></button>
       {:else if kind !== 'projects' && focus}
         <span class="match" class:none={focus.summary === 'no match'}>{focus.summary === 'no match' ? t('no match') : focus.summary}</span>
@@ -563,8 +564,8 @@
     {#if full && full.tracker !== null && full.tracker_features?.time !== false}<TimeTracker snap={full} />{/if}
     {#if assistantOn()}
       <!-- The Assistant: a panel over the page, not a page; ⌥↵ and the palette open it too. -->
-      <button class="assist" class:on={assistantView.open} onclick={toggleAssistant} title={t('Assistant: ask Prism in your own words (⌥↵, or from the palette)')} aria-pressed={assistantView.open}>
-        <Icon name="sparkles" /><span class="lbl">{t('Assistant')}</span><kbd>{keys('⌥↵')}</kbd>
+      <button class="assist" class:on={assistantView.open} onclick={toggleAssistant} title={t('Assistant: ask Prism in your own words ({keys}, or from the palette)', { keys: shortcutKeys('assistant') })} aria-pressed={assistantView.open}>
+        <Icon name="sparkles" /><span class="lbl">{t('Assistant')}</span><kbd>{shortcutKeys('assistant')}</kbd>
         {#if assistantWaiting}<span class="count" title={t('{n} proposals to validate', { n: assistantWaiting })}>{assistantWaiting}</span>{/if}
       </button>
     {/if}
