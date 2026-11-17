@@ -648,3 +648,54 @@ fn alerts_serialize_as_the_window_reads_them() {
         serde_json::json!({ "kind": "MR", "severity": "warn", "text": "x", "rule": "mr-ci", "open": { "kind": "mr", "iid": 3, "repo": null }, "fixes": [{ "kind": "dev-server", "agent": "a", "command": "npm run dev", "where": "shell 1", "tail": "" }] })
     );
 }
+
+/// The rules the window repeats (`onlyWaitsForCi`, `isDone`, `kindOf`), on the cases its
+/// `rules-parity.test.ts` reads too: one side changed alone fails one of the two.
+#[test]
+fn rules_the_window_repeats_agree_with_it() {
+    use serde_json::Value;
+    let cases: Value = serde_json::from_str(include_str!("../../../../../web/src/rules-parity.json")).unwrap();
+    // The variant that serializes as the case says: the window's spelling.
+    fn named<T: serde::Serialize + Copy>(all: &[T], v: &Value) -> T {
+        *all.iter().find(|x| serde_json::to_value(x).unwrap() == *v).unwrap_or_else(|| panic!("no variant {v}"))
+    }
+    let strings = |v: &Value| v.as_array().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect::<Vec<_>>();
+
+    let ci = &cases["only_waits_for_ci"];
+    for c in ci["cases"].as_array().unwrap() {
+        let mut f = ci["base"].as_object().unwrap().clone();
+        f.extend(c["with"].as_object().unwrap().clone());
+        let m = MergeRequest {
+            state: named(&[MrState::Opened, MrState::Merged, MrState::Closed], &f["state"]),
+            draft: f["draft"].as_bool().unwrap(),
+            auto_merge: f["auto_merge"].as_bool().unwrap(),
+            conflicts: f["conflicts"].as_bool().unwrap(),
+            merge_error: f["merge_error"].as_str().map(String::from),
+            rebase_in_progress: f["rebase_in_progress"].as_bool().unwrap(),
+            needs_rebase: f["needs_rebase"].as_bool().unwrap(),
+            merge_status: f["merge_status"].as_str().unwrap().into(),
+            pipeline: (!f["pipeline"].is_null()).then(|| {
+                use PipelineStatus::*;
+                named(&[Created, WaitingForResource, Preparing, Pending, Running, Success, Failed, Canceled, Skipped, Manual, Scheduled], &f["pipeline"])
+            }),
+            changes_requested_by: strings(&f["changes_requested_by"]),
+            approvals_left: f["approvals_left"].as_i64().unwrap() as _,
+            open_threads: f["open_threads"].as_i64().unwrap() as _,
+            ..Default::default()
+        };
+        assert_eq!(only_waits_for_ci(&m), c["waits"].as_bool().unwrap(), "{}", c["with"]);
+    }
+
+    let done = &cases["is_done"];
+    let conventions = crate::conventions::Conventions { done_statuses: strings(&done["done_statuses"]), ..Default::default() };
+    for c in done["cases"].as_array().unwrap() {
+        let t = Ticket { closed: c["closed"].as_bool().unwrap(), ..ticket("A", c["status"].as_str().unwrap()) };
+        assert_eq!(conventions.is_done(&t), c["done"].as_bool().unwrap(), "{c}");
+    }
+
+    let kinds = &cases["kind_of"];
+    let agents = crate::config::AgentsConfig { kinds: serde_json::from_value(kinds["kinds"].clone()).unwrap(), ..Default::default() };
+    for c in kinds["cases"].as_array().unwrap() {
+        assert_eq!(agents.kind_of(c["prompt"].as_str().unwrap()), c["kind"].as_str(), "{c}");
+    }
+}

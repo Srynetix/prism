@@ -164,7 +164,9 @@
     e.preventDefault()
     e.stopImmediatePropagation()
     if (hit.href) {
-      if (/^(https?|claude):/i.test(hit.href)) openLink(hit.href)
+      // A link with a scheme goes out through the opener (`obsidian://` to Obsidian, another one
+      // refused); never the window itself away from Prism.
+      if (/^[a-z][a-z\d+.-]*:/i.test(hit.href)) openLink(hit.href)
       else window.open(hit.href, '_self')
       open = false
     } else if (hit.run) exec(hit.key, hit.run, { confirm: 'confirm' in hit ? hit.confirm : undefined, done: 'done' in hit ? hit.done : undefined })

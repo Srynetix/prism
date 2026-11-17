@@ -110,8 +110,8 @@ export const mrTickets = (m: { ticket: string | null; tickets?: string[] }): str
 /** The MR names that ticket, among others maybe. */
 export const namesTicket = (m: { ticket: string | null; tickets?: string[] }, id: string) => mrTickets(m).includes(id)
 
-/** Finished ticket: closed, or in an end status (`[clickup] done_statuses`). */
-export const isDone = (t: Ticket) => t.closed || conventions().done_statuses.includes(t.status)
+/** Finished ticket: closed, or in an end status (`[tracker] done_statuses`), whatever its case: the core's `Conventions::is_done`. */
+export const isDone = (t: Pick<Ticket, 'closed' | 'status'>) => t.closed || conventions().done_statuses.some((s) => s.toLowerCase() === t.status.toLowerCase())
 
 /* ---------- Branches and GitLab ---------- */
 

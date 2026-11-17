@@ -94,6 +94,10 @@ pub fn broadcast(app: AppHandle, hub: Hub) {
     tauri::async_runtime::spawn(async move {
         let mut rx = hub.subscribe();
         while rx.changed().await.is_ok() {
+            // Hidden (menu bar only): nothing copied nor sent until it shows, the latest then.
+            while !hub.window_visible() {
+                hub.until_shown().await;
+            }
             tokio::time::sleep(Duration::from_millis(150)).await;
             let snap = rx.borrow_and_update().clone();
             let now = serde_json::to_value(&snap).unwrap_or_default();

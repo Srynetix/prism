@@ -216,6 +216,25 @@ mod tests {
             }
             out
         }
+        /// The code without what the menus' table says: a call `menu::tr(…)`, and the block that
+        /// brings it in (`use crate::menu::tr;`), up to its closing brace.
+        fn without_menus(code: &str) -> String {
+            let mut code = code.replace("menu::tr(", "menu::(");
+            while let Some(at) = code.find("use crate::menu::tr;") {
+                let mut depth = 0;
+                let end = code[at..].char_indices().find_map(|(i, c)| {
+                    match c {
+                        '{' => depth += 1,
+                        '}' if depth == 0 => return Some(at + i),
+                        '}' => depth -= 1,
+                        _ => {}
+                    }
+                    None
+                });
+                code.replace_range(at..end.unwrap_or(code.len()), "");
+            }
+            code
+        }
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut all = Vec::new();
         files(&root.join("crates"), &mut all);
@@ -224,10 +243,11 @@ mod tests {
         let mut missing = Vec::new();
         for path in all.iter().filter(|p| !p.components().any(|c| c.as_os_str() == "i18n" || c.as_os_str() == "target")) {
             let code = std::fs::read_to_string(path).unwrap_or_default();
-            if code.contains("menu::tr") || path.ends_with("menu.rs") {
+            if path.ends_with("menu.rs") {
                 continue;
             }
             let code = code.split("#[cfg(test)]\nmod tests").next().unwrap_or_default();
+            let code = without_menus(code);
             let code: String = code.lines().filter(|l| !l.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n");
             missing.extend(said(&code).into_iter().filter(|t| !keys.contains(t.as_str())).map(|t| format!("{}: {t}", path.strip_prefix(&root).unwrap_or(path).display())));
         }

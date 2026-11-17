@@ -109,6 +109,15 @@ impl Conventions {
         let Conventions { ticket_prefix: _, ticket_patterns: _, forge: _, gitlab_host: _, main_branch: _, release_prefix: _, time_history_days: _, day_hours: _, branch_aliases: _, workflow_statuses, before_dev_statuses, in_progress_statuses, review_statuses, approved_statuses, merge_queue_statuses, after_merge_statuses, done_statuses, blocked_statuses, validation_statuses, pick_statuses, estimate_builtin, estimate_fields, avatars, forge_avatars, actuals, next_action, actuals_logged_only, ticket_type } = read;
         Conventions { workflow_statuses, before_dev_statuses, in_progress_statuses, review_statuses, approved_statuses, merge_queue_statuses, after_merge_statuses, done_statuses, blocked_statuses, validation_statuses, pick_statuses, estimate_builtin, estimate_fields, avatars, forge_avatars, actuals, next_action, actuals_logged_only, ticket_type, ..self.clone() }
     }
+
+    /// Finished ticket: closed, or in an end status (`[tracker] done_statuses`), whatever its case
+    /// (`Done` as `done`). The alerts, the retro and `isDone` of `web/src/conventions.ts` agree on it.
+    pub fn is_done(&self, t: &crate::state::Ticket) -> bool {
+        t.closed || {
+            let status = t.status.to_lowercase();
+            self.done_statuses.iter().any(|s| s.to_lowercase() == status)
+        }
+    }
 }
 
 /// The prefix (escaped) then, on Obsidian, its boards' patterns: each once.

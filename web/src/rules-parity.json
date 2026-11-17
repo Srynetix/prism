@@ -1,0 +1,53 @@
+{
+  "_": "Cases of the rules the window repeats from the Rust core, read by rules-parity.test.ts and by the core's parity test (crates/core/src/alerts/tests.rs): a rule that drifts on one side fails a test.",
+  "only_waits_for_ci": {
+    "base": { "state": "opened", "draft": false, "auto_merge": false, "conflicts": false, "merge_error": null, "rebase_in_progress": false, "needs_rebase": false, "merge_status": "ci_still_running", "pipeline": "running", "changes_requested_by": [], "approvals_left": 0, "open_threads": 0 },
+    "cases": [
+      { "with": {}, "waits": true },
+      { "with": { "pipeline": "pending" }, "waits": true },
+      { "with": { "pipeline": "success" }, "waits": false },
+      { "with": { "pipeline": null }, "waits": false },
+      { "with": { "state": "merged" }, "waits": false },
+      { "with": { "draft": true }, "waits": false },
+      { "with": { "auto_merge": true }, "waits": false },
+      { "with": { "conflicts": true }, "waits": false },
+      { "with": { "merge_error": "Rebase failed: Rebase locally" }, "waits": false },
+      { "with": { "merge_error": "Something else" }, "waits": true },
+      { "with": { "rebase_in_progress": true }, "waits": false },
+      { "with": { "needs_rebase": true }, "waits": false },
+      { "with": { "merge_status": "need_rebase" }, "waits": false },
+      { "with": { "changes_requested_by": ["ana"] }, "waits": false },
+      { "with": { "approvals_left": 1 }, "waits": false },
+      { "with": { "open_threads": 2 }, "waits": false }
+    ]
+  },
+  "is_done": {
+    "done_statuses": ["done", "Shipped"],
+    "cases": [
+      { "status": "done", "closed": false, "done": true },
+      { "status": "Done", "closed": false, "done": true },
+      { "status": "shipped", "closed": false, "done": true },
+      { "status": "in progress", "closed": false, "done": false },
+      { "status": "in progress", "closed": true, "done": true },
+      { "status": "", "closed": false, "done": false }
+    ]
+  },
+  "kind_of": {
+    "kinds": [
+      { "name": "Refinement", "when": "refine" },
+      { "name": "Review", "when": "/review, code-review" },
+      { "name": "By hand", "when": "" }
+    ],
+    "cases": [
+      { "prompt": "/refine ABC-12", "kind": "Refinement" },
+      { "prompt": "  /acme-flow:refine ABC-12", "kind": "Refinement" },
+      { "prompt": "/review 1620", "kind": "Review" },
+      { "prompt": "/code-review", "kind": "Review" },
+      { "prompt": "/acme:code-review now", "kind": "Review" },
+      { "prompt": "refine ABC-12", "kind": null },
+      { "prompt": "/implement ABC-12", "kind": null },
+      { "prompt": "/", "kind": null },
+      { "prompt": "", "kind": null }
+    ]
+  }
+}

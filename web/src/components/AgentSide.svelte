@@ -21,6 +21,7 @@
   import { invoke, isDesktop } from '../bridge'
   import { ago } from '../time'
   import { pref, setPref } from '../layout.svelte'
+  import { holdEscape, layers } from '../layers.svelte'
   import type { MrDiff } from '../mr-review.svelte'
   import type { Agent } from '../types'
   import { pollsShown } from '../polls.svelte'
@@ -232,12 +233,10 @@
   $effect(() => {
     if (tab !== 'web') overlay = false
   })
-  function onOverlayKey(e: KeyboardEvent) {
-    if (!overlay || e.key !== 'Escape' || picking || (e.target as HTMLElement | null)?.closest?.('input, textarea, select')) return
-    e.preventDefault()
-    e.stopImmediatePropagation()
-    overlay = false
-  }
+  // Esc comes back, unless a layer is open over it or it is meant for a field or the picker.
+  $effect(() => {
+    if (overlay) return holdEscape(() => (overlay = false), (e) => !picking && !layers.stack.length && !(e.target as HTMLElement | null)?.closest?.('input, textarea, select'))
+  })
   const webError = $derived(/^https?:\/\//i.test(shown) && !isLocal(shown) ? t('Only a local server (http://localhost:…) or a file of the agent folder.') : '')
 
   // Each tab loads on first opening; ↻ reloads it.
@@ -360,7 +359,6 @@
   {/if}
 </aside>
 
-<svelte:window onkeydowncapture={onOverlayKey} />
 
 <style>
   .side { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--border); background: var(--surface); }

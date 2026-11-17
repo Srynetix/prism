@@ -30,8 +30,10 @@ struct Host {
     state: Arc<AppState>,
     next: AtomicU64,
     clients: Mutex<Vec<McpClient>>,
-    /// The connections of the assistant's conversations, proven by their key at `hello`.
+    /// The connections of the assistant's conversations, proven at `hello`: its key, and its process one the assistant's session started (`Agents::started_by`).
     assistants: Mutex<std::collections::HashSet<u64>>,
+    /// Each connection's process, as the system told it when it connected.
+    pids: Mutex<std::collections::HashMap<u64, u32>>,
     proposals: Mutex<Vec<Pending>>,
 }
 
@@ -68,7 +70,7 @@ pub fn serve(state: Arc<AppState>) {
     // Unix: bound here (no runtime needed) to be served from the runtime.
     #[cfg(unix)]
     let Some(listener) = bind() else { return };
-    let host = Arc::new(Host { state, next: AtomicU64::new(1), clients: Mutex::new(Vec::new()), assistants: Mutex::default(), proposals: Mutex::new(Vec::new()) });
+    let host = Arc::new(Host { state, next: AtomicU64::new(1), clients: Mutex::new(Vec::new()), assistants: Mutex::default(), pids: Mutex::default(), proposals: Mutex::new(Vec::new()) });
     let _ = HOST.set(host.clone());
     prism_base::rt::Generation::outside(|| {
         #[cfg(unix)]
@@ -101,7 +103,8 @@ async fn accept(host: Arc<Host>, mut listener: prism_sys::ipc::Listener) {
     loop {
         match listener.accept().await {
             Ok(stream) => {
-                prism_base::rt::spawn(host.clone().connection(stream));
+                let pid = prism_sys::ipc::peer_pid(&stream);
+                prism_base::rt::spawn(host.clone().connection(stream, pid));
             }
             Err(e) => {
                 tracing::warn!("mcp: {e}");
@@ -112,11 +115,14 @@ async fn accept(host: Arc<Host>, mut listener: prism_sys::ipc::Listener) {
 }
 
 impl Host {
-    async fn connection<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + 'static>(self: Arc<Self>, stream: S) {
+    async fn connection<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + 'static>(self: Arc<Self>, stream: S, pid: Option<u32>) {
         let (read, write) = tokio::io::split(stream);
         let write = Arc::new(tokio::sync::Mutex::new(write));
         let mut lines = BufReader::new(read).lines();
         let id = self.next.fetch_add(1, Ordering::SeqCst);
+        if let Some(pid) = pid {
+            self.pids.lock().unwrap().insert(id, pid);
+        }
         while let Ok(Some(line)) = lines.next_line().await {
             let me = self.clone();
             let write = write.clone();
@@ -137,6 +143,7 @@ impl Host {
         super::assistant::gone(&self.state, id);
         self.clients.lock().unwrap().retain(|c| c.id != id);
         self.assistants.lock().unwrap().remove(&id);
+        self.pids.lock().unwrap().remove(&id);
         self.proposals.lock().unwrap().retain(|p| p.view.client_id != Some(id));
         self.publish();
     }
@@ -193,8 +200,20 @@ impl Host {
         match method {
             "hello" => {
                 let name = str_param("client").unwrap_or_else(|| "agent".into());
-                let agent = str_param("agent").filter(|a| !a.is_empty());
-                if agent.as_deref().is_some_and(|a| self.state.agents.is_assistant_by(a, &str_param("key").unwrap_or_default())) {
+                // The agent it says it runs in, kept only when its process is one that agent's
+                // session started: the assistant's tools and « in passing » answer that one alone.
+                let pid = self.pids.lock().unwrap().get(&client).copied();
+                let agent = match str_param("agent").filter(|a| !a.is_empty()) {
+                    Some(a) if self.state.agents.started_by(&a, pid).await => Some(a),
+                    Some(a) => {
+                        tracing::warn!("mcp: {name} says it runs in agent {a}, but its process is not one that agent started");
+                        None
+                    }
+                    None => None,
+                };
+                if let Some(a) = agent.as_deref()
+                    && self.state.agents.is_assistant_by(a, &str_param("key").unwrap_or_default())
+                {
                     self.assistants.lock().unwrap().insert(client);
                 }
                 self.clients.lock().unwrap().push(McpClient { id: client, name, agent, since: Utc::now(), reads: 0, proposals: 0 });
@@ -407,8 +426,16 @@ impl Host {
                     b.call("save".into(), json!({ "def": def })).await?;
                     json!({ "status": "applied", "note": "added and trusted: it runs now" })
                 } else {
-                    let current = std::fs::read_to_string(&path).unwrap_or_default();
-                    if current != before {
+                    // Compared and written under the file's lock: a save in between is seen.
+                    let changed = prism_base::files::locked(&path, || -> Result<Option<String>> {
+                        let current = std::fs::read_to_string(&path).unwrap_or_default();
+                        if current != before {
+                            return Ok(Some(current));
+                        }
+                        crate::settings::write(&path, &current, &view.text)?;
+                        Ok(None)
+                    })?;
+                    if let Some(current) = changed {
                         // Changed meanwhile: computed again on the file as it is, to apply again.
                         let computed = compute(&current, &change)?;
                         anyhow::ensure!(computed.check.errors.is_empty(), "on the current config.toml, the proposal no longer holds: {}", computed.check.errors.join("; "));
@@ -420,7 +447,6 @@ impl Host {
                         self.publish();
                         bail!("config.toml changed since the proposal: it is computed again on the current version, check it and apply again");
                     }
-                    crate::settings::write(&path, &current, &view.text)?;
                     crate::commands::config::apply_live(&self.state, &path);
                     json!({ "status": "applied", "note": "applied live: check prism_problems() and prism://blocks" })
                 }
@@ -428,8 +454,7 @@ impl Host {
             // Saved from the TOML panel, as the user changed it.
             "modified" => {
                 let text = text.context("text")?;
-                let current = std::fs::read_to_string(&path).unwrap_or_default();
-                crate::settings::write(&path, &current, &text)?;
+                prism_base::files::locked(&path, || crate::settings::write(&path, &std::fs::read_to_string(&path).unwrap_or_default(), &text))?;
                 crate::commands::config::apply_live(&self.state, &path);
                 let diff: Vec<String> = prism_core::textdiff::around(prism_core::textdiff::lines(&view.text, &text), 2).into_iter().map(|l| format!("{}{}", l.op, l.text)).collect();
                 json!({ "status": "applied_modified", "note": "the user changed it before saving: here is what differs from the proposal", "diff_from_proposal": diff.join("\n") })

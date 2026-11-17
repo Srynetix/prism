@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::{Arc, LazyLock, Mutex},
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use crate::tr;
@@ -44,7 +40,7 @@ impl Store {
     /// Atomic write: temporary file then rename, so as never to leave a truncated JSON.
     pub fn save(&self, name: &str, value: &serde_json::Value) -> Result<()> {
         let path = self.path(name)?;
-        let lock = lock(&path);
+        let lock = crate::files::lock_of(&path);
         let _held = lock.lock().unwrap_or_else(|e| e.into_inner());
         self.write(&path, value)
     }
@@ -54,7 +50,7 @@ impl Store {
     /// write, or None to leave it; whether it was written.
     pub fn update(&self, name: &str, f: impl FnOnce(Option<serde_json::Value>) -> Result<Option<serde_json::Value>>) -> Result<bool> {
         let path = self.path(name)?;
-        let lock = lock(&path);
+        let lock = crate::files::lock_of(&path);
         let _held = lock.lock().unwrap_or_else(|e| e.into_inner());
         match f(self.load(name)?)? {
             Some(value) => self.write(&path, &value).map(|()| true),
@@ -69,13 +65,6 @@ impl Store {
         std::fs::rename(&tmp, path)?;
         Ok(())
     }
-}
-
-/// The lock of a document, by its path: whichever `Store` reaches it (the commands' and the
-/// routines' are two).
-fn lock(path: &Path) -> Arc<Mutex<()>> {
-    static LOCKS: LazyLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = LazyLock::new(Default::default);
-    LOCKS.lock().unwrap_or_else(|e| e.into_inner()).entry(path.to_path_buf()).or_default().clone()
 }
 
 #[cfg(test)]

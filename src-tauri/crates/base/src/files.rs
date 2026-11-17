@@ -1,7 +1,9 @@
 //! Files Prism writes whole: replaced at once, the owner's only.
 
 use std::io::Write;
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock, Mutex};
 
 /// Writes `bytes` to `path` through a file next to it, created 0600, then renamed over it: a
 /// crash mid-write leaves the former file, never half of one (a config cut short), and nothing
@@ -27,6 +29,20 @@ pub fn write_private(path: &Path, bytes: impl AsRef<[u8]>) -> std::io::Result<()
             Err(e)
         }
     }
+}
+
+/// The lock of a file, by its path: one per file across the process, for whoever reads it,
+/// changes it and writes it back (a store's document, a trust store, `config.toml`).
+pub fn lock_of(path: &Path) -> Arc<Mutex<()>> {
+    static LOCKS: LazyLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = LazyLock::new(Default::default);
+    LOCKS.lock().unwrap_or_else(|e| e.into_inner()).entry(path.to_path_buf()).or_default().clone()
+}
+
+/// `f` run while holding the lock of the file at `path` (`lock_of`).
+pub fn locked<T>(path: &Path, f: impl FnOnce() -> T) -> T {
+    let lock = lock_of(path);
+    let _held = lock.lock().unwrap_or_else(|e| e.into_inner());
+    f()
 }
 
 #[cfg(test)]

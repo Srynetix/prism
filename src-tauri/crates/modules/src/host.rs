@@ -25,15 +25,32 @@ const LISTS: &[&str] = &["-l", "--list", "-a", "--all", "-r", "--remotes", "--sh
 /// Of those, the ones whose value may come as the next argument.
 const VALUED: &[&str] = &["--format", "--sort", "--contains", "--no-contains", "--merged", "--no-merged", "--points-at"];
 
-/// Options that read a file they name, anywhere: refused (`-O<orderfile>`, `-X<file>` and the rest).
-const FILE_OPTIONS: &[&str] = &["--contents", "--ignore-revs-file", "--exclude-from", "--exclude-per-directory", "--pathspec-from-file", "--orderfile", "-O", "-X"];
+/// Long options that read a file they name (anywhere), write one, or compare outside the clone:
+/// refused, and so is any abbreviation of them (git takes `--cont` for `--contents`).
+const FILE_OPTIONS: &[&str] = &["contents", "ignore-revs-file", "exclude-from", "exclude-per-directory", "pathspec-from-file", "orderfile", "output", "output-directory", "no-index"];
+/// Options whose names begin one of those, taken as they are (git prefers an exact name to an
+/// abbreviation): not a file.
+const EXACT: &[&str] = &["exclude", "ignore-rev", "output-indicator-new", "output-indicator-old", "output-indicator-context"];
+
+/// A long option (`--name` or `--name=value`) that is, or abbreviates, one of `FILE_OPTIONS`.
+fn file_option(arg: &str) -> bool {
+    let Some(name) = arg.strip_prefix("--").map(|a| a.split_once('=').map_or(a, |(n, _)| n)) else { return false };
+    !name.is_empty() && !EXACT.contains(&name) && FILE_OPTIONS.iter().any(|o| o.starts_with(name) || name.starts_with(o))
+}
+
+/// Short options naming a file to read, alone or among others (`-wS<file>`): `-O<orderfile>`
+/// (diff, log, show), `-X<file>` (ls-files), and blame's `-S <revs-file>`.
+fn short_file_option(sub: &str, arg: &str) -> bool {
+    let Some(letters) = arg.strip_prefix('-').filter(|a| !a.starts_with('-') && !a.is_empty()) else { return false };
+    letters.contains('O') || letters.contains('X') || (sub == "blame" && letters.contains('S'))
+}
 
 /// `args` a git command that reads: a subcommand that reads, first (an option there, `-C` or
-/// `-c alias.x=!…`, would leave the clone or run something else), no `--output` (a file written),
-/// no `--no-index` nor an option naming a file to read (outside the clone); `branch` and `tag` listing.
+/// `-c alias.x=!…`, would leave the clone or run something else), no option naming a file to read
+/// or write (outside the clone), even abbreviated; `branch` and `tag` listing.
 fn reads(args: &[String]) -> bool {
     let Some(sub) = args.first().filter(|c| READS.contains(&c.as_str())) else { return false };
-    if args.iter().any(|a| a.starts_with("--output") || a == "--no-index" || FILE_OPTIONS.iter().any(|o| a.starts_with(o))) {
+    if args[1..].iter().any(|a| file_option(a) || short_file_option(sub, a)) {
         return false;
     }
     !matches!(sub.as_str(), "branch" | "tag") || lists(&args[1..])
@@ -117,6 +134,11 @@ type Work = std::pin::Pin<Box<dyn std::future::Future<Output = Answer> + Send>>;
 pub const MEMORY: usize = 512 << 20;
 /// The most elements one of its tables holds.
 const TABLE_ELEMENTS: usize = 1 << 20;
+/// How many memories, tables and core instances a module's component may make: a few each (its
+/// code, WASI's adapter); with `MEMORY`, what it takes at most stays bounded.
+const MEMORIES: usize = 8;
+const TABLES: usize = 32;
+const INSTANCES: usize = 32;
 
 pub struct HostState {
     pub module: String,
@@ -150,7 +172,7 @@ impl HostState {
         let stderr = Stderr { module: module.clone(), lines: Default::default() };
         // No preopened folder, no environment, no socket: clocks and randomness.
         let wasi = WasiCtx::builder().stderr(stderr.clone()).build();
-        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), mark: None, calls: Default::default(), part: String::new(), woke: None, limits: wasmtime::StoreLimitsBuilder::new().memory_size(MEMORY).table_elements(TABLE_ELEMENTS).build(), wasi, table: ResourceTable::new() }
+        Self { module, caps, repos, rt, stderr, waited: Default::default(), started: std::time::Instant::now(), mark: None, calls: Default::default(), part: String::new(), woke: None, limits: wasmtime::StoreLimitsBuilder::new().memory_size(MEMORY).table_elements(TABLE_ELEMENTS).memories(MEMORIES).tables(TABLES).instances(INSTANCES).build(), wasi, table: ResourceTable::new() }
     }
 
     /// What Prism does for it, its time counted apart from the call's own (`waited`).
@@ -232,12 +254,14 @@ fn api_path(path: &str) -> bool {
     !path.is_empty() && !path.starts_with('-') && !path.starts_with('/') && !path.contains("://") && !path.chars().any(|c| c.is_control() || c.is_whitespace())
 }
 
-/// The modules' HTTP client: a redirect followed on the same host only (another one, a local
-/// service say, is not among the module's capabilities).
+/// The modules' HTTP client: a redirect followed on the same host and port only (another one, a
+/// local service say, is not among the module's capabilities), never from https down to http.
 static HTTP: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| {
     let policy = reqwest::redirect::Policy::custom(|attempt| {
         let same = attempt.previous().first().is_some_and(|first| first.host_str() == attempt.url().host_str() && first.port_or_known_default() == attempt.url().port_or_known_default());
-        if attempt.previous().len() >= 10 || !same || attempt.url().scheme() != "https" && attempt.url().scheme() != "http" {
+        // Never from https down to http, even on the same host and port.
+        let down = attempt.previous().first().is_some_and(|first| first.scheme() == "https") && attempt.url().scheme() != "https";
+        if attempt.previous().len() >= 10 || !same || down || attempt.url().scheme() != "https" && attempt.url().scheme() != "http" {
             attempt.stop()
         } else {
             attempt.follow()
@@ -495,12 +519,16 @@ mod tests {
         assert!(some.git(std::env::temp_dir().display().to_string(), vec!["status".into()]).unwrap_err().contains("not one of your clones"));
         // `cherry` reads (is an MR's commit in a tag?).
         assert!(reads(&["cherry".into(), "v1".into(), "abc^2".into(), "abc^1".into()]));
+        // Reading options whose names begin a file option's, and log's pickaxe `-S`: allowed.
+        for ok in ["blame --ignore-rev abc f", "ls-files --exclude=*.o -o", "log -Sneedle", "log --oneline -n5", "diff --stat HEAD~1"] {
+            assert!(reads(&ok.split(' ').map(String::from).collect::<Vec<_>>()), "{ok}");
+        }
         // `branch` and `tag` list; creating, moving or deleting a ref, reading a file outside: refused.
         let v = |a: &str| a.split(' ').map(String::from).collect::<Vec<_>>();
         for ok in ["branch", "branch --show-current", "branch -a --contains abc", "branch --list fix/*", "tag --list v1.* --sort=-v:refname", "tag --points-at HEAD", "tag -n3 -l v1", "branch --merged main --format %(refname)"] {
             assert!(reads(&v(ok)), "{ok}");
         }
-        for no in ["branch new", "branch -D main", "branch -f main HEAD~1", "branch -m a b", "branch -a new", "branch --set-upstream-to=x", "tag v9", "tag -d v1", "tag -f v1 HEAD", "tag -a v2 -m x", "diff --no-index /etc/hosts /dev/null", "blame --contents /etc/hosts f", "log --output=x", "blame --ignore-revs-file=/etc/hosts f", "diff -O/etc/hosts", "diff --orderfile=/etc/hosts", "ls-files --exclude-from=/etc/hosts", "ls-files -X /etc/hosts", "diff --pathspec-from-file=/etc/hosts"] {
+        for no in ["branch new", "branch -D main", "branch -f main HEAD~1", "branch -m a b", "branch -a new", "branch --set-upstream-to=x", "tag v9", "tag -d v1", "tag -f v1 HEAD", "tag -a v2 -m x", "diff --no-index /etc/hosts /dev/null", "blame --contents /etc/hosts f", "log --output=x", "blame --ignore-revs-file=/etc/hosts f", "diff -O/etc/hosts", "diff --orderfile=/etc/hosts", "ls-files --exclude-from=/etc/hosts", "ls-files -X /etc/hosts", "diff --pathspec-from-file=/etc/hosts", "blame --content=/etc/hosts f", "blame --cont=/etc/hosts f", "blame --ignore-revs-f=/etc/hosts f", "blame -S /etc/hosts f", "blame -wS/etc/hosts f", "ls-files --exclude-fr=/etc/hosts", "diff --order=/etc/hosts", "log --outp=x", "diff --no-ind /etc/hosts x", "show -wO/etc/hosts"] {
             assert!(!reads(&v(no)), "{no}");
         }
         assert!(some.git(format!("{}/..", mine.display()), vec!["status".into()]).is_err());

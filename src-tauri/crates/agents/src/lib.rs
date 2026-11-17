@@ -453,9 +453,12 @@ impl Agents {
         self.inner.hub.update(|s| {
             let mine = s.sessions.iter().filter(|c| c.origin == SessionOrigin::Agent).cloned().collect::<Vec<_>>();
             let changed = s.agents != list || mine != sessions;
-            s.agents = list;
-            s.sessions.retain(|c| c.origin != SessionOrigin::Agent);
-            s.sessions.extend(sessions);
+            // Unchanged: the snapshot left as it is (its sessions not moved about unannounced).
+            if changed {
+                s.agents = list;
+                s.sessions.retain(|c| c.origin != SessionOrigin::Agent);
+                s.sessions.extend(sessions);
+            }
             changed
         });
         self.inner.hub.set_error(SOURCE, None);
@@ -480,6 +483,14 @@ impl Agents {
     /// Whether `key` is the one of `id`, a conversation of the assistant.
     pub fn is_assistant_by(&self, id: &str, key: &str) -> bool {
         self.is_assistant(id) && !key.is_empty() && self.assistant_key(id) == key
+    }
+
+    /// Whether the process `pid` (the other end of an MCP connection, as the system tells it) is
+    /// agent `id`'s: its session's pane process or one that started, however deep. What an MCP
+    /// client says it is (`PRISM_AGENT`) any process may say; this, none can claim.
+    pub async fn started_by(&self, id: &str, pid: Option<u32>) -> bool {
+        let (Some(pid), Some(root)) = (pid, self.inner.tmux.pane_pid(id).await) else { return false };
+        tokio::task::spawn_blocking(move || descends(pid, root)).await.unwrap_or(false)
     }
 
     /// The agent's record, as registered.
@@ -825,6 +836,24 @@ fn clean_tags(tags: Vec<String>) -> Vec<String> {
     out
 }
 
+/// Whether process `pid` is `root` or was started by it, however deep.
+fn descends(pid: u32, root: u32) -> bool {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let mut at = Pid::from_u32(pid);
+    for _ in 0..64 {
+        if at.as_u32() == root {
+            return true;
+        }
+        match sys.process(at).and_then(|p| p.parent()) {
+            Some(parent) if parent != at => at = parent,
+            _ => return false,
+        }
+    }
+    false
+}
+
 /// The secret kept at `path` (written there the first time, the owner's only): the assistant's
 /// keys outlive a restart of Prism, as its conversations do.
 fn secret(path: &std::path::Path) -> Vec<u8> {
@@ -849,6 +878,18 @@ mod tests {
     use std::sync::mpsc;
 
     use super::*;
+
+    /// A process started by another descends from it; the other way round, or a stranger, does not.
+    #[test]
+    fn a_process_descends_from_what_started_it() {
+        let me = std::process::id();
+        assert!(descends(me, me));
+        let mut child = std::process::Command::new(if cfg!(windows) { "cmd" } else { "sleep" }).args(if cfg!(windows) { &["/C", "ping -n 3 127.0.0.1 >NUL"][..] } else { &["2"][..] }).spawn().unwrap();
+        assert!(descends(child.id(), me));
+        assert!(!descends(me, child.id()));
+        let _ = child.kill();
+        let _ = child.wait();
+    }
 
     /// Codex's hook command: the same path whatever Prism's, the script following Prism.
     #[cfg(unix)]

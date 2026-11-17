@@ -139,8 +139,8 @@ impl Book {
 
     fn write(&self, name: &str, value: &impl Serialize) {
         let path = self.dir.join(name);
-        let tmp = path.with_extension("json.tmp");
-        let done = serde_json::to_vec_pretty(value).map_err(anyhow::Error::from).and_then(|raw| prism_base::files::write_private(&tmp, raw).and_then(|()| std::fs::rename(&tmp, &path)).map_err(Into::into));
+        // `write_private` writes it whole or not at all (a temporary file renamed).
+        let done = serde_json::to_vec_pretty(value).map_err(anyhow::Error::from).and_then(|raw| prism_base::files::write_private(&path, raw).map_err(Into::into));
         if let Err(e) = done {
             tracing::warn!("routines: writing {}: {e:#}", path.display());
         }
@@ -283,12 +283,12 @@ fn blocked(a: &Agent) -> bool {
     a.state == AgentState::Running && ((a.status == SessionStatus::WaitingTool && a.needs_action.is_some()) || a.needs_action.as_deref() == Some(status::QUESTION))
 }
 
-/// A short name for a worktree: the routine's words, lower case, dashes between.
+/// A short name for a worktree: the routine's words as an agent's (`prism_core::agents::slug`), cut
+/// at 30 characters since the run's date and time follow them.
 fn slug(name: &str) -> String {
-    let s: String = name.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
-    let s = s.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-");
-    let s: String = s.chars().take(30).collect();
-    if s.is_empty() { "routine".into() } else { s }
+    let s = prism_core::agents::slug(name);
+    let s = s.get(..30).unwrap_or(&s).trim_end_matches('-');
+    if s.is_empty() { "routine".into() } else { s.into() }
 }
 
 /// The prompt of a builtin, in the prompts' language, what it reads (the open alerts, the retro's
@@ -1071,8 +1071,10 @@ mod tests {
     #[test]
     fn worktree_names() {
         assert_eq!(slug("Deps de la nuit"), "deps-de-la-nuit");
-        assert_eq!(slug("Été !"), "t");
+        assert_eq!(slug("Été !"), "ete");
+        assert_eq!(slug("Año ñandú"), "ano-nandu");
         assert_eq!(slug("!!!"), "routine");
+        assert_eq!(slug("une routine au nom bien tropx long"), "une-routine-au-nom-bien-tropx");
     }
 
     #[test]

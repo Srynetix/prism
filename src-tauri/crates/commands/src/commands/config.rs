@@ -184,7 +184,38 @@ pub(crate) fn apply_live(state: &AppState, path: &std::path::Path) {
     apply(state, path, false);
 }
 
+/// What the config was when last applied (`stamp`): the watcher's apply after a save from
+/// Settings, which applied it already, does nothing.
+static APPLIED: std::sync::Mutex<Option<u64>> = std::sync::Mutex::new(None);
+
+/// `config.toml` and its packs' files, as they are, hashed: two the same apply the same.
+fn stamp(path: &std::path::Path) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    std::fs::read(path).unwrap_or_default().hash(&mut h);
+    // Every `.toml` under the packs' folder, as the watcher sees them.
+    fn tomls(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                tomls(&p, out);
+            } else if p.extension().is_some_and(|x| x == "toml") {
+                out.push(p);
+            }
+        }
+    }
+    let mut packs = Vec::new();
+    tomls(&crate::packs::dir(path), &mut packs);
+    packs.sort();
+    for p in packs {
+        p.hash(&mut h);
+        std::fs::read(&p).unwrap_or_default().hash(&mut h);
+    }
+    h.finish()
+}
+
 fn apply(state: &AppState, path: &std::path::Path, force: bool) {
+    *APPLIED.lock().unwrap_or_else(|e| e.into_inner()) = Some(stamp(path));
     let cfg = match crate::config::load(path) {
         Ok(cfg) => cfg,
         Err(e) => {
@@ -268,8 +299,11 @@ pub fn watch(state: std::sync::Arc<AppState>) {
         let _watcher = watcher;
         while rx.recv().await.is_some() {
             // Several events per save: the last one counts. A save from Settings applied already:
-            // applied again, it changes nothing.
+            // the same files, nothing to do (a module configured again would be waited for).
             while tokio::time::timeout(std::time::Duration::from_millis(500), rx.recv()).await.is_ok_and(|e| e.is_some()) {}
+            if *APPLIED.lock().unwrap_or_else(|e| e.into_inner()) == Some(stamp(&path)) {
+                continue;
+            }
             tracing::debug!("config: changed on disk");
             apply_live(&state, &path);
         }
@@ -474,4 +508,26 @@ pub fn mcp_installs() -> Vec<crate::mcp::install::Installed> {
 pub async fn mcp_install(cli: String, on: bool) -> Cmd<String> {
     let done = tokio::task::spawn_blocking(move || if on { crate::mcp::install::install(&cli) } else { crate::mcp::install::uninstall(&cli) }).await?;
     done.map_err(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    /// The same config.toml and packs, the same stamp; a pack changed, nested or not, another.
+    #[test]
+    fn the_stamp_follows_the_config_and_its_packs() {
+        let dir = std::env::temp_dir().join(format!("prism-config-stamp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("packs/team")).unwrap();
+        let path = dir.join("config.toml");
+        std::fs::write(&path, "[console]\n").unwrap();
+        std::fs::write(dir.join("packs/a.toml"), "x = 1\n").unwrap();
+        let first = super::stamp(&path);
+        assert_eq!(super::stamp(&path), first);
+        std::fs::write(dir.join("packs/team/b.toml"), "y = 1\n").unwrap();
+        let second = super::stamp(&path);
+        assert_ne!(second, first);
+        std::fs::write(&path, "[console]\nhistory = 1\n").unwrap();
+        assert_ne!(super::stamp(&path), second);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

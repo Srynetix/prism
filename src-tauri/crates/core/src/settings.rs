@@ -115,112 +115,130 @@ pub fn preview(path: &Path, edits: &[Edit]) -> Result<String> {
 
 /// Writes the changes; returns the new text.
 pub fn save(path: &Path, edits: &[Edit]) -> Result<String> {
-    let old = std::fs::read_to_string(path).unwrap_or_default();
-    let new = apply(&old, edits)?;
-    write(path, &old, &new)?;
-    Ok(new)
+    // Read, changed and written back under the file's lock: two saves at once lose neither.
+    prism_base::files::locked(path, || {
+        let old = std::fs::read_to_string(path).unwrap_or_default();
+        let new = apply(&old, edits)?;
+        write(path, &old, &new)?;
+        Ok(new)
+    })
 }
 
 /// Adds a `[[repos]]` entry at the end of the file's own, the others as they are (a phone's new
 /// project: the file's repositories are not the merged ones Settings edits). Saved as `save` does.
 pub fn add_repo(path: &Path, row: &serde_json::Map<String, serde_json::Value>) -> Result<()> {
-    let old = std::fs::read_to_string(path).unwrap_or_default();
-    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
-    let mut t = Table::new();
-    for (k, v) in row.iter().filter(|(_, v)| !v.is_null()) {
-        t.insert(k, to_item(v)?);
-    }
-    match doc.get_mut("repos") {
-        None => {
-            doc.insert("repos", Item::ArrayOfTables(ArrayOfTables::new()));
+    // Read, changed and written back under the file's lock: two saves at once lose neither.
+    prism_base::files::locked(path, || {
+        let old = std::fs::read_to_string(path).unwrap_or_default();
+        let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+        let mut t = Table::new();
+        for (k, v) in row.iter().filter(|(_, v)| !v.is_null()) {
+            t.insert(k, to_item(v)?);
         }
-        Some(Item::ArrayOfTables(_)) => {}
-        Some(_) => bail!("repos is not a list of [[repos]] tables"),
-    }
-    doc["repos"].as_array_of_tables_mut().context("repos")?.push(t);
-    write(path, &old, &doc.to_string())
+        match doc.get_mut("repos") {
+            None => {
+                doc.insert("repos", Item::ArrayOfTables(ArrayOfTables::new()));
+            }
+            Some(Item::ArrayOfTables(_)) => {}
+            Some(_) => bail!("repos is not a list of [[repos]] tables"),
+        }
+        doc["repos"].as_array_of_tables_mut().context("repos")?.push(t);
+        write(path, &old, &doc.to_string())
+    })
 }
 
 /// Adds an entry at the end of the file's own `[[table.array]]` (a quick action made from a
 /// session: `agents`, `quick_actions`), the rest of the file as it is; never in a pack. The keys
 /// set to null are left out. Saved as `save` does.
 pub fn add_nested_entry(path: &Path, table: &str, array: &str, row: &serde_json::Map<String, serde_json::Value>) -> Result<()> {
-    let old = std::fs::read_to_string(path).unwrap_or_default();
-    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
-    let mut t = Table::new();
-    for (k, v) in row.iter().filter(|(_, v)| !v.is_null()) {
-        t.insert(k, to_item(v)?);
-    }
-    if doc.get(table).is_none() {
-        let mut parent = Table::new();
-        // No empty `[table]` header: only its `[[table.array]]`.
-        parent.set_implicit(true);
-        doc.insert(table, Item::Table(parent));
-    }
-    let parent = doc.get_mut(table).and_then(Item::as_table_like_mut).with_context(|| format!("{table} is not a table"))?;
-    match parent.get(array) {
-        None => {
-            parent.insert(array, Item::ArrayOfTables(ArrayOfTables::new()));
+    // Read, changed and written back under the file's lock: two saves at once lose neither.
+    prism_base::files::locked(path, || {
+        let old = std::fs::read_to_string(path).unwrap_or_default();
+        let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+        let mut t = Table::new();
+        for (k, v) in row.iter().filter(|(_, v)| !v.is_null()) {
+            t.insert(k, to_item(v)?);
         }
-        Some(Item::ArrayOfTables(_)) => {}
-        Some(_) => bail!("{table}.{array} is not a list of [[{table}.{array}]] tables"),
-    }
-    parent.get_mut(array).and_then(Item::as_array_of_tables_mut).context(array.to_string())?.push(t);
-    write(path, &old, &doc.to_string())
+        if doc.get(table).is_none() {
+            let mut parent = Table::new();
+            // No empty `[table]` header: only its `[[table.array]]`.
+            parent.set_implicit(true);
+            doc.insert(table, Item::Table(parent));
+        }
+        let parent = doc.get_mut(table).and_then(Item::as_table_like_mut).with_context(|| format!("{table} is not a table"))?;
+        match parent.get(array) {
+            None => {
+                parent.insert(array, Item::ArrayOfTables(ArrayOfTables::new()));
+            }
+            Some(Item::ArrayOfTables(_)) => {}
+            Some(_) => bail!("{table}.{array} is not a list of [[{table}.{array}]] tables"),
+        }
+        parent.get_mut(array).and_then(Item::as_array_of_tables_mut).context(array.to_string())?.push(t);
+        write(path, &old, &doc.to_string())
+    })
 }
 
 /// Sets keys of the file's `[[repos]]` entry named `name` (a project published later: its
 /// `project`), the rest of the entry and of the file as they are. Saved as `save` does.
 pub fn set_repo(path: &Path, name: &str, keys: &serde_json::Map<String, serde_json::Value>) -> Result<()> {
-    let old = std::fs::read_to_string(path).unwrap_or_default();
-    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
-    let row = doc
-        .get_mut("repos")
-        .and_then(Item::as_array_of_tables_mut)
-        .and_then(|rows| rows.iter_mut().find(|t| t.get("name").and_then(Item::as_str) == Some(name)))
-        .with_context(|| tr!("no [[repos]] named {name} in config.toml", name = name))?;
-    for (k, v) in keys {
-        match v {
-            serde_json::Value::Null => {
-                row.remove(k);
-            }
-            v => {
-                row.insert(k, to_item(v)?);
+    // Read, changed and written back under the file's lock: two saves at once lose neither.
+    prism_base::files::locked(path, || {
+        let old = std::fs::read_to_string(path).unwrap_or_default();
+        let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+        let row = doc
+            .get_mut("repos")
+            .and_then(Item::as_array_of_tables_mut)
+            .and_then(|rows| rows.iter_mut().find(|t| t.get("name").and_then(Item::as_str) == Some(name)))
+            .with_context(|| tr!("no [[repos]] named {name} in config.toml", name = name))?;
+        for (k, v) in keys {
+            match v {
+                serde_json::Value::Null => {
+                    row.remove(k);
+                }
+                v => {
+                    row.insert(k, to_item(v)?);
+                }
             }
         }
-    }
-    write(path, &old, &doc.to_string())
+        write(path, &old, &doc.to_string())
+    })
 }
 
 /// Sets `field` of the file's `[[table.array]]` entry whose `key` is `id` (a routine switched on
 /// or off: `agents`, `routines`, `name`), the rest of the file as it is. Saved as `save` does.
 pub fn set_nested_entry_key(path: &Path, table: &str, array: &str, key: &str, id: &str, field: &str, value: &serde_json::Value) -> Result<()> {
-    let old = std::fs::read_to_string(path).unwrap_or_default();
-    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
-    let row = doc
-        .get_mut(table)
-        .and_then(Item::as_table_like_mut)
-        .and_then(|t| t.get_mut(array))
-        .and_then(Item::as_array_of_tables_mut)
-        .and_then(|rows| rows.iter_mut().find(|t| t.get(key).and_then(Item::as_str) == Some(id)))
-        .with_context(|| tr!("no [[{table}.{array}]] {id} in config.toml (a pack's?)", table = table, array = array, id = id))?;
-    row.insert(field, to_item(value)?);
-    write(path, &old, &doc.to_string())
+    // Read, changed and written back under the file's lock: two saves at once lose neither.
+    prism_base::files::locked(path, || {
+        let old = std::fs::read_to_string(path).unwrap_or_default();
+        let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+        let row = doc
+            .get_mut(table)
+            .and_then(Item::as_table_like_mut)
+            .and_then(|t| t.get_mut(array))
+            .and_then(Item::as_array_of_tables_mut)
+            .and_then(|rows| rows.iter_mut().find(|t| t.get(key).and_then(Item::as_str) == Some(id)))
+            .with_context(|| tr!("no [[{table}.{array}]] {id} in config.toml (a pack's?)", table = table, array = array, id = id))?;
+        row.insert(field, to_item(value)?);
+        write(path, &old, &doc.to_string())
+    })
 }
 
 /// Removes the file's `[[table.array]]` entry whose `key` is `id`, the rest as it is.
 pub fn remove_nested_entry(path: &Path, table: &str, array: &str, key: &str, id: &str) -> Result<()> {
-    let old = std::fs::read_to_string(path).unwrap_or_default();
-    let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
-    let rows = doc.get_mut(table).and_then(Item::as_table_like_mut).and_then(|t| t.get_mut(array)).and_then(Item::as_array_of_tables_mut);
-    let at = rows.as_ref().and_then(|rows| rows.iter().position(|t| t.get(key).and_then(Item::as_str) == Some(id)));
-    match (rows, at) {
-        (Some(rows), Some(i)) => {
-            rows.remove(i);
+    // Read, changed and written back under the file's lock: two saves at once lose neither.
+    prism_base::files::locked(path, || {
+        let old = std::fs::read_to_string(path).unwrap_or_default();
+        let mut doc: DocumentMut = old.parse().context(tr("config.toml is not valid TOML"))?;
+        let rows = doc.get_mut(table).and_then(Item::as_table_like_mut).and_then(|t| t.get_mut(array)).and_then(Item::as_array_of_tables_mut);
+        let at = rows.as_ref().and_then(|rows| rows.iter().position(|t| t.get(key).and_then(Item::as_str) == Some(id)));
+        match (rows, at) {
+            (Some(rows), Some(i)) => {
+                rows.remove(i);
+            }
+            _ => bail!(tr!("no [[{table}.{array}]] {id} in config.toml (a pack's?)", table = table, array = array, id = id)),
         }
-        _ => bail!(tr!("no [[{table}.{array}]] {id} in config.toml (a pack's?)", table = table, array = array, id = id)),
-    }
-    write(path, &old, &doc.to_string())
+        write(path, &old, &doc.to_string())
+    })
 }
 
 /// Sets the file's `[[array]]` entry whose `key` is `id` (a custom block: `custom_blocks`, `id`):
@@ -228,9 +246,12 @@ pub fn remove_nested_entry(path: &Path, table: &str, array: &str, key: &str, id:
 /// none; `None` removes it. The rest of the file as it is; a text on several lines written as a
 /// literal block (`'''`), as one types a script. Saved as `save` does.
 pub fn set_entry(path: &Path, array: &str, key: &str, id: &str, entry: Option<&serde_json::Map<String, serde_json::Value>>) -> Result<()> {
-    let old = std::fs::read_to_string(path).unwrap_or_default();
-    let new = entry_text(&old, array, key, id, entry)?;
-    write(path, &old, &new)
+    // Read, changed and written back under the file's lock: two saves at once lose neither.
+    prism_base::files::locked(path, || {
+        let old = std::fs::read_to_string(path).unwrap_or_default();
+        let new = entry_text(&old, array, key, id, entry)?;
+        write(path, &old, &new)
+    })
 }
 
 /// `set_entry`'s text, without writing it (an agent's proposal shows what it would write).
@@ -507,6 +528,28 @@ mod tests {
         let gone = entry_text(&out2, "custom_blocks", "id", "b", None).unwrap();
         let gone = entry_text(&gone, "custom_blocks", "id", "c", None).unwrap();
         assert_eq!(gone.trim_end(), "[gitlab]\nproject = \"a\"");
+    }
+
+    /// Saves at once (the window, a phone, an agent's proposal): none lost.
+    #[test]
+    fn saves_at_once_lose_nothing() {
+        let dir = std::env::temp_dir().join(format!("prism-settings-race-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        std::fs::write(&path, "[console]\nhistory = 80\n").unwrap();
+        let threads: Vec<_> = (0..8)
+            .map(|i| {
+                let path = path.clone();
+                std::thread::spawn(move || save(&path, &[edit(&["agents", "tags"], None), edit(&["kinds", &format!("k{i}")], Some(json!(i)))]).unwrap())
+            })
+            .collect();
+        for t in threads {
+            t.join().unwrap();
+        }
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!((0..8).all(|i| text.contains(&format!("k{i} = {i}"))), "{text}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

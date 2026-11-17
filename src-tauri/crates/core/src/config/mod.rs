@@ -338,7 +338,7 @@ pub fn load_text(path: &Path, raw: &str) -> Result<Config> {
 pub fn resolve_views(views: &mut Vec<ViewConfig>, inherited: &toml::Table, followed: bool) {
     // No pack's pages (a pack missing, removed): the ids alone in config.toml go all the same.
     let pack: Vec<ViewConfig> = inherited.get("views").cloned().and_then(|v| v.try_into().ok()).unwrap_or_default();
-    let id_of = |v: &ViewConfig| v.id.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(String::from).unwrap_or_else(|| crate::agents::slug(&v.name));
+    let id_of = |v: &ViewConfig| v.id.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(String::from).unwrap_or_else(|| page_slug(&v.name));
     let page = |id: &str| pack.iter().find(|p| id_of(p) == id);
     views.retain_mut(|v| {
         let id = id_of(v);
@@ -638,8 +638,42 @@ pub fn parsed(text: &str) -> Config {
     toml::Value::Table(table).try_into().unwrap()
 }
 
+/// The id of a page named without one, from its name: the rule pages were given ids by, kept as it
+/// was (French accents folded, any other letter a separator). Its blocks, filters and order are
+/// kept under that id: another rule would take them from a page whose name holds `ñ` or `œ`.
+fn page_slug(text: &str) -> String {
+    let mut out = String::new();
+    for c in text.chars().flat_map(char::to_lowercase) {
+        let c = match c {
+            'à' | 'â' | 'ä' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'î' | 'ï' => 'i',
+            'ô' | 'ö' => 'o',
+            'ù' | 'û' | 'ü' => 'u',
+            'ç' => 'c',
+            c => c,
+        };
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+        } else if !out.ends_with('-') && !out.is_empty() {
+            out.push('-');
+        }
+        if out.len() >= 40 {
+            break;
+        }
+    }
+    out.trim_end_matches('-').to_string()
+}
+
 #[cfg(test)]
 pub mod tests {
+    /// A page's id from its name never changes: what is kept under it stays with it.
+    #[test]
+    fn a_page_named_without_an_id_keeps_its_id() {
+        assert_eq!(super::page_slug("Mes nœuds · Año"), "mes-n-uds-a-o");
+        assert_eq!(super::page_slug("Révision"), "revision");
+    }
+
     use super::*;
 
     /// An agent's kind from its prompt's command: by its name, with or without its plugin.

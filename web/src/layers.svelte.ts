@@ -143,14 +143,20 @@ export const inField = (target: EventTarget | null) => target instanceof Element
 
 /**
  * What closes on Escape before the layers, though not one of them: a popover (`dismissable`), an
- * enlarged image, a drop zone… The last held closes first, a layer open or not (its only Escape
- * handler); the function returned lets go.
+ * enlarged image, a drop zone, a mode of a view (a page over the whole window)… The last held closes
+ * first, a layer open or not (its only Escape handler); `when` lets an Escape go by (pressed in a
+ * field, in a terminal), to the one held before it or to the layers. The function returned lets go.
  */
-const held: (() => void)[] = []
-export function holdEscape(close: () => void): () => void {
-  held.push(close)
+interface Held {
+  close: () => void
+  when?: (e: KeyboardEvent) => boolean
+}
+const held: Held[] = []
+export function holdEscape(close: () => void, when?: (e: KeyboardEvent) => boolean): () => void {
+  const h: Held = { close, when }
+  held.push(h)
   return () => {
-    const i = held.lastIndexOf(close)
+    const i = held.lastIndexOf(h)
     if (i >= 0) held.splice(i, 1)
   }
 }
@@ -170,8 +176,8 @@ const reached = new WeakSet<Event>()
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return
   const top = layers.stack.at(-1)
-  const last = held.at(-1)
-  if (!top && !last) return
+  const last = held.findLastIndex((h) => !h.when || h.when(e))
+  if (!top && last < 0) return
   const stop = () => {
     e.preventDefault()
     e.stopImmediatePropagation()
@@ -180,10 +186,10 @@ function onKey(e: KeyboardEvent) {
   // A terminal drawer keeps its Escape (vim's), whatever is open elsewhere.
   if (top?.escape === false && top.el()?.contains(target)) return
   // What holds Escape closes first, a layer open or not: its own Escape is this one.
-  if (last) {
+  if (last >= 0) {
     stop()
-    held.pop()
-    last()
+    const [h] = held.splice(last, 1)
+    h.close()
     return
   }
   if (!top) return
