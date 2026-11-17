@@ -182,6 +182,19 @@ export interface ProjectSummary {
   resting: boolean
 }
 
+/**
+ * The Projects page's filter (the band's): a project stays listed when its name, or one of its
+ * workstreams' branches, tickets (id or name) or MRs (`!12`, its branch or title), or one of its
+ * open MRs, holds every word typed, case aside. Its workstreams themselves are not filtered.
+ */
+export function projectMatches(p: ProjectSummary, query: string): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+  if (!words.length) return true
+  const mrText = (m: MergeRequest | undefined) => (m ? `!${m.iid} ${m.source_branch} ${m.title}` : '')
+  const texts = [p.name, ...p.workstreams.map((w) => `${w.branch ?? ''} ${w.ticketId ?? ''} ${w.ticket?.name ?? ''} ${mrText(w.mr)}`), ...p.mrs.map(mrText)].map((x) => x.toLowerCase())
+  return texts.some((x) => words.every((w) => x.includes(w)))
+}
+
 /** The base branch's last pipeline (`main`), of those Prism reads. */
 export function mainPipelineOf(s: Snapshot, repo: string, base: string | undefined): Pipeline | undefined {
   return s.pipelines.filter((p) => repoName(p.repo, s) === repo && (!base || p.target === base)).sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]

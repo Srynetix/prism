@@ -118,7 +118,7 @@
   import { closeSettings, quitApp, settingsView, toggleFullscreen, toggleSettings } from './settings.svelte'
   import AgentsView from './components/AgentsView.svelte'
   import ProjectsView from './components/ProjectsView.svelte'
-  import { waitingWorkstreams } from './workstreams'
+  import { projectMatches, projectSummaries, waitingWorkstreams } from './workstreams'
   import { agentsEnabled, agentsView, newAgent, openAgents, openProjects, projectsView, terminalKeeps } from './agents.svelte'
   import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys } from './shortcuts'
   import { BLOCK_HELP } from './block-help'
@@ -164,6 +164,8 @@
   $effect(() => watchRepoAdds(live.snapshot))
   /** The assistant's proposals waiting for a click: a count on its rail button. */
   const assistantWaiting = $derived(assistantProposals(live.snapshot).length)
+  /** The projects the band's filter keeps, on the Projects page. */
+  const projectsMatching = $derived(projectsView.open && filter.query.trim() && full ? projectSummaries(full, { hidden: isHidden }).filter((p) => projectMatches(p, filter.query)).length : 0)
   const focus = $derived(full ? resolve(full, filter.query) : null)
   /** All blocks read the filtered view; the alerts, the core's on the full state, are filtered. */
   const snap = $derived(full ? apply(filter.mine ? applyMine(full) : full, focus) : null)
@@ -368,6 +370,12 @@
       toggleHelp()
       return
     }
+    // ⌥↵: the Assistant's panel, over any view (Settings, Help, Zen mode included); in a field, ⌥↵ is the field's (a Chat's In passing).
+    if (hit('assistant', e) && assistantOn() && !typing(e) && !inTerminal(e)) {
+      e.preventDefault()
+      toggleAssistant()
+      return
+    }
     // F2: renames the page shown, in the rail (not in Zen mode: the rail is not there); the Agents view renames its agent.
     if (hit('rename', e) && !zen.on && !typing(e) && !inTerminal(e) && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open) {
       e.preventDefault()
@@ -507,12 +515,13 @@
 {#snippet icon(id: string)}<ViewIcon {id} />{/snippet}
 
 <!--
-  The header of every page: its title on its color, the filter, the stats. The Agents view has
-  the same one (the filter applies to its agents), without what concerns a page of blocks.
+  The header of every page: its title on its color, the filter, the stats, the Assistant. The
+  Agents view and the Projects page have the same one (the filter applies to their agents, their
+  projects), without what concerns a page of blocks (Mine, the date, the layout).
 -->
-{#snippet pageHeader(agents: boolean, preview?: Snippet<[BlockId]>)}
-  <header style:--view={agents ? 'var(--src-claude)' : undefined} class:folded={!headerShown}>
-    {#if !agents && editing.on}
+{#snippet pageHeader(kind: 'page' | 'agents' | 'projects', preview?: Snippet<[BlockId]>)}
+  <header style:--view={kind === 'agents' ? 'var(--src-claude)' : kind === 'projects' ? 'var(--src-gitlab)' : undefined} class:folded={!headerShown}>
+    {#if kind === 'page' && editing.on}
       <!-- Edit layout: the page's icon and color, and its name, changed in place. -->
       <span class="title editable">
         <button class="look" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); startStyling(view.id, r.left, r.bottom + 4) }} title={t('Icon and color…')} aria-label={t('Icon and color…')}>{@render icon(look(view).icon)}</button>
@@ -524,9 +533,9 @@
         {#if view.origin}<span class="packmark" class:changed={view.origin === 'copy'} title={view.origin === 'pack' ? t('A page of a pack, kept up to date with it') : t('A page of a pack, changed here: it no longer follows the pack')}>{view.origin === 'pack' ? t('pack') : t('pack, changed')}</span>{/if}
       </span>
     {:else}
-    <span class="title">{#if agents}{@render icon('agents')}{t('Agents')}{:else}{@render icon(look(view).icon)}{t(view.label)}{/if}</span>
+    <span class="title">{#if kind === 'agents'}{@render icon('agents')}{t('Agents')}{:else if kind === 'projects'}{@render icon('worktrees')}{t('Projects')}{:else}{@render icon(look(view).icon)}{t(view.label)}{/if}</span>
     {/if}
-    <div class="filter" class:active={!!focus}>
+    <div class="filter" class:active={kind === 'projects' ? !!filter.query.trim() : !!focus}>
       <input
         bind:this={input}
         value={filter.query}
@@ -535,12 +544,15 @@
         placeholder={t('Filter: {examples}!1957, text…  ( / )', { examples: hasTickets() ? `${ticketExample(4688)}, ` : '' })}
         spellcheck="false"
       />
-      {#if focus}
+      {#if kind === 'projects' && filter.query.trim()}
+        <span class="match" class:none={!projectsMatching}>{projectsMatching ? tn(projectsMatching, '{n} project', '{n} projects') : t('no match')}</span>
+        <button onclick={() => setQuery('')} aria-label={t('Clear filter')}><Icon name="close" /></button>
+      {:else if kind !== 'projects' && focus}
         <span class="match" class:none={focus.summary === 'no match'}>{focus.summary === 'no match' ? t('no match') : focus.summary}</span>
         <button onclick={() => setQuery('')} aria-label={t('Clear filter')}><Icon name="close" /></button>
       {/if}
     </div>
-    {#if !agents}
+    {#if kind === 'page'}
       <button class="mine" class:on={filter.mine} onclick={toggleMine} aria-pressed={filter.mine} title={t('Only my MRs and my tickets (m)')}>{t('Mine')}</button>
       <DatePicker />
       <LayoutMenu preview={snap ? preview : undefined} />
@@ -549,6 +561,13 @@
       <HeaderStats {managers} {jobs} failures={protectedFailures} {reviews} {waiting} {syncs} />
     {/if}
     {#if full && full.tracker !== null && full.tracker_features?.time !== false}<TimeTracker snap={full} />{/if}
+    {#if assistantOn()}
+      <!-- The Assistant: a panel over the page, not a page; ⌥↵ and the palette open it too. -->
+      <button class="assist" class:on={assistantView.open} onclick={toggleAssistant} title={t('Assistant: ask Prism in your own words (⌥↵, or from the palette)')} aria-pressed={assistantView.open}>
+        <Icon name="sparkles" /><span class="lbl">{t('Assistant')}</span><kbd>{keys('⌥↵')}</kbd>
+        {#if assistantWaiting}<span class="count" title={t('{n} proposals to validate', { n: assistantWaiting })}>{assistantWaiting}</span>{/if}
+      </button>
+    {/if}
   </header>
 {/snippet}
 
@@ -607,9 +626,6 @@
       {#if workstreamsWaiting}<span class="count" title={tn(workstreamsWaiting, '{n} workstream waits for you', '{n} workstreams wait for you')}>{workstreamsWaiting}</span>{:else if staleOnProjects}<span class="count stale" title={tn(staleOnProjects, '{n} stale worktree', '{n} stale worktrees')}>{staleOnProjects}</span>{/if}
     </button>
     {/if}
-    {#if assistantOn()}
-    <button class="v" class:on={assistantView.open} style:--tint="var(--info)" onclick={toggleAssistant} title={t('Assistant: ask Prism in your own words (or from the palette, ⌥↵)')} aria-pressed={assistantView.open}><Icon name="sparkles" /><span>{t('Assistant')}</span>{#if assistantWaiting}<span class="count" title={t('{n} proposals to validate', { n: assistantWaiting })}>{assistantWaiting}</span>{/if}</button>
-    {/if}
     <span class="grow"></span>
     <button class="v" class:on={helpView.open} onclick={toggleHelp} title={keys(t('Help (⌘? or F1)'))} aria-pressed={helpView.open}><Icon name="help" /><span>{t('Help')}</span></button>
     <ThemeMenu />
@@ -622,7 +638,7 @@
       The Agents view stays mounted once opened, hidden elsewhere: its terminals stay
       attached, and coming back does not re-attach (which added a line to the prompt).
     -->
-    {#if agentsView.open && agentsEnabled() && !settingsView.open && !helpView.open}{@render pageHeader(true)}{/if}
+    {#if agentsView.open && agentsEnabled() && !settingsView.open && !helpView.open}{@render pageHeader('agents')}{/if}
     {#if agentsEnabled() && agentsShown}
     <div class="agents-host" hidden={!agentsView.open || settingsView.open || helpView.open}><AgentsView /></div>
     {/if}
@@ -633,6 +649,7 @@
     {:else if agentsView.open && agentsEnabled()}
     <!-- The Agents view, above. -->
     {:else if projectsView.open && projectsOn}
+    {@render pageHeader('projects')}
     <ProjectsView />
     {:else}
     {#if !tour.seen && !wizard.open && !clonesPrompt.open}
@@ -643,7 +660,7 @@
         <button class="x" onclick={seeTour} aria-label={tc('core', 'Dismiss')} title={keys(t('Dismiss (Help stays in the rail, ⌘?)'))}><Icon name="close" /></button>
       </div>
     {/if}
-    {@render pageHeader(false, block)}
+    {@render pageHeader('page', block)}
 
   {#snippet block(id: BlockId)}
     {#if id === 'todo'}<Alerts {alerts} />
@@ -845,7 +862,7 @@
   .tour span { flex: 1; min-width: 0; }
   .tour .go { flex-shrink: 0; padding: 3px 10px; border: none; border-radius: var(--r6); background: var(--accent); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); cursor: pointer; }
   .tour .x { display: inline-flex; flex-shrink: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  header { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: linear-gradient(90deg, color-mix(in srgb, var(--view) 11%, var(--chrome-bg)), var(--chrome-bg) 45%); }
+  header { container: band / inline-size; position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: linear-gradient(90deg, color-mix(in srgb, var(--view) 11%, var(--chrome-bg)), var(--chrome-bg) 45%); }
   header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, var(--view), color-mix(in srgb, var(--view) 25%, transparent) 40%, transparent 75%), var(--border); background-size: 100% 2px, 100% 1px; background-position: 0 0, 0 100%; background-repeat: no-repeat; pointer-events: none; }
   .title { view-transition-name: view-title; display: flex; align-items: center; gap: 6px; flex-shrink: 0; color: var(--view); font-size: var(--fs-title); font-weight: 600; white-space: nowrap; }
   .title.editable { gap: 4px; }
@@ -860,6 +877,15 @@
   .filter input { flex: 1; min-width: 0; border: none; outline: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); }
   .filter .match { font-size: var(--fs-meta); color: var(--info); white-space: nowrap; }
   .filter .match.none { color: var(--warn); }
+  /* The Assistant, at the end of the band, in its colour: its key and what waits for you. */
+  .assist { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid color-mix(in srgb, var(--info) 40%, var(--border)); border-radius: var(--r6); background: color-mix(in srgb, var(--info) 10%, transparent); color: var(--info); font: inherit; font-size: var(--fs-body); font-weight: 500; cursor: pointer; }
+  .assist:hover { background: color-mix(in srgb, var(--info) 18%, transparent); }
+  .assist.on { background: var(--info); border-color: var(--info); color: var(--bg); }
+  .assist kbd { padding: 0 4px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: var(--r4); font: var(--fs-tag) var(--mono); opacity: 0.8; }
+  .assist .count { min-width: 16px; padding: 0 5px; border-radius: var(--r9); background: var(--info); color: var(--bg); font-size: var(--fs-tag); font-weight: 600; line-height: 16px; text-align: center; }
+  .assist.on .count { background: var(--bg); color: var(--info); }
+  /* A narrow band: the Assistant keeps its icon and its count. */
+  @container band (max-width: 980px) { .assist .lbl, .assist kbd { display: none; } }
   .mine { flex-shrink: 0; font: inherit; font-size: var(--fs-body); padding: 3px 10px; border-radius: var(--r6); border: 1px solid var(--border); background: none; color: var(--text-muted); cursor: pointer; }
   .mine.on { background: var(--info-bg); color: var(--info); border-color: transparent; font-weight: 500; }
   .filter button { display: inline-flex; align-items: center; border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: var(--fs-title); line-height: 1; padding: 0 2px; }

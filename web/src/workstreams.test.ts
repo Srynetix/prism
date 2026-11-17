@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { projectSummaries, stageOf, ticketsFor, waitingWorkstreams, workstreamsOf } from './workstreams'
+import { projectMatches, projectSummaries, stageOf, ticketsFor, waitingWorkstreams, workstreamsOf } from './workstreams'
 import { workstreamTitle } from './project-actions'
 import type { Agent, MergeRequest, Snapshot, Worktree } from './types'
 
@@ -82,6 +82,25 @@ describe('projectSummaries', () => {
     expect(list.map((p) => p.name)).toEqual(['api', 'shop', 'docs'])
     expect(list[0]).toMatchObject({ waiting: 1, workspace: 'Work' })
     expect(list[2]).toMatchObject({ workspace: 'Personal', resting: true })
+  })
+})
+
+describe('projectMatches', () => {
+  const s = snapshot({
+    repos: ['shop', 'api'],
+    worktrees: [wt({ path: '/code/shop.worktrees/x', branch: 'feat/shop-12-export', ticket: 'SHOP-12' })],
+    mrs: [mr({ iid: 41, source_branch: 'fix/cart', title: 'Fix the cart total' })],
+  })
+  const names = (q: string) => projectSummaries(s).filter((p) => projectMatches(p, q)).map((p) => p.name).sort()
+
+  it('keeps a project by its name, a branch, a ticket or an MR', () => {
+    expect(names('')).toEqual(['api', 'shop'])
+    expect(names('API')).toEqual(['api'])
+    expect(names('export')).toEqual(['shop'])
+    expect(names('shop-12')).toEqual(['shop'])
+    expect(names('!41')).toEqual(['shop'])
+    expect(names('cart total')).toEqual(['shop'])
+    expect(names('nothing')).toEqual([])
   })
 })
 
