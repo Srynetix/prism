@@ -16,7 +16,7 @@
   /**
    * The Assistant panel, over the page: its conversations by day on the left (one per request,
    * reopened in a click), the chosen one's Chat on the right (AgentChat: its proposals as cards);
-   * the Memory tab reads, changes and empties what it remembers. « Ask » starts a new conversation.
+   * the Memory tab reads, changes and empties what it remembers. « New request » starts a new conversation.
    * Its shell is Drawer's (Escape, a click outside); ⌥↵ closes it, from its question and its
    * Chat too; ⌘. interrupts the conversation shown.
    */
@@ -44,12 +44,12 @@
     box?.focus()
   }
 
-  /** ⌘. : the conversation shown stops its turn, as in the Agents view. */
+  let panel: HTMLElement | undefined = $state()
+  /** ⌘. in the panel: the conversation shown, at work, stops its turn, as in the Agents view. */
   function interrupt(e: KeyboardEvent) {
-    if (!assistantView.open || !shown || shown.state !== 'running' || !hit('interrupt', e)) return
-    // Captured, and kept: the Agents view under the panel would stop its own agent too.
+    if (!hit('interrupt', e) || !(e.target instanceof Node) || !panel?.contains(e.target)) return
+    if (assistantView.tab !== 'conversations' || shown?.state !== 'running' || shown.status !== 'running') return
     e.preventDefault()
-    e.stopPropagation()
     interruptAgent(shown.id).catch((err) => toastError(String(err)))
   }
 
@@ -62,9 +62,9 @@
   ]
 </script>
 
-<svelte:window onkeydowncapture={interrupt} />
+<svelte:window onkeydown={interrupt} />
 
-<Drawer open={assistantView.open} key="assistant" identity={assistantView.selected ?? ''} crumb={t('Assistant')} label={t('Assistant')} size="l" source="var(--info)" onclose={closeAssistant}>
+<Drawer bind:el={panel} open={assistantView.open} key="assistant" identity={assistantView.selected ?? ''} crumb={t('Assistant')} label={t('Assistant')} size="l" source="var(--info)" onclose={closeAssistant}>
   {#snippet head()}
     <b class="title"><Icon name="sparkles" />{t('Assistant')}</b>
     <div class="seg" role="tablist">
