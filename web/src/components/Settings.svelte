@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { suggest } from '../suggest'
   import { armer } from '../armed.svelte'
   import { invoke, isDesktop, isLocal } from '../bridge'
@@ -34,7 +35,7 @@
   import { chainOf, descendants, groupsOf, isProvider, nodeOf, PARENT, pageOf, TREE, type TreeNode } from '../settings-tree'
   import { fieldsOf, pathOf, SECTION, type Section } from '../settings-sections'
   import { buildIndex, pageNode, pagesFor, search, shown as showValue, type Entry } from '../settings-search'
-  import { cfg, changes, discardConfig, discardValue, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, savedValue, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
+  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, savedValue, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
   import { DEFAULT_APPEARANCE, system, replayBoot, SAVER_MODES, startSaver, type Feature, type SaverMode } from '../fun.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { THEMES } from '../theme.svelte'
@@ -71,9 +72,11 @@
   /** A page in tabs (a delivery model's stages): its first section, then the chosen tab. */
   const tab = $derived(page?.tabs ? (pageSections.slice(1).find((s) => s.id === settingsView.section) ?? pageSections[1]) : undefined)
   const shownSections = $derived(page?.tabs ? [pageSections[0], tab!] : pageSections)
+  /** Shows a page (or the overview): out of the search, which would hide it. */
   const go = (id: string) => {
-    settingsView.section = id
-    settingsView.focus = ''
+    showSettings(id)
+    query = ''
+    filter = 'all'
   }
   /** “Delivery · branch stage” → “Branch stage”: a tab's name. */
   const stageLabel = (label: string) => label.replace(/^.*· /, '').replace(/^./, (c) => c.toUpperCase())
@@ -88,12 +91,13 @@
   const tables = $derived([...new Set([...pageSections, ...(chosenProvider ? sectionsOf(chosenProvider) : [])].map((s) => s.table))])
   /** The repositories running an agent CLI of their own (`[[repos]] agent`), for its provider. */
   const repoUses = (n: TreeNode) => (n.provider && PARENT.get(n.id)?.id === 'agents' ? mergedRows(['repos']).filter((r) => r.agent === n.provider).length : 0)
-  /** The other providers, folded: opened by a click, by a link or a result naming one of them. */
-  let othersUnfolded = $state(false)
-  const othersOpen = $derived(othersUnfolded || otherProviders.some((p) => p === target || (settingsView.focus && sectionsOf(p).some((s) => focusIn(s)))))
-  $effect(() => {
-    void page?.id
-    othersUnfolded = false
+  /**
+   * The other providers, folded: opened by a click, or as the page opens on one of them (a link
+   * to it, a result naming one of its keys); a click folds them again all the same.
+   */
+  let othersOpen = $state(false)
+  $effect.pre(() => {
+    othersOpen = otherProviders.some((p) => p === target || (!!settingsView.focus && sectionsOf(p).some((s) => focusIn(s))))
   })
 
   /** The keys a section leaves to the page: the feature switch (header), the provider's choice (top). */
@@ -113,17 +117,28 @@
     const to = target && isProvider(target) ? (sectionsOf(target)[0]?.id ?? id) : id
     requestAnimationFrame(() => document.getElementById(`sec-${to}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
   })
-  // A result opened on a key: scrolled to it once its fold is open, highlighted a moment.
+  /**
+   * A page opened on a key: scrolled to it once its fold is open and its row drawn — config.toml
+   * may still be read when Settings first opens, so it is looked for a few seconds. The key stays
+   * marked until another page is shown.
+   */
   $effect(() => {
     const key = settingsView.focus
+    const sec = settingsView.focusIn
     if (!key) return
-    const timer = setTimeout(() => document.getElementById(`f-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60)
-    const done = setTimeout(() => settingsView.focus === key && (settingsView.focus = ''), 3000)
-    return () => (clearTimeout(timer), clearTimeout(done))
+    const find = () => (sec ? document.querySelector(`#sec-${CSS.escape(sec)} [data-key="${CSS.escape(key)}"]`) : null) ?? document.querySelector(`[data-key="${CSS.escape(key)}"]`)
+    let tries = 0
+    const timer = setInterval(() => {
+      const el = find()
+      if (el || ++tries > 40) clearInterval(timer)
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 75)
+    return () => clearInterval(timer)
   })
+  /** The key the page was opened on is one of this section's. */
   const focusIn = (s: Section) => {
     const base = pathOf(s)
-    return !!base && fieldsOf(s).some((f) => [...base, f.key].join('.') === settingsView.focus)
+    return !!base && (!settingsView.focusIn || settingsView.focusIn === s.id) && fieldsOf(s).some((f) => [...base, f.key].join('.') === settingsView.focus)
   }
 
   /* ---------- Switches and states ---------- */
@@ -212,8 +227,7 @@
     selected = 0
   })
   function openEntry(e: Entry) {
-    settingsView.section = (e.provider ?? e.page).id
-    settingsView.focus = e.key
+    showSettings((e.provider ?? e.page).id, e.key, e.section.id)
     query = ''
     filter = 'all'
   }
@@ -240,15 +254,31 @@
   const listedPages = $derived(new Set([...results.map((e) => e.page.id), ...pageChips.map((n) => pageNode(n).id)]))
   const visiblePage = (n: TreeNode) => !searching || listedPages.has(n.id)
 
-  /** Folded domains, remembered; a search unfolds every match. */
+  /**
+   * Folded domains, remembered; a search unfolds every match, and showing a page unfolds its
+   * domain (which its caret folds again all the same).
+   */
   let folded = $state(new Set(pref<string[]>('settings.folded', [])))
-  const isOpen = (n: TreeNode) => searching || !folded.has(n.id) || (!!page && chainOf(page).includes(n))
-  function fold(n: TreeNode) {
+  const isOpen = (n: TreeNode) => searching || !folded.has(n.id)
+  function fold(n: TreeNode, open = !isOpen(n)) {
+    if (open !== folded.has(n.id)) return
     const next = new Set(folded)
-    if (isOpen(n)) next.add(n.id)
-    else next.delete(n.id)
+    if (open) next.delete(n.id)
+    else next.add(n.id)
     folded = next
     setPref('settings.folded', [...next])
+  }
+  $effect(() => {
+    const root = page && chainOf(page)[0]
+    if (root && root !== page) untrack(() => fold(root, true))
+  })
+  /** ← folds the domain whose row has the focus, → unfolds it. */
+  function onTreeKey(e: KeyboardEvent) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    const root = TREE.find((r) => r.id === (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-root]')?.dataset.root)
+    if (!root) return
+    e.preventDefault()
+    fold(root, e.key === 'ArrowRight')
   }
   /** `[cleanup] hide_off`: a feature turned off leaves the tree, unless searched for or shown. */
   const hideOff = $derived(!!valueOf(['cleanup', 'hide_off'], false))
@@ -411,17 +441,24 @@
     }
   }
 
-  /** ⌘S saves; / (out of a field) or ⌘F puts the cursor in the search. */
+  /**
+   * ⌘S saves; / (out of a field) or ⌘F puts the cursor in the search — ⌘F but in a text area,
+   * whose own search it leaves alone.
+   */
   function onkeydown(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey
     if (mod && e.key === 's') {
       e.preventDefault()
       void saveConfig()
-    } else if ((mod && e.key === 'f') || (e.key === '/' && !mod && !typingIn(e))) {
+    } else if ((mod && e.key === 'f' && !inTextArea(e)) || (e.key === '/' && !mod && !typingIn(e))) {
       e.preventDefault()
       searchInput?.focus()
       searchInput?.select()
     }
+  }
+  const inTextArea = (e: KeyboardEvent) => {
+    const el = e.target as HTMLElement | null
+    return !!el && (el.isContentEditable || el.tagName === 'TEXTAREA')
   }
   const typingIn = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement | null
@@ -445,13 +482,14 @@
     <div class="filters">
       {#each FILTERS as f (f.id)}<button class:on={filter === f.id} onclick={() => (filter = filter === f.id && f.id !== 'all' ? 'all' : f.id)} title={f.title}>{f.label}{#if f.id !== 'all'}<span class="n" class:hot={counts[f.id] > 0}>{counts[f.id]}</span>{/if}</button>{/each}
     </div>
-    <nav class="tree">
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <nav class="tree" onkeydown={onTreeKey}>
       <div class="node top" class:on={!page}><span class="car"></span><button class="lbl" onclick={() => go('overview')}><Icon name="kanban" /><span class="name">{t('Overview')}</span></button></div>
       {#each TREE as root (root.id)}
         {@const kids = (root.children ?? []).filter((n) => visiblePage(n) && !offHidden(n))}
         {@const sw = switches(root)}
         {#if kids.length || !searching}
-          <div class="node root" class:on={root === page}>
+          <div class="node root" class:on={root === page} data-root={root.id}>
             <button class="car" class:open={isOpen(root)} tabindex="-1" onclick={() => fold(root)} aria-label={isOpen(root) ? t('Fold {name}', { name: root.label }) : t('Unfold {name}', { name: root.label })}><Icon name="chevronRight" /></button>
             <button class="lbl" onclick={() => go(root.id)}>
               <span class="sw" style:background={root.color}></span><span class="name">{root.label}</span>
@@ -903,7 +941,7 @@
         {/each}
       {/if}
       {#if otherProviders.length}
-        <button class="others" class:open={othersOpen} onclick={() => (othersUnfolded = !othersOpen)} aria-expanded={othersOpen}>
+        <button class="others" class:open={othersOpen} onclick={() => (othersOpen = !othersOpen)} aria-expanded={othersOpen}>
           <Icon name="chevronRight" /><b>{t('Other providers')}</b>
           <span>{otherProviders.map((p) => (repoUses(p) ? `${p.label} (${tn(repoUses(p), '{n} repo', '{n} repos')})` : p.label)).join(', ')}</span>
           <small>{t('not used, editable all the same')}</small>

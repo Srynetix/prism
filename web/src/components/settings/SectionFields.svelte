@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import Control from './Control.svelte'
   import Field from './Field.svelte'
   import TableInput from './TableInput.svelte'
@@ -32,8 +33,12 @@
   const shownFields = $derived(spec.fields.filter((f) => !hide.includes(f.key)))
   const main = $derived(shownFields.filter((f) => !f.advanced))
   const advanced = $derived(shownFields.filter((f) => f.advanced))
-  let unfolded = $state(false)
-  const advancedOpen = $derived(unfolded || advanced.some((f) => settingsView.focus === pathOf(f.key).join('.') || isChanged(pathOf(f.key))))
+  /** Open with a key changed in it at first; then when a result opens one of its keys. */
+  let advancedOpen = $state(untrack(() => advanced.some((f) => isChanged(pathOf(f.key)))))
+  $effect.pre(() => {
+    const key = settingsView.focus
+    if (key && (!settingsView.focusIn || settingsView.focusIn === spec.id) && advanced.some((f) => pathOf(f.key).join('.') === key)) advancedOpen = true
+  })
   /** The section's last read by its collector: successful, in error, or not yet. */
   const status = $derived.by(() => {
     const s = live.snapshot
@@ -69,7 +74,7 @@
   {#snippet row(f: FieldSpec)}
     {@const path = pathOf(f.key)}
     {#if f.kind === 'table'}
-      <div class="tfield" class:changed={isChanged(path)} class:focused={settingsView.focus === path.join('.')} id="f-{path.join('.')}">
+      <div class="tfield" class:changed={isChanged(path)} class:focused={settingsView.focus === path.join('.') && (!settingsView.focusIn || settingsView.focusIn === spec.id)} data-key={path.join('.')}>
         <div class="lbl">
           <b>{f.label}</b>
           {#if f.hint}<small>{f.hint}</small>{/if}
@@ -92,7 +97,7 @@
         </span>
       </div>
     {:else}
-      <Field label={f.label} hint={f.hint} {path}>
+      <Field label={f.label} hint={f.hint} {path} section={spec.id}>
         <Control kind={f.kind} value={valueOf(path)} onchange={(v) => setValue(path, v)} options={f.options} labels={f.labels} optional={f.optional} placeholder={f.placeholder} unit={f.unit} step={f.step} />
         {#if f.check}<CheckBadge req={requestOf(f.check, valueOf(path), (k) => valueOf(pathOf(k)))} />{/if}
       </Field>
@@ -100,7 +105,7 @@
   {/snippet}
   {#each main as f (f.key)}{@render row(f)}{/each}
   {#if advanced.length}
-    <button class="adv" class:open={advancedOpen} onclick={() => (unfolded = !advancedOpen)} aria-expanded={advancedOpen}>
+    <button class="adv" class:open={advancedOpen} onclick={() => (advancedOpen = !advancedOpen)} aria-expanded={advancedOpen}>
       <Icon name="chevronRight" /><b>{tn(advanced.length, '{n} advanced setting', '{n} advanced settings')}</b>
       {#if !advancedOpen}<small>{advanced.map((f) => f.label).join(' · ')}</small>{/if}
     </button>

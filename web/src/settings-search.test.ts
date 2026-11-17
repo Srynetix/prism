@@ -55,6 +55,11 @@ describe('settings tree', () => {
     for (const r of TREE) expect(groupsOf(r).flatMap((g) => g.pages).length).toBe(r.children?.length)
   })
 
+  it('keeps a page naming no group of its domain, after the groups', () => {
+    const root = { id: 'd', label: 'D', groups: [{ id: 'g', label: 'G' }], children: [{ id: 'a', label: 'A', group: 'g' }, { id: 'b', label: 'B' }] }
+    expect(groupsOf(root).map((g) => [g.label, g.pages.map((p) => p.id)])).toEqual([['G', ['a']], ['', ['b']]])
+  })
+
   it('shows every section on one page exactly', () => {
     const shown = [...NODES.values()].flatMap((n) => n.sections ?? [])
     const unplaced = SECTIONS.map((s) => s.id).filter((id) => !shown.includes(id))

@@ -6,19 +6,19 @@
   /**
    * A settings row: label, explanation and TOML key on the left, the control on the right.
    * `path` (config.toml key): where its value comes from — the default, a pack (named), config.toml,
-   * or a change not saved yet — with ↺ to go back (the change dropped, or the key taken out of
-   * config.toml: the pack's value, otherwise the default). The key a search result opened the page
-   * on is highlighted. Without `path`: an app preference (theme, Fun), applied immediately.
+   * or a change not saved yet (a key taken out of the file too) — with ↺ to go back (the change
+   * dropped, or the key taken out of config.toml: the pack's value, otherwise the default). The key
+   * a search result opened the page on is marked. Without `path`: an app preference (theme, Fun), applied immediately.
    */
   let {
-    label, hint, path, children,
-  }: { label: string; hint?: string; path?: string[]; children: Snippet } = $props()
+    label, hint, path, section, children,
+  }: { label: string; hint?: string; path?: string[]; /** Its section's id: a key shown in two is marked in the one opened. */ section?: string; children: Snippet } = $props()
   const origin = $derived(path ? originOf(path) : null)
   const dotted = $derived(path?.join('.') ?? '')
-  const focused = $derived(!!dotted && settingsView.focus === dotted)
+  const focused = $derived(!!dotted && settingsView.focus === dotted && (!section || !settingsView.focusIn || settingsView.focusIn === section))
 </script>
 
-<div class="field" class:changed={origin === 'changed'} class:focused id={dotted ? `f-${dotted}` : undefined}>
+<div class="field" class:changed={origin === 'changed'} class:focused data-key={dotted || undefined}>
   <div class="lbl">
     <b>{label}</b>
     {#if hint}<small>{hint}</small>{/if}

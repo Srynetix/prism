@@ -155,7 +155,11 @@ for (const b of BLOCK_DEFS) {
 }
 // Within a domain, the pages by group, in the groups' order (a block's after the domain's own).
 for (const root of TREE) {
-  const rank = (n: TreeNode) => root.groups?.findIndex((g) => g.id === n.group) ?? 0
+  // A page naming no group of its domain (a module's block): after the groups.
+  const rank = (n: TreeNode) => {
+    const i = root.groups?.findIndex((g) => g.id === n.group) ?? 0
+    return i < 0 ? root.groups!.length : i
+  }
   root.children = root.children?.map((n, i) => [n, i] as const).sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j).map(([n]) => n)
 }
 
@@ -195,7 +199,10 @@ export function pageOf(id: string): TreeNode | undefined {
 export function groupsOf(root: TreeNode): { id: string; label: string; pages: TreeNode[] }[] {
   const pages = root.children ?? []
   if (!root.groups) return [{ id: '', label: '', pages }]
-  return root.groups.map((g) => ({ ...g, pages: pages.filter((p) => p.group === g.id) })).filter((g) => g.pages.length)
+  const known = new Set(root.groups.map((g) => g.id))
+  // The pages naming no group of the domain (a module's block), last, without a label.
+  const rest = { id: '', label: '', pages: pages.filter((p) => !known.has(p.group ?? '')) }
+  return [...root.groups.map((g) => ({ ...g, pages: pages.filter((p) => p.group === g.id) })), rest].filter((g) => g.pages.length)
 }
 
 /** From the domain down to the node. */

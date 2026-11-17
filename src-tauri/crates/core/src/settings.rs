@@ -42,7 +42,7 @@ pub struct FileView {
     #[cfg_attr(feature = "ts", ts(type = "Record<string, unknown> | null"))]
     pub inherited: serde_json::Value,
     /// Which pack gives each of those values, by dotted key (`forge.provider` → `team`): a
-    /// table's keys one by one, a list or `[[repos]]` as a whole.
+    /// table's keys one by one, a list as a whole, `[[repos]]` every pack adding to it (`a, b`).
     pub inherited_from: std::collections::BTreeMap<String, String>,
     /// The packs the file builds on.
     pub packs: Vec<crate::packs::PackInfo>,

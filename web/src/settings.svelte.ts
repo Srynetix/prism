@@ -19,16 +19,23 @@ export const packRef = (source: string | null | undefined) => (source && /^(glab
 
 /**
  * The page shown (`section`: a page, a provider or a section, by id; `overview` for the
- * overview), and the key a search result opened it on (`focus`, dotted: highlighted, its fold
- * opened).
+ * overview), and the key a search result or the palette opened it on (`focus`, dotted: its fold
+ * opened, scrolled to and marked until another page is shown), in the section `focusIn` when a
+ * key shows in two (`[forge]`'s).
  */
-export const settingsView = $state({ open: false, section: 'overview', focus: '' })
+export const settingsView = $state({ open: false, section: 'overview', focus: '', focusIn: '' })
+
+/** Shows a page, on one of its keys (`focus`, dotted, in the section `focusIn`) if given. */
+export function showSettings(section: string, focus = '', focusIn = '') {
+  settingsView.section = section
+  settingsView.focus = focus
+  settingsView.focusIn = focusIn
+}
 
 export function openSettings(section?: string, focus = '') {
   closeHelp()
   settingsView.open = true
-  if (section) settingsView.section = section
-  settingsView.focus = focus
+  if (section) showSettings(section, focus)
   if (!cfg.file && !cfg.loading) void loadConfig()
   void loadChoices()
 }
@@ -114,7 +121,8 @@ export function packLabel(path?: string[]): string {
  */
 export type Origin = 'changed' | 'file' | 'pack' | 'default'
 export function originOf(path: string[]): Origin {
-  if (isChanged(path) && cfg.edits[key(path)] !== null) return 'changed'
+  // A key taken out of the file (↺) is a change too, until saved.
+  if (isChanged(path)) return 'changed'
   if (isSet(path)) return 'file'
   return hasInherited(path) ? 'pack' : 'default'
 }
