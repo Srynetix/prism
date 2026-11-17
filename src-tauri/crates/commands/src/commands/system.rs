@@ -104,19 +104,15 @@ pub fn set_for_webkit(value: Option<&std::ffi::OsStr>) -> bool {
 }
 
 /// Module `id` trusted as I was shown it (`fingerprint`): its web part loads at the window's next
-/// load, its back end starts now (installed after launch: once Prism restarts, said by `false`),
-/// and the config applies again, for what it gives the core (its stages, `[clusters] stages`).
+/// load, its back end starts now (installed after launch: once Prism restarts, said by `false`).
 #[prism_macros::command]
-pub async fn modules_trust(state: State<'_, AppState>, id: String, fingerprint: String) -> Cmd<bool> {
-    let started = tokio::task::spawn_blocking(move || {
+pub async fn modules_trust(id: String, fingerprint: String) -> Cmd<bool> {
+    tokio::task::spawn_blocking(move || {
         prism_core::modules::trust(&prism_core::modules::dir(), &prism_core::modules::trust_path_for(prism_core::profile::active()), &id, &fingerprint)?;
         anyhow::Ok(prism_modules::trusted(&id, &fingerprint) || !prism_core::modules::list().iter().any(|m| m.id == id && m.backend))
     })
-    .await??;
-    if started {
-        super::config::apply_live(&state, &crate::config_path());
-    }
-    Ok(started)
+    .await?
+    .map_err(Into::into)
 }
 
 /// How the modules' back ends run in this Prism (held, their crashes), the pack modules I removed,

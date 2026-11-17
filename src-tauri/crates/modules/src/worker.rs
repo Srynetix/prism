@@ -719,10 +719,18 @@ impl Worker {
             None => None,
         };
         let demo = c.demo.then(|| configured.demo.into_iter().filter_map(|(block, state)| Some((block, serde_json::from_str(&state).ok()?))).collect());
-        let mut shared = self.module.shared.lock().unwrap();
-        shared.stages = stages;
-        if c.demo {
-            shared.demo = demo;
+        let changed = {
+            let mut shared = self.module.shared.lock().unwrap();
+            let changed = shared.stages != stages;
+            shared.stages = stages;
+            if c.demo {
+                shared.demo = demo;
+            }
+            changed
+        };
+        // Its stages, come or changed (trusted, started again): the core resolves them again.
+        if changed && !c.demo {
+            prism_core::stages::refresh();
         }
         Ok(())
     }

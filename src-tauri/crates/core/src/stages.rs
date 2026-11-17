@@ -105,9 +105,32 @@ pub fn resolve(name: &str, environments: &[EnvironmentConfig], find: impl Fn(&st
     };
     let stages = provider.stages();
     if stages.0.is_empty() {
-        return fallback(Some(tr!("[clusters] stages = \"{name}\": the block {name} gives no stages yet. Its module waits for your trust (Settings › Packs › Modules), is held, or did not start.", name = name)));
+        // Its hints (applications, versions expected) may come all the same.
+        let why = tr!("[clusters] stages = \"{name}\": the block {name} gives no stages yet. Its module waits for your trust (Settings › Packs › Modules), is held, did not start, or declares none (its log says why).", name = name);
+        return Resolved { provider: Some(provider), ..fallback(Some(why)) };
     }
     Resolved { stages, provider: Some(provider), warning: None }
+}
+
+/// What the stages are resolved from (`[clusters] stages`, `[[environments]]`), and who is told
+/// of them: kept from the last `follow`, for `refresh`.
+type Tell = std::sync::Arc<dyn Fn(&Resolved) + Send + Sync>;
+static FOLLOWED: std::sync::Mutex<Option<(String, Vec<EnvironmentConfig>, Tell)>> = std::sync::Mutex::new(None);
+
+/// The stages of this config, resolved now and again on each `refresh`; `tell` hears of them
+/// each time (the snapshot, the warning).
+pub fn follow(name: &str, environments: &[EnvironmentConfig], tell: impl Fn(&Resolved) + Send + Sync + 'static) {
+    *FOLLOWED.lock().unwrap() = Some((name.to_string(), environments.to_vec(), std::sync::Arc::new(tell)));
+    refresh();
+}
+
+/// The stages resolved again, a provider's having changed (a module configured: trusted, started
+/// again, installed again), with the config last followed; nothing before it.
+pub fn refresh() {
+    let Some((name, environments, tell)) = FOLLOWED.lock().unwrap().clone() else { return };
+    let resolved = resolve(&name, &environments, crate::blocks::find);
+    set(resolved.stages.clone(), resolved.provider);
+    tell(&resolved);
 }
 
 /// Set at launch, and on each change of the config, before the collectors.
@@ -178,9 +201,9 @@ mod tests {
         let given = resolve("shipping", &envs, found(Some(vec![stage.clone()])));
         assert_eq!((given.stages.0, given.provider.is_some(), given.warning), (vec![stage], true, None));
 
-        for (name, block, says) in [("other", None, "no block other"), ("shipping", None, "gives no stages (its module"), ("shipping", Some(vec![]), "gives no stages yet")] {
+        for (name, block, says, provider) in [("other", None, "no block other", false), ("shipping", None, "gives no stages (its module", false), ("shipping", Some(vec![]), "gives no stages yet", true)] {
             let r = resolve(name, &envs, found(block.clone()));
-            assert_eq!((r.stages.envs(), r.provider.is_none()), (vec!["prod"], true), "{name} {block:?}");
+            assert_eq!((r.stages.envs(), r.provider.is_some()), (vec!["prod"], provider), "{name} {block:?}");
             let warning = r.warning.unwrap();
             assert!(warning.contains(says) && warning.contains("[[environments]]"), "{warning}");
         }
