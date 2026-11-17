@@ -7,7 +7,7 @@ import { dayOf, pruned, type UsageDoc } from './cleanup'
  * the app's store; never sent anywhere): `used(id)` at a few chokepoints — a page shown counts
  * its blocks (`block:<id>`), a palette entry run (`palette:<kind>`), an agent action launched
  * (`action:<id>`), the Agents view, a quick answer, a thread, a page swipe. One count per day and
- * id, the days beyond `KEEP_DAYS` dropped; the writes are batched by the store. Settings › Cleanup
+ * id, the days beyond `KEEP_DAYS` dropped; the writes are batched by the store. Settings › General › Cleanup
  * reads them (cleanup.ts).
  */
 const state = $state<{ doc: UsageDoc | null }>({ doc: null })
@@ -20,7 +20,7 @@ function loaded(): UsageDoc {
   return saved?.since ? { since: saved.since, days: saved.days ?? {}, kept: saved.kept ?? [] } : fresh()
 }
 
-/** The counts, for Settings › Cleanup. */
+/** The counts, for Settings › General › Cleanup. */
 export const usageDoc = (): UsageDoc => state.doc ?? loaded()
 
 function save(doc: UsageDoc) {
@@ -40,7 +40,7 @@ export function used(id: string) {
 /** The blocks of a page just shown: each counts once. */
 export const pageShown = (blocks: string[]) => [...new Set(blocks)].forEach((b) => used(`block:${b}`))
 
-/** "Keep" on a line of Settings › Cleanup: never listed again as unused. */
+/** "Keep" on a line of Settings › General › Cleanup: never listed again as unused. */
 export function keepFeature(id: string) {
   const doc = usageDoc()
   if (!doc.kept.includes(id)) save({ ...doc, kept: [...doc.kept, id] })

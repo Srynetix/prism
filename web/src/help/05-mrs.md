@@ -27,7 +27,7 @@ In the **Team** tab, a row of authors with their number of open MRs lets you sho
 The size of an open MR is its added and removed lines, `+48 −9`. Past a threshold, it stands out in orange: the MR is large and will be harder to review.
 
 > [!TIP]
-> The large-MR threshold is 400 changed lines by default. Change it in Settings › Interface › Alerts & sound › **Large MR** (`[alerts] large_mr_lines`).
+> The large-MR threshold is 400 changed lines by default. Change it in Settings › Interface › Thresholds › **Large MR** (`[alerts] large_mr_lines`).
 
 [Open the Merge requests block](prism:block/mrs)
 

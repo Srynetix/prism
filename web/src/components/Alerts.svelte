@@ -152,7 +152,7 @@
     const id = `${a.text}|${f.key}`
     if (progress[id] === 'busy' || !f.run) return
     progress[id] = 'busy'
-    // Settings › Cleanup: an alert followed through its fix (agent actions count as theirs, `action:<id>`).
+    // Settings › General › Cleanup: an alert followed through its fix (agent actions count as theirs, `action:<id>`).
     used(`alert:${a.rule ?? a.kind}`)
     try {
       await f.run()

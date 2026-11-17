@@ -19,7 +19,7 @@ export const changes = {
     source: t('What Prism already reads (Argo CD, the clusters, the forge, the alerts, the scans) compared from one read to the next, plus the Kubernetes events with [changes] kube_events and what the blocks of a pack add. Kept [changes] retention_days in the profile’s data folder (changes.jsonl).'),
   },
   settings: {
-    parent: 'infra',
+    parent: 'infra', group: 'watch',
     node: { id: 'changes', label: t('Changes'), sections: ['changes'], toggle: 'changes' },
     sections: [
       {

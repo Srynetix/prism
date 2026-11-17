@@ -41,6 +41,9 @@ pub struct FileView {
     /// Values the packs give (under the file's own), as JSON.
     #[cfg_attr(feature = "ts", ts(type = "Record<string, unknown> | null"))]
     pub inherited: serde_json::Value,
+    /// Which pack gives each of those values, by dotted key (`forge.provider` → `team`): a
+    /// table's keys one by one, a list as a whole, `[[repos]]` every pack adding to it (`a, b`).
+    pub inherited_from: std::collections::BTreeMap<String, String>,
     /// The packs the file builds on.
     pub packs: Vec<crate::packs::PackInfo>,
     /// The files of those packs, as they are in `packs/` (the missing ones left out).
@@ -92,7 +95,8 @@ pub fn read(path: &Path) -> Result<FileView> {
         })
         .collect();
     let merged = merged(path, &text).ok();
-    Ok(FileView { path: path.display().to_string(), text, values, effective, defaults, error, unread, inherited, packs, pack_files, merged })
+    let inherited_from = crate::packs::origins(path, &text).unwrap_or_default();
+    Ok(FileView { path: path.display().to_string(), text, values, effective, defaults, error, unread, inherited, inherited_from, packs, pack_files, merged })
 }
 
 /// The tables of `table` no default names: no struct of the core, no block of this build reads them.

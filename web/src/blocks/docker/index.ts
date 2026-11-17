@@ -24,7 +24,7 @@ export const docker = {
     source: t('The docker CLI of the current context (or [docker] context): containers every [docker] poll_seconds, the disk every 3 minutes and after an action.'),
   },
   settings: {
-    parent: 'infra',
+    parent: 'infra', group: 'machine',
     node: { id: 'docker', label: 'Docker', sections: ['docker'], toggle: 'docker' },
     sections: [
       {

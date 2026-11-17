@@ -11,24 +11,31 @@ Every Prism setting lives in one file, `~/.config/prism/config.toml`, and the **
 
 Press `⌘,`. `Esc` closes the view.
 
-The left column is a tree of pages, sorted by what they configure:
-- **General**: Profiles, Packs, Config file, Logs, Dependencies, Updates, Feedback.
-- **Interface**: Appearance, Pages, Alerts & sound, Open with.
-- **Work**: Tracker (with ClickUp, Jira and Obsidian under it), Calendar, Mail, Notes.
-- **Code**: Forge (with GitLab and GitHub under it), Repositories.
-- **CI**: Renovate, and the pages of a team's blocks, if any.
-- **Security**: Vulnerabilities.
-- **Agents**: Agent (with Claude Code, Command Code, OpenCode and Codex under it), Console.
-- **Infra**: Kubernetes (with Pods and ArgoCD under it), Docker, Data (GCP), and the pages of a team's blocks, if any.
+Settings opens on its **Overview**: every feature by domain with its switch beside it, a click on its name opening its page, and four counters above (changes not saved, keys of your own in config.toml, keys a pack gives, pages to check), each a click away from their list.
+
+The left column is a tree of seven domains, each sorted in groups:
+- **General**: Configuration (Profiles, Packs, Config file, Cleanup), Prism (Updates, Feedback, Command line), Diagnostics (Logs, Dependencies).
+- **Interface**: Appearance (Appearance, Pages, Custom blocks, the pet), Alerts (Thresholds, Notifications, Audio), Shortcuts and tools (Palette, Open with, Status pages).
+- **Work**: Tracker, Calendar, Mail, Notes, the day's trail.
+- **Code**: Forge and repositories (Forge, Repositories, Worktrees), Quality (Renovate, Vulnerabilities).
+- **Agents**: CLI (Agent), In session (Quick answers, Quick actions, In passing, Overlaps), Prism and the agents (Assistant, Routines, Prism MCP, Dictation), Tools (Files, Console, Dev servers, Tokens).
+- **Infra**: Kubernetes (Clusters, Pods, ArgoCD), Machine (Docker, System, Disk usage, Sound), Monitoring (Changes, Data).
 - **Remote**: Access, Devices, Exposure, Sessions, Away (Prism from a phone), and Machines (another computer's Prism, and what other computers may do here).
 
-Wherever there are several providers, the feature's page holds what they share and the choice, and each provider has its own page with only its own keys: Forge holds `[forge]`, Forge › GitLab `[gitlab]` (host, merge queue label); Agent holds `[agents]`, and each CLI its `[agents.<cli>]` (**Binary** and **Extra arguments**, added to every launch and resume; Claude Code also its Claude Desktop sessions, cost alert and plan usage token). A page can gather several tables of the file: Repositories holds `[[workspaces]]`, `[[repos]]` and `[worktrees]`, and a page made of several stages can show them as tabs. The tables of a page are listed next to its title, and each part of the page names its own. The caret folds a branch; with the tree focused, `←` and `→` fold and unfold the current page.
+A domain folds with its caret, and says how many of its features are on (`3/5`). A feature that can be switched off (Docker, Vulnerabilities, ClickUp…) has its switch in the page header and a dot in the tree: filled when on, hollow when off.
 
-A feature that can be switched off (Docker, Vulnerabilities, ClickUp…) has its switch in the page header, and a dot in the tree: filled when on, hollow when off. A provider other than the chosen one reads **unused** (an agent CLI that a repository runs, **N repos**); its page stays editable, its keys apply once it is chosen.
+Wherever there are several providers, the choice is at the top of the feature's page: Tracker (ClickUp, Jira, Obsidian), Calendar, Mail, Forge (GitLab, GitHub), Agent (Claude Code, Command Code, OpenCode, Codex). The page holds what they share, then the chosen provider's own keys (Forge › GitLab `[gitlab]`: host, merge queue label; each CLI its `[agents.<cli>]`: **Binary** and **Extra arguments**…). The others wait folded at the bottom, **Other providers**, still editable: an agent CLI that a repository runs says so (**N repos**). A page with several sections has their anchors along its top; a page made of several stages shows them as tabs.
 
-The **Search settings or keys…** box filters the tree by page name, table (`[gitlab]`, `[[repos]]`) or key (`merge_queue_label`). **On**, **Changed** and **Attention** show only the features switched on, the pages with unsaved changes, or those where a check failed.
+The keys rarely changed are folded at the end of their section (**5 advanced settings**, and their names): a click opens them, and the search finds them all the same.
 
-[Open Settings](prism:settings/appearance)
+[Open Settings](prism:settings/overview)
+
+## Finding a setting
+The search box at the top of the tree (`/` or `⌘F`) lists the settings themselves, not their pages: each result says where it lives (domain › page › section), its key, its value and where that value comes from, and a switch, a choice or a number changes right there. `↑` and `↓` choose a result, `↵` opens its page on that key, highlighted (its fold opened if it was an advanced one, or another provider's), `Esc` clears. The pages whose name answers show as chips above the results.
+
+It looks in the label, the key (`agents.font_size`), the hint, the choices, the value (`vim`, `gitlab`) and other words for the same thing (« dark » finds the theme, « do not disturb » the quiet hours), accents and case aside, every word typed found somewhere (« chat size »). Letters in order close together find a word misspelt (`wrkt`). A table in brackets keeps its keys only: `[forge] branch`.
+
+Under the box, the filters list: **On** (the features switched on), **Not saved**, **Not default** (your own keys in config.toml), **From a pack**, **Attention** (a check failed, or a source could not be read), each with its count.
 
 ## Reading a field
 Each field shows its label, a short explanation and its key in the file. Two badges tell you when a change takes effect:
@@ -37,7 +44,7 @@ Each field shows its label, a short explanation and its key in the file. Two bad
 
 A folder (a repository's clone, the worktrees folder, the Obsidian vault…) can be typed, or chosen with the folder button next to it, which opens the system's picker; a folder in your home is written `~/…`. Under **Packs**, **Choose…** picks a pack file to import the same way.
 
-On the right, **default** means the key is not in your file and the built-in value applies. Once you set it, **Reset to default** removes the key again. A changed field is highlighted until you save.
+On the right, a badge says where the value comes from: **default** (the key is in no file, the built-in value applies), **pack <name>** (a pack gives it), **config.toml** (your own), or **not saved** (changed here, until you save). `↺` goes back: a change not saved is dropped; a key of config.toml is removed, and the pack's value, otherwise the default, applies again. A changed field is highlighted until you save.
 
 Some values are checked live: a repository's project on the forge, a kube context, a repository path, a folder, your gcloud login. The verdict appears next to the field, with a tick or a warning, and **Check again** runs the checks once more. For a source (the forge, ClickUp, Worktrees…), the top of the section also says whether it was **Read correctly with the current config** or why the last read failed.
 
@@ -47,13 +54,13 @@ Some values are checked live: a repository's project on the forge, a kube contex
 ## Saving
 Changes are not written until you save.
 
-1. Edit as many fields as you like, in any section. A bar at the bottom counts the unsaved changes.
+1. Edit as many fields as you like, in any section. A bar at the bottom counts the unsaved changes; **Show the changes** lists them key by key, before → after, each with `↺` to drop it.
 2. Press `⌘S` or click **Save to config.toml**. **Discard** drops them instead.
 3. If a saved setting is read at launch, the bar names the sections concerned and offers **Restart Prism**.
 
 After editing `config.toml` by hand, `restart` in the console, or `prism restart` in a terminal, restarts Prism so that it rereads it.
 
-The **TOML** button shows the file next to the settings, with what saving would write. Saving rewrites only the keys you changed: your comments, the order and the layout of the file are kept, and the previous version is copied to `config.toml.bak`.
+The **TOML** button (closed at first: each key already says its table and origin; Prism remembers it once opened) shows the file next to the settings, with what saving would write. Saving rewrites only the keys you changed: your comments, the order and the layout of the file are kept, and the previous version is copied to `config.toml.bak`.
 
 With packs, a menu at the top of that panel switches between three views:
 - **config.toml**: your file, with what saving would write.
@@ -114,17 +121,17 @@ The composer shows the issues that look like yours (a 👍 rather than a duplica
 [Open Settings › General › Feedback](prism:settings/feedback)
 
 ## Cleanup
-**Settings › Cleanup**, last in the tree, says what you really use. Prism counts on this machine how much each feature is used — a block when a page showing it comes up, an agent action when it runs, a palette entry when it is chosen, the Agents view, a quick answer, a thread, a page swipe — in the profile's `usage.json`: nothing leaves the machine. Once the counts cover 30 days (the page says how many until then), **On, never used** lists the features switched on that nothing used over the last 30 days: **Turn off** writes their switch off like any field (saved with `⌘S`), **Keep** (click twice) takes the line off for good. **Most used** lists what you use most, and **Different from default** the keys your `config.toml` sets to another value than their default, each with **Reset** (the pack's value, else the default, applies), the rest in the **TOML** panel. **Hide turned-off features in Settings** (`[cleanup] hide_off`) takes the features switched off out of the tree; a search still finds them.
+**Settings › General › Cleanup**, last in the tree, says what you really use. Prism counts on this machine how much each feature is used — a block when a page showing it comes up, an agent action when it runs, a palette entry when it is chosen, the Agents view, a quick answer, a thread, a page swipe — in the profile's `usage.json`: nothing leaves the machine. Once the counts cover 30 days (the page says how many until then), **On, never used** lists the features switched on that nothing used over the last 30 days: **Turn off** writes their switch off like any field (saved with `⌘S`), **Keep** (click twice) takes the line off for good. **Most used** lists what you use most, and **Different from default** the keys your `config.toml` sets to another value than their default, each with **Reset** (the pack's value, else the default, applies), the rest in the **TOML** panel. **Hide turned-off features in Settings** (`[cleanup] hide_off`) takes the features switched off out of the tree; a search still finds them.
 
-[Open Settings › Cleanup](prism:settings/cleanup)
+[Open Settings › General › Cleanup](prism:settings/cleanup)
 
 ## Tooltips
 Prism shows its own tooltips, in the theme's colours, with shortcuts as keys (`Only mine` `m`). Under **Settings › Interface › Appearance**, **Tooltips** sets the delay before one shows (moving to the next one shows it at once), or switches back to the system's.
 
 ## Where the alert thresholds live
-Every threshold behind an **Alerts** line or a badge is in **Settings › Interface › Alerts & sound** (`[alerts]`), one per rule: a branch behind its base, a job waiting for a runner, a review waiting for you, an idle ticket, a Claude session waiting, ArgoCD out of sync, the meeting reminder, a worktree in use, the data pipeline thresholds and the large MR size. They all apply as soon as you save.
+Every threshold behind an **Alerts** line or a badge is in **Settings › Interface › Thresholds** (`[alerts]`), one per rule: a branch behind its base, a job waiting for a runner, a review waiting for you, an idle ticket, a Claude session waiting, ArgoCD out of sync, the meeting reminder, a worktree in use, the data pipeline thresholds and the large MR size. They all apply as soon as you save.
 
-[Open Settings › Interface › Alerts & sound](prism:settings/alerts)
+[Open Settings › Interface › Thresholds](prism:settings/alerts)
 
 ## Claude usage and the status bar
 The status bar along the bottom of the window, its zones and how to arrange it are in [Pages, blocks and layout](prism:help/pages).

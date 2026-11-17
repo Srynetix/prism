@@ -74,7 +74,7 @@ Le bloc **Aujourd’hui** montre les réunions du jour, lues localement dans le 
 
 Le bloc suit le sélecteur de date de l’en-tête : choisissez un autre jour pour voir son agenda.
 
-Prism envoie aussi une notification avant chaque réunion où vous êtes attendu, même quand sa fenêtre est fermée. Le délai est de 5 minutes par défaut : `[alerts] meeting_lead_minutes` (Réglages › Interface › Alertes et son).
+Prism envoie aussi une notification avant chaque réunion où vous êtes attendu, même quand sa fenêtre est fermée. Le délai est de 5 minutes par défaut : `[alerts] meeting_lead_minutes` (Réglages › Interface › Seuils).
 
 > [!NOTE]
 > Avec le Calendrier de macOS, au premier lancement, macOS demande si Prism peut lire vos calendriers. Si vous avez refusé, autorisez Prism dans Réglages Système → Confidentialité et sécurité → Calendriers, puis relancez Prism.

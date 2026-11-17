@@ -8,7 +8,7 @@
   import { dateFormat } from '../../locale'
 
   /**
-   * Settings › Cleanup: what Prism's counts say (feature-use.svelte.ts, this machine only). After
+   * Settings › General › Cleanup: what Prism's counts say (feature-use.svelte.ts, this machine only). After
    * 30 days of counts, the features on and never used, each to turn off (its switch, written like
    * any field, saved with ⌘S) or to keep (never listed again); the most used; the keys config.toml
    * sets to another value than their default, each back to it with Reset.

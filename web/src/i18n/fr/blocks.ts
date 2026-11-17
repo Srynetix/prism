@@ -503,7 +503,7 @@ export default {
   'State of the last run, never the SQL.': 'État de la dernière exécution, jamais le SQL.',
   'State of the streams, and their lag (Cloud Monitoring).': 'État des flux, et leur retard (Cloud Monitoring).',
   'Status pages': 'Pages de statut',
-  'Status pages are not read. Turn on Settings › General › Status pages, then restart Prism.': 'Les pages de statut ne sont pas lues. Activez Réglages › Général › Pages de statut, puis redémarrez Prism.',
+  'Status pages are not read. Turn on Settings › Interface › Status pages, then restart Prism.': 'Les pages de statut ne sont pas lues. Activez Réglages › Interface › Pages de statut, puis redémarrez Prism.',
   'still running, far longer than usual': 'toujours en cours, bien plus long que d’habitude',
   'Stop': 'Arrêter',
   'Stop {name}': 'Arrêter {name}',

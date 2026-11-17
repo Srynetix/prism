@@ -19,7 +19,7 @@ export const tokens = {
     source: t('The tools’ usage figures, never what was said: Claude Code’s transcripts (~/.claude/projects), Codex’s rollouts (~/.codex/sessions), Command Code’s sessions (~/.commandcode/projects), OpenCode’s database (~/.local/share/opencode, read-only). Read at launch, then what was added every [tokens] poll_seconds. Daily totals are kept in Prism’s data folder for [tokens] keep_days: the tools delete their sessions after a while, the history stays.'),
   },
   settings: {
-    parent: 'agents-root',
+    parent: 'agents-root', group: 'tools',
     node: { id: 'tokens', label: t('Tokens'), sections: ['tokens'], toggle: 'tokens' },
     sections: [
       {

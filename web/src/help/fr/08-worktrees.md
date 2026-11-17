@@ -73,13 +73,13 @@ Certains worktrees ne sont jamais supprimés, pas même avec **Supprimer quand m
 > Le worktree d’un agent peut aussi être supprimé depuis la vue Agents, avec **Supprimer le worktree** une fois l’agent arrêté. La même règle s’applique : seulement si rien ne serait perdu.
 
 ## Réglages
-Dans Réglages › Code › Dépôts › Worktrees (`[worktrees]`) :
+Dans Réglages › Code › Worktrees (`[worktrees]`) :
 
 - **Dépôt** (`repo`) : l’ancienne façon de nommer le clone du dépôt que désignent les références de MR sans dépôt, toujours lue ; les dépôts listés sont ceux dont **Worktrees** est activé.
 - **Branche de base** (`base_branch`) de chaque dépôt qui ne nomme pas la sienne (les **Branches** de sa carte) : `auto` prend la dernière branche de release, sinon la principale ; ou un nom de branche. Le retard et l’avance sont comptés par rapport à elle.
 - **Obsolète après** (`stale_days`) : jours sans commit ni session Claude avant qu’un worktree soit obsolète, 14 par défaut.
 - **Relire toutes les** (`poll_seconds`).
 
-Deux seuils liés se trouvent dans Réglages › Interface › Alertes et son : **Worktree utilisé** (`[alerts] worktree_in_use_hours`) et **Branche en retard** (`[alerts] behind_commits`), au-delà duquel une branche est signalée en retard sur sa base.
+Deux seuils liés se trouvent dans Réglages › Interface › Seuils : **Worktree utilisé** (`[alerts] worktree_in_use_hours`) et **Branche en retard** (`[alerts] behind_commits`), au-delà duquel une branche est signalée en retard sur sa base.
 
-[Ouvrir Réglages › Code › Dépôts › Worktrees](prism:settings/worktrees)
+[Ouvrir Réglages › Code › Worktrees](prism:settings/worktrees)

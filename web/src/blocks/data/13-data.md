@@ -65,6 +65,6 @@ The Data block is read every `[data] poll_seconds` (60 s by default); BigQuery j
 
 What is broken shows up in **Alerts** and sends one notification. What only drifts (a slow job, a late table, a lagging stream, a cost spike) stays in **Alerts** without notifying.
 
-All three thresholds live in **Settings › Interface › Alerts & sound** and apply as soon as you save.
+All three thresholds live in **Settings › Interface › Thresholds** and apply as soon as you save.
 
-[Open Settings › Interface › Alerts & sound](prism:settings/alerts)
+[Open Settings › Interface › Thresholds](prism:settings/alerts)

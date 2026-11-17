@@ -84,14 +84,14 @@ Prism keeps running in the menu bar when you close the window. Its counter adds 
 A system notification is sent when something new appears: a failed pipeline on a protected branch, a runner down, a failed deployment, a broken data pipeline, a review waiting for you, or Claude asking for an answer or a permission. Pending jobs, ArgoCD out of sync and drifting data stay in Alerts without interrupting you, and a Prism agent finishing its turn does not notify. Beyond three new items at once, you get a single summary.
 
 ## Digest, quiet hours and focus
-By default each new item notifies as it appears. Turn on **Digest** (Settings › Interface › Alerts & sound › Notifications, `[alerts] digest`) and Prism holds them instead, then sends one summary at each **Digest at** time (`digest_times`, 9:00, 12:30 and 17:30 by default): what still needs you, and what resolved meanwhile (a pipeline green again). The kinds in **Still at once** (`digest_urgent`: infra, deployments and an agent asking for a permission by default) keep notifying at once.
+By default each new item notifies as it appears. Turn on **Digest** (Settings › Interface › Notifications, `[alerts] digest`) and Prism holds them instead, then sends one summary at each **Digest at** time (`digest_times`, 9:00, 12:30 and 17:30 by default): what still needs you, and what resolved meanwhile (a pipeline green again). The kinds in **Still at once** (`digest_urgent`: infra, deployments and an agent asking for a permission by default) keep notifying at once.
 
 **Quiet hours** (`quiet_hours`, such as `19:00-08:00`) silence everything, urgent included, digest or not. So does **focus**: a calendar event whose title holds **Focus events** (`focus_events`, `Focus` by default), or Zen mode. A digest due meanwhile waits for their end; in live mode, what they held goes out as one summary once they end. Meeting reminders and your own reminders keep their time.
 
 The status bar says what is held and when the next digest goes out, or that quiet hours or focus are on. Click it for the last digest and what waits for the next one; **Send now** sends the summary at once, **Mark read** clears the last one.
 
 ## Tuning the thresholds
-Each time-based rule has its threshold in **Settings › Interface › Alerts & sound**, the `[alerts]` section, applied as soon as you save:
+Each time-based rule has its threshold in **Settings › Interface › Thresholds**, the `[alerts]` section, applied as soon as you save:
 
 | Setting | Key | Default |
 |---|---|---|
@@ -103,7 +103,7 @@ Each time-based rule has its threshold in **Settings › Interface › Alerts & 
 
 The same section holds the badge and data thresholds, such as `large_mr_lines`. The ticket statuses the Sync rules rely on are in **Settings › Work › Tracker › ClickUp**.
 
-[Open Settings › Interface › Alerts & sound](prism:settings/alerts)
+[Open Settings › Interface › Thresholds](prism:settings/alerts)
 
 ## On the phone
 The remote's **Alerts** tab shows them by band — **Now**, **Today**, **When you can** — each one in full, its kind and age above it. Its fixes (an agent action, a status, a rebase…) and **Open** are buttons under the text; **⏾** shows the times to put it off under it, **✓** marks it seen, as on the computer: the seen and the put off ones fold at the bottom, a tap shows them again.

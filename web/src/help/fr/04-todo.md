@@ -84,14 +84,14 @@ Prism continue de tourner dans la barre des menus quand vous fermez la fenêtre.
 Une notification système est envoyée quand quelque chose de nouveau apparaît : un pipeline en échec sur une branche protégée, un runner hors service, un déploiement en échec, un pipeline de données cassé, une revue qui vous attend, ou Claude qui demande une réponse ou une autorisation. Les jobs en attente, ArgoCD désynchronisé et les données qui dérivent restent dans les Alertes sans vous interrompre, et un agent Prism qui termine son tour ne notifie pas. Au-delà de trois nouveaux éléments à la fois, vous recevez un seul récapitulatif.
 
 ## Récapitulatif, heures calmes et concentration
-Par défaut, chaque nouvel élément notifie dès qu’il apparaît. Activez **Récapitulatif** (Réglages › Interface › Alertes et son › Notifications, `[alerts] digest`) et Prism les retient à la place, puis envoie un seul récapitulatif à chaque heure de **Récapitulatif à** (`digest_times`, 9:00, 12:30 et 17:30 par défaut) : ce qui a encore besoin de vous, et ce qui s’est résolu entre-temps (un pipeline redevenu vert). Les types dans **Toujours immédiatement** (`digest_urgent` : infra, déploiements et un agent qui demande une autorisation par défaut) continuent de notifier immédiatement.
+Par défaut, chaque nouvel élément notifie dès qu’il apparaît. Activez **Récapitulatif** (Réglages › Interface › Notifications, `[alerts] digest`) et Prism les retient à la place, puis envoie un seul récapitulatif à chaque heure de **Récapitulatif à** (`digest_times`, 9:00, 12:30 et 17:30 par défaut) : ce qui a encore besoin de vous, et ce qui s’est résolu entre-temps (un pipeline redevenu vert). Les types dans **Toujours immédiatement** (`digest_urgent` : infra, déploiements et un agent qui demande une autorisation par défaut) continuent de notifier immédiatement.
 
 Les **heures calmes** (`quiet_hours`, comme `19:00-08:00`) font taire tout, l’urgent compris, récapitulatif ou non. La **concentration** aussi : un événement de calendrier dont le titre contient **Événements de concentration** (`focus_events`, `Focus` par défaut), ou le mode zen. Un récapitulatif dû entre-temps attend leur fin ; en mode direct, ce qu’elles ont retenu part en un seul récapitulatif une fois terminées. Les rappels de réunion et vos propres rappels gardent leur heure.
 
 La barre d’état indique ce qui est retenu et quand part le prochain récapitulatif, ou que les heures calmes ou la concentration sont actives. Cliquez dessus pour le dernier récapitulatif et ce qui attend le suivant ; **Envoyer maintenant** envoie le récapitulatif tout de suite, **Marquer comme lu** efface le dernier.
 
 ## Régler les seuils
-Chaque règle fondée sur le temps a son seuil dans **Réglages › Interface › Alertes et son**, la section `[alerts]`, appliqué dès l’enregistrement :
+Chaque règle fondée sur le temps a son seuil dans **Réglages › Interface › Seuils**, la section `[alerts]`, appliqué dès l’enregistrement :
 
 | Réglage | Clé | Par défaut |
 |---|---|---|
@@ -103,7 +103,7 @@ Chaque règle fondée sur le temps a son seuil dans **Réglages › Interface �
 
 La même section contient les seuils des badges et des données, comme `large_mr_lines`. Les statuts de ticket sur lesquels s’appuient les règles Sync sont dans **Réglages › Travail › Tracker › ClickUp**.
 
-[Ouvrir Réglages › Interface › Alertes et son](prism:settings/alerts)
+[Ouvrir Réglages › Interface › Seuils](prism:settings/alerts)
 
 ## Sur le téléphone
 L’onglet **Alertes** de l’accès à distance les montre par bande — **Maintenant**, **Aujourd’hui**, **Quand vous pouvez** — chacune en entier, son type et son âge au-dessus. Ses correctifs (une action d’agent, un statut, un rebase…) et **Ouvrir** sont des boutons sous le texte ; **⏾** affiche dessous les moments où la reporter, **✓** la marque comme vue, comme sur l’ordinateur : les vues et les reportées se replient en bas, un appui les réaffiche.

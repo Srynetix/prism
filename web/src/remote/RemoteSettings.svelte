@@ -2,7 +2,7 @@
   import { hasCore, invoke } from '../bridge'
   import { live } from '../live.svelte'
   import { SCHEMA, type FieldSpec, type SectionSpec } from '../settings-schema'
-  import { TREE, NODES, descendants, type TreeNode } from '../settings-tree'
+  import { TREE, NODES, groupsOf, isProvider, type TreeNode } from '../settings-tree'
   import { THEMES } from '../theme.svelte'
   import { LANGUAGES, t, tn, tc } from '../i18n.svelte'
   import Icon from '../components/Icon.svelte'
@@ -127,7 +127,8 @@
 
   const page = $derived(node ? NODES.get(node) : undefined)
   const roots = TREE
-  const pagesOf = (root: TreeNode) => descendants(root).filter((n) => n !== root && n.sections?.length)
+  /** A domain's pages by group, each followed by its providers (Tracker, then ClickUp, Jira…). */
+  const groupsShown = (root: TreeNode) => groupsOf(root).map((g) => ({ ...g, pages: g.pages.flatMap((p) => [p, ...(p.children ?? []).filter(isProvider)]).filter((n) => n.sections?.length) })).filter((g) => g.pages.length)
 </script>
 
 <div class="settings">
@@ -139,20 +140,23 @@
     <p class="banner"><Icon name="lock" /> {t('Read on the computer. What is marked')} <span class="ed">{t('editable')}</span> {t('changes from here, each save confirmed by your passkey.')}</p>
     {#if data.error}<State kind="error" title={t('config.toml does not load: {error}', { error: data.error })} />{/if}
     {#each roots as root (root.id)}
-      {@const pages = pagesOf(root)}
-      {#if pages.length}
+      {@const groups = groupsShown(root)}
+      {#if groups.length}
         <p class="sect">{root.label}</p>
-        <ul class="list">
-          {#each pages as n (n.id)}
-            {@const own = sectionsOf(n).some(({ spec }) => spec)}
-            <li><button onclick={() => open(n.id)}>
-              <span class="dot" style="background: {root.color ?? 'var(--accent)'}"></span>
-              <span class="t">{n.label}</span>
-              {#if nodeEditable(n)}<span class="ed">{t('editable')}</span>{:else if own}<span class="ro">{t('read')}</span>{:else}<span class="ro">{t('on the computer')}</span>{/if}
-              <Icon name="next" />
-            </button></li>
-          {/each}
-        </ul>
+        {#each groups as g (g.id)}
+          {#if g.label}<p class="grp">{g.label}</p>{/if}
+          <ul class="list">
+            {#each g.pages as n (n.id)}
+              {@const own = sectionsOf(n).some(({ spec }) => spec)}
+              <li><button onclick={() => open(n.id)} class:prov={isProvider(n)}>
+                <span class="dot" style="background: {root.color ?? 'var(--accent)'}"></span>
+                <span class="t">{n.label}</span>
+                {#if nodeEditable(n)}<span class="ed">{t('editable')}</span>{:else if own}<span class="ro">{t('read')}</span>{:else}<span class="ro">{t('on the computer')}</span>{/if}
+                <Icon name="next" />
+              </button></li>
+            {/each}
+          </ul>
+        {/each}
       {/if}
     {/each}
   {:else}
@@ -249,6 +253,8 @@
   .banner.ok { background: color-mix(in srgb, var(--ok-bg) 55%, transparent); color: var(--ok); }
   .banner :global(svg) { vertical-align: -2px; margin-right: 4px; }
   .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
+  .grp { margin: 2px 6px -6px; color: var(--text-muted); font-size: var(--fs-tag); }
+  .list .prov .t { padding-left: 12px; }
   .note { margin: 12px 4px; color: var(--text-muted); font-size: var(--fs-meta); text-align: center; }
   .note.ok { color: var(--ok); }
   .ed { padding: 1px 7px; border-radius: var(--r9); background: var(--ok-bg); color: var(--ok); font-size: var(--fs-micro); white-space: nowrap; }

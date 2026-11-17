@@ -30,7 +30,7 @@ export const data = {
   boot: { label: t('Polling GCP pipelines'), detail: (d) => `${tn(d.jobs.length, '{n} job', '{n} jobs')} · ${tn(d.streams.length, '{n} stream', '{n} streams')}` },
   badge,
   settings: {
-    parent: 'infra',
+    parent: 'infra', group: 'watch',
     node: { id: 'data', label: t('Data (GCP)'), sections: ['data'], toggle: 'data' },
     sections: [
       {

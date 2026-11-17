@@ -72,18 +72,18 @@ Since yesterday, what changed on staging? The Changes block puts on one timeline
 Prism keeps the transitions in a journal (`changes.jsonl` in the profile's data folder, `retention_days`). The Kubernetes events (`kube_events`) are off by default: the cluster keeps them an hour, and they need the right to list events.
 
 ## Setting up the clusters
-Environments are listed in Settings › Infra › Kubernetes › Environments (`[[environments]]`): one row per environment and cluster, with **Env** (prod, demo, staging, or a name of your own such as `ops`: each name is a tab of the block, those of no stage last), **Kube context** and **Namespaces** (`*` matches any characters: `*` reads every namespace of the cluster, `app-*` those starting with `app-`; none: nothing is read). ArgoCD instances go in Settings › Infra › Kubernetes › ArgoCD (`[[argocd]]`): namespace, kube context, web URL, and the environments each is authoritative for. Without any, Prism looks in the `argocd*` namespaces of the default context's cluster (Settings › Infra › Kubernetes › Clusters).
+Environments are listed in Settings › Infra › Clusters › Environments (`[[environments]]`): one row per environment and cluster, with **Env** (prod, demo, staging, or a name of your own such as `ops`: each name is a tab of the block, those of no stage last), **Kube context** and **Namespaces** (`*` matches any characters: `*` reads every namespace of the cluster, `app-*` those starting with `app-`; none: nothing is read). ArgoCD instances go in Settings › Infra › ArgoCD (`[[argocd]]`): namespace, kube context, web URL, and the environments each is authoritative for. Without any, Prism looks in the `argocd*` namespaces of the default context's cluster (Settings › Infra › Clusters).
 
 > [!TIP]
-> No rights on the clusters? Turn off **Cluster access** (`[clusters] enabled`) in Settings › Infra › Kubernetes › Clusters: pods, environments and ArgoCD are then not read at all, and Alerts shows no access error.
+> No rights on the clusters? Turn off **Cluster access** (`[clusters] enabled`) in Settings › Infra › Clusters: pods, environments and ArgoCD are then not read at all, and Alerts shows no access error.
 
-[Open Settings › Infra › Kubernetes › Environments](prism:settings/envs)
+[Open Settings › Infra › Clusters › Environments](prism:settings/envs)
 
 ## The Vulnerabilities block
 ![The Vulnerabilities block: what to fix, by library and image](images/vulnerabilities.webp)
 
 
-The **Vulnerabilities** block (off by default: Settings › Security › Vulnerabilities; it needs `trivy`) runs a local Trivy scan, as CI would see it today: HIGH and CRITICAL findings that have a fix, with each project's `.trivyignore` applied. Its title shows the branch and commit scanned and when. It scans once a day; the ↻ button scans again now. A **+N new** badge counts findings new since the previous scan.
+The **Vulnerabilities** block (off by default: Settings › Code › Vulnerabilities; it needs `trivy`) runs a local Trivy scan, as CI would see it today: HIGH and CRITICAL findings that have a fix, with each project's `.trivyignore` applied. Its title shows the branch and commit scanned and when. It scans once a day; the ↻ button scans again now. A **+N new** badge counts findings new since the previous scan.
 
 Three figures sum it up: **To fix** (critical and high), **Accepted** (in a `.trivyignore`) and **Clean** (projects and images with nothing to report).
 
@@ -107,7 +107,7 @@ Under each image, what was scanned exactly: the start of its digest (click to co
 On GitHub, the open **Dependabot** alerts of the repository, high and critical, are a target of their own, next to Trivy's: the version range concerned stands for the installed version, and each finding links to its alert.
 
 [Open the Vulnerabilities block](prism:block/vulns)
-[Open Settings › Security › Vulnerabilities](prism:settings/vulns)
+[Open Settings › Code › Vulnerabilities](prism:settings/vulns)
 
 ## Docker
 ![The Docker block: disk use with its prune buttons, then the containers](images/docker.webp)

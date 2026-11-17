@@ -27,7 +27,7 @@ Dans l’onglet **Équipe**, une rangée d’auteurs avec leur nombre de MR ouve
 La taille d’une MR ouverte, ce sont ses lignes ajoutées et supprimées, `+48 −9`. Au-delà d’un seuil, elle ressort en orange : la MR est grosse et sera plus difficile à relire.
 
 > [!TIP]
-> Le seuil des grosses MR est de 400 lignes modifiées par défaut. Changez-le dans Réglages › Interface › Alertes et son › **Grosse MR** (`[alerts] large_mr_lines`).
+> Le seuil des grosses MR est de 400 lignes modifiées par défaut. Changez-le dans Réglages › Interface › Seuils › **Grosse MR** (`[alerts] large_mr_lines`).
 
 [Ouvrir le bloc Merge requests](prism:block/mrs)
 

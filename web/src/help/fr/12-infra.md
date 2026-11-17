@@ -72,18 +72,18 @@ Depuis hier, qu’est-ce qui a bougé sur staging ? Le bloc Changements met sur 
 Prism garde les transitions dans un journal (`changes.jsonl` dans le dossier de données du profil, `retention_days`). Les Events Kubernetes (`kube_events`) sont désactivés par défaut : le cluster les garde une heure, et il faut le droit de lister les events.
 
 ## Configurer les clusters
-Les environnements sont listés dans Réglages › Infra › Kubernetes › Environnements (`[[environments]]`) : une ligne par environnement et par cluster, avec **Env** (prod, demo, staging, ou un nom à vous comme `ops` : chaque nom est un onglet du bloc, ceux d’aucun stage en dernier), **Contexte kube** et **Namespaces** (`*` remplace n’importe quels caractères : `*` lit tous les namespaces du cluster, `app-*` ceux qui commencent par `app-` ; aucun : rien n’est lu). Les instances ArgoCD vont dans Réglages › Infra › Kubernetes › ArgoCD (`[[argocd]]`) : namespace, contexte kube, URL web, et les environnements dont chacune fait autorité. Sans aucune, Prism cherche dans les namespaces `argocd*` du cluster du contexte par défaut (Réglages › Infra › Kubernetes › Clusters).
+Les environnements sont listés dans Réglages › Infra › Clusters › Environnements (`[[environments]]`) : une ligne par environnement et par cluster, avec **Env** (prod, demo, staging, ou un nom à vous comme `ops` : chaque nom est un onglet du bloc, ceux d’aucun stage en dernier), **Contexte kube** et **Namespaces** (`*` remplace n’importe quels caractères : `*` lit tous les namespaces du cluster, `app-*` ceux qui commencent par `app-` ; aucun : rien n’est lu). Les instances ArgoCD vont dans Réglages › Infra › ArgoCD (`[[argocd]]`) : namespace, contexte kube, URL web, et les environnements dont chacune fait autorité. Sans aucune, Prism cherche dans les namespaces `argocd*` du cluster du contexte par défaut (Réglages › Infra › Clusters).
 
 > [!TIP]
-> Pas de droits sur les clusters ? Désactivez **Accès au cluster** (`[clusters] enabled`) dans Réglages › Infra › Kubernetes › Clusters : pods, environnements et ArgoCD ne sont alors plus lus du tout, et les Alertes ne montrent aucune erreur d’accès.
+> Pas de droits sur les clusters ? Désactivez **Accès au cluster** (`[clusters] enabled`) dans Réglages › Infra › Clusters : pods, environnements et ArgoCD ne sont alors plus lus du tout, et les Alertes ne montrent aucune erreur d’accès.
 
-[Ouvrir Réglages › Infra › Kubernetes › Environnements](prism:settings/envs)
+[Ouvrir Réglages › Infra › Clusters › Environnements](prism:settings/envs)
 
 ## Le bloc Vulnérabilités
 ![Le bloc Vulnérabilités : ce qu’il faut corriger, par bibliothèque et par image](images/vulnerabilities.webp)
 
 
-Le bloc **Vulnérabilités** (désactivé par défaut : Réglages › Sécurité › Vulnérabilités ; il demande `trivy`) lance un scan Trivy local, tel que la CI le verrait aujourd’hui : les résultats HIGH et CRITICAL qui ont un correctif, avec le `.trivyignore` de chaque projet appliqué. Son titre montre la branche et le commit scannés, et quand. Il scanne une fois par jour ; le bouton ↻ relance un scan tout de suite. Un badge **+N nouvelles** compte les résultats apparus depuis le scan précédent.
+Le bloc **Vulnérabilités** (désactivé par défaut : Réglages › Code › Vulnérabilités ; il demande `trivy`) lance un scan Trivy local, tel que la CI le verrait aujourd’hui : les résultats HIGH et CRITICAL qui ont un correctif, avec le `.trivyignore` de chaque projet appliqué. Son titre montre la branche et le commit scannés, et quand. Il scanne une fois par jour ; le bouton ↻ relance un scan tout de suite. Un badge **+N nouvelles** compte les résultats apparus depuis le scan précédent.
 
 Trois chiffres les résument : **À corriger** (critiques et hautes), **Acceptées** (dans un `.trivyignore`) et **Sains** (projets et images sans rien à signaler).
 
@@ -107,7 +107,7 @@ Sous chaque image, ce qui a été analysé exactement : le début de son digest 
 Sur GitHub, les alertes **Dependabot** ouvertes du dépôt, hautes et critiques, forment une cible à part, à côté de celles de Trivy : la plage de versions concernée tient lieu de version installée, et chaque résultat renvoie vers son alerte.
 
 [Ouvrir le bloc Vulnérabilités](prism:block/vulns)
-[Ouvrir Réglages › Sécurité › Vulnérabilités](prism:settings/vulns)
+[Ouvrir Réglages › Code › Vulnérabilités](prism:settings/vulns)
 
 ## Docker
 ![Le bloc Docker : l’usage disque avec ses boutons de nettoyage, puis les conteneurs](images/docker.webp)

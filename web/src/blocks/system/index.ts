@@ -21,7 +21,7 @@ export const system = {
   },
   status: { label: t('CPU, RAM, latency'), side: 'right', after: 'usage' },
   settings: {
-    parent: 'infra',
+    parent: 'infra', group: 'machine',
     node: { id: 'system', label: t('System'), sections: ['system'], toggle: 'system' },
     sections: [
       {
