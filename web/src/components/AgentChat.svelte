@@ -15,6 +15,7 @@
   import { sendPrompt } from '../agent-inbox.svelte'
   import { agentsSettings, allowAgent, attachToDraft, filesOf, stopAgent } from '../agents.svelte'
   import { asideNote } from '../asides.svelte'
+  import { assistantView, closeAssistant, isAssistant } from '../assistant.svelte'
   import { cliOf, nameOf } from '../agent-cli'
   import { suggestionOf } from '../quick-answers'
   import { draftOf, pendingOf, setDraft, setPending } from '../chat-drafts.svelte'
@@ -105,7 +106,9 @@
       write(suggested)
     } else if (e.key === 'Enter' && e.altKey && !e.shiftKey && !e.isComposing) {
       e.preventDefault()
-      void aside()
+      // The Assistant's conversation, in its panel: ⌥↵ closes the panel, as everywhere else.
+      if (assistantView.open && isAssistant(agent)) closeAssistant()
+      else void aside()
     } else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault()
       void send()
