@@ -11,6 +11,7 @@ use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 
 use crate::config::EnvironmentConfig;
+use prism_base::{i18n::tr, tr};
 
 /// A stage, as the window sees it too (`Snapshot.stages`), and as a module declares it.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -76,13 +77,60 @@ pub trait Provider: Send + Sync {
 
 static CURRENT: prism_base::rt::Swap<(Stages, Option<&'static dyn Provider>)> = prism_base::rt::Swap::new();
 
-/// The provider named by `[clusters] stages` (empty: none), or an error for an unknown name.
-pub fn provider(name: &str) -> Result<Option<&'static dyn Provider>> {
-    match name.trim() {
-        "" | "none" => Ok(None),
-        // A block that declares stages (`Block::stages`).
-        other => crate::blocks::find(other).and_then(|b| b.stages()).map(Some).ok_or_else(|| anyhow::anyhow!("[clusters] stages: no block {other} declaring stages in this Prism (none: [[environments]])")),
+/// What `[clusters] stages` comes to: the stages, their provider, and what keeps it from giving
+/// them (a setup warning; the stages are then `[[environments]]`' names).
+pub struct Resolved {
+    pub stages: Stages,
+    pub provider: Option<&'static dyn Provider>,
+    pub warning: Option<String>,
+}
+
+/// The stages of the block named by `[clusters] stages` (`find`: the blocks of this Prism), or,
+/// with none (empty, `none`) or one that gives none, the environments' names, and why.
+pub fn resolve(name: &str, environments: &[EnvironmentConfig], find: impl Fn(&str) -> Option<&'static dyn crate::blocks::Block>) -> Resolved {
+    let fallback = |why: Option<String>| Resolved {
+        stages: Stages::of_environments(environments),
+        provider: None,
+        warning: why.map(|why| format!("{why} {}", tr("Meanwhile they are the names of [[environments]]; stages = \"none\" keeps them without this warning."))),
+    };
+    let name = name.trim();
+    if name.is_empty() || name == "none" {
+        return fallback(None);
     }
+    let Some(block) = find(name) else {
+        return fallback(Some(tr!("[clusters] stages = \"{name}\": no block {name} in this Prism. The module giving it is not installed (Settings › Packs › Modules), or was installed after Prism started: restart Prism.", name = name)));
+    };
+    let Some(provider) = block.stages() else {
+        return fallback(Some(tr!("[clusters] stages = \"{name}\": the block {name} gives no stages (its module does not provide them).", name = name)));
+    };
+    let stages = provider.stages();
+    if stages.0.is_empty() {
+        // Its hints (applications, versions expected) may come all the same.
+        let why = tr!("[clusters] stages = \"{name}\": the block {name} gives no stages yet. Its module waits for your trust (Settings › Packs › Modules), is held, did not start, or declares none (its log says why).", name = name);
+        return Resolved { provider: Some(provider), ..fallback(Some(why)) };
+    }
+    Resolved { stages, provider: Some(provider), warning: None }
+}
+
+/// What the stages are resolved from (`[clusters] stages`, `[[environments]]`), and who is told
+/// of them: kept from the last `follow`, for `refresh`.
+type Tell = std::sync::Arc<dyn Fn(&Resolved) + Send + Sync>;
+static FOLLOWED: std::sync::Mutex<Option<(String, Vec<EnvironmentConfig>, Tell)>> = std::sync::Mutex::new(None);
+
+/// The stages of this config, resolved now and again on each `refresh`; `tell` hears of them
+/// each time (the snapshot, the warning).
+pub fn follow(name: &str, environments: &[EnvironmentConfig], tell: impl Fn(&Resolved) + Send + Sync + 'static) {
+    *FOLLOWED.lock().unwrap() = Some((name.to_string(), environments.to_vec(), std::sync::Arc::new(tell)));
+    refresh();
+}
+
+/// The stages resolved again, a provider's having changed (a module configured: trusted, started
+/// again, installed again), with the config last followed; nothing before it.
+pub fn refresh() {
+    let Some((name, environments, tell)) = FOLLOWED.lock().unwrap().clone() else { return };
+    let resolved = resolve(&name, &environments, crate::blocks::find);
+    set(resolved.stages.clone(), resolved.provider);
+    tell(&resolved);
 }
 
 /// Set at launch, and on each change of the config, before the collectors.
@@ -116,5 +164,53 @@ mod tests {
         let s = Stages::of_environments(&[env("prod"), env("staging"), env("prod"), env("qa"), env(" ")]);
         assert_eq!(s.envs(), ["staging", "qa", "prod"]);
         assert_eq!((s.production(), s.0[0].role.as_str(), s.0[1].role.as_str()), ("prod", "staging", ""));
+    }
+
+    /// A block that gives `stages`, or none (`None`: it does not provide them).
+    struct Shipping(Option<Vec<Stage>>);
+    impl crate::blocks::Block for Shipping {
+        fn id(&self) -> &'static str {
+            "shipping"
+        }
+        fn start(&self, _config: &toml::Table, _ctx: crate::blocks::BlockCtx) -> Result<()> {
+            Ok(())
+        }
+        fn call(&self, _command: String, _args: serde_json::Value) -> BoxFuture<'static, Result<serde_json::Value>> {
+            Box::pin(async { Ok(serde_json::Value::Null) })
+        }
+        fn stages(&self) -> Option<&'static dyn Provider> {
+            self.0.is_some().then(|| &*Box::leak(Box::new(Given(Stages(self.0.clone().unwrap_or_default())))) as &'static dyn Provider)
+        }
+    }
+    struct Given(Stages);
+    impl Provider for Given {
+        fn stages(&self) -> Stages {
+            self.0.clone()
+        }
+        fn hints<'a>(&'a self, _repo: &'a Path) -> BoxFuture<'a, Result<Hints>> {
+            Box::pin(async { Ok(Hints::default()) })
+        }
+    }
+
+    #[test]
+    fn a_block_gives_the_stages_or_says_why_not() {
+        let envs = [EnvironmentConfig { env: "prod".into(), context: String::new(), namespaces: Vec::new() }];
+        let found = |block: Option<Vec<Stage>>| move |id: &str| (id == "shipping").then(|| &*Box::leak(Box::new(Shipping(block.clone()))) as &'static dyn crate::blocks::Block);
+        let stage = Stage { role: "production".into(), name: "Prod".into(), env: "production".into() };
+
+        let given = resolve("shipping", &envs, found(Some(vec![stage.clone()])));
+        assert_eq!((given.stages.0, given.provider.is_some(), given.warning), (vec![stage], true, None));
+
+        for (name, block, says, provider) in [("other", None, "no block other", false), ("shipping", None, "gives no stages (its module", false), ("shipping", Some(vec![]), "gives no stages yet", true)] {
+            let r = resolve(name, &envs, found(block.clone()));
+            assert_eq!((r.stages.envs(), r.provider.is_some()), (vec!["prod"], provider), "{name} {block:?}");
+            let warning = r.warning.unwrap();
+            assert!(warning.contains(says) && warning.contains("[[environments]]"), "{warning}");
+        }
+
+        for name in ["", "none", " none "] {
+            let r = resolve(name, &envs, found(None));
+            assert_eq!((r.stages.envs(), r.warning), (vec!["prod"], None));
+        }
     }
 }

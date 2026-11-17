@@ -298,7 +298,8 @@ fn reload_keys(cfg: &config::Config) -> Keys {
 /// settings shown (set again right after), and the blocks that do not reload.
 fn forget_collected(s: &mut state::Snapshot) {
     let old = std::mem::take(s);
-    let kept = |source: &str| matches!(source, "usage" | "config") || blocks::kept(source);
+    // `stages`: set by `prepare`, before the collectors, not by them.
+    let kept = |source: &str| matches!(source, "usage" | "config" | "stages") || blocks::kept(source);
     *s = state::Snapshot {
         profile: old.profile,
         other_profiles: old.other_profiles,
@@ -324,6 +325,7 @@ fn forget_collected(s: &mut state::Snapshot) {
         templates: old.templates,
         alerts_settings: old.alerts_settings,
         conventions: old.conventions,
+        stages: old.stages,
         blocks: old.blocks.into_iter().filter(|(id, _)| kept(id)).collect(),
         errors: old.errors.into_iter().filter(|(source, _)| kept(source)).collect(),
         problems: old.problems,
@@ -466,17 +468,17 @@ where
 }
 
 /// The stages Environments, ArgoCD and Settings read (`[clusters] stages`): their provider's, or
-/// `[[environments]]`' names.
+/// `[[environments]]`' names, with a setup warning when the provider named gives none; resolved
+/// again as a module gives its stages (trusted, started again), the warning gone once it does.
 fn set_stages(cfg: &config::Config, hub: &state::Hub) {
-    let provider = stages::provider(&cfg.clusters.stages).unwrap_or_else(|e| {
-        hub.set_error("stages", Some(format!("{e:#}")));
-        None
-    });
-    let staged = provider.map_or_else(|| stages::Stages::of_environments(&cfg.environments), |p| p.stages());
-    stages::set(staged.clone(), provider);
-    hub.update(|s| {
-        s.stages = staged.0.clone();
-        true
+    let hub = hub.clone();
+    stages::follow(&cfg.clusters.stages, &cfg.environments, move |resolved| {
+        hub.set_error("stages", resolved.warning.clone());
+        hub.update(|s| {
+            let changed = s.stages != resolved.stages.0;
+            s.stages.clone_from(&resolved.stages.0);
+            changed
+        });
     });
 }
 
