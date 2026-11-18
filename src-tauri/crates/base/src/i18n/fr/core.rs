@@ -20,6 +20,8 @@ pub const TABLE: &[(&str, &str)] = &[
     ("[[obsidian.boards]] prefix “{pattern}” matches nothing at all", "[[obsidian.boards]] prefix « {pattern} » ne correspond à rien"),
     ("config.toml is not valid TOML", "config.toml n’est pas du TOML valide"),
     ("no [[repos]] named {name} in config.toml", "aucun [[repos]] nommé {name} dans config.toml"),
+    ("not saved, the TOML does not read: {err}", "non enregistré, le TOML ne se lit pas : {err}"),
+    ("config.toml changed since you began editing it: copy your text, then reopen the editor", "config.toml a changé depuis que vous avez commencé à le modifier : copiez votre texte, puis rouvrez l’éditeur"),
     ("not saved, the app could not read it: {err}", "non enregistré, l’app ne pourrait pas le lire : {err}"),
     ("this pack needs Prism {need} or later, and this one is {prism}: update Prism first", "ce pack demande Prism {need} ou plus récent, et celui-ci est en {prism} : mettez d’abord Prism à jour"),
     ("not a Prism configuration", "pas une configuration Prism"),

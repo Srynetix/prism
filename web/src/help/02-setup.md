@@ -99,6 +99,6 @@ When a source is off, nothing tries to reach it, so you get no access error in A
 > Forge, cluster, Calendar and GCP access are read when Prism starts. Settings marks such values with a **restart** badge and, after saving, offers **Restart Prism**.
 
 ## Saving
-Changes are kept aside until you save: **Save to config.toml**, or `⌘S`. Saving rewrites only the keys you changed and keeps the comments and layout of the file. The **TOML** button shows the file next to the settings, so you see exactly what will be written.
+Changes are kept aside until you save: **Save to config.toml**, or `⌘S`. Saving rewrites only the keys you changed and keeps the comments and layout of the file. The **TOML** button shows the file next to the settings, so you see exactly what will be written. Its **Edit** button turns it into an editor of `config.toml` itself (once the form's changes are saved or discarded; the form waits meanwhile): `⌘S` or **Save** writes it as typed, comments included; a text that is not TOML, that Prism could not read, or a file changed meanwhile is refused and the file stays as it was; once saved, the version before it is in `config.toml.bak`. **Cancel** leaves it.
 
 [Read: Settings and config.toml](prism:help/settings)

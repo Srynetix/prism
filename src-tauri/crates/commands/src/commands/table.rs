@@ -91,6 +91,7 @@ commands! {
     config::preview_config: Never,
     config::merged_config: Never,
     config::save_config: Never,
+    config::save_config_text: Never,
     config::reload_collectors: Never,
     config::open_config: Never,
     config::pack_import: Never,

@@ -35,7 +35,7 @@
   import { chainOf, descendants, groupsOf, isProvider, nodeOf, PARENT, pageOf, TREE, type TreeNode } from '../settings-tree'
   import { fieldsOf, pathOf, SECTION, type Section } from '../settings-sections'
   import { buildIndex, pageNode, pagesFor, search, shown as showValue, type Entry } from '../settings-search'
-  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, savedValue, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
+  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, savedValue, raw, editRaw, cancelRaw, saveRaw, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
   import { DEFAULT_APPEARANCE, system, replayBoot, SAVER_MODES, startSaver, type Feature, type SaverMode } from '../fun.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { THEMES } from '../theme.svelte'
@@ -441,6 +441,10 @@
     }
   }
 
+  const rawChanged = $derived(raw.on && raw.text !== raw.base)
+  /** The editor on screen: the TOML panel open on config.toml; the form inert meanwhile. */
+  const rawShown = $derived(raw.on && showToml && tomlMode === 'file')
+
   /**
    * ⌘S saves; / (out of a field) or ⌘F puts the cursor in the search — ⌘F but in a text area,
    * whose own search it leaves alone.
@@ -449,7 +453,7 @@
     const mod = e.metaKey || e.ctrlKey
     if (mod && e.key === 's') {
       e.preventDefault()
-      void saveConfig()
+      void (rawShown ? saveRaw() : saveConfig())
     } else if ((mod && e.key === 'f' && !inTextArea(e)) || (e.key === '/' && !mod && !typingIn(e))) {
       e.preventDefault()
       searchInput?.focus()
@@ -524,7 +528,7 @@
     <span class="ver" title="{t('Prism version, and the commit it was built from')}{COMMIT.endsWith('+') ? t(' (+: with uncommitted changes)') : ''}">Prism {versionLabel()}</span>
   </aside>
 
-  <section class="body">
+  <section class="body" inert={rawShown}>
     {#if !editable()}
       <p class="note warn">{t('Settings are edited from the app: in the browser preview they are read-only.')}</p>
     {:else if cfg.loading && !cfg.file}
@@ -1012,8 +1016,13 @@
           <span class="mono grow">{tomlPack?.path.replace(/^\/Users\/[^/]+/, '~')}</span><span title={t('Update it from Settings › General › Packs')}>{t('read-only')}</span>
         {:else if tomlMode === 'merged'}
           <span class="grow" title={t('Tables merge key by key, [[repos]] by name, anything else is replaced; [pack] and the sections a pack may not set are left out. The defaults are not shown.')}>{t('packs, then config.toml on top')}</span><span>{changes().length ? t('{n} unsaved', { n: changes().length }) : t('saved')}</span>
+        {:else if raw.on}
+          <span class="grow">{rawChanged ? t('edited, not saved') : t('as on disk')}</span>
+          <button class="btn sm ghost" onclick={cancelRaw} disabled={cfg.saving}>{t('Cancel')}</button>
+          <button class="btn sm primary" onclick={saveRaw} disabled={cfg.saving || !rawChanged} title={t('Write config.toml as typed (⌘S): the app rereads it, the previous version goes to config.toml.bak')}>{cfg.saving ? t('Saving…') : t('Save')}</button>
         {:else}
           <span class="mono grow">{cfg.file?.path.replace(/^\/Users\/[^/]+/, '~') ?? ''}</span><span>{changes().length ? t('{n} unsaved', { n: changes().length }) : t('saved')}</span>
+          {#if editable() && cfg.file}<button class="btn sm ghost" onclick={editRaw} disabled={!!changes().length} title={changes().length ? t('Save or discard the changes of the form first') : t('Edit config.toml by hand, here')}><Icon name="edit" size={11} />{t('Edit')}</button>{/if}
         {/if}
       </div>
       {#if tomlMode === 'pack' && tomlPack}
@@ -1021,6 +1030,10 @@
       {:else if tomlMode === 'merged'}
         {#if merged.error}<p class="note err pad">{merged.error}</p>
         {:else}<TomlPreview text={merged.text || (cfg.file?.merged ?? '')} original={cfg.file?.merged ?? ''} />{/if}
+      {:else if raw.on}
+        {#if raw.error}<p class="note err pad">{raw.error}</p>{/if}
+        <!-- svelte-ignore a11y_autofocus -->
+        <textarea class="raw" bind:value={raw.text} spellcheck="false" autocomplete="off" autofocus aria-label={t('config.toml, editable')}></textarea>
       {:else}
         <TomlPreview text={cfg.preview} original={cfg.file?.text ?? ''} />
       {/if}
@@ -1213,6 +1226,7 @@
   .file { display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: #121211; border-left: 1px solid var(--border); }
   .th { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-meta); }
   .th b { color: var(--text); font-size: var(--fs-body); }
+  .raw { flex: 1; min-height: 0; margin: 0; padding: 10px 12px; border: none; outline: none; resize: none; background: transparent; color: #c9c9cf; font: 11px/1.6 var(--mono); white-space: pre; overflow: auto; tab-size: 2; }
   .th .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tsel { padding: 1px 4px; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
   .note.pad { padding: 10px 12px; }
