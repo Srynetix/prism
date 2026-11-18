@@ -849,7 +849,7 @@ fn clean_tags(tags: Vec<String>) -> Vec<String> {
 /// Whether process `pid` is `root` or was started by it, however deep.
 fn descends(pid: u32, root: u32) -> bool {
     use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
-    let mut sys = System::new();
+    let Ok(mut sys) = System::new() else { return false };
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     let mut at = Pid::from_u32(pid);
     for _ in 0..64 {

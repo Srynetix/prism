@@ -62,7 +62,12 @@ mr: MrLink | null, prompt: string | null,
 /**
  * What it was launched with; absent for an agent launched before Prism kept it.
  */
-launch: LaunchSpec | null, created_at: string, state: AgentState, 
+launch: LaunchSpec | null, 
+/**
+ * Outside any project, in the folder Prism made for it (`LaunchSpec.scratch`): « Delete its
+ * folder » offered once it is archived and stopped.
+ */
+own_folder?: boolean, created_at: string, state: AgentState, 
 /**
  * Claude's exit code, once it has exited.
  */

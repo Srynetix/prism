@@ -23,4 +23,4 @@ serde_json = "1.0.151"
 toml = "1.1.6"
 # A block's log lines (`tracing::warn!`), as inside Prism: to Prism's log (`log.rs`).
 tracing = { version = "0.1.44", default-features = false, features = ["std"] }
-wit-bindgen = "0.57"
+wit-bindgen = "0.63"

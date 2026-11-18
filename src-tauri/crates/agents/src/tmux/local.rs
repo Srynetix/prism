@@ -473,7 +473,8 @@ impl Session {
 
     /// The program in the foreground: the pty's on Unix, the newest of the program's descendants
     /// elsewhere; its name without `.exe`.
-    fn command(&self, sys: &sysinfo::System) -> String {
+    fn command(&self, sys: &Option<sysinfo::System>) -> String {
+        let Some(sys) = sys else { return String::new() };
         let (pid, leader) = {
             let st = self.state.lock().unwrap();
             let pty = st.pty.as_ref();
@@ -653,12 +654,13 @@ fn default_shell() -> Vec<String> {
     vec![shell, "-l".into()]
 }
 
-/// The system's processes, their names and parents: read once for every session asked about.
-fn processes() -> sysinfo::System {
+/// The system's processes, their names and parents: read once for every session asked about;
+/// none when the system cannot be read (their programs then unnamed).
+fn processes() -> Option<sysinfo::System> {
     use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
-    let mut sys = System::new();
+    let mut sys = System::new().inspect_err(|e| tracing::warn!("tmux: the processes not read: {e}")).ok()?;
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
-    sys
+    Some(sys)
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {

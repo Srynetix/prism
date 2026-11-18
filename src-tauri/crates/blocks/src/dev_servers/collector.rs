@@ -477,7 +477,7 @@ async fn processes() -> Result<Procs> {
 /// executable's path first.
 fn system_processes() -> Procs {
     use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
-    let mut sys = System::new();
+    let Ok(mut sys) = System::new() else { return Procs::default() };
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always).with_exe(UpdateKind::Always));
     let mut p = Procs::default();
     for (pid, proc_) in sys.processes() {
