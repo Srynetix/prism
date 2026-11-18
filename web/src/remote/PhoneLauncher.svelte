@@ -24,7 +24,8 @@
    * base, model, effort, kind, tags, Then). Every way in opens it (New, a project's +, a ticket's ▶,
    * a quick action, an action's agent), prefilled with its draft (`launcherDrawer`). Its repository
    * is the last one launched from the phone (prefs), the draft's when it names one; its mode is the
-   * draft's, else `[agents] permission_mode` (as the computer's launcher, never the last one used).
+   * draft's, else `[agents] permission_mode`, never the last one used (not even per repository, as
+   * the computer's short form does: a launch in Plan from the phone does not make Plan stick).
    * Launched, the agent's Chat opens.
    */
 
@@ -62,7 +63,8 @@
   let efforts = $state<Partial<Record<AgentProvider, string>>>({})
   /** Other repositories its new worktree is made in too (a draft's `worktree.also`). */
   let also = $state<string[]>([])
-  let mode = $state<Mode>(agentsSettings().permission_mode)
+  /** Set by each opening's draft (`takeDraft`). */
+  let mode = $state<Mode>('default')
   let category = $state('')
   let tags = $state<string[]>([])
   let steps = $state<Step[]>([])
