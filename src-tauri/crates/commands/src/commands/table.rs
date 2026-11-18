@@ -398,4 +398,5 @@ commands! {
     agents::agent_close: Critical [phone: state, id: String],
     agents::worktree_remove: Critical,
     agents::agent_remove_worktree: Critical [phone: state, id: String],
+    agents::agent_remove_scratch: Never,
 }

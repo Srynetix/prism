@@ -39,7 +39,7 @@ export const SORTS: [SortBy, string][] = [['activity', t('Last activity')], ['cr
 export const GROUP_BY: [GroupBy, string][] = [['status', 'Status'], ['category', 'Kind'], ['tag', 'Tag'], ['repo', 'Project']]
 const NO_CATEGORY = 'No kind'
 const NO_TAG = 'No tag'
-const NO_REPO = 'No repository'
+const NO_REPO = 'Outside a project'
 const DESKTOP = 'Claude Desktop'
 /** A group's name to show: those of Prism's own in the window's language (their English name is their key). */
 export const groupLabel = (name: string) => ([...GROUPS.map(([n]) => n), NO_CATEGORY, NO_TAG, NO_REPO].includes(name) ? t(name) : name)

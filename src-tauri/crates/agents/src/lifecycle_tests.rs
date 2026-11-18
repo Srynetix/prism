@@ -45,6 +45,7 @@ impl Bench {
             from: None,
             prism_mcp: false,
             assistant: false,
+            scratch: false,
         }
     }
 
@@ -927,4 +928,50 @@ async fn an_aside_goes_back_to_its_session() {
     assert!(b.agents.aside_session(other).await.is_err(), "not started");
     assert!(b.agents.aside_note(&id, "Something").await.is_err());
     assert_eq!(b.agents.aside(other).unwrap().state, state::AsideState::Open);
+}
+
+/// An agent outside any project: a folder of its own under `[agents] scratch_dir`, dated and named
+/// after it, never shared; its trust answered for it; its folder deleted once it is stopped, and
+/// only a folder Prism made.
+#[tokio::test]
+async fn an_agent_outside_any_project_gets_a_folder_of_its_own() {
+    let b = Bench::new();
+    let scratch = b.root.join("scratch");
+    b.agents.inner.settings.lock().unwrap().scratch_dir = Some(scratch.clone());
+    let alone = || Launch { cwd: None, scratch: true, ..b.launch("Quick question") };
+    let id = b.agents.spawn(alone()).await.unwrap();
+    let a = b.shown(&id).await.unwrap();
+    let dir = PathBuf::from(&a.cwd);
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    assert_eq!(dir, scratch.join(format!("{today}-quick-question")));
+    assert!(dir.is_dir());
+    assert!(a.launch.as_ref().is_some_and(|l| l.scratch && l.cwd.as_deref() == Some(a.cwd.as_str())), "kept for its resume");
+    let second = b.agents.prepare(alone()).await.unwrap();
+    assert_eq!(b.shown(&second).await.unwrap().cwd, scratch.join(format!("{today}-quick-question-2")).display().to_string(), "never shared");
+
+    // Claude Code asks to trust it: answered for it, no card.
+    let session = Tmux::session(&id);
+    let screen = format!(" Accessing workspace:\n\n {}\n\n Quick safety check: Is this a project you created or one you trust?\n\n ❯ No, exit\n   Yes, I trust this folder\n\n Enter to confirm · Esc to cancel\n", dir.display());
+    b.tmux.show(&session, &screen, Some("Enter"));
+    b.agents.refresh().await;
+    for _ in 0..40 {
+        if !b.agents.inner.trusting.lock().unwrap().contains(&id) {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    let keys: Vec<String> = b.tmux.calls_of("send-keys").into_iter().filter(|c| c.contains(&session)).filter_map(|c| c.last().cloned()).collect();
+    assert_eq!(keys, ["Down", "Enter"]);
+
+    assert!(b.agents.remove_scratch(&id).await.is_err(), "still running");
+    b.tmux.exit(&id, 0);
+    b.agents.remove_scratch(&id).await.unwrap();
+    assert!(!dir.exists());
+    let other = b.agents.spawn(b.launch("In a project")).await.unwrap();
+    b.tmux.exit(&other, 0);
+    assert!(b.agents.remove_scratch(&other).await.is_err(), "not one of Prism's folders");
+    assert!(b.project.is_dir());
+    // Said to be one, in another folder (a phone's launch): refused, never trusted for it.
+    let posing = Launch { scratch: true, ..b.launch("Posing") };
+    assert!(b.agents.spawn(posing).await.is_err());
 }

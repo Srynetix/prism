@@ -1,7 +1,7 @@
 import type { MenuChoice, MenuHead, MenuItem, MenuSection, QuickAction } from './components/ActionMenu.svelte'
 import type { Agent, MergeRequest, Person, StatusOption, Ticket } from './types'
 import { actorName, cliOf, nameOf } from './agent-cli'
-import { closeAgent, interruptAgent, openAgentFolder, openExternal, removeWorktree, restartAgent } from './agents.svelte'
+import { closeAgent, interruptAgent, isScratch, openAgentFolder, openExternal, removeScratch, removeWorktree, restartAgent } from './agents.svelte'
 import { hasCore } from './bridge'
 import { claudeItem, mrActions, openAgentAction, ticketActions, type ClaudeAction } from './claude-actions'
 import { setQuery } from './filter.svelte'
@@ -14,7 +14,7 @@ import { pickPeople, setMrPeople } from './mr-people.svelte'
 import { pickLabels } from './mr-labels.svelte'
 import { mrKey, sameMr, type MrRef } from './mr-ref'
 import { openMr } from './mr-view.svelte'
-import { FILE_MANAGER, keys } from './platform'
+import { FILE_MANAGER, keys, tildePath } from './platform'
 import { canCancel, canRetry, canRunPipeline, cancelPipeline, mergeMr, rebaseMr, retryPipeline, runMrPipeline, setAutoMerge, setDraft, setMergePriority, setMergeQueue } from './pipeline-actions'
 import { hasMergeQueue } from './repositories'
 import { mergePriority, priorityLevels } from './merge-queue'
@@ -279,7 +279,9 @@ export function agentMenu(a: Agent, rename: () => void): MenuSection[] {
     ...(reusable ? [{ key: 'quick-action', icon: 'quick', label: tr('Create a quick action…'), hint: tr('from this session'), run: () => openQuickActionDraft({ agent: a.id }) } satisfies MenuItem] : []),
     hidden
       ? { key: 'unarchive', icon: 'show', label: tr('Unarchive'), hint: tr('back in the list'), run: () => setArchived(a, false) }
-      : { key: 'archive', icon: 'hide', label: tr('Archive'), hint: tr('out of the list until it waits for you'), run: () => setArchived(a, true) },
+      : { key: 'archive', icon: 'hide', label: tr('Archive'), hint: tr('out of the list until it waits for you'), run: () => { setArchived(a, true); if (isScratch(a)) toast(tr('Archived: its folder stays, Delete its folder in its ⋯ removes it'), 5000) } },
+    // Outside any project, archived and stopped: its folder, made by Prism, deleted on a second click.
+    ...(hidden && isScratch(a) && a.state !== 'running' ? [{ key: 'rm-scratch', icon: 'close', label: tr('Delete its folder'), hint: tildePath(a.cwd), confirm: tr('Everything in {path} goes: click again to delete it', { path: tildePath(a.cwd) }), run: async () => { await removeScratch(a.id); toast(tr('Folder deleted'), 3000) } } satisfies MenuItem] : []),
     { key: 'close', icon: 'close', label: tr('Close'), hint: a.worktree ? tr('stops it, removes its worktree if nothing would be lost') : tr('stops it; the conversation stays'), confirm: a.state === 'running' ? tr('{name} is still running: click again to stop and close', { name: nameOf(a) }) : undefined, run: async () => { const kept = await closeAgent(a.id); if (kept) toast(kept, 5000) } },
   ]
   const mr = openMrOf(a)

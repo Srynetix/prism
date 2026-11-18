@@ -34,7 +34,7 @@ describe('groupEntries', () => {
     expect(groupEntries(list, { ...base, groupBy: 'repo', repos: ['app', 'docs'], repoOf }).map((g) => [g.name, g.items.map((e) => e.id)])).toEqual([
       ['app', ['bb']],
       ['infra', ['a']],
-      ['No repository', ['ccc']],
+      ['Outside a project', ['ccc']],
     ])
   })
 })

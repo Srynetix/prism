@@ -134,6 +134,9 @@ pub struct Launch {
     /// A conversation of Prism's assistant: its folder, its tools, its memory.
     #[serde(default)]
     pub assistant: bool,
+    /// Outside any project: Prism makes it a folder of its own (`scratch_folder`).
+    #[serde(default)]
+    pub scratch: bool,
 }
 
 impl From<state::LaunchSpec> for Launch {
@@ -154,6 +157,7 @@ impl From<state::LaunchSpec> for Launch {
             from: s.from,
             prism_mcp: s.prism_mcp,
             assistant: s.assistant,
+            scratch: s.scratch,
         }
     }
 }
@@ -183,6 +187,7 @@ impl Launch {
             from: some(&self.from),
             prism_mcp: self.prism_mcp,
             assistant: self.assistant,
+            scratch: self.scratch,
         }
     }
 }
@@ -236,6 +241,8 @@ struct Inner {
     attachments: Mutex<HashMap<String, Attachment>>,
     /// What each agent's CLI asks on its screen before it starts (`gate.rs`), as last read.
     gates: Mutex<HashMap<String, crate::state::AgentGate>>,
+    /// The agents outside any project whose folder's trust is being answered for them (`gate.rs`).
+    trusting: Mutex<std::collections::HashSet<String>>,
     /// When each agent's CLI was last resumed or restarted: its screen read for a gate until a
     /// hook comes after (its saved status, Running or a permission, says nothing of it).
     relaunched: Mutex<HashMap<String, chrono::DateTime<Utc>>>,
@@ -315,6 +322,7 @@ impl Agents {
                 registry: Mutex::new(registry),
                 attachments: Mutex::default(),
                 gates: Mutex::default(),
+                trusting: Mutex::default(),
                 relaunched: Mutex::default(),
                 next_token: AtomicU64::new(1),
                 secret,

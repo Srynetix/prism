@@ -52,7 +52,8 @@ impl Agents {
     }
 
     /// `spawn` under `id`, chosen before (a draft's file named by it in its prompt).
-    pub(crate) async fn spawn_id(&self, id: String, launch: Launch) -> Result<String> {
+    pub(crate) async fn spawn_id(&self, id: String, mut launch: Launch) -> Result<String> {
+        self.scratch_folder(&mut launch)?;
         let then = launch.then.clone();
         let from = launch.from.clone();
         let id = self.spawn_as(id, launch, None).await?;
@@ -64,7 +65,8 @@ impl Agents {
     /// Declares an agent without starting it: its launch is kept, checked (its folder, its CLI's
     /// mode), and it shows in the list as prepared; nothing runs and no worktree is made until
     /// `start`. Returns its identifier.
-    pub async fn prepare(&self, launch: Launch) -> Result<String> {
+    pub async fn prepare(&self, mut launch: Launch) -> Result<String> {
+        self.scratch_folder(&mut launch)?;
         let id = uuid::Uuid::new_v4().to_string();
         let spec = launch.spec();
         let (place, provider) = self.place_and_provider(&launch).await?;
@@ -144,6 +146,52 @@ impl Agents {
             None => self.provider_of(place.clone()).await,
         };
         Ok((place, provider))
+    }
+
+    /// An agent outside any project: a new folder of its own, `<date>-<title>` under
+    /// `[agents] scratch_dir` (`agents/` in the profile's folder), never shared (`-2`, `-3`… when
+    /// taken), made now and given as its folder. Nothing for the others, nor once it has one.
+    /// One given already (a prepared agent started, a resume) must be one of those.
+    pub(crate) fn scratch_folder(&self, launch: &mut Launch) -> Result<()> {
+        if !launch.scratch {
+            return Ok(());
+        }
+        launch.worktree = None;
+        if let Some(cwd) = &launch.cwd {
+            ensure!(self.in_scratch(cwd), tr!("{path} is not a folder Prism made for an agent", path = cwd.display()));
+            return Ok(());
+        }
+        let root = prism_core::agents::scratch_root(&self.inner.settings.lock().unwrap());
+        let name = format!("{}-{}", chrono::Local::now().format("%Y-%m-%d"), Some(worktree::slug(&launch.title)).filter(|s| !s.is_empty()).unwrap_or_else(|| "agent".into()));
+        std::fs::create_dir_all(&root).with_context(|| tr!("cannot create {path}", path = root.display()))?;
+        let dir = (1..1000).map(|n| if n == 1 { root.join(&name) } else { root.join(format!("{name}-{n}")) }).find(|d| std::fs::create_dir(d).is_ok()).with_context(|| tr!("cannot create {path}", path = root.join(&name).display()))?;
+        launch.cwd = Some(dir);
+        Ok(())
+    }
+
+    /// `dir` is a folder under the scratch folder (`[agents] scratch_dir`), not that folder itself.
+    pub(crate) fn in_scratch(&self, dir: &Path) -> bool {
+        let root = prism_core::agents::scratch_root(&self.inner.settings.lock().unwrap());
+        let (root, dir) = (std::fs::canonicalize(&root).unwrap_or(root), std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf()));
+        dir != root && dir.starts_with(&root)
+    }
+
+    /// Deletes the folder of an agent launched outside any project (`LaunchSpec.scratch`), once it
+    /// is stopped: only one under the scratch folder, never the folder itself.
+    pub async fn remove_scratch(&self, id: &str) -> Result<()> {
+        let record = self.record(id)?;
+        ensure!(record.launch.as_ref().is_some_and(|l| l.scratch), tr("this agent has no folder of its own"));
+        if self.inner.tmux.panes().await?.get(id) == Some(&Pane::Alive) {
+            bail!(tr("stop the agent first"));
+        }
+        ensure!(self.in_scratch(&record.cwd), tr!("{path} is not a folder Prism made for an agent", path = record.cwd.display()));
+        let dir = record.cwd.clone();
+        self.close_shells(id).await;
+        if dir.is_dir() {
+            tokio::task::spawn_blocking(move || std::fs::remove_dir_all(dir)).await??;
+        }
+        self.inner.changed.notify_one();
+        Ok(())
     }
 
     /// `spawn`, under a given identifier; `prepared`: the record it replaces, whose links stay.

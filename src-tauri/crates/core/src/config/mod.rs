@@ -327,6 +327,7 @@ pub fn load_text(path: &Path, raw: &str) -> Result<Config> {
         cli.bin = cli.bin.take().map(|b| b.trim().to_string()).filter(|b| !b.is_empty()).map(|b| if b.starts_with('~') { expand_home(Path::new(&b)).display().to_string() } else { b });
     }
     cfg.agents.worktrees_dir = cfg.agents.worktrees_dir.as_deref().map(expand_home);
+    cfg.agents.scratch_dir = cfg.agents.scratch_dir.as_deref().map(expand_home);
     resolve_accounts(&mut cfg.agents.accounts);
     Ok(cfg)
 }

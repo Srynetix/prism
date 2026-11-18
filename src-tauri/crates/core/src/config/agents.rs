@@ -21,6 +21,9 @@ pub struct AgentsConfig {
     pub target: String,
     /// Folder of new worktrees; absent: `<repo>.worktrees`, next to the main repository.
     pub worktrees_dir: Option<PathBuf>,
+    /// Folder of the agents launched outside any project, one folder each; absent:
+    /// `agents/` in the profile's folder.
+    pub scratch_dir: Option<PathBuf>,
     /// Prefix of the agents' new branches, whatever their CLI.
     pub branch_prefix: String,
     /// Permission mode offered by the launcher: `default` (the one from the CLI's settings),
@@ -642,6 +645,7 @@ impl Default for AgentsConfig {
             provider: Default::default(),
             target: "agent".into(),
             worktrees_dir: None,
+            scratch_dir: None,
             branch_prefix: "agent/".into(),
             permission_mode: "default".into(),
             font_size: 12.5,

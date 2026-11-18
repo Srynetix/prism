@@ -43,6 +43,12 @@ pub async fn agent_remove_worktree(state: State<'_, AppState>, id: String) -> Cm
     state.agents.remove_worktree(&id).await.map_err(Into::into)
 }
 
+/// Deletes the folder of a stopped agent launched outside any project (`LaunchSpec.scratch`).
+#[prism_macros::command]
+pub async fn agent_remove_scratch(state: State<'_, AppState>, id: String) -> Cmd {
+    state.agents.remove_scratch(&id).await.map_err(Into::into)
+}
+
 /// Worktrees view: removes a worktree and its local branch, if there is nothing to lose and
 /// nobody is working in it (agent running, non-archived desktop session). If the branch's MR
 /// is merged, its commits from before the merge count as delivered (squash). `force`: removed
