@@ -19,21 +19,28 @@
    * A new agent on a phone: a sheet from the bottom, made for a thumb, in place of the computer's
    * launcher (`AgentLauncher`). The prompt first, then where (a repository in chips: a new
    * worktree where agents make them, its clone otherwise), with which CLI, in which mode — only
-   * those a phone may launch in (`phone_launch`: Plan, Ask, Edits alone, never `auto`) — and
+   * those a phone may launch in (`phone_launch`: Default, Accept edits, Plan first, never `auto`) — and
    * Launch under the thumb, Prepare beside it. More options unfolds the rest (worktree, branch,
    * base, model, effort, kind, tags, Then). Every way in opens it (New, a project's +, a ticket's ▶,
    * a quick action, an action's agent), prefilled with its draft (`launcherDrawer`). Its repository
-   * and its mode are the last ones launched from the phone (prefs), the draft's when it names them.
+   * is the last one launched from the phone (prefs), the draft's when it names one; its mode is the
+   * draft's, else `[agents] permission_mode`, never the last one used (not even per repository, as
+   * the computer's short form does: a launch in Plan from the phone does not make Plan stick).
    * Launched, the agent's Chat opens.
    */
 
   type Mode = 'plan' | 'default' | 'acceptEdits'
   type Where = 'new' | 'existing' | 'clone' | 'folder'
-  const MODES: [Mode, string, string][] = [
-    ['plan', t('Plan'), t('You approve its plan before it touches the code.')],
-    ['default', t('Ask'), t('The mode of your CLI’s settings: usually it asks before each edit and each command.')],
-    ['acceptEdits', t('Edits alone'), t('It edits files on its own, and asks before a command.')],
+  /** The computer's launcher's modes, in its order and with its words. */
+  const MODES: [Mode, string][] = [
+    ['default', t('Default')],
+    ['acceptEdits', t('Accept edits')],
+    ['plan', t('Plan first')],
   ]
+  const hintOf = (m: Mode, cli: string) =>
+    m === 'default' ? t('The mode of {cli}’s settings: usually it asks before each edit and each command.', { cli })
+    : m === 'acceptEdits' ? t('It edits files on its own, and asks before a command.')
+    : t('You approve its plan before it touches the code.')
   const isMode = (m: unknown): m is Mode => m === 'plan' || m === 'default' || m === 'acceptEdits'
   const STEP_KINDS: StepKind[] = ['mr', 'task', 'agent', 'prompt', 'notify']
 
@@ -56,7 +63,8 @@
   let efforts = $state<Partial<Record<AgentProvider, string>>>({})
   /** Other repositories its new worktree is made in too (a draft's `worktree.also`). */
   let also = $state<string[]>([])
-  let mode = $state<Mode>('plan')
+  /** Set by each opening's draft (`takeDraft`). */
+  let mode = $state<Mode>('default')
   let category = $state('')
   let tags = $state<string[]>([])
   let steps = $state<Step[]>([])
@@ -123,8 +131,7 @@
     models = d.model ? { [cli]: d.model } : {}
     efforts = d.effort ? { [cli]: d.effort } : {}
     also = d.worktree?.also ?? []
-    const last = pref<string>('phone.launch.mode', '')
-    mode = isMode(d.permission_mode) ? d.permission_mode : isMode(last) ? last : 'plan'
+    mode = isMode(d.permission_mode) ? d.permission_mode : agentsSettings().permission_mode
     category = d.category ?? ''
     tags = d.tags ?? []
     steps = d.then ? structuredClone($state.snapshot(d.then)) : []
@@ -279,7 +286,6 @@
     busy = true
     try {
       const id = await (prepared ? prepareAgent : spawnAgent)(launch)
-      setPref('phone.launch.mode', mode)
       if (repo) setPref('phone.launch.repo', repo)
       const effect = launcherDrawer.onLaunch
       launcherDrawer.onLaunch = null
@@ -366,7 +372,7 @@
       <div class="seg full" role="radiogroup">
         {#each MODES as [m, label] (m)}<button type="button" role="radio" aria-checked={mode === m} onclick={() => (mode = m)}>{label}</button>{/each}
       </div>
-      <p class="hint">{MODES.find(([m]) => m === mode)?.[2]}</p>
+      <p class="hint">{hintOf(mode, cliOf(provider).name)}</p>
     </section>
 
     <button type="button" class="btn more" onclick={() => (more = !more)} aria-expanded={more}>
