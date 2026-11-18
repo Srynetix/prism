@@ -83,6 +83,20 @@ pub fn save_config(state: State<'_, AppState>, edits: Vec<crate::settings::Edit>
     crate::settings::read(&path).map_err(Into::into)
 }
 
+/// The TOML panel's editor: `config.toml` written as typed, `base` the text it was edited from
+/// (refused if the file changed since), then applied as a save is.
+#[prism_macros::command(async)]
+pub fn save_config_text(state: State<'_, AppState>, text: String, base: String) -> Cmd<crate::settings::FileView> {
+    let path = crate::config_path();
+    let before = crate::config::load(&path).ok();
+    crate::settings::save_text(&path, &text, &base)?;
+    if let Ok(after) = crate::config::load(&path) {
+        state.agents.routines_saved(before.as_ref().map(|c| &c.agents), &after.agents);
+    }
+    apply_live(&state, &path);
+    crate::settings::read(&path).map_err(Into::into)
+}
+
 /// A quick action made from a session (Create a quick action…), added after `config.toml`'s own,
 /// never in a pack: refused when one has its name already (its own or a pack's), or without a
 /// name or a prompt. A mode it does not take (not `default`, `acceptEdits`, `plan`) is dropped as

@@ -35,7 +35,7 @@
   import { chainOf, descendants, groupsOf, isProvider, nodeOf, PARENT, pageOf, TREE, type TreeNode } from '../settings-tree'
   import { fieldsOf, pathOf, SECTION, type Section } from '../settings-sections'
   import { buildIndex, pageNode, pagesFor, search, shown as showValue, type Entry } from '../settings-search'
-  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, savedValue, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
+  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, saveConfigText, savedValue, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
   import { DEFAULT_APPEARANCE, system, replayBoot, SAVER_MODES, startSaver, type Feature, type SaverMode } from '../fun.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { THEMES } from '../theme.svelte'
@@ -442,6 +442,33 @@
   }
 
   /**
+   * config.toml typed in the TOML panel: opened on the file as it is on disk (the form's pending
+   * changes saved or discarded first), ⌘S or Save writes it as typed, reread by the app; Cancel
+   * leaves it. `base`: the text it was opened on, the save refused if the file changed since.
+   */
+  const raw = $state({ on: false, text: '', base: '' })
+  const rawChanged = $derived(raw.on && raw.text !== raw.base)
+  function editRaw() {
+    if (changes().length || !cfg.file) return
+    Object.assign(raw, { on: true, text: cfg.file.text, base: cfg.file.text })
+    cfg.error = ''
+  }
+  const cancelRaw = () => Object.assign(raw, { on: false, text: '', base: '' })
+  async function saveRaw() {
+    if (!rawChanged) return cancelRaw()
+    if (changes().length) return void (cfg.error = t('Save or discard the changes of the form first'))
+    if (await saveConfigText(raw.text, raw.base)) cancelRaw()
+  }
+  /** Tab indents in the editor (two spaces), ⇧Tab leaves it as usual. */
+  function rawKey(e: KeyboardEvent) {
+    if (e.key !== 'Tab' || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return
+    e.preventDefault()
+    const el = e.currentTarget as HTMLTextAreaElement
+    el.setRangeText('  ', el.selectionStart, el.selectionEnd, 'end')
+    raw.text = el.value
+  }
+
+  /**
    * ⌘S saves; / (out of a field) or ⌘F puts the cursor in the search — ⌘F but in a text area,
    * whose own search it leaves alone.
    */
@@ -449,7 +476,7 @@
     const mod = e.metaKey || e.ctrlKey
     if (mod && e.key === 's') {
       e.preventDefault()
-      void saveConfig()
+      void (raw.on ? saveRaw() : saveConfig())
     } else if ((mod && e.key === 'f' && !inTextArea(e)) || (e.key === '/' && !mod && !typingIn(e))) {
       e.preventDefault()
       searchInput?.focus()
@@ -1012,8 +1039,13 @@
           <span class="mono grow">{tomlPack?.path.replace(/^\/Users\/[^/]+/, '~')}</span><span title={t('Update it from Settings › General › Packs')}>{t('read-only')}</span>
         {:else if tomlMode === 'merged'}
           <span class="grow" title={t('Tables merge key by key, [[repos]] by name, anything else is replaced; [pack] and the sections a pack may not set are left out. The defaults are not shown.')}>{t('packs, then config.toml on top')}</span><span>{changes().length ? t('{n} unsaved', { n: changes().length }) : t('saved')}</span>
+        {:else if raw.on}
+          <span class="grow">{rawChanged ? t('edited, not saved') : t('as on disk')}</span>
+          <button class="btn sm ghost" onclick={cancelRaw} disabled={cfg.saving}>{t('Cancel')}</button>
+          <button class="btn sm primary" onclick={saveRaw} disabled={cfg.saving || !rawChanged} title={t('Write config.toml as typed (⌘S): the app rereads it, the previous version goes to config.toml.bak')}>{cfg.saving ? t('Saving…') : t('Save')}</button>
         {:else}
           <span class="mono grow">{cfg.file?.path.replace(/^\/Users\/[^/]+/, '~') ?? ''}</span><span>{changes().length ? t('{n} unsaved', { n: changes().length }) : t('saved')}</span>
+          {#if editable() && cfg.file}<button class="btn sm ghost" onclick={editRaw} disabled={!!changes().length} title={changes().length ? t('Save or discard the changes of the form first') : t('Edit config.toml by hand, here')}><Icon name="edit" size={11} />{t('Edit')}</button>{/if}
         {/if}
       </div>
       {#if tomlMode === 'pack' && tomlPack}
@@ -1021,6 +1053,10 @@
       {:else if tomlMode === 'merged'}
         {#if merged.error}<p class="note err pad">{merged.error}</p>
         {:else}<TomlPreview text={merged.text || (cfg.file?.merged ?? '')} original={cfg.file?.merged ?? ''} />{/if}
+      {:else if raw.on}
+        {#if cfg.error}<p class="note err pad">{cfg.error}</p>{/if}
+        <!-- svelte-ignore a11y_autofocus -->
+        <textarea class="raw" bind:value={raw.text} onkeydown={rawKey} spellcheck="false" autocomplete="off" autofocus aria-label={t('config.toml, editable')}></textarea>
       {:else}
         <TomlPreview text={cfg.preview} original={cfg.file?.text ?? ''} />
       {/if}
@@ -1213,6 +1249,7 @@
   .file { display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: #121211; border-left: 1px solid var(--border); }
   .th { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-meta); }
   .th b { color: var(--text); font-size: var(--fs-body); }
+  .raw { flex: 1; min-height: 0; margin: 0; padding: 10px 12px; border: none; outline: none; resize: none; background: transparent; color: #c9c9cf; font: 11px/1.6 var(--mono); white-space: pre; overflow: auto; tab-size: 2; }
   .th .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tsel { padding: 1px 4px; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
   .note.pad { padding: 10px 12px; }

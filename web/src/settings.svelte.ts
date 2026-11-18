@@ -243,6 +243,29 @@ export async function saveConfig() {
 }
 
 /**
+ * The TOML panel's editor: config.toml written as typed, `base` the text it was edited from
+ * (refused if the file changed since). The pending changes of the form are none then. Returns
+ * whether it was saved; the error otherwise in `cfg.error`.
+ */
+export async function saveConfigText(text: string, base: string): Promise<boolean> {
+  if (!isDesktop() || cfg.saving) return false
+  cfg.saving = true
+  try {
+    cfg.file = await invoke<FileView>('save_config_text', { text, base })
+    cfg.edits = {}
+    cfg.preview = cfg.file.text
+    cfg.error = ''
+    cfg.savedAt = Date.now()
+    return true
+  } catch (e) {
+    cfg.error = String(e)
+    return false
+  } finally {
+    cfg.saving = false
+  }
+}
+
+/**
  * Saves a single key right away (the theme picked in the Theme menu), without touching the
  * other pending edits of the Settings view.
  */

@@ -128,6 +128,23 @@ pub fn save(path: &Path, edits: &[Edit]) -> Result<String> {
     })
 }
 
+/// The file written as typed (the TOML panel's editor): `base` is the text it was edited from,
+/// refused if the file changed since (another save, an edit elsewhere); then saved as `save`
+/// does (`.bak`, reread, the old one back if the app cannot read it). Returns the new text.
+pub fn save_text(path: &Path, text: &str, base: &str) -> Result<String> {
+    if let Err(e) = text.parse::<DocumentMut>() {
+        bail!(tr!("not saved, the TOML does not read: {err}", err = e.to_string().trim()));
+    }
+    prism_base::files::locked(path, || {
+        let old = std::fs::read_to_string(path).unwrap_or_default();
+        if old != base {
+            bail!(tr("config.toml changed since you began editing it: copy your text, then reopen the editor"));
+        }
+        write(path, &old, text)?;
+        Ok(text.to_string())
+    })
+}
+
 /// Adds a `[[repos]]` entry at the end of the file's own, the others as they are (a phone's new
 /// project: the file's repositories are not the merged ones Settings edits). Saved as `save` does.
 pub fn add_repo(path: &Path, row: &serde_json::Map<String, serde_json::Value>) -> Result<()> {
@@ -652,6 +669,27 @@ provider = \"claude\" # mine\n\n[[agents.quick_actions]]\nname = \"Old\"\nprompt
         // A value of the wrong type: refused, the file stays as it was.
         assert!(save(&path, &[edit(&["forge", "poll_seconds"], Some(json!("often")))]).is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), new);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Typed as a whole in the TOML panel: written as is, comments too; a text that does not read,
+    /// that the app cannot load, or edited from a file changed since: refused, the file as it was.
+    #[test]
+    fn saves_the_text_as_typed() {
+        let dir = std::env::temp_dir().join(format!("prism-settings-text-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        let old = "[console]\nkey = \"`\"\n";
+        std::fs::write(&path, old).unwrap();
+        let typed = "# mine\n[console]\nkey = \"Cmd+K\" # here\n";
+        assert_eq!(save_text(&path, typed, old).unwrap(), typed);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), typed);
+        assert_eq!(std::fs::read_to_string(path.with_extension("toml.bak")).unwrap(), old);
+        assert_eq!(crate::config::load(&path).unwrap().console.key, "Cmd+K");
+        assert!(save_text(&path, "[console\nkey = 1", typed).is_err(), "not TOML");
+        assert!(save_text(&path, "[forge]\npoll_seconds = \"often\"\n", typed).is_err(), "not a config");
+        assert!(save_text(&path, "[console]\nkey = \"x\"\n", old).is_err(), "changed since");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), typed);
         std::fs::remove_dir_all(&dir).ok();
     }
 
