@@ -68,7 +68,7 @@ pub fn fill(hub: &Hub, now: DateTime<Utc>) {
     }
 }
 
-/// The branches of the demo projects, sorted by name (Settings › Repositories' followed branches).
+/// The branches of the demo projects, sorted by name (Settings › Code › Repositories' followed branches).
 pub const BRANCHES: &[&str] = &["develop", "env/preprod", "env/prod", "main", "release/2026.09", "release/2026.10"];
 
 /// The demo snapshot for the window's browser preview (`web/public/dev-snapshot.json`, out of

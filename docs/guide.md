@@ -305,7 +305,7 @@ blocks come as modules, with its pack, whichever Prism release it runs.
 A **module** brings a team's blocks to Prism **at run time**, without rebuilding it: a folder of
 `modules/` next to `config.toml` (each profile its own), named after the module's id. Prism loads
 its web part when the window starts, and on the phone; a module added, replaced or removed shows
-once the window reloads (Settings › Packs › Modules › Reload the window).
+once the window reloads (Settings › General › Packs › Modules › Reload the window).
 
 ```text
 modules/hello/
@@ -326,7 +326,7 @@ modules/hello/
   another one (`web/src/modules/host.ts`).
 - A module's block runs inside a boundary: what it throws stays in its place, with Retry, and in
   the Problems list. A module that does not load (its manifest, its contract, its Svelte, a newer
-  Prism needed, its files) is said in Problems and Settings › Packs, as is a block whose id is
+  Prism needed, its files) is said in Problems and Settings › General › Packs, as is a block whose id is
   already taken (the core's, Prism's, or a module's before it).
 - The window reads the files through `prism-module://localhost/<id>/…` (`http://prism-module.localhost/…`
   on Windows), the phone through `/modules/<id>/…` behind its session: a module's web folder
@@ -344,7 +344,7 @@ folder, their version.
 Nothing of a module runs before I trust it, by the fingerprint of its folder (every file but
 `.pack`), kept in the profile's data folder (`modules-trust.json`), never next to the modules.
 Until then its files are not served (window, phone), its back end does not start (its blocks say
-they wait), and Settings › Packs › Modules shows what it may reach; **Trust** (two clicks,
+they wait), and Settings › General › Packs › Modules shows what it may reach; **Trust** (two clicks,
 `modules_trust`, never from a phone) starts its back end at once. A new version waits again, the
 lines it changes shown (a capability, a block, a config table).
 

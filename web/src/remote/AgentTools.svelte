@@ -75,7 +75,7 @@
       {#if shells}<State kind="empty" title={t('No shell open for this agent.')} />{:else}<State kind="loading" lines={2} />{/if}
     {/each}
     {#if acts}<button class="btn add" onclick={() => openShell(null)} disabled={busy}><Icon name="add" />{t('New shell')}</button>{/if}
-    <p class="muted">{t('Watched read-only;')} <b>{t('Take')}</b> {t('types in it (Settings › Remote › typing, passkey).')}</p>
+    <p class="muted">{t('Watched read-only;')} <b>{t('Take')}</b> {t('types in it (Settings › Remote › Exposure › Typing to agents, passkey).')}</p>
   {:else if tab === 'tasks'}
     {#each sources ?? [] as s (s.file)}
       <p class="src">{s.file}<small>{s.runner}</small></p>
@@ -87,7 +87,7 @@
     {:else}
       {#if sources}<State kind="empty" title={t('No task declared in this folder (justfile, Taskfile, package.json).')} />{:else}<State kind="loading" lines={2} />{/if}
     {/each}
-    {#if sources?.length && !critical}<p class="muted">{t('Running a task from a phone is a critical action: Settings › Remote › critical.')}</p>{/if}
+    {#if sources?.length && !critical}<p class="muted">{t('Running a task from a phone is a critical action: Settings › Remote › Exposure › Critical actions.')}</p>{/if}
   {:else}
     <AgentWeb {id} {onask} />
   {/if}

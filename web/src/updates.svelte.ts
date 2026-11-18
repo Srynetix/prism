@@ -9,8 +9,8 @@ export type { UpdateInfo, PackCheck, ModuleCheck }
  * Prism's own updates (updates.rs): the newest release of `[updates] source`, checked at launch
  * and every few hours while `[updates] enabled`; Settings › General › Updates checks on demand
  * and installs, the status bar says when one is there. The packs the same way (`[updates] packs`):
- * read again from their sources, a changed one shows in the status bar, Settings › Packs updates it;
- * and the modules installed by hand, at the same times, Settings › Packs › Modules reinstalling one.
+ * read again from their sources, a changed one shows in the status bar, Settings › General › Packs updates it;
+ * and the modules installed by hand, at the same times, Settings › General › Packs › Modules reinstalling one.
  */
 
 const EVERY = 6 * 3600_000

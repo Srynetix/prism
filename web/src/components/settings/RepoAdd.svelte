@@ -12,7 +12,7 @@
   import { mergedRows, setMergedRows, setValue, valueOf } from '../../settings.svelte'
 
   /**
-   * Settings › Repositories: a repository added without typing its row. An existing folder (its
+   * Settings › Code › Repositories: a repository added without typing its row. An existing folder (its
    * project read from its remote; `git init` offered when it is not a repository), a project
    * cloned with glab or gh, or a new project: a folder with a git repository, a README and a first
    * commit, and on request its project on the forge, pushed. Each adds a pending row (path,

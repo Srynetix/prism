@@ -308,7 +308,7 @@
   {:else if id === 'feedback' && feedbackOn()}
     {@const done = newlyShipped()}
     {#if done.length}
-      <button class="sbi update" onclick={() => openSettings('feedback')} title={t('{requests} · closed · Settings › Feedback', { requests: done.map((r) => `#${r.number} ${r.title}`).join(' · ') })}><span class="g"><Icon name="check" /></span>{#if done.length > 1}<b>{done.length}</b> {t('requests done')}{:else}<b>#{done[0].number}</b> {tc('core', 'done')}{/if}</button>
+      <button class="sbi update" onclick={() => openSettings('feedback')} title={t('{requests} · closed · Settings › General › Feedback', { requests: done.map((r) => `#${r.number} ${r.title}`).join(' · ') })}><span class="g"><Icon name="check" /></span>{#if done.length > 1}<b>{done.length}</b> {t('requests done')}{:else}<b>#{done[0].number}</b> {tc('core', 'done')}{/if}</button>
     {:else}
       <button class="sbi" onclick={() => openFeedback({ where: 'status bar' })} title={t('Send feedback: an issue on Prism’s repository or a pack’s')}><span class="g"><Icon name="comment" /></span></button>
     {/if}

@@ -444,7 +444,7 @@ fn take_out(config: &Path, id: &str) -> Result<()> {
 
 /// Installs a module by hand from `source` (a folder or `.zip` on this computer, or
 /// `glab:`/`gh:group/project:path@ref`): its id, its module.toml's. Not trusted for that: it waits
-/// in Settings › Packs › Modules.
+/// in Settings › General › Packs › Modules.
 pub async fn module_install(config: &Path, source: &str) -> Result<String> {
     let source = crate::modules::install::typed_source(source)?;
     let files = crate::modules::install::fetch(&source, None).await?;

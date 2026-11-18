@@ -528,7 +528,7 @@
     {#if kinds.length}
       <div class="field"><span>{t('Kind')}</span>
         <div class="seg">
-          <button type="button" class:on={!category} onclick={() => (category = '')} title={t('Guessed from the command the prompt starts with (Settings › Agents › Kinds)')}>{t('Auto')}{#if guessed}<small> · {guessed}</small>{/if}</button>
+          <button type="button" class:on={!category} onclick={() => (category = '')} title={t('Guessed from the command the prompt starts with (Settings › Agents › Agent › Kinds)')}>{t('Auto')}{#if guessed}<small> · {guessed}</small>{/if}</button>
           {#each kinds as c (c)}<button type="button" class:on={category === c} onclick={() => (category = c)}>{c}</button>{/each}
         </div>
       </div>

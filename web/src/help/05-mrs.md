@@ -10,7 +10,7 @@ Follow the team's merge requests, see at a glance what each one needs next, and 
 > On a GitHub profile, merge requests are pull requests: the block is **Pull requests**, and one is written `#12` rather than `!12`, in the filter too.
 
 > [!TIP]
-> One block for both forges: a repository on the other forge (Settings › Repositories, *Forge*: a personal project on GitHub in a GitLab profile, say) has its MRs in the same list, its chip marked with that forge's logo and its numbers written its way (`toolkit#14`). They are read with that forge's own tool and login (`gh` or `glab`), so *mine* and *to review* follow your account there; review, approve, merge, rebase and auto-merge work as on the others. Its branches' pipelines and the merge queue stay the profile forge's.
+> One block for both forges: a repository on the other forge (Settings › Code › Repositories, *Forge*: a personal project on GitHub in a GitLab profile, say) has its MRs in the same list, its chip marked with that forge's logo and its numbers written its way (`toolkit#14`). They are read with that forge's own tool and login (`gh` or `glab`), so *mine* and *to review* follow your account there; review, approve, merge, rebase and auto-merge work as on the others. Its branches' pipelines and the merge queue stay the profile forge's.
 
 ## Reading the list
 ![The Merge requests block: the branches' pipelines, the authors, then one row per MR with its next step](images/mrs.webp){width=563}
@@ -87,7 +87,7 @@ The **Claude** section of the ⋯ menu launches an agent on the MR: **Fix pipeli
 
 ## The Merge queue block
 **Merge queue** (+ Block › Code & agents) shows what waits to be merged in one repository, chosen above the list (the choice is the same on the phone):
-- **In the queue**, for a repository with a merge queue (Settings › Repositories, *Queue*): the MRs with its label, oldest first, the order its CI job takes them. With priority labels (`[gitlab] merge_priority_prefix = "merge-priority::"`, then `merge-priority::0`, `merge-priority::1`… on the MRs), the lowest number comes first, then the MRs without one, the oldest first within each; the row shows **P0**, **P1**…, and an MR's ⋯ menu sets it (*Merge priority*: P0 to P3, — for none; the MR's other priority label goes). **▶** marks the next one. One held up (conflicts, a failed rebase, a failed pipeline) is counted as *stuck* in the header: the job will not merge it as it is.
+- **In the queue**, for a repository with a merge queue (Settings › Code › Repositories, *Queue*): the MRs with its label, oldest first, the order its CI job takes them. With priority labels (`[gitlab] merge_priority_prefix = "merge-priority::"`, then `merge-priority::0`, `merge-priority::1`… on the MRs), the lowest number comes first, then the MRs without one, the oldest first within each; the row shows **P0**, **P1**…, and an MR's ⋯ menu sets it (*Merge priority*: P0 to P3, — for none; the MR's other priority label goes). **▶** marks the next one. One held up (conflicts, a failed rebase, a failed pipeline) is counted as *stuck* in the header: the job will not merge it as it is.
 - **Auto-merge**: the MRs the forge merges by itself once green, out of the queue.
 - **Approved, not in the queue** (or *auto-merge off*, without a queue): approved MRs nothing will merge. Their row offers **Merge queue**, **Auto-merge** or **Merge**.
 

@@ -98,7 +98,7 @@ pub fn resolve(name: &str, environments: &[EnvironmentConfig], find: impl Fn(&st
         return fallback(None);
     }
     let Some(block) = find(name) else {
-        return fallback(Some(tr!("[clusters] stages = \"{name}\": no block {name} in this Prism. The module giving it is not installed (Settings › Packs › Modules), or was installed after Prism started: restart Prism.", name = name)));
+        return fallback(Some(tr!("[clusters] stages = \"{name}\": no block {name} in this Prism. The module giving it is not installed (Settings › General › Packs › Modules), or was installed after Prism started: restart Prism.", name = name)));
     };
     let Some(provider) = block.stages() else {
         return fallback(Some(tr!("[clusters] stages = \"{name}\": the block {name} gives no stages (its module does not provide them).", name = name)));
@@ -106,7 +106,7 @@ pub fn resolve(name: &str, environments: &[EnvironmentConfig], find: impl Fn(&st
     let stages = provider.stages();
     if stages.0.is_empty() {
         // Its hints (applications, versions expected) may come all the same.
-        let why = tr!("[clusters] stages = \"{name}\": the block {name} gives no stages yet. Its module waits for your trust (Settings › Packs › Modules), is held, did not start, or declares none (its log says why).", name = name);
+        let why = tr!("[clusters] stages = \"{name}\": the block {name} gives no stages yet. Its module waits for your trust (Settings › General › Packs › Modules), is held, did not start, or declares none (its log says why).", name = name);
         return Resolved { provider: Some(provider), ..fallback(Some(why)) };
     }
     Resolved { stages, provider: Some(provider), warning: None }

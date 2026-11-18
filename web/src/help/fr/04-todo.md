@@ -32,7 +32,7 @@ Les lignes se rangent en trois bandes, selon ce qu’elles retiennent :
 - **Aujourd’hui** : votre propre travail est bloqué : pipeline de MR en échec, conflits, discussions non résolues, ticket désynchronisé.
 - **Quand vous pouvez** : rien ne presse : un rebase à faire, un worktree périmé, le tour d’un agent terminé.
 
-Chaque règle a sa bande, réglée dans **Réglages › Alertes** (`band_now`, `band_later`, `band_hidden`) : une règle nommée nulle part suit sa gravité. Une ligne Aujourd’hui qui dure plus de `escalate_hours` (24 par défaut) passe dans Maintenant. Son âge s’affiche à droite. L’étiquette garde sa couleur : **rouge** cassé, **orange** à traiter, **bleu** bon à savoir.
+Chaque règle a sa bande, réglée dans **Réglages › Interface › Seuils** (`band_now`, `band_later`, `band_hidden`) : une règle nommée nulle part suit sa gravité. Une ligne Aujourd’hui qui dure plus de `escalate_hours` (24 par défaut) passe dans Maintenant. Son âge s’affiche à droite. L’étiquette garde sa couleur : **rouge** cassé, **orange** à traiter, **bleu** bon à savoir.
 
 Les alertes d’une même MR ou d’un même ticket partagent une ligne (`group`) : son identifiant et son titre, chaque alerte en petite pastille, et les correctifs de celle à traiter d’abord — les conflits avant tout, les discussions avant la CI (les corriger pousse, la CI repart). Le chevron les déplie, chacune en entier.
 

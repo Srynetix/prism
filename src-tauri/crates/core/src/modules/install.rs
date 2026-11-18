@@ -1,10 +1,10 @@
 //! The modules a pack brings (`[[modules]]` of a pack): read from where the pack says, put in
 //! `modules/<id>/` as a whole (an update replaces the folder), with the mark of their pack
 //! (`.pack`): removing the pack, or a module from it, removes the folder. What is installed is not
-//! trusted for that: it waits in Settings › Packs (`trust`), unless a version of it was trusted
+//! trusted for that: it waits in Settings › General › Packs (`trust`), unless a version of it was trusted
 //! before and this one reaches nothing more (`[modules] trust_pack_updates`, `trust::update`).
 //!
-//! A module is also installed by hand, from Settings › Packs › Modules or `prism modules install`:
+//! A module is also installed by hand, from Settings › General › Packs › Modules or `prism modules install`:
 //! its mark then names no pack (`BY_HAND`), its source kept for its updates and a reinstall.
 //!
 //! ```toml

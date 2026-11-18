@@ -228,7 +228,7 @@
           {/if}
         {/if}
         <button class="btn sm ghost" onclick={() => (refusing = true)} disabled={busy}>{p.action === 'memory' ? t('No') : t('Dismiss')}</button>
-        {#if p.action === 'repo'}<span class="r">{t('Settings › Repositories, prefilled: nothing is cloned without your click')}</span>{/if}
+        {#if p.action === 'repo'}<span class="r">{t('Settings › Code › Repositories, prefilled: nothing is cloned without your click')}</span>{/if}
         {#if !board && p.action === 'ticket'}<span class="r ko">{t('The tracker offers no board to create a ticket on.')}</span>{/if}
       </div>
     {/if}

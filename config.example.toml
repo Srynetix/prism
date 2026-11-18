@@ -220,7 +220,7 @@ pin_drawers = false             # a pin in the side panes (MR, ticket, logs, she
 # source = "gh:Srynetix/prism"  # or glab:group/project; empty: no updates
 # packs = true                  # the packs' and modules' sources too: a change there shows in the status bar
 
-# The modules (a team's blocks loaded at run time), from config.toml alone: Settings › Packs ›
+# The modules (a team's blocks loaded at run time), from config.toml alone: Settings › General › Packs ›
 # Modules installs one without a pack, starts one that crashed again, reinstalls or removes one.
 # [modules]
 # trust_pack_updates = true     # a pack's new version of a module trusted before, reaching nothing more: trusted
@@ -291,7 +291,7 @@ font_size = 11.5              # in pixels
 live_reload = true            # a file the agent changes is read again; your unsaved edit kept, you choose
 search_max = 2000             # lines found at most by the search in files
 
-# Settings › Cleanup: Prism counts on this machine how much each feature is used (a block on a
+# Settings › General › Cleanup: Prism counts on this machine how much each feature is used (a block on a
 # page you look at, an action, a palette entry; the profile's usage.json, never sent anywhere)
 # and, after 30 days, lists what is on but never used, the most used, and the keys that differ
 # from their default.

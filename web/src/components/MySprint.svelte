@@ -167,7 +167,7 @@
           <div class="cell">
             <h3>{t('Where my time went')} <span>{r.traced ? t('{time} traced', { time: hours(all) }) : ''}</span></h3>
             {#if !r.traced}
-              <p class="muted">{t('The Day trail is off: turn it on to see your time.')} <button class="link" onclick={() => openSettings('trail')}>{t('Settings › Day trail')}</button></p>
+              <p class="muted">{t('The Day trail is off: turn it on to see your time.')} <button class="link" onclick={() => openSettings('trail')}>{t('Settings › Work › Day trail')}</button></p>
             {:else if !all}
               <p class="muted">{t('No trace yet in this sprint.')}</p>
             {:else}

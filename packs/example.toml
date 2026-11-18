@@ -1,5 +1,5 @@
 # A pack: a team's Prism configuration, shared with its members. Same shape as config.toml;
-# each member imports it (Settings › Packs, or `prism pack import <file>`, or from a GitLab
+# each member imports it (Settings › General › Packs, or `prism pack import <file>`, or from a GitLab
 # repository: `prism pack import glab:group/project:packs/team.toml@main`), and their own
 # config.toml only keeps personal choices and overrides. `[open_with]` is ignored in a pack:
 # a pack does not choose the programs run on your machine.

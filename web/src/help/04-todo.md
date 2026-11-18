@@ -32,7 +32,7 @@ Lines come in three bands, by what they hold up:
 - **Today**: your own work is blocked: a failed MR pipeline, conflicts, unresolved threads, a ticket out of sync.
 - **When you can**: nothing presses: a rebase to do, a stale worktree, an agent's turn just over.
 
-Each rule has its band, set in **Settings › Alerts** (`band_now`, `band_later`, `band_hidden`): a rule named nowhere goes by its severity. A Today line held longer than `escalate_hours` (24 by default) goes up to Now. Its age shows on the right. The tag keeps its color: **red** broken, **orange** to act on, **blue** worth knowing.
+Each rule has its band, set in **Settings › Interface › Thresholds** (`band_now`, `band_later`, `band_hidden`): a rule named nowhere goes by its severity. A Today line held longer than `escalate_hours` (24 by default) goes up to Now. Its age shows on the right. The tag keeps its color: **red** broken, **orange** to act on, **blue** worth knowing.
 
 The alerts of one MR or one ticket share a single line (`group`): its id and title, each alert a small pill, and the fixes of the one to act on first — conflicts before anything, threads before the CI (fixing them pushes, the CI runs again). The chevron unfolds them, each in full.
 

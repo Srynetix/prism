@@ -37,7 +37,7 @@ export async function notCloneOf(path: string, project: string | null): Promise<
 
 export const clonesPrompt = $state({ open: false })
 
-/** Repositories offered once: closing the prompt leaves them to Settings › Repositories. */
+/** Repositories offered once: closing the prompt leaves them to Settings › Code › Repositories. */
 const skipped = () => pref<string[]>('clones.offered', [])
 
 /** The repositories read at launch without a usable clone, and with a project to find it by. */
@@ -76,7 +76,7 @@ export const createProject = (parent: string, name: string, remote: NewRemote | 
 /** A local repository without a remote, its project created on the forge and pushed: that project. */
 export const publishRepo = (path: string, remote: NewRemote) => invoke<string>('publish_repo', { path, remote })
 
-/** Settings › Repositories' Add panel, opened from the Repos menu or the palette; `publish`: the repository to publish, by name. */
+/** Settings › Code › Repositories' Add panel, opened from the Repos menu or the palette; `publish`: the repository to publish, by name. */
 export type AddMode = 'folder' | 'clone' | 'new' | 'publish'
 /**
  * The Add panel's mode, the repository to publish, the working folder a header opened it on, and

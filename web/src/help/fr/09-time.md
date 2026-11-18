@@ -84,6 +84,6 @@ Ses trois onglets :
 
 Le bloc s’ouvre sur le daily le matin et sur le temps à saisir ensuite, puis sur l’onglet que vous avez choisi en dernier. ↻ relit vos traces tout de suite.
 
-Chaque source a son interrupteur dans Réglages › Travail › Trace du jour : commits (`git log` dans les clones, d’après votre `user.email`), événements de la forge (les événements de GitLab, `users/<you>/events` de GitHub : les vôtres uniquement), changements de statut des tickets (vus pendant que Prism tourne) et réunions.
+Chaque source a son interrupteur dans Réglages › Travail › Fil du jour : commits (`git log` dans les clones, d’après votre `user.email`), événements de la forge (les événements de GitLab, `users/<you>/events` de GitHub : les vôtres uniquement), changements de statut des tickets (vus pendant que Prism tourne) et réunions.
 
-[Ouvrir Réglages › Travail › Trace du jour](prism:settings/trail)
+[Ouvrir Réglages › Travail › Fil du jour](prism:settings/trail)

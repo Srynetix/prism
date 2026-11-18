@@ -128,7 +128,7 @@ export const factsOf = (kind: FactKind | null) => (kind ? memory.facts.filter((f
 export const liveConversations = () => conversations(live.snapshot)
 
 /**
- * The repositories the assistant proposed, opened in Settings › Repositories' Add panel: told
+ * The repositories the assistant proposed, opened in Settings › Code › Repositories' Add panel: told
  * `added` once the config has them (saved), by their proposal's id.
  */
 const repoAdds = new Map<number, string>()

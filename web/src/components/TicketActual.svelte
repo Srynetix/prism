@@ -40,7 +40,7 @@
       <span class="bar">{#if a.estimate}<i class="est" style:width={w(a.estimate)}></i>{/if}</span>
       <span class="r">{a.estimate ? hours(a.estimate) : '—'}</span>
       <span class="l">{tr('Actual')}</span>
-      <span class="bar" title={loggedOnly ? tr('Time logged only (Settings › Tracker)') : tr('Time logged, and the agents’ active time')}>
+      <span class="bar" title={loggedOnly ? tr('Time logged only (Settings › Work › Tracker)') : tr('Time logged, and the agents’ active time')}>
         <i class="real {tone(a.gap)}" style:width={w(a.actual)}></i>
         {#if !loggedOnly && a.agentMinutes}<i class="agents" style:left={w(a.logged)} style:width={w(a.agentMinutes)}></i>{/if}
         {#if a.estimate}<b class="mark" style:left={w(a.estimate)}></b>{/if}

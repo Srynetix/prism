@@ -25,7 +25,7 @@
 <div class="card">
   <div class="head">
     <b>{t('Where it goes')}</b>
-    <button class="btn primary" onclick={() => openFeedback({ where: 'Settings › Feedback' })} disabled={!feedback.info?.targets.length}><Icon name="comment" />{t('Send feedback…')}</button>
+    <button class="btn primary" onclick={() => openFeedback({ where: 'Settings › General › Feedback' })} disabled={!feedback.info?.targets.length}><Icon name="comment" />{t('Send feedback…')}</button>
   </div>
   {#each feedback.info?.targets ?? [] as tg (tg.id)}
     <div class="row"><b>{tg.name}</b><code>{tg.repo}</code><span class="muted">{tg.why}</span></div>

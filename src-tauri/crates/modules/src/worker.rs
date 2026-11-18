@@ -2,7 +2,7 @@
 //! ticked part by part when due; the window's calls, the stages' hints and the images wait their
 //! turn there. A component that traps (a panic, a call past its deadline) is said as its blocks'
 //! error and started again after a while, three times at most in five minutes; then it waits for
-//! me to start it again (`Module::reset`, Settings › Packs › Modules).
+//! me to start it again (`Module::reset`, Settings › General › Packs › Modules).
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -149,7 +149,7 @@ impl Module {
     }
 
     fn untrusted(&self) -> anyhow::Error {
-        anyhow!(prism_base::tr!("the module {id} waits for your trust: Settings › Packs › Modules", id = self.id))
+        anyhow!(prism_base::tr!("the module {id} waits for your trust: Settings › General › Packs › Modules", id = self.id))
     }
 
     /// Why nothing of it runs now: not trusted, or held.
@@ -174,7 +174,7 @@ impl Module {
         self.tx.lock().unwrap().is_some()
     }
 
-    /// Started again from nothing (Settings › Packs › Modules): the mark it left stopping Prism
+    /// Started again from nothing (Settings › General › Packs › Modules): the mark it left stopping Prism
     /// lifted, its crashes forgotten, its component read again from the version trusted (a new
     /// one trusted since included), configured and its blocks started again; held before, what
     /// waited starts.
@@ -223,7 +223,7 @@ impl Module {
         }
     }
 
-    /// How it runs, for Settings › Packs › Modules.
+    /// How it runs, for Settings › General › Packs › Modules.
     pub fn run(&self) -> prism_core::modules::ModuleRun {
         let shared = self.shared.lock().unwrap();
         // Its crashes of the last minutes only: older ones are not said any more.
@@ -599,7 +599,7 @@ impl Worker {
         self.crashes.push(now);
         let said = message.clone();
         let message = if self.crashes.len() >= CRASHES {
-            let given_up = format!("{message} ({CRASHES} times in {} minutes: start it again from Settings › Packs › Modules)", CRASH_WINDOW.as_secs() / 60);
+            let given_up = format!("{message} ({CRASHES} times in {} minutes: start it again from Settings › General › Packs › Modules)", CRASH_WINDOW.as_secs() / 60);
             self.given_up = Some(given_up.clone());
             given_up
         } else {

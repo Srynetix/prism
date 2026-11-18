@@ -116,7 +116,7 @@ pub async fn modules_trust(id: String, fingerprint: String) -> Cmd<bool> {
 }
 
 /// How the modules' back ends run in this Prism (held, their crashes), the pack modules I removed,
-/// and the modules installed by hand read again from their sources when `check` (Settings › Packs
+/// and the modules installed by hand read again from their sources when `check` (Settings › General › Packs
 /// › Modules, the status bar).
 #[prism_macros::command]
 pub fn modules_runs() -> Vec<prism_core::modules::ModuleRun> {

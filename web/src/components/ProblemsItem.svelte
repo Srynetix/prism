@@ -14,7 +14,7 @@
    * (problems.svelte.ts: what fails now, what failed since the list was last opened), an update of
    * Prism, packs or modules changed at their source (updates.svelte.ts). Red for an error, amber for
    * warnings or something to update, green otherwise. A click lists them all, each with its action:
-   * the update in Settings › Updates, the packs in Settings › Packs, a problem copied or fixed.
+   * the update in Settings › General › Updates, the packs in Settings › General › Packs, a problem copied or fixed.
    * (It replaces the former `problems`, `update` and `packs` items, whose ids a config still reads.)
    */
   let { snap, now }: { snap: Snapshot | null; now: number } = $props()
@@ -54,10 +54,10 @@
     {#if update || packs.length}
       <p class="hd">{t('Updates')}</p>
       {#if update}
-        <button class="mi" onclick={() => go('updates')}><span class="dot warn"></span><span class="grow">{t('Prism {version} is out (this one: {current})', { version: update, current: updates.info!.current })}</span><span class="k">{t('Settings › Updates')}</span></button>
+        <button class="mi" onclick={() => go('updates')}><span class="dot warn"></span><span class="grow">{t('Prism {version} is out (this one: {current})', { version: update, current: updates.info!.current })}</span><span class="k">{t('Settings › General › Updates')}</span></button>
       {/if}
       {#if packs.length}
-        <button class="mi" onclick={() => go('packs')}><span class="dot warn"></span><span class="grow">{tn(packs.length, '{packs} changed at its source', '{packs} changed at their sources', { packs: packs.join(', ') })}</span><span class="k">{t('Settings › Packs')}</span></button>
+        <button class="mi" onclick={() => go('packs')}><span class="dot warn"></span><span class="grow">{tn(packs.length, '{packs} changed at its source', '{packs} changed at their sources', { packs: packs.join(', ') })}</span><span class="k">{t('Settings › General › Packs')}</span></button>
       {/if}
       <hr />
     {/if}
@@ -66,7 +66,7 @@
       <span class="acts">
         <button class="btn sm ghost" onclick={() => void copy(problemsText(nowList, lately), t('Problems copied'))} disabled={!nowList.length && !lately.length} title={t('Copy them all, to paste in an issue or a message')}><Icon name="copy" />{t('Copy')}</button>
         <button class="btn sm ghost" onclick={() => void clearProblems()} disabled={!lately.length} title={t('Forget what failed lately; what fails now stays')}><Icon name="trash" />{t('Clear')}</button>
-        <button class="btn sm ghost" onclick={() => go('logs')} title={t('The whole log: Settings › Logs')}><Icon name="logs" />{t('Log')}</button>
+        <button class="btn sm ghost" onclick={() => go('logs')} title={t('The whole log: Settings › General › Logs')}><Icon name="logs" />{t('Log')}</button>
       </span>
     </div>
     <div class="body">

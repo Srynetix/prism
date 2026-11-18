@@ -347,7 +347,7 @@ export default {
   'passkey': 'passkey',
   'Send the answers': 'Envoyer les réponses',
   'Send the answer': 'Envoyer la réponse',
-  'Answering from a phone is off (Settings › Remote › actions): the terminal shows it.': 'Répondre depuis un téléphone est désactivé (Réglages › Accès à distance › actions) : le terminal le montre.',
+  'Answering from a phone is off (Settings › Remote › Exposure › Actions): the terminal shows it.': 'Répondre depuis un téléphone est désactivé (Réglages › Accès à distance › Exposition › Actions) : le terminal le montre.',
   'chat|stopped': 'arrêtée',
   'chat|default': 'par défaut',
   'chat|approved': 'approuvé',
