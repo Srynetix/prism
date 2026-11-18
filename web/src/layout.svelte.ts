@@ -110,9 +110,12 @@ function load(): Layout {
     bands,
     modes,
     sessionGroups: saved.sessionGroups ?? {},
-    prefs: saved.prefs ?? {},
+    prefs: Object.fromEntries(Object.entries(saved.prefs ?? {}).filter(([k]) => !RETIRED_PREFS.includes(k))),
   }
 }
+
+/** Prefs no longer read, dropped as the layout is read: the phone launcher's last mode (it opens on `[agents] permission_mode`). */
+const RETIRED_PREFS = ['phone.launch.mode']
 
 export const layout = $state(load())
 

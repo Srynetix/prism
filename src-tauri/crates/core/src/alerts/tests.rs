@@ -87,6 +87,7 @@ fn agent(id: &str, f: impl FnOnce(&mut Agent)) -> Agent {
         exit_code: None,
         status: SessionStatus::Running,
         needs_action: None,
+        own_folder: false,
         read: false,
         suggestion: None,
         gate: None,

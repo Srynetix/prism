@@ -371,8 +371,8 @@ export const justLaunched = (id: string | null) => !!id && launched?.id === id &
 export const removeWorktree = (id: string) => invoke('agent_remove_worktree', { id })
 /** Deletes the folder Prism made for a stopped agent outside any project. */
 export const removeScratch = (id: string) => invoke('agent_remove_scratch', { id })
-/** An agent launched outside any project, in a folder Prism made for it. */
-export const isScratch = (a: Pick<Agent, 'launch'>) => !!a.launch?.scratch
+/** An agent outside any project, in the folder Prism made for it (core's `own_folder`). */
+export const isScratch = (a: Pick<Agent, 'own_folder'>) => !!a.own_folder
 export const interruptAgent = (id: string) => invoke('agent_interrupt', { id })
 /** Takes a terminal (`id`: an agent or `shell:<agent>:<n>`) out of tmux's copy mode, before a key. */
 export const leaveCopyMode = (id: string) => invoke('agent_leave_copy_mode', { id })

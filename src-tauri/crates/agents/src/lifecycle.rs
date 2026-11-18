@@ -163,7 +163,8 @@ impl Agents {
         if !launch.scratch {
             return Ok(None);
         }
-        launch.worktree = None;
+        // No steps after it: nothing to deliver, no repository to deliver to.
+        (launch.worktree, launch.then) = (None, Vec::new());
         let root = prism_core::agents::scratch_root(&self.inner.settings.lock().unwrap());
         let name = format!("{}-{}", chrono::Local::now().format("%Y-%m-%d"), Some(worktree::slug(&launch.title)).filter(|s| !s.is_empty()).unwrap_or_else(|| "agent".into()));
         std::fs::create_dir_all(&root).with_context(|| tr!("cannot create {path}", path = root.display()))?;
@@ -662,8 +663,14 @@ impl Agents {
 }
 
 /// `cwd` is the folder Prism made for an agent launched outside any project (`launch`): the one
-/// its launch kept, named `<date>-…`.
+/// its launch kept, named `<date>-…`, still a folder (not a link put in its place, which would
+/// lead its trust or its deletion elsewhere).
 pub(crate) fn made_for_it(launch: Option<&state::LaunchSpec>, cwd: &Path) -> bool {
+    named_for_it(launch, cwd) && std::fs::symlink_metadata(cwd).is_ok_and(|m| m.is_dir())
+}
+
+/// `made_for_it` without the disk: its launch's folder, named `<date>-…` (`Agent.own_folder`).
+pub(crate) fn named_for_it(launch: Option<&state::LaunchSpec>, cwd: &Path) -> bool {
     let made = launch.is_some_and(|l| l.scratch && l.cwd.as_deref().is_some_and(|c| Path::new(c) == cwd));
     let dated = cwd.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.len() > 11 && n.is_char_boundary(10) && chrono::NaiveDate::parse_from_str(&n[..10], "%Y-%m-%d").is_ok() && n.as_bytes()[10] == b'-');
     made && dated

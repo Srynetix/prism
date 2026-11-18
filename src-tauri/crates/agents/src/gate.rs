@@ -8,6 +8,16 @@
 use super::*;
 use crate::state::{AgentGate, GateKind};
 
+/// How long an automatic answer to a folder's trust (`auto_trusted`) is given before its card shows.
+const AUTO_TRUST_WAIT: Duration = Duration::from_secs(10);
+
+/// An automatic answer to the trust of an agent's own folder: sent (when), or failed.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum AutoTrust {
+    Sent(std::time::Instant),
+    Failed,
+}
+
 /// How long the CLI started in the worktrees' folder is given to ask, and to start once answered.
 const PARENT_WAIT: Duration = Duration::from_secs(12);
 
@@ -18,10 +28,13 @@ impl Agents {
         let worktrees_dir = self.inner.settings.lock().unwrap().worktrees_dir.clone();
         let mut gates = self.inner.gates.lock().unwrap();
         gates.retain(|id, _| screens.contains_key(id));
+        self.inner.trusting.lock().unwrap().retain(|id, _| screens.contains_key(id));
         for a in list.iter_mut() {
             let Some(screen) = screens.get(&a.id) else { continue };
             let Some(mut gate) = trust::read(a.provider, screen) else {
                 gates.remove(&a.id);
+                // Its question gone: a next one is answered again.
+                self.inner.trusting.lock().unwrap().remove(&a.id);
                 continue;
             };
             // A long path wraps on its screen, a space lost where it was cut: the agent's own folder
@@ -36,26 +49,10 @@ impl Agents {
                 gate.parent = a.worktree.as_deref().and_then(|w| worktrees_parent(Path::new(w), worktrees_dir.as_deref()));
             }
             // Its own folder, made by Prism for an agent outside any project: trusted for it, as
-            // you would, without a card; once, the card shown if that fails.
-            let own = gate.folder.as_deref().is_none_or(|f| same_folder(f, Path::new(&a.cwd)));
-            if a.provider == Provider::Claude && gate.kind == GateKind::Folder && gate.answerable && own && crate::lifecycle::made_for_it(a.launch.as_ref(), Path::new(&a.cwd)) {
-                let mut trusting = self.inner.trusting.lock().unwrap();
-                match trusting.get(&a.id) {
-                    Some(true) => {}
-                    Some(false) => continue,
-                    None => {
-                        trusting.insert(a.id.clone(), false);
-                        let (me, id) = (self.clone(), a.id.clone());
-                        prism_base::rt::spawn(async move {
-                            if let Err(e) = me.answer_gate(&id, GateKind::Folder, true, false).await {
-                                tracing::warn!("agents: {id}'s own folder not trusted: {e:#}");
-                                me.inner.trusting.lock().unwrap().insert(id, true);
-                                me.inner.changed.notify_one();
-                            }
-                        });
-                        continue;
-                    }
-                }
+            // you would, without a card, once per question; the card shown if the keys fail or
+            // the question is still there a while after.
+            if self.auto_trusted(a, &gate) {
+                continue;
             }
             a.status = SessionStatus::WaitingTool;
             a.needs_action = Some(match gate.kind {
@@ -65,6 +62,38 @@ impl Agents {
             });
             gates.insert(a.id.clone(), gate.clone());
             a.gate = Some(gate);
+        }
+    }
+
+    /// `a`'s question is the trust of the folder Prism made for it (outside any project, Claude
+    /// Code): answered yes in the background the first time, hidden while that goes; shown again
+    /// (false) once the keys failed or `AUTO_TRUST_WAIT` after them, the question still there.
+    fn auto_trusted(&self, a: &Agent, gate: &AgentGate) -> bool {
+        // The cheap tests first: the folder's (`made_for_it`, a file's metadata) last.
+        let own = gate.folder.as_deref().is_none_or(|f| f == a.cwd);
+        if a.provider != Provider::Claude || gate.kind != GateKind::Folder || !gate.answerable || !own || !crate::lifecycle::made_for_it(a.launch.as_ref(), Path::new(&a.cwd)) {
+            return false;
+        }
+        let mut trusting = self.inner.trusting.lock().unwrap();
+        match trusting.get(&a.id) {
+            Some(AutoTrust::Sent(at)) if at.elapsed() < AUTO_TRUST_WAIT => true,
+            Some(AutoTrust::Sent(_)) => {
+                trusting.insert(a.id.clone(), AutoTrust::Failed);
+                false
+            }
+            Some(AutoTrust::Failed) => false,
+            None => {
+                trusting.insert(a.id.clone(), AutoTrust::Sent(std::time::Instant::now()));
+                let (me, id) = (self.clone(), a.id.clone());
+                prism_base::rt::spawn(async move {
+                    if let Err(e) = me.answer_gate(&id, GateKind::Folder, true, false).await {
+                        tracing::warn!("agents: {id}'s own folder not trusted: {e:#}");
+                        me.inner.trusting.lock().unwrap().insert(id, AutoTrust::Failed);
+                        me.inner.changed.notify_one();
+                    }
+                });
+                true
+            }
         }
     }
 

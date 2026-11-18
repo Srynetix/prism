@@ -280,6 +280,11 @@ pub struct Agent {
     pub prompt: Option<String>,
     /// What it was launched with; absent for an agent launched before Prism kept it.
     pub launch: Option<LaunchSpec>,
+    /// Outside any project, in the folder Prism made for it (`LaunchSpec.scratch`): « Delete its
+    /// folder » offered once it is archived and stopped.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<bool>", optional))]
+    pub own_folder: bool,
     pub created_at: DateTime<Utc>,
     pub state: AgentState,
     /// Claude's exit code, once it has exited.

@@ -1068,6 +1068,7 @@ impl Demo {
             exit_code: (status == SessionStatus::Completed).then_some(0),
             status,
             needs_action: needs.map(String::from),
+            own_folder: false,
             read: false,
             last_activity: Some(self.ago(minutes)),
             moved_at: None,

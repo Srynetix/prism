@@ -479,7 +479,7 @@ fn a_peer_does_what_its_rights_say() {
     // Acting allowed, the settings not: what writes them or trusts a command by another way.
     r.actions = true;
     r.critical = true;
-    for command in ["mcp_proposal_answer", "routine_trust", "mcp_install", "cli_command_install", "quick_action_add"] {
+    for command in ["save_config_text", "pack_import", "mcp_proposal_answer", "routine_trust", "mcp_install", "cli_command_install", "quick_action_add"] {
         assert!(super::peer_allowed(&r, command, &Value::Null, Some(Class::Never)).unwrap_err().to_string().contains("settings"), "{command}");
     }
     assert!(super::peer_allowed(&r, "block_call", &json!({ "block": "custom_blocks", "command": "try" }), Some(Class::Never)).unwrap_err().to_string().contains("settings"), "a custom block tried");

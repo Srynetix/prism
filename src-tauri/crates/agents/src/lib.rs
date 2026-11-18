@@ -241,9 +241,9 @@ struct Inner {
     attachments: Mutex<HashMap<String, Attachment>>,
     /// What each agent's CLI asks on its screen before it starts (`gate.rs`), as last read.
     gates: Mutex<HashMap<String, crate::state::AgentGate>>,
-    /// The agents outside any project whose folder's trust was answered for them (`gate.rs`): once
-    /// each, `true` when that failed (the card shown then).
-    trusting: Mutex<HashMap<String, bool>>,
+    /// The agents outside any project whose folder's trust is answered for them (`gate.rs`), while
+    /// the question is on their screen.
+    trusting: Mutex<HashMap<String, gate::AutoTrust>>,
     /// When each agent's CLI was last resumed or restarted: its screen read for a gate until a
     /// hook comes after (its saved status, Running or a permission, says nothing of it).
     relaunched: Mutex<HashMap<String, chrono::DateTime<Utc>>>,
@@ -587,6 +587,7 @@ fn read_agent(r: Record, home: Option<&Path>, folds: &mut HashMap<String, Fold>,
         cwd: r.cwd.display().to_string(),
         branch,
         prompt: r.prompt,
+        own_folder: crate::lifecycle::named_for_it(r.launch.as_ref(), &r.cwd),
         launch: r.launch,
         created_at: r.created_at,
         state,
