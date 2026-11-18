@@ -986,6 +986,7 @@ async fn an_agent_outside_any_project_gets_a_folder_of_its_own() {
     b.tmux.exit(&id, 0);
     b.agents.remove_scratch(&id).await.unwrap();
     assert!(!dir.exists());
+    b.agents.remove_scratch(&id).await.expect("already gone: nothing to do");
     let other = b.agents.spawn(b.launch("In a project")).await.unwrap();
     b.tmux.exit(&other, 0);
     assert!(!b.shown(&other).await.unwrap().own_folder);
@@ -998,15 +999,22 @@ async fn an_agent_outside_any_project_gets_a_folder_of_its_own() {
     let chained = Launch { then: vec![state::LaunchStep { kind: state::StepKind::Notify, when: state::StepWhen::Done, command: None, text: None }], cwd: None, scratch: true, ..b.launch("Chained") };
     let chained = b.agents.spawn(chained).await.unwrap();
     assert!(b.shown(&chained).await.unwrap().launch.is_some_and(|l| l.then.is_empty()));
-    // Its folder swapped for a link (to a repository): its trust asked of you, not answered.
-    let linked = PathBuf::from(b.shown(&chained).await.unwrap().cwd);
-    std::fs::remove_dir(&linked).unwrap();
-    std::os::unix::fs::symlink(&b.project, &linked).unwrap();
-    let session = Tmux::session(&chained);
-    b.tmux.show(&session, &screen.replace(&dir.display().to_string(), &linked.display().to_string()), Some("Enter"));
-    b.agents.refresh().await;
-    assert!(b.shown(&chained).await.unwrap().gate.is_some(), "its card shown");
-    assert!(b.tmux.calls_of("send-keys").iter().all(|c| !c.contains(&session)));
+    // Its folder swapped for a link (to a repository): its trust asked of you, not answered, its
+    // folder never deleted through it. (A link needs no rights on Unix only.)
+    #[cfg(unix)]
+    {
+        let linked = PathBuf::from(b.shown(&chained).await.unwrap().cwd);
+        std::fs::remove_dir(&linked).unwrap();
+        std::os::unix::fs::symlink(&b.project, &linked).unwrap();
+        let session = Tmux::session(&chained);
+        b.tmux.show(&session, &screen.replace(&dir.display().to_string(), &linked.display().to_string()), Some("Enter"));
+        b.agents.refresh().await;
+        assert!(b.shown(&chained).await.unwrap().gate.is_some(), "its card shown");
+        assert!(b.tmux.calls_of("send-keys").iter().all(|c| !c.contains(&session)));
+        b.tmux.exit(&chained, 0);
+        assert!(b.agents.remove_scratch(&chained).await.is_err(), "a link: not its folder");
+        assert!(b.project.is_dir());
+    }
     // A launch that fails leaves no folder behind; one closed takes its folder when empty.
     let failing = Launch { model: Some("not a model!".into()), ..alone() };
     assert!(b.agents.spawn(failing).await.is_err());

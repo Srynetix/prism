@@ -85,7 +85,7 @@ pub fn read(path: &Path) -> Result<FileView> {
     let (inherited, packs, inherited_from, pack_files, merged) = match crate::packs::layers(path, &text) {
         Ok(l) => {
             let pack_files = l.files.into_iter().map(|(name, file, text)| PackFile { name, path: file.display().to_string(), text }).collect();
-            (serde_json::to_value(&l.inherited).unwrap_or_default(), l.packs, l.origins, pack_files, toml::to_string_pretty(&l.table).ok())
+            (serde_json::to_value(&l.inherited).unwrap_or_default(), l.packs, l.origins, pack_files, merged_of(&l.table).ok())
         }
         Err(_) => (serde_json::Value::Null, Vec::new(), Default::default(), Vec::new(), None),
     };
@@ -101,7 +101,12 @@ pub fn unread(table: &toml::Table, defaults: &serde_json::Value) -> Vec<String> 
 /// reads before filling in the defaults.
 pub fn merged(path: &Path, text: &str) -> Result<String> {
     let (table, _, _) = crate::packs::layered(path, text)?;
-    Ok(toml::to_string_pretty(&table)?)
+    merged_of(&table)
+}
+
+/// The merged table as Settings shows it (`merged`, `FileView.merged`).
+fn merged_of(table: &toml::Table) -> Result<String> {
+    Ok(toml::to_string_pretty(table)?)
 }
 
 /// The text these changes would produce, without writing anything.

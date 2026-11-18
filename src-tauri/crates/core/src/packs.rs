@@ -74,7 +74,7 @@ pub fn file(config: &Path, name: &str) -> PathBuf {
 /// `config.toml` over its packs: the table the app reads, the packs' merged values alone
 /// (what Settings shows as inherited), and the packs.
 pub fn layered(config: &Path, raw: &str) -> Result<(Table, Table, Vec<PackInfo>)> {
-    let l = layers(config, raw)?;
+    let l = read_layers(config, raw, false)?;
     Ok((l.table, l.inherited, l.packs))
 }
 
@@ -93,6 +93,11 @@ pub struct Layers {
 }
 
 pub fn layers(config: &Path, raw: &str) -> Result<Layers> {
+    read_layers(config, raw, true)
+}
+
+/// `layers`; without `detail` (each load of the config), neither origins nor files: left empty.
+fn read_layers(config: &Path, raw: &str, detail: bool) -> Result<Layers> {
     let mut own: Table = raw.parse().context("invalid config.toml")?;
     crate::config::migrate(&mut own);
     let names: Vec<String> = match own.get("packs") {
@@ -116,6 +121,11 @@ pub fn layers(config: &Path, raw: &str) -> Result<Layers> {
         };
         let (info, mut values) = parse(&text).with_context(|| format!("pack {name} ({})", path.display()))?;
         crate::config::migrate(&mut values);
+        if !detail {
+            merge(&mut inherited, values);
+            infos.push(PackInfo { name, missing: false, ..info });
+            continue;
+        }
         leaves(&values, "", &mut |key| {
             let keyed = KEYED.iter().any(|(k, _)| *k == key);
             match origins.get_mut(&key) {

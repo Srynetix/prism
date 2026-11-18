@@ -28,7 +28,9 @@ impl Agents {
         let worktrees_dir = self.inner.settings.lock().unwrap().worktrees_dir.clone();
         let mut gates = self.inner.gates.lock().unwrap();
         gates.retain(|id, _| screens.contains_key(id));
-        self.inner.trusting.lock().unwrap().retain(|id, _| screens.contains_key(id));
+        // Forgotten once its agent is gone or stopped; a screen missed by one refresh keeps it (an
+        // answer in flight is not sent twice).
+        self.inner.trusting.lock().unwrap().retain(|id, _| list.iter().any(|a| a.id == *id && a.state == AgentState::Running));
         for a in list.iter_mut() {
             let Some(screen) = screens.get(&a.id) else { continue };
             let Some(mut gate) = trust::read(a.provider, screen) else {
@@ -85,8 +87,9 @@ impl Agents {
             None => {
                 trusting.insert(a.id.clone(), AutoTrust::Sent(std::time::Instant::now()));
                 let (me, id) = (self.clone(), a.id.clone());
+                let own = (a.launch.clone(), PathBuf::from(&a.cwd));
                 prism_base::rt::spawn(async move {
-                    if let Err(e) = me.answer_gate(&id, GateKind::Folder, true, false).await {
+                    if let Err(e) = me.answer_gate_as(&id, GateKind::Folder, true, false, Some((own.0.as_ref(), &own.1))).await {
                         tracing::warn!("agents: {id}'s own folder not trusted: {e:#}");
                         me.inner.trusting.lock().unwrap().insert(id, AutoTrust::Failed);
                         me.inner.changed.notify_one();
@@ -105,6 +108,12 @@ impl Agents {
     /// Answers the gate `kind` on its screen: `yes` trusts (or approves), no refuses (the CLI
     /// exits). `parent`: its worktrees' folder trusted first, the next ones not asked again.
     pub async fn answer_gate(&self, id: &str, kind: GateKind, yes: bool, parent: bool) -> Result<()> {
+        self.answer_gate_as(id, kind, yes, parent, None).await
+    }
+
+    /// `answer_gate`; `own`: answered for the folder Prism made for it (its launch, its folder),
+    /// that folder checked again just before the keys (never a link put in its place meanwhile).
+    async fn answer_gate_as(&self, id: &str, kind: GateKind, yes: bool, parent: bool, own: Option<(Option<&crate::state::LaunchSpec>, &Path)>) -> Result<()> {
         let provider = self.provider(id)?;
         let tmux = &self.inner.tmux;
         tmux.leave_copy_mode(id).await?;
@@ -115,6 +124,9 @@ impl Agents {
             self.trust_folder(provider, Path::new(&folder)).await?;
             // Read again just before the keys: they go to that question only.
             keys = trust::keys(provider, &tmux.screen(id).await?, kind, yes)?;
+        }
+        if let Some((launch, cwd)) = own {
+            ensure!(crate::lifecycle::made_for_it(launch, cwd), tr("this agent has no folder of its own"));
         }
         for k in keys {
             tmux.send_keys(id, &[k]).await?;

@@ -192,7 +192,8 @@ impl Agents {
     /// is stopped: only one under the scratch folder, never the folder itself.
     pub async fn remove_scratch(&self, id: &str) -> Result<()> {
         let record = self.record(id)?;
-        let dir = Self::scratch_dir_of(&record).context(tr("this agent has no folder of its own"))?.to_path_buf();
+        ensure!(named_for_it(record.launch.as_ref(), &record.cwd), tr("this agent has no folder of its own"));
+        let dir = record.cwd.clone();
         ensure!(!record.prepared, tr("start the agent first"));
         if self.inner.tmux.panes().await?.get(id) == Some(&Pane::Alive) {
             bail!(tr("stop the agent first"));
@@ -202,10 +203,14 @@ impl Agents {
         if let Some(title) = others {
             bail!(tr!("the agent “{title}” works in it", title = title));
         }
-        self.close_shells(id).await;
-        if dir.is_dir() {
-            tokio::task::spawn_blocking(move || std::fs::remove_dir_all(dir)).await??;
+        // Already gone: nothing to do; a link in its place (or a file): never followed.
+        match std::fs::symlink_metadata(&dir) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Ok(m) if m.is_dir() => {}
+            _ => bail!(tr("this agent has no folder of its own")),
         }
+        self.close_shells(id).await;
+        tokio::task::spawn_blocking(move || std::fs::remove_dir_all(dir)).await??;
         self.inner.changed.notify_one();
         Ok(())
     }
