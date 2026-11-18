@@ -53,10 +53,13 @@ impl Agents {
 
     /// `spawn` under `id`, chosen before (a draft's file named by it in its prompt).
     pub(crate) async fn spawn_id(&self, id: String, mut launch: Launch) -> Result<String> {
-        self.scratch_folder(&mut launch)?;
+        let made = self.scratch_folder(&mut launch)?;
         let then = launch.then.clone();
         let from = launch.from.clone();
-        let id = self.spawn_as(id, launch, None).await?;
+        let id = match self.spawn_as(id, launch, None).await {
+            Ok(id) => id,
+            Err(e) => return Err(drop_made(made, e)),
+        };
         self.start_chain(&id, then);
         self.launched_aside(from.as_deref(), &id);
         Ok(id)
@@ -66,7 +69,11 @@ impl Agents {
     /// mode), and it shows in the list as prepared; nothing runs and no worktree is made until
     /// `start`. Returns its identifier.
     pub async fn prepare(&self, mut launch: Launch) -> Result<String> {
-        self.scratch_folder(&mut launch)?;
+        let made = self.scratch_folder(&mut launch)?;
+        self.prepare_in(launch).await.map_err(|e| drop_made(made, e))
+    }
+
+    async fn prepare_in(&self, launch: Launch) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let spec = launch.spec();
         let (place, provider) = self.place_and_provider(&launch).await?;
@@ -150,42 +157,50 @@ impl Agents {
 
     /// An agent outside any project: a new folder of its own, `<date>-<title>` under
     /// `[agents] scratch_dir` (`agents/` in the profile's folder), never shared (`-2`, `-3`… when
-    /// taken), made now and given as its folder. Nothing for the others, nor once it has one.
-    /// One given already (a prepared agent started, a resume) must be one of those.
-    pub(crate) fn scratch_folder(&self, launch: &mut Launch) -> Result<()> {
+    /// taken), made now and given as its folder, whatever folder the launch named. Nothing for the
+    /// others. Returns the folder made, removed again if the launch fails.
+    pub(crate) fn scratch_folder(&self, launch: &mut Launch) -> Result<Option<PathBuf>> {
         if !launch.scratch {
-            return Ok(());
+            return Ok(None);
         }
         launch.worktree = None;
-        if let Some(cwd) = &launch.cwd {
-            ensure!(self.in_scratch(cwd), tr!("{path} is not a folder Prism made for an agent", path = cwd.display()));
-            return Ok(());
-        }
         let root = prism_core::agents::scratch_root(&self.inner.settings.lock().unwrap());
         let name = format!("{}-{}", chrono::Local::now().format("%Y-%m-%d"), Some(worktree::slug(&launch.title)).filter(|s| !s.is_empty()).unwrap_or_else(|| "agent".into()));
         std::fs::create_dir_all(&root).with_context(|| tr!("cannot create {path}", path = root.display()))?;
-        let dir = (1..1000).map(|n| if n == 1 { root.join(&name) } else { root.join(format!("{name}-{n}")) }).find(|d| std::fs::create_dir(d).is_ok()).with_context(|| tr!("cannot create {path}", path = root.join(&name).display()))?;
-        launch.cwd = Some(dir);
-        Ok(())
+        for n in 1..1000 {
+            let dir = if n == 1 { root.join(&name) } else { root.join(format!("{name}-{n}")) };
+            match std::fs::create_dir(&dir) {
+                Ok(()) => {
+                    launch.cwd = Some(dir.clone());
+                    return Ok(Some(dir));
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => return Err(e).with_context(|| tr!("cannot create {path}", path = dir.display())),
+            }
+        }
+        bail!(tr!("cannot create {path}", path = root.join(&name).display()))
     }
 
-    /// `dir` is a folder under the scratch folder (`[agents] scratch_dir`), not that folder itself.
-    pub(crate) fn in_scratch(&self, dir: &Path) -> bool {
-        let root = prism_core::agents::scratch_root(&self.inner.settings.lock().unwrap());
-        let (root, dir) = (std::fs::canonicalize(&root).unwrap_or(root), std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf()));
-        dir != root && dir.starts_with(&root)
+    /// The folder of an agent launched outside any project: the one Prism made for it (its
+    /// record's, named `<date>-…`), whatever `[agents] scratch_dir` says since.
+    pub(crate) fn scratch_dir_of(record: &Record) -> Option<&Path> {
+        made_for_it(record.launch.as_ref(), &record.cwd).then_some(record.cwd.as_path())
     }
 
     /// Deletes the folder of an agent launched outside any project (`LaunchSpec.scratch`), once it
     /// is stopped: only one under the scratch folder, never the folder itself.
     pub async fn remove_scratch(&self, id: &str) -> Result<()> {
         let record = self.record(id)?;
-        ensure!(record.launch.as_ref().is_some_and(|l| l.scratch), tr("this agent has no folder of its own"));
+        let dir = Self::scratch_dir_of(&record).context(tr("this agent has no folder of its own"))?.to_path_buf();
+        ensure!(!record.prepared, tr("start the agent first"));
         if self.inner.tmux.panes().await?.get(id) == Some(&Pane::Alive) {
             bail!(tr("stop the agent first"));
         }
-        ensure!(self.in_scratch(&record.cwd), tr!("{path} is not a folder Prism made for an agent", path = record.cwd.display()));
-        let dir = record.cwd.clone();
+        // Someone else working in it (a launch in that folder): kept.
+        let others = self.inner.registry.lock().unwrap().records.iter().filter(|r| r.id != id && (r.cwd.starts_with(&dir) || r.worktree.as_ref().is_some_and(|w| w.starts_with(&dir)))).map(|r| r.title.clone()).next();
+        if let Some(title) = others {
+            bail!(tr!("the agent “{title}” works in it", title = title));
+        }
         self.close_shells(id).await;
         if dir.is_dir() {
             tokio::task::spawn_blocking(move || std::fs::remove_dir_all(dir)).await??;
@@ -512,6 +527,10 @@ impl Agents {
                 kept.push(if record.extra.contains(&path) { format!("{}: {e:#}", path.display()) } else { format!("{e:#}") });
             }
         }
+        // Outside any project: its folder goes when empty, otherwise it stays, said.
+        if let Some(dir) = Self::scratch_dir_of(&record).filter(|d| std::fs::remove_dir(d).is_err() && d.is_dir()) {
+            kept.push(tr!("folder kept: {path}", path = dir.display()).to_string());
+        }
         Ok((!kept.is_empty()).then(|| format!("worktree kept: {}", kept.join("; "))))
     }
 
@@ -640,4 +659,20 @@ impl Agents {
         env.extend(provider.env(&self.wiring(provider), mode, mcp.as_deref()));
         env
     }
+}
+
+/// `cwd` is the folder Prism made for an agent launched outside any project (`launch`): the one
+/// its launch kept, named `<date>-…`.
+pub(crate) fn made_for_it(launch: Option<&state::LaunchSpec>, cwd: &Path) -> bool {
+    let made = launch.is_some_and(|l| l.scratch && l.cwd.as_deref().is_some_and(|c| Path::new(c) == cwd));
+    let dated = cwd.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.len() > 11 && n.is_char_boundary(10) && chrono::NaiveDate::parse_from_str(&n[..10], "%Y-%m-%d").is_ok() && n.as_bytes()[10] == b'-');
+    made && dated
+}
+
+/// A launch that failed: the folder made for it (empty) removed, the error kept.
+fn drop_made(made: Option<PathBuf>, e: anyhow::Error) -> anyhow::Error {
+    if let Some(dir) = made {
+        let _ = std::fs::remove_dir(dir);
+    }
+    e
 }

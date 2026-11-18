@@ -954,15 +954,21 @@ async fn an_agent_outside_any_project_gets_a_folder_of_its_own() {
     let screen = format!(" Accessing workspace:\n\n {}\n\n Quick safety check: Is this a project you created or one you trust?\n\n ❯ No, exit\n   Yes, I trust this folder\n\n Enter to confirm · Esc to cancel\n", dir.display());
     b.tmux.show(&session, &screen, Some("Enter"));
     b.agents.refresh().await;
+    let a = b.shown(&id).await.unwrap();
+    assert!(a.gate.is_none() && a.needs_action.is_none(), "no card while it is answered");
+    let keys = || b.tmux.calls_of("send-keys").into_iter().filter(|c| c.contains(&session)).filter_map(|c| c.last().cloned()).collect::<Vec<String>>();
     for _ in 0..40 {
-        if !b.agents.inner.trusting.lock().unwrap().contains(&id) {
+        if keys().len() >= 2 {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
-    let keys: Vec<String> = b.tmux.calls_of("send-keys").into_iter().filter(|c| c.contains(&session)).filter_map(|c| c.last().cloned()).collect();
-    assert_eq!(keys, ["Down", "Enter"]);
+    assert_eq!(keys(), ["Down", "Enter"]);
+    b.agents.refresh().await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    assert_eq!(keys(), ["Down", "Enter"], "answered once");
 
+    assert!(b.agents.remove_scratch(&second).await.is_err(), "prepared: its folder is where it starts");
     assert!(b.agents.remove_scratch(&id).await.is_err(), "still running");
     b.tmux.exit(&id, 0);
     b.agents.remove_scratch(&id).await.unwrap();
@@ -971,7 +977,14 @@ async fn an_agent_outside_any_project_gets_a_folder_of_its_own() {
     b.tmux.exit(&other, 0);
     assert!(b.agents.remove_scratch(&other).await.is_err(), "not one of Prism's folders");
     assert!(b.project.is_dir());
-    // Said to be one, in another folder (a phone's launch): refused, never trusted for it.
-    let posing = Launch { scratch: true, ..b.launch("Posing") };
-    assert!(b.agents.spawn(posing).await.is_err());
+    // Said to be one, in another folder (a phone's launch): a new folder of its own all the same.
+    let posing = b.agents.spawn(Launch { scratch: true, ..b.launch("Posing") }).await.unwrap();
+    assert_eq!(b.shown(&posing).await.unwrap().cwd, scratch.join(format!("{today}-posing")).display().to_string());
+    // A launch that fails leaves no folder behind; one closed takes its folder when empty.
+    let failing = Launch { model: Some("not a model!".into()), ..alone() };
+    assert!(b.agents.spawn(failing).await.is_err());
+    assert!(!scratch.join(format!("{today}-quick-question")).exists());
+    b.tmux.exit(&posing, 0);
+    b.agents.close(&posing).await.unwrap();
+    assert!(!scratch.join(format!("{today}-posing")).exists());
 }

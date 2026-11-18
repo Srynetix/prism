@@ -35,24 +35,34 @@ impl Agents {
             if gate.kind == GateKind::Folder && a.provider == Provider::Claude {
                 gate.parent = a.worktree.as_deref().and_then(|w| worktrees_parent(Path::new(w), worktrees_dir.as_deref()));
             }
+            // Its own folder, made by Prism for an agent outside any project: trusted for it, as
+            // you would, without a card; once, the card shown if that fails.
+            let own = gate.folder.as_deref().is_none_or(|f| same_folder(f, Path::new(&a.cwd)));
+            if a.provider == Provider::Claude && gate.kind == GateKind::Folder && gate.answerable && own && crate::lifecycle::made_for_it(a.launch.as_ref(), Path::new(&a.cwd)) {
+                let mut trusting = self.inner.trusting.lock().unwrap();
+                match trusting.get(&a.id) {
+                    Some(true) => {}
+                    Some(false) => continue,
+                    None => {
+                        trusting.insert(a.id.clone(), false);
+                        let (me, id) = (self.clone(), a.id.clone());
+                        prism_base::rt::spawn(async move {
+                            if let Err(e) = me.answer_gate(&id, GateKind::Folder, true, false).await {
+                                tracing::warn!("agents: {id}'s own folder not trusted: {e:#}");
+                                me.inner.trusting.lock().unwrap().insert(id, true);
+                                me.inner.changed.notify_one();
+                            }
+                        });
+                        continue;
+                    }
+                }
+            }
             a.status = SessionStatus::WaitingTool;
             a.needs_action = Some(match gate.kind {
                 GateKind::Folder => tr!("Trust its folder: {folder}", folder = gate.folder.clone().unwrap_or_else(|| a.worktree.clone().unwrap_or_else(|| a.cwd.clone()))),
                 GateKind::Hooks => tr("Approve Prism's hooks").to_string(),
                 GateKind::Other => tr("An answer in its terminal").to_string(),
             });
-            // Its own folder, made by Prism for an agent outside any project: trusted for it, as
-            // you would, without a card.
-            let own = gate.folder.as_deref().is_none_or(|f| same_folder(f, Path::new(&a.cwd)));
-            if a.launch.as_ref().is_some_and(|l| l.scratch) && gate.kind == GateKind::Folder && gate.answerable && own && self.in_scratch(Path::new(&a.cwd)) && self.inner.trusting.lock().unwrap().insert(a.id.clone()) {
-                let (me, id) = (self.clone(), a.id.clone());
-                prism_base::rt::spawn(async move {
-                    if let Err(e) = me.answer_gate(&id, GateKind::Folder, true, false).await {
-                        tracing::warn!("agents: {id}'s own folder not trusted: {e:#}");
-                    }
-                    me.inner.trusting.lock().unwrap().remove(&id);
-                });
-            }
             gates.insert(a.id.clone(), gate.clone());
             a.gate = Some(gate);
         }

@@ -241,8 +241,9 @@ struct Inner {
     attachments: Mutex<HashMap<String, Attachment>>,
     /// What each agent's CLI asks on its screen before it starts (`gate.rs`), as last read.
     gates: Mutex<HashMap<String, crate::state::AgentGate>>,
-    /// The agents outside any project whose folder's trust is being answered for them (`gate.rs`).
-    trusting: Mutex<std::collections::HashSet<String>>,
+    /// The agents outside any project whose folder's trust was answered for them (`gate.rs`): once
+    /// each, `true` when that failed (the card shown then).
+    trusting: Mutex<HashMap<String, bool>>,
     /// When each agent's CLI was last resumed or restarted: its screen read for a gate until a
     /// hook comes after (its saved status, Running or a permission, says nothing of it).
     relaunched: Mutex<HashMap<String, chrono::DateTime<Utc>>>,

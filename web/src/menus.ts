@@ -281,7 +281,7 @@ export function agentMenu(a: Agent, rename: () => void): MenuSection[] {
       ? { key: 'unarchive', icon: 'show', label: tr('Unarchive'), hint: tr('back in the list'), run: () => setArchived(a, false) }
       : { key: 'archive', icon: 'hide', label: tr('Archive'), hint: tr('out of the list until it waits for you'), run: () => { setArchived(a, true); if (isScratch(a)) toast(tr('Archived: its folder stays, Delete its folder in its ⋯ removes it'), 5000) } },
     // Outside any project, archived and stopped: its folder, made by Prism, deleted on a second click.
-    ...(hidden && isScratch(a) && a.state !== 'running' ? [{ key: 'rm-scratch', icon: 'close', label: tr('Delete its folder'), hint: tildePath(a.cwd), confirm: tr('Everything in {path} goes: click again to delete it', { path: tildePath(a.cwd) }), run: async () => { await removeScratch(a.id); toast(tr('Folder deleted'), 3000) } } satisfies MenuItem] : []),
+    ...(hidden && isScratch(a) && a.state !== 'running' && a.state !== 'prepared' ? [{ key: 'rm-scratch', icon: 'close', label: tr('Delete its folder'), hint: tildePath(a.cwd), confirm: tr('Everything in {path} goes: click again to delete it', { path: tildePath(a.cwd) }), run: async () => { await removeScratch(a.id); toast(tr('Folder deleted'), 3000) } } satisfies MenuItem] : []),
     { key: 'close', icon: 'close', label: tr('Close'), hint: a.worktree ? tr('stops it, removes its worktree if nothing would be lost') : tr('stops it; the conversation stays'), confirm: a.state === 'running' ? tr('{name} is still running: click again to stop and close', { name: nameOf(a) }) : undefined, run: async () => { const kept = await closeAgent(a.id); if (kept) toast(kept, 5000) } },
   ]
   const mr = openMrOf(a)
