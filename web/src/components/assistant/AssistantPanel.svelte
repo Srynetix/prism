@@ -12,17 +12,26 @@
   import { nameOf } from '../../agent-cli'
   import { toastError } from '../../toast.svelte'
   import { askPrism, assistantView, byDay, closeAssistant, conversations, conversationState, loadMemory, memory } from '../../assistant.svelte'
+  import { isArchived, setArchived } from '../../agent-archive.svelte'
 
   /**
    * The Assistant panel, over the page: its conversations by day on the left (one per request,
    * reopened in a click), the chosen one's Chat on the right (AgentChat: its proposals as cards);
    * the Memory tab reads, changes and empties what it remembers. « New request » starts a new conversation.
    * Its shell is Drawer's (Escape, a click outside); ⌥↵ closes it, from its question and its
-   * Chat too; ⌘. interrupts the conversation shown.
+   * Chat too; ⌘. interrupts the conversation shown. **Archive** takes a conversation out of the
+   * list (`agents.archived`, as an agent's): **Archived · N** at its foot shows them, and one that
+   * waits for you again comes back by itself.
    */
-  const list = $derived(conversations(live.snapshot))
-  const days = $derived(byDay(list))
-  const shown = $derived(list.find((a) => a.id === assistantView.selected) ?? null)
+  const all = $derived(conversations(live.snapshot))
+  const list = $derived(all.filter((a) => !isArchived(a)))
+  const archived = $derived(all.filter((a) => isArchived(a)))
+  let showArchived = $state(false)
+  $effect(() => {
+    if (showArchived && !archived.length) showArchived = false
+  })
+  const days = $derived(byDay(showArchived ? archived : list))
+  const shown = $derived(all.find((a) => a.id === assistantView.selected) ?? null)
   let draft = $state('')
   let box: HTMLTextAreaElement | undefined = $state()
 
@@ -90,8 +99,11 @@
             </button>
           {/each}
         {:else}
-          <p class="none">{t('No conversation yet: ask your first question on the right.')}</p>
+          <p class="none">{archived.length ? t('Every conversation is archived.') : t('No conversation yet: ask your first question on the right.')}</p>
         {/each}
+        {#if archived.length}
+          <button class="arch" class:on={showArchived} onclick={() => (showArchived = !showArchived)} title={showArchived ? t('Back to the conversations') : t('The conversations you archived')}><Icon name={showArchived ? 'back' : 'hide'} size={12} />{showArchived ? t('Conversations') : t('Archived · {n}', { n: archived.length })}</button>
+        {/if}
       </nav>
       <section class="chat">
         {#if shown}
@@ -102,6 +114,11 @@
             <span class="meta">{nameOf(shown)} · {st.label}</span>
             <span class="grow"></span>
             {#if shown.state === 'exited' || shown.state === 'gone'}<button class="btn sm" onclick={() => resumeAgent(shown.id).catch((e) => toastError(String(e)))}>{t('Resume')}</button>{/if}
+            {#if isArchived(shown)}
+              <button class="btn sm ghost" onclick={() => setArchived(shown, false)} title={t('Back in the list of conversations')}>{t('Unarchive')}</button>
+            {:else}
+              <button class="btn sm ghost" onclick={() => { setArchived(shown, true); assistantView.selected = null }} title={t('Out of the list, nothing stopped nor removed; back by itself when it waits for you')}>{t('Archive')}</button>
+            {/if}
             <button class="btn sm ghost" onclick={() => { closeAssistant(); openAgents(shown.id) }} title={t('Its terminal and its tabs, in the Agents view')}>{t('Open as an agent')}</button>
           </div>
           {#key shown.id}
@@ -142,6 +159,8 @@
   .conv.on { background: color-mix(in srgb, var(--info) 14%, var(--surface)); }
   .conv b { display: block; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
   .conv small { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--fs-tag); }
+  .arch { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 8px; padding: 6px 8px; border: none; border-top: 1px solid var(--border); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
+  .arch:hover, .arch.on { color: var(--text); }
   .none { margin: 10px 8px; color: var(--text-muted); font-size: var(--fs-meta); }
   .chat { display: flex; flex-direction: column; min-height: 0; }
   .ch { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); }
