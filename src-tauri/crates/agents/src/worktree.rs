@@ -102,6 +102,12 @@ pub fn create(repo: &Path, intent: &Intent) -> Result<PathBuf> {
             let _ = git(repo, &["fetch", "--quiet", "origin", &intent.branch]);
             let local = git(repo, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{}", intent.branch)]).is_ok();
             if local {
+                // Left behind by an earlier worktree or review: brought to origin's commit it just
+                // fetched, unless it has commits of its own (then as is).
+                let remote = format!("origin/{}", intent.branch);
+                if git(repo, &["merge-base", "--is-ancestor", &intent.branch, &remote]).is_ok() {
+                    let _ = git(repo, &["branch", "-f", &intent.branch, &remote]);
+                }
                 git(repo, &["worktree", "add", &dir, &intent.branch])?;
             } else {
                 git(repo, &["worktree", "add", "--track", "-b", &intent.branch, &dir, &format!("origin/{}", intent.branch)])?;
@@ -449,6 +455,41 @@ mod tests {
         let mr = worktrees_dir(&repo).join("mr");
         create(&repo, &Intent { dir: mr.clone(), branch: "feat/mr-branch".into(), base: None }).unwrap();
         assert_eq!(git(&mr, &["branch", "--show-current"]).unwrap().trim(), "feat/mr-branch");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A local branch behind origin is brought to it before its worktree is made; one with commits
+    /// of its own stays as it is.
+    #[test]
+    fn a_stale_local_branch_catches_up_with_origin() {
+        let root = std::env::temp_dir().join(format!("prism-wt-ff-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (origin, repo) = (root.join("origin.git"), root.join("app"));
+        std::fs::create_dir_all(&root).unwrap();
+        let sh = |dir: &Path, args: &[&str]| git(dir, args).unwrap();
+        let commit = ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m"];
+        sh(&root, &["init", "-q", "--bare", origin.to_str().unwrap()]);
+        sh(&root, &["init", "-q", "-b", "main", repo.to_str().unwrap()]);
+        sh(&repo, &[&commit[..], &["init"]].concat());
+        sh(&repo, &["remote", "add", "origin", origin.to_str().unwrap()]);
+        // Both branches start on `init` locally; origin has moved on to `later`.
+        sh(&repo, &["branch", "feat/behind"]);
+        sh(&repo, &["branch", "feat/diverged"]);
+        sh(&repo, &[&commit[..], &["later"]].concat());
+        sh(&repo, &["push", "-q", "origin", "main:feat/behind", "main:feat/diverged"]);
+        let later = sh(&repo, &["rev-parse", "main"]).trim().to_string();
+        // A commit of its own on feat/diverged, never pushed.
+        let tree = sh(&repo, &["rev-parse", "feat/diverged^{tree}"]).trim().to_string();
+        let own = sh(&repo, &["-c", "user.name=t", "-c", "user.email=t@t", "commit-tree", &tree, "-p", "feat/diverged", "-m", "own"]).trim().to_string();
+        sh(&repo, &["branch", "-f", "feat/diverged", &own]);
+
+        let behind = worktrees_dir(&repo).join("behind");
+        create(&repo, &Intent { dir: behind.clone(), branch: "feat/behind".into(), base: None }).unwrap();
+        assert_eq!(sh(&behind, &["rev-parse", "HEAD"]).trim(), later, "fast-forwarded to origin");
+
+        let diverged = worktrees_dir(&repo).join("diverged");
+        create(&repo, &Intent { dir: diverged.clone(), branch: "feat/diverged".into(), base: None }).unwrap();
+        assert_eq!(sh(&diverged, &["rev-parse", "HEAD"]).trim(), own, "its own commit kept");
         let _ = std::fs::remove_dir_all(&root);
     }
 }
