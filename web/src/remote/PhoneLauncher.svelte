@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
   import { live } from '../live.svelte'
-  import { afterLaunch, agentsSettings, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, openAgents, prepareAgent, slug, spawnAgent, toastLaunched, type Launch } from '../agents.svelte'
+  import { afterLaunch, agentsSettings, isLaunchMode, LAUNCH_MODES, launchModeLabel, type LaunchMode, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, openAgents, prepareAgent, slug, spawnAgent, toastLaunched, type Launch } from '../agents.svelte'
   import { Attachments, nameOf, newStep, newWorktree, takeDraft, tasksFor, testTask, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
   import { hasWorktrees, primaryRepo } from '../repositories'
   import { CLIS, cliOf, providerOf } from '../agent-cli'
@@ -29,20 +29,13 @@
    * Launched, the agent's Chat opens.
    */
 
-  type Mode = 'plan' | 'default' | 'acceptEdits'
+  type Mode = LaunchMode
   /** `scratch`: outside any project, in a folder Prism makes for it. */
   type Where = 'new' | 'existing' | 'clone' | 'folder' | 'scratch'
-  /** The computer's launcher's modes, in its order and with its words. */
-  const MODES: [Mode, string][] = [
-    ['default', t('Default')],
-    ['acceptEdits', t('Accept edits')],
-    ['plan', t('Plan first')],
-  ]
   const hintOf = (m: Mode, cli: string) =>
     m === 'default' ? t('The mode of {cli}’s settings: usually it asks before each edit and each command.', { cli })
     : m === 'acceptEdits' ? t('It edits files on its own, and asks before a command.')
     : t('You approve its plan before it touches the code.')
-  const isMode = (m: unknown): m is Mode => m === 'plan' || m === 'default' || m === 'acceptEdits'
   const STEP_KINDS: StepKind[] = ['mr', 'task', 'agent', 'prompt', 'notify']
 
   const snap = $derived(live.snapshot)
@@ -137,7 +130,7 @@
     models = d.model ? { [cli]: d.model } : {}
     efforts = d.effort ? { [cli]: d.effort } : {}
     also = d.worktree?.also ?? []
-    mode = isMode(d.permission_mode) ? d.permission_mode : agentsSettings().permission_mode
+    mode = isLaunchMode(d.permission_mode) ? d.permission_mode : agentsSettings().permission_mode
     category = d.category ?? ''
     tags = d.tags ?? []
     steps = d.then ? structuredClone($state.snapshot(d.then)) : []
@@ -234,7 +227,7 @@
       whereTo === 'folder' ? tildePath(folder) : whereTo === 'scratch' ? t('No project') : repo,
       whereTo === 'new' ? t('new worktree') : whereTo === 'existing' ? baseName(wtPath) : whereTo === 'clone' ? t('the clone') : '',
       cliOf(provider).name,
-      MODES.find(([m]) => m === mode)?.[1] ?? '',
+      launchModeLabel(mode),
     ]
       .filter(Boolean)
       .join(' · '),
@@ -379,7 +372,7 @@
     <section>
       <div class="lbl">{t('Mode')}</div>
       <div class="seg full" role="radiogroup">
-        {#each MODES as [m, label] (m)}<button type="button" role="radio" aria-checked={mode === m} onclick={() => (mode = m)}>{label}</button>{/each}
+        {#each LAUNCH_MODES as m (m)}<button type="button" role="radio" aria-checked={mode === m} onclick={() => (mode = m)}>{launchModeLabel(m)}</button>{/each}
       </div>
       <p class="hint">{hintOf(mode, cliOf(provider).name)}</p>
     </section>

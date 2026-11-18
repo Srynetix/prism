@@ -38,7 +38,7 @@ pub const NOT_ROUTED: &[&str] = &["agent_write", "agent_resize"];
 /// shows; in a mode where the agent still asks before running a command (not `auto`).
 fn phone_launch(snap: &crate::state::Snapshot, launch: &crate::agents::Launch) -> Result<()> {
     if let Some(mode) = launch.permission_mode.as_deref()
-        && !matches!(mode, "default" | "plan" | "acceptEdits")
+        && !prism_core::config::LAUNCH_MODES.contains(&mode)
     {
         bail!(tr!("from a phone, an agent starts in default, plan or acceptEdits mode, not {mode}", mode = mode));
     }

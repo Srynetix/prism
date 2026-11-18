@@ -5,7 +5,7 @@
   import Icon from './Icon.svelte'
   import { live } from '../live.svelte'
   import { targetsOfCli, targetUse } from '../agent-switch.svelte'
-  import { afterLaunch, agentsAvailable, agentsSettings, agentsView, allTags, slug, spawnAgent, prepareAgent, closeAgent, draggedFiles, filesOf, type Launch, type LaunchSlot, closeLauncherDrawer, toastLaunched, kindOf } from '../agents.svelte'
+  import { afterLaunch, agentsAvailable, agentsSettings, isLaunchMode, LAUNCH_MODES, launchModeLabel, type LaunchMode, agentsView, allTags, slug, spawnAgent, prepareAgent, closeAgent, draggedFiles, filesOf, type Launch, type LaunchSlot, closeLauncherDrawer, toastLaunched, kindOf } from '../agents.svelte'
   import { primaryRepo, worktreeRepos } from '../repositories'
   import { canPick, pickPath } from '../pick'
   import { toast } from '../toast.svelte'
@@ -46,7 +46,7 @@
    */
   /** `scratch`: outside any project, in a folder Prism makes for it. */
   type Where = 'new' | 'existing' | 'folder' | 'scratch'
-  type Mode = 'default' | 'acceptEdits' | 'plan'
+  type Mode = LaunchMode
   /** The repositories where agents create worktrees (`[[repos]] worktrees`), the primary one first. */
   const wtRepos = $derived(worktreeRepos(live.snapshot))
   const checkouts = $derived((live.snapshot?.worktrees ?? []).filter((w) => w.is_main))
@@ -169,7 +169,7 @@
     if (quick) more = false
     // The short form: the mode last launched with in this repository, failing that the settings'.
     const lastMode = quick && d.worktree?.repo ? pref<Mode | ''>(`agents.mode.${d.worktree.repo}`, '') : ''
-    mode = (d.permission_mode as Mode) || lastMode || agentsSettings().permission_mode
+    mode = (isLaunchMode(d.permission_mode) ? d.permission_mode : '') || lastMode || agentsSettings().permission_mode
     category = d.category ?? ''
     launchTags = d.tags ?? []
     picked = d.provider ?? ''
@@ -496,9 +496,7 @@
     {/if}
     <div class="field"><span>{t('Permissions')}</span>
       <div class="seg">
-        <button type="button" class:on={mode === 'default'} onclick={() => (mode = 'default')} title={t('The mode of your {cli} settings', { cli: launchCli.cli })}>{t('Default')}</button>
-        <button type="button" class:on={mode === 'acceptEdits'} onclick={() => (mode = 'acceptEdits')}>{t('Accept edits')}</button>
-        <button type="button" class:on={mode === 'plan'} onclick={() => (mode = 'plan')}>{t('Plan first')}</button>
+        {#each LAUNCH_MODES as m (m)}<button type="button" class:on={mode === m} onclick={() => (mode = m)} title={m === 'default' ? t('The mode of your {cli} settings', { cli: launchCli.cli }) : undefined}>{launchModeLabel(m)}</button>{/each}
       </div>
     </div>
     {#if quick}<button type="button" class="more" onclick={() => { quick = false; more = true }} aria-expanded="false">{t('More options')}<small> · {t('Title, where, model, Then, kind, tags')}</small></button>

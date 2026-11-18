@@ -369,6 +369,14 @@ export async function prepareAgent(launch: Launch): Promise<string> {
 export const startPrepared = (id: string) => invoke('agent_start', { id })
 export const justLaunched = (id: string | null) => !!id && launched?.id === id && Date.now() - launched.at < 15_000
 export const removeWorktree = (id: string) => invoke('agent_remove_worktree', { id })
+/**
+ * The permission modes the launchers offer (the computer's, the phone's), in their order: the
+ * agent still asks before running a command. The core's `LAUNCH_MODES`, which checks them.
+ */
+export const LAUNCH_MODES = ['default', 'acceptEdits', 'plan'] as const
+export type LaunchMode = (typeof LAUNCH_MODES)[number]
+export const isLaunchMode = (m: unknown): m is LaunchMode => (LAUNCH_MODES as readonly unknown[]).includes(m)
+export const launchModeLabel = (m: LaunchMode) => ({ default: t('Default'), acceptEdits: t('Accept edits'), plan: t('Plan first') })[m]
 /** Deletes the folder Prism made for a stopped agent outside any project. */
 export const removeScratch = (id: string) => invoke('agent_remove_scratch', { id })
 /** An agent outside any project, in the folder Prism made for it (core's `own_folder`). */

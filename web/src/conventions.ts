@@ -103,6 +103,26 @@ export function ticketRegex(key: string, build: (ticket: string) => string, flag
 export const asTicket = (text: string) => (ticketRegex('whole', (t) => `^${t}$`).test(text.trim()) ? text.trim().toUpperCase() : null)
 
 /**
+ * A filter's query, as the pages of blocks and the Projects band read it: a ticket id (`ABC-12`);
+ * an MR number (`!12` GitLab, `#12` GitHub, or `12` alone, then also the ticket `ABC-12` named
+ * `ticket`, the tracker's prefix given); otherwise text, each matching it its own way.
+ */
+export type FilterQuery = { kind: 'ticket'; id: string } | { kind: 'number'; n: number; ticket: string | null } | { kind: 'text'; text: string }
+
+export function parseFilterQuery(raw: string): FilterQuery | null {
+  const q = raw.trim()
+  if (!q) return null
+  const id = asTicket(q)
+  if (id) return { kind: 'ticket', id }
+  const number = /^([!#]?)(\d+)$/.exec(q)
+  if (number) {
+    const n = Number(number[2])
+    return { kind: 'number', n, ticket: !number[1] && ticketPrefix() ? `${ticketPrefix()}-${n}` : null }
+  }
+  return { kind: 'text', text: q }
+}
+
+/**
  * Every ticket an MR names in its title or branch (`tickets`), its first one (`ticket`) in a
  * snapshot that predates them: an MR may close several tickets.
  */
