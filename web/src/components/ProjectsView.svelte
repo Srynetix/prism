@@ -189,7 +189,7 @@
       {/each}
     {/each}
     {#if filter.query.trim() && !shown.length}<p class="none">{t('No project matches the filter.')}</p>{/if}
-    {#if !projects.length}<p class="empty">{t('No repository yet: add one in Settings › Repositories.')}</p>{/if}
+    {#if !projects.length}<p class="empty">{t('No repository yet: add one in Settings › Code › Repositories.')}</p>{/if}
   </aside>
 
   <div class="detail">

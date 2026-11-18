@@ -563,7 +563,7 @@ export const SCHEMA: SectionSpec[] = [
     fields: [
       { key: 'enabled', syn: t('upgrade, new version, release'), label: t('Check for updates'), hint: t('At launch and every 6 hours; a newer Prism shows in the status bar. Off: only Check now reads the releases.'), kind: 'toggle' },
       { key: 'source', label: t('Source'), hint: t('Where the releases are published: glab:group/project or gh:owner/repo. Empty: no updates. Checked once saved.'), kind: 'text', placeholder: 'glab:group/project', optional: true },
-      { key: 'packs', label: t('Check the packs'), hint: t('At the same times, the packs’ sources are read again: a pack changed there shows in the status bar, Settings › Packs updates it. Off: only Check now reads them.'), kind: 'toggle' },
+      { key: 'packs', label: t('Check the packs'), hint: t('At the same times, the packs’ sources are read again: a pack changed there shows in the status bar, Settings › General › Packs updates it. Off: only Check now reads them.'), kind: 'toggle' },
     ],
   },
   {

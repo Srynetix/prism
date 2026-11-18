@@ -81,21 +81,14 @@ pub fn read(path: &Path) -> Result<FileView> {
         }
         Err(e) => (serde_json::Value::Null, Some(format!("{e:#}")), Vec::new()),
     };
-    let (inherited, packs) = match crate::packs::layered(path, &text) {
-        Ok((_, inherited, packs)) => (serde_json::to_value(inherited).unwrap_or_default(), packs),
-        Err(_) => (serde_json::Value::Null, Vec::new()),
+    // The packs read once: what they give, which gives what, their files, and the whole merged.
+    let (inherited, packs, inherited_from, pack_files, merged) = match crate::packs::layers(path, &text) {
+        Ok(l) => {
+            let pack_files = l.files.into_iter().map(|(name, file, text)| PackFile { name, path: file.display().to_string(), text }).collect();
+            (serde_json::to_value(&l.inherited).unwrap_or_default(), l.packs, l.origins, pack_files, merged_of(&l.table).ok())
+        }
+        Err(_) => (serde_json::Value::Null, Vec::new(), Default::default(), Vec::new(), None),
     };
-    let pack_files = packs
-        .iter()
-        .filter(|p| !p.missing)
-        .filter_map(|p| {
-            let file = crate::packs::file(path, &p.name);
-            let text = std::fs::read_to_string(&file).ok()?;
-            Some(PackFile { name: p.name.clone(), path: file.display().to_string(), text })
-        })
-        .collect();
-    let merged = merged(path, &text).ok();
-    let inherited_from = crate::packs::origins(path, &text).unwrap_or_default();
     Ok(FileView { path: path.display().to_string(), text, values, effective, defaults, error, unread, inherited, inherited_from, packs, pack_files, merged })
 }
 
@@ -108,7 +101,12 @@ pub fn unread(table: &toml::Table, defaults: &serde_json::Value) -> Vec<String> 
 /// reads before filling in the defaults.
 pub fn merged(path: &Path, text: &str) -> Result<String> {
     let (table, _, _) = crate::packs::layered(path, text)?;
-    Ok(toml::to_string_pretty(&table)?)
+    merged_of(&table)
+}
+
+/// The merged table as Settings shows it (`merged`, `FileView.merged`).
+fn merged_of(table: &toml::Table) -> Result<String> {
+    Ok(toml::to_string_pretty(table)?)
 }
 
 /// The text these changes would produce, without writing anything.

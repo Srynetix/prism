@@ -11,7 +11,8 @@
   import Field from './settings/Field.svelte'
   import { DEFAULT_NOTES_KEY } from '../quick-notes.svelte'
   import ShortcutRecorder from './settings/ShortcutRecorder.svelte'
-  import TomlPreview from './settings/TomlPreview.svelte'
+  import TomlPanel, { tomlModeOf } from './settings/TomlPanel.svelte'
+  import SettingsSearch, { SearchState } from './settings/SettingsSearch.svelte'
   import DictationSettings from './settings/DictationSettings.svelte'
   import McpSettings from './settings/McpSettings.svelte'
   import { configurePrism } from '../prism-agent'
@@ -29,13 +30,12 @@
   import { DEFAULT_HIDDEN, STATUS_ITEMS, SIDE_BREAK } from '../statusbar'
   import { statusbarEditing } from '../statusbar-edit.svelte'
   import { SCHEMA } from '../settings-schema'
-  import Control from './settings/Control.svelte'
   import { ensure, failing, recheck, runs, sectionRequests } from '../settings-checks.svelte'
   import { live } from '../live.svelte'
   import { chainOf, descendants, groupsOf, isProvider, nodeOf, PARENT, pageOf, TREE, type TreeNode } from '../settings-tree'
   import { fieldsOf, pathOf, SECTION, type Section } from '../settings-sections'
-  import { buildIndex, pageNode, pagesFor, search, shown as showValue, type Entry } from '../settings-search'
-  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, savedValue, raw, editRaw, cancelRaw, saveRaw, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
+  import { shown as showValue } from '../settings-search'
+  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, packBusy, packRef, removePack, restartApp, saveConfig, savedValue, raw, saveRaw, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
   import { DEFAULT_APPEARANCE, system, replayBoot, SAVER_MODES, startSaver, type Feature, type SaverMode } from '../fun.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { THEMES } from '../theme.svelte'
@@ -75,8 +75,7 @@
   /** Shows a page (or the overview): out of the search, which would hide it. */
   const go = (id: string) => {
     showSettings(id)
-    query = ''
-    filter = 'all'
+    search.reset()
   }
   /** “Delivery · branch stage” → “Branch stage”: a tab's name. */
   const stageLabel = (label: string) => label.replace(/^.*· /, '').replace(/^./, (c) => c.toUpperCase())
@@ -183,76 +182,11 @@
   /**
    * The search lists keys (settings-search.ts), each changed in place; ↵ opens the page on the
    * one chosen. The filters keep the keys changed, written in config.toml or given by a pack, or
-   * the pages on or needing attention; each says how many.
+   * the pages on or needing attention; each says how many (SettingsSearch.svelte).
    */
-  const INDEX = buildIndex()
-  let query = $state('')
-  let searchInput = $state<HTMLInputElement>()
-  type Filter = 'all' | 'on' | 'changed' | 'file' | 'pack' | 'attention'
-  let filter = $state<Filter>('all')
-  const FILTERS: { id: Filter; label: string; title: string }[] = [
-    { id: 'all', label: t('All'), title: t('Every page') },
-    { id: 'on', label: tc('filter', 'On'), title: t('The features switched on') },
-    { id: 'changed', label: t('Not saved'), title: t('Unsaved changes') },
-    { id: 'file', label: t('Not default'), title: t('Written in config.toml: your own values') },
-    { id: 'pack', label: t('From a pack'), title: t('Given by a pack, not changed in config.toml') },
-    { id: 'attention', label: t('Attention'), title: t('A check failed, or a source could not be read') },
-  ]
-  /** The filters on keys; `on` and `attention` keep pages. */
-  const keyFilter = (f: Filter, e: Entry) => (f === 'changed' ? isChanged(e.path) : f === 'file' ? originOf(e.path) === 'file' : f === 'pack' ? originOf(e.path) === 'pack' : f === 'on' ? isOn(e.page) === true : f === 'attention' ? attention(e.section) : true)
-  const pages = $derived(TREE.flatMap((r) => r.children ?? []))
-  const pageFilter = (f: Filter, n: TreeNode) => (f === 'on' ? isOn(n) === true : f === 'attention' ? nodeAttention(n) : true)
-  const counts = $derived.by(() => ({
-    all: 0,
-    on: pages.filter((n) => isOn(n) === true).length,
-    changed: changes().length,
-    file: INDEX.filter((e) => originOf(e.path) === 'file').length,
-    pack: INDEX.filter((e) => originOf(e.path) === 'pack').length,
-    attention: pages.filter(nodeAttention).length,
-  }))
-  const searching = $derived(!!query.trim() || filter !== 'all')
-  const valueText = (e: Entry) => showValue(valueOf(e.path))
-  /** The keys listed: those answering the query, kept by the filter (a page filter alone lists pages). */
-  const results = $derived.by(() => {
-    if (!searching) return []
-    if (!query.trim() && (filter === 'on' || filter === 'attention')) return []
-    return (query.trim() ? search(INDEX, query, valueText) : INDEX).filter((e) => keyFilter(filter, e)).slice(0, 200)
-  })
-  /** The pages answering the query, or kept by a page filter: chips above the keys. */
-  const pageChips = $derived(searching ? (query.trim() ? pagesFor(query) : pages).filter((n) => pageFilter(filter, pageNode(n))) : [])
-  let selected = $state(0)
-  $effect(() => {
-    void query
-    void filter
-    selected = 0
-  })
-  function openEntry(e: Entry) {
-    showSettings((e.provider ?? e.page).id, e.key, e.section.id)
-    query = ''
-    filter = 'all'
-  }
-  function onSearchKey(e: KeyboardEvent) {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault()
-      const n = results.length
-      if (n) selected = (selected + (e.key === 'ArrowDown' ? 1 : n - 1)) % n
-      document.getElementById(`res-${selected}`)?.scrollIntoView({ block: 'nearest' })
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (results[selected]) openEntry(results[selected])
-      else if (pageChips[0]) go(pageChips[0].id)
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      e.stopPropagation()
-      if (query || filter !== 'all') {
-        query = ''
-        filter = 'all'
-      } else searchInput?.blur()
-    }
-  }
-  /** In the tree while searching: the pages with a key listed, or listed themselves. */
-  const listedPages = $derived(new Set([...results.map((e) => e.page.id), ...pageChips.map((n) => pageNode(n).id)]))
-  const visiblePage = (n: TreeNode) => !searching || listedPages.has(n.id)
+  const search = new SearchState({ isOn, nodeAttention, attention, go })
+  const searching = $derived(search.searching)
+  const visiblePage = (n: TreeNode) => !searching || search.listedPages.has(n.id)
 
   /**
    * Folded domains, remembered; a search unfolds every match, and showing a page unfolds its
@@ -290,27 +224,8 @@
     showToml = !showToml
     setPref('settings.toml', showToml)
   }
-  /**
-   * What the TOML panel shows: config.toml (what saving would write), a pack's file, read-only,
-   * or the packs and config.toml merged as the app reads them, the unsaved changes included.
-   */
+  /** What the TOML panel shows (TomlPanel.svelte): config.toml, a pack's file, or the two merged. */
   let tomlView = $state(pref<string>('settings.tomlView', 'file'))
-  const tomlPack = $derived(cfg.file?.pack_files.find((p) => `pack:${p.name}` === tomlView))
-  const tomlMode = $derived(tomlView === 'merged' && cfg.file?.pack_files.length ? 'merged' : tomlPack ? 'pack' : 'file')
-  function pickToml(v: string) {
-    tomlView = v
-    setPref('settings.tomlView', v)
-  }
-  let merged = $state({ text: '', error: '' })
-  $effect(() => {
-    if (!showToml || tomlMode !== 'merged' || !isDesktop()) return
-    let gone = false
-    mergedToml(cfg.preview).then(
-      (text) => !gone && (merged = { text, error: '' }),
-      (e) => !gone && (merged = { text: '', error: String(e) }),
-    )
-    return () => (gone = true)
-  })
 
   /** The save bar's list of changes, key by key: before → after. */
   let diffOpen = $state(false)
@@ -441,9 +356,8 @@
     }
   }
 
-  const rawChanged = $derived(raw.on && raw.text !== raw.base)
   /** The editor on screen: the TOML panel open on config.toml; the form inert meanwhile. */
-  const rawShown = $derived(raw.on && showToml && tomlMode === 'file')
+  const rawShown = $derived(raw.on && showToml && tomlModeOf(tomlView) === 'file')
 
   /**
    * ⌘S saves; / (out of a field) or ⌘F puts the cursor in the search — ⌘F but in a text area,
@@ -456,8 +370,7 @@
       void (rawShown ? saveRaw() : saveConfig())
     } else if ((mod && e.key === 'f' && !inTextArea(e)) || (e.key === '/' && !mod && !typingIn(e))) {
       e.preventDefault()
-      searchInput?.focus()
-      searchInput?.select()
+      search.focus()
     }
   }
   const inTextArea = (e: KeyboardEvent) => {
@@ -482,10 +395,7 @@
 
 <div class="settings layer-in"><div class="layout" class:withtoml={showToml}>
   <aside class="toc">
-    <label class="search"><Icon name="search" /><input bind:this={searchInput} bind:value={query} onkeydown={onSearchKey} placeholder={t('Search a setting, a key, a value…')} spellcheck="false" aria-label={t('Search the settings')} />{#if query}<button class="clear" onclick={() => (query = '')} aria-label={t('Clear the search')}><Icon name="close" /></button>{:else}<kbd>/</kbd>{/if}</label>
-    <div class="filters">
-      {#each FILTERS as f (f.id)}<button class:on={filter === f.id} onclick={() => (filter = filter === f.id && f.id !== 'all' ? 'all' : f.id)} title={f.title}>{f.label}{#if f.id !== 'all'}<span class="n" class:hot={counts[f.id] > 0}>{counts[f.id]}</span>{/if}</button>{/each}
-    </div>
+    <SettingsSearch {search} part="box" />
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <nav class="tree" onkeydown={onTreeKey}>
       <div class="node top" class:on={!page}><span class="car"></span><button class="lbl" onclick={() => go('overview')}><Icon name="kanban" /><span class="name">{t('Overview')}</span></button></div>
@@ -523,7 +433,7 @@
           {/if}
         {/if}
       {/each}
-      {#if searching && !listedPages.size}<p class="hint none">{t('Nothing matches.')}</p>{/if}
+      {#if searching && !search.listedPages.size}<p class="hint none">{t('Nothing matches.')}</p>{/if}
     </nav>
     <span class="ver" title="{t('Prism version, and the commit it was built from')}{COMMIT.endsWith('+') ? t(' (+: with uncommitted changes)') : ''}">Prism {versionLabel()}</span>
   </aside>
@@ -810,44 +720,7 @@
     {/snippet}
 
     {#if searching}
-      <!-- The search: keys, each changed in place; ↵ opens its page on it. -->
-      <div class="rhead">
-        <b>{query.trim() || filter === 'changed' || filter === 'file' || filter === 'pack' ? tn(results.length, '{n} setting', '{n} settings') : FILTERS.find((f) => f.id === filter)?.title}</b>
-        {#if filter !== 'all'}<span class="path">{FILTERS.find((f) => f.id === filter)?.label}</span>{/if}
-        <span class="grow"></span>
-        <span class="hint">{t('↑ ↓ to choose, ↵ to open its page, Esc to clear')}</span>
-        <button class="btn sm ghost" onclick={toggleToml} aria-pressed={showToml} title={t('Show config.toml next to the settings')}>TOML</button>
-      </div>
-      {#if pageChips.length}
-        <div class="chips">
-          {#each pageChips.slice(0, 16) as n (n.id)}
-            {@const at = pageNode(n)}
-            <button class="chip" class:off={inactive(at)} onclick={() => go(n.id)}><span class="sw" style:background={chainOf(at)[0].color}></span>{chainOf(at)[0].label} › {n === at ? n.label : `${at.label} › ${n.label}`}{#if isOn(at) !== undefined}<span class="dot" class:ok={isOn(at)}></span>{/if}</button>
-          {/each}
-        </div>
-      {/if}
-      <div class="results">
-        {#each results as e, i (e.id)}
-          {@const o = originOf(e.path)}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="res" class:sel={i === selected} id="res-{i}" onmouseenter={() => (selected = i)}>
-            <button class="rl" onclick={() => openEntry(e)} title={t('Open its page on it (↵)')}>
-              <span class="rc">{e.crumb.join(' › ')}</span>
-              <b>{e.field.label}</b>
-              <span class="key">{e.key}</span>
-              {#if e.field.hint}<small>{e.field.hint}</small>{/if}
-            </button>
-            <div class="rv">
-              {#if e.field.kind === 'toggle' || e.field.kind === 'select' || e.field.kind === 'number' || e.field.kind === 'text'}
-                <Control kind={e.field.kind} value={valueOf(e.path)} onchange={(v) => setValue(e.path, v)} options={e.field.options} labels={e.field.labels} optional={e.field.optional} placeholder={e.field.placeholder} unit={e.field.unit} step={e.field.step} compact />
-              {:else}<span class="val mono" title={showValue(valueOf(e.path))}>{showValue(valueOf(e.path))}</span>{/if}
-              <span class="origin {o}">{o === 'changed' ? t('not saved') : o === 'file' ? 'config.toml' : o === 'pack' ? packLabel(e.path) : tc('settings', 'default')}</span>
-            </div>
-          </div>
-        {:else}
-          {#if !pageChips.length}<p class="hint none">{t('No setting matches. Try another word, its TOML key, or a table: [forge].')}</p>{/if}
-        {/each}
-      </div>
+      <SettingsSearch {search} part="results" {showToml} ontoml={toggleToml} />
     {:else if !page || domain}
       <!-- The overview: every feature by domain, its switch beside it, and what to look at. -->
       <div class="head">
@@ -859,7 +732,7 @@
       {#if !domain}
         <div class="counters">
           {#each [['changed', t('not saved'), t('Changes waiting for ⌘S')], ['file', t('not default'), t('Keys written in config.toml')], ['pack', t('from a pack'), t('Keys a pack gives')], ['attention', t('to check'), t('Pages whose check failed or whose source does not read')]] as const as [f, label, title] (f)}
-            <button class="counter {f}" class:hot={counts[f] > 0} onclick={() => (filter = f)} title={title}><b>{counts[f]}</b><span>{label}</span></button>
+            <button class="counter {f}" class:hot={search.counts[f] > 0} onclick={() => (search.filter = f)} title={title}><b>{search.counts[f]}</b><span>{label}</span></button>
           {/each}
         </div>
       {/if}
@@ -1002,43 +875,7 @@
     {/if}
   </section>
 
-  {#if showToml}
-    <aside class="file">
-      <div class="th">
-        {#if cfg.file?.pack_files.length}
-          <select class="tsel" value={tomlMode === 'pack' ? tomlView : tomlMode} onchange={(e) => pickToml(e.currentTarget.value)} aria-label={t('File shown')}>
-            <option value="file">config.toml</option>
-            {#each cfg.file.pack_files as p (p.name)}<option value="pack:{p.name}">{t('Pack {name}', { name: p.name })}</option>{/each}
-            <option value="merged">{tc('settings', 'Merged')}</option>
-          </select>
-        {:else}<b>config.toml</b>{/if}
-        {#if tomlMode === 'pack'}
-          <span class="mono grow">{tomlPack?.path.replace(/^\/Users\/[^/]+/, '~')}</span><span title={t('Update it from Settings › General › Packs')}>{t('read-only')}</span>
-        {:else if tomlMode === 'merged'}
-          <span class="grow" title={t('Tables merge key by key, [[repos]] by name, anything else is replaced; [pack] and the sections a pack may not set are left out. The defaults are not shown.')}>{t('packs, then config.toml on top')}</span><span>{changes().length ? t('{n} unsaved', { n: changes().length }) : t('saved')}</span>
-        {:else if raw.on}
-          <span class="grow">{rawChanged ? t('edited, not saved') : t('as on disk')}</span>
-          <button class="btn sm ghost" onclick={cancelRaw} disabled={cfg.saving}>{t('Cancel')}</button>
-          <button class="btn sm primary" onclick={saveRaw} disabled={cfg.saving || !rawChanged} title={t('Write config.toml as typed (⌘S): the app rereads it, the previous version goes to config.toml.bak')}>{cfg.saving ? t('Saving…') : t('Save')}</button>
-        {:else}
-          <span class="mono grow">{cfg.file?.path.replace(/^\/Users\/[^/]+/, '~') ?? ''}</span><span>{changes().length ? t('{n} unsaved', { n: changes().length }) : t('saved')}</span>
-          {#if editable() && cfg.file}<button class="btn sm ghost" onclick={editRaw} disabled={!!changes().length} title={changes().length ? t('Save or discard the changes of the form first') : t('Edit config.toml by hand, here')}><Icon name="edit" size={11} />{t('Edit')}</button>{/if}
-        {/if}
-      </div>
-      {#if tomlMode === 'pack' && tomlPack}
-        <TomlPreview text={tomlPack.text} original={tomlPack.text} />
-      {:else if tomlMode === 'merged'}
-        {#if merged.error}<p class="note err pad">{merged.error}</p>
-        {:else}<TomlPreview text={merged.text || (cfg.file?.merged ?? '')} original={cfg.file?.merged ?? ''} />{/if}
-      {:else if raw.on}
-        {#if raw.error}<p class="note err pad">{raw.error}</p>{/if}
-        <!-- svelte-ignore a11y_autofocus -->
-        <textarea class="raw" bind:value={raw.text} spellcheck="false" autocomplete="off" autofocus aria-label={t('config.toml, editable')}></textarea>
-      {:else}
-        <TomlPreview text={cfg.preview} original={cfg.file?.text ?? ''} />
-      {/if}
-    </aside>
-  {/if}
+  {#if showToml}<TomlPanel bind:view={tomlView} />{/if}
 </div></div>
 
 <style>
@@ -1046,15 +883,6 @@
   .layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr); }
   .layout.withtoml { grid-template-columns: 230px minmax(0, 1fr) minmax(260px, 30%); }
   .toc { display: flex; flex-direction: column; gap: 1px; padding: 12px 8px; overflow: auto; background: var(--surface); border-right: 1px solid var(--border); }
-  .search { display: flex; align-items: center; gap: 6px; height: 28px; margin: 0 2px 8px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r7); background: var(--bg); color: var(--text-muted); }
-  .search input { flex: 1; min-width: 0; border: none; outline: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); }
-  .search kbd { padding: 0 5px; border: 1px solid var(--border); border-radius: var(--r4); color: var(--text-muted); font: var(--fs-tag) var(--mono); }
-  .search .clear { display: inline-flex; padding: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .filters { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 2px 6px; }
-  .filters button { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--r10); background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-tag); cursor: pointer; }
-  .filters button.on { color: var(--accent); border-color: var(--accent); }
-  .filters .n { font-family: var(--mono); opacity: 0.6; }
-  .filters .n.hot { opacity: 1; color: var(--text); }
   .grp { margin: 7px 0 1px 6px; color: var(--text-muted); font-size: var(--fs-tag); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
   .cnt { color: var(--text-muted); font: var(--fs-tag) var(--mono); font-weight: 400; }
   .node.top { margin-bottom: 2px; }
@@ -1081,7 +909,6 @@
   .none { margin: 8px; }
   .sample { display: block; margin-top: 4px; padding: 6px 8px; border-radius: var(--r6); background: var(--surface-muted); font-size: var(--fs-title); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .toc .ver { margin-top: auto; padding: 10px 8px 0; color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); user-select: text; }
-  .toc button.on { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 600; }
   .sw { width: 8px; height: 8px; flex-shrink: 0; border-radius: var(--r2); }
   .warn { display: inline-flex; color: var(--ko); font-size: var(--fs-meta); }
 
@@ -1108,29 +935,6 @@
   .anchors { position: sticky; top: -16px; z-index: 2; display: flex; flex-wrap: wrap; gap: 4px; margin: -4px -22px 12px; padding: 8px 22px; background: color-mix(in srgb, var(--bg) 92%, transparent); border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); }
   .anchors button { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
   .anchors button:hover { color: var(--text); border-color: var(--accent); }
-  /* Search results: a key per row, its value changed in place. */
-  .rhead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-  .rhead b { font-size: var(--fs-title); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  .chip:hover { border-color: var(--accent); }
-  .chip.off { color: var(--text-muted); }
-  .results { display: flex; flex-direction: column; margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); overflow: hidden; flex-shrink: 0; }
-  .results:empty { display: none; }
-  .res { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 40%); gap: 14px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--border); }
-  .res:last-child { border-bottom: none; }
-  .res.sel { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
-  .rl { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 0; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-  .rl b { font-weight: 550; font-size: var(--fs-body); }
-  .rl small { color: var(--text-muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rc { color: var(--text-muted); font-size: var(--fs-tag); }
-  .key { font: var(--fs-tag) var(--mono); color: var(--text-muted); opacity: 0.8; }
-  .rv { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
-  .val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
-  .origin { flex-shrink: 0; padding: 0 6px; border-radius: var(--r9); font-size: var(--fs-tag); line-height: 16px; background: var(--surface-muted); color: var(--text-muted); }
-  .origin.file { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-family: var(--mono); }
-  .origin.pack { background: var(--info-bg); color: var(--info); }
-  .origin.changed { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
   /* Overview: the counters, then each domain's features and their switches. */
   .counters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
   .counter { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
@@ -1150,7 +954,7 @@
   .fname:hover { color: var(--accent); text-decoration: underline; }
   .frow.off .fname { color: var(--text-muted); }
   .dom .grp { margin: 6px 0 0; }
-  @container (max-width: 700px) { .counters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .res { grid-template-columns: minmax(0, 1fr); } .rv { justify-content: flex-start; } }
+  @container (max-width: 700px) { .counters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .sub { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: var(--fs-title); font-weight: 600; }
   .tabs { display: flex; gap: 0; margin: 4px 0 12px; border-bottom: 1px solid var(--border); }
   .tabs button { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-body); cursor: pointer; }
@@ -1223,17 +1027,10 @@
   .savebar.done { background: color-mix(in srgb, var(--ok) 12%, var(--surface)); border-color: color-mix(in srgb, var(--ok) 40%, var(--border)); color: var(--ok); }
   .savebar b { color: var(--text); }
   @keyframes up { from { transform: translateY(100%); } }
-  .file { display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: #121211; border-left: 1px solid var(--border); }
-  .th { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-meta); }
-  .th b { color: var(--text); font-size: var(--fs-body); }
-  .raw { flex: 1; min-height: 0; margin: 0; padding: 10px 12px; border: none; outline: none; resize: none; background: transparent; color: #c9c9cf; font: 11px/1.6 var(--mono); white-space: pre; overflow: auto; tab-size: 2; }
-  .th .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tsel { padding: 1px 4px; border: 1px solid var(--border); border-radius: var(--r5); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
-  .note.pad { padding: 10px 12px; }
   /* Narrow: the file goes below the section rather than beside it. */
   @container (max-width: 980px) {
     .layout.withtoml { grid-template-columns: 180px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 260px; }
-    .layout.withtoml .file { grid-column: 2; border-left: none; border-top: 1px solid var(--border); }
+    .layout.withtoml > :global(.file) { grid-column: 2; border-left: none; border-top: 1px solid var(--border); }
     .layout.withtoml .toc { grid-row: 1 / span 2; }
   }
 </style>

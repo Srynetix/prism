@@ -135,7 +135,7 @@ pub struct PipelineRepo {
     pub branches: Vec<String>,
 }
 
-/// A repository's followed branches as the forge has them (Settings › Repositories' preview):
+/// A repository's followed branches as the forge has them (Settings › Code › Repositories' preview):
 /// those whose pipeline is read, in order, and the entries the forge has no branch for.
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]

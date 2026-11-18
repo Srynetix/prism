@@ -107,8 +107,8 @@
     {#if error}<p class="err">{error}</p>{/if}
     {#if isDesktop()}
       <div class="foot">
-        <button class="btn sm act" onclick={() => add('folder')} title={t('Settings › Repositories: an existing folder, or a clone of a project')}><Icon name="folder" />{t('Add a repository…')}</button>
-        <button class="btn sm act" onclick={() => add('new')} title={t('Settings › Repositories: a new folder with a git repository')}><Icon name="plus" />{t('New project…')}</button>
+        <button class="btn sm act" onclick={() => add('folder')} title={t('Settings › Code › Repositories: an existing folder, or a clone of a project')}><Icon name="folder" />{t('Add a repository…')}</button>
+        <button class="btn sm act" onclick={() => add('new')} title={t('Settings › Code › Repositories: a new folder with a git repository')}><Icon name="plus" />{t('New project…')}</button>
       </div>
     {/if}
   </div>

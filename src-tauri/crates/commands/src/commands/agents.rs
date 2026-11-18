@@ -984,7 +984,7 @@ mod tests {
     }
 }
 
-/// Settings › Routines' Run now: the routine as saved, its result where it would go at its time.
+/// Settings › Agents › Routines' Run now: the routine as saved, its result where it would go at its time.
 #[prism_macros::command]
 pub fn routine_run(state: State<'_, AppState>, name: String) -> Cmd {
     state.agents.run_routine_now(&name, None).map_err(Into::into)

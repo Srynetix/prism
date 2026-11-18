@@ -7,7 +7,7 @@
   import type { RepoBlock } from '../../bindings/RepoBlock'
 
   /**
-   * Settings › Repositories, below the list: each block that reads repositories and the one (or
+   * Settings › Code › Repositories, below the list: each block that reads repositories and the one (or
    * those) it reads, chosen in its key (`[renovate] repo`, `[vulnerabilities] repos`, a pack's
    * `[shipping] repo`); none chosen: the repository bare MR references name (`[forge]
    * bare_mr_repo`), itself chosen here. A pack's choice shows as the pack's until changed.

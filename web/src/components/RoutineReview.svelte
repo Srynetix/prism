@@ -12,7 +12,7 @@
    * "To review": the routines' runs that wait for me, one row each — the routine, its repository,
    * what its agent said in a line, what it produced (its MR, branch, files, cost), and the
    * gestures: Reply (blocked) or Open, the MR, Archive, Rerun (failed). Blocked ones first. Under
-   * them, the next times (`next`), each a link to Settings › Routines. `compact`: the Agents list's
+   * them, the next times (`next`), each a link to Settings › Agents › Routines. `compact`: the Agents list's
    * narrow column. `rerun`: Rerun asked of a phone, its passkey (`onrerun`).
    */
   let { compact = false, next = true, onrerun }: { compact?: boolean; next?: boolean; onrerun?: (run: RoutineRun) => void } = $props()
@@ -74,7 +74,7 @@
     {#if next && (upcoming.length || off.length)}
       <div class="next">
         {#each upcoming as u (u.name)}
-          <button class="nx" onclick={() => isDesktop() && openSettings('routines')} title={t('Settings › Routines')}><b>{u.name}</b> {nextTime(u.at)}{#if u.repos > 1} · {tn(u.repos, '{n} repository', '{n} repositories')}{/if}{#if u.digest} → {t('Digest')}{/if}</button>
+          <button class="nx" onclick={() => isDesktop() && openSettings('routines')} title={t('Settings › Agents › Routines')}><b>{u.name}</b> {nextTime(u.at)}{#if u.repos > 1} · {tn(u.repos, '{n} repository', '{n} repositories')}{/if}{#if u.digest} → {t('Digest')}{/if}</button>
         {/each}
         {#each off as o (o.name)}
           <button class="nx off" onclick={() => isDesktop() && openSettings('routines')} title={o.error ?? ''}><b>{o.name}</b> {o.error ? t('in error') : o.pending ? t('waits for your trust') : t('disabled')}</button>

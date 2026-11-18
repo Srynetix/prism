@@ -132,7 +132,7 @@
     if (actions.some((a) => a.name === name)) return toastInfo(t('A quick action is already named {name}: rename the routine first', { name }), 6000)
     const d = draft
     const action = { name, prompt: d.prompt, repos: d.repos, worktree: d.worktree, ...(d.mode ? { mode: d.mode } : {}), ...(d.kind ? { kind: d.kind } : {}), ...(d.model.trim() ? { model: d.model.trim() } : {}), ...(d.effort.trim() ? { effort: d.effort.trim() } : {}) }
-    // The list as Settings › Quick actions shows and writes it: its unsaved edits kept.
+    // The list as Settings › Agents › Quick actions shows and writes it: its unsaved edits kept.
     const current = valueOf<QuickAction[]>(['agents', 'quick_actions'], [])
     const next: Draft = { ...d, source: 'action', action: name, prompt: '', worktree: false, mode: '', kind: '', model: '', effort: '', repos: [] }
     const row = toRow(next)
@@ -144,7 +144,7 @@
         { path: ['agents', 'routines'], value: rows },
       ])
       draft = { ...next, former: name }
-      toast(t('Quick action {name} made (Settings › Quick actions); the routine runs it', { name }), 6000)
+      toast(t('Quick action {name} made (Settings › Agents › Quick actions); the routine runs it', { name }), 6000)
     } catch (e) {
       toastError(String(e))
     } finally {
@@ -208,8 +208,8 @@
 
 {#if !rs.keep_running}
   <div class="banner">
-    <b>{t('Prism closed = no routine.')}</b> {t('They run while Prism does, its window open or not. Turn on Keep running (Settings › Remote) so that Prism opens at login and again after a crash.')}
-    <button class="lnk" onclick={() => openSettings('remote')}>{t('Settings › Remote')}</button>
+    <b>{t('Prism closed = no routine.')}</b> {t('They run while Prism does, its window open or not. Turn on Keep Prism running (Settings › Remote › Away) so that Prism opens at login and again after a crash.')}
+    <button class="lnk" onclick={() => openSettings('remote-away')}>{t('Settings › Remote › Away')}</button>
   </div>
 {:else}
   <p class="ok">{t('Keep running is on: the routines run with the window closed.')}</p>

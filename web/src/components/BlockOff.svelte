@@ -23,7 +23,7 @@
     <BlockControls {id} />
   </h2>
   {#if noRepo}
-    <State kind="off" title={t('{title} reads a repository: none is chosen.', { title: t(title) })} detail={`${t('(Settings › Repositories), or turn it off:')} ${setting}`} action={{ label: t('Choose one'), run: () => openSettings('repo-blocks') }} />
+    <State kind="off" title={t('{title} reads a repository: none is chosen.', { title: t(title) })} detail={`${t('(Settings › Code › Repositories), or turn it off:')} ${setting}`} action={{ label: t('Choose one'), run: () => openSettings('repo-blocks') }} />
   {:else}
     <State kind="off" title={t('{title} is off.', { title: t(title) })} detail={setting} action={{ label: t('Turn it on'), run: () => openSettings(section) }} />
   {/if}

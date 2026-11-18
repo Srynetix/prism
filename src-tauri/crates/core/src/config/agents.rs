@@ -682,7 +682,6 @@ impl Default for AgentsConfig {
     }
 }
 
-/// `[agents] permission_mode`: one the launcher offers, or `default`.
 /// `[agents] chat_reminders`: marker, hidden or shown, else `marker`.
 fn chat_reminders<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
     let mode = String::deserialize(d)?;
@@ -694,9 +693,14 @@ fn chat_reminders<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::E
     })
 }
 
+/// The permission modes the launchers offer (the computer's, the phone's), in their order: the
+/// agent still asks before running a command (never `auto`, nor `bypassPermissions`).
+pub const LAUNCH_MODES: [&str; 3] = ["default", "acceptEdits", "plan"];
+
+/// `[agents] permission_mode`: one the launcher offers (`LAUNCH_MODES`), or `default`.
 fn launcher_mode<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
     let mode = String::deserialize(d)?;
-    Ok(if matches!(mode.as_str(), "default" | "acceptEdits" | "plan") {
+    Ok(if LAUNCH_MODES.contains(&mode.as_str()) {
         mode
     } else {
         tracing::warn!("[agents] permission_mode {mode:?}: not one the launcher offers, default instead");

@@ -9,7 +9,7 @@
    * The repositories without a local clone, and three ways to give them one: find them in a folder
    * the user picks (only there, a few levels down, by their remote), choose a folder (checked to
    * be a clone of the project), or clone the project with glab or gh. Without `items`, those of
-   * Settings › Repositories, whose paths become pending edits; the launch prompt passes its own.
+   * Settings › Code › Repositories, whose paths become pending edits; the launch prompt passes its own.
    */
   let { items, onpath }: { items?: CloneItem[]; onpath?: (name: string, path: string) => void } = $props()
 

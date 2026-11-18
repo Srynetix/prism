@@ -254,7 +254,7 @@ function pageEntries(): Entry[] {
   return [...pages, ...blocks]
 }
 
-/** Settings › Repositories, its Add panel open on `mode`. */
+/** Settings › Code › Repositories, its Add panel open on `mode`. */
 function addRepo(mode: AddMode) {
   repoAdd.publish = ''
   repoAdd.mode = mode

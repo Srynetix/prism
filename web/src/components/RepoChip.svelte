@@ -13,7 +13,7 @@
 </script>
 
 {#if several && repos.length}
-  <button class="pill outline mono repo" onclick={() => openSettings('repo-blocks')} title={t('The repository it reads: Settings › Repositories')}>{repos.join(', ')}</button>
+  <button class="pill outline mono repo" onclick={() => openSettings('repo-blocks')} title={t('The repository it reads: Settings › Code › Repositories')}>{repos.join(', ')}</button>
 {/if}
 
 <style>

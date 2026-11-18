@@ -83,7 +83,7 @@
 
 <div class="notes">
   {#if !repo}
-    <p class="none">{t('{who} works outside the repositories of the config (Settings › Repositories): its folder has no notes.', { who })}</p>
+    <p class="none">{t('{who} works outside the repositories of the config (Settings › Code › Repositories): its folder has no notes.', { who })}</p>
   {:else}
     <div class="sec">
       <span class="cap"><Icon name="branch" />{repo}<span class="grow"></span>{#if isDesktop()}<button class="btn sm" onclick={all} title={t('The Notes block over the view, filtered on {repo}', { repo })}>{t('All notes')}</button>{/if}</span>

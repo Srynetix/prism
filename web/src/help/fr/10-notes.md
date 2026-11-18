@@ -37,7 +37,7 @@ Vous pouvez aussi commencer le texte par `TODO` ou `DOING` (par exemple `TODO ap
 - **Grouper** : le bouton des calques remplace les sections Épinglées et du jour par une section par étiquette (une note à deux étiquettes apparaît dans les deux), et **Sans étiquette** en dernier. Les rappels gardent leur section.
 
 ## Les notes d’un dépôt
-Une note peut concerner l’un de vos dépôts (Réglages › Dépôts), quel que soit son type. Le sélecteur **branche** du champ range la prochaine note sous un dépôt (— pour aucun) ; le bouton branche d’une note, au survol, la déplace vers un autre dépôt ou la sort de tout dépôt.
+Une note peut concerner l’un de vos dépôts (Réglages › Code › Dépôts), quel que soit son type. Le sélecteur **branche** du champ range la prochaine note sous un dépôt (— pour aucun) ; le bouton branche d’une note, au survol, la déplace vers un autre dépôt ou la sort de tout dépôt.
 
 - **Filtrer** : cliquez sur le badge de dépôt d’une note, ou sur sa pastille dans la barre sous le champ, pour ne voir que les notes de ce dépôt ; cliquez à nouveau (ou sur le nom dans le titre du bloc) pour toutes les voir. Une note écrite pendant qu’un dépôt est filtré est rangée sous lui.
 - **Grouper** : le menu de regroupement à côté du tri propose **Dépôt** : une section par dépôt, par nom, et **Sans dépôt** en dernier.

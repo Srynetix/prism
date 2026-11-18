@@ -2,7 +2,7 @@ import type { Agent, LeftSession, MergeRequest, Pipeline, Repo, RepoInfo, Snapsh
 import { describeWorktrees, isDone, latest, mrForSession, ticketIndex, waitsForYou, type WorktreeInfo } from './rules'
 import { agentRepo, repoName } from './repositories'
 import { ticketRef } from './tracker'
-import { asTicket, namesTicket, ticketPrefix } from './conventions'
+import { namesTicket, parseFilterQuery } from './conventions'
 
 /**
  * The Projects page (`ProjectsView.svelte`): a project is a repository (`[[repos]]`), a workstream
@@ -191,20 +191,16 @@ export interface ProjectSummary {
  * aside. Its workstreams themselves are not filtered.
  */
 export function projectMatches(p: ProjectSummary, query: string): boolean {
-  const q = query.trim()
+  const q = parseFilterQuery(query)
   if (!q) return true
   const mrs = [...p.workstreams.flatMap((w) => (w.mr ? [w.mr] : [])), ...p.mrs]
   const hasTicket = (id: string) => p.workstreams.some((w) => w.ticketId?.toUpperCase() === id) || mrs.some((m) => namesTicket(m, id))
-  const ticket = asTicket(q)
-  if (ticket) return hasTicket(ticket)
-  const number = q.match(/^[!#]?(\d+)$/)
-  if (number) {
-    const n = Number(number[1])
-    return mrs.some((m) => m.iid === n) || (!/^[!#]/.test(q) && !!ticketPrefix() && hasTicket(`${ticketPrefix()}-${n}`))
-  }
+  if (q.kind === 'ticket') return hasTicket(q.id)
+  if (q.kind === 'number') return mrs.some((m) => m.iid === q.n) || (!!q.ticket && hasTicket(q.ticket))
   const mrText = (m: MergeRequest | undefined) => (m ? `!${m.iid} #${m.iid} ${m.source_branch} ${m.title}` : '')
   const text = [p.name, ...p.workstreams.map((w) => `${w.branch ?? ''} ${w.ticketId ?? ''} ${w.ticket?.name ?? ''} ${mrText(w.mr)}`), ...p.mrs.map(mrText)].join('\n').toLowerCase()
-  return q.toLowerCase().split(/\s+/).every((w) => text.includes(w))
+  // Every word, anywhere in the project (a page's filter: the whole text, in one object).
+  return q.text.toLowerCase().split(/\s+/).every((w) => text.includes(w))
 }
 
 /** The base branch's last pipeline (`main`), of those Prism reads. */

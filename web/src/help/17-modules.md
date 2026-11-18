@@ -17,7 +17,7 @@ modules/hello/
   backend.wasm       its back end (optional)
 ```
 
-Prism lists them in **Settings › Packs › Modules**: loaded, or refused with the reason (another module contract, another Svelte, a newer Prism needed, a back end that stopped Prism). A module added or replaced shows once the window reloads (**Reload the window** there).
+Prism lists them in **Settings › General › Packs › Modules**: loaded, or refused with the reason (another module contract, another Svelte, a newer Prism needed, a back end that stopped Prism). A module added or replaced shows once the window reloads (**Reload the window** there).
 
 ## The manifest
 
@@ -103,14 +103,14 @@ Importing or updating the pack puts each module in `modules/<id>/`, whole; remov
 
 ## Trust it
 
-Nothing of a module runs before you trust it: its web part is not loaded, its back end does not start, its blocks say they wait. **Settings › Packs › Modules** lists what its back end may reach (GitLab, git, the hosts and programs it names): **Trust** it (two clicks) and its back end starts at once, its web part with the window's next load. Its back end reaches only what it lists; its web part runs in Prism's window with everything Prism can do, so trust it as you would Prism. Trust goes by the fingerprint of its folder: a new version waits again, with what it changes (a capability it adds, a block, a config table); so does one trusted when a capability reached less than Prism lets it now.
+Nothing of a module runs before you trust it: its web part is not loaded, its back end does not start, its blocks say they wait. **Settings › General › Packs › Modules** lists what its back end may reach (GitLab, git, the hosts and programs it names): **Trust** it (two clicks) and its back end starts at once, its web part with the window's next load. Its back end reaches only what it lists; its web part runs in Prism's window with everything Prism can do, so trust it as you would Prism. Trust goes by the fingerprint of its folder: a new version waits again, with what it changes (a capability it adds, a block, a config table); so does one trusted when a capability reached less than Prism lets it now.
 
 A new version a pack brings, of a module you trusted from that pack, is trusted for you when it reaches nothing more: the same capabilities and config tables, or fewer. Anything more (a host, a program, a config table, a web part, a back end), or new code in its web part, and it waits for your trust as above. **Trust a pack's updates** (`[modules] trust_pack_updates`, on by default) turns this off; a module installed by hand always asks.
 
 ## Install and try it
 
-Without a pack: **Install a module** in Settings › Packs › Modules (or `prism modules install <source>`) from its folder or `.zip` (`dist/<id>`), or a repository's folder at a ref (`gh:owner/repo:dist/hello@v1`). Reload the window, trust it, restart Prism for its back end, then add its blocks to a page (**+ Block**). Its source is kept: **Reinstall** reads it again, and a change there shows in the status bar as a pack's would. Its back end's lines and errors are in Prism's log (`module <id>: …`). In the demo profile, its blocks show `Block::demo`'s state.
+Without a pack: **Install a module** in Settings › General › Packs › Modules (or `prism modules install <source>`) from its folder or `.zip` (`dist/<id>`), or a repository's folder at a ref (`gh:owner/repo:dist/hello@v1`). Reload the window, trust it, restart Prism for its back end, then add its blocks to a page (**+ Block**). Its source is kept: **Reinstall** reads it again, and a change there shows in the status bar as a pack's would. Its back end's lines and errors are in Prism's log (`module <id>: …`). In the demo profile, its blocks show `Block::demo`'s state.
 
 ## When it crashes
 
-A back end that panics, or computes past its deadline, says so on its blocks and starts again 30 seconds later. After three crashes in five minutes Prism gives up: Settings › Packs › Modules says when and why it last crashed. **Start again** (two clicks) starts it from nothing, its crashes forgotten. One that stopped Prism itself (Prism killed in the middle of a call) is held at the next launch, its blocks saying so, until you start it again. **Reinstall** reads it again from its pack or its source and puts it back whole; **Remove** deletes it and forgets its trust. `prism modules list | reinstall | remove | restore | reset` do the same from a terminal; a running Prism sees them once it restarts.
+A back end that panics, or computes past its deadline, says so on its blocks and starts again 30 seconds later. After three crashes in five minutes Prism gives up: Settings › General › Packs › Modules says when and why it last crashed. **Start again** (two clicks) starts it from nothing, its crashes forgotten. One that stopped Prism itself (Prism killed in the middle of a call) is held at the next launch, its blocks saying so, until you start it again. **Reinstall** reads it again from its pack or its source and puts it back whole; **Remove** deletes it and forgets its trust. `prism modules list | reinstall | remove | restore | reset` do the same from a terminal; a running Prism sees them once it restarts.

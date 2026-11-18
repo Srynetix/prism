@@ -36,9 +36,10 @@ const PERSONAL: [&str; 9] = ["open_with", "packs", "profile", "demo", "logs", "r
 const CLI_PERSONAL: [&str; 2] = ["bin", "args"];
 
 /// Single keys a pack may not set: where this machine keeps the worktrees' repository, whether you
-/// read a relay before it goes to the next agent, and the project the "Prism" feedback (the
-/// window's capture with it) goes to.
-const KEY_PERSONAL: [(&str, &str); 3] = [("worktrees", "repo"), ("agents", "handoff_review"), ("feedback", "repo")];
+/// read a relay before it goes to the next agent, the project the "Prism" feedback (the window's
+/// capture with it) goes to, and where the agents outside any project get their folders (each
+/// trusted for its CLI without asking: never a place a pack picks).
+const KEY_PERSONAL: [(&str, &str); 4] = [("worktrees", "repo"), ("agents", "handoff_review"), ("feedback", "repo"), ("agents", "scratch_dir")];
 
 /// A pack, as the Settings view lists it.
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -73,6 +74,30 @@ pub fn file(config: &Path, name: &str) -> PathBuf {
 /// `config.toml` over its packs: the table the app reads, the packs' merged values alone
 /// (what Settings shows as inherited), and the packs.
 pub fn layered(config: &Path, raw: &str) -> Result<(Table, Table, Vec<PackInfo>)> {
+    let l = read_layers(config, raw, false)?;
+    Ok((l.table, l.inherited, l.packs))
+}
+
+/// `layered`, with what Settings shows besides, read in the same pass over the packs.
+pub struct Layers {
+    pub table: Table,
+    pub inherited: Table,
+    pub packs: Vec<PackInfo>,
+    /// Which pack gives each key the packs set, by dotted path (`forge.provider`), the last one
+    /// read winning as the merge does: a table's keys one by one, a list as a whole; a list merged
+    /// entry by entry (`[[repos]]`, `KEYED`) names every pack adding to it (`a, b`). What Settings
+    /// shows as a value's origin.
+    pub origins: std::collections::BTreeMap<String, String>,
+    /// Each pack found: its name, its file and its text (Settings' TOML panel).
+    pub files: Vec<(String, PathBuf, String)>,
+}
+
+pub fn layers(config: &Path, raw: &str) -> Result<Layers> {
+    read_layers(config, raw, true)
+}
+
+/// `layers`; without `detail` (each load of the config), neither origins nor files: left empty.
+fn read_layers(config: &Path, raw: &str, detail: bool) -> Result<Layers> {
     let mut own: Table = raw.parse().context("invalid config.toml")?;
     crate::config::migrate(&mut own);
     let names: Vec<String> = match own.get("packs") {
@@ -86,6 +111,8 @@ pub fn layered(config: &Path, raw: &str) -> Result<(Table, Table, Vec<PackInfo>)
     };
     let mut inherited = Table::new();
     let mut infos = Vec::new();
+    let mut origins = std::collections::BTreeMap::<String, String>::new();
+    let mut files = Vec::new();
     for name in names {
         let path = file(config, &name);
         let Ok(text) = std::fs::read_to_string(&path) else {
@@ -94,39 +121,28 @@ pub fn layered(config: &Path, raw: &str) -> Result<(Table, Table, Vec<PackInfo>)
         };
         let (info, mut values) = parse(&text).with_context(|| format!("pack {name} ({})", path.display()))?;
         crate::config::migrate(&mut values);
+        if !detail {
+            merge(&mut inherited, values);
+            infos.push(PackInfo { name, missing: false, ..info });
+            continue;
+        }
+        leaves(&values, "", &mut |key| {
+            let keyed = KEYED.iter().any(|(k, _)| *k == key);
+            match origins.get_mut(&key) {
+                Some(by) if keyed && !by.split(", ").any(|n| n == name) => *by = format!("{by}, {name}"),
+                Some(_) if keyed => {}
+                _ => {
+                    origins.insert(key, name.clone());
+                }
+            }
+        });
         merge(&mut inherited, values);
+        files.push((name.clone(), path, text));
         infos.push(PackInfo { name, missing: false, ..info });
     }
     let mut table = inherited.clone();
     merge(&mut table, own);
-    Ok((table, inherited, infos))
-}
-
-/// Which pack gives each key the packs set, by dotted path (`forge.provider`), the last one read
-/// winning as the merge does: a table's keys one by one, a list as a whole; a list merged entry by
-/// entry (`[[repos]]`, `KEYED`) names every pack adding to it (`a, b`). What Settings shows as a
-/// value's origin. The packs are read again here: a few small files, on opening Settings.
-pub fn origins(config: &Path, raw: &str) -> Result<std::collections::BTreeMap<String, String>> {
-    let mut own: Table = raw.parse().context("invalid config.toml")?;
-    crate::config::migrate(&mut own);
-    let names = own.get("packs").and_then(|v| v.as_array()).into_iter().flatten().filter_map(|n| n.as_str());
-    let mut out = std::collections::BTreeMap::<String, String>::new();
-    for name in names {
-        let Ok(text) = std::fs::read_to_string(file(config, name)) else { continue };
-        let (_, mut values) = parse(&text).with_context(|| format!("pack {name}"))?;
-        crate::config::migrate(&mut values);
-        leaves(&values, "", &mut |key| {
-            let keyed = KEYED.iter().any(|(k, _)| *k == key);
-            match out.get_mut(&key) {
-                Some(by) if keyed && !by.split(", ").any(|n| n == name) => *by = format!("{by}, {name}"),
-                Some(_) if keyed => {}
-                _ => {
-                    out.insert(key, name.to_string());
-                }
-            }
-        });
-    }
-    Ok(out)
+    Ok(Layers { table, inherited, packs: infos, origins, files })
 }
 
 /// Every key of `table` that is not itself a table, by dotted path.
@@ -443,7 +459,7 @@ fn take_out(config: &Path, id: &str) -> Result<()> {
 
 /// Installs a module by hand from `source` (a folder or `.zip` on this computer, or
 /// `glab:`/`gh:group/project:path@ref`): its id, its module.toml's. Not trusted for that: it waits
-/// in Settings › Packs › Modules.
+/// in Settings › General › Packs › Modules.
 pub async fn module_install(config: &Path, source: &str) -> Result<String> {
     let source = crate::modules::install::typed_source(source)?;
     let files = crate::modules::install::fetch(&source, None).await?;
@@ -664,7 +680,7 @@ mod tests {
         std::fs::write(dir.join("packs/a.toml"), "[pack]\nname = \"a\"\n[forge]\nprovider = \"gitlab\"\nmain_branch = \"main\"\n[[repos]]\nname = \"app\"\n").unwrap();
         std::fs::write(dir.join("packs/b.toml"), "[pack]\nname = \"b\"\n[forge]\nmain_branch = \"develop\"\n[alerts]\ndigest_times = [\"09:00\"]\n[[repos]]\nname = \"api\"\n").unwrap();
         let config = dir.join("config.toml");
-        let o = super::origins(&config, "packs = [\"a\", \"b\", \"gone\"]\n[forge]\nprovider = \"github\"\n").unwrap();
+        let o = super::layers(&config, "packs = [\"a\", \"b\", \"gone\"]\n[forge]\nprovider = \"github\"\n").unwrap().origins;
         let of = |k: &str| o.get(k).map(String::as_str);
         // `[[repos]]` merges by name: both packs give some.
         assert_eq!((of("forge.provider"), of("forge.main_branch"), of("repos"), of("alerts.digest_times")), (Some("a"), Some("b"), Some("a, b"), Some("b")));
@@ -901,11 +917,13 @@ mod tests {
         assert_eq!(values["worktrees"]["stale_days"].as_integer(), Some(3));
     }
 
-    /// A pack neither skips your reading of a relay nor sends the "Prism" feedback elsewhere.
+    /// A pack neither skips your reading of a relay, nor sends the "Prism" feedback elsewhere, nor
+    /// picks where the agents outside any project get their (trusted) folders.
     #[test]
     fn pack_cannot_skip_the_relay_review_nor_redirect_feedback() {
-        let (_, values) = parse("[agents]\nhandoff_review = false\nhandoff = \"prism\"\n[feedback]\nrepo = \"evil/project\"\n").unwrap();
+        let (_, values) = parse("[agents]\nhandoff_review = false\nhandoff = \"prism\"\nscratch_dir = \"~/team/x\"\n[feedback]\nrepo = \"evil/project\"\n").unwrap();
         assert!(values["agents"].get("handoff_review").is_none());
+        assert!(values["agents"].get("scratch_dir").is_none());
         assert_eq!(values["agents"]["handoff"].as_str(), Some("prism"));
         assert!(values["feedback"].get("repo").is_none());
     }

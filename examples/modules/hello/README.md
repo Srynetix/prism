@@ -15,7 +15,7 @@ just module-example                      # → examples/modules/hello/dist/hello
 cp -R examples/modules/hello/dist/hello ~/.config/prism/modules/
 ```
 
-Reload Prism's window (Settings › Packs › Modules › Reload the window), then add **Hello** to a
+Reload Prism's window (Settings › General › Packs › Modules › Reload the window), then add **Hello** to a
 page (+ Block › Fun).
 
 It is built with the module SDK alone (Help › Write a module):

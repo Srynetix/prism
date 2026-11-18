@@ -944,7 +944,7 @@ export default {
   'reading…': 'lecture…',
   'Run it now': 'Le lancer maintenant',
   'No custom block {id} in config.toml ([[custom_blocks]]).': 'Aucun bloc sur mesure {id} dans config.toml ([[custom_blocks]]).',
-  'Settings › Custom blocks': 'Réglages › Blocs sur mesure',
+  'Settings › Interface › Custom blocks': 'Réglages › Interface › Blocs sur mesure',
   'Added outside Settings {time} ago: it does not run before you trust it.': 'Ajouté hors des Réglages il y a {time} : il ne tourne pas avant votre confiance.',
   'Changed outside Settings {time} ago: it no longer runs, its former output is hidden.': 'Modifié hors des Réglages il y a {time} : il ne tourne plus, son ancienne sortie est masquée.',
   'Its pack changed it {time} ago: the trusted version runs on until you trust this one.': 'Son pack l’a modifié il y a {time} : la version de confiance continue de tourner tant que celle-ci n’a pas votre confiance.',

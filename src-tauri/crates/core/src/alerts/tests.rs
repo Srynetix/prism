@@ -87,6 +87,7 @@ fn agent(id: &str, f: impl FnOnce(&mut Agent)) -> Agent {
         exit_code: None,
         status: SessionStatus::Running,
         needs_action: None,
+        own_folder: false,
         read: false,
         suggestion: None,
         gate: None,
@@ -230,7 +231,7 @@ fn flags_an_open_mr_with_threads_left_unresolved() {
 fn says_a_token_is_missing_or_refused_and_where_to_paste_it() {
     let a = access_alert("clickup", "missing token: set CLICKUP_TOKEN or the \"prism-clickup\" keychain entry").unwrap();
     assert!(a.text.starts_with("ClickUp: no token yet"));
-    assert_eq!(a.fixes, Some(vec![Fix::Settings { section: "clickup".into(), label: "Settings › ClickUp".into() }]));
+    assert_eq!(a.fixes, Some(vec![Fix::Settings { section: "clickup".into(), label: "Settings › Work › Tracker › ClickUp".into() }]));
     assert!(access_alert("jira queues", "Jira /rest/api/3/search: HTTP 401 Unauthorized").unwrap().text.starts_with("Jira refused the token"));
     assert_eq!(access_alert("clickup", "ClickUp /team: HTTP 403 Forbidden").unwrap().severity, Severity::Ko);
     let forge = access_alert("gitlab", "glab api: 401 Unauthorized").unwrap();

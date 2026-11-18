@@ -29,7 +29,7 @@ pub use trust::{fingerprint_of, forget, trust, trust_path_for, update as trust_u
 /// The module contract this Prism gives: a module built for another major one is refused.
 pub const CONTRACT: u32 = 1;
 
-/// A module as the window and Settings › Packs see it.
+/// A module as the window and Settings › General › Packs see it.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct ModuleInfo {
@@ -63,7 +63,7 @@ pub struct ModuleInfo {
     /// Where it was installed from (a pack's or by hand); none: its folder put there.
     pub source: Option<String>,
     /// Its back end stopped Prism the last time it ran (`stopped_mark`), and it is the same one:
-    /// held, its blocks say so, until I start it again (Settings › Packs › Modules) or it is replaced.
+    /// held, its blocks say so, until I start it again (Settings › General › Packs › Modules) or it is replaced.
     pub stopped: bool,
 }
 

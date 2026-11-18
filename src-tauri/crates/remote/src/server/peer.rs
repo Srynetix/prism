@@ -162,6 +162,7 @@ pub(super) const PEER_TYPING: &[&str] = &["agent_write", "agent_resize", "agent_
 /// What writes the settings, packs and tokens: `[remote.peers] settings`.
 pub(super) const PEER_SETTINGS: &[&str] = &[
     "save_config",
+    "save_config_text",
     "store_token",
     "pack_import",
     "pack_update",

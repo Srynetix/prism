@@ -27,7 +27,7 @@
   </h2>
   <div class="scroll">
     {#if none}
-      <State kind="empty" icon="clock" title={t('No routine yet: an agent launched on its own, at fixed times ([[agents.routines]]).')} action={isDesktop() ? { label: t('Settings › Routines'), run: () => openSettings('routines') } : undefined} />
+      <State kind="empty" icon="clock" title={t('No routine yet: an agent launched on its own, at fixed times ([[agents.routines]]).')} action={isDesktop() ? { label: t('Settings › Agents › Routines'), run: () => openSettings('routines') } : undefined} />
     {:else if !n && !routinesOf(live.snapshot).routines.some((r) => r.next.length)}
       <State kind="empty" title={t('Nothing to review.')} />
     {:else}

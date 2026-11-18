@@ -26,7 +26,7 @@
     {#each blocks as b (b.id)}
       <CustomBlock block={b} pageId="custom_blocks" embedded />
     {:else}
-      <State kind="empty" icon="code" title={t('No custom block yet: a command or a script that prints JSON, declared in [[custom_blocks]].')} action={isDesktop() ? { label: t('Settings › Custom blocks'), run: () => openSettings('custom-blocks') } : undefined} />
+      <State kind="empty" icon="code" title={t('No custom block yet: a command or a script that prints JSON, declared in [[custom_blocks]].')} action={isDesktop() ? { label: t('Settings › Interface › Custom blocks'), run: () => openSettings('custom-blocks') } : undefined} />
     {/each}
   </div>
 </section>

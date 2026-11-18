@@ -35,7 +35,7 @@ export interface ModuleStatus {
   version: string | null
   description: string | null
   /**
-   * `on`: its blocks are in; `waiting`: not trusted, nothing of it runs (Settings › Packs);
+   * `on`: its blocks are in; `waiting`: not trusted, nothing of it runs (Settings › General › Packs);
    * `refused`: Prism did not load it; `failed`: its files did not load.
    */
   state: 'on' | 'waiting' | 'refused' | 'failed'

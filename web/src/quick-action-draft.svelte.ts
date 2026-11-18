@@ -168,7 +168,7 @@ export async function closeQuickActionDraft() {
   await stopDrafting()
 }
 
-/** Added to config.toml; with Make it a routine, Settings › Routines on a new one running it. */
+/** Added to config.toml; with Make it a routine, Settings › Agents › Routines on a new one running it. */
 export async function saveQuickActionDraft() {
   if (qaDraft.saving) return
   const d = qaDraft

@@ -1,6 +1,6 @@
 import type { MergeRequest, Snapshot, Ticket } from './types'
 import type { Alert } from './rules'
-import { asTicket, conventions, mrTickets, namesTicket, ticketPrefix } from './conventions'
+import { conventions, mrTickets, namesTicket, parseFilterQuery } from './conventions'
 import { mrKey } from './mr-ref'
 import { meOn, mrNumber } from './forge'
 import { dayKey } from './calendar'
@@ -120,11 +120,8 @@ export interface Focus {
   summary: string
 }
 
-/** `!12` (GitLab), `#12` (GitHub), or a number alone. */
-const MR = /^[!#]?(\d+)$/
-
 export function resolve(s: Snapshot, raw: string): Focus | null {
-  const q = raw.trim()
+  const q = parseFilterQuery(raw)
   if (!q) return null
 
   const tickets = new Set<string>()
@@ -133,20 +130,15 @@ export function resolve(s: Snapshot, raw: string): Focus | null {
   const allTickets = clickupTickets(s)
 
   // The id as typed (`c-68` → `C-68`): a board's prefix is not necessarily the tracker's.
-  const ticketMatch = asTicket(q)
-  const mrMatch = q.match(MR)
-  if (ticketMatch) {
-    tickets.add(ticketMatch)
-  } else if (mrMatch) {
+  if (q.kind === 'ticket') {
+    tickets.add(q.id)
+  } else if (q.kind === 'number') {
     // A number alone may designate an MR or a ticket: keep what exists.
-    const n = Number(mrMatch[1])
-    for (const m of s.merge_requests) if (m.iid === n) mrs.add(mrKey(m))
-    const id = `${ticketPrefix()}-${n}`
-    if (!/^[!#]/.test(q) && ticketPrefix() && (allTickets.some((t) => t.id === id) || s.merge_requests.some((m) => namesTicket(m, id)))) {
-      tickets.add(id)
-    }
+    for (const m of s.merge_requests) if (m.iid === q.n) mrs.add(mrKey(m))
+    const id = q.ticket
+    if (id && (allTickets.some((t) => t.id === id) || s.merge_requests.some((m) => namesTicket(m, id)))) tickets.add(id)
   } else {
-    const needle = q.toLowerCase()
+    const needle = q.text.toLowerCase()
     const has = (v: string | null | undefined) => !!v && v.toLowerCase().includes(needle)
     for (const m of s.merge_requests) if (has(m.title) || has(m.source_branch)) mrs.add(mrKey(m))
     for (const t of allTickets) if (has(t.name)) tickets.add(t.id)

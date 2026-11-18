@@ -56,7 +56,7 @@ pub fn read_by(table: &str, blocks: &[(String, String)]) -> Vec<String> {
     let known: &[&str] = match table {
         "forge" | "gitlab" | "github" => &["MRs", "Pipelines", "Worktrees", "Alerts", "CI health", "Merge queue"],
         "repos" => &["MRs", "Pipelines", "Worktrees", "Agents", "Repos menu"],
-        "workspaces" => &["Settings › Repositories (new project, clone)"],
+        "workspaces" => &["Settings › Code › Repositories (new project, clone)"],
         "worktrees" => &["Worktrees"],
         "tracker" | "clickup" | "jira" | "obsidian" => &["Tickets", "Sprint", "Time", "Alerts"],
         "calendar" | "google" => &["Agenda", "Meetings"],

@@ -65,7 +65,7 @@
     {#if !embedded}<BlockControls id={pageId} />{/if}
   </h2>
   {#if !block}
-    <State kind="off" title={t('No custom block {id} in config.toml ([[custom_blocks]]).', { id: pageId.replace(/^custom:/, '') })} action={isDesktop() ? { label: t('Settings › Custom blocks'), run: () => openSettings('custom-blocks') } : undefined} />
+    <State kind="off" title={t('No custom block {id} in config.toml ([[custom_blocks]]).', { id: pageId.replace(/^custom:/, '') })} action={isDesktop() ? { label: t('Settings › Interface › Custom blocks'), run: () => openSettings('custom-blocks') } : undefined} />
   {:else if block.pending}
     {@const p = block.pending}
     <div class="pending">

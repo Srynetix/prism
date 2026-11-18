@@ -147,7 +147,7 @@ pub async fn forge_labels(state: State<'_, AppState>, repo: Option<String>) -> C
     state.forge().labels(repo.as_deref()).await.map_err(Into::into)
 }
 
-/// A repository's followed branches as its forge has them, from what Settings › Repositories shows,
+/// A repository's followed branches as its forge has them, from what Settings › Code › Repositories shows,
 /// saved or not: its project, main branch (empty: the project's default one), release prefix and
 /// list (empty: the main and release ones); and the entries the forge has no branch for.
 #[prism_macros::command]

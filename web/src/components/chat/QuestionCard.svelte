@@ -86,7 +86,7 @@
     {#if acts}
       <button class="btn primary send" class:busy onclick={send} disabled={!ready || busy}>{#if busy}<span class="spinner"></span>{t('Sending…')}{:else}{ask.questions.length > 1 ? t('Send the answers') : t('Send the answer')}{/if}</button>
     {:else}
-      <p class="muted">{t('Answering from a phone is off (Settings › Remote › actions): the terminal shows it.')}</p>
+      <p class="muted">{t('Answering from a phone is off (Settings › Remote › Exposure › Actions): the terminal shows it.')}</p>
     {/if}
   {/if}
   {#if error}<p class="err">{error}</p>{/if}

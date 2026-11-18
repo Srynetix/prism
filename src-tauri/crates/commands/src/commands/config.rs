@@ -158,7 +158,7 @@ pub async fn update_check(auto: bool) -> Cmd<crate::updates::UpdateInfo> {
     crate::updates::check(&cfg.updates).await.map_err(Into::into)
 }
 
-/// The packs read again from their sources (the status bar, Settings › Packs). `auto`: the periodic
+/// The packs read again from their sources (the status bar, Settings › General › Packs). `auto`: the periodic
 /// check, which reads nothing with `[updates] enabled` or `packs` off.
 #[prism_macros::command]
 pub async fn pack_check(auto: bool) -> Cmd<Vec<crate::packs::PackCheck>> {
@@ -351,32 +351,32 @@ pub async fn detect_setup() -> crate::detect::Detection {
     crate::detect::detect(&workspaces, &host).await
 }
 
-/// Settings › Repositories: the clones of `projects` in a folder the user picked (and only there).
+/// Settings › Code › Repositories: the clones of `projects` in a folder the user picked (and only there).
 #[prism_macros::command]
 pub async fn find_clones(root: String, projects: Vec<String>) -> Cmd<Vec<crate::clones::Found>> {
     let root = crate::config::expand_home(std::path::Path::new(root.trim()));
     tokio::task::spawn_blocking(move || crate::clones::find(&root, &projects)).await?.map_err(Into::into)
 }
 
-/// Settings › Repositories: clones a project into a folder the user picked; its path, `~/…`.
+/// Settings › Code › Repositories: clones a project into a folder the user picked; its path, `~/…`.
 #[prism_macros::command]
 pub async fn clone_repo(project: String, parent: String, forge: Option<crate::forge::Provider>) -> Cmd<String> {
     crate::clones::clone(&project, &crate::config::expand_home(std::path::Path::new(parent.trim())), forge).await.map_err(Into::into)
 }
 
-/// Settings › Repositories › Add: what a picked folder is (a clone, its project).
+/// Settings › Code › Repositories › Add: what a picked folder is (a clone, its project).
 #[prism_macros::command]
 pub fn inspect_folder(path: String) -> Cmd<crate::clones::Folder> {
     crate::clones::inspect(&crate::config::expand_home(std::path::Path::new(path.trim()))).map_err(Into::into)
 }
 
-/// Settings › Repositories › Add: `git init` in a picked folder that is not a repository.
+/// Settings › Code › Repositories › Add: `git init` in a picked folder that is not a repository.
 #[prism_macros::command]
 pub async fn init_repo(path: String) -> Cmd {
     crate::clones::init(&crate::config::expand_home(std::path::Path::new(path.trim()))).await.map_err(Into::into)
 }
 
-/// Settings › Repositories › New project: a folder with a git repository, and the project on the
+/// Settings › Code › Repositories › New project: a folder with a git repository, and the project on the
 /// forge with `remote`.
 #[prism_macros::command]
 pub async fn create_project(parent: String, name: String, remote: Option<crate::clones::NewRemote>) -> Cmd<crate::clones::Created> {
@@ -434,7 +434,7 @@ pub async fn remote_project_clone(workspace: String, project: String) -> Cmd<cra
     crate::clones::clone_in_workspace(&crate::config_path(), &workspace, &project).await.map_err(Into::into)
 }
 
-/// Settings › Repositories › Publish: a local repository without a remote, its project created on
+/// Settings › Code › Repositories › Publish: a local repository without a remote, its project created on
 /// the forge and pushed. Its project; Settings writes it in the row.
 #[prism_macros::command]
 pub async fn publish_repo(path: String, remote: crate::clones::NewRemote) -> Cmd<String> {

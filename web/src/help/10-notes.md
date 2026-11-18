@@ -37,7 +37,7 @@ Write a tag in the note itself: `#infra`, `#perso`, `#client/acme` (a letter fir
 - **Group**: the layers button replaces the Sticky and day sections with one section per tag (a note with two tags shows in both), and **No tag** last. Reminders keep their section.
 
 ## Notes of a repository
-A note can be about one of your repositories (Settings › Repositories), whatever its kind. The **branch** picker in the input files the next note under a repository (— for none); the branch button of a note, on hover, moves it to another one or out of any.
+A note can be about one of your repositories (Settings › Code › Repositories), whatever its kind. The **branch** picker in the input files the next note under a repository (— for none); the branch button of a note, on hover, moves it to another one or out of any.
 
 - **Filter**: click a note's repository badge, or its chip in the bar under the input, to see only that repository's notes; click it again (or the name in the block's title) to see them all. A note written while a repository is filtered is filed under it.
 - **Group**: the group menu next to the sort offers **Repository**: one section per repository, by name, and **No repository** last.

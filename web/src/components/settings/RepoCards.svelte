@@ -18,7 +18,7 @@
   import type { ForgeProvider } from '../../bindings/ForgeProvider'
 
   /**
-   * Settings › Repositories: the `[[repos]]` as cards, grouped by working folder (`[[workspaces]]`,
+   * Settings › Code › Repositories: the `[[repos]]` as cards, grouped by working folder (`[[workspaces]]`,
    * the folder their clone is in), then those without a clone (their MRs only) and those whose
    * clone is elsewhere. A card folds to one line, its switches as chips; open, its identity, what
    * Prism reads of it on this computer (needs the clone) and on the forge (needs the project), the

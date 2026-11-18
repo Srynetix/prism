@@ -69,7 +69,7 @@ pub fn blocks() -> Vec<&'static dyn Block> {
                 continue;
             }
         };
-        let held = info.stopped.then(|| prism_base::tr!("the module {id} is held: its back end stopped Prism the last time it ran. Start it again from Settings › Packs › Modules", id = info.id));
+        let held = info.stopped.then(|| prism_base::tr!("the module {id} is held: its back end stopped Prism the last time it ran. Start it again from Settings › General › Packs › Modules", id = info.id));
         let module = Arc::new(worker::Module::new(info.id.clone(), spec, prism_core::modules::stopped_mark(&root, &info.id), bytes, held));
         if info.trusted {
             module.set_version(&info.fingerprint);
@@ -82,7 +82,7 @@ pub fn blocks() -> Vec<&'static dyn Block> {
     out
 }
 
-/// Module `id` trusted as its folder's `fingerprint` (Settings › Packs): its back end, read again
+/// Module `id` trusted as its folder's `fingerprint` (Settings › General › Packs): its back end, read again
 /// as that version (its manifest, its component's bytes), configured and started now; running
 /// another version, started again on this one, unless it is held (only `reset` lifts that).
 /// Whether it runs in this Prism: installed after launch, or its blocks changed since, once Prism
@@ -117,7 +117,7 @@ fn load(m: &worker::Module, fingerprint: &str) -> bool {
     true
 }
 
-/// Module `id` started again from nothing (Settings › Packs › Modules): its crashes forgotten, the
+/// Module `id` started again from nothing (Settings › General › Packs › Modules): its crashes forgotten, the
 /// mark it left stopping Prism lifted, the hold too; it runs the version trusted on the disk, and
 /// nothing while none is (its trust forgotten: removed, put back). Whether it runs in this Prism
 /// (one installed after launch, or refused at launch, once Prism restarts).

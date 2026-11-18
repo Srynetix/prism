@@ -16,7 +16,7 @@
   import type { RemovedModule } from '../../bindings/RemovedModule'
 
   /**
-   * Settings › Packs › Modules: a team's blocks loaded at run time (`modules/<id>/` next to
+   * Settings › General › Packs › Modules: a team's blocks loaded at run time (`modules/<id>/` next to
    * config.toml, a pack's, installed by hand or put there), as this window loaded them: their
    * blocks, or why not. Nothing of a module runs before I trust it: what it may reach is shown,
    * what a new version changes too. A module that crashed is started again from here, read again

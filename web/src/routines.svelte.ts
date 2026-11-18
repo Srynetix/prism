@@ -30,7 +30,7 @@ export function openRunAgent(r: RoutineRun) {
 }
 
 const failed = (e: unknown) => toast(String(e), 8000)
-/** A routine to start from: a quick action just made (Make it a routine); Settings › Routines opens a new one on it. */
+/** A routine to start from: a quick action just made (Make it a routine); Settings › Agents › Routines opens a new one on it. */
 export const routineFor = $state({ action: '', repos: [] as string[] })
 
 export const archiveRuns = (runs: string[]) => invoke('routine_archive', { runs }).catch(failed)

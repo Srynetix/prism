@@ -10,6 +10,7 @@ import { trackerName } from './tracker'
 import { isMac, baseName } from './platform'
 import { matches, parseShortcut } from './shortcut'
 import type { Agent, AgentProvider, AgentsSettings } from './types'
+import { AGENTS_DEFAULTS } from './bindings/agents-defaults'
 import type { LaunchStep } from './bindings/LaunchStep'
 import type { AgentContextDetail } from './bindings/AgentContextDetail'
 import type { AgentActivity } from './bindings/AgentActivity'
@@ -245,7 +246,8 @@ export async function afterLaunch(onLaunch: (() => Promise<void>) | null | undef
 /** Agents only run in the app: the browser preview has no tmux server. */
 export const agentsAvailable = hasCore
 
-const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, scratch_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, accounts: [], kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, quick_actions: [], routines: [], overlaps: { enabled: true, level: 'file', alert: 'lines', ignore: [] }, aside: { enabled: true, desktop: true, default_action: 'launch', worktree: true, stale_days: 14, statusbar: false }, assistant: { enabled: true, explore_seconds: 240 }, terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, chat_reminders: 'marker', header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true, prism_mcp: false }
+/** `[agents]`' defaults, generated from the core's (`AgentsConfig::default()`). */
+const DEFAULTS: AgentsSettings = AGENTS_DEFAULTS
 /** `[agents]` from config.toml, with its defaults until the snapshot has brought it. */
 export const agentsSettings = (): AgentsSettings => live.snapshot?.agents_settings ?? DEFAULTS
 /**
@@ -369,10 +371,18 @@ export async function prepareAgent(launch: Launch): Promise<string> {
 export const startPrepared = (id: string) => invoke('agent_start', { id })
 export const justLaunched = (id: string | null) => !!id && launched?.id === id && Date.now() - launched.at < 15_000
 export const removeWorktree = (id: string) => invoke('agent_remove_worktree', { id })
+/**
+ * The permission modes the launchers offer (the computer's, the phone's), in their order: the
+ * agent still asks before running a command. The core's `LAUNCH_MODES`, which checks them.
+ */
+export const LAUNCH_MODES = ['default', 'acceptEdits', 'plan'] as const
+export type LaunchMode = (typeof LAUNCH_MODES)[number]
+export const isLaunchMode = (m: unknown): m is LaunchMode => (LAUNCH_MODES as readonly unknown[]).includes(m)
+export const launchModeLabel = (m: LaunchMode) => ({ default: t('Default'), acceptEdits: t('Accept edits'), plan: t('Plan first') })[m]
 /** Deletes the folder Prism made for a stopped agent outside any project. */
 export const removeScratch = (id: string) => invoke('agent_remove_scratch', { id })
-/** An agent launched outside any project, in a folder Prism made for it. */
-export const isScratch = (a: Pick<Agent, 'launch'>) => !!a.launch?.scratch
+/** An agent outside any project, in the folder Prism made for it (core's `own_folder`). */
+export const isScratch = (a: Pick<Agent, 'own_folder'>) => !!a.own_folder
 export const interruptAgent = (id: string) => invoke('agent_interrupt', { id })
 /** Takes a terminal (`id`: an agent or `shell:<agent>:<n>`) out of tmux's copy mode, before a key. */
 export const leaveCopyMode = (id: string) => invoke('agent_leave_copy_mode', { id })

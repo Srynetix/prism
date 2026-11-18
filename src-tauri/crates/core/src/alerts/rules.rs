@@ -147,7 +147,7 @@ fn refused(err: &str) -> bool {
 /// tracker's token not in the keychain or refused (401, 403), the forge CLI not signed in.
 pub fn access_alert(source: &str, err: &str) -> Option<Alert> {
     let &(_, section, name) = ACCESS.iter().find(|(s, _, _)| *s == source)?;
-    let fix = Fix::Settings { section: section.into(), label: tr!("Settings › {name}", name = if section == "forge" { tr("Forge") } else { name }) };
+    let fix = Fix::Settings { section: section.into(), label: if section == "forge" { tr!("Settings › Code › Forge") } else { tr!("Settings › Work › Tracker › {name}", name = name) } };
     if err.contains("missing token") {
         return Some(Alert::new("Source", Severity::Warn, tr!("{name}: no token yet — paste it in Settings, then restart", name = name)).fixes(vec![fix]));
     }

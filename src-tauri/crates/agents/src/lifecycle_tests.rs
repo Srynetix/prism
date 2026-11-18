@@ -946,6 +946,7 @@ async fn an_agent_outside_any_project_gets_a_folder_of_its_own() {
     assert_eq!(dir, scratch.join(format!("{today}-quick-question")));
     assert!(dir.is_dir());
     assert!(a.launch.as_ref().is_some_and(|l| l.scratch && l.cwd.as_deref() == Some(a.cwd.as_str())), "kept for its resume");
+    assert!(a.own_folder);
     let second = b.agents.prepare(alone()).await.unwrap();
     assert_eq!(b.shown(&second).await.unwrap().cwd, scratch.join(format!("{today}-quick-question-2")).display().to_string(), "never shared");
 
@@ -967,19 +968,53 @@ async fn an_agent_outside_any_project_gets_a_folder_of_its_own() {
     b.agents.refresh().await;
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     assert_eq!(keys(), ["Down", "Enter"], "answered once");
+    // Its question gone, then asked again (a restart): answered again, never hidden for good.
+    b.tmux.show(&session, "❯ ", None);
+    b.agents.refresh().await;
+    b.tmux.show(&session, &screen, Some("Enter"));
+    b.agents.refresh().await;
+    for _ in 0..40 {
+        if keys().len() >= 4 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert_eq!(keys(), ["Down", "Enter", "Down", "Enter"]);
 
     assert!(b.agents.remove_scratch(&second).await.is_err(), "prepared: its folder is where it starts");
     assert!(b.agents.remove_scratch(&id).await.is_err(), "still running");
     b.tmux.exit(&id, 0);
     b.agents.remove_scratch(&id).await.unwrap();
     assert!(!dir.exists());
+    b.agents.remove_scratch(&id).await.expect("already gone: nothing to do");
     let other = b.agents.spawn(b.launch("In a project")).await.unwrap();
     b.tmux.exit(&other, 0);
+    assert!(!b.shown(&other).await.unwrap().own_folder);
     assert!(b.agents.remove_scratch(&other).await.is_err(), "not one of Prism's folders");
     assert!(b.project.is_dir());
     // Said to be one, in another folder (a phone's launch): a new folder of its own all the same.
     let posing = b.agents.spawn(Launch { scratch: true, ..b.launch("Posing") }).await.unwrap();
     assert_eq!(b.shown(&posing).await.unwrap().cwd, scratch.join(format!("{today}-posing")).display().to_string());
+    // No steps after it, whatever the launch said.
+    let chained = Launch { then: vec![state::LaunchStep { kind: state::StepKind::Notify, when: state::StepWhen::Done, command: None, text: None }], cwd: None, scratch: true, ..b.launch("Chained") };
+    let chained = b.agents.spawn(chained).await.unwrap();
+    assert!(b.shown(&chained).await.unwrap().launch.is_some_and(|l| l.then.is_empty()));
+    // Its folder swapped for a link (to a repository): its trust asked of you, not answered, its
+    // folder never deleted through it. (A link needs no rights on Unix only.)
+    #[cfg(unix)]
+    {
+        let linked = PathBuf::from(b.shown(&chained).await.unwrap().cwd);
+        std::fs::remove_dir(&linked).unwrap();
+        std::os::unix::fs::symlink(&b.project, &linked).unwrap();
+        let session = Tmux::session(&chained);
+        b.tmux.show(&session, &screen.replace(&dir.display().to_string(), &linked.display().to_string()), Some("Enter"));
+        b.agents.refresh().await;
+        assert!(b.shown(&chained).await.unwrap().gate.is_some(), "its card shown");
+        assert!(b.tmux.calls_of("send-keys").iter().all(|c| !c.contains(&session)));
+        b.tmux.exit(&chained, 0);
+        assert!(b.agents.remove_scratch(&chained).await.is_err(), "a link: not its folder");
+        assert!(b.project.is_dir());
+    }
     // A launch that fails leaves no folder behind; one closed takes its folder when empty.
     let failing = Launch { model: Some("not a model!".into()), ..alone() };
     assert!(b.agents.spawn(failing).await.is_err());

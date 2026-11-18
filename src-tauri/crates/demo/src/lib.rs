@@ -68,7 +68,7 @@ pub fn fill(hub: &Hub, now: DateTime<Utc>) {
     }
 }
 
-/// The branches of the demo projects, sorted by name (Settings › Repositories' followed branches).
+/// The branches of the demo projects, sorted by name (Settings › Code › Repositories' followed branches).
 pub const BRANCHES: &[&str] = &["develop", "env/preprod", "env/prod", "main", "release/2026.09", "release/2026.10"];
 
 /// The demo snapshot for the window's browser preview (`web/public/dev-snapshot.json`, out of
@@ -1068,6 +1068,7 @@ impl Demo {
             exit_code: (status == SessionStatus::Completed).then_some(0),
             status,
             needs_action: needs.map(String::from),
+            own_folder: false,
             read: false,
             last_activity: Some(self.ago(minutes)),
             moved_at: None,
