@@ -89,6 +89,8 @@ interface Prompts {
   flaky: (job: string, urls: string) => string
   backport: (iid: number, main: string) => string
   switchFirst: (branch: string, iid: number) => string
+  /** After the review's prompt, when its agent starts in a worktree of the MR's branch. */
+  reviewHere: (branch: string, iid: number) => string
   fixPipeline: (iid: number) => string
   fixBranch: (branch: string, url: string) => string
   failedJobs: string
@@ -118,6 +120,7 @@ const PROMPTS: Record<'fr' | 'en', Prompts> = {
     flaky: (job: string, urls: string) => `Le job CI « ${job} » est instable (${urls}) : trouve la cause.`,
     backport: (iid: number, main: string) => `Backporte la ${mrWord()} ${mrNumber(iid)} sur ${main}.`,
     switchFirst: (branch: string, iid: number) => `Place-toi sur la branche ${branch} de la ${mrWord()} ${mrNumber(iid)}. Ensuite, `,
+    reviewHere: (branch: string, iid: number) => ` Tu es déjà dans un worktree sur la branche ${branch} de la ${mrWord()} ${mrNumber(iid)} (mets-la à jour depuis le remote si elle est en retard) : fais la revue ici, sans créer d’autre worktree ni changer de branche.`,
     fixPipeline: (iid: number) => `Corrige le pipeline en échec de la ${mrWord()} ${mrNumber(iid)}.`,
     fixBranch: (branch: string, url: string) => `Le pipeline de la branche ${branch} est en échec (${url}) : trouve la cause et corrige-la sur une nouvelle branche.`,
     failedJobs: 'Jobs en échec et fin de leurs logs (lus par Prism) :',
@@ -148,6 +151,7 @@ const PROMPTS: Record<'fr' | 'en', Prompts> = {
     flaky: (job: string, urls: string) => `The CI job "${job}" is flaky (${urls}): find the cause.`,
     backport: (iid: number, main: string) => `Backport ${mrWord()} ${mrNumber(iid)} onto ${main}.`,
     switchFirst: (branch: string, iid: number) => `Switch to branch ${branch} of ${mrWord()} ${mrNumber(iid)}. Then, `,
+    reviewHere: (branch: string, iid: number) => ` You are already in a worktree on branch ${branch} of ${mrWord()} ${mrNumber(iid)} (bring it up to date from the remote if it is behind): review it here, without creating another worktree or switching branches.`,
     fixPipeline: (iid: number) => `Fix the failed pipeline of ${mrWord()} ${mrNumber(iid)}.`,
     fixBranch: (branch: string, url: string) => `The pipeline of branch ${branch} failed (${url}): find the cause and fix it on a new branch.`,
     failedJobs: 'Failed jobs and the end of their logs (read by Prism):',
@@ -412,9 +416,10 @@ export const refineAction = (t: Ticket, label: string): ClaudeAction =>
   action('refine', label, `${t.id} · ${label}`, prompts().refine(t.id), inRepo())
 
 /**
- * Review in the repo (a review skill may take its own temporary worktree); review-fix, rebase and
- * pipeline fix on the MR's branch, in its worktree (existing, or a new one that
- * checks it out). Backport to main: plain prompt, in the repo.
+ * Review, review-fix, rebase, pipeline fix and validate on the MR's branch, in its worktree
+ * (existing, or a new one that checks it out, a colleague's branch too): the agent reads the code
+ * as the MR has it, and the clone stays as it is. The review's prompt says it is already there, for
+ * a review skill not to take a worktree of its own. Backport to main: plain prompt, in the repo.
  */
 export function mrActions(m: MergeRequest): ClaudeAction[] {
   // In a repository where agents work (`[[repos]] worktrees`): nothing for the others' MRs.
@@ -436,11 +441,12 @@ export function mrActions(m: MergeRequest): ClaudeAction[] {
   const conflicting = m.conflicts || (!!m.merge_error && /rebase/i.test(m.merge_error))
   const rebase = (conflicting ? prompts().rebaseConflicts : prompts().rebase)(m.target_branch, m.iid)
   const validate = prompts().validateMr(m.iid)
+  const review = prompts().review(m.iid)
   const head = m.head_pipeline
   const fixPipeline = m.pipeline === 'failed' ? [{ ...action('fix-pipeline', tr('Fix pipeline'), `${key} · Fix pipeline`, fix, branch, { desktop: switchFirst + lower(fix) }), ...(head ? withLogs(m.project ?? null, head.id) : {}) }] : []
   return [
     ...fixPipeline,
-    action('review', tr('Review'), `${key} · Review`, prompts().review(m.iid), inRepo(repo)),
+    action('review', tr('Review'), `${key} · Review`, review + prompts().reviewHere(m.source_branch, m.iid), branch, { desktop: switchFirst ? switchFirst + lower(review) : undefined }),
     action('review-fix', tr('Review-fix'), `${key} · Review-fix`, reviewFix, branch, { desktop: switchFirst + lower(reviewFix) }),
     action('rebase', conflicting ? tr('Rebase & fix conflicts') : tr('Rebase onto {branch}', { branch: m.target_branch }), `${key} · Rebase`, rebase, branch, { desktop: switchFirst + lower(rebase) }),
     { ...action('validate', tr('Validate locally'), `${key} · Validate`, validate, branch, { desktop: switchFirst + lower(validate) }), ...mrValidation(m) },
