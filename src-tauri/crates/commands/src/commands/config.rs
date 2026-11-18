@@ -71,29 +71,27 @@ pub fn merged_config(text: String) -> Cmd<String> {
 /// the rest waits for a Prism restart.
 #[prism_macros::command(async)]
 pub fn save_config(state: State<'_, AppState>, edits: Vec<crate::settings::Edit>) -> Cmd<crate::settings::FileView> {
-    let path = crate::config_path();
-    let before = crate::config::load(&path).ok();
-    crate::settings::save(&path, &edits)?;
-    // The routines this save changed (or their quick actions) trusted as saved, before they
-    // are read: changed anywhere else, they wait for trust.
-    if let Ok(after) = crate::config::load(&path) {
-        state.agents.routines_saved(before.as_ref().map(|c| &c.agents), &after.agents);
-    }
-    apply_live(&state, &path);
-    crate::settings::read(&path).map_err(Into::into)
+    saved_then(&state, |path| crate::settings::save(path, &edits).map(drop))
 }
 
 /// The TOML panel's editor: `config.toml` written as typed, `base` the text it was edited from
 /// (refused if the file changed since), then applied as a save is.
 #[prism_macros::command(async)]
 pub fn save_config_text(state: State<'_, AppState>, text: String, base: String) -> Cmd<crate::settings::FileView> {
+    saved_then(&state, |path| crate::settings::save_text(path, &text, &base).map(drop))
+}
+
+/// `config.toml` saved by `save`, then what follows any save: the routines it changed (or their
+/// quick actions) trusted as saved, before they are read (changed anywhere else, they wait for
+/// trust); applied live; read back for the view.
+fn saved_then(state: &AppState, save: impl FnOnce(&std::path::Path) -> anyhow::Result<()>) -> Cmd<crate::settings::FileView> {
     let path = crate::config_path();
     let before = crate::config::load(&path).ok();
-    crate::settings::save_text(&path, &text, &base)?;
+    save(&path)?;
     if let Ok(after) = crate::config::load(&path) {
         state.agents.routines_saved(before.as_ref().map(|c| &c.agents), &after.agents);
     }
-    apply_live(&state, &path);
+    apply_live(state, &path);
     crate::settings::read(&path).map_err(Into::into)
 }
 

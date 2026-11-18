@@ -35,7 +35,7 @@
   import { chainOf, descendants, groupsOf, isProvider, nodeOf, PARENT, pageOf, TREE, type TreeNode } from '../settings-tree'
   import { fieldsOf, pathOf, SECTION, type Section } from '../settings-sections'
   import { buildIndex, pageNode, pagesFor, search, shown as showValue, type Entry } from '../settings-search'
-  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, saveConfigText, savedValue, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
+  import { cfg, changes, discardConfig, discardValue, showSettings, editable, importPack, isChanged, loadConfig, mergedRows, mergedToml, originOf, packBusy, packLabel, packRef, removePack, restartApp, saveConfig, savedValue, raw, editRaw, cancelRaw, saveRaw, setValue, settingsView, updatePack, valueOf } from '../settings.svelte'
   import { DEFAULT_APPEARANCE, system, replayBoot, SAVER_MODES, startSaver, type Feature, type SaverMode } from '../fun.svelte'
   import { pref, setPref } from '../layout.svelte'
   import { THEMES } from '../theme.svelte'
@@ -441,32 +441,9 @@
     }
   }
 
-  /**
-   * config.toml typed in the TOML panel: opened on the file as it is on disk (the form's pending
-   * changes saved or discarded first), ⌘S or Save writes it as typed, reread by the app; Cancel
-   * leaves it. `base`: the text it was opened on, the save refused if the file changed since.
-   */
-  const raw = $state({ on: false, text: '', base: '' })
   const rawChanged = $derived(raw.on && raw.text !== raw.base)
-  function editRaw() {
-    if (changes().length || !cfg.file) return
-    Object.assign(raw, { on: true, text: cfg.file.text, base: cfg.file.text })
-    cfg.error = ''
-  }
-  const cancelRaw = () => Object.assign(raw, { on: false, text: '', base: '' })
-  async function saveRaw() {
-    if (!rawChanged) return cancelRaw()
-    if (changes().length) return void (cfg.error = t('Save or discard the changes of the form first'))
-    if (await saveConfigText(raw.text, raw.base)) cancelRaw()
-  }
-  /** Tab indents in the editor (two spaces), ⇧Tab leaves it as usual. */
-  function rawKey(e: KeyboardEvent) {
-    if (e.key !== 'Tab' || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return
-    e.preventDefault()
-    const el = e.currentTarget as HTMLTextAreaElement
-    el.setRangeText('  ', el.selectionStart, el.selectionEnd, 'end')
-    raw.text = el.value
-  }
+  /** The editor on screen: the TOML panel open on config.toml; the form inert meanwhile. */
+  const rawShown = $derived(raw.on && showToml && tomlMode === 'file')
 
   /**
    * ⌘S saves; / (out of a field) or ⌘F puts the cursor in the search — ⌘F but in a text area,
@@ -476,7 +453,7 @@
     const mod = e.metaKey || e.ctrlKey
     if (mod && e.key === 's') {
       e.preventDefault()
-      void (raw.on ? saveRaw() : saveConfig())
+      void (rawShown ? saveRaw() : saveConfig())
     } else if ((mod && e.key === 'f' && !inTextArea(e)) || (e.key === '/' && !mod && !typingIn(e))) {
       e.preventDefault()
       searchInput?.focus()
@@ -551,7 +528,7 @@
     <span class="ver" title="{t('Prism version, and the commit it was built from')}{COMMIT.endsWith('+') ? t(' (+: with uncommitted changes)') : ''}">Prism {versionLabel()}</span>
   </aside>
 
-  <section class="body">
+  <section class="body" inert={rawShown}>
     {#if !editable()}
       <p class="note warn">{t('Settings are edited from the app: in the browser preview they are read-only.')}</p>
     {:else if cfg.loading && !cfg.file}
@@ -1054,9 +1031,9 @@
         {#if merged.error}<p class="note err pad">{merged.error}</p>
         {:else}<TomlPreview text={merged.text || (cfg.file?.merged ?? '')} original={cfg.file?.merged ?? ''} />{/if}
       {:else if raw.on}
-        {#if cfg.error}<p class="note err pad">{cfg.error}</p>{/if}
+        {#if raw.error}<p class="note err pad">{raw.error}</p>{/if}
         <!-- svelte-ignore a11y_autofocus -->
-        <textarea class="raw" bind:value={raw.text} onkeydown={rawKey} spellcheck="false" autocomplete="off" autofocus aria-label={t('config.toml, editable')}></textarea>
+        <textarea class="raw" bind:value={raw.text} spellcheck="false" autocomplete="off" autofocus aria-label={t('config.toml, editable')}></textarea>
       {:else}
         <TomlPreview text={cfg.preview} original={cfg.file?.text ?? ''} />
       {/if}

@@ -132,6 +132,8 @@ pub fn save(path: &Path, edits: &[Edit]) -> Result<String> {
 /// refused if the file changed since (another save, an edit elsewhere); then saved as `save`
 /// does (`.bak`, reread, the old one back if the app cannot read it). Returns the new text.
 pub fn save_text(path: &Path, text: &str, base: &str) -> Result<String> {
+    // Refused before anything is written, with the parser's line and column (`write` would
+    // refuse it too, but only once written and put back).
     if let Err(e) = text.parse::<DocumentMut>() {
         bail!(tr!("not saved, the TOML does not read: {err}", err = e.to_string().trim()));
     }

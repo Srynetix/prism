@@ -226,43 +226,56 @@ function schedulePreview() {
 }
 
 export async function saveConfig() {
-  if (!isDesktop() || !changes().length || cfg.saving) return
+  if (!changes().length) return
+  cfg.error = (await saveWith('save_config', { edits: asEdits() })) ?? ''
+}
+
+/**
+ * A save (`save_config`, or `save_config_text`), applied as it is saved — the collectors start
+ * again from it when what they read changed: the form's changes are none then. Returns the error
+ * ('' when not tried: elsewhere than the app, or a save under way), or null once saved.
+ */
+async function saveWith(cmd: string, args: Record<string, unknown>): Promise<string | null> {
+  if (!isDesktop() || cfg.saving) return ''
   cfg.saving = true
   try {
-    // Applied as it is saved: the collectors start again from it when what they read changed.
-    cfg.file = await invoke<FileView>('save_config', { edits: asEdits() })
+    cfg.file = await invoke<FileView>(cmd, args)
     cfg.edits = {}
     cfg.preview = cfg.file.text
     cfg.error = ''
     cfg.savedAt = Date.now()
+    return null
   } catch (e) {
-    cfg.error = String(e)
+    return String(e)
   } finally {
     cfg.saving = false
   }
 }
 
 /**
- * The TOML panel's editor: config.toml written as typed, `base` the text it was edited from
- * (refused if the file changed since). The pending changes of the form are none then. Returns
- * whether it was saved; the error otherwise in `cfg.error`.
+ * The TOML panel's editor: config.toml typed by hand, opened on the file as it is on disk (read
+ * again), the form's pending changes saved or discarded first; kept here, not in the view, so
+ * that leaving Settings loses nothing typed. `base`: the text it was opened on, the save refused
+ * if the file changed since. `error`: its own, shown over it.
  */
-export async function saveConfigText(text: string, base: string): Promise<boolean> {
-  if (!isDesktop() || cfg.saving) return false
-  cfg.saving = true
-  try {
-    cfg.file = await invoke<FileView>('save_config_text', { text, base })
-    cfg.edits = {}
-    cfg.preview = cfg.file.text
-    cfg.error = ''
-    cfg.savedAt = Date.now()
-    return true
-  } catch (e) {
-    cfg.error = String(e)
-    return false
-  } finally {
-    cfg.saving = false
-  }
+export const raw = $state({ on: false, text: '', base: '', error: '' })
+
+export async function editRaw() {
+  if (changes().length) return
+  await loadConfig()
+  if (!cfg.file || changes().length) return
+  Object.assign(raw, { on: true, text: cfg.file.text, base: cfg.file.text, error: '' })
+}
+
+export const cancelRaw = () => Object.assign(raw, { on: false, text: '', base: '', error: '' })
+
+/** Written as typed; nothing changed: left. */
+export async function saveRaw() {
+  if (raw.text === raw.base) return void cancelRaw()
+  if (changes().length) return void (raw.error = t('Save or discard the changes of the form first'))
+  const error = await saveWith('save_config_text', { text: raw.text, base: raw.base })
+  if (error === null) cancelRaw()
+  else if (error) raw.error = error
 }
 
 /**
