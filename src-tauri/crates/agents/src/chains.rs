@@ -439,6 +439,7 @@ impl Agents {
                     from: None,
                     prism_mcp: false,
                     assistant: false,
+                    scratch: false,
                 };
                 self.spawn(launch).await?;
                 self.chain(id, |c| c.runs[i] = StepRun::with(RunState::Done, title));

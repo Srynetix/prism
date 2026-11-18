@@ -118,6 +118,9 @@ export function newAgent() {
   agentsView.fresh++
 }
 
+/** New agent outside any project: the launcher on « No project », a folder of its own made at launch. */
+export const newAgentAlone = () => agentsEnabled() && openLauncher({ title: '', scratch: true })
+
 /** Closes the Agents view, and the Projects page: a page of the rail, Settings or Help takes their place. */
 export const closeAgents = () => {
   agentsView.open = false
@@ -242,7 +245,7 @@ export async function afterLaunch(onLaunch: (() => Promise<void>) | null | undef
 /** Agents only run in the app: the browser preview has no tmux server. */
 export const agentsAvailable = hasCore
 
-const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, accounts: [], kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, quick_actions: [], routines: [], overlaps: { enabled: true, level: 'file', alert: 'lines', ignore: [] }, aside: { enabled: true, desktop: true, default_action: 'launch', worktree: true, stale_days: 14, statusbar: false }, assistant: { enabled: true, explore_seconds: 240 }, terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, chat_reminders: 'marker', header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true, prism_mcp: false }
+const DEFAULTS: AgentsSettings = { enabled: true, provider: 'claude', target: 'agent', worktrees_dir: null, scratch_dir: null, branch_prefix: 'agent/', permission_mode: 'default', font_size: 12.5, chat_font_size: 13.5, scrollback: 5000, accounts: [], kinds: [{ name: 'Refinement', when: 'refine' }, { name: 'Development', when: 'implement' }, { name: 'Review', when: 'review' }], tags: [], prompt_language: 'en', tasks_depth: 3, fix_log_lines: 60, claude: { bin: null, model: null, effort: null, args: [], cost_alert: 0, show_desktop: true, count_desktop: false, sessions_dir: '', transcripts: '', sessions_poll: 5, refresh_token: true }, 'command-code': { bin: null, model: null, effort: null, args: [] }, opencode: { bin: null, model: null, effort: null, args: [] }, codex: { bin: null, model: null, effort: null, args: [] }, quick_answers: { enabled: true, answers: [] }, quick_actions: [], routines: [], overlaps: { enabled: true, level: 'file', alert: 'lines', ignore: [] }, aside: { enabled: true, desktop: true, default_action: 'launch', worktree: true, stale_days: 14, statusbar: false }, assistant: { enabled: true, explore_seconds: 240 }, terminal_keys: ['Cmd+K'], view: 'chat', fold_steps: true, chat_reminders: 'marker', header_meta: 'read', comment_answers: true, suggest_switch: true, handoff: 'prism', handoff_turns: 8, handoff_review: true, prism_mcp: false }
 /** `[agents]` from config.toml, with its defaults until the snapshot has brought it. */
 export const agentsSettings = (): AgentsSettings => live.snapshot?.agents_settings ?? DEFAULTS
 /**
@@ -319,6 +322,8 @@ export interface Launch {
   from?: string
   /** Prism's MCP server and skill given to it whatever `[agents] prism_mcp` says (Configure Prism). */
   prism_mcp?: boolean
+  /** Outside any project: Prism makes it a folder of its own (`[agents] scratch_dir`); no `cwd` then. */
+  scratch?: boolean
 }
 
 /**
@@ -332,6 +337,8 @@ export function launchAgain(a: Agent): Launch {
   const s = live.snapshot
   const opt = <T>(v: T | null | undefined) => v ?? undefined
   const base: Launch = { title: l.title, prompt: opt(l.prompt), permission_mode: opt(l.permission_mode), category: opt(l.category), tags: l.tags.length ? l.tags : undefined, provider: opt(l.provider), account: opt(l.account), model: opt(l.model), effort: opt(l.effort), then: l.then.length ? l.then : undefined, from: l.from?.startsWith('aside:') ? undefined : opt(l.from) }
+  // Outside any project: a new folder of its own, not the last one's.
+  if (a.launch?.scratch) return { ...base, scratch: true }
   if (l.worktree) return { ...base, worktree: { repo: opt(l.worktree.repo), name: opt(l.worktree.name), branch: opt(l.worktree.branch), base: opt(l.worktree.base) } }
   const known = !!l.cwd && (!!s?.repos?.some((r) => r.path === l.cwd) || !!s?.worktrees?.some((w) => w.path === l.cwd && !w.prunable))
   if (known) return { ...base, cwd: l.cwd! }
@@ -362,6 +369,10 @@ export async function prepareAgent(launch: Launch): Promise<string> {
 export const startPrepared = (id: string) => invoke('agent_start', { id })
 export const justLaunched = (id: string | null) => !!id && launched?.id === id && Date.now() - launched.at < 15_000
 export const removeWorktree = (id: string) => invoke('agent_remove_worktree', { id })
+/** Deletes the folder Prism made for a stopped agent outside any project. */
+export const removeScratch = (id: string) => invoke('agent_remove_scratch', { id })
+/** An agent launched outside any project, in a folder Prism made for it. */
+export const isScratch = (a: Pick<Agent, 'launch'>) => !!a.launch?.scratch
 export const interruptAgent = (id: string) => invoke('agent_interrupt', { id })
 /** Takes a terminal (`id`: an agent or `shell:<agent>:<n>`) out of tmux's copy mode, before a key. */
 export const leaveCopyMode = (id: string) => invoke('agent_leave_copy_mode', { id })

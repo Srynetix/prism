@@ -4,7 +4,7 @@ import { openNewTicket, ticketBoards } from './new-ticket.svelte'
 import { mrTickets } from './conventions'
 import { live, trackerOn } from './live.svelte'
 import { pref, setPref, showBlock, setView, toggleEditing, toggleZen } from './layout.svelte'
-import { agentsEnabled, agentsSettings, agentsView, allowAgent, newAgent, clearAgent, interruptAgent, openAgents, openProjects, projectsOn, restartAgent } from './agents.svelte'
+import { agentsEnabled, agentsSettings, agentsView, allowAgent, newAgent, newAgentAlone, clearAgent, interruptAgent, openAgents, openProjects, projectsOn, restartAgent } from './agents.svelte'
 import { sendPrompt } from './agent-inbox.svelte'
 import { CLIS, cliOf } from './agent-cli'
 import { continueWith, targetsOf } from './agent-switch.svelte'
@@ -264,7 +264,7 @@ function addRepo(mode: AddMode) {
 /** The palette's own commands, then the console's: one registry. */
 function commandEntries(): Entry[] {
   const own: Entry[] = phone() ? [] : [
-    ...(agentsEnabled() ? [{ id: 'cmd:new-agent', kind: 'command' as const, title: t('New agent'), words: 'new agent', keys: shortcutKeys('new-agent'), run: newAgent }] : []),
+    ...(agentsEnabled() ? [{ id: 'cmd:new-agent', kind: 'command' as const, title: t('New agent'), words: 'new agent', keys: shortcutKeys('new-agent'), run: newAgent }, { id: 'cmd:new-agent-alone', kind: 'command' as const, title: t('New agent outside a project'), words: `new agent outside project scratch folder ${t('No project')}`, run: newAgentAlone }] : []),
     ...(ticketBoards().length ? [{ id: 'cmd:new-ticket', kind: 'command' as const, title: t('New ticket…'), hint: t('On one of the sprint\'s boards'), words: 'new ticket create task card issue', run: () => openNewTicket() }] : []),
     ...(assistantOn() ? [
       { id: 'cmd:assistant', kind: 'command' as const, title: t('Assistant'), hint: t('Its conversations and its memory'), words: 'assistant ask prism conversations memory brain', run: () => openAssistant() },

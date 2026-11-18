@@ -487,6 +487,7 @@ impl Agents {
             from: Some(format!("aside:{id}")),
             prism_mcp: false,
             assistant: false,
+            scratch: false,
         })
     }
 

@@ -35,6 +35,11 @@ target: 'agent' | 'desktop',
  */
 worktrees_dir: string | null, 
 /**
+ * Folder of the agents launched outside any project, one folder each; absent:
+ * `agents/` in the profile's folder.
+ */
+scratch_dir: string | null, 
+/**
  * Prefix of the agents' new branches, whatever their CLI.
  */
 branch_prefix: string, 

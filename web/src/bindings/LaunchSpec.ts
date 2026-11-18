@@ -55,4 +55,9 @@ prism_mcp?: boolean,
  * A conversation of Prism's assistant (`[agents.assistant]`): launched in its folder, with its
  * tools and its memory, shown in the Assistant panel rather than among the agents.
  */
-assistant?: boolean, };
+assistant?: boolean, 
+/**
+ * Outside any project: in a folder of its own, made by Prism under `[agents] scratch_dir`
+ * (its `cwd` once made), trusted without asking; offered for deletion once archived.
+ */
+scratch?: boolean, };

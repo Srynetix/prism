@@ -59,6 +59,7 @@ export const DEFAULT_KEYS: string[] = [
   "agents.quick_answers.answers",
   "agents.quick_answers.enabled",
   "agents.routines",
+  "agents.scratch_dir",
   "agents.scrollback",
   "agents.suggest_switch",
   "agents.tags",

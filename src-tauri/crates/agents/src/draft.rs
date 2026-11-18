@@ -201,6 +201,7 @@ impl Agents {
             from: Some(DRAFTER.into()),
             prism_mcp: false,
             assistant: false,
+            scratch: false,
         };
         self.draft(Spec { id: None, slot: None, launch, read: Read::Reply, hidden: true, timeout: QUICK_ACTION_TIME }).await
     }

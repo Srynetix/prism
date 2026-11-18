@@ -589,6 +589,7 @@ impl Agents {
             from: Some(format!("routine:{}", r.name.trim())),
             prism_mcp: false,
             assistant: false,
+            scratch: false,
         };
         let mut dirty = BTreeMap::new();
         if let Some(qa) = &qa {

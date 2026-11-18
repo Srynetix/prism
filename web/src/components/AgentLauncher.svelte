@@ -44,7 +44,8 @@
    * for Claude Code, on `<prefix><name>` from the release base), an existing worktree, or a folder
    * as is (a repository, or any folder chosen: outside the repositories too).
    */
-  type Where = 'new' | 'existing' | 'folder'
+  /** `scratch`: outside any project, in a folder Prism makes for it. */
+  type Where = 'new' | 'existing' | 'folder' | 'scratch'
   type Mode = 'default' | 'acceptEdits' | 'plan'
   /** The repositories where agents create worktrees (`[[repos]] worktrees`), the primary one first. */
   const wtRepos = $derived(worktreeRepos(live.snapshot))
@@ -115,7 +116,7 @@
     if (!folder && plain.length) folder = plain[0].path
     if (!wtPath && existing.length) wtPath = existing[0].path
     if (!wtRepos.some((r) => r.name === wtRepo)) wtRepo = wtRepos[0]?.name ?? ''
-    if (!wtRepos.length && whereTo === 'new') whereTo = 'folder'
+    if (!wtRepos.length && whereTo === 'new') whereTo = plain.length ? 'folder' : 'scratch'
   })
   /**
    * From Folder to a worktree, the repository follows: the folder's (the deepest repository
@@ -147,7 +148,9 @@
     error = ''
     wtBranch = ''
     wtBase = ''
-    if (d.worktree) {
+    if (d.scratch) {
+      whereTo = 'scratch'
+    } else if (d.worktree) {
       whereTo = 'new'
       name = d.worktree.name ? slug(d.worktree.name) : ''
       wtBranch = d.worktree.branch ?? ''
@@ -182,7 +185,7 @@
     slot.replacing = null
   })
   /** The repository the agent will run in, whose CLI it gets (`[[repos]] agent`); none: `[agents] provider`. */
-  const launchRepo = $derived(whereTo === 'new' ? wtRepo : whereTo === 'existing' ? existing.find((w) => w.path === wtPath)?.repo : live.snapshot?.repos?.find((r) => r.path === folder)?.name)
+  const launchRepo = $derived(whereTo === 'new' ? wtRepo : whereTo === 'existing' ? existing.find((w) => w.path === wtPath)?.repo : whereTo === 'scratch' ? undefined : live.snapshot?.repos?.find((r) => r.path === folder)?.name)
   /** Its repository's CLI, failing that `[agents] provider`: what the agent runs unless another is picked. */
   const defaultProvider = $derived(providerOf(launchRepo))
   /** The CLI picked for this agent; empty: the default, which follows the repository. */
@@ -239,11 +242,13 @@
     account: launchAccount || undefined,
     model: launchModel || undefined,
     effort: launchEffort || undefined,
-    then: steps.length ? $state.snapshot(steps) : undefined,
+    then: steps.length && whereTo !== 'scratch' ? $state.snapshot(steps) : undefined,
     from: from || undefined,
     prism_mcp: prismMcp || undefined,
-    ...(whereTo === 'new' ? { worktree: newWorktree({ name, fallback: autoName, branch: wtBranch, base: wtBase, repo: wtRepo, also }) } : { cwd: whereTo === 'existing' ? wtPath : folder }),
+    ...(whereTo === 'new' ? { worktree: newWorktree({ name, fallback: autoName, branch: wtBranch, base: wtBase, repo: wtRepo, also }) } : whereTo === 'scratch' ? { scratch: true } : { cwd: whereTo === 'existing' ? wtPath : folder }),
   })
+  /** Where the agents outside any project get their folder. */
+  const scratchRoot = $derived(agentsSettings().scratch_dir ?? '')
   /**
    * What the new worktree will be, as Prism will create it: asked while typing (a short pause),
    * so a name already taken or an MR's branch already checked out shows before launching. Null:
@@ -251,6 +256,8 @@
    */
   const planned = watchPlan(() => (whereTo === 'new' ? { title: autoTitle, worktree: newWorktree({ name, fallback: autoName, branch: wtBranch, base: wtBase, repo: wtRepo }) } : null))
   const plan = $derived(planned.value)
+  /** What keeps Launch off: no folder picked, no worktree, a new worktree Prism would refuse. */
+  const blocked = $derived((whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error))
   const planName = $derived(plan?.name ?? wtName)
   /**
    * The command, as Prism will run it (the name may get a suffix if already taken): built by Prism
@@ -283,7 +290,7 @@
    * The tasks of the folder it will run in (a new worktree: its repository's), while Then shows:
    * a task step's suggestions.
    */
-  const thenShown = $derived((!drawer && !quick) || more)
+  const thenShown = $derived(((!drawer && !quick) || more) && whereTo !== 'scratch')
   const taskList = watchTasks(() => (thenShown ? (whereTo === 'new' ? { repo: wtRepo || null } : { cwd: whereTo === 'existing' ? wtPath : folder }) : null))
   const tasks = $derived(taskList.list)
   /** A recipe: its steps, as they are. */
@@ -314,7 +321,7 @@
    * the new one.
    */
   async function launch(prepared = false) {
-    if (busy || !folder || (whereTo === 'new' && plan?.error)) return
+    if (busy || blocked) return
     busy = true
     error = ''
     try {
@@ -399,6 +406,7 @@
         <div class="short">
           {#if whereTo === 'new'}<code>{planName}</code> <i>{wtBranch ? t('(existing)') : t('new worktree, from {base}', { base: wtBase.trim() || plan?.base || main?.base || 'main' })}</i>{#if also.length}{' '}<i>{t('also in {repos}', { repos: also.join(', ') })}</i>{/if}
           {:else if whereTo === 'existing'}<code>{tildePath(wtPath)}</code>
+          {:else if whereTo === 'scratch'}<i>{t('a folder of its own, outside any project')}</i>
           {:else}<code>{tildePath(folder)}</code> <i>{t('the checkout itself')}</i>{/if}
           <button type="button" class="more" onclick={() => (quick = false)}>{t('Change')}</button>
         </div>
@@ -410,6 +418,7 @@
           <button type="button" class:on={whereTo === 'new'} disabled={!wtRepos.length} onclick={() => goTo('new')}>{t('New worktree')}</button>
           <button type="button" class:on={whereTo === 'existing'} disabled={!existing.length} onclick={() => goTo('existing')}>{t('Existing worktree')}</button>
           <button type="button" class:on={whereTo === 'folder'} onclick={() => goTo('folder')}>{t('Folder')}</button>
+          <button type="button" class:on={whereTo === 'scratch'} onclick={() => goTo('scratch')} title={t('A question, a search, a throwaway script: in a new folder of its own, no repository')}>{t('No project')}</button>
         </div>
         {#if whereTo === 'new'}
           <div class="where">
@@ -438,6 +447,8 @@
               {#if also.length}<small class="alsonote">{t('{name} in each, from its own base; an MR per repository at Draft MR, linked to one another.', { name: planName })}</small>{/if}
             {/if}
           </div>
+        {:else if whereTo === 'scratch'}
+          <small class="muted">{scratchRoot ? t('A new folder of its own in {root}, named after it and dated: no repository, branch nor ticket. Archived, it offers to delete it.', { root: tildePath(scratchRoot) }) : t('A new folder of its own in agents/ of the profile’s folder, named after it and dated: no repository, branch nor ticket. Archived, it offers to delete it.')}</small>
         {:else if whereTo === 'existing'}
           <select bind:value={wtPath}>{#each existing as w (w.path)}<option value={w.path}>{wtRepos.length > 1 ? `${w.repo} · ` : ''}{baseName(w.path)} · {w.branch ?? t('detached')}{w.dirty ? ` · ${t('changes')}` : ''}</option>{/each}</select>
         {:else}
@@ -543,8 +554,8 @@
       {#if slot.desktopHref && withDesktop && !quick}<a class="desk" href={slot.desktopHref} onclick={() => { const effect = slot.onLaunch; slot.onLaunch = null; void afterLaunch(effect, t('Claude Desktop opened')) }} title={t('The former behaviour: a Claude Desktop session, prompt not sent')}>{t('Open in Claude Desktop instead')}</a>{/if}
       <span class="grow"></span>
       {#if canCancel}<button type="button" class="btn" onclick={() => (onclose ? onclose() : (agentsView.creating = false))}>{t('Cancel')}</button>{/if}
-      <button type="button" class="btn" disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)} onclick={() => void launch(true)} title={slot.onLaunch ? t('Declare it without starting it: it waits in the list for Start, its worktree made then. The action’s effect (ticket moved…) applies now') : t('Declare it without starting it: it waits in the list for Start, its worktree made then')}>{t('Prepare')}</button>
-      <button type="submit" class="btn primary claude" class:busy disabled={busy || (whereTo === 'folder' && !folder) || (whereTo === 'existing' && !wtPath) || (whereTo === 'new' && !!plan?.error)}>{#if busy}<span class="spinner"></span>{t('Starting…')}{:else}{t('Launch')} <kbd>{keys('⌘↩')}</kbd>{/if}</button>
+      <button type="button" class="btn" disabled={busy || blocked} onclick={() => void launch(true)} title={slot.onLaunch ? t('Declare it without starting it: it waits in the list for Start, its worktree made then. The action’s effect (ticket moved…) applies now') : t('Declare it without starting it: it waits in the list for Start, its worktree made then')}>{t('Prepare')}</button>
+      <button type="submit" class="btn primary claude" class:busy disabled={busy || blocked}>{#if busy}<span class="spinner"></span>{t('Starting…')}{:else}{t('Launch')} <kbd>{keys('⌘↩')}</kbd>{/if}</button>
     </div>
   </form>
 {/if}

@@ -30,7 +30,8 @@
    */
 
   type Mode = 'plan' | 'default' | 'acceptEdits'
-  type Where = 'new' | 'existing' | 'clone' | 'folder'
+  /** `scratch`: outside any project, in a folder Prism makes for it. */
+  type Where = 'new' | 'existing' | 'clone' | 'folder' | 'scratch'
   /** The computer's launcher's modes, in its order and with its words. */
   const MODES: [Mode, string][] = [
     ['default', t('Default')],
@@ -85,6 +86,11 @@
   }
   function placeOf(d: Launch) {
     const s = live.snapshot
+    if (d.scratch) {
+      repo = ''
+      whereTo = 'scratch'
+      return
+    }
     if (d.worktree) {
       // Its repository when it has a clone here (a phone launches in nothing else), failing that the default one.
       repo = repos.some((r) => r.name === d.worktree?.repo) ? d.worktree.repo! : defaultRepo(true)
@@ -112,7 +118,7 @@
       return
     }
     repo = defaultRepo()
-    whereTo = hasWorktrees(repo) ? 'new' : 'clone'
+    whereTo = repo ? (hasWorktrees(repo) ? 'new' : 'clone') : 'scratch'
   }
 
   /** Its draft, once, each time it opens (as the computer's launcher). */
@@ -216,16 +222,16 @@
     account: account || undefined,
     model: model.trim() || undefined,
     effort: (takesEffort && effort) || undefined,
-    then: steps.length ? $state.snapshot(steps) : undefined,
+    then: steps.length && whereTo !== 'scratch' ? $state.snapshot(steps) : undefined,
     from: from || undefined,
     prism_mcp: prismMcp || undefined,
-    ...(whereTo === 'new' ? { worktree } : { cwd }),
+    ...(whereTo === 'new' ? { worktree } : whereTo === 'scratch' ? { scratch: true } : { cwd }),
   })
 
   /** What Launch does, in a line under it. */
   const summary = $derived(
     [
-      whereTo === 'folder' ? tildePath(folder) : repo,
+      whereTo === 'folder' ? tildePath(folder) : whereTo === 'scratch' ? t('No project') : repo,
       whereTo === 'new' ? t('new worktree') : whereTo === 'existing' ? baseName(wtPath) : whereTo === 'clone' ? t('the clone') : '',
       cliOf(provider).name,
       MODES.find(([m]) => m === mode)?.[1] ?? '',
@@ -242,7 +248,9 @@
         ? t('in the worktree {name}', { name: baseName(wtPath) || '—' })
         : whereTo === 'clone'
           ? t('in the clone itself')
-          : tildePath(folder),
+          : whereTo === 'scratch'
+            ? t('a folder of its own, outside any project')
+            : tildePath(folder),
   )
 
   /* ---------- Photos and files, attached to the prompt ---------- */
@@ -259,12 +267,12 @@
   const detach = (i: number) => (prompt = att.remove(i, prompt))
 
   /* ---------- Then: its steps, those a phone may add (`phone_then`) ---------- */
-  const where = $derived(whereTo === 'new' ? { repo: repo || null } : { cwd })
+  const where = $derived(whereTo === 'new' ? { repo: repo || null } : whereTo === 'scratch' ? null : { cwd })
   const hasTaskStep = $derived(steps.some((st) => st.kind === 'task'))
-  const taskList = watchTasks(() => (more || hasTaskStep ? where : null))
+  const taskList = watchTasks(() => ((more || hasTaskStep) && where ? where : null))
   const tasks = $derived(taskList.list)
   /** `tasks` are the folder's now picked (not still loading, nor another folder's). */
-  const tasksReady = $derived(tasksFor(taskList, where))
+  const tasksReady = $derived(!!where && tasksFor(taskList, where))
   // Its task steps on the folder's tasks: loaded after the step was added, or another folder picked.
   $effect(() => {
     if (!tasksReady) return
@@ -272,7 +280,7 @@
   })
   /** A task step names one of the folder's tasks (`phone_then` refuses any other). */
   const stepsOk = $derived(!hasTaskStep || (tasksReady && steps.every((st) => st.kind !== 'task' || (!!st.command && tasks.includes(st.command)))))
-  const ready = $derived((whereTo === 'new' ? !!repo && !plan?.error : !!cwd) && stepsOk)
+  const ready = $derived(whereTo === 'scratch' || ((whereTo === 'new' ? !!repo && !plan?.error : !!cwd) && stepsOk))
   const addStep = (kind: StepKind) => steps.push(newStep(kind, testTask(tasks)))
   function addTag(input: HTMLInputElement) {
     const tag = input.value.trim().replace(/^#/, '')
@@ -340,11 +348,12 @@
     <section>
       <div class="lbl">{t('Where')}</div>
       <div class="chips">
-        {#each chips as r (r.name)}<button type="button" class="btn chip" aria-pressed={whereTo !== 'folder' && repo === r.name} onclick={() => pickRepo(r.name)}>{r.name}</button>{/each}
+        {#each chips as r (r.name)}<button type="button" class="btn chip" aria-pressed={whereTo !== 'folder' && whereTo !== 'scratch' && repo === r.name} onclick={() => pickRepo(r.name)}>{r.name}</button>{/each}
         {#if ordered.length > SHOWN}<button type="button" class="btn chip" onclick={() => (showRepos = !showRepos)} aria-expanded={showRepos}>{showRepos ? t('Fewer') : `+${ordered.length - SHOWN}`}</button>{/if}
         {#if whereTo === 'folder'}<span class="btn chip" aria-pressed="true">{baseName(folder)}</span>{/if}
+        <button type="button" class="btn chip" aria-pressed={whereTo === 'scratch'} onclick={() => { repo = ''; folder = ''; whereTo = 'scratch' }}>{t('No project')}</button>
       </div>
-      <div class="where"><Icon name={whereTo === 'new' ? 'branch' : 'folder'} size="13px" /><span>{whereLine}</span>{#if whereTo !== 'folder'}<button type="button" class="btn ghost sm" onclick={() => (more = true)}>{t('Change')}</button>{/if}</div>
+      <div class="where"><Icon name={whereTo === 'new' ? 'branch' : 'folder'} size="13px" /><span>{whereLine}</span>{#if whereTo !== 'folder' && whereTo !== 'scratch'}<button type="button" class="btn ghost sm" onclick={() => (more = true)}>{t('Change')}</button>{/if}</div>
       {#if whereTo === 'new' && plan?.taken}<small class="muted">{t('{reason}: {name} instead', { reason: plan.taken, name: plan.name })}</small>{/if}
     </section>
 
@@ -381,7 +390,7 @@
 
     {#if more}
       <div class="adv">
-        {#if whereTo !== 'folder'}
+        {#if whereTo !== 'folder' && whereTo !== 'scratch'}
           <div>
             <div class="lbl">{t('Worktree')}</div>
             <div class="seg full">
@@ -426,6 +435,7 @@
             <input class="tag" placeholder={t('+ tag')} spellcheck="false" autocapitalize="off" enterkeyhint="done" onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(e.currentTarget) } }} onchange={(e) => addTag(e.currentTarget)} />
           </div>
         </div>
+        {#if whereTo !== 'scratch'}
         <div>
           <div class="lbl">{t('Then')}</div>
           {#each steps as s, i (i)}
@@ -440,6 +450,7 @@
           {#if steps.length}<p class="hint">{t('The computer runs them; a task needs critical actions on.')}</p>{/if}
           {#if tasksReady && !stepsOk}<p class="err">{t('No task in this folder')}</p>{/if}
         </div>
+        {/if}
       </div>
     {/if}
     {#if whereTo === 'new' && plan?.error}<p class="err">{plan.error}</p>{/if}

@@ -87,6 +87,15 @@ fn unaccented(c: char) -> char {
     }
 }
 
+/// The folder of the agents launched outside any project (`[agents] scratch_dir`, failing that
+/// `agents/` in the active profile's folder).
+pub fn scratch_root(cfg: &crate::config::AgentsConfig) -> PathBuf {
+    match &cfg.scratch_dir {
+        Some(d) if !d.as_os_str().is_empty() => crate::config::expand_home(d),
+        _ => crate::profile::dir(crate::profile::active()).join("agents"),
+    }
+}
+
 /// Worktrees folder of a repository: `<parent>/<repository name>.worktrees`.
 pub fn worktrees_dir(repo: &Path) -> PathBuf {
     let name = repo.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "repo".into());

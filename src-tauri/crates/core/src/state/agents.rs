@@ -65,6 +65,11 @@ pub struct LaunchSpec {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     #[cfg_attr(feature = "ts", ts(optional, as = "Option<bool>"))]
     pub assistant: bool,
+    /// Outside any project: in a folder of its own, made by Prism under `[agents] scratch_dir`
+    /// (its `cwd` once made), trusted without asking; offered for deletion once archived.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(optional, as = "Option<bool>"))]
+    pub scratch: bool,
 }
 
 /// A new worktree as asked at launch: its repository, its folder name, the existing branch to
