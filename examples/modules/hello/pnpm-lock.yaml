@@ -15,10 +15,10 @@ importers:
         specifier: ^7.3.1
         version: 7.3.1(svelte@5.57.3)(vite@8.3.8)
       svelte:
-        specifier: ~5.57.2
+        specifier: ~5.57.3
         version: 5.57.3
       vite:
-        specifier: ^8.3.5
+        specifier: ^8.3.8
         version: 8.3.8
 
 packages:
