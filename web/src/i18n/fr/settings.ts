@@ -596,6 +596,7 @@ export default {
   'Show config.toml next to the settings': 'Afficher config.toml à côté des réglages',
   'edited, not saved': 'modifié, non enregistré',
   'as on disk': 'tel que sur le disque',
+  'Throw away what you typed (click twice)': 'Jeter ce que vous avez tapé (cliquer deux fois)',
   'Write config.toml as typed (⌘S): the app rereads it, the previous version goes to config.toml.bak': 'Écrire config.toml tel que saisi (⌘S)\xa0: l’app le relit, la version précédente va dans config.toml.bak',
   'Save or discard the changes of the form first': 'Enregistrez ou annulez d’abord les modifications du formulaire',
   'Edit config.toml by hand, here': 'Modifier config.toml à la main, ici',
