@@ -40,8 +40,14 @@ describe('the review of an MR', () => {
 
   it('tells the agent it is already on the branch, not to make another worktree', () => {
     const a = review()
-    expect(a.prompt).toMatch(/^Review the code of .*12\. You are already in a worktree on branch feat\/cart .*without creating another worktree/)
+    expect(a.prompt).toMatch(/^Review the code of .*12\. You are already on branch feat\/cart .*without creating another worktree.*change no file/)
     expect(a.launch?.permission_mode).toBeUndefined()
+  })
+
+  it('starts in the clone when that is where its branch is checked out', () => {
+    live.snapshot = snapshot([{ path: '/code/shop', branch: 'feat/cart', repo: 'shop', is_main: true }])
+    expect(review().launch).toMatchObject({ cwd: '/code/shop' })
+    expect(review().launch).not.toHaveProperty('worktree')
   })
 
   it('asks Claude Desktop to switch to the branch first, without the worktree sentence', () => {
@@ -54,6 +60,6 @@ describe('the review of an MR', () => {
     live.snapshot = snapshot([{ path: '/wt/cart', branch: 'feat/cart', repo: 'shop', is_main: false }])
     const href = new URL(review().href!)
     expect(href.searchParams.get('folder')).toBe('/wt/cart')
-    expect(href.searchParams.get('q')).toContain('You are already in a worktree on branch feat/cart')
+    expect(href.searchParams.get('q')).toContain('You are already on branch feat/cart')
   })
 })

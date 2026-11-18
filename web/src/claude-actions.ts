@@ -120,7 +120,7 @@ const PROMPTS: Record<'fr' | 'en', Prompts> = {
     flaky: (job: string, urls: string) => `Le job CI « ${job} » est instable (${urls}) : trouve la cause.`,
     backport: (iid: number, main: string) => `Backporte la ${mrWord()} ${mrNumber(iid)} sur ${main}.`,
     switchFirst: (branch: string, iid: number) => `Place-toi sur la branche ${branch} de la ${mrWord()} ${mrNumber(iid)}. Ensuite, `,
-    reviewHere: (branch: string, iid: number) => ` Tu es déjà dans un worktree sur la branche ${branch} de la ${mrWord()} ${mrNumber(iid)} (mets-la à jour depuis le remote si elle est en retard) : fais la revue ici, sans créer d’autre worktree ni changer de branche.`,
+    reviewHere: (branch: string, iid: number) => ` Tu es déjà sur la branche ${branch} de la ${mrWord()} ${mrNumber(iid)}, dans ce dossier : fais la revue ici, sans créer d’autre worktree ni changer de branche. Un autre agent peut y travailler : ne touche à aucun fichier, et si la branche est en retard sur origin, fais un fetch et relis origin/${branch} plutôt que de la mettre à jour.`,
     fixPipeline: (iid: number) => `Corrige le pipeline en échec de la ${mrWord()} ${mrNumber(iid)}.`,
     fixBranch: (branch: string, url: string) => `Le pipeline de la branche ${branch} est en échec (${url}) : trouve la cause et corrige-la sur une nouvelle branche.`,
     failedJobs: 'Jobs en échec et fin de leurs logs (lus par Prism) :',
@@ -151,7 +151,7 @@ const PROMPTS: Record<'fr' | 'en', Prompts> = {
     flaky: (job: string, urls: string) => `The CI job "${job}" is flaky (${urls}): find the cause.`,
     backport: (iid: number, main: string) => `Backport ${mrWord()} ${mrNumber(iid)} onto ${main}.`,
     switchFirst: (branch: string, iid: number) => `Switch to branch ${branch} of ${mrWord()} ${mrNumber(iid)}. Then, `,
-    reviewHere: (branch: string, iid: number) => ` You are already in a worktree on branch ${branch} of ${mrWord()} ${mrNumber(iid)} (bring it up to date from the remote if it is behind): review it here, without creating another worktree or switching branches.`,
+    reviewHere: (branch: string, iid: number) => ` You are already on branch ${branch} of ${mrWord()} ${mrNumber(iid)}, in this folder: review it here, without creating another worktree or switching branches. Another agent may work here: change no file, and if the branch is behind origin, fetch and read origin/${branch} rather than updating it.`,
     fixPipeline: (iid: number) => `Fix the failed pipeline of ${mrWord()} ${mrNumber(iid)}.`,
     fixBranch: (branch: string, url: string) => `The pipeline of branch ${branch} failed (${url}): find the cause and fix it on a new branch.`,
     failedJobs: 'Failed jobs and the end of their logs (read by Prism):',
@@ -181,9 +181,13 @@ const primary = () => primaryRepo()?.name
 
 /** In a repository's clone as is: the primary one by default. */
 const inRepo = (repo = primary()): Place => ({ cwd: repoPath(repo) })
-/** On a branch of a repository: its worktree if it exists, otherwise a new one that checks it out. */
+/**
+ * On a branch of a repository: its worktree if it exists, the clone if that is where it is checked
+ * out (git checks a branch out once: a new worktree of it would fail), otherwise a new worktree.
+ */
 const onBranch = (branch: string, repo = primary()): Place => {
-  const wt = worktrees().find((w) => !w.is_main && w.branch === branch && w.repo === repo)
+  const on = worktrees().filter((w) => w.branch === branch && w.repo === repo)
+  const wt = on.find((w) => !w.is_main) ?? on[0]
   return wt ? { cwd: wt.path } : { worktree: { branch, repo } }
 }
 const folderOf = (p: Place) => ('cwd' in p ? p.cwd : repoPath(p.worktree.repo ?? primary()))
@@ -446,6 +450,7 @@ export function mrActions(m: MergeRequest): ClaudeAction[] {
   const fixPipeline = m.pipeline === 'failed' ? [{ ...action('fix-pipeline', tr('Fix pipeline'), `${key} · Fix pipeline`, fix, branch, { desktop: switchFirst + lower(fix) }), ...(head ? withLogs(m.project ?? null, head.id) : {}) }] : []
   return [
     ...fixPipeline,
+    // Its agent starts on the branch, and is told so; Claude Desktop without a worktree switches first (and is not told).
     action('review', tr('Review'), `${key} · Review`, review + prompts().reviewHere(m.source_branch, m.iid), branch, { desktop: switchFirst ? switchFirst + lower(review) : undefined }),
     action('review-fix', tr('Review-fix'), `${key} · Review-fix`, reviewFix, branch, { desktop: switchFirst + lower(reviewFix) }),
     action('rebase', conflicting ? tr('Rebase & fix conflicts') : tr('Rebase onto {branch}', { branch: m.target_branch }), `${key} · Rebase`, rebase, branch, { desktop: switchFirst + lower(rebase) }),
