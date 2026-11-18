@@ -1147,6 +1147,7 @@ export default {
   'Back to the conversations': 'Revenir aux conversations',
   'The conversations you archived': 'Les conversations que vous avez archivées',
   'Archived · {n}': 'Archivées · {n}',
+  'A proposal waits for your click: validate or dismiss it first': 'Une proposition attend votre clic\xa0: validez-la ou écartez-la d’abord',
   'Back in the list of conversations': 'De retour dans la liste des conversations',
   'Out of the list, nothing stopped nor removed; back by itself when it waits for you': 'Hors de la liste, rien d’arrêté ni de supprimé\xa0; elle revient d’elle-même quand elle vous attend',
   'Note written': 'Note écrite',

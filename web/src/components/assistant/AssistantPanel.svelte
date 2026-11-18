@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import Icon from '../Icon.svelte'
   import AgentChat from '../AgentChat.svelte'
   import Drawer from '../ui/Drawer.svelte'
@@ -11,7 +11,8 @@
   import { interruptAgent, openAgents, resumeAgent } from '../../agents.svelte'
   import { nameOf } from '../../agent-cli'
   import { toastError } from '../../toast.svelte'
-  import { askPrism, assistantView, byDay, closeAssistant, conversations, conversationState, loadMemory, memory } from '../../assistant.svelte'
+  import { askPrism, assistantView, byDay, closeAssistant, conversations, conversationState, loadMemory, memory, proposalsOf } from '../../assistant.svelte'
+  import type { Agent } from '../../types'
   import { isArchived, setArchived } from '../../agent-archive.svelte'
 
   /**
@@ -21,17 +22,35 @@
    * Its shell is Drawer's (Escape, a click outside); ⌥↵ closes it, from its question and its
    * Chat too; ⌘. interrupts the conversation shown. **Archive** takes a conversation out of the
    * list (`agents.archived`, as an agent's): **Archived · N** at its foot shows them, and one that
-   * waits for you again comes back by itself.
+   * waits for you again comes back by itself, a proposal to validate too.
    */
   const all = $derived(conversations(live.snapshot))
-  const list = $derived(all.filter((a) => !isArchived(a)))
-  const archived = $derived(all.filter((a) => isArchived(a)))
-  let showArchived = $state(false)
-  $effect(() => {
-    if (showArchived && !archived.length) showArchived = false
+  /** Out of the list: archived, and no proposal waiting for your click. */
+  const parted = $derived.by(() => {
+    const out = { list: [] as Agent[], archived: [] as Agent[] }
+    for (const a of all) (isArchived(a) && !proposalsOf(live.snapshot, a.id).length ? out.archived : out.list).push(a)
+    return out
   })
-  const days = $derived(byDay(showArchived ? archived : list))
+  const list = $derived(parted.list)
+  const archived = $derived(parted.archived)
+  const isOut = (id: string) => archived.some((a) => a.id === id)
+  let showArchived = $state(false)
+  const viewingArchived = $derived(showArchived && archived.length > 0)
+  const days = $derived(byDay(viewingArchived ? archived : list))
   const shown = $derived(all.find((a) => a.id === assistantView.selected) ?? null)
+  // An archived one opened from elsewhere (the palette): the archived ones listed, it among them.
+  $effect(() => {
+    const id = assistantView.selected
+    if (id && untrack(() => isOut(id))) showArchived = true
+  })
+
+  /** Archived: the next one of the list shown in its place, the question box after the last. */
+  function archive(a: Agent) {
+    const i = list.findIndex((x) => x.id === a.id)
+    const next = list[i + 1] ?? list[i - 1] ?? null
+    setArchived(a, true)
+    assistantView.selected = viewingArchived ? a.id : (next?.id ?? null)
+  }
   let draft = $state('')
   let box: HTMLTextAreaElement | undefined = $state()
 
@@ -102,7 +121,7 @@
           <p class="none">{archived.length ? t('Every conversation is archived.') : t('No conversation yet: ask your first question on the right.')}</p>
         {/each}
         {#if archived.length}
-          <button class="arch" class:on={showArchived} onclick={() => (showArchived = !showArchived)} title={showArchived ? t('Back to the conversations') : t('The conversations you archived')}><Icon name={showArchived ? 'back' : 'hide'} size={12} />{showArchived ? t('Conversations') : t('Archived · {n}', { n: archived.length })}</button>
+          <button class="arch" class:on={viewingArchived} onclick={() => (showArchived = !viewingArchived)} title={viewingArchived ? t('Back to the conversations') : t('The conversations you archived')}><Icon name={viewingArchived ? 'back' : 'hide'} size={12} />{viewingArchived ? t('Conversations') : t('Archived · {n}', { n: archived.length })}</button>
         {/if}
       </nav>
       <section class="chat">
@@ -114,10 +133,10 @@
             <span class="meta">{nameOf(shown)} · {st.label}</span>
             <span class="grow"></span>
             {#if shown.state === 'exited' || shown.state === 'gone'}<button class="btn sm" onclick={() => resumeAgent(shown.id).catch((e) => toastError(String(e)))}>{t('Resume')}</button>{/if}
-            {#if isArchived(shown)}
+            {#if isOut(shown.id)}
               <button class="btn sm ghost" onclick={() => setArchived(shown, false)} title={t('Back in the list of conversations')}>{t('Unarchive')}</button>
             {:else}
-              <button class="btn sm ghost" onclick={() => { setArchived(shown, true); assistantView.selected = null }} title={t('Out of the list, nothing stopped nor removed; back by itself when it waits for you')}>{t('Archive')}</button>
+              <button class="btn sm ghost" onclick={() => archive(shown)} disabled={proposalsOf(live.snapshot, shown.id).length > 0} title={proposalsOf(live.snapshot, shown.id).length ? t('A proposal waits for your click: validate or dismiss it first') : t('Out of the list, nothing stopped nor removed; back by itself when it waits for you')}>{t('Archive')}</button>
             {/if}
             <button class="btn sm ghost" onclick={() => { closeAssistant(); openAgents(shown.id) }} title={t('Its terminal and its tabs, in the Agents view')}>{t('Open as an agent')}</button>
           </div>
