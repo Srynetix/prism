@@ -133,7 +133,7 @@ fn folders() -> Vec<Bin> {
     #[cfg(not(target_os = "macos"))]
     {
         let disks = sysinfo::Disks::new_with_refreshed_list();
-        for d in disks.list() {
+        for d in disks.iter().flat_map(|disks| disks.iter()) {
             let mount = d.mount_point();
             // The spec's two: `$topdir/.Trash/<uid>` when `.Trash` is a real folder with the sticky
             // bit (an administrator's), and `$topdir/.Trash-<uid>`.

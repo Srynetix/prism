@@ -350,8 +350,8 @@ pub struct NodeView {
 
 /// The volume `path` is on: the disk mounted at the longest prefix of it.
 pub(crate) fn disk_of(path: &Path) -> Option<DiskSpace> {
-    let disks = sysinfo::Disks::new_with_refreshed_list();
-    disks.list().iter().filter(|d| path.starts_with(d.mount_point())).max_by_key(|d| d.mount_point().as_os_str().len()).map(|d| DiskSpace {
+    let disks = sysinfo::Disks::new_with_refreshed_list().ok()?;
+    disks.iter().filter(|d| path.starts_with(d.mount_point())).max_by_key(|d| d.mount_point().as_os_str().len()).map(|d| DiskSpace {
         name: d.name().to_string_lossy().into_owned(),
         mount: d.mount_point().display().to_string(),
         total: d.total_space(),

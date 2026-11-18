@@ -55,13 +55,13 @@ impl Cron {
     /// (`0 0 31 2 *`).
     pub fn next_after(&self, after: DateTime<Utc>, tz: &TimeZone) -> Option<DateTime<Utc>> {
         let from = Timestamp::from_second(after.timestamp()).ok()?;
-        let mut date = from.to_zoned(tz.clone()).date();
+        let mut date = from.to_zoned_datetime(tz.clone()).date();
         for _ in 0..366 * 5 {
             if self.day_matches(date) {
                 for &h in &self.hours {
                     for &m in &self.minutes {
                         // A time the clock skips (summer time) runs at the first one after it.
-                        let Ok(at) = date.at(h as i8, m as i8, 0, 0).to_zoned(tz.clone()) else { continue };
+                        let Ok(at) = date.at(h as i8, m as i8, 0, 0).to_zoned_datetime(tz.clone()) else { continue };
                         if at.timestamp() > from {
                             return DateTime::from_timestamp(at.timestamp().as_second(), 0);
                         }

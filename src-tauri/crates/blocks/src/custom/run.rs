@@ -170,7 +170,10 @@ async fn run_with(spec: &Spec, clean: bool) -> Result<Ran> {
 /// little), read every 200 ms, its group stopped beyond `bytes`, and said so (`memory_exceeded`).
 async fn watch_memory(pid: u32, bytes: u64, exceeded: std::sync::Arc<std::sync::atomic::AtomicBool>) {
     use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
-    let mut sys = System::new();
+    let mut sys = match System::new() {
+        Ok(s) => s,
+        Err(e) => return tracing::warn!("custom: its memory not watched: {e}"),
+    };
     loop {
         tokio::time::sleep(Duration::from_millis(200)).await;
         sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_memory());

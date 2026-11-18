@@ -150,9 +150,9 @@ fn unreadable(clients: &mut HashMap<String, Client>, t: &EnvironmentConfig, ns: 
 fn workload(d: &Deployment, pods: &[Pod], usage: Option<&HashMap<String, Usage>>, env: &str, hints: &crate::stages::Hints) -> Workload {
     let apps = &hints.apps;
     let name = d.metadata.name.clone().unwrap_or_default();
-    let desired = d.spec.as_ref().and_then(|s| s.replicas).unwrap_or(1).max(0) as u32;
+    let desired = d.spec.replicas.unwrap_or(1).max(0) as u32;
     let ready = d.status.as_ref().and_then(|s| s.ready_replicas).unwrap_or(0).max(0) as u32;
-    let image = d.spec.as_ref().and_then(|s| s.template.spec.as_ref()?.containers.first()?.image.clone());
+    let image = d.spec.template.spec.as_ref().and_then(|s| s.containers.first()?.image.clone());
     let image_tag = image.as_deref().map(tag);
     // The image tells the application (`media-prod` runs `media-api`); otherwise, the name.
     let app = image
@@ -201,7 +201,7 @@ fn workload(d: &Deployment, pods: &[Pod], usage: Option<&HashMap<String, Usage>>
 /// new ReplicaSet, then its availability); without it, the Deployment's creation.
 fn updated_at(d: &Deployment) -> Option<DateTime<Utc>> {
     let ts = |t: &k8s_openapi::apimachinery::pkg::apis::meta::v1::Time| DateTime::<Utc>::from_timestamp(t.0.as_second(), t.0.subsec_nanosecond() as u32);
-    let progressing = d.status.as_ref().and_then(|s| s.conditions.as_ref()?.iter().find(|c| c.type_ == "Progressing"));
+    let progressing = d.status.as_ref().and_then(|s| s.conditions.as_ref()?.iter().find(|c| c.type_.as_deref() == Some("Progressing")));
     progressing.and_then(|c| c.last_update_time.as_ref().or(c.last_transition_time.as_ref())).and_then(ts).or_else(|| d.metadata.creation_timestamp.as_ref().and_then(ts))
 }
 

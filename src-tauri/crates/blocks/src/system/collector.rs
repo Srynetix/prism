@@ -31,9 +31,14 @@ pub async fn run(cfg: SystemConfig, agent: String, ctx: BlockCtx) {
     let extra = cfg.hosts.clone();
     prism_base::rt::spawn(probe::run(probes.clone(), move || hosts(&hosts_ctx, &agent, &extra)));
 
-    let mut sys = System::new();
-    let mut nets = Networks::new_with_refreshed_list();
-    let mut disks = Disks::new_with_refreshed_list();
+    // This system unread (not one sysinfo knows): the block left empty.
+    let (mut sys, mut nets, mut disks) = match (System::new(), Networks::new_with_refreshed_list(), Disks::new_with_refreshed_list()) {
+        (Ok(s), Ok(n), Ok(d)) => (s, n, d),
+        (s, n, d) => {
+            tracing::warn!("system: this computer not read: {:?} {:?} {:?}", s.err(), n.err(), d.err());
+            return;
+        }
+    };
     let home = dirs::home_dir().unwrap_or_default();
     let mut last_net = Instant::now();
     let machine = machine(&mut sys);
@@ -68,15 +73,15 @@ pub async fn run(cfg: SystemConfig, agent: String, ctx: BlockCtx) {
         }
         let elapsed = last_net.elapsed().as_secs_f64().max(0.001);
         last_net = Instant::now();
-        let (rx, tx) = nets.iter().filter(|(name, _)| !name.starts_with("lo")).fold((0u64, 0u64), |(r, t), (_, n)| (r + n.received(), t + n.transmitted()));
+        let (rx, tx) = nets.iter().filter(|(name, _)| !name.as_encoded_bytes().starts_with(b"lo")).fold((0u64, 0u64), |(r, t), (_, n)| (r + n.received(), t + n.transmitted()));
 
         let usage = sys.global_cpu_usage();
         hot_since = if usage >= HOT { hot_since.or(Some(Instant::now())) } else { None };
-        let load = System::load_average();
+        let load = System::load_average().unwrap_or_default();
         let memory = memory(&sys).await;
         let panes = panes().await;
         let groups = groups(&sys, &panes);
-        let disks = shown(disks.list().iter().map(|d| Disk { name: d.name().to_string_lossy().into_owned(), mount: d.mount_point().display().to_string(), total: d.total_space(), available: d.available_space(), removable: d.is_removable() }).collect(), &home);
+        let disks = shown(disks.iter().map(|d| Disk { name: d.name().to_string_lossy().into_owned(), mount: d.mount_point().display().to_string(), total: d.total_space(), available: d.available_space(), removable: d.is_removable() }).collect(), &home);
 
         let (latency_ms, loss, jitter_ms, gateway_ms, hosts) = {
             let p = probes.lock().unwrap();
@@ -392,7 +397,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn reads_this_machine() {
-        let mut sys = System::new();
+        let mut sys = System::new().unwrap();
         let m = machine(&mut sys);
         sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_cpu());
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -413,8 +418,8 @@ mod tests {
     #[test]
     #[ignore]
     fn this_machines_disks() {
-        let disks = Disks::new_with_refreshed_list();
-        let all: Vec<Disk> = disks.list().iter().map(|d| Disk { name: d.name().to_string_lossy().into_owned(), mount: d.mount_point().display().to_string(), total: d.total_space(), available: d.available_space(), removable: d.is_removable() }).collect();
+        let disks = Disks::new_with_refreshed_list().unwrap();
+        let all: Vec<Disk> = disks.iter().map(|d| Disk { name: d.name().to_string_lossy().into_owned(), mount: d.mount_point().display().to_string(), total: d.total_space(), available: d.available_space(), removable: d.is_removable() }).collect();
         let home = dirs::home_dir().unwrap_or_default();
         for d in shown(all, &home) {
             println!("{} {} {} GB free of {} GB", d.name, d.mount, d.available >> 30, d.total >> 30);

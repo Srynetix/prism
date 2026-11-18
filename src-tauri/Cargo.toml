@@ -46,17 +46,17 @@ chrono = { version = "0.4.45", features = ["serde"] }
 dirs = "7.0.0"
 futures = "0.3.34"
 # The routines' time zones (`[[agents.routines]] time_zone`), from the system's database.
-jiff = "0.2.38"
+jiff = "1.0.1"
 notify = "8.2"
-k8s-openapi = { version = "0.28.0", features = ["latest"] }
-kube = { version = "4.2.0", features = ["runtime", "client", "config"] }
+k8s-openapi = { version = "0.29.0", features = ["latest"] }
+kube = { version = "5.1.0", features = ["runtime", "client", "config"] }
 portable-pty = "0.9.0"
 # The sessions Prism holds itself where there is no tmux (Windows): their screen and history.
 vt100 = "0.18"
 regex = "1.13.1"
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls", "query"] }
 # OpenCode keeps its sessions in SQLite (the Tokens block): bundled, no system library needed.
-rusqlite = { version = "0.41", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
@@ -75,7 +75,7 @@ uuid = { version = "1", features = ["v4"] }
 # An agent's files downloaded as a zip (Files tab).
 zip = { version = "9", default-features = false, features = ["deflate"] }
 # The System block: CPU, memory, processes and network counters, on every system.
-sysinfo = { version = "0.39", default-features = false, features = ["system", "network", "disk"] }
+sysinfo = { version = "0.40", default-features = false, features = ["system", "network", "disk"] }
 libc = "0.2"
 # `prism` and `prism-server`'s subcommands: their help, version, errors; and the shells' completions.
 clap = { version = "4.5", features = ["derive", "string", "wrap_help"] }
