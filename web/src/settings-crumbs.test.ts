@@ -68,6 +68,6 @@ describe('settings crumbs', () => {
       })
     }
     expect(wrong).toEqual([])
-    // Every source of the repository read: past 5 s while the other suites run.
-  }, 30_000)
+    // Every source of the repository read: past 30 s on a loaded computer, the other suites running.
+  }, 120_000)
 })
