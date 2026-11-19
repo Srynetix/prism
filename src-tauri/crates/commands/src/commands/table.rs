@@ -77,13 +77,14 @@ commands! {
     agents::worktree_shells: Never,
     agents::worktree_shell: Never,
     agents::worktree_close_shell: Never [demo: refused],
-    // A worktree's branch pulled or switched (Worktrees): at the desk only.
-    agents::worktree_branches: Never,
-    // The branch of a launch's folder, and those it can be switched to (the launcher): at the desk only.
-    agents::folder_branch: Never,
-    agents::folder_branches: Never,
+    // A worktree's branches, and switching it (Worktrees' Change ▾): from a phone too, with the
+    // actions right; nothing is lost (refused with changes not committed or an agent running).
+    agents::worktree_branches: Read [phone: state, path: String],
+    // The branch of a launch's folder, and those it can be switched to (the launchers).
+    agents::folder_branch: Read [phone: state, path: String],
+    agents::folder_branches: Read [phone: state, path: String],
     agents::worktree_pull: Never [demo: refused],
-    agents::worktree_switch: Never [demo: refused],
+    agents::worktree_switch: Act [demo: refused] [phone: state, path: String, branch: String],
     // A pod's shell (`kubectl exec`): the desk only, the phone never reaches the clusters' insides.
     infra::pod_shells: Never,
     infra::pod_shell: Never,

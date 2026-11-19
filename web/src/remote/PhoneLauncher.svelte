@@ -4,6 +4,7 @@
   import { afterLaunch, agentsSettings, isLaunchMode, LAUNCH_MODES, launchModeLabel, type LaunchMode, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, openAgents, prepareAgent, slug, spawnAgent, toastLaunched, type Launch } from '../agents.svelte'
   import { Attachments, nameOf, newStep, newWorktree, takeDraft, tasksFor, testTask, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
   import { hasWorktrees, primaryRepo } from '../repositories'
+  import { folderBranches, type BranchChoice } from '../worktrees'
   import { CLIS, cliOf, providerOf } from '../agent-cli'
   import { targetsOfCli, targetUse } from '../agent-switch.svelte'
   import { choices, effortsKey, loadEfforts, loadModels } from '../settings.svelte'
@@ -79,6 +80,7 @@
   }
   function placeOf(d: Launch) {
     const s = live.snapshot
+    branchPick = d.cwd && d.branch ? { cwd: d.cwd, branch: d.branch } : null
     if (d.scratch) {
       repo = ''
       whereTo = 'scratch'
@@ -205,6 +207,29 @@
   const plan = $derived(planned.value)
 
   const cwd = $derived(whereTo === 'existing' ? wtPath : whereTo === 'clone' ? repoPath : folder)
+  /**
+   * In a folder (the clone, a worktree, an agent's): its branches, read once More options shows
+   * them (origin fetched first); the one picked, switched to just before the agent starts, for
+   * that folder only ('': its own).
+   */
+  let cwdBranches = $state<BranchChoice[] | null>(null)
+  let branchPick = $state<{ cwd: string; branch: string } | null>(null)
+  const inFolder = $derived(whereTo !== 'new' && whereTo !== 'scratch')
+  const cwdBranch = $derived(inFolder && branchPick?.cwd === cwd ? branchPick.branch : '')
+  const cwdCurrent = $derived(cwdBranches?.find((b) => b.current)?.name ?? null)
+  $effect(() => {
+    const dir = more && inFolder ? cwd : ''
+    cwdBranches = null
+    if (!dir) return
+    let gone = false
+    folderBranches(dir).then(
+      (l) => {
+        if (!gone) cwdBranches = l
+      },
+      () => {},
+    )
+    return () => (gone = true)
+  })
   const launch = $derived<Launch>({
     title: autoTitle,
     prompt,
@@ -218,7 +243,7 @@
     then: steps.length && whereTo !== 'scratch' ? $state.snapshot(steps) : undefined,
     from: from || undefined,
     prism_mcp: prismMcp || undefined,
-    ...(whereTo === 'new' ? { worktree } : whereTo === 'scratch' ? { scratch: true } : { cwd }),
+    ...(whereTo === 'new' ? { worktree } : whereTo === 'scratch' ? { scratch: true } : { cwd, branch: cwdBranch || undefined }),
   })
 
   /** What Launch does, in a line under it. */
@@ -226,6 +251,7 @@
     [
       whereTo === 'folder' ? tildePath(folder) : whereTo === 'scratch' ? t('No project') : repo,
       whereTo === 'new' ? t('new worktree') : whereTo === 'existing' ? baseName(wtPath) : whereTo === 'clone' ? t('the clone') : '',
+      cwdBranch ? t('switched to {branch}', { branch: cwdBranch }) : '',
       cliOf(provider).name,
       launchModeLabel(mode),
     ]
@@ -400,6 +426,15 @@
             <datalist id="pl-bases">{#each plan?.bases ?? [] as b (b)}<option value={b}></option>{/each}</datalist>{/if}
         {:else if whereTo === 'existing'}
           <label class="f"><span>{t('Worktree')}</span><select bind:value={wtPath}>{#each worktrees as w (w.path)}<option value={w.path}>{baseName(w.path)} · {w.branch ?? t('detached')}{w.dirty ? ` · ${t('changes')}` : ''}</option>{/each}</select></label>
+        {/if}
+        {#if inFolder && cwdBranches?.length}
+          <label class="f"><span>{t('Branch')}</span>
+            <select value={cwdBranch} onchange={(e) => (branchPick = { cwd, branch: e.currentTarget.value })}>
+              <option value="">{t('Its own: {branch}', { branch: cwdCurrent ?? t('detached') })}</option>
+              {#each cwdBranches.filter((b) => !b.current) as b (b.name)}<option value={b.name} disabled={!!b.elsewhere}>{b.name}{b.elsewhere ? ` · ${t('in another worktree')}` : b.remote ? ` · ${t('made local')}` : ''}</option>{/each}
+            </select>
+          </label>
+          {#if cwdBranch}<small class="muted">{t('Switched just before it starts: shells and servers in this folder change branch too. Refused with changes not committed or another agent running there.')}</small>{/if}
         {/if}
         <label class="f"><span>{t('Model')}</span><input value={model} oninput={(e) => (models[provider] = e.currentTarget.value)} list="pl-models" placeholder={cliModel ?? t('{cli}’s default', { cli: cliOf(provider).name })} spellcheck="false" autocapitalize="off" autocomplete="off" /></label>
         <datalist id="pl-models">{#each choices.models[provider] ?? [] as m (m)}<option value={m}></option>{/each}</datalist>
