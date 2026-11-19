@@ -415,7 +415,12 @@ export const resumeAgent = (id: string) => invoke('agent_resume', { id })
 export const restartAgent = (id: string) => invoke('agent_restart', { id })
 export const stopAgent = (id: string) => invoke('agent_stop', { id })
 /** Stops the agent if it runs, closes it and removes its worktree: why the worktree stayed, if it did. */
-export const closeAgent = (id: string) => invoke<string | null>('agent_close', { id })
+/** Closes the agent; its Web view's remarks not sent go with it. */
+export const closeAgent = (id: string) => invoke<string | null>('agent_close', { id }).then((r) => {
+    // Loaded when needed: web-comments reads the layout's prefs, which this module feeds.
+    void import('./web-comments.svelte').then((m) => m.dropWebNotes(id))
+    return r
+  })
 /** Opens the agent's folder (its worktree, or its folder) in the editor, the terminal or the Finder. */
 export const openAgentFolder = (id: string, target: 'editor' | 'terminal' | 'finder') => invoke('agent_open', { id, with: target })
 /** An agent's panels' types, generated from the Rust ones (crates/agents). */

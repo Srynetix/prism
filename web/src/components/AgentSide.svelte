@@ -13,6 +13,8 @@
   import AgentGit from './AgentGit.svelte'
   import AgentNotes from './AgentNotes.svelte'
   import AgentPlan from './AgentPlan.svelte'
+  import WebComments from './WebComments.svelte'
+  import { webDraft } from '../web-comments.svelte'
   import { addNote, cancelQueue, composePrompt, drafts, editNote, fingerprint, isQueued, notesOf, removeNote, resolveNote, sendError, sendReview, sentDiffOf, syncWithDiff, type ReviewHooks } from '../agent-review.svelte'
   import { ready } from '../agent-inbox.svelte'
   import { keys } from '../platform'
@@ -237,6 +239,39 @@
   $effect(() => {
     if (overlay) return holdEscape(() => (overlay = false), (e) => !picking && !layers.stack.length && !(e.target as HTMLElement | null)?.closest?.('input, textarea, select'))
   })
+  /**
+   * Comment (`WebComments`): an HTML page Prism serves, its elements clicked to remark on them;
+   * not a local server's (Prism cannot add its script there). Once sent, the page is reloaded as
+   * soon as the agent rewrites it.
+   */
+  let commenting = $state(false)
+  let frameEl = $state<HTMLIFrameElement>()
+  const commentable = $derived(!!src && !isLocal(shown) && /\.html?$/i.test(path))
+  const remarks = $derived(commentable ? (() => { const d = webDraft(agent.id, path); return d.notes.length + (d.whole.trim() ? 1 : 0) })() : 0)
+  $effect(() => {
+    if (!commentable) commenting = false
+  })
+  let awaiting = $state<{ path: string; stamp: string | null } | null>(null)
+  const stampOf = async (p: string) =>
+    p.startsWith(`${SCRATCHPAD}/`)
+      ? ((await agentArtifacts(agent.id).catch(() => [])).find((a) => a.path === p.slice(SCRATCHPAD.length + 1))?.modified ?? null)
+      : ((await invoke<(string | null)[]>('agent_files_stamps', { id: agent.id, paths: [p] }).catch(() => [null]))[0] ?? null)
+  async function awaitRewrite() {
+    awaiting = { path, stamp: await stampOf(path) }
+  }
+  $effect(() => {
+    const w = awaiting
+    if (!w || tab !== 'web') return
+    const timer = setInterval(async () => {
+      if (awaiting !== w || path !== w.path) return void (awaiting = null)
+      const now = await stampOf(w.path)
+      if (now && now !== w.stamp) {
+        awaiting = null
+        go()
+      }
+    }, 3000)
+    return () => clearInterval(timer)
+  })
   const webError = $derived(/^https?:\/\//i.test(shown) && !isLocal(shown) ? t('Only a local server (http://localhost:…) or a file of the agent folder.') : '')
 
   // Each tab loads on first opening; ↻ reloads it.
@@ -326,6 +361,9 @@
       <input bind:value={address} placeholder={t('docs/page.html or http://localhost:5173')} spellcheck="false" {@attach suggest(() => (pages ?? []).map((p) => p.path))} />
       <button type="button" class="btn sm" class:on={picking} data-picker-toggle onclick={togglePicker} aria-expanded={picking} title={t('Pick a page of the folder, or a {agent} artifact', { agent: nameOf(agent) })}><Icon name="files" />{t('Open…')}{#if artifacts?.length}<span class="pill src n">{artifacts.length}</span>{/if}</button>
       <button type="submit" class="btn sm icon" title={t('Load (reload)')}><Icon name="refresh" /></button>
+      {#if src && !isText}
+        <button type="button" class="btn sm" class:on={commenting} onclick={() => (commenting = !commenting)} disabled={!commentable} aria-pressed={commenting} title={commentable ? t('Click the page’s elements to remark on them, then send the remarks to {agent}', { agent: nameOf(agent) }) : isLocal(shown) ? t('Not on a local server’s page: Prism cannot add its script there. Open an HTML file of the folder, or an artifact.') : t('Comment works on an HTML page')}><Icon name="comment" />{t('Comment')}{#if remarks}<span class="pill src n">{remarks}</span>{/if}</button>
+      {/if}
       <button type="button" class="btn sm icon" class:on={overlay} onclick={() => (overlay = !overlay)} aria-pressed={overlay} title={overlay ? t('Back to the panel (Esc)') : t('The page over the whole window')} aria-label={overlay ? t('Back to the panel') : t('Over the whole window')}><Icon name={overlay ? 'shrink' : 'expand'} /></button>
     </form>
     {#if picking}
@@ -339,11 +377,18 @@
       {:else if page}<pre class="page">{page.text}</pre>{/if}
     {:else if src}
       <!-- No allow-same-origin for a file: the page has neither storage nor access to Prism. A local server has its own origin. -->
-      {#key nonce}
-        <!-- Named by aria-label, not title: a title would be a tooltip that stays over the page (the pointer inside it no longer reaches Prism). -->
-        <!-- svelte-ignore a11y_missing_attribute -->
-        <iframe aria-label={t('Web view of {agent}', { agent: agent.title })} {src} sandbox={isLocal(shown) ? 'allow-scripts allow-forms allow-popups allow-modals allow-same-origin' : 'allow-scripts allow-forms allow-popups allow-modals'}></iframe>
-      {/key}
+      {#snippet framed()}
+        {#key nonce}
+          <!-- Named by aria-label, not title: a title would be a tooltip that stays over the page (the pointer inside it no longer reaches Prism). -->
+          <!-- svelte-ignore a11y_missing_attribute -->
+          <iframe bind:this={frameEl} aria-label={t('Web view of {agent}', { agent: agent.title })} {src} sandbox={isLocal(shown) ? 'allow-scripts allow-forms allow-popups allow-modals allow-same-origin' : 'allow-scripts allow-forms allow-popups allow-modals'}></iframe>
+        {/key}
+      {/snippet}
+      {#if commentable}
+        <WebComments {agent} page={path} frame={frameEl} bind:on={commenting} onsent={awaitRewrite} children={framed} />
+      {:else}
+        {@render framed()}
+      {/if}
     {:else}
       <p class="empty">{t('A page of the agent folder (a mockup, a report, a Markdown file: pick it with Open… or type its path), a {agent} artifact, or a local dev server. In Files, an HTML file opens here.', { agent: nameOf(agent) })}</p>
       {#if artifacts?.length}
@@ -391,7 +436,7 @@
   .page { flex: 1; min-height: 0; margin: 0; overflow: auto; padding: 10px 14px; color: var(--text); }
   pre.page { font: var(--fs-mono) var(--mono); white-space: pre-wrap; }
   .page.md { padding: 16px 22px 24px; }
-  iframe { flex: 1; min-height: 0; width: 100%; border: none; background: #fff; }
+  iframe { flex: 1; min-height: 0; min-width: 0; width: 100%; border: none; background: #fff; }
   .web { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
   /* Over the whole window: above the views and drawers, below the boot screen and tooltips. */
   .web.overlay { position: fixed; inset: 0; z-index: var(--z-top); background: var(--surface); box-shadow: inset 0 2px var(--src-claude); }

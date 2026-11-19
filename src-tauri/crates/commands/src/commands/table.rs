@@ -35,6 +35,8 @@ commands! {
         now_playing: Never,
         now_playing_command: Never,
         feedback_capture: Never,
+        // An element of a page the Web view comments on, captured from the window.
+        web_capture: Never,
         // Read-only from a phone (tmux's `-r`), through its socket: typing is `agent_write`.
         agent_attach: Read,
         // Other computers' Prism, each in a window of this one (`[[machines]]`).
