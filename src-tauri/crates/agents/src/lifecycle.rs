@@ -337,21 +337,25 @@ impl Agents {
         if current.as_deref() == Some(branch) {
             return Ok(None);
         }
-        let inside = |p: &str| Path::new(p).starts_with(&top);
-        let running = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id != id && a.state == AgentState::Running && (inside(&a.cwd) || a.worktree.as_deref().is_some_and(inside) || a.adopted.iter().chain(&a.also).any(|p| inside(p)))).map(|a| a.title.clone());
-        let running = match running {
-            Some(t) => Some(t),
-            None => {
-                let panes = self.inner.tmux.panes().await?;
-                let reg = self.inner.registry.lock().unwrap();
-                reg.records.iter().find(|r| r.id != id && !r.prepared && panes.get(&r.id) == Some(&Pane::Alive) && (r.cwd.starts_with(&top) || r.worktree.as_ref().is_some_and(|w| w.starts_with(&top)))).map(|r| r.title.clone())
-            }
-        };
-        if let Some(title) = running {
+        if let Some(title) = self.running_in(id, &top).await? {
             bail!(tr!("the agent “{title}” is running in it: stop it first", title = title));
         }
         vcs::switch(&top, branch).await?;
         Ok(Some(current.unwrap_or_default()))
+    }
+
+    /// An agent other than `except` working in `top` (its folder, worktree, adopted or other
+    /// repositories' folders inside it): one running in the snapshot, or launched and not in it
+    /// yet (its pane alive). Its title. Callers that switch a branch hold `switching`.
+    pub(crate) async fn running_in(&self, except: &str, top: &Path) -> Result<Option<String>> {
+        let inside = |p: &str| Path::new(p).starts_with(top);
+        let shown = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id != except && a.state == AgentState::Running && (inside(&a.cwd) || a.worktree.as_deref().is_some_and(inside) || a.adopted.iter().chain(&a.also).any(|p| inside(p)))).map(|a| a.title.clone());
+        if shown.is_some() {
+            return Ok(shown);
+        }
+        let panes = self.inner.tmux.panes().await?;
+        let reg = self.inner.registry.lock().unwrap();
+        Ok(reg.records.iter().find(|r| r.id != except && !r.prepared && panes.get(&r.id) == Some(&Pane::Alive) && (r.cwd.starts_with(top) || r.worktree.as_ref().is_some_and(|w| w.starts_with(top)) || r.extra.iter().any(|e| e.starts_with(top)))).map(|r| r.title.clone()))
     }
 
     /// The worktrees of the other repositories an agent works in (`also`): the same name as its own

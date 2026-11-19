@@ -49,7 +49,7 @@ Ou choisissez-les vous-même, obsolètes ou non : cochez la case devant chaque 
 Les icônes en haut du détail ouvrent un worktree dans votre éditeur, un shell dans Prism, l’app de terminal ou le Finder (Réglages › Interface › Ouvrir avec) ; **Agent ici** y lance un agent Claude.
 
 Ses actions git sont sur la ligne qu’elles changent :
-- **Changer ▾**, sur la ligne Branche, le passe sur une autre branche : une locale, ou une d’origin (créée alors en local, qui la suit). Origin est relu à l’ouverture de la liste ; une branche où se trouve déjà un autre worktree apparaît grisée. Refusé avec des modifications non commitées, ou tant qu’un agent y tourne.
+- **Changer ▾**, sur la ligne Branche, le passe sur une autre branche : une locale, ou une d’origin (créée alors en local, qui la suit). Origin est relu à l’ouverture de la liste ; une branche où se trouve déjà un autre worktree apparaît grisée. Refusé avec des modifications non commitées, ou tant qu’un agent y tourne. Sur le téléphone aussi, avec le droit **actions** (Réglages › Accès à distance › Exposition).
 - **Pull**, sur la ligne Upstream, apparaît quand origin a des commits de sa branche qui lui manquent (↓N, au dernier fetch). En fast-forward seulement : si les deux ont divergé, rien n’est pullé.
 
 **Archiver** et **Supprimer** sont sous le Verdict, qui dit si la suppression est sûre.

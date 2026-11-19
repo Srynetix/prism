@@ -262,13 +262,13 @@ impl Agents {
         vcs::pull(&self.shown_worktree(path)?).await
     }
 
-    /// A worktree switched to `branch`; refused while an agent runs in it (its work would land on
-    /// another branch than the one it was given).
+    /// A worktree switched to `branch`; refused while an agent works in it (its work would land on
+    /// another branch than the one it was given), one just launched too (`running_in`).
     pub async fn worktree_switch(&self, path: &str, branch: &str) -> Result<String> {
         let dir = self.shown_worktree(path)?;
-        let inside = |d: &str| d == path || d.starts_with(&format!("{path}/"));
-        if let Some(a) = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.state == AgentState::Running && (a.worktree.as_deref() == Some(path) || a.adopted.iter().any(|p| p == path) || inside(&a.cwd))) {
-            bail!(tr!("the agent “{title}” is running in it: stop it first", title = a.title));
+        let _switching = self.inner.switching.lock().await;
+        if let Some(title) = self.running_in("", &dir).await? {
+            bail!(tr!("the agent “{title}” is running in it: stop it first", title = title));
         }
         vcs::switch(&dir, branch).await
     }

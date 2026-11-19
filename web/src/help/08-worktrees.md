@@ -49,7 +49,7 @@ Or pick them yourself, stale or not: tick the box in front of each worktree that
 The icons at the top of the detail open a worktree in your editor, a shell in Prism, the terminal app or the Finder (Settings › Interface › Open with); **Agent here** launches a Claude agent in it.
 
 Its git actions sit on the line they change:
-- **Change ▾**, on the Branch line, switches it to another branch: a local one, or one of origin's (then made local, tracking it). Origin is fetched as the list opens; a branch another worktree is on is shown greyed. Refused with uncommitted changes, or while an agent runs in it.
+- **Change ▾**, on the Branch line, switches it to another branch: a local one, or one of origin's (then made local, tracking it). Origin is fetched as the list opens; a branch another worktree is on is shown greyed. Refused with uncommitted changes, or while an agent runs in it. On the phone too, with the **actions** right (Settings › Remote › Exposure).
 - **Pull**, on the Upstream line, appears when origin has commits of its branch it lacks (↓N, as of the last fetch). Fast-forward only: when the two have diverged, nothing is pulled.
 
 **Archive** and **Remove** sit under the Verdict, which says whether removing is safe.

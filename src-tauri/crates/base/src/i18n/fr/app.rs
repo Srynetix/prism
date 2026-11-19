@@ -26,7 +26,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("this worktree is locked (git worktree unlock)", "ce worktree est verrouillé (git worktree unlock)"),
     ("the agent “{title}” is running in it: stop it first", "l’agent « {title} » tourne dedans : arrêtez-le d’abord"),
     ("{path} is in no repository Prism follows: no branch to pick", "{path} n’est dans aucun dépôt que Prism suit : pas de branche à choisir"),
-    ("from a phone, an agent starts on its folder's branch: switch it at the computer", "depuis le téléphone, un agent démarre sur la branche de son dossier : changez-la sur l’ordinateur"),
     ("the Claude Desktop session “{title}” uses it: archive it first", "la session Claude Desktop « {title} » l’utilise : archivez-la d’abord"),
     ("kept: {reason}", "conservé : {reason}"),
     ("no worktree to prune", "aucun worktree à nettoyer"),
