@@ -1023,3 +1023,25 @@ async fn an_agent_outside_any_project_gets_a_folder_of_its_own() {
     b.agents.close(&posing).await.unwrap();
     assert!(!scratch.join(format!("{today}-posing")).exists());
 }
+
+/// A shell with no agent opens in a folder Prism shows (the Projects page's): a repository's clone,
+/// an agent's folder; not in any other.
+#[tokio::test]
+async fn a_folder_shell_opens_where_prism_shows_work() {
+    let b = Bench::new();
+    let clone = b.root.join("clone");
+    let elsewhere = b.root.join("elsewhere");
+    std::fs::create_dir_all(&clone).unwrap();
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    let path = |p: &std::path::Path| p.display().to_string();
+    assert!(b.agents.folder_owner(&path(&clone)).is_err(), "not shown yet");
+    b.hub.update(|s| {
+        s.repos.push(prism_core::state::Repo { name: "clone".into(), path: path(&clone), project: None, branch: Some("main".into()), base: "main".into(), behind: 0, ahead: 0, dirty: false, is_main: true, error: None, forge: None });
+        true
+    });
+    assert!(b.agents.folder_owner(&path(&clone)).is_ok(), "a repository's clone");
+    let id = b.agents.spawn(b.launch("Here")).await.unwrap();
+    b.shown(&id).await.unwrap();
+    assert!(b.agents.folder_owner(&path(&b.project)).is_ok(), "an agent's folder");
+    assert!(b.agents.folder_owner(&path(&elsewhere)).is_err(), "a folder Prism does not show");
+}

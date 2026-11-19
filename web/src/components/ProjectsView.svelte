@@ -2,8 +2,7 @@
   import { t, tc, tn } from '../i18n.svelte'
   import { live } from '../live.svelte'
   import { keys, tildePath, FILE_MANAGER } from '../platform'
-  import { hasCore, isDesktop, isLocal } from '../bridge'
-  import { openWorktreeShell } from '../shell-drawer.svelte'
+  import { isDesktop, isLocal } from '../bridge'
   import { forgeLabel, forgeUrl } from '../forge'
   import { mrKey } from '../mr-ref'
   import { openMr } from '../mr-view.svelte'
@@ -30,6 +29,7 @@
   import Icon from './Icon.svelte'
   import ArmedLabel from './ArmedLabel.svelte'
   import NewWorkstream from './NewWorkstream.svelte'
+  import ShellButton from './ShellButton.svelte'
   import Worktrees from './Worktrees.svelte'
 
   /**
@@ -161,7 +161,8 @@
         <button class="btn sm" onclick={() => archive(w)} title={t('Out of the list until a commit or a change')}><Icon name="hide" size={10} />{t('Archive')}</button>
       {/if}
       {#if !w.agents.some((a) => a.state === 'running')}<button class="btn sm" onclick={() => agentHere(w)} disabled={!agentsAvailable()} title={t('A new agent in this folder')}><Icon name="plus" size={10} />{t('Agent here')}</button>{/if}
-      {#if hasCore()}<button class="btn sm" onclick={() => openWorktreeShell(w.path, w.title)} title={t('A shell in Prism, in this folder: tmux keeps it after closing')}><Icon name="terminal" size={10} />{t('Shell')}</button>{/if}
+      <!-- The clone's shells are the header's. -->
+      {#if !w.clone}<ShellButton path={w.path} label />{/if}
       {#if isDesktop() && editor}<button class="btn sm" onclick={() => run(() => openWorktree(w.path, 'editor'))} title={t('Open in {app}', { app: editor })}>{t('Editor')}</button>{/if}
     </footer>
   </article>
@@ -211,7 +212,7 @@
         </div>
         <span class="grow"></span>
         {#if p.repo}
-          {#if hasCore()}<button class="btn sm" onclick={() => openWorktreeShell(p.repo!.path, p.name)} title={t('A shell in Prism, in this folder: tmux keeps it after closing')}><Icon name="terminal" size={10} />{t('Shell')}</button>{/if}
+          <ShellButton path={p.repo.path} label />
           {#if isDesktop() && editor}<button class="btn sm" onclick={() => run(() => openWorktree(p.repo!.path, 'editor'))} title={t('Open in {app}', { app: editor })}>{t('Editor')}</button>{/if}
           {#if isLocal()}
             <button class="btn sm" onclick={() => run(() => openWorktree(p.repo!.path, 'terminal'))} title={t('Open in {app}', { app: snap.open_with?.terminal ?? 'Terminal' })}>{t('Terminal')}</button>

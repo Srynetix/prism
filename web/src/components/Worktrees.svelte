@@ -22,7 +22,7 @@
   import type { Snapshot } from '../types'
   import { FILE_MANAGER } from '../platform'
   import { hasCore } from '../bridge'
-  import { openWorktreeShell } from '../shell-drawer.svelte'
+  import ShellButton from './ShellButton.svelte'
   import { canArchive, isHidden, setHidden } from '../worktree-archive.svelte'
   import OverlapChip from './OverlapChip.svelte'
   import { overlapsAt } from '../overlaps'
@@ -377,7 +377,7 @@
             <button class="btn sm ghost" onclick={prune} disabled={busy}><Icon name="prune" />{t('Prune')}</button>
           {:else}
             <button class="btn sm icon ghost" onclick={() => run(() => openWorktree(i.w.path, 'editor'))} disabled={!snap.open_with?.editor} title={snap.open_with?.editor ? t('Open in {app}', { app: snap.open_with.editor }) : t('No editor in [open_with]')} aria-label={t('Editor')}><Icon name="code" /></button>
-            {#if hasCore()}<button class="btn sm icon ghost" onclick={() => openWorktreeShell(i.w.path, i.name)} title={t('A shell in Prism, in this folder: tmux keeps it after closing')} aria-label={t('Shell')}><Icon name="terminal" /></button>{/if}
+            <ShellButton path={i.w.path} />
             <button class="btn sm icon ghost" onclick={() => run(() => openWorktree(i.w.path, 'terminal'))} title={t('Open the folder in the terminal app')} aria-label={t('Terminal')}><Icon name="external" /></button>
             <button class="btn sm icon ghost" onclick={() => run(() => openWorktree(i.w.path, 'finder'))} title={t('Open in {app}', { app: FILE_MANAGER })} aria-label={FILE_MANAGER}><Icon name="folder" /></button>
             {#if agentsEnabled()}<button class="btn sm here" onclick={() => openLauncher({ title: i.w.ticket ?? i.name, cwd: i.w.path })}><Icon name={agentIcon()} />{t('Agent here')}</button>{/if}

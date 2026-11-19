@@ -136,10 +136,15 @@ impl Agents {
         self.inner.tmux.kill(key).await
     }
 
-    /// The owner of a worktree's shells: `wt` and a fingerprint of its path, stable across restarts
-    /// (tmux keeps the shells meanwhile). Refused for a folder that is not one of the worktrees shown.
+    /// The owner of a folder's shells: `wt` and a fingerprint of its path, stable across restarts
+    /// (tmux keeps the shells meanwhile). Refused for a folder Prism does not show: one of the
+    /// worktrees, a repository's clone, an agent's folder (the Projects page's workstreams).
     pub(crate) fn folder_owner(&self, path: &str) -> Result<String> {
-        let known = self.inner.hub.subscribe().borrow().worktrees.iter().any(|w| w.path == path && !w.prunable);
+        let known = {
+            let snap = self.inner.hub.subscribe();
+            let s = snap.borrow();
+            s.worktrees.iter().any(|w| w.path == path && !w.prunable) || s.repos.iter().any(|r| r.path == path) || s.agents.iter().any(|a| a.worktree.as_deref() == Some(path) || a.cwd == path)
+        };
         if !known || !Path::new(path).is_dir() {
             bail!(tr!("not a worktree Prism shows: {path}", path = path));
         }
