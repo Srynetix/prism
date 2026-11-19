@@ -882,6 +882,24 @@ pub fn serve(root: &Path, rel: &str) -> std::result::Result<(Vec<u8>, &'static s
     Ok((bytes, mime(&path)))
 }
 
+/// Prism's annotation script (`annotate.js`): what the Web view's Comment mode talks to.
+const ANNOTATE: &str = include_str!("annotate.js");
+
+/// An HTML page with the annotation script in its head (or first, without one); inert until the
+/// window framing it turns Comment on. Inline: the page's sandbox allows inline scripts, from
+/// `prismfile:` as from a phone's `/page/`.
+pub fn with_annotate(html: Vec<u8>) -> Vec<u8> {
+    let tag = format!("<script data-prism>{ANNOTATE}</script>");
+    // In its head; without one, after `<html …>` or the doctype (before it, the page would render in quirks mode).
+    let after = |tag: &[u8]| html.windows(tag.len()).position(|w| w.eq_ignore_ascii_case(tag)).and_then(|i| html[i..].iter().position(|&b| b == b'>').map(|j| i + j + 1));
+    let at = html.windows(7).position(|w| w.eq_ignore_ascii_case(b"</head>")).or_else(|| after(b"<html")).or_else(|| after(b"<!doctype")).unwrap_or(0);
+    let mut out = Vec::with_capacity(html.len() + tag.len());
+    out.extend_from_slice(&html[..at]);
+    out.extend_from_slice(tag.as_bytes());
+    out.extend_from_slice(&html[at..]);
+    out
+}
+
 fn mime(path: &Path) -> &'static str {
     match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
         Some("html" | "htm") => "text/html; charset=utf-8",
@@ -932,6 +950,23 @@ fn slashed(rel: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A page gets the annotation script in its head, or first without one; its own bytes kept.
+    #[test]
+    fn a_page_gets_the_annotation_script() {
+        let page = with_annotate(b"<html><HEAD><title>\xe9t\xe9</title></HEAD><body>x</body></html>".to_vec());
+        let text = String::from_utf8_lossy(&page);
+        let script = text.find("<script data-prism>").unwrap();
+        assert!(script > text.find("<title>").unwrap() && script < text.find("</HEAD>").unwrap(), "{text}");
+        assert!(page.ends_with(b"<body>x</body></html>") && page.windows(3).any(|w| w == b"\xe9t\xe9"));
+        let bare = String::from_utf8(with_annotate(b"<p>hi</p>".to_vec())).unwrap();
+        assert!(bare.starts_with("<script data-prism>") && bare.ends_with("</script><p>hi</p>"));
+        let headless = String::from_utf8(with_annotate(b"<!DOCTYPE html><body>x</body>".to_vec())).unwrap();
+        assert!(headless.starts_with("<!DOCTYPE html><script data-prism>"), "the doctype first: no quirks mode");
+        let html = String::from_utf8(with_annotate(b"<!doctype html><html lang=\"fr\"><body>x</body></html>".to_vec())).unwrap();
+        assert!(html.starts_with("<!doctype html><html lang=\"fr\"><script data-prism>"));
+        assert!(!ANNOTATE.contains("</script"), "the script never closes its own tag");
+    }
 
     /// A file written back: there already, inside the folder, outside `.git`, unchanged since read.
     #[test]

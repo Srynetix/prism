@@ -35,6 +35,8 @@ commands! {
         now_playing: Never,
         now_playing_command: Never,
         feedback_capture: Never,
+        // An element of a page the Web view comments on, captured from the window.
+        web_capture: Never,
         // Read-only from a phone (tmux's `-r`), through its socket: typing is `agent_write`.
         agent_attach: Read,
         // Other computers' Prism, each in a window of this one (`[[machines]]`).
@@ -255,6 +257,7 @@ commands! {
     agents::agent_files_download: Read [phone: state, id: String, paths: Vec<String>, name: String],
     agents::agent_pages: Read [phone: state, id: String, ignored: bool],
     agents::agent_artifacts: Read [phone: state, id: String; sync],
+    agents::agent_page_file: Read [phone: state, id: String, path: String; sync],
     agents::agent_diff: Read [phone: state, id: String, branch: bool],
     agents::overlap_diff: Read [phone: state, a: String, b: String],
     agents::agent_task_files_changed: Read [phone: state, id: String],

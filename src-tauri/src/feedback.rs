@@ -109,3 +109,44 @@ fn uri(bytes: Vec<u8>, mime: &str) -> String {
     use base64::Engine;
     format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes))
 }
+
+/// A part of Prism's window, `rect` in the page's points (x, y from the webview's top left, width,
+/// height): an element of a page the Web view comments on. PNG bytes. macOS: `screencapture -R`
+/// over the webview's rectangle; Linux on X11: `import` of the root window, cropped; elsewhere none.
+#[cfg(target_os = "macos")]
+pub async fn capture_region(window: &tauri::WebviewWindow, rect: [f64; 4], path: &std::path::Path) -> Result<Vec<u8>> {
+    let [x, y, w, h] = rect;
+    ensure!(w >= 1.0 && h >= 1.0, "an empty rectangle");
+    let scale = window.scale_factor()?;
+    let at = window.inner_position()?.to_logical::<f64>(scale);
+    let r = format!("{},{},{},{}", (at.x + x).round(), (at.y + y).round(), w.round(), h.round());
+    let file = path.to_string_lossy().into_owned();
+    let out = crate::platform::command("screencapture").args(["-x", "-t", "png", "-R", &r, &file]).output().await.context("screencapture")?;
+    ensure!(out.status.success(), "screencapture: {}", String::from_utf8_lossy(&out.stderr).trim());
+    let png = std::fs::read(path).context("the capture")?;
+    let _ = std::fs::remove_file(path);
+    Ok(png)
+}
+
+#[cfg(target_os = "linux")]
+pub async fn capture_region(window: &tauri::WebviewWindow, rect: [f64; 4], path: &std::path::Path) -> Result<Vec<u8>> {
+    let [x, y, w, h] = rect;
+    ensure!(w >= 1.0 && h >= 1.0, "an empty rectangle");
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() || prism_core::detect::which("import").is_none() {
+        bail!(tr("a capture of an element needs ImageMagick's import, on X11"));
+    }
+    let scale = window.scale_factor()?;
+    let at = window.inner_position()?;
+    let geometry = format!("{}x{}+{}+{}", (w * scale).round(), (h * scale).round(), (f64::from(at.x) + x * scale).round(), (f64::from(at.y) + y * scale).round());
+    let file = path.to_string_lossy().into_owned();
+    let out = crate::platform::command("import").args(["-window", "root", "-crop", &geometry, &file]).output().await.context("import")?;
+    ensure!(out.status.success(), "import: {}", String::from_utf8_lossy(&out.stderr).trim());
+    let png = std::fs::read(path).context("the capture")?;
+    let _ = std::fs::remove_file(path);
+    Ok(png)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub async fn capture_region(_window: &tauri::WebviewWindow, _rect: [f64; 4], _path: &std::path::Path) -> Result<Vec<u8>> {
+    bail!(tr("the capture of the window is made on macOS and Linux only"))
+}

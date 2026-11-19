@@ -156,10 +156,21 @@ impl Agents {
         let path = files::percent_decode(url_path.trim_start_matches('/'));
         let (id, rel) = path.split_once('/').unwrap_or((&path, ""));
         let dir = self.dir(id).map_err(|e| (404, format!("{e:#}")))?;
-        match rel.split_once('/') {
+        let (body, mime) = match rel.split_once('/') {
             Some((files::SCRATCHPAD, rel)) => files::serve(&self.scratchpad(id).ok_or((404, "no scratchpad for this agent".to_string()))?, rel),
             _ => files::serve(&dir, rel),
-        }
+        }?;
+        // A page gets the annotation script (Comment, in the Web view): inert until asked.
+        Ok((if mime.starts_with("text/html") { files::with_annotate(body) } else { body }, mime))
+    }
+
+    /// Where a page of the Web view is on disk (`<path>` of the folder, or `@scratchpad/<path>`):
+    /// what another agent is told to read it (its own scratchpad is another).
+    pub fn page_file(&self, id: &str, path: &str) -> Result<PathBuf> {
+        Ok(match path.split_once('/') {
+            Some((files::SCRATCHPAD, rel)) => self.scratchpad(id).context("no scratchpad for this agent")?.join(rel),
+            _ => self.dir(id)?.join(path),
+        })
     }
 
     /// A text page of the Web view (`<path>` of the folder, or `@scratchpad/<path>`), resolved as `serve` does.

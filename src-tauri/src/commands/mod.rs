@@ -39,6 +39,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         now_playing,
         now_playing_command,
         feedback_capture,
+        web_capture,
         agent_attach,
         crate::machines::machine_list,
         crate::machines::machine_token,
@@ -216,6 +217,17 @@ pub fn agent_attach(state: State<'_, Arc<AppState>>, id: String, cols: u16, rows
 #[tauri::command]
 pub async fn feedback_capture(state: State<'_, Arc<AppState>>, window: tauri::WebviewWindow) -> Cmd<String> {
     Ok(crate::feedback::capture(&window, &crate::feedback::capture_path(&state.store)).await?)
+}
+
+/// An element of a page the Web view comments on, captured from the window (`rect`: x, y, width,
+/// height in the page's points from the webview's top left): its PNG, base64, for the prompt's
+/// attachment.
+#[tauri::command]
+pub async fn web_capture(state: State<'_, Arc<AppState>>, window: tauri::WebviewWindow, rect: [f64; 4]) -> Cmd<String> {
+    use base64::Engine;
+    let path = crate::feedback::capture_path(&state.store).with_file_name(format!("element-{}-{}.png", std::process::id(), chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()));
+    let png = crate::feedback::capture_region(&window, rect, &path).await?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(png))
 }
 
 #[cfg(test)]

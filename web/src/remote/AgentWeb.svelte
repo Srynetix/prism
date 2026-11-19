@@ -9,6 +9,8 @@
   import { pref, setPref } from '../layout.svelte'
   import { agentArtifacts, agentPages, agentPageText, SCRATCHPAD, type AgentArtifact, type AgentPage } from '../agents.svelte'
   import { markSeen, seenAt } from './web-seen.svelte'
+  import { live } from '../live.svelte'
+  import WebComments from '../components/WebComments.svelte'
 
   /**
    * An agent's Web tab on a phone: its artifacts (the pages its CLI writes to the session's
@@ -130,6 +132,30 @@
     if (page.url) nonce++
     else await show(page.path, page.scratchpad, page.modified)
   }
+  /** Comment (`WebComments`): a page served by Prism, its elements tapped to remark on them. */
+  const agent = $derived(live.snapshot?.agents.find((a) => a.id === id) ?? null)
+  let commenting = $state(false)
+  let frameEl = $state<HTMLIFrameElement>()
+  const commentable = $derived(!!page?.url && kind(page.path) === 'html' && !!agent)
+  const pageKey = $derived(page ? (page.scratchpad ? `${SCRATCHPAD}/${page.path}` : page.path) : '')
+  $effect(() => {
+    if (!commentable) commenting = false
+  })
+  /** Remarks sent on an artifact: shown again once the agent rewrote it (the artifacts are reread every 5 s). */
+  let awaiting = $state<string | null>(null)
+  $effect(() => {
+    const p = page
+    if (!awaiting || !p?.scratchpad) return
+    const now = artifacts?.find((a) => a.path === p.path)?.modified
+    if (now && now !== awaiting) {
+      awaiting = null
+      page = { ...p, modified: now }
+      void reload()
+    }
+  })
+  const afterSend = () => {
+    if (page?.scratchpad) awaiting = artifacts?.find((a) => a.path === page!.path)?.modified ?? page.modified ?? ''
+  }
   function ask() {
     if (!page) return
     // A prompt to the agent: in English, as Prism's other prompts.
@@ -194,13 +220,19 @@
       {#if page.url}<a class="btn ghost icon" href={page.url} target="_blank" rel="noopener noreferrer" title={t('Open in the browser')} aria-label={t('Open in the browser')}><Icon name="external" /></a>{/if}
     </div>
     <div class="frame">
-      {#if page.url}
+      {#if page.url && commentable && agent}
+        {#snippet framed()}{#key nonce}<iframe bind:this={frameEl} src={nonce ? `${page!.url}?r=${nonce}` : page!.url} title={page!.path}></iframe>{/key}{/snippet}
+        <WebComments {agent} page={pageKey} frame={frameEl} bind:on={commenting} phone onsend={afterSend} children={framed} />
+      {:else if page.url}
         {#key nonce}<iframe src={nonce ? `${page.url}?r=${nonce}` : page.url} title={page.path}></iframe>{/key}
       {:else if kind(page.path) === 'md'}<div class="doc"><Markdown text={page.text ?? ''} reading /></div>
       {:else if kind(page.path) === 'html'}<iframe sandbox="" srcdoc={page.text ?? ''} title={page.path}></iframe>
       {:else}<pre class="txt">{page.text}</pre>{/if}
     </div>
-    <div class="vfoot"><button class="btn" onclick={ask}><Icon name="send" />{t('Ask a change…')}</button></div>
+    <div class="vfoot">
+      {#if commentable}<button class="btn" class:on={commenting} onclick={() => (commenting = !commenting)} aria-pressed={commenting}><Icon name="comment" />{t('Comment')}</button>{/if}
+      <button class="btn" onclick={ask}><Icon name="send" />{t('Ask a change…')}</button>
+    </div>
   </div>
 {/if}
 
@@ -238,10 +270,11 @@
   .name { display: flex; flex: 1; flex-direction: column; min-width: 0; }
   .name > span { overflow: hidden; font-size: var(--fs-body); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
   .vbar .icon { color: var(--text); font-size: var(--fs-head); }
-  .frame { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
-  .frame iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+  .frame { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .frame iframe { display: block; flex: 1; width: 100%; height: 100%; min-height: 0; border: 0; background: #fff; }
   .doc { padding: 12px 14px; }
   .txt { margin: 0; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.5 var(--mono); }
-  .vfoot { display: flex; flex: none; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); }
+  .vfoot { display: flex; gap: 8px; flex: none; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); }
   .vfoot .btn { flex: 1; gap: 8px; height: 42px; border-color: var(--accent); background: none; color: var(--accent); font-size: var(--fs-body); }
+  .vfoot .btn.on { background: var(--accent); color: var(--on-accent, #fff); }
 </style>

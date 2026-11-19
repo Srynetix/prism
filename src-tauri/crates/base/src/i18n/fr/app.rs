@@ -38,6 +38,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("no repository for feedback named {id}", "aucun dépôt de retours nommé {id}"),
     ("the issue has no title", "l’issue n’a pas de titre"),
     ("a capture of the window needs spectacle (KDE), grim (Wayland) or scrot/import (X11)", "la capture de la fenêtre demande spectacle (KDE), grim (Wayland) ou scrot/import (X11)"),
+    ("a capture of an element needs ImageMagick's import, on X11", "la capture d’un élément demande import (ImageMagick), sous X11"),
     ("the capture of the window is made on macOS and Linux only", "la capture de la fenêtre se fait sur macOS et Linux uniquement"),
     ("the capture of the window is gone: capture it again", "la capture de la fenêtre n’est plus là : capturez-la à nouveau"),
     ("the capture could not be uploaded", "la capture n’a pas pu être envoyée"),

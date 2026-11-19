@@ -884,6 +884,12 @@ pub async fn agent_pages(state: State<'_, AppState>, id: String, ignored: bool) 
     state.agents.pages(&id, ignored).await.map_err(Into::into)
 }
 
+/// Where a page of an agent's Web view is on disk (`@scratchpad/…` too): for a new agent to read it.
+#[prism_macros::command]
+pub fn agent_page_file(state: State<'_, AppState>, id: String, path: String) -> Cmd<String> {
+    Ok(state.agents.page_file(&id, &path)?.display().to_string())
+}
+
 /// An agent's artifacts: the pages of its session's scratchpad, most recent first.
 // Off the main thread (where Tauri runs a plain `fn`): it reads files, milliseconds each time.
 #[prism_macros::command(async)]
