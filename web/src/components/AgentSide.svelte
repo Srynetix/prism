@@ -385,7 +385,7 @@
         {/key}
       {/snippet}
       {#if commentable}
-        <WebComments {agent} page={path} frame={frameEl} bind:on={commenting} onsent={awaitRewrite} children={framed} />
+        <WebComments {agent} page={path} frame={frameEl} bind:on={commenting} onsend={awaitRewrite} children={framed} />
       {:else}
         {@render framed()}
       {/if}

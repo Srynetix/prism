@@ -9,7 +9,7 @@
   import { keys } from '../platform'
   import { holdEscape } from '../layers.svelte'
   import { toast, toastError } from '../toast.svelte'
-  import { annotateType, captureKey, captures, elementLabel, pinsOf, readFound, readPick, setWebDraft, webDraft, webPrompt, type Pick, type WebNote } from '../web-comments.svelte'
+  import { annotateType, captures, elementLabel, noteId, pinsOf, readFound, readPick, setWebDraft, webDraft, webPrompt, type Pick, type WebNote } from '../web-comments.svelte'
   import type { Snippet } from 'svelte'
   import type { Agent } from '../types'
   import { t, tn } from '../i18n.svelte'
@@ -22,15 +22,15 @@
    * (`phone`), the bubble is a sheet from the bottom and nothing is captured.
    */
   let {
-    agent, page, frame, on = $bindable(false), phone = false, onsent, children,
+    agent, page, frame, on = $bindable(false), phone = false, onsend, children,
   }: {
     agent: Agent
     page: string
     frame: HTMLIFrameElement | undefined
     on: boolean
     phone?: boolean
-    /** The remarks went: the view reloads the page once the agent rewrote it. */
-    onsent?: () => void
+    /** The remarks about to go: the view notes the page's date, to reload it once the agent rewrote it. */
+    onsend?: () => Promise<void> | void
     /** The frame, beside the remarks. */
     children: Snippet
   } = $props()
@@ -54,6 +54,8 @@
   let capture = $state(!phone && pref<boolean>('agents.web.capture', true))
   let showPrompt = $state(false)
   let sending = $state(false)
+  /** The picture of the element just clicked, being taken. */
+  let shot: Promise<string | null> | null = null
 
   const tell = (m: Record<string, unknown>) => frame?.contentWindow?.postMessage({ prism: 'annotate', ...m }, '*')
   const save = (whole: string, notes: WebNote[]) => setWebDraft(agent.id, page, { whole, notes })
@@ -67,11 +69,14 @@
     const timer = setTimeout(() => (refused = !ready), 3000)
     return () => clearTimeout(timer)
   })
-  // What the page draws: the mode and the pins, again whenever they change.
-  $effect(() => {
-    if (!ready) return
+  // What the page draws: the mode and the pins, again whenever they change, and to each new
+  // document of the frame (a link followed, a reload: its script says ready again).
+  const sync = () => {
     tell({ type: 'mode', on })
     tell({ type: 'pins', pins: $state.snapshot(pinsOf(draft.notes, hl)) })
+  }
+  $effect(() => {
+    if (ready) sync()
   })
   $effect(() => {
     if (!on) close()
@@ -89,10 +94,13 @@
       if (type === 'ready') {
         ready = true
         refused = false
+        sync()
       } else if (type === 'pick' && on) {
         const p = readPick(e.data)
         if (!p) return
         pick = p
+        // Its picture now, where it was clicked (it may scroll while the remark is written).
+        shot = capture && isDesktop() ? shoot(p) : null
         editing = null
         text = ''
         void tick().then(() => box?.focus())
@@ -128,32 +136,35 @@
     }
     const p = pick
     if (!p) return close()
-    save(draft.whole, [...draft.notes, { sel: p.sel, tag: p.tag, text: p.text, note: v }])
+    const id = noteId()
+    const taken = shot
+    save(draft.whole, [...draft.notes, { id, sel: p.sel, tag: p.tag, text: p.text, note: v }])
     close()
-    if (capture && isDesktop()) await shoot(p)
+    const b64 = await taken
+    if (b64) captures.set(id, b64)
   }
   /**
-   * The element's picture, from the window (the bubble gone and its outline taken off first),
-   * within the frame: kept in memory for the prompt. Failing, the remark goes without it.
+   * The element's picture, from the window, within the frame (its outline is drawn around it,
+   * outside): kept in memory for the prompt. Failing, the remark goes without it.
    */
-  async function shoot(p: Pick) {
+  async function shoot(p: Pick): Promise<string | null> {
     const f = frame?.getBoundingClientRect()
-    if (!f) return
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    if (!f) return null
     const x0 = Math.max(f.left, f.left + p.rect.x)
     const y0 = Math.max(f.top, f.top + p.rect.y)
     const x1 = Math.min(f.right, f.left + p.rect.x + p.rect.w)
     const y1 = Math.min(f.bottom, f.top + p.rect.y + p.rect.h)
-    if (x1 - x0 < 2 || y1 - y0 < 2) return
+    if (x1 - x0 < 2 || y1 - y0 < 2) return null
     try {
-      captures.set(captureKey(agent.id, page, p.sel), await invoke<string>('web_capture', { rect: [x0, y0, x1 - x0, y1 - y0] }))
+      return await invoke<string>('web_capture', { rect: [x0, y0, x1 - x0, y1 - y0] })
     } catch (e) {
       toast(t('No picture of the element: {error}', { error: String(e) }), 4000, null, 'info')
+      return null
     }
   }
   function remove(i: number) {
     const n = draft.notes[i - 1]
-    if (n) captures.delete(captureKey(agent.id, page, n.sel))
+    if (n) captures.delete(n.id)
     save(draft.whole, draft.notes.filter((_, k) => k + 1 !== i))
     if (editing === i) close()
   }
@@ -164,9 +175,17 @@
   const running = $derived(agent.state === 'running')
   const preview = $derived(webPrompt(page, draft))
 
+  /** The drafts gone, once the agent has them. */
+  function clear() {
+    for (const n of draft.notes) captures.delete(n.id)
+    save('', [])
+    on = false
+    showPrompt = false
+  }
   /**
-   * Sends the remarks as one prompt (its pictures attached), queued while the agent is busy; an
-   * agent stopped: the launcher, prefilled in its folder, a new agent to take them.
+   * Sends the remarks as one prompt (its pictures attached), queued while the agent shows a menu;
+   * an agent stopped: the launcher, prefilled in its folder, the page named by its place on disk
+   * (a new agent's scratchpad is another), the drafts kept until it is launched.
    */
   async function send() {
     if (!count || sending) return
@@ -175,25 +194,23 @@
       const shots: Record<number, string> = {}
       if (capture) {
         for (const [k, n] of draft.notes.entries()) {
-          const b64 = captures.get(captureKey(agent.id, page, n.sel))
+          const b64 = captures.get(n.id)
           if (!b64) continue
           const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
           const [path] = await attachFiles([new File([bytes], `element-${k + 1}.png`, { type: 'image/png' })], agent.id)
           if (path) shots[k + 1] = path
         }
       }
-      const prompt = webPrompt(page, draft, shots)
       if (!running) {
-        openLauncher({ title: t('Remarks on {page}', { page: page.split('/').pop() ?? page }), prompt, cwd: agent.worktree ?? agent.cwd })
-      } else {
-        const r = await sendPrompt(agent.id, prompt)
-        toast(r === 'queued' ? t('Remarks queued: {agent} reads them once its menu is answered', { agent: nameOf(agent) }) : tn(count, '{n} remark sent to {agent}', '{n} remarks sent to {agent}', { agent: nameOf(agent) }))
+        const where = await invoke<string>('agent_page_file', { id: agent.id, path: page }).catch(() => undefined)
+        openLauncher({ title: t('Remarks on {page}', { page: page.split('/').pop() ?? page }), prompt: webPrompt(page, draft, shots, where), cwd: agent.worktree ?? agent.cwd }, null, async () => clear())
+        return
       }
-      for (const n of draft.notes) captures.delete(captureKey(agent.id, page, n.sel))
-      save('', [])
-      on = false
-      showPrompt = false
-      if (running) onsent?.()
+      await onsend?.()
+      const r = await sendPrompt(agent.id, webPrompt(page, draft, shots))
+      if (r === 'already-queued') return toast(t('These remarks already wait for {agent}', { agent: nameOf(agent) }), 3000, null, 'info')
+      toast(r === 'queued' ? t('Remarks queued: {agent} reads them once its menu is answered', { agent: nameOf(agent) }) : r === 'already-sent' ? t('Already sent to {agent}', { agent: nameOf(agent) }) : tn(count, '{n} remark sent to {agent}', '{n} remarks sent to {agent}', { agent: nameOf(agent) }))
+      clear()
     } catch (e) {
       toastError(String(e))
     } finally {

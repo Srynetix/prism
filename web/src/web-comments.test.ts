@@ -30,8 +30,8 @@ describe('the annotation script’s messages', () => {
 
 describe('the remarks', () => {
   const notes = [
-    { sel: 'header.hero > h1', tag: 'h1', text: 'Pipeline #4821', note: 'Link the pipeline.' },
-    { sel: 'main > button.cta', tag: 'button', text: '', note: 'Too loud:\nmake it secondary.' },
+    { id: 'a', sel: 'header.hero > h1', tag: 'h1', text: 'Pipeline #4821', note: 'Link the pipeline.' },
+    { id: 'b', sel: 'main > button.cta', tag: 'button', text: '', note: 'Too loud:\nmake it secondary.' },
   ]
 
   it('are pinned on the page from 1, the one pointed at standing out', () => {
@@ -61,5 +61,6 @@ describe('the remarks', () => {
       ].join('\n'),
     )
     expect(webPrompt('docs/a.html', { whole: '', notes: [notes[0]] })).toMatch(/^Remarks on the page docs\/a\.html \(1 remark,/)
+    expect(webPrompt('@scratchpad/r.html', { whole: '', notes: [notes[0]] }, {}, '/tmp/s/r.html')).toMatch(/^Remarks on the page \/tmp\/s\/r\.html \(1 remark,/)
   })
 })

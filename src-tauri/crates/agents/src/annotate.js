@@ -84,10 +84,16 @@
   window.addEventListener('resize', redraw)
   if (window.ResizeObserver) new ResizeObserver(redraw).observe(document.documentElement)
   // The page's own changes (a list filled by its script, a tab opened), not the pins'.
-  const ours = (m) => (m.type === 'childList' ? [...m.addedNodes, ...m.removedNodes].every(mine) : m.target === hover || m.target === chosen || mine(m.target) || m.target === style)
+  // Prism's own changes: its pins, its style, and its classes on the page's elements (read once the
+  // pointer has moved on: compared without them, the class did not change).
+  const bare = (c) => String(c || '').split(/\s+/).filter((x) => x && !x.startsWith(P)).join(' ')
+  const ours = (m) =>
+    m.type === 'childList'
+      ? [...m.addedNodes, ...m.removedNodes].every(mine)
+      : mine(m.target) || m.target === style || (m.attributeName === 'class' && bare(m.oldValue) === bare(m.target.getAttribute('class')))
   new MutationObserver((list) => {
     if (list.some((m) => !ours(m))) redraw()
-  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true })
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeOldValue: true, characterData: true })
 
   const unhover = () => {
     if (hover) hover.classList.remove(`${P}-hover`)
@@ -109,7 +115,8 @@
   const hold = (e) => {
     if (!on) return
     e.stopPropagation()
-    if (e.cancelable && e.type !== 'touchstart' && e.type !== 'touchmove') e.preventDefault()
+    // A touch's default is kept: it scrolls, and a tap still makes the click that picks.
+    if (e.cancelable && !e.type.startsWith('touch')) e.preventDefault()
   }
   for (const type of ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend', 'dblclick', 'submit', 'input', 'change', 'focusin']) {
     document.addEventListener(type, hold, true)

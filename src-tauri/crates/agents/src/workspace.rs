@@ -164,6 +164,15 @@ impl Agents {
         Ok((if mime.starts_with("text/html") { files::with_annotate(body) } else { body }, mime))
     }
 
+    /// Where a page of the Web view is on disk (`<path>` of the folder, or `@scratchpad/<path>`):
+    /// what another agent is told to read it (its own scratchpad is another).
+    pub fn page_file(&self, id: &str, path: &str) -> Result<PathBuf> {
+        Ok(match path.split_once('/') {
+            Some((files::SCRATCHPAD, rel)) => self.scratchpad(id).context("no scratchpad for this agent")?.join(rel),
+            _ => self.dir(id)?.join(path),
+        })
+    }
+
     /// A text page of the Web view (`<path>` of the folder, or `@scratchpad/<path>`), resolved as `serve` does.
     pub fn page_text(&self, id: &str, path: &str) -> Result<String> {
         let dir = self.dir(id)?;

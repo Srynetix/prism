@@ -1286,4 +1286,5 @@ export default {
   'Not on a local server’s page: Prism cannot add its script there. Open an HTML file of the folder, or an artifact.': 'Pas sur la page d’un serveur local : Prism ne peut pas y ajouter son script. Ouvrez un fichier HTML du dossier, ou un artefact.',
   'Comment works on an HTML page': 'Commenter fonctionne sur une page HTML',
   'Comment': 'Commenter',
+  'These remarks already wait for {agent}': 'Ces remarques attendent déjà {agent}',
 } satisfies Dictionary

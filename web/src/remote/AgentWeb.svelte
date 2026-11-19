@@ -222,7 +222,7 @@
     <div class="frame">
       {#if page.url && commentable && agent}
         {#snippet framed()}{#key nonce}<iframe bind:this={frameEl} src={nonce ? `${page!.url}?r=${nonce}` : page!.url} title={page!.path}></iframe>{/key}{/snippet}
-        <WebComments {agent} page={pageKey} frame={frameEl} bind:on={commenting} phone onsent={afterSend} children={framed} />
+        <WebComments {agent} page={pageKey} frame={frameEl} bind:on={commenting} phone onsend={afterSend} children={framed} />
       {:else if page.url}
         {#key nonce}<iframe src={nonce ? `${page.url}?r=${nonce}` : page.url} title={page.path}></iframe>{/key}
       {:else if kind(page.path) === 'md'}<div class="doc"><Markdown text={page.text ?? ''} reading /></div>

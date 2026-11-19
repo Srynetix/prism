@@ -890,7 +890,9 @@ const ANNOTATE: &str = include_str!("annotate.js");
 /// `prismfile:` as from a phone's `/page/`.
 pub fn with_annotate(html: Vec<u8>) -> Vec<u8> {
     let tag = format!("<script data-prism>{ANNOTATE}</script>");
-    let at = html.windows(7).position(|w| w.eq_ignore_ascii_case(b"</head>")).unwrap_or(0);
+    // In its head; without one, after `<html …>` or the doctype (before it, the page would render in quirks mode).
+    let after = |tag: &[u8]| html.windows(tag.len()).position(|w| w.eq_ignore_ascii_case(tag)).and_then(|i| html[i..].iter().position(|&b| b == b'>').map(|j| i + j + 1));
+    let at = html.windows(7).position(|w| w.eq_ignore_ascii_case(b"</head>")).or_else(|| after(b"<html")).or_else(|| after(b"<!doctype")).unwrap_or(0);
     let mut out = Vec::with_capacity(html.len() + tag.len());
     out.extend_from_slice(&html[..at]);
     out.extend_from_slice(tag.as_bytes());
@@ -959,6 +961,10 @@ mod tests {
         assert!(page.ends_with(b"<body>x</body></html>") && page.windows(3).any(|w| w == b"\xe9t\xe9"));
         let bare = String::from_utf8(with_annotate(b"<p>hi</p>".to_vec())).unwrap();
         assert!(bare.starts_with("<script data-prism>") && bare.ends_with("</script><p>hi</p>"));
+        let headless = String::from_utf8(with_annotate(b"<!DOCTYPE html><body>x</body>".to_vec())).unwrap();
+        assert!(headless.starts_with("<!DOCTYPE html><script data-prism>"), "the doctype first: no quirks mode");
+        let html = String::from_utf8(with_annotate(b"<!doctype html><html lang=\"fr\"><body>x</body></html>".to_vec())).unwrap();
+        assert!(html.starts_with("<!doctype html><html lang=\"fr\"><script data-prism>"));
         assert!(!ANNOTATE.contains("</script"), "the script never closes its own tag");
     }
 

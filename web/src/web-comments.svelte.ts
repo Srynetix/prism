@@ -9,6 +9,8 @@ import { pref, setPref } from './layout.svelte'
 
 /** A remark on an element: its selector, tag and text as the page said them. */
 export interface WebNote {
+  /** Its own, for its picture (two remarks on one element keep theirs). */
+  id: string
   sel: string
   tag: string
   text: string
@@ -41,9 +43,9 @@ export function setWebDraft(agent: string, page: string, draft: WebDraft) {
   else delete all[k]
   save()
 }
-/** The pictures of the remarks' elements (`web_capture`, base64 PNG), by agent, page and selector: in memory only. */
+/** The pictures of the remarks' elements (`web_capture`, base64 PNG), by remark: in memory only. */
 export const captures = new Map<string, string>()
-export const captureKey = (agent: string, page: string, sel: string) => `${agent}|${page}|${sel}`
+export const noteId = () => Math.random().toString(36).slice(2, 10)
 
 /** How the agent is told where the page is: an artifact by its name in its scratchpad. */
 export const pageName = (page: string) => (page.startsWith('@scratchpad/') ? `${page.slice('@scratchpad/'.length)} (the artifact in your session's scratchpad)` : page)
@@ -94,10 +96,10 @@ export const elementLabel = (n: Pick | WebNote) => `<${n.tag}>${n.text ? ` “${
  * The prompt: the page, then each remark — the whole page's first, then each element with its
  * selector and, when captured, its picture (`@path`).
  */
-export function webPrompt(page: string, draft: WebDraft, captures: Record<number, string> = {}): string {
+export function webPrompt(page: string, draft: WebDraft, captures: Record<number, string> = {}, where?: string): string {
   const whole = draft.whole.trim()
   const count = draft.notes.length + (whole ? 1 : 0)
-  const lines = [`Remarks on the page ${pageName(page)} (${count} remark${count > 1 ? 's' : ''}, made on its elements in Prism's Web view). Address each, then say what you changed.`]
+  const lines = [`Remarks on the page ${where ?? pageName(page)} (${count} remark${count > 1 ? 's' : ''}, made on its elements in Prism's Web view). Address each, then say what you changed.`]
   if (whole) lines.push('', `- The whole page: ${whole.replace(/\n/g, '\n  ')}`)
   draft.notes.forEach((n, k) => {
     const i = k + 1

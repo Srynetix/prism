@@ -225,7 +225,7 @@ pub async fn feedback_capture(state: State<'_, Arc<AppState>>, window: tauri::We
 #[tauri::command]
 pub async fn web_capture(state: State<'_, Arc<AppState>>, window: tauri::WebviewWindow, rect: [f64; 4]) -> Cmd<String> {
     use base64::Engine;
-    let path = crate::feedback::capture_path(&state.store).with_file_name(format!("element-{}.png", std::process::id()));
+    let path = crate::feedback::capture_path(&state.store).with_file_name(format!("element-{}-{}.png", std::process::id(), chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()));
     let png = crate::feedback::capture_region(&window, rect, &path).await?;
     Ok(base64::engine::general_purpose::STANDARD.encode(png))
 }
