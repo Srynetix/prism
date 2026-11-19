@@ -8,7 +8,8 @@ describe('the modules’ blocks', () => {
     const { BLOCK_DEFS } = await import('.')
     const core = Object.keys(BLOCK_LABELS).filter((id) => !BLOCK_DEFS.some((b) => b.id === id))
     expect([...CORE_BLOCK_IDS].sort()).toEqual(core.sort())
-  })
+    // Every block's component imported (views.ts, the blocks' index): past 5 s on a loaded computer.
+  }, 60_000)
 
   it('are taken in when their id is free, said otherwise', () => {
     const def = (id: string) => ({ id, label: id, help: { purpose: '', points: [], source: '' } }) as BlockDef<never>
