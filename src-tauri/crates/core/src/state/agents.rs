@@ -70,6 +70,11 @@ pub struct LaunchSpec {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     #[cfg_attr(feature = "ts", ts(optional, as = "Option<bool>"))]
     pub scratch: bool,
+    /// In a folder (`cwd`), the branch it is switched to before the agent starts (picked in the
+    /// launcher); absent: the folder's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub branch: Option<String>,
 }
 
 /// A new worktree as asked at launch: its repository, its folder name, the existing branch to

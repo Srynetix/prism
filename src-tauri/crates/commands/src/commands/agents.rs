@@ -99,6 +99,26 @@ pub async fn worktree_branches(state: State<'_, AppState>, path: String) -> Cmd<
     state.agents.worktree_branches(&path).await.map_err(Into::into)
 }
 
+/// The branch of the folder a launch would run in (the launcher's Folder): `None` when detached,
+/// an error when it is in no repository Prism follows.
+#[prism_macros::command]
+pub async fn folder_branch(state: State<'_, AppState>, path: String) -> Cmd<Option<String>> {
+    if crate::demo::active() {
+        return Ok(Some("main".into()));
+    }
+    state.agents.folder_branch(&crate::config::expand_home(path.as_ref())).await.map_err(Into::into)
+}
+
+/// The branches the folder a launch would run in can be switched to (origin fetched first), in a
+/// repository Prism follows.
+#[prism_macros::command]
+pub async fn folder_branches(state: State<'_, AppState>, path: String) -> Cmd<Vec<crate::agents::vcs::BranchChoice>> {
+    if crate::demo::active() {
+        return Ok(Vec::new());
+    }
+    state.agents.folder_branches(&crate::config::expand_home(path.as_ref())).await.map_err(Into::into)
+}
+
 /// A worktree's branch pulled, fast-forward only; what happened.
 #[prism_macros::command]
 pub async fn worktree_pull(state: State<'_, AppState>, path: String) -> Cmd<String> {

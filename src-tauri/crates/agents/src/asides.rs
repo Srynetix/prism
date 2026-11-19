@@ -488,6 +488,7 @@ impl Agents {
             prism_mcp: false,
             assistant: false,
             scratch: false,
+            branch: None,
         })
     }
 

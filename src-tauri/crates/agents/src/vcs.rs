@@ -202,13 +202,25 @@ pub async fn pull(dir: &Path) -> Result<String> {
     })
 }
 
+/// The branch the folder `dir` is on (`None`: detached).
+pub async fn current_branch(dir: &Path) -> Result<Option<String>> {
+    let branch = git(dir, &["branch", "--show-current"]).await?;
+    Ok(Some(branch).filter(|b| !b.is_empty()))
+}
+
+/// `branch`, a name `switch` takes: not empty, no option, no space.
+pub fn branch_ok(branch: &str) -> Result<()> {
+    if branch.is_empty() || branch.starts_with('-') || branch.contains(char::is_whitespace) {
+        bail!(tr!("not a branch: {branch}", branch = branch));
+    }
+    Ok(())
+}
+
 /// The folder switched to `branch`, a local one or origin's (then made local, tracking it). Only
 /// with nothing uncommitted: changes carried to another branch are a surprise.
 pub async fn switch(dir: &Path, branch: &str) -> Result<String> {
     let branch = branch.trim();
-    if branch.is_empty() || branch.starts_with('-') || branch.contains(char::is_whitespace) {
-        bail!(tr!("not a branch: {branch}", branch = branch));
-    }
+    branch_ok(branch)?;
     if !git(dir, &["status", "--porcelain"]).await?.is_empty() {
         bail!(tr("uncommitted changes: commit or stash them first"));
     }

@@ -51,6 +51,7 @@ pub async fn assistant_ask(state: State<'_, AppState>, text: String) -> Cmd<Stri
         prism_mcp: true,
         assistant: true,
         scratch: false,
+        branch: None,
     };
     state.agents.spawn(launch).await.map_err(Into::into)
 }

@@ -10,9 +10,10 @@
   /**
    * A worktree's "Change ▾" (Worktrees): its branches to switch to, searched as typed — the local
    * ones (most recent first), then origin's without a local one. A branch another worktree is on is
-   * shown, not offered. Read when it opens (origin fetched first: a moment).
+   * shown, not offered. Read when it opens (origin fetched first: a moment). `load`: another
+   * folder's list (the launcher's Folder: `folderBranches`).
    */
-  let { path, disabled = false, why = '', onpick }: { path: string; disabled?: boolean; why?: string; onpick: (branch: string) => void } = $props()
+  let { path, disabled = false, why = '', title = '', load = worktreeBranches, onpick }: { path: string; disabled?: boolean; why?: string; title?: string; load?: (path: string) => Promise<BranchChoice[]>; onpick: (branch: string) => void } = $props()
 
   let open = $state(false)
   let button: HTMLButtonElement | undefined = $state()
@@ -34,7 +35,7 @@
     list = null
     error = ''
     try {
-      list = await worktreeBranches(path)
+      list = await load(path)
     } catch (err) {
       error = String(err)
     }
@@ -51,7 +52,7 @@
   }
 </script>
 
-<button bind:this={button} class="chg" class:open onclick={toggle} {disabled} title={disabled ? why : t('Switch this worktree to another branch')} aria-expanded={open}>{t('Change')}<Icon name="chevronDown" /></button>
+<button bind:this={button} class="chg" class:open onclick={toggle} {disabled} title={disabled ? why : title || t('Switch this worktree to another branch')} aria-expanded={open}>{t('Change')}<Icon name="chevronDown" /></button>
 {#if open}
   <div class="pop popover" role="dialog" aria-label={t('Switch branch')} bind:this={pop} {@attach anchored(() => button, { align: 'start', gap: 4 })} {@attach exclusive(() => (open = false))} {@attach dismissable(() => (open = false), { trigger: () => button, escape: false })}>
     <!-- svelte-ignore a11y_autofocus -->

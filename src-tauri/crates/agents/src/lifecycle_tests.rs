@@ -46,6 +46,7 @@ impl Bench {
             prism_mcp: false,
             assistant: false,
             scratch: false,
+            branch: None,
         }
     }
 
@@ -1044,4 +1045,69 @@ async fn a_folder_shell_opens_where_prism_shows_work() {
     b.shown(&id).await.unwrap();
     assert!(b.agents.folder_owner(&path(&b.project)).is_ok(), "an agent's folder");
     assert!(b.agents.folder_owner(&path(&elsewhere)).is_err(), "a folder Prism does not show");
+}
+
+/// Launched in a folder on a branch picked in the launcher: the folder switched to it before the
+/// agent starts (origin's made local), a prepared one at its start; refused with changes not
+/// committed, or while another agent runs there.
+#[tokio::test]
+async fn a_folder_launch_switches_to_its_branch() {
+    let b = Bench::new();
+    let repo = clone_with_origin(&b.root, "app");
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git").args(args).current_dir(&repo.path).output().unwrap();
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    };
+    // `feature` on origin only.
+    git(&["branch", "feature"]);
+    git(&["push", "-q", "origin", "feature"]);
+    git(&["branch", "-D", "feature"]);
+    let on = |branch: &str| Launch { cwd: Some(repo.path.clone()), branch: Some(branch.into()), ..b.launch("On a branch") };
+    // Only in a repository Prism follows: its own `.git/config` is never run otherwise.
+    assert!(b.agents.spawn(on("feature")).await.is_err(), "a repository Prism does not follow");
+    assert!(b.agents.prepare(on("feature")).await.is_err(), "refused at Prepare too");
+    assert!(b.agents.folder_branches(&repo.path).await.is_err());
+    b.hub.update(|s| {
+        s.repos.push(prism_core::state::Repo { name: "app".into(), path: repo.path.display().to_string(), project: None, branch: Some("main".into()), base: "main".into(), behind: 0, ahead: 0, dirty: false, is_main: true, error: None, forge: None });
+        true
+    });
+    assert_eq!(b.agents.folder_branch(&repo.path).await.unwrap().as_deref(), Some("main"));
+    assert!(b.agents.prepare(Launch { branch: Some("-x".into()), ..on("x") }).await.is_err(), "not a branch: refused at Prepare");
+
+    let id = b.agents.spawn(on("feature")).await.unwrap();
+    assert_eq!(git(&["branch", "--show-current"]), "feature");
+    assert_eq!(git(&["rev-parse", "--abbrev-ref", "feature@{u}"]), "origin/feature", "origin's branch made local, tracking it");
+    assert_eq!(b.shown(&id).await.unwrap().launch.and_then(|l| l.branch).as_deref(), Some("feature"));
+    // Another agent there, in the snapshot or just launched: its work would change branch under it.
+    let err = b.agents.spawn(on("main")).await.unwrap_err();
+    assert!(format!("{err:#}").contains("On a branch"), "{err:#}");
+    b.tmux.exit(&id, 0);
+    b.agents.refresh().await;
+    let fresh = b.agents.spawn(on("main")).await.unwrap();
+    let err = b.agents.spawn(on("feature")).await.unwrap_err();
+    assert!(format!("{err:#}").contains("On a branch"), "not in the snapshot yet, seen all the same: {err:#}");
+    assert_eq!(git(&["branch", "--show-current"]), "main");
+    b.tmux.exit(&fresh, 0);
+    b.agents.refresh().await;
+    git(&["switch", "-q", "feature"]);
+    assert_eq!(git(&["branch", "--show-current"]), "feature");
+
+    // Prepared: switched at its start, not before.
+    let prepared = b.agents.prepare(on("main")).await.unwrap();
+    assert_eq!(git(&["branch", "--show-current"]), "feature");
+    b.agents.start(&prepared).await.unwrap();
+    assert_eq!(git(&["branch", "--show-current"]), "main");
+    b.tmux.exit(&prepared, 0);
+    b.agents.refresh().await;
+
+    // Changes not committed: refused, nothing started, the branch kept.
+    std::fs::write(repo.path.join("wip.txt"), "wip").unwrap();
+    git(&["add", "wip.txt"]);
+    let before = b.agents.inner.registry.lock().unwrap().records.len();
+    assert!(b.agents.spawn(on("feature")).await.is_err());
+    assert_eq!(git(&["branch", "--show-current"]), "main");
+    assert_eq!(b.agents.inner.registry.lock().unwrap().records.len(), before);
+    // Already on it: nothing to switch, the changes no matter.
+    b.agents.spawn(on("main")).await.unwrap();
 }

@@ -91,6 +91,11 @@ impl Agents {
         if launch.worktree.is_none() && !place.is_dir() {
             bail!(tr!("{path} is not a directory", path = place.display()));
         }
+        // Its branch, checked now: refused at Prepare rather than at its start.
+        if let Some(branch) = spec.branch.as_deref() {
+            vcs::branch_ok(branch)?;
+            self.repo_folder(&place)?;
+        }
         let record = Record {
             id: id.clone(),
             provider,
@@ -163,8 +168,8 @@ impl Agents {
         if !launch.scratch {
             return Ok(None);
         }
-        // No steps after it: nothing to deliver, no repository to deliver to.
-        (launch.worktree, launch.then) = (None, Vec::new());
+        // No steps after it: nothing to deliver, no repository to deliver to; no branch to be on.
+        (launch.worktree, launch.then, launch.branch) = (None, Vec::new(), None);
         let root = prism_core::agents::scratch_root(&self.inner.settings.lock().unwrap());
         let name = format!("{}-{}", chrono::Local::now().format("%Y-%m-%d"), Some(worktree::slug(&launch.title)).filter(|s| !s.is_empty()).unwrap_or_else(|| "agent".into()));
         std::fs::create_dir_all(&root).with_context(|| tr!("cannot create {path}", path = root.display()))?;
@@ -264,8 +269,31 @@ impl Agents {
             self.drop_extra(&extra).await;
             bail!(tr!("{path} is not a directory", path = cwd.display()));
         }
+        // In a folder, on the branch picked in the launcher: switched now, before it starts, the
+        // other launches waiting until its record is written; back on the previous one if it
+        // does not start.
+        let branch = launch.branch.as_deref().map(str::trim).filter(|b| !b.is_empty() && worktree.is_none());
+        let _switching = match branch {
+            Some(_) => Some(self.inner.switching.lock().await),
+            None => None,
+        };
+        let previous = match branch {
+            Some(b) => self.switch_folder(&id, &cwd, b).await?,
+            None => None,
+        };
         if let Err(e) = self.inner.tmux.new_session(&id, &cwd, &self.env(&id, provider, launch.permission_mode.as_deref(), Some(&spec)), &argv).await {
             self.drop_extra(&extra).await;
+            // Detached before (`""`): left on the branch, said in the log.
+            if let Some(back) = previous {
+                let put = match self.repo_folder(&cwd) {
+                    Ok(top) if !back.is_empty() => vcs::switch(&top, &back).await.map(drop),
+                    Ok(_) => Err(anyhow::anyhow!("it was detached")),
+                    Err(e) => Err(e),
+                };
+                if let Err(err) = put {
+                    tracing::warn!("agents: {} not put back on its branch: {err:#}", cwd.display());
+                }
+            }
             return Err(e);
         }
         let category = launch.category.map(|c| c.trim().to_string()).filter(|c| !c.is_empty()).or_else(|| self.kind_of(prompt.as_deref()));
@@ -276,6 +304,54 @@ impl Agents {
             reg.records.push(record)
         })?;
         Ok(id)
+    }
+
+    /// The repository Prism follows that `dir` is in: the deepest clone or worktree holding it.
+    /// Git runs only there (a folder's own `.git/config` can run programs).
+    pub fn repo_folder(&self, dir: &Path) -> Result<PathBuf> {
+        let snap = self.inner.hub.subscribe();
+        let s = snap.borrow();
+        let roots = s.repos.iter().map(|r| r.path.as_str()).chain(s.worktrees.iter().filter(|w| !w.prunable).map(|w| w.path.as_str()));
+        let root = roots.filter(|r| dir.starts_with(r)).max_by_key(|r| r.len());
+        root.map(PathBuf::from).with_context(|| tr!("{path} is in no repository Prism follows: no branch to pick", path = dir.display()))
+    }
+
+    /// The branch of a launch's folder (`None`: detached), in a repository Prism follows.
+    pub async fn folder_branch(&self, dir: &Path) -> Result<Option<String>> {
+        vcs::current_branch(&self.repo_folder(dir)?).await
+    }
+
+    /// The branches a launch's folder can be switched to, in a repository Prism follows.
+    pub async fn folder_branches(&self, dir: &Path) -> Result<Vec<vcs::BranchChoice>> {
+        vcs::branches(&self.repo_folder(dir)?).await
+    }
+
+    /// `cwd`'s repository switched to `branch` for the agent `id` about to start there: the branch
+    /// it was on (to go back to should the agent not start), `None` when already on it. Refused
+    /// while another agent works in that repository (its work would land on another branch): one
+    /// running, or launched and not yet in the snapshot (the caller holds `switching`); and with
+    /// changes not committed (`vcs::switch`).
+    async fn switch_folder(&self, id: &str, cwd: &Path, branch: &str) -> Result<Option<String>> {
+        let top = self.repo_folder(cwd)?;
+        let current = vcs::current_branch(&top).await?;
+        if current.as_deref() == Some(branch) {
+            return Ok(None);
+        }
+        let inside = |p: &str| Path::new(p).starts_with(&top);
+        let running = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id != id && a.state == AgentState::Running && (inside(&a.cwd) || a.worktree.as_deref().is_some_and(inside) || a.adopted.iter().chain(&a.also).any(|p| inside(p)))).map(|a| a.title.clone());
+        let running = match running {
+            Some(t) => Some(t),
+            None => {
+                let panes = self.inner.tmux.panes().await?;
+                let reg = self.inner.registry.lock().unwrap();
+                reg.records.iter().find(|r| r.id != id && !r.prepared && panes.get(&r.id) == Some(&Pane::Alive) && (r.cwd.starts_with(&top) || r.worktree.as_ref().is_some_and(|w| w.starts_with(&top)))).map(|r| r.title.clone())
+            }
+        };
+        if let Some(title) = running {
+            bail!(tr!("the agent “{title}” is running in it: stop it first", title = title));
+        }
+        vcs::switch(&top, branch).await?;
+        Ok(Some(current.unwrap_or_default()))
     }
 
     /// The worktrees of the other repositories an agent works in (`also`): the same name as its own

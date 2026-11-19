@@ -137,6 +137,9 @@ pub struct Launch {
     /// Outside any project: Prism makes it a folder of its own (`scratch_folder`).
     #[serde(default)]
     pub scratch: bool,
+    /// In a folder (`cwd`), the branch to switch it to before the agent starts; absent, its own.
+    #[serde(default)]
+    pub branch: Option<String>,
 }
 
 impl From<state::LaunchSpec> for Launch {
@@ -158,6 +161,7 @@ impl From<state::LaunchSpec> for Launch {
             prism_mcp: s.prism_mcp,
             assistant: s.assistant,
             scratch: s.scratch,
+            branch: s.branch,
         }
     }
 }
@@ -188,6 +192,7 @@ impl Launch {
             prism_mcp: self.prism_mcp,
             assistant: self.assistant,
             scratch: self.scratch,
+            branch: if self.worktree.is_some() || self.scratch { None } else { some(&self.branch) },
         }
     }
 }
@@ -244,6 +249,9 @@ struct Inner {
     /// The agents outside any project whose folder's trust is answered for them (`gate.rs`), while
     /// the question is on their screen.
     trusting: Mutex<HashMap<String, gate::AutoTrust>>,
+    /// Held by a launch from switching its folder's branch until its record is written: a second
+    /// one in that repository sees the first running.
+    switching: tokio::sync::Mutex<()>,
     /// When each agent's CLI was last resumed or restarted: its screen read for a gate until a
     /// hook comes after (its saved status, Running or a permission, says nothing of it).
     relaunched: Mutex<HashMap<String, chrono::DateTime<Utc>>>,
@@ -324,6 +332,7 @@ impl Agents {
                 attachments: Mutex::default(),
                 gates: Mutex::default(),
                 trusting: Mutex::default(),
+                switching: tokio::sync::Mutex::default(),
                 relaunched: Mutex::default(),
                 next_token: AtomicU64::new(1),
                 secret,
