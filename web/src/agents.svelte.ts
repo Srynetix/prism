@@ -24,6 +24,7 @@ import type { FilePreview } from './bindings/FilePreview'
 import type { AgentDownload } from './bindings/AgentDownload'
 import type { AgentArtifact } from './bindings/AgentArtifact'
 import type { AgentPage } from './bindings/AgentPage'
+import type { WebOrigin } from './bindings/WebOrigin'
 import { t } from './i18n.svelte'
 import { waitsForYou } from './agents-list'
 import type { WorktreePlan } from './bindings/WorktreePlan'
@@ -658,6 +659,12 @@ export const agentArtifacts = (id: string) => invoke<AgentArtifact[]>('agent_art
 export const SCRATCHPAD = '@scratchpad'
 /** A Markdown or text page of the Web view (`<path>`, or `@scratchpad/<path>`), as `prismfile:` would serve it. */
 export const agentPageText = (id: string, path: string) => invoke<string>('agent_page_text', { id, path })
+/** The pages imported into the Web view (Import…): `@imported/<name>`, in the agent's `.prism/web/`. */
+export const IMPORTED = '@imported'
+/** A file's link downloaded into the agent's Web view (`page`: the page it belongs to): its address there. */
+export const webImport = (id: string, url: string, page: string) => invoke<string>('agent_web_import', { id, url, page: page.trim() || null })
+/** Where an imported page came from (its link without its keys, its page). */
+export const webOrigin = (id: string, path: string) => invoke<WebOrigin | null>('agent_web_origin', { id, path })
 /** A file of the agent's folder, served by the Rust core's `prismfile:` scheme. */
 export const agentFileUrl = (id: string, path: string) => `prismfile://localhost/${encodeURIComponent(id)}/${path.split('/').map(encodeURIComponent).join('/')}`
 

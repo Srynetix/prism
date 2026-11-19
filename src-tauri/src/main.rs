@@ -259,6 +259,7 @@ fn export_bindings() {
     agents::files::Sent::export_all(&cfg).unwrap();
     agents::files::Artifact::export_all(&cfg).unwrap();
     agents::files::Page::export_all(&cfg).unwrap();
+    agents::web_import::Origin::export_all(&cfg).unwrap();
     agents::tasks::Source::export_all(&cfg).unwrap();
     agents::Shell::export_all(&cfg).unwrap();
     agents::OpenShell::export_all(&cfg).unwrap();

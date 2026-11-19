@@ -62,5 +62,8 @@ describe('the remarks', () => {
     )
     expect(webPrompt('docs/a.html', { whole: '', notes: [notes[0]] })).toMatch(/^Remarks on the page docs\/a\.html \(1 remark,/)
     expect(webPrompt('@scratchpad/r.html', { whole: '', notes: [notes[0]] }, {}, '/tmp/s/r.html')).toMatch(/^Remarks on the page \/tmp\/s\/r\.html \(1 remark,/)
+    const imported = webPrompt('@imported/Maquette.html', { whole: '', notes: [notes[0]] }, {}, undefined, { url: 'https://file.notion.so/f/Maquette.html', page: 'https://www.notion.so/team/Maquette-123' })
+    expect(imported).toMatch(/^Remarks on the page \.prism\/web\/Maquette\.html \(imported into your folder\)/)
+    expect(imported.split('\n').at(-1)).toBe('It was imported from https://file.notion.so/f/Maquette.html, attached to https://www.notion.so/team/Maquette-123: once done, put the new version back there, in place of that attachment (or tell me how).')
   })
 })

@@ -18,7 +18,7 @@
   import { addNote, cancelQueue, composePrompt, drafts, editNote, fingerprint, isQueued, notesOf, removeNote, resolveNote, sendError, sendReview, sentDiffOf, syncWithDiff, type ReviewHooks } from '../agent-review.svelte'
   import { ready } from '../agent-inbox.svelte'
   import { keys } from '../platform'
-  import { agentArtifacts, agentShellOwner, agentDiff, agentDiffImage, agentFileText, agentFileUrl, agentPageText, agentPages, SCRATCHPAD, type AgentArtifact, type AgentPage, type SideTab } from '../agents.svelte'
+  import { IMPORTED, webImport, agentArtifacts, agentShellOwner, agentDiff, agentDiffImage, agentFileText, agentFileUrl, agentPageText, agentPages, SCRATCHPAD, type AgentArtifact, type AgentPage, type SideTab } from '../agents.svelte'
   import { nameOf } from '../agent-cli'
   import { invoke, isDesktop } from '../bridge'
   import { ago } from '../time'
@@ -255,7 +255,7 @@
   const stampOf = async (p: string) =>
     p.startsWith(`${SCRATCHPAD}/`)
       ? ((await agentArtifacts(agent.id).catch(() => [])).find((a) => a.path === p.slice(SCRATCHPAD.length + 1))?.modified ?? null)
-      : ((await invoke<(string | null)[]>('agent_files_stamps', { id: agent.id, paths: [p] }).catch(() => [null]))[0] ?? null)
+      : ((await invoke<(string | null)[]>('agent_files_stamps', { id: agent.id, paths: [p.startsWith(`${IMPORTED}/`) ? `.prism/web/${p.slice(IMPORTED.length + 1)}` : p] }).catch(() => [null]))[0] ?? null)
   async function awaitRewrite() {
     awaiting = { path, stamp: await stampOf(path) }
   }
@@ -272,6 +272,33 @@
     }, 3000)
     return () => clearInterval(timer)
   })
+  /**
+   * Import…: a file's link (a Notion page's attachment, copied; any HTML page online) downloaded
+   * into the agent's folder and opened, its page kept to say where the new version goes back.
+   */
+  let importing = $state(false)
+  let importUrl = $state('')
+  let importPage = $state('')
+  let importBusy = $state(false)
+  let importError = $state('')
+  async function importPageFrom() {
+    if (!importUrl.trim() || importBusy) return
+    importBusy = true
+    importError = ''
+    try {
+      const at = await webImport(agent.id, importUrl, importPage)
+      importing = false
+      importUrl = ''
+      importPage = ''
+      pages = null
+      void loadPages()
+      go(at)
+    } catch (e) {
+      importError = String(e)
+    } finally {
+      importBusy = false
+    }
+  }
   const webError = $derived(/^https?:\/\//i.test(shown) && !isLocal(shown) ? t('Only a local server (http://localhost:…) or a file of the agent folder.') : '')
 
   // Each tab loads on first opening; ↻ reloads it.
@@ -360,12 +387,27 @@
     <form class="bar" onsubmit={(e) => { e.preventDefault(); go() }}>
       <input bind:value={address} placeholder={t('docs/page.html or http://localhost:5173')} spellcheck="false" {@attach suggest(() => (pages ?? []).map((p) => p.path))} />
       <button type="button" class="btn sm" class:on={picking} data-picker-toggle onclick={togglePicker} aria-expanded={picking} title={t('Pick a page of the folder, or a {agent} artifact', { agent: nameOf(agent) })}><Icon name="files" />{t('Open…')}{#if artifacts?.length}<span class="pill src n">{artifacts.length}</span>{/if}</button>
+      <button type="button" class="btn sm" class:on={importing} onclick={() => (importing = !importing)} aria-expanded={importing} title={t('Download a page into the agent’s folder: a Notion page’s HTML attachment, any HTML file online')}><Icon name="download" />{t('Import…')}</button>
       <button type="submit" class="btn sm icon" title={t('Load (reload)')}><Icon name="refresh" /></button>
       {#if src && !isText}
         <button type="button" class="btn sm" class:on={commenting} onclick={() => (commenting = !commenting)} disabled={!commentable} aria-pressed={commenting} title={commentable ? t('Click the page’s elements to remark on them, then send the remarks to {agent}', { agent: nameOf(agent) }) : isLocal(shown) ? t('Not on a local server’s page: Prism cannot add its script there. Open an HTML file of the folder, or an artifact.') : t('Comment works on an HTML page')}><Icon name="comment" />{t('Comment')}{#if remarks}<span class="pill src n">{remarks}</span>{/if}</button>
       {/if}
       <button type="button" class="btn sm icon" class:on={overlay} onclick={() => (overlay = !overlay)} aria-pressed={overlay} title={overlay ? t('Back to the panel (Esc)') : t('The page over the whole window')} aria-label={overlay ? t('Back to the panel') : t('Over the whole window')}><Icon name={overlay ? 'shrink' : 'expand'} /></button>
     </form>
+    {#if importing}
+      <form class="imp" onsubmit={(e) => { e.preventDefault(); void importPageFrom() }}>
+        <!-- svelte-ignore a11y_autofocus -->
+        <input bind:value={importUrl} autofocus placeholder={t('The file’s link: a Notion attachment (⋯ › Copy link), any HTML page online')} spellcheck="false" />
+        <input bind:value={importPage} placeholder={t('Its Notion page (optional): where the new version goes back')} spellcheck="false" />
+        <div class="row">
+          <small class="muted">{t('Downloaded into .prism/web/ of the agent’s folder (git ignores it); nothing of yours is sent with the link.')}</small>
+          <span class="grow"></span>
+          <button type="button" class="btn sm" onclick={() => (importing = false)}>{t('Cancel')}</button>
+          <button type="submit" class="btn sm primary claude" class:busy={importBusy} disabled={!importUrl.trim() || importBusy}>{importBusy ? t('Importing…') : t('Import')}</button>
+        </div>
+        {#if importError}<p class="err">{importError}</p>{/if}
+      </form>
+    {/if}
     {#if picking}
       <AgentWebPicker {pages} {artifacts} {ignored} onignored={setIgnored} cli={nameOf(agent)} onpick={(p, scratchpad) => go(scratchpad ? artifactAddress(p) : p)} onclose={() => (picking = false)} />
     {/if}
@@ -409,6 +451,12 @@
   .side { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--border); background: var(--surface); }
   .bar .n { --c: var(--src-claude); padding: 0 5px; }
   .bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .imp { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--surface-muted); }
+  .imp input { padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: var(--fs-meta) var(--mono); outline: none; }
+  .imp input:focus { border-color: var(--src-claude); }
+  .imp .row { display: flex; align-items: center; gap: 6px; }
+  .imp .grow { flex: 1; }
+  .imp .muted { color: var(--text-muted); font-size: var(--fs-meta); }
   .bar input { flex: 1; min-width: 0; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--bg); color: var(--text); font: var(--fs-meta) var(--mono); outline: none; }
   .bar input:focus { border-color: var(--src-claude); }
   .bar .btn.on, .trow .btn.on { border-color: var(--src-claude); color: var(--src-claude); }

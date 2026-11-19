@@ -258,6 +258,9 @@ commands! {
     agents::agent_pages: Read [phone: state, id: String, ignored: bool],
     agents::agent_artifacts: Read [phone: state, id: String; sync],
     agents::agent_page_file: Read [phone: state, id: String, path: String; sync],
+    // A page downloaded into an agent's Web view (Import…).
+    agents::agent_web_import: Act [demo: refused] [phone: state, id: String, url: String, page: Option<String>],
+    agents::agent_web_origin: Read [phone: state, id: String, path: String; sync],
     agents::agent_diff: Read [phone: state, id: String, branch: bool],
     agents::overlap_diff: Read [phone: state, a: String, b: String],
     agents::agent_task_files_changed: Read [phone: state, id: String],

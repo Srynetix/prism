@@ -130,7 +130,7 @@ pub fn prune(root: &Path) {
 
 /// `.prism/` in the git's own exclude file (shared by its worktrees), once (a git run each time
 /// was 11 ms an attachment).
-fn exclude(folder: &Path) {
+pub(crate) fn exclude(folder: &Path) {
     static DONE: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
     if DONE.lock().unwrap().iter().any(|d| d == folder) {
         return;

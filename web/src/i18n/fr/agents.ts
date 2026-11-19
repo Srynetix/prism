@@ -1287,4 +1287,9 @@ export default {
   'Comment works on an HTML page': 'Commenter fonctionne sur une page HTML',
   'Comment': 'Commenter',
   'These remarks already wait for {agent}': 'Ces remarques attendent déjà {agent}',
+  'Import…': 'Importer…',
+  'Download a page into the agent’s folder: a Notion page’s HTML attachment, any HTML file online': 'Télécharger une page dans le dossier de l’agent : la pièce jointe HTML d’une page Notion, tout fichier HTML en ligne',
+  'The file’s link: a Notion attachment (⋯ › Copy link), any HTML page online': 'Le lien du fichier : une pièce jointe Notion (⋯ › Copier le lien), toute page HTML en ligne',
+  'Its Notion page (optional): where the new version goes back': 'Sa page Notion (facultatif) : où remettre la nouvelle version',
+  'Downloaded into .prism/web/ of the agent’s folder (git ignores it); nothing of yours is sent with the link.': 'Téléchargé dans .prism/web/ du dossier de l’agent (ignoré par git) ; rien de vous n’est envoyé avec le lien.',
 } satisfies Dictionary

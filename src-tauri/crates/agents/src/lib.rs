@@ -41,6 +41,7 @@ mod term;
 pub mod vcs;
 mod windows;
 mod workspace;
+pub mod web_import;
 /// The core's side of the agents: their providers, their context and plan use.
 pub use prism_core::agents::{context, provider, usage};
 pub mod tmux;

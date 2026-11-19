@@ -11,7 +11,22 @@ impl Agents {
 
     /// The files of the agent's folder the Web view can show (`ignored`: those `.gitignore` leaves out too).
     pub async fn pages(&self, id: &str, ignored: bool) -> Result<Vec<files::Page>> {
-        files::pages(&self.dir(id)?, ignored).await
+        let dir = self.dir(id)?;
+        let mut pages = files::pages(&dir, ignored).await?;
+        // The pages imported (Import…), under their own address.
+        pages.extend(crate::web_import::pages(&dir).into_iter().map(|path| files::Page { path, ignored: false }));
+        Ok(pages)
+    }
+
+    /// A page imported into its Web view (`url`, a file's link; `page`, the page it belongs to):
+    /// downloaded into its folder, its address returned (`@imported/<name>`).
+    pub async fn web_import(&self, id: &str, url: &str, page: Option<&str>) -> Result<String> {
+        crate::web_import::import(&self.dir(id)?, url, page).await
+    }
+
+    /// Where a page of its Web view came from, when imported.
+    pub fn web_origin(&self, id: &str, path: &str) -> Result<Option<crate::web_import::Origin>> {
+        Ok(path.strip_prefix(crate::web_import::IMPORTED).and_then(|r| r.strip_prefix('/')).and_then(|rel| crate::web_import::origin(&self.dir(id).ok()?, rel)))
     }
 
     /// The files of the agent's folder, with their git state (`ignored`: those `.gitignore` leaves out too).
@@ -158,6 +173,7 @@ impl Agents {
         let dir = self.dir(id).map_err(|e| (404, format!("{e:#}")))?;
         let (body, mime) = match rel.split_once('/') {
             Some((files::SCRATCHPAD, rel)) => files::serve(&self.scratchpad(id).ok_or((404, "no scratchpad for this agent".to_string()))?, rel),
+            Some((crate::web_import::IMPORTED, rel)) => files::serve(&crate::web_import::root(&dir), rel),
             _ => files::serve(&dir, rel),
         }?;
         // A page gets the annotation script (Comment, in the Web view): inert until asked.
@@ -169,6 +185,7 @@ impl Agents {
     pub fn page_file(&self, id: &str, path: &str) -> Result<PathBuf> {
         Ok(match path.split_once('/') {
             Some((files::SCRATCHPAD, rel)) => self.scratchpad(id).context("no scratchpad for this agent")?.join(rel),
+            Some((crate::web_import::IMPORTED, rel)) => crate::web_import::root(&self.dir(id)?).join(rel),
             _ => self.dir(id)?.join(path),
         })
     }
@@ -178,6 +195,7 @@ impl Agents {
         let dir = self.dir(id)?;
         match path.split_once('/') {
             Some((files::SCRATCHPAD, rel)) => files::page_text(&self.scratchpad(id).context("no scratchpad for this agent")?, rel),
+            Some((crate::web_import::IMPORTED, rel)) => files::page_text(&crate::web_import::root(&dir), rel),
             _ => files::page_text(&dir, path),
         }
     }
