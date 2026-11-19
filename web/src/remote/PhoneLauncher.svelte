@@ -4,7 +4,9 @@
   import { afterLaunch, agentsSettings, isLaunchMode, LAUNCH_MODES, launchModeLabel, type LaunchMode, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, openAgents, prepareAgent, slug, spawnAgent, toastLaunched, type Launch } from '../agents.svelte'
   import { Attachments, nameOf, newStep, newWorktree, takeDraft, tasksFor, testTask, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
   import { hasWorktrees, primaryRepo } from '../repositories'
-  import { folderBranches, type BranchChoice } from '../worktrees'
+  import { folderBranches } from '../worktrees'
+  import { invoke } from '../bridge'
+  import BranchPicker from '../components/BranchPicker.svelte'
   import { CLIS, cliOf, providerOf } from '../agent-cli'
   import { targetsOfCli, targetUse } from '../agent-switch.svelte'
   import { choices, effortsKey, loadEfforts, loadModels } from '../settings.svelte'
@@ -208,23 +210,26 @@
 
   const cwd = $derived(whereTo === 'existing' ? wtPath : whereTo === 'clone' ? repoPath : folder)
   /**
-   * In a folder (the clone, a worktree, an agent's): its branches, read once More options shows
-   * them (origin fetched first); the one picked, switched to just before the agent starts, for
-   * that folder only ('': its own).
+   * In a folder (the clone, a worktree, an agent's) of a repository Prism follows: the branch it is
+   * on (`null`: detached; read without fetching), and the one picked to switch it to just before
+   * the agent starts, for that folder only. Its list is read when Change ▾ opens (origin fetched).
    */
-  let cwdBranches = $state<BranchChoice[] | null>(null)
+  let cwdOn = $state<string | null>(null)
+  let cwdGit = $state(false)
   let branchPick = $state<{ cwd: string; branch: string } | null>(null)
   const inFolder = $derived(whereTo !== 'new' && whereTo !== 'scratch')
-  const cwdBranch = $derived(inFolder && branchPick?.cwd === cwd ? branchPick.branch : '')
-  const cwdCurrent = $derived(cwdBranches?.find((b) => b.current)?.name ?? null)
+  const cwdBranch = $derived(inFolder && cwdGit && branchPick?.cwd === cwd && branchPick.branch !== cwdOn ? branchPick.branch : '')
   $effect(() => {
-    const dir = more && inFolder ? cwd : ''
-    cwdBranches = null
+    const dir = inFolder ? cwd : ''
+    cwdGit = false
+    cwdOn = null
     if (!dir) return
     let gone = false
-    folderBranches(dir).then(
-      (l) => {
-        if (!gone) cwdBranches = l
+    invoke<string | null>('folder_branch', { path: dir }).then(
+      (b) => {
+        if (gone) return
+        cwdOn = b
+        cwdGit = true
       },
       () => {},
     )
@@ -373,6 +378,13 @@
         <button type="button" class="btn chip" aria-pressed={whereTo === 'scratch'} onclick={() => { repo = ''; folder = ''; whereTo = 'scratch' }}>{t('No project')}</button>
       </div>
       <div class="where"><Icon name={whereTo === 'new' ? 'branch' : 'folder'} size="13px" /><span>{whereLine}</span>{#if whereTo !== 'folder' && whereTo !== 'scratch'}<button type="button" class="btn ghost sm" onclick={() => (more = true)}>{t('Change')}</button>{/if}</div>
+      {#if inFolder && cwdGit}
+        <div class="where"><Icon name="branch" size="13px" /><span><code>{cwdOn ?? t('detached')}</code>{#if cwdBranch}{' '}→ <code>{cwdBranch}</code>{/if}</span>
+          {#if cwdBranch}<button type="button" class="btn ghost sm" onclick={() => (branchPick = null)} title={t('Stay on {branch}', { branch: cwdOn ?? t('detached') })}>{t('Keep')}</button>{/if}
+          <BranchPicker path={cwd} load={folderBranches} title={t('The branch the folder is switched to before the agent starts')} onpick={(b) => (branchPick = { cwd, branch: b })} />
+        </div>
+        {#if cwdBranch}<small class="muted">{t('Switched just before it starts: shells and servers in this folder change branch too. Refused with changes not committed or another agent running there.')}</small>{/if}
+      {/if}
       {#if whereTo === 'new' && plan?.taken}<small class="muted">{t('{reason}: {name} instead', { reason: plan.taken, name: plan.name })}</small>{/if}
     </section>
 
@@ -426,15 +438,6 @@
             <datalist id="pl-bases">{#each plan?.bases ?? [] as b (b)}<option value={b}></option>{/each}</datalist>{/if}
         {:else if whereTo === 'existing'}
           <label class="f"><span>{t('Worktree')}</span><select bind:value={wtPath}>{#each worktrees as w (w.path)}<option value={w.path}>{baseName(w.path)} · {w.branch ?? t('detached')}{w.dirty ? ` · ${t('changes')}` : ''}</option>{/each}</select></label>
-        {/if}
-        {#if inFolder && cwdBranches?.length}
-          <label class="f"><span>{t('Branch')}</span>
-            <select value={cwdBranch} onchange={(e) => (branchPick = { cwd, branch: e.currentTarget.value })}>
-              <option value="">{t('Its own: {branch}', { branch: cwdCurrent ?? t('detached') })}</option>
-              {#each cwdBranches.filter((b) => !b.current) as b (b.name)}<option value={b.name} disabled={!!b.elsewhere}>{b.name}{b.elsewhere ? ` · ${t('in another worktree')}` : b.remote ? ` · ${t('made local')}` : ''}</option>{/each}
-            </select>
-          </label>
-          {#if cwdBranch}<small class="muted">{t('Switched just before it starts: shells and servers in this folder change branch too. Refused with changes not committed or another agent running there.')}</small>{/if}
         {/if}
         <label class="f"><span>{t('Model')}</span><input value={model} oninput={(e) => (models[provider] = e.currentTarget.value)} list="pl-models" placeholder={cliModel ?? t('{cli}’s default', { cli: cliOf(provider).name })} spellcheck="false" autocapitalize="off" autocomplete="off" /></label>
         <datalist id="pl-models">{#each choices.models[provider] ?? [] as m (m)}<option value={m}></option>{/each}</datalist>
@@ -517,6 +520,7 @@
   .where { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--fs-meta); }
   .where span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .where .btn { color: var(--accent); }
+  .where code { font-family: var(--mono); font-size: var(--fs-mono); color: var(--text); }
   /* The modes, the full width, made for a thumb. */
   .seg.full { display: flex; }
   .seg.full > button { flex: 1; justify-content: center; height: 38px; font-size: var(--fs-body); }
