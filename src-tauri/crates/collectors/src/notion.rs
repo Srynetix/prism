@@ -128,6 +128,20 @@ pub async fn embeds(url: &str) -> Result<Vec<(String, String)>> {
     }
 }
 
+/// Who the token signs in as (`GET /v1/users/me`): Settings' check of the token.
+pub async fn whoami() -> Result<String> {
+    let token = token().await?;
+    let me = call(prism_base::http::client().get(format!("{API}/users/me")), &token).await?;
+    let name = me.get("name").and_then(Value::as_str).unwrap_or_default();
+    let mail = me.get("person").and_then(|p| p.get("email")).and_then(Value::as_str).unwrap_or_default();
+    Ok(match (name, mail) {
+        ("", "") => me.get("type").and_then(Value::as_str).unwrap_or("Notion").to_string(),
+        (n, "") => n.to_string(),
+        ("", m) => m.to_string(),
+        (n, m) => format!("{n} ({m})"),
+    })
+}
+
 /// Replaces the file of the HTML block `block` with `html` (named `name`): uploaded, then the
 /// block pointed at it. Notion shows the new version at once.
 pub async fn publish(block: &str, name: &str, html: Vec<u8>) -> Result<()> {

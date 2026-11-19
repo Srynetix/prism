@@ -78,7 +78,7 @@ export interface SectionSpec {
   /** A section of its own layout without fields: the keys it edits (`forge.bare_mr_repo`), for its unsaved changes. */
   keys?: string[]
   /** The tracker whose API token (or Google's client secret) the section stores in the keychain, above its keys. */
-  token?: 'clickup' | 'jira' | 'google'
+  token?: 'clickup' | 'jira' | 'google' | 'notion'
   /** The account the section signs in to (OAuth), above its keys. */
   signin?: 'mail' | 'google'
   /** The forge CLI whose own login the section shows, above its keys. */
@@ -688,6 +688,11 @@ export const SCHEMA: SectionSpec[] = [
       { key: 'client_id', label: t('Application'), hint: t('The “Application (client) ID” of the app your organization registered in Entra ID, allowed the delegated Mail.ReadBasic permission. A team’s: in its pack.'), kind: 'text', placeholder: '00000000-0000-0000-0000-000000000000' },
       { key: 'tenant', label: t('Tenant'), hint: t('The Entra ID tenant, its id or domain. Empty: organizations (any work account).'), kind: 'text', optional: true, placeholder: 'organizations' },
     ],
+  },
+  {
+    id: 'notion', label: 'Notion', table: '[notion]', path: ['notion'], token: 'notion',
+    intro: t('The Web view’s Notion HTML blocks (Import… a block’s link, then Update on Notion): read and put back through Notion’s API with this token. Nothing else of Notion is read.'),
+    fields: [],
   },
   {
     id: 'google', label: t('Google account'), table: '[google]', path: ['google'], token: 'google', signin: 'google',

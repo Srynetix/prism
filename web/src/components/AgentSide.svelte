@@ -19,6 +19,8 @@
   import { ready } from '../agent-inbox.svelte'
   import { keys } from '../platform'
   import TokenField from './settings/TokenField.svelte'
+  import { TOKEN_HINTS, TOKEN_PAGES, tokenCheck } from '../credentials'
+  import { openSettings } from '../settings.svelte'
   import { toast, toastError } from '../toast.svelte'
   import type { WebOrigin } from '../bindings/WebOrigin'
   import { IMPORTED, isNotionLink, webImport, webOrigin, webPublish, webRemove, agentArtifacts, agentShellOwner, agentDiff, agentDiffImage, agentFileText, agentFileUrl, agentPageText, agentPages, SCRATCHPAD, type AgentArtifact, type AgentPage, type SideTab } from '../agents.svelte'
@@ -292,12 +294,17 @@
     void webOrigin(agent.id, p).then((o) => !gone && (origin = o))
     return () => (gone = true)
   })
-  /** The link typed in Import… is a Notion one (the core says): its token, no page field. */
+  /** The link typed in Import… is a Notion one (the core says): its token asked for only when none is kept, no page field. */
   let notionLink = $state(false)
+  let notionToken = $state<boolean | null>(null)
   $effect(() => {
     const u = importUrl
     let gone = false
-    void isNotionLink(u).then((n) => !gone && (notionLink = n))
+    void isNotionLink(u).then((n) => {
+      if (gone) return
+      notionLink = n
+      if (n && notionToken !== true) void invoke<[string, number | null]>('token_state', { tracker: 'notion' }).then(([, len]) => !gone && (notionToken = !!len), () => {})
+    })
     return () => (gone = true)
   })
   /** Update on Notion: the page's file put back on its block (a second click confirms: it changes the Notion page). */
@@ -453,8 +460,10 @@
       <form class="imp" onsubmit={(e) => { e.preventDefault(); void importPageFrom() }}>
         <!-- svelte-ignore a11y_autofocus -->
         <input bind:value={importUrl} autofocus placeholder={t('A Notion HTML block’s link (⋯ › Copy link to block), or an HTML page online')} spellcheck="false" />
-        {#if notionLink}
-          <TokenField tracker="notion" label={t('Notion token')} hint={t('A personal access token (it opens what you can open), or an internal integration’s (the page shared with it: ⋯ › Connections). Kept in the system keychain.')} create={{ url: 'https://www.notion.so/developers/tokens', label: t('Notion personal tokens') }} />
+        {#if notionLink && notionToken === false}
+          <TokenField tracker="notion" label={t('Notion token')} hint={TOKEN_HINTS.notion} create={TOKEN_PAGES.notion} check={tokenCheck('notion')} />
+        {:else if notionLink}
+          <small class="muted">{t('Read with the Notion token kept in the keychain.')} <button type="button" class="link" onclick={() => openSettings('notion')}>{t('Settings › Agents › Notion')}</button></small>
         {:else}
           <input bind:value={importPage} placeholder={t('The page it belongs to (optional): said to the agent')} spellcheck="false" />
         {/if}

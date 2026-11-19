@@ -1298,6 +1298,9 @@ export default {
   'The page it belongs to (optional): said to the agent': 'La page d’où il vient (facultatif) : dite à l’agent',
   'Read through Notion’s API into .prism/web/ of the agent’s folder (git ignores it); Update on Notion puts it back.': 'Lu par l’API Notion dans .prism/web/ du dossier de l’agent (ignoré par git) ; Mettre à jour sur Notion le remet en place.',
   'Notion token': 'Jeton Notion',
-  'A personal access token (it opens what you can open), or an internal integration’s (the page shared with it: ⋯ › Connections). Kept in the system keychain.': 'Un jeton personnel (il ouvre ce que vous pouvez ouvrir), ou celui d’une intégration interne (la page partagée avec elle : ⋯ › Connexions). Gardé dans le trousseau du système.',
-  'Notion personal tokens': 'Jetons personnels Notion',
+  'Create a personal token at notion.so › Developers › Personal access tokens': 'Créez un jeton personnel sur notion.so › Developers › Personal access tokens',
+  'A personal access token (the Notion API capability: it opens what you can open), or an internal integration’s (the pages shared with it). Kept in the system keychain, this profile’s entry; never in config.toml.': 'Un jeton personnel (capacité « Notion API » : il ouvre ce que vous pouvez ouvrir), ou celui d’une intégration interne (les pages partagées avec elle). Gardé dans le trousseau du système, l’entrée de ce profil ; jamais dans config.toml.',
+  'The Web view’s Notion HTML blocks (Import… a block’s link, then Update on Notion): read and put back through Notion’s API with this token. Nothing else of Notion is read.': 'Les blocs HTML Notion de la vue Web (Importer… le lien d’un bloc, puis Mettre à jour sur Notion) : lus et remis en place par l’API Notion avec ce jeton. Rien d’autre de Notion n’est lu.',
+  'Read with the Notion token kept in the keychain.': 'Lu avec le jeton Notion gardé dans le trousseau.',
+  'Settings › Agents › Notion': 'Réglages › Agents › Notion',
 } satisfies Dictionary

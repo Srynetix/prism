@@ -9,15 +9,17 @@ import { t } from './i18n.svelte'
 export const TOKEN_PAGES = {
   clickup: { url: 'https://app.clickup.com/settings/apps', label: t('Create it in ClickUp › Settings › Apps › API Token') },
   jira: { url: 'https://id.atlassian.com/manage-profile/security/api-tokens', label: t('Create it at id.atlassian.com › Security › API tokens') },
+  notion: { url: 'https://www.notion.so/developers/tokens', label: t('Create a personal token at notion.so › Developers › Personal access tokens') },
 } as const
 
 export const TOKEN_HINTS = {
   clickup: t('Generate (or copy) your personal token, starting with pk_, and paste it here. Kept in the system keychain, this profile’s entry; never in config.toml.'),
   jira: t('Create an API token for the account below, and paste it here. Kept in the system keychain, this profile’s entry; never in config.toml.'),
+  notion: t('A personal access token (the Notion API capability: it opens what you can open), or an internal integration’s (the pages shared with it). Kept in the system keychain, this profile’s entry; never in config.toml.'),
 } as const
 
-export const tokenCheck = (tracker: 'clickup' | 'jira', site = '', email = ''): CheckRequest =>
-  tracker === 'clickup' ? { kind: 'clickup_token' } : { kind: 'jira_token', site, email }
+export const tokenCheck = (tracker: 'clickup' | 'jira' | 'notion', site = '', email = ''): CheckRequest =>
+  tracker === 'clickup' ? { kind: 'clickup_token' } : tracker === 'notion' ? { kind: 'notion_token' } : { kind: 'jira_token', site, email }
 
 /** The forge CLI's login, on a self-hosted GitLab its host. */
 export function forgeLogin(forge: 'gitlab' | 'github', host = '') {
