@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dayKey as iso, todayKey } from '../../filter.svelte'
   import { hasCore } from '../../bridge'
   import BlockControls from '../../components/BlockControls.svelte'
   import Icon from '../../components/Icon.svelte'
@@ -58,11 +59,8 @@
   const vs = $derived(change(p.totals.tokens, p.before.tokens))
   /** The oldest day kept: ‹ stops there. */
   const oldest = $derived(usage?.oldest ?? days[0]?.date ?? '')
-  function iso(d: Date) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }
   const canBack = $derived(!!oldest && iso(p.from) > oldest)
-  const today = $derived(iso(new Date()))
+  const today = $derived(todayKey())
 
   const range = $derived(
     span === 'month'

@@ -4,6 +4,8 @@ import type { ChangeLink } from '../../bindings/ChangeLink'
 import type { ChangesState } from '../../bindings/ChangesState'
 import type { ChangesClosed } from '../../bindings/ChangesClosed'
 import { locale } from '../../locale'
+import { dayKey } from '../../calendar'
+import { todayKey } from '../../today.svelte'
 import { t } from '../../i18n.svelte'
 
 /** The journal and its events: Rust's types (`crates/core/src/changes.rs`, `crates/blocks/src/changes`), generated in `bindings/`. */
@@ -124,7 +126,6 @@ export function rows(events: ChangeEvent[]): Row[] {
 /** Rows grouped by hour, newest first. */
 export function byHour(list: Row[]): { key: string; label: string; rows: Row[] }[] {
   const groups = new Map<string, { key: string; label: string; rows: Row[] }>()
-  const today = new Date().toDateString()
   for (const r of list) {
     const d = new Date(r.t)
     d.setMinutes(0, 0, 0)
@@ -132,7 +133,7 @@ export function byHour(list: Row[]): { key: string; label: string; rows: Row[] }
     let g = groups.get(key)
     if (!g) {
       const hour = d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
-      const day = d.toDateString() === today ? '' : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })} · `
+      const day = dayKey(d) === todayKey() ? '' : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })} · `
       g = { key, label: `${day}${hour}`, rows: [] }
       groups.set(key, g)
     }
@@ -231,7 +232,7 @@ const clock = hm
 /** A time, its day before it when not today: `09:41`, `Sat 1 16:05`. */
 export const when = (ms: number) => {
   const d = new Date(ms)
-  return d.toDateString() === new Date().toDateString() ? hm(ms) : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' })} ${hm(ms)}`
+  return dayKey(d) === todayKey() ? hm(ms) : `${d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric' })} ${hm(ms)}`
 }
 
 /** The rows as Markdown, oldest first: for a post-mortem or a message. */

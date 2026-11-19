@@ -1,5 +1,5 @@
 import type { MergeRequest, Snapshot } from '../../types'
-import { dayKey } from '../../filter.svelte'
+import { dayKey, todayKey } from '../../filter.svelte'
 import { awaitsMyReview } from '../../rules'
 import { conventions, mrTickets } from '../../conventions'
 import { locale } from '../../locale'
@@ -240,7 +240,7 @@ export function daily(state: TrailState | undefined, s: Snapshot, day: string): 
   const myTickets = (s.sprint?.tickets ?? []).filter((tk) => meId !== undefined && tk.assignees.some((a) => a.id === meId) && !tk.closed)
   const covered = new Set(s.merge_requests.filter(mine).flatMap(mrTickets))
   for (const tk of myTickets.filter((x) => conventions().in_progress_statuses.includes(x.status) && !covered.has(x.id))) today.push(t('Continue {id} {name}', { id: tk.id, name: tk.name }))
-  if (day === dayKey(new Date())) {
+  if (day === todayKey()) {
     for (const e of (s.agenda?.events ?? []).filter((e) => !e.all_day && !e.canceled && e.my_status !== 'declined' && !/stand-?up|daily/i.test(e.title))) {
       today.push(t('{title} at {time}', { title: e.title, time: new Date(e.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) }))
     }

@@ -29,26 +29,29 @@ pub fn wake() {
     WAKE.notify_one();
 }
 
-/// Reads today's events now, then every minute or when woken.
+/// Reads today's events now, then every minute, when woken, or as soon as the day it read is over
+/// (midnight, or the computer woken the next morning).
 pub async fn run(cfg: CalendarConfig, hub: Hub) {
-    let mut first = true;
+    let mut day = None;
     loop {
-        if !std::mem::take(&mut first) {
+        if let Some(read_day) = day {
             tokio::select! {
-                _ = hub.pause(POLL) => {}
+                _ = hub.pause_daily(POLL, read_day) => {}
                 _ = WAKE.notified() => {}
             }
         }
-        hub.publish(SOURCE, read(&cfg).await, |s, agenda| crate::state::replace(&mut s.agenda, Some(agenda)));
+        let today = Local::now().date_naive();
+        day = Some(today);
+        hub.publish(SOURCE, read(&cfg, today).await, |s, agenda| crate::state::replace(&mut s.agenda, Some(agenda)));
     }
 }
 
-async fn read(cfg: &CalendarConfig) -> Result<Agenda> {
+async fn read(cfg: &CalendarConfig, day: chrono::NaiveDate) -> Result<Agenda> {
     let g = google::get()?;
     let Some(token) = g.access_token().await? else {
         return Ok(Agenda { provider: CalendarProvider::Google, access: "signed_out".into(), events: Vec::new() });
     };
-    let events = events_of(g, &token, cfg, Local::now().date_naive()).await?;
+    let events = events_of(g, &token, cfg, day).await?;
     Ok(Agenda { provider: CalendarProvider::Google, access: "granted".into(), events })
 }
 

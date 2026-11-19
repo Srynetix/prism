@@ -99,6 +99,16 @@ impl Hub {
         }
     }
 
+    /// `pause` for a collection of one day's data (`day`, the date its read began on): over at
+    /// once when that day is gone, or as soon as it goes (`new_day`: midnight, or the computer
+    /// woken the next morning). Only those that read a day wait so: the others keep their pace.
+    pub async fn pause_daily(&self, every: std::time::Duration, day: chrono::NaiveDate) {
+        tokio::select! {
+            _ = self.pause(every) => {}
+            _ = new_day(day) => {}
+        }
+    }
+
     /// The forge was changed from Prism: its reads waiting in `pause_forge` come again now.
     pub fn forge_changed(&self) {
         self.forge.send_replace(());
@@ -214,6 +224,18 @@ impl Hub {
             };
             first || changed
         });
+    }
+}
+
+/// How often `new_day` looks at the date.
+const DAY_CHECK: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Done once the local date is no longer `day`: midnight passed, or the computer woke on another
+/// day. Timers stand still while it sleeps (they count its waking time): the date is read again
+/// every few seconds, so a wake is seen within `DAY_CHECK`.
+pub async fn new_day(day: chrono::NaiveDate) {
+    while chrono::Local::now().date_naive() == day {
+        tokio::time::sleep(DAY_CHECK).await;
     }
 }
 
@@ -334,6 +356,16 @@ mod tests {
         assert_eq!(snap.worktree_stale_days, 3);
     }
 
+    /// A day's collection waits no more once its day is over: the computer woken the next morning.
+    #[tokio::test(start_paused = true)]
+    async fn a_days_pause_ends_with_its_day() {
+        let hub = Hub::new();
+        let yesterday = chrono::Local::now().date_naive() - chrono::Duration::days(1);
+        let start = tokio::time::Instant::now();
+        hub.pause_daily(Duration::from_secs(60), yesterday).await;
+        assert_eq!(start.elapsed(), Duration::ZERO, "over at once");
+    }
+
     #[tokio::test(start_paused = true)]
     async fn pause_follows_the_window() {
         let hub = Hub::new();
@@ -387,3 +419,4 @@ mod tests {
         assert!(!hub.pause_forge(Duration::from_secs(15), &mut changes).await);
     }
 }
+

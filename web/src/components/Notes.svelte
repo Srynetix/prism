@@ -482,7 +482,7 @@
         {/each}
       {:else}
       {#if ofDay.length || kind === 'day'}
-        <p class="sec day-sec"><span class="dot"></span>{isToday ? `${tr('Today')} · ${new Date().toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })}` : dayLabel} <b>{ofDay.length}</b></p>
+        <p class="sec day-sec"><span class="dot"></span>{isToday ? `${tr('Today')} · ${new Date(`${day}T12:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })}` : dayLabel} <b>{ofDay.length}</b></p>
         {#each ofDay as n (n.id)}{@render plain(n)}{:else}<div class="empty">{tr('No note for this day.')}</div>{/each}
       {/if}
       {#if sticky.length}

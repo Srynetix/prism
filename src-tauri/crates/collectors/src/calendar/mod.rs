@@ -156,11 +156,12 @@ mod platform {
     pub fn run(cfg: CalendarConfig, hub: Hub, every: Duration, alive: impl Fn() -> bool) {
         let store = Store::new();
         while alive() {
+            let day = Local::now().date_naive();
             let agenda = match access(&store) {
                 access if access == "granted" => {
                     // A permission just granted: the store must reload its sources.
                     store.reset();
-                    Agenda { access, events: events_of(&store, &cfg, Local::now().date_naive()), ..Default::default() }
+                    Agenda { access, events: events_of(&store, &cfg, day), ..Default::default() }
                 }
                 access => Agenda { access, ..Default::default() },
             };
@@ -172,8 +173,10 @@ mod platform {
                 s.agenda = Some(agenda);
                 changed
             });
+            // Read again at the next poll, or as soon as the day changed (woken the next morning:
+            // the waiting time stood still while the computer slept).
             let until = std::time::Instant::now() + every;
-            while alive() && std::time::Instant::now() < until {
+            while alive() && std::time::Instant::now() < until && Local::now().date_naive() == day {
                 std::thread::sleep(Duration::from_secs(1));
             }
         }

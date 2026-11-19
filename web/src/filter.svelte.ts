@@ -4,6 +4,7 @@ import { conventions, mrTickets, namesTicket, parseFilterQuery } from './convent
 import { mrKey } from './mr-ref'
 import { meOn, mrNumber } from './forge'
 import { dayKey } from './calendar'
+import { todayKey } from './today.svelte'
 import { tn } from './i18n.svelte'
 
 /**
@@ -14,16 +15,17 @@ export const filter = $state(readHash())
 
 /** Local day in `YYYY-MM-DD` format; by hand, not with Intl, slow in WebKit and called per trace. */
 export { dayKey }
-export const todayKey = () => dayKey(new Date())
+
+export { today, todayKey, checkDay } from './today.svelte'
 
 /**
  * The picker goes back as far as the time entry history: `[clickup] time_history_days`, and at
  * least the 1st of the previous month (as `history_start` in the core).
  */
 export function historyStart(): string {
-  const back = new Date()
+  const back = new Date(`${todayKey()}T12:00`)
   back.setDate(back.getDate() - conventions().time_history_days)
-  const month = new Date()
+  const month = new Date(`${todayKey()}T12:00`)
   month.setDate(1)
   month.setMonth(month.getMonth() - 1)
   return dayKey(back < month ? back : month)
