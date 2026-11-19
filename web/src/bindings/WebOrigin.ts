@@ -4,4 +4,8 @@
  * Where an imported page came from: its link (without its query: a signed link's keys are not
  * kept, and they expire), and the page it belongs to (a Notion page), when given.
  */
-export type WebOrigin = { url: string, page: string | null, };
+export type WebOrigin = { url: string, page: string | null, 
+/**
+ * A Notion HTML block's id: its file read from it, and put back there (Update on Notion).
+ */
+block?: string, };

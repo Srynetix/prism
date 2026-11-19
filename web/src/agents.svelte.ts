@@ -662,6 +662,10 @@ export const agentPageText = (id: string, path: string) => invoke<string>('agent
 export { IMPORTED } from './web-address'
 /** An imported page removed from the agent's folder. */
 export const webRemove = (id: string, path: string) => invoke('agent_web_remove', { id, path })
+/** An imported page put back on the Notion HTML block it came from. */
+export const webPublish = (id: string, path: string) => invoke('agent_web_publish', { id, path })
+/** A Notion page's or block's link (its HTML block read through Notion's API). */
+export const isNotionLink = (url: string) => /^https:\/\/([a-z0-9-]+\.)?notion\.(so|site)(\/|$)/i.test(url.trim())
 /** A file's link downloaded into the agent's Web view (`page`: the page it belongs to): its address there. */
 export const webImport = (id: string, url: string, page: string) => invoke<string>('agent_web_import', { id, url, page: page.trim() || null })
 /** Where an imported page came from (its link without its keys, its page). */

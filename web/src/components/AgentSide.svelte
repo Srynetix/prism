@@ -18,7 +18,10 @@
   import { addNote, cancelQueue, composePrompt, drafts, editNote, fingerprint, isQueued, notesOf, removeNote, resolveNote, sendError, sendReview, sentDiffOf, syncWithDiff, type ReviewHooks } from '../agent-review.svelte'
   import { ready } from '../agent-inbox.svelte'
   import { keys } from '../platform'
-  import { IMPORTED, webImport, webRemove, agentArtifacts, agentShellOwner, agentDiff, agentDiffImage, agentFileText, agentFileUrl, agentPageText, agentPages, SCRATCHPAD, type AgentArtifact, type AgentPage, type SideTab } from '../agents.svelte'
+  import TokenField from './settings/TokenField.svelte'
+  import { toast, toastError } from '../toast.svelte'
+  import type { WebOrigin } from '../bindings/WebOrigin'
+  import { IMPORTED, isNotionLink, webImport, webOrigin, webPublish, webRemove, agentArtifacts, agentShellOwner, agentDiff, agentDiffImage, agentFileText, agentFileUrl, agentPageText, agentPages, SCRATCHPAD, type AgentArtifact, type AgentPage, type SideTab } from '../agents.svelte'
   import { nameOf } from '../agent-cli'
   import { invoke, isDesktop } from '../bridge'
   import { ago } from '../time'
@@ -279,6 +282,32 @@
   let importPage = $state('')
   let importBusy = $state(false)
   let importError = $state('')
+  /** The shown page's origin, when imported: a Notion HTML block's gets Update on Notion. */
+  let origin = $state<WebOrigin | null>(null)
+  $effect(() => {
+    const p = path
+    void nonce
+    origin = null
+    if (!p.startsWith(`${IMPORTED}/`)) return
+    let gone = false
+    webOrigin(agent.id, p).then((o) => !gone && (origin = o), () => {})
+    return () => (gone = true)
+  })
+  /** Update on Notion: the page's file put back on its block (a second click confirms: it changes the Notion page). */
+  let publishing = $state<'' | 'armed' | 'busy'>('')
+  async function publish() {
+    if (publishing === '') return void (publishing = 'armed')
+    if (publishing !== 'armed') return
+    publishing = 'busy'
+    try {
+      await webPublish(agent.id, path)
+      toast(t('Updated on Notion'))
+    } catch (e) {
+      toastError(String(e))
+    } finally {
+      publishing = ''
+    }
+  }
   /** An imported page removed (a second click confirms). */
   let removing = $state(false)
   async function removeImported() {
@@ -402,6 +431,9 @@
       <button type="button" class="btn sm" class:on={picking} data-picker-toggle onclick={togglePicker} aria-expanded={picking} title={t('Pick a page of the folder, or a {agent} artifact', { agent: nameOf(agent) })}><Icon name="files" />{t('Open…')}{#if artifacts?.length}<span class="pill src n">{artifacts.length}</span>{/if}</button>
       <button type="button" class="btn sm" class:on={importing} onclick={() => (importing = !importing)} aria-expanded={importing} title={t('Download a page into the agent’s folder: a Notion page’s HTML attachment, any HTML file online')}><Icon name="download" />{t('Import…')}</button>
       <button type="submit" class="btn sm icon" title={t('Load (reload)')}><Icon name="refresh" /></button>
+      {#if origin?.block}
+        <button type="button" class="btn sm" class:armed={publishing === 'armed'} class:busy={publishing === 'busy'} onclick={publish} onblur={() => publishing === 'armed' && (publishing = '')} disabled={publishing === 'busy'} title={t('Put this version back on its Notion HTML block ({page})', { page: origin.page ?? origin.url })}><Icon name="up" />{publishing === 'armed' ? t('Click again to confirm') : publishing === 'busy' ? t('Updating…') : t('Update on Notion')}</button>
+      {/if}
       {#if path.startsWith(`${IMPORTED}/`)}
         <button type="button" class="btn sm" class:armed={removing} onclick={removeImported} onblur={() => (removing = false)} title={t('Remove this imported page from the agent’s folder')}><Icon name="trash" />{removing ? t('Click again to confirm') : t('Remove')}</button>
       {/if}
@@ -413,10 +445,14 @@
     {#if importing}
       <form class="imp" onsubmit={(e) => { e.preventDefault(); void importPageFrom() }}>
         <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={importUrl} autofocus placeholder={t('The file’s link: a Notion attachment (⋯ › Copy link), any HTML page online')} spellcheck="false" />
-        <input bind:value={importPage} placeholder={t('Its Notion page (optional): where the new version goes back')} spellcheck="false" />
+        <input bind:value={importUrl} autofocus placeholder={t('A Notion HTML block’s link (⋯ › Copy link to block), or an HTML page online')} spellcheck="false" />
+        {#if isNotionLink(importUrl)}
+          <TokenField tracker="notion" label={t('Notion integration token')} hint={t('An internal integration’s token (Notion › Settings › Integrations), the page shared with it (⋯ › Connections). Kept in the system keychain.')} create={{ url: 'https://www.notion.so/profile/integrations', label: t('Notion integrations') }} />
+        {:else}
+          <input bind:value={importPage} placeholder={t('The page it belongs to (optional): said to the agent')} spellcheck="false" />
+        {/if}
         <div class="row">
-          <small class="muted">{t('Downloaded into .prism/web/ of the agent’s folder (git ignores it); nothing of yours is sent with the link.')}</small>
+          <small class="muted">{isNotionLink(importUrl) ? t('Read through Notion’s API into .prism/web/ of the agent’s folder (git ignores it); Update on Notion puts it back.') : t('Downloaded into .prism/web/ of the agent’s folder (git ignores it); nothing of yours is sent with the link.')}</small>
           <span class="grow"></span>
           <button type="button" class="btn sm" onclick={() => (importing = false)}>{t('Cancel')}</button>
           <button type="submit" class="btn sm primary claude" class:busy={importBusy} disabled={!importUrl.trim() || importBusy}>{importBusy ? t('Importing…') : t('Import')}</button>

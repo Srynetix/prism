@@ -113,6 +113,7 @@ export function webPrompt(page: string, draft: WebDraft, captures: Record<number
     lines.push('', `${i}. ${elementLabel(n)} — ${n.sel}`, `   ${n.note.trim().replace(/\n/g, '\n   ')}`)
     if (captures[i]) lines.push(`   ${/\s/.test(captures[i]) ? `@"${captures[i]}"` : `@${captures[i]}`}`)
   })
-  if (origin) lines.push('', origin.page ? `It was imported from ${origin.url}, attached to ${origin.page}: once done, put the new version back there, in place of that attachment (or tell me how).` : `It was imported from ${origin.url}: once done, say how to put the new version back there.`)
+  if (origin?.block) lines.push('', `It is the HTML block of the Notion page ${origin.page ?? origin.url}: just edit the file, Prism puts the new version back on that block.`)
+  else if (origin) lines.push('', origin.page ? `It was imported from ${origin.url}, attached to ${origin.page}: once done, put the new version back there, in place of that attachment (or tell me how).` : `It was imported from ${origin.url}: once done, say how to put the new version back there.`)
   return lines.join('\n')
 }

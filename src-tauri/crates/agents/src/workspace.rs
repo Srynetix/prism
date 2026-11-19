@@ -25,6 +25,12 @@ impl Agents {
         crate::web_import::import(&self.dir(id)?, url, page).await
     }
 
+    /// An imported page put back on the Notion HTML block it came from.
+    pub async fn web_publish(&self, id: &str, path: &str) -> Result<()> {
+        let rel = path.strip_prefix(crate::web_import::IMPORTED).and_then(|r| r.strip_prefix('/')).context("not an imported page")?;
+        crate::web_import::publish(&self.dir(id)?, rel).await
+    }
+
     /// An imported page of its Web view removed (`@imported/<name>`).
     pub fn web_remove(&self, id: &str, path: &str) -> Result<()> {
         let rel = path.strip_prefix(crate::web_import::IMPORTED).and_then(|r| r.strip_prefix('/')).context("not an imported page")?;

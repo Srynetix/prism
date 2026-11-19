@@ -262,6 +262,8 @@ commands! {
     agents::agent_web_import: Act [demo: refused] [phone: state, id: String, url: String, page: Option<String>],
     agents::agent_web_origin: Read [phone: state, id: String, path: String; sync],
     agents::agent_web_remove: Act [demo: refused] [phone: state, id: String, path: String; sync],
+    // Its file replaced on the Notion HTML block it came from.
+    agents::agent_web_publish: Act [demo: refused] [phone: state, id: String, path: String],
     agents::agent_diff: Read [phone: state, id: String, branch: bool],
     agents::overlap_diff: Read [phone: state, a: String, b: String],
     agents::agent_task_files_changed: Read [phone: state, id: String],

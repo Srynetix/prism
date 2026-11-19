@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use anyhow::{bail, ensure, Context, Result};
-use prism_base::tr;
+use prism_base::{i18n::tr, tr};
 use serde::{Deserialize, Serialize};
 
 /// The Web view's address of an imported page: `@imported/<name>`.
@@ -27,6 +27,10 @@ const MAX: usize = crate::attach::MAX_BYTES;
 pub struct Origin {
     pub url: String,
     pub page: Option<String>,
+    /// A Notion HTML block's id: its file read from it, and put back there (Update on Notion).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub block: Option<String>,
 }
 
 /// The imported pages' folder in `folder` (the agent's).
@@ -115,10 +119,38 @@ pub async fn import(folder: &Path, url: &str, page: Option<&str>) -> Result<Stri
     let shown = bare(url).to_string();
     ensure!(https_host(url).is_some(), tr!("{url}: only an https link is imported", url = shown));
     ensure!(allowed(url), tr!("{url}: not a page online (this computer or its network)", url = shown));
+    // A Notion page's or block's link: its HTML block read by Notion's API, put back there later.
+    if crate::notion::is_notion(url) {
+        let mut found = crate::notion::embeds(url).await?;
+        ensure!(found.len() == 1, tr!("{n} HTML blocks on this Notion page: copy the link of the one to comment (⋯ › Copy link to block)", n = found.len()));
+        let (block, file) = found.remove(0);
+        let (body, kind) = download(&file, "Notion").await?;
+        let name = name_of(&file);
+        if !is_html(&body, &kind, &name.to_ascii_lowercase()) {
+            bail!(tr("this Notion block is not an HTML block (an embed of an .html file)"));
+        }
+        let origin = Origin { url: shown.clone(), page: Some(url.split('#').next().unwrap_or(url).to_string()).map(|p| bare(&p).to_string()), block: Some(block) };
+        let folder = folder.to_path_buf();
+        return tokio::task::spawn_blocking(move || keep(&folder, &name, &body, &origin)).await?;
+    }
     let page = page.map(str::trim).filter(|p| !p.is_empty()).map(String::from);
     if let Some(p) = &page {
         ensure!(https_host(p).is_some(), tr!("{url}: only an https link is imported", url = bare(p)));
     }
+    let (body, kind) = download(url, &shown).await?;
+    let name = name_of(url);
+    if !is_html(&body, &kind, &name.to_ascii_lowercase()) {
+        bail!(tr!("{url} is not an HTML page", url = shown));
+    }
+    let folder = folder.to_path_buf();
+    let origin = Origin { url: shown, page, block: None };
+    tokio::task::spawn_blocking(move || keep(&folder, &name, &body, &origin)).await?
+}
+
+/// `url` read (an allowed one, its redirects too), as it comes and bounded: its bytes and type.
+/// `shown`: how it is named in a message (never its query: a signed link's keys).
+async fn download(url: &str, shown: &str) -> Result<(Vec<u8>, String)> {
+    ensure!(allowed(url), tr!("{url}: not a page online (this computer or its network)", url = shown));
     let mut res = CLIENT.get(url).send().await.map_err(|e| anyhow::anyhow!("{}", e.without_url())).with_context(|| tr!("downloading {url}", url = shown))?;
     let status = res.status();
     if !status.is_success() {
@@ -136,13 +168,7 @@ pub async fn import(folder: &Path, url: &str, page: Option<&str>) -> Result<Stri
             bail!(tr!("{name} is larger than {mb} MB", name = shown, mb = MAX / 1024 / 1024));
         }
     }
-    let name = name_of(url);
-    if !is_html(&body, &kind, &name.to_ascii_lowercase()) {
-        bail!(tr!("{url} is not an HTML page", url = shown));
-    }
-    let folder = folder.to_path_buf();
-    let origin = Origin { url: shown, page };
-    tokio::task::spawn_blocking(move || keep(&folder, &name, &body, &origin)).await?
+    Ok((body, kind))
 }
 
 /// Writes the page and its origin (off the async workers: files, and git's exclude file).
@@ -153,7 +179,7 @@ fn keep(folder: &Path, name: &str, body: &[u8], origin: &Origin) -> Result<Strin
             bail!("{} is a link: nothing imported there", d.display());
         }
     }
-    let path = match imported_from(&dir, &origin.url) {
+    let path = match imported_from(&dir, origin) {
         Some(path) if !path.symlink_metadata().is_ok_and(|m| m.file_type().is_symlink()) => {
             ensure!(body.len() <= MAX, tr!("{name} is larger than {mb} MB", name = name, mb = MAX / 1024 / 1024));
             std::fs::write(&path, body).with_context(|| format!("writing {}", path.display()))?;
@@ -166,14 +192,27 @@ fn keep(folder: &Path, name: &str, body: &[u8], origin: &Origin) -> Result<Strin
     Ok(format!("{IMPORTED}/{}", path.file_name().unwrap_or_default().to_string_lossy()))
 }
 
-/// The page already imported from `url` (its origin says so).
-fn imported_from(dir: &Path, url: &str) -> Option<PathBuf> {
+/// The page already imported from the same place: the same Notion block, or the same link.
+fn imported_from(dir: &Path, from: &Origin) -> Option<PathBuf> {
     std::fs::read_dir(dir).ok()?.flatten().find_map(|e| {
         let name = e.file_name().to_string_lossy().into_owned();
         let page = name.strip_suffix(".origin.json")?.to_string();
         let origin: Origin = serde_json::from_slice(&std::fs::read(e.path()).ok()?).ok()?;
-        (origin.url == url).then(|| dir.join(page)).filter(|p| p.is_file())
+        let same = match (&from.block, &origin.block) {
+            (Some(a), Some(b)) => a == b,
+            (None, None) => origin.url == from.url,
+            _ => false,
+        };
+        same.then(|| dir.join(page)).filter(|p| p.is_file())
     })
+}
+
+/// The imported page `rel` put back on its Notion HTML block (its file replaced there).
+pub async fn publish(folder: &Path, rel: &str) -> Result<()> {
+    let block = origin(folder, rel).and_then(|o| o.block).with_context(|| tr("this page did not come from a Notion HTML block"))?;
+    let path = root(folder).join(own_name(rel)?);
+    let html = tokio::fs::read(&path).await.with_context(|| format!("reading {}", path.display()))?;
+    crate::notion::publish(&block, rel, html).await
 }
 
 /// `<name>.origin.json`, beside the page.
@@ -266,12 +305,12 @@ mod tests {
         let folder = std::env::temp_dir().join(format!("prism-web-import-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).unwrap();
-        let notion = Origin { url: "https://file.notion.so/f/Maquette.html".into(), page: Some("https://notion.so/p".into()) };
+        let notion = Origin { url: "https://file.notion.so/f/Maquette.html".into(), page: Some("https://notion.so/p".into()), block: None };
         assert_eq!(keep(&folder, "Maquette.html", b"<html>v1</html>", &notion).unwrap(), "@imported/Maquette.html");
         // The same link again: its copy replaced, not a second one.
         assert_eq!(keep(&folder, "Maquette.html", b"<html>v2</html>", &notion).unwrap(), "@imported/Maquette.html");
         assert_eq!(std::fs::read_to_string(root(&folder).join("Maquette.html")).unwrap(), "<html>v2</html>");
-        let other = Origin { url: "https://example.com/Maquette.html".into(), page: None };
+        let other = Origin { url: "https://example.com/Maquette.html".into(), page: None, block: None };
         assert_eq!(keep(&folder, "Maquette.html", b"<html></html>", &other).unwrap(), "@imported/Maquette-2.html");
         assert_eq!(pages(&folder), ["@imported/Maquette-2.html", "@imported/Maquette.html"]);
         assert_eq!(origin(&folder, "Maquette.html").unwrap().page.as_deref(), Some("https://notion.so/p"));

@@ -205,6 +205,8 @@ pub enum Service {
     Jira,
     /// The Google OAuth client's secret
     Google,
+    /// A Notion integration's token (the Web view's Notion HTML blocks)
+    Notion,
 }
 
 /// The subcommands one binary has not: hidden from its help, refused if typed.
