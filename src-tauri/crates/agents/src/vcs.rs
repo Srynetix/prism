@@ -3,7 +3,7 @@
 //! commit or a push on a protected branch; never a hook (a program the branch or the agent may
 //! have written, `chain::open_mr` says why).
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{bail, Result};
 use prism_base::{i18n::tr, tr};
@@ -202,21 +202,25 @@ pub async fn pull(dir: &Path) -> Result<String> {
     })
 }
 
-/// The repository `dir` is in: its top folder and the branch it is on (`None`: detached).
-/// An error when `dir` is in no git repository.
-pub async fn folder_branch(dir: &Path) -> Result<(PathBuf, Option<String>)> {
-    let top = PathBuf::from(git(dir, &["rev-parse", "--show-toplevel"]).await?);
+/// The branch the folder `dir` is on (`None`: detached).
+pub async fn current_branch(dir: &Path) -> Result<Option<String>> {
     let branch = git(dir, &["branch", "--show-current"]).await?;
-    Ok((top, Some(branch).filter(|b| !b.is_empty())))
+    Ok(Some(branch).filter(|b| !b.is_empty()))
+}
+
+/// `branch`, a name `switch` takes: not empty, no option, no space.
+pub fn branch_ok(branch: &str) -> Result<()> {
+    if branch.is_empty() || branch.starts_with('-') || branch.contains(char::is_whitespace) {
+        bail!(tr!("not a branch: {branch}", branch = branch));
+    }
+    Ok(())
 }
 
 /// The folder switched to `branch`, a local one or origin's (then made local, tracking it). Only
 /// with nothing uncommitted: changes carried to another branch are a surprise.
 pub async fn switch(dir: &Path, branch: &str) -> Result<String> {
     let branch = branch.trim();
-    if branch.is_empty() || branch.starts_with('-') || branch.contains(char::is_whitespace) {
-        bail!(tr!("not a branch: {branch}", branch = branch));
-    }
+    branch_ok(branch)?;
     if !git(dir, &["status", "--porcelain"]).await?.is_empty() {
         bail!(tr("uncommitted changes: commit or stash them first"));
     }

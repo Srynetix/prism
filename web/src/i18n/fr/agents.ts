@@ -336,7 +336,7 @@ export default {
   'Keep': 'Garder',
   'Stay on {branch}': 'Rester sur {branch}',
   'The branch the folder is switched to before the agent starts': 'La branche où passe le dossier avant que l’agent démarre',
-  'Switched before it starts, for everyone working in this folder; refused with changes not committed or another agent running there.': 'Changée avant son démarrage, pour tous ceux qui travaillent dans ce dossier ; refusé s’il y a des changements non commités ou un autre agent qui y tourne.',
+  'Switched just before it starts: shells and servers in this folder change branch too. Refused with changes not committed or another agent running there.': 'Changée juste avant son démarrage : les shells et serveurs de ce dossier changent de branche aussi. Refusé s’il y a des changements non commités ou un autre agent qui y tourne.',
   'switched to {branch}': 'passé sur {branch}',
   'Take it off the {n} agent carrying it (click twice)': 'La retirer de {n} agent qui la porte (cliquer deux fois)',
   'Take it off the {n} agents carrying it (click twice)': 'La retirer des {n} agents qui la portent (cliquer deux fois)',

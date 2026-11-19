@@ -48,6 +48,10 @@ fn phone_launch(snap: &crate::state::Snapshot, launch: &crate::agents::Launch) -
     {
         bail!(tr("from a phone, an agent starts in a new worktree or a folder Prism shows"));
     }
+    // A folder's branch is switched at the desk only (`worktree_switch`, `folder_branches`).
+    if launch.branch.as_deref().is_some_and(|b| !b.trim().is_empty()) {
+        bail!(tr("from a phone, an agent starts on its folder's branch: switch it at the computer"));
+    }
     Ok(())
 }
 
@@ -245,7 +249,9 @@ async fn dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Val
             // was prepared, run once it starts.
             let launch = State(&state).hub.subscribe().borrow().agents.iter().find(|x| x.id == id).and_then(|x| x.launch.clone());
             if let Some(l) = launch {
-                phone_launch(&State(&state).hub.subscribe().borrow(), &crate::agents::Launch::from(l))?;
+                // Its branch was picked at the computer: switched at its start, from the phone too.
+                let l = crate::agents::Launch { branch: None, ..crate::agents::Launch::from(l) };
+                phone_launch(&State(&state).hub.subscribe().borrow(), &l)?;
             }
             reply(ag::agent_start(State(&state), id).await)
         }
@@ -509,6 +515,7 @@ mod tests {
         assert!(!ok(serde_json::json!({ "title": "Fix", "worktree": {}, "permission_mode": "auto" })), "auto approves by itself");
         assert!(!ok(serde_json::json!({ "title": "Fix", "cwd": "/Users/someone/.ssh" })), "a folder Prism does not show");
         assert!(!super::shown_folder(&snap, "/Users/someone"), "nor its tasks listed");
+        assert!(!ok(serde_json::json!({ "title": "Fix", "worktree": {}, "branch": "feature" })), "a folder's branch: at the computer");
     }
 
     /// A phone presses a choice's digit, Enter or Esc for an agent; its shells take any key.

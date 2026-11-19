@@ -82,17 +82,18 @@
   const toggleAlso = (r: string) => (alsoRepos = alsoRepos.includes(r) ? alsoRepos.filter((x) => x !== r) : [...alsoRepos, r])
   let folder = $state('')
   /**
-   * Folder: the branch it is on (`null`: detached), read when it is a git repository (`folderGit`);
+   * Folder: the branch it is on (`null`: detached), read when it is in a repository Prism follows (`folderGit`);
    * the one picked to switch it to before the agent starts, for that folder only (another folder
    * picked: its own branch again).
    */
   let folderOn = $state<string | null>(null)
   let folderGit = $state(false)
   let folderPick = $state<{ folder: string; branch: string } | null>(null)
-  const folderBranch = $derived(folderPick && folderPick.folder === folder && folderPick.branch !== folderOn ? folderPick.branch : '')
+  const folderBranch = $derived(folderGit && folderPick && folderPick.folder === folder && folderPick.branch !== folderOn ? folderPick.branch : '')
   $effect(() => {
     const f = whereTo === 'folder' && hasCore() ? folder : ''
     folderGit = false
+    folderOn = null
     if (!f) return
     let gone = false
     invoke<string | null>('folder_branch', { path: f }).then(
@@ -495,7 +496,7 @@
               {#if folderBranch}<span class="muted">→</span><code>{folderBranch}</code><button type="button" class="btn sm ghost" onclick={() => (folderPick = null)} title={t('Stay on {branch}', { branch: folderOn ?? t('detached') })}>{t('Keep')}</button>{/if}
               <BranchPicker path={folder} load={folderBranches} title={t('The branch the folder is switched to before the agent starts')} onpick={(b) => (folderPick = { folder, branch: b })} />
             </div>
-            {#if folderBranch}<small class="muted">{t('Switched before it starts, for everyone working in this folder; refused with changes not committed or another agent running there.')}</small>{/if}
+            {#if folderBranch}<small class="muted">{t('Switched just before it starts: shells and servers in this folder change branch too. Refused with changes not committed or another agent running there.')}</small>{/if}
           {/if}
           {#if checkouts.some((w) => w.path === folder)}<small class="muted">{t('Shared checkout: best for read-only work (refine, review, investigate).')}</small>{/if}
         {/if}

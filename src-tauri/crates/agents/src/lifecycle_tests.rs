@@ -1064,17 +1064,34 @@ async fn a_folder_launch_switches_to_its_branch() {
     git(&["push", "-q", "origin", "feature"]);
     git(&["branch", "-D", "feature"]);
     let on = |branch: &str| Launch { cwd: Some(repo.path.clone()), branch: Some(branch.into()), ..b.launch("On a branch") };
+    // Only in a repository Prism follows: its own `.git/config` is never run otherwise.
+    assert!(b.agents.spawn(on("feature")).await.is_err(), "a repository Prism does not follow");
+    assert!(b.agents.prepare(on("feature")).await.is_err(), "refused at Prepare too");
+    assert!(b.agents.folder_branches(&repo.path).await.is_err());
+    b.hub.update(|s| {
+        s.repos.push(prism_core::state::Repo { name: "app".into(), path: repo.path.display().to_string(), project: None, branch: Some("main".into()), base: "main".into(), behind: 0, ahead: 0, dirty: false, is_main: true, error: None, forge: None });
+        true
+    });
+    assert_eq!(b.agents.folder_branch(&repo.path).await.unwrap().as_deref(), Some("main"));
+    assert!(b.agents.prepare(Launch { branch: Some("-x".into()), ..on("x") }).await.is_err(), "not a branch: refused at Prepare");
 
     let id = b.agents.spawn(on("feature")).await.unwrap();
     assert_eq!(git(&["branch", "--show-current"]), "feature");
     assert_eq!(git(&["rev-parse", "--abbrev-ref", "feature@{u}"]), "origin/feature", "origin's branch made local, tracking it");
     assert_eq!(b.shown(&id).await.unwrap().launch.and_then(|l| l.branch).as_deref(), Some("feature"));
-    // Another agent there: its work would change branch under it.
+    // Another agent there, in the snapshot or just launched: its work would change branch under it.
     let err = b.agents.spawn(on("main")).await.unwrap_err();
     assert!(format!("{err:#}").contains("On a branch"), "{err:#}");
-    assert_eq!(git(&["branch", "--show-current"]), "feature");
     b.tmux.exit(&id, 0);
     b.agents.refresh().await;
+    let fresh = b.agents.spawn(on("main")).await.unwrap();
+    let err = b.agents.spawn(on("feature")).await.unwrap_err();
+    assert!(format!("{err:#}").contains("On a branch"), "not in the snapshot yet, seen all the same: {err:#}");
+    assert_eq!(git(&["branch", "--show-current"]), "main");
+    b.tmux.exit(&fresh, 0);
+    b.agents.refresh().await;
+    git(&["switch", "-q", "feature"]);
+    assert_eq!(git(&["branch", "--show-current"]), "feature");
 
     // Prepared: switched at its start, not before.
     let prepared = b.agents.prepare(on("main")).await.unwrap();
