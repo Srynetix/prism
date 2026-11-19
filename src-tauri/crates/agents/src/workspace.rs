@@ -257,9 +257,15 @@ impl Agents {
         vcs::branches(&self.shown_worktree(path)?).await
     }
 
-    /// A worktree's branch brought up to date with its upstream (fast-forward only).
+    /// A worktree's branch brought up to date with its upstream (fast-forward only); refused while
+    /// an agent works in it (its files would change under it), one at a time with a branch switch.
     pub async fn worktree_pull(&self, path: &str) -> Result<String> {
-        vcs::pull(&self.shown_worktree(path)?).await
+        let dir = self.shown_worktree(path)?;
+        let _switching = self.inner.switching.lock().await;
+        if let Some(title) = self.running_in("", &dir).await? {
+            bail!(tr!("the agent “{title}” is running in it: stop it first", title = title));
+        }
+        vcs::pull(&dir).await
     }
 
     /// A worktree switched to `branch`; refused while an agent works in it (its work would land on

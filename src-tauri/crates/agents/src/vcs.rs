@@ -188,11 +188,15 @@ pub async fn pull(dir: &Path) -> Result<String> {
     }
     let before = git(dir, &["rev-parse", "HEAD"]).await?;
     if let Err(e) = git(dir, &["pull", "--ff-only", "--no-rebase", "-q"]).await {
-        let e = format!("{e:#}");
-        if e.contains("Not possible to fast-forward") || e.contains("diverging") {
+        // Read from the repository, not from git's words (in the user's language): its upstream
+        // (fetched by the pull) no longer holds it, or its changes are in the way.
+        if git(dir, &["merge-base", "--is-ancestor", "HEAD", "@{u}"]).await.is_err() {
             bail!(tr!("{branch} and its upstream have diverged: nothing pulled (rebase it, or ask an agent)", branch = branch));
         }
-        bail!(e);
+        if !git(dir, &["status", "--porcelain", "--untracked-files=no"]).await?.is_empty() {
+            bail!(tr("uncommitted changes: commit or stash them first"));
+        }
+        return Err(e);
     }
     let pulled: u32 = git(dir, &["rev-list", "--count", &format!("{before}..HEAD")]).await?.parse().unwrap_or(0);
     Ok(match pulled {
@@ -345,6 +349,19 @@ mod tests {
         assert_eq!(pull(&work).await.unwrap(), "main: 1 commit pulled");
         assert!(work.join("e.txt").exists());
         assert_eq!(pull(&work).await.unwrap(), "main already up to date");
+        // A change in the way of origin's: said so, in a French git too (read from the repository).
+        std::fs::write(other.join("e.txt"), "e2\n").unwrap();
+        sh(&other, &["commit", "-q", "-am", "e2"]).await;
+        sh(&other, &["push", "-q", "origin", "main"]).await;
+        std::fs::write(work.join("e.txt"), "mine\n").unwrap();
+        assert!(pull(&work).await.unwrap_err().to_string().contains("uncommitted"));
+        sh(&work, &["checkout", "-q", "--", "e.txt"]).await;
+        // Both moved on: diverged, nothing pulled.
+        std::fs::write(work.join("f.txt"), "f\n").unwrap();
+        sh(&work, &["add", "-A"]).await;
+        sh(&work, &["-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-q", "-m", "f"]).await;
+        assert!(pull(&work).await.unwrap_err().to_string().contains("diverged"));
+        sh(&work, &["reset", "-q", "--hard", "origin/main"]).await;
         // origin's branch becomes a local one, tracking it.
         switch(&work, "fix").await.unwrap();
         assert_eq!(crate::git::run(&work, &["rev-parse", "--abbrev-ref", "@{u}"]).await.unwrap().trim(), "origin/fix");

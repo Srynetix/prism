@@ -103,6 +103,8 @@
   const switchTo = (i: WorktreeInfo, branch: string) => run(async () => toast(await switchWorktree(i.w.path, branch)))
   /** Why the branch is not changed from here, or nothing. */
   const noSwitch = (i: WorktreeInfo) => (i.w.changes ? t('Uncommitted changes: commit or stash them first') : i.agents.some((a) => a.state === 'running') ? t('An agent runs in it: stop it first') : '')
+  /** Pull: refused while an agent runs in it (its files would change under it). */
+  const noPull = (i: WorktreeInfo) => (i.agents.some((a) => a.state === 'running') ? t('An agent runs in it: stop it first') : '')
   const prune = () => run(async () => {
     await pruneWorktrees()
     toast(tn(gone.length, '{n} worktree pruned', '{n} worktrees pruned'))
@@ -391,7 +393,7 @@
       <span class="cap">{t('Linked to')}</span>
       <div class="kv">
         <span>{t('Branch')}</span><span class="line"><span class="mono">{branchOf(i)}</span>{#if hasCore() && !i.w.prunable}<BranchPicker path={i.w.path} disabled={busy || !!noSwitch(i)} why={noSwitch(i)} onpick={(b) => switchTo(i, b)} />{/if}</span>
-        {#if i.w.upstream}<span>{t('Upstream')}</span><span class="line"><span class="mono">{i.w.upstream}</span>{#if i.w.upstream_gone}<span class="pill warn">{t('gone')}</span>{:else if i.w.unpulled}<span class="pill warn" title={tn(i.w.unpulled, '{n} commit on origin not here yet', '{n} commits on origin not here yet')}>↓{i.w.unpulled}</span>{#if hasCore()}<button class="btn sm" onclick={() => pull(i)} disabled={busy} title={t('Bring them here: fast-forward only, nothing rebased nor merged')}><Icon name="down" />{t('Pull')}</button>{/if}{/if}</span>{/if}
+        {#if i.w.upstream}<span>{t('Upstream')}</span><span class="line"><span class="mono">{i.w.upstream}</span>{#if i.w.upstream_gone}<span class="pill warn">{t('gone')}</span>{:else if i.w.unpulled}<span class="pill warn" title={tn(i.w.unpulled, '{n} commit on origin not here yet', '{n} commits on origin not here yet')}>↓{i.w.unpulled}</span>{#if hasCore()}<button class="btn sm" onclick={() => pull(i)} disabled={busy || !!noPull(i)} title={noPull(i) || t('Bring them here: fast-forward only, nothing rebased nor merged')}><Icon name="down" />{t('Pull')}</button>{/if}{/if}</span>{/if}
         {#if !i.w.prunable}<span>{t('Base')}</span><span>origin/{i.w.base} · ↓{i.w.behind} ↑{i.w.ahead}</span>{/if}
         {#if i.w.ticket}<span>{t('Ticket')}</span><span>{#if i.ticket}<a href={i.ticket.url} target="_blank" rel="noreferrer">{i.w.ticket}</a> · {i.ticket.status} · {i.ticket.name}{:else}<button class="link" onclick={() => setQuery(i.w.ticket!)}>{i.w.ticket}</button>{/if}</span>{/if}
         {#if i.mr}<span>{mrWord()}</span><span><a href={i.mr.url} target="_blank" rel="noreferrer">{mrNumber(i.mr.iid)}</a> · {i.mr.state === 'merged' ? t('merged {ago} ago', { ago: ago(i.mr.merged_at) }) : i.mr.draft ? t('draft') : tc('state', 'open')}{i.mr.pipeline ? ` · CI ${i.mr.pipeline}` : ''}</span>{/if}

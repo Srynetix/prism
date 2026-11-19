@@ -84,7 +84,8 @@ commands! {
     // The branch of a launch's folder (read, no fetch), and those it can be switched to (the launchers).
     agents::folder_branch: Read [phone: state, path: String],
     agents::folder_branches: Act [demo: own] [phone: state, path: String],
-    agents::worktree_pull: Never [demo: refused],
+    // Pulled fast-forward only (nothing rebased nor merged): from a phone too, with the actions right.
+    agents::worktree_pull: Act [demo: refused] [phone: state, path: String],
     agents::worktree_switch: Act [demo: refused] [phone: state, path: String, branch: String],
     // A pod's shell (`kubectl exec`): the desk only, the phone never reaches the clusters' insides.
     infra::pod_shells: Never,
