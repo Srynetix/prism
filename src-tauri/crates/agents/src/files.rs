@@ -117,7 +117,8 @@ pub async fn pages(dir: &Path, ignored: bool) -> Result<Vec<Page>> {
         let root = dir.to_path_buf();
         out = tokio::task::spawn_blocking(move || {
             let mut visits = MAX_VISITED;
-            for entry in raw.split('\0').filter(|e| !e.is_empty() && !heavy(e.trim_end_matches('/'))) {
+            // Not Prism's own folder: its imported pages are listed as `@imported/` (served from there).
+            for entry in raw.split('\0').filter(|e| !e.is_empty() && !heavy(e.trim_end_matches('/')) && !e.starts_with(".prism/")) {
                 if entry.ends_with('/') {
                     let mut found = Vec::new();
                     walk(&root, entry.trim_end_matches('/'), 0, &is_viewable, &mut found, MAX_PAGES, &mut visits);

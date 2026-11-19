@@ -13,8 +13,9 @@ impl Agents {
     pub async fn pages(&self, id: &str, ignored: bool) -> Result<Vec<files::Page>> {
         let dir = self.dir(id)?;
         let mut pages = files::pages(&dir, ignored).await?;
-        // The pages imported (Import…), under their own address.
-        pages.extend(crate::web_import::pages(&dir).into_iter().map(|path| files::Page { path, ignored: false }));
+        // The pages imported (Import…), under their own address, first.
+        let imported = tokio::task::spawn_blocking(move || crate::web_import::pages(&dir)).await?;
+        pages.splice(0..0, imported.into_iter().map(|path| files::Page { path, ignored: false }));
         Ok(pages)
     }
 
@@ -22,6 +23,12 @@ impl Agents {
     /// downloaded into its folder, its address returned (`@imported/<name>`).
     pub async fn web_import(&self, id: &str, url: &str, page: Option<&str>) -> Result<String> {
         crate::web_import::import(&self.dir(id)?, url, page).await
+    }
+
+    /// An imported page of its Web view removed (`@imported/<name>`).
+    pub fn web_remove(&self, id: &str, path: &str) -> Result<()> {
+        let rel = path.strip_prefix(crate::web_import::IMPORTED).and_then(|r| r.strip_prefix('/')).context("not an imported page")?;
+        crate::web_import::remove(&self.dir(id)?, rel)
     }
 
     /// Where a page of its Web view came from, when imported.
@@ -141,7 +148,16 @@ impl Agents {
 
     /// The version on disk of files of the agent's folder open in its Files tab.
     pub fn stamps(&self, id: &str, paths: &[String]) -> Result<Vec<Option<String>>> {
-        Ok(files::stamps(&self.dir(id)?, paths))
+        let dir = self.dir(id)?;
+        // A page of the Web view by its address too (`@scratchpad/…`, `@imported/…`).
+        Ok(paths
+            .iter()
+            .map(|p| match p.split_once('/') {
+                Some((files::SCRATCHPAD, rel)) => self.scratchpad(id).and_then(|s| files::stamps(&s, &[rel.to_string()]).pop().flatten()),
+                Some((crate::web_import::IMPORTED, rel)) => files::stamps(&crate::web_import::root(&dir), &[rel.to_string()]).pop().flatten(),
+                _ => files::stamps(&dir, std::slice::from_ref(p)).pop().flatten(),
+            })
+            .collect())
     }
 
     /// The agent's artifacts: the pages of its CLI session's scratchpad.

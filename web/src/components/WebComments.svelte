@@ -9,6 +9,8 @@
   import { keys } from '../platform'
   import { holdEscape } from '../layers.svelte'
   import { toast, toastError } from '../toast.svelte'
+  import type { WebOrigin } from '../bindings/WebOrigin'
+  import { IMPORTED } from '../web-address'
   import { annotateType, captures, elementLabel, noteId, pinsOf, readFound, readPick, setWebDraft, webDraft, webPrompt, type Pick, type WebNote } from '../web-comments.svelte'
   import type { Snippet } from 'svelte'
   import type { Agent } from '../types'
@@ -174,11 +176,12 @@
   }
   const running = $derived(agent.state === 'running')
   /** An imported page's origin, said in the prompt (where to put the new version back). */
-  let origin = $state<{ url: string; page: string | null } | null>(null)
+  let origin = $state<WebOrigin | null>(null)
+  const originOf = (p: string) => (p.startsWith(`${IMPORTED}/`) ? webOrigin(agent.id, p).catch(() => null) : Promise.resolve(null))
   $effect(() => {
     const p = page
     origin = null
-    if (!p.startsWith('@imported/')) return
+    if (!p.startsWith(`${IMPORTED}/`)) return
     let gone = false
     webOrigin(agent.id, p).then(
       (o) => !gone && (origin = o),
@@ -214,13 +217,15 @@
           if (path) shots[k + 1] = path
         }
       }
+      // Read now, not from the view: sent at once after opening the page, it is said all the same.
+      const from = await originOf(page)
       if (!running) {
         const where = await invoke<string>('agent_page_file', { id: agent.id, path: page }).catch(() => undefined)
-        openLauncher({ title: t('Remarks on {page}', { page: page.split('/').pop() ?? page }), prompt: webPrompt(page, draft, shots, where, origin), cwd: agent.worktree ?? agent.cwd }, null, async () => clear())
+        openLauncher({ title: t('Remarks on {page}', { page: page.split('/').pop() ?? page }), prompt: webPrompt(page, draft, shots, where, from), cwd: agent.worktree ?? agent.cwd }, null, async () => clear())
         return
       }
       await onsend?.()
-      const r = await sendPrompt(agent.id, webPrompt(page, draft, shots, undefined, origin))
+      const r = await sendPrompt(agent.id, webPrompt(page, draft, shots, undefined, from))
       if (r === 'already-queued') return toast(t('These remarks already wait for {agent}', { agent: nameOf(agent) }), 3000, null, 'info')
       toast(r === 'queued' ? t('Remarks queued: {agent} reads them once its menu is answered', { agent: nameOf(agent) }) : r === 'already-sent' ? t('Already sent to {agent}', { agent: nameOf(agent) }) : tn(count, '{n} remark sent to {agent}', '{n} remarks sent to {agent}', { agent: nameOf(agent) }))
       clear()

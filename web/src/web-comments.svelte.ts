@@ -1,4 +1,6 @@
 import { pref, setPref } from './layout.svelte'
+import type { WebOrigin } from './bindings/WebOrigin'
+import { IMPORTED } from './web-address'
 
 /**
  * Remarks on a page of an agent's Web view, clicked on its elements (Comment): drafts kept per
@@ -51,15 +53,9 @@ export const noteId = () => Math.random().toString(36).slice(2, 10)
 export const pageName = (page: string) =>
   page.startsWith('@scratchpad/')
     ? `${page.slice('@scratchpad/'.length)} (the artifact in your session's scratchpad)`
-    : page.startsWith('@imported/')
-      ? `.prism/web/${page.slice('@imported/'.length)} (imported into your folder)`
+    : page.startsWith(`${IMPORTED}/`)
+      ? `.prism/web/${page.slice(IMPORTED.length + 1)} (imported into your folder)`
       : page
-
-/** Where an imported page came from: its link, the page it belongs to. */
-export interface PageOrigin {
-  url: string
-  page: string | null
-}
 
 /** An agent closed: its drafts go. */
 export function dropWebNotes(agent: string) {
@@ -107,7 +103,7 @@ export const elementLabel = (n: Pick | WebNote) => `<${n.tag}>${n.text ? ` “${
  * The prompt: the page, then each remark — the whole page's first, then each element with its
  * selector and, when captured, its picture (`@path`).
  */
-export function webPrompt(page: string, draft: WebDraft, captures: Record<number, string> = {}, where?: string, origin?: PageOrigin | null): string {
+export function webPrompt(page: string, draft: WebDraft, captures: Record<number, string> = {}, where?: string, origin?: WebOrigin | null): string {
   const whole = draft.whole.trim()
   const count = draft.notes.length + (whole ? 1 : 0)
   const lines = [`Remarks on the page ${where ?? pageName(page)} (${count} remark${count > 1 ? 's' : ''}, made on its elements in Prism's Web view). Address each, then say what you changed.`]

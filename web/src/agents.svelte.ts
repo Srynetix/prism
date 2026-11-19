@@ -659,8 +659,9 @@ export const agentArtifacts = (id: string) => invoke<AgentArtifact[]>('agent_art
 export const SCRATCHPAD = '@scratchpad'
 /** A Markdown or text page of the Web view (`<path>`, or `@scratchpad/<path>`), as `prismfile:` would serve it. */
 export const agentPageText = (id: string, path: string) => invoke<string>('agent_page_text', { id, path })
-/** The pages imported into the Web view (Import…): `@imported/<name>`, in the agent's `.prism/web/`. */
-export const IMPORTED = '@imported'
+export { IMPORTED } from './web-address'
+/** An imported page removed from the agent's folder. */
+export const webRemove = (id: string, path: string) => invoke('agent_web_remove', { id, path })
 /** A file's link downloaded into the agent's Web view (`page`: the page it belongs to): its address there. */
 export const webImport = (id: string, url: string, page: string) => invoke<string>('agent_web_import', { id, url, page: page.trim() || null })
 /** Where an imported page came from (its link without its keys, its page). */

@@ -61,6 +61,8 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{url}: not a link", "{url} : ce n’est pas un lien"),
     ("downloading {url}", "téléchargement de {url}"),
     ("{url} answered {status}: an expired link? Copy it again", "{url} a répondu {status} : un lien expiré ? Copiez-le à nouveau"),
+    ("{url}: not a page online (this computer or its network)", "{url} : pas une page en ligne (cet ordinateur ou son réseau)"),
+    ("{name}: not an imported page", "{name} : pas une page importée"),
     ("{url} is not an HTML page", "{url} n’est pas une page HTML"),
     ("uncommitted changes: commit or stash them first", "modifications non commitées : commitez-les ou mettez-les de côté d’abord"),
     ("on {branch}", "sur {branch}"),

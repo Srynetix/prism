@@ -891,6 +891,12 @@ pub async fn agent_web_import(state: State<'_, AppState>, id: String, url: Strin
     state.agents.web_import(&id, &url, page.as_deref()).await.map_err(Into::into)
 }
 
+/// An imported page of an agent's Web view removed.
+#[prism_macros::command]
+pub fn agent_web_remove(state: State<'_, AppState>, id: String, path: String) -> Cmd {
+    state.agents.web_remove(&id, &path).map_err(Into::into)
+}
+
 /// Where an imported page of its Web view came from.
 #[prism_macros::command]
 pub fn agent_web_origin(state: State<'_, AppState>, id: String, path: String) -> Cmd<Option<crate::agents::web_import::Origin>> {

@@ -18,7 +18,7 @@
   import { addNote, cancelQueue, composePrompt, drafts, editNote, fingerprint, isQueued, notesOf, removeNote, resolveNote, sendError, sendReview, sentDiffOf, syncWithDiff, type ReviewHooks } from '../agent-review.svelte'
   import { ready } from '../agent-inbox.svelte'
   import { keys } from '../platform'
-  import { IMPORTED, webImport, agentArtifacts, agentShellOwner, agentDiff, agentDiffImage, agentFileText, agentFileUrl, agentPageText, agentPages, SCRATCHPAD, type AgentArtifact, type AgentPage, type SideTab } from '../agents.svelte'
+  import { IMPORTED, webImport, webRemove, agentArtifacts, agentShellOwner, agentDiff, agentDiffImage, agentFileText, agentFileUrl, agentPageText, agentPages, SCRATCHPAD, type AgentArtifact, type AgentPage, type SideTab } from '../agents.svelte'
   import { nameOf } from '../agent-cli'
   import { invoke, isDesktop } from '../bridge'
   import { ago } from '../time'
@@ -252,10 +252,8 @@
     if (!commentable) commenting = false
   })
   let awaiting = $state<{ path: string; stamp: string | null } | null>(null)
-  const stampOf = async (p: string) =>
-    p.startsWith(`${SCRATCHPAD}/`)
-      ? ((await agentArtifacts(agent.id).catch(() => [])).find((a) => a.path === p.slice(SCRATCHPAD.length + 1))?.modified ?? null)
-      : ((await invoke<(string | null)[]>('agent_files_stamps', { id: agent.id, paths: [p.startsWith(`${IMPORTED}/`) ? `.prism/web/${p.slice(IMPORTED.length + 1)}` : p] }).catch(() => [null]))[0] ?? null)
+  // The core reads a page's date by its address (`@scratchpad/…`, `@imported/…` too).
+  const stampOf = async (p: string) => (await invoke<(string | null)[]>('agent_files_stamps', { id: agent.id, paths: [p] }).catch(() => [null]))[0] ?? null
   async function awaitRewrite() {
     awaiting = { path, stamp: await stampOf(path) }
   }
@@ -281,6 +279,21 @@
   let importPage = $state('')
   let importBusy = $state(false)
   let importError = $state('')
+  /** An imported page removed (a second click confirms). */
+  let removing = $state(false)
+  async function removeImported() {
+    if (!removing) return void (removing = true)
+    removing = false
+    try {
+      await webRemove(agent.id, path)
+      address = ''
+      shown = ''
+      pages = null
+      void loadPages()
+    } catch (e) {
+      importError = String(e)
+    }
+  }
   async function importPageFrom() {
     if (!importUrl.trim() || importBusy) return
     importBusy = true
@@ -389,6 +402,9 @@
       <button type="button" class="btn sm" class:on={picking} data-picker-toggle onclick={togglePicker} aria-expanded={picking} title={t('Pick a page of the folder, or a {agent} artifact', { agent: nameOf(agent) })}><Icon name="files" />{t('Open…')}{#if artifacts?.length}<span class="pill src n">{artifacts.length}</span>{/if}</button>
       <button type="button" class="btn sm" class:on={importing} onclick={() => (importing = !importing)} aria-expanded={importing} title={t('Download a page into the agent’s folder: a Notion page’s HTML attachment, any HTML file online')}><Icon name="download" />{t('Import…')}</button>
       <button type="submit" class="btn sm icon" title={t('Load (reload)')}><Icon name="refresh" /></button>
+      {#if path.startsWith(`${IMPORTED}/`)}
+        <button type="button" class="btn sm" class:armed={removing} onclick={removeImported} onblur={() => (removing = false)} title={t('Remove this imported page from the agent’s folder')}><Icon name="trash" />{removing ? t('Click again to confirm') : t('Remove')}</button>
+      {/if}
       {#if src && !isText}
         <button type="button" class="btn sm" class:on={commenting} onclick={() => (commenting = !commenting)} disabled={!commentable} aria-pressed={commenting} title={commentable ? t('Click the page’s elements to remark on them, then send the remarks to {agent}', { agent: nameOf(agent) }) : isLocal(shown) ? t('Not on a local server’s page: Prism cannot add its script there. Open an HTML file of the folder, or an artifact.') : t('Comment works on an HTML page')}><Icon name="comment" />{t('Comment')}{#if remarks}<span class="pill src n">{remarks}</span>{/if}</button>
       {/if}
