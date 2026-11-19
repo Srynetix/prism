@@ -79,6 +79,9 @@ commands! {
     agents::worktree_close_shell: Never [demo: refused],
     // A worktree's branch pulled or switched (Worktrees): at the desk only.
     agents::worktree_branches: Never,
+    // The branch of a launch's folder, and those it can be switched to (the launcher): at the desk only.
+    agents::folder_branch: Never,
+    agents::folder_branches: Never,
     agents::worktree_pull: Never [demo: refused],
     agents::worktree_switch: Never [demo: refused],
     // A pod's shell (`kubectl exec`): the desk only, the phone never reaches the clusters' insides.

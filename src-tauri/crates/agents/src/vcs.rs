@@ -3,7 +3,7 @@
 //! commit or a push on a protected branch; never a hook (a program the branch or the agent may
 //! have written, `chain::open_mr` says why).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 use prism_base::{i18n::tr, tr};
@@ -200,6 +200,14 @@ pub async fn pull(dir: &Path) -> Result<String> {
         1 => tr!("{branch}: 1 commit pulled", branch = branch),
         n => tr!("{branch}: {n} commits pulled", branch = branch, n = n),
     })
+}
+
+/// The repository `dir` is in: its top folder and the branch it is on (`None`: detached).
+/// An error when `dir` is in no git repository.
+pub async fn folder_branch(dir: &Path) -> Result<(PathBuf, Option<String>)> {
+    let top = PathBuf::from(git(dir, &["rev-parse", "--show-toplevel"]).await?);
+    let branch = git(dir, &["branch", "--show-current"]).await?;
+    Ok((top, Some(branch).filter(|b| !b.is_empty())))
 }
 
 /// The folder switched to `branch`, a local one or origin's (then made local, tracking it). Only

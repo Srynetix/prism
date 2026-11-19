@@ -163,8 +163,8 @@ impl Agents {
         if !launch.scratch {
             return Ok(None);
         }
-        // No steps after it: nothing to deliver, no repository to deliver to.
-        (launch.worktree, launch.then) = (None, Vec::new());
+        // No steps after it: nothing to deliver, no repository to deliver to; no branch to be on.
+        (launch.worktree, launch.then, launch.branch) = (None, Vec::new(), None);
         let root = prism_core::agents::scratch_root(&self.inner.settings.lock().unwrap());
         let name = format!("{}-{}", chrono::Local::now().format("%Y-%m-%d"), Some(worktree::slug(&launch.title)).filter(|s| !s.is_empty()).unwrap_or_else(|| "agent".into()));
         std::fs::create_dir_all(&root).with_context(|| tr!("cannot create {path}", path = root.display()))?;
@@ -264,6 +264,12 @@ impl Agents {
             self.drop_extra(&extra).await;
             bail!(tr!("{path} is not a directory", path = cwd.display()));
         }
+        // In a folder, on the branch picked in the launcher: switched now, before it starts.
+        if worktree.is_none()
+            && let Some(branch) = launch.branch.as_deref().map(str::trim).filter(|b| !b.is_empty())
+        {
+            self.switch_folder(&id, &cwd, branch).await?;
+        }
         if let Err(e) = self.inner.tmux.new_session(&id, &cwd, &self.env(&id, provider, launch.permission_mode.as_deref(), Some(&spec)), &argv).await {
             self.drop_extra(&extra).await;
             return Err(e);
@@ -276,6 +282,24 @@ impl Agents {
             reg.records.push(record)
         })?;
         Ok(id)
+    }
+
+    /// `cwd`'s repository switched to `branch` for the agent `id` about to start there (nothing to
+    /// do when it is on it already): refused while another agent runs in that repository's folder
+    /// (its work would land on another branch), or with changes not committed (`vcs::switch`).
+    async fn switch_folder(&self, id: &str, cwd: &Path, branch: &str) -> Result<()> {
+        let (top, current) = vcs::folder_branch(cwd).await.with_context(|| tr!("{path} is not in a git repository: no branch to switch to", path = cwd.display()))?;
+        if current.as_deref() == Some(branch) {
+            return Ok(());
+        }
+        // git gives the folder resolved (`/private/var`…), the agents' as launched (`/var`…).
+        let top = std::fs::canonicalize(&top).unwrap_or(top);
+        let inside = |p: &str| std::fs::canonicalize(p).unwrap_or_else(|_| p.into()).starts_with(&top);
+        if let Some(a) = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id != id && a.state == AgentState::Running && (inside(&a.cwd) || a.worktree.as_deref().is_some_and(inside))) {
+            bail!(tr!("the agent “{title}” is running in it: stop it first", title = a.title));
+        }
+        vcs::switch(&top, branch).await?;
+        Ok(())
     }
 
     /// The worktrees of the other repositories an agent works in (`also`): the same name as its own

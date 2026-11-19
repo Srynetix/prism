@@ -25,6 +25,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("a repository's main checkout is not removed", "le checkout principal d’un dépôt ne se supprime pas"),
     ("this worktree is locked (git worktree unlock)", "ce worktree est verrouillé (git worktree unlock)"),
     ("the agent “{title}” is running in it: stop it first", "l’agent « {title} » tourne dedans : arrêtez-le d’abord"),
+    ("{path} is not in a git repository: no branch to switch to", "{path} n’est dans aucun dépôt git : pas de branche où passer"),
     ("the Claude Desktop session “{title}” uses it: archive it first", "la session Claude Desktop « {title} » l’utilise : archivez-la d’abord"),
     ("kept: {reason}", "conservé : {reason}"),
     ("no worktree to prune", "aucun worktree à nettoyer"),

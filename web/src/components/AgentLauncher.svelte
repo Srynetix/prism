@@ -17,6 +17,8 @@
   import { pref, setPref } from '../layout.svelte'
   import DictateButton from './chat/DictateButton.svelte'
   import DictationBar from './chat/DictationBar.svelte'
+  import BranchPicker from './BranchPicker.svelte'
+  import { folderBranches } from '../worktrees'
   import { Attachments, nameOf, newStep, newWorktree, takeDraft, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
 
   /**
@@ -79,6 +81,30 @@
   let alsoRepos = $state<string[]>([])
   const toggleAlso = (r: string) => (alsoRepos = alsoRepos.includes(r) ? alsoRepos.filter((x) => x !== r) : [...alsoRepos, r])
   let folder = $state('')
+  /**
+   * Folder: the branch it is on (`null`: detached), read when it is a git repository (`folderGit`);
+   * the one picked to switch it to before the agent starts, for that folder only (another folder
+   * picked: its own branch again).
+   */
+  let folderOn = $state<string | null>(null)
+  let folderGit = $state(false)
+  let folderPick = $state<{ folder: string; branch: string } | null>(null)
+  const folderBranch = $derived(folderPick && folderPick.folder === folder && folderPick.branch !== folderOn ? folderPick.branch : '')
+  $effect(() => {
+    const f = whereTo === 'folder' && hasCore() ? folder : ''
+    folderGit = false
+    if (!f) return
+    let gone = false
+    invoke<string | null>('folder_branch', { path: f }).then(
+      (b) => {
+        if (gone) return
+        folderOn = b
+        folderGit = true
+      },
+      () => {},
+    )
+    return () => (gone = true)
+  })
   /** The mode from `[agents] permission_mode`, each time the launcher opens. */
   let mode = $state<Mode>(agentsSettings().permission_mode)
   /** Its kind; empty: guessed from its prompt's command (`kindOf`), none otherwise. */
@@ -103,6 +129,7 @@
   /** Launch again, then not: the form back to an empty launch. */
   function startBlank() {
     ;[title, prompt, name, wtBranch, wtBase, category, from, sameAs, picked, replacing] = ['', '', '', '', '', '', '', '', '', '']
+    folderPick = null
     launchTags = []
     alsoRepos = []
     steps = []
@@ -163,6 +190,7 @@
     } else {
       whereTo = 'folder'
       if (d.cwd) folder = d.cwd
+      folderPick = d.cwd && d.branch ? { folder: d.cwd, branch: d.branch } : null
     }
     quick = !!slot.quick
     slot.quick = false
@@ -245,7 +273,7 @@
     then: steps.length && whereTo !== 'scratch' ? $state.snapshot(steps) : undefined,
     from: from || undefined,
     prism_mcp: prismMcp || undefined,
-    ...(whereTo === 'new' ? { worktree: newWorktree({ name, fallback: autoName, branch: wtBranch, base: wtBase, repo: wtRepo, also }) } : whereTo === 'scratch' ? { scratch: true } : { cwd: whereTo === 'existing' ? wtPath : folder }),
+    ...(whereTo === 'new' ? { worktree: newWorktree({ name, fallback: autoName, branch: wtBranch, base: wtBase, repo: wtRepo, also }) } : whereTo === 'scratch' ? { scratch: true } : whereTo === 'existing' ? { cwd: wtPath } : { cwd: folder, branch: folderBranch || undefined }),
   })
   /** Where the agents outside any project get their folder. */
   const scratchRoot = $derived(agentsSettings().scratch_dir ?? '')
@@ -407,7 +435,7 @@
           {#if whereTo === 'new'}<code>{planName}</code> <i>{wtBranch ? t('(existing)') : t('new worktree, from {base}', { base: wtBase.trim() || plan?.base || main?.base || 'main' })}</i>{#if also.length}{' '}<i>{t('also in {repos}', { repos: also.join(', ') })}</i>{/if}
           {:else if whereTo === 'existing'}<code>{tildePath(wtPath)}</code>
           {:else if whereTo === 'scratch'}<i>{t('a folder of its own, outside any project')}</i>
-          {:else}<code>{tildePath(folder)}</code> <i>{t('the checkout itself')}</i>{/if}
+          {:else}<code>{tildePath(folder)}</code> <i>{t('the checkout itself')}</i>{#if folderBranch}{' '}<i>{t('switched to {branch}', { branch: folderBranch })}</i>{/if}{/if}
           <button type="button" class="more" onclick={() => (quick = false)}>{t('Change')}</button>
         </div>
       </div>
@@ -460,6 +488,15 @@
             {#if canPick()}<button type="button" class="btn" onclick={chooseFolder} title={t('Any folder, outside the repositories too')}>{t('Choose…')}</button>{/if}
           </div>
           {#if !canPick()}<input class="typed" placeholder={t('Other folder: ~/path or /path')} spellcheck="false" autocapitalize="off" onchange={(e) => { const v = e.currentTarget.value.trim(); if (v) folder = v; e.currentTarget.value = '' }} />{/if}
+          {#if folderGit}
+            <div class="fbranch">
+              <span class="muted">{t('Branch')}</span>
+              <code>{folderOn ?? t('detached')}</code>
+              {#if folderBranch}<span class="muted">→</span><code>{folderBranch}</code><button type="button" class="btn sm ghost" onclick={() => (folderPick = null)} title={t('Stay on {branch}', { branch: folderOn ?? t('detached') })}>{t('Keep')}</button>{/if}
+              <BranchPicker path={folder} load={folderBranches} title={t('The branch the folder is switched to before the agent starts')} onpick={(b) => (folderPick = { folder, branch: b })} />
+            </div>
+            {#if folderBranch}<small class="muted">{t('Switched before it starts, for everyone working in this folder; refused with changes not committed or another agent running there.')}</small>{/if}
+          {/if}
           {#if checkouts.some((w) => w.path === folder)}<small class="muted">{t('Shared checkout: best for read-only work (refine, review, investigate).')}</small>{/if}
         {/if}
       </div>
@@ -610,6 +647,8 @@
   .where .alsonote { grid-column: 1 / -1; margin: 0; color: var(--text-muted); }
   .where code { font-family: var(--mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .where i { color: var(--text-muted); font-style: normal; }
+  .fbranch { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 6px; font-size: var(--fs-meta); }
+  .fbranch code { font-family: var(--mono); font-size: var(--fs-mono); }
   .where .base { display: flex; align-items: center; min-width: 0; }
   .where .base span { font-family: var(--mono); color: var(--text-muted); }
   .where .base input { flex: 1; min-width: 0; font-family: var(--mono); }

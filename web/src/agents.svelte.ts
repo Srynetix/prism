@@ -326,6 +326,8 @@ export interface Launch {
   prism_mcp?: boolean
   /** Outside any project: Prism makes it a folder of its own (`[agents] scratch_dir`); no `cwd` then. */
   scratch?: boolean
+  /** In a folder (`cwd`): the branch it is switched to before the agent starts; absent, its own. */
+  branch?: string
 }
 
 /**

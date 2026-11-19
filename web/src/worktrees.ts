@@ -13,6 +13,8 @@ export const openWorktree = (path: string, target: 'editor' | 'terminal' | 'find
 
 /** Origin fetched first, so this takes a moment. */
 export const worktreeBranches = (path: string) => invoke<BranchChoice[]>('worktree_branches', { path })
+/** The branches of a launch's folder (any git folder): the launcher's Folder. */
+export const folderBranches = (path: string) => invoke<BranchChoice[]>('folder_branches', { path })
 /** Fast-forward only; refused when the branch and its upstream diverged. Says what it did. */
 export const pullWorktree = (path: string) => invoke<string>('worktree_pull', { path })
 /** Refused with uncommitted changes, or while an agent runs in it. */

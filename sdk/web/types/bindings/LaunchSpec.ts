@@ -60,4 +60,9 @@ assistant?: boolean,
  * Outside any project: in a folder of its own, made by Prism under `[agents] scratch_dir`
  * (its `cwd` once made), trusted without asking; offered for deletion once archived.
  */
-scratch?: boolean, };
+scratch?: boolean, 
+/**
+ * In a folder (`cwd`), the branch it is switched to before the agent starts (picked in the
+ * launcher); absent: the folder's own.
+ */
+branch?: string, };

@@ -137,6 +137,9 @@ pub struct Launch {
     /// Outside any project: Prism makes it a folder of its own (`scratch_folder`).
     #[serde(default)]
     pub scratch: bool,
+    /// In a folder (`cwd`), the branch to switch it to before the agent starts; absent, its own.
+    #[serde(default)]
+    pub branch: Option<String>,
 }
 
 impl From<state::LaunchSpec> for Launch {
@@ -158,6 +161,7 @@ impl From<state::LaunchSpec> for Launch {
             prism_mcp: s.prism_mcp,
             assistant: s.assistant,
             scratch: s.scratch,
+            branch: s.branch,
         }
     }
 }
@@ -188,6 +192,7 @@ impl Launch {
             prism_mcp: self.prism_mcp,
             assistant: self.assistant,
             scratch: self.scratch,
+            branch: if self.worktree.is_some() || self.scratch { None } else { some(&self.branch) },
         }
     }
 }

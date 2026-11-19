@@ -590,6 +590,7 @@ impl Agents {
             prism_mcp: false,
             assistant: false,
             scratch: false,
+            branch: None,
         };
         let mut dirty = BTreeMap::new();
         if let Some(qa) = &qa {
