@@ -14,7 +14,33 @@ export const filter = $state(readHash())
 
 /** Local day in `YYYY-MM-DD` format; by hand, not with Intl, slow in WebKit and called per trace. */
 export { dayKey }
-export const todayKey = () => dayKey(new Date())
+
+/**
+ * Today, as the views read it: a state, so that what derives from it follows when a new day begins
+ * — midnight passed with Prism open, or the computer woken the next morning. Read again at
+ * midnight (a timer, late after a sleep: on waking), when the window comes back, and every minute.
+ */
+export const today = $state({ key: dayKey(new Date()) })
+export const todayKey = () => today.key
+/** The date read again: `today` moves when it changed. */
+export function checkDay() {
+  const now = dayKey(new Date())
+  if (now !== today.key) today.key = now
+}
+if (typeof window !== 'undefined') {
+  const atMidnight = () => {
+    const next = new Date()
+    next.setHours(24, 0, 1, 0)
+    setTimeout(() => {
+      checkDay()
+      atMidnight()
+    }, next.getTime() - Date.now())
+  }
+  atMidnight()
+  setInterval(checkDay, 60_000)
+  for (const ev of ['focus', 'pageshow']) window.addEventListener(ev, checkDay)
+  document.addEventListener('visibilitychange', () => document.hidden || checkDay())
+}
 
 /**
  * The picker goes back as far as the time entry history: `[clickup] time_history_days`, and at

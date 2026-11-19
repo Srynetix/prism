@@ -86,16 +86,21 @@ impl Hub {
     }
 
     /// Wait between two collections: `every` with the window shown or a phone watching; four
-    /// times longer (at least one minute) otherwise, cut short as soon as either comes back.
+    /// times longer (at least one minute) otherwise, cut short as soon as either comes back, and
+    /// when a new day begins (`new_day`: the computer woken the next morning reads today's).
     pub async fn pause(&self, every: std::time::Duration) {
         if self.shown() {
-            tokio::time::sleep(every).await;
+            tokio::select! {
+                _ = tokio::time::sleep(every) => {}
+                _ = new_day() => {}
+            }
             return;
         }
         let shown = self.shown.notified();
         tokio::select! {
             _ = tokio::time::sleep((every * 4).max(HIDDEN_MIN)) => {}
             _ = shown => {}
+            _ = new_day() => {}
         }
     }
 
@@ -214,6 +219,22 @@ impl Hub {
             };
             first || changed
         });
+    }
+}
+
+/// How often `new_day` looks at the date.
+const DAY_CHECK: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Done once the local date is not the one it began on: midnight passed, or the computer woke on
+/// another day. Timers stand still while it sleeps (they count its waking time): the date is read
+/// again every few seconds, so a wake is seen within `DAY_CHECK`.
+pub async fn new_day() {
+    let day = chrono::Local::now().date_naive();
+    loop {
+        tokio::time::sleep(DAY_CHECK).await;
+        if chrono::Local::now().date_naive() != day {
+            return;
+        }
     }
 }
 
@@ -387,3 +408,4 @@ mod tests {
         assert!(!hub.pause_forge(Duration::from_secs(15), &mut changes).await);
     }
 }
+

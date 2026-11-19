@@ -11,7 +11,7 @@
   import { ago } from '../time'
   import WhenInput from './WhenInput.svelte'
   import { linkify } from '../linkify'
-  import { filter, selectedDay, setQuery } from '../filter.svelte'
+  import { filter, selectedDay, setQuery, todayKey } from '../filter.svelte'
   import type { Agent, Snapshot } from '../types'
   import { shortcutLabel } from '../shortcut'
   import { quickNotesKey } from '../quick-notes.svelte'
@@ -482,7 +482,7 @@
         {/each}
       {:else}
       {#if ofDay.length || kind === 'day'}
-        <p class="sec day-sec"><span class="dot"></span>{isToday ? `${tr('Today')} · ${new Date().toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })}` : dayLabel} <b>{ofDay.length}</b></p>
+        <p class="sec day-sec"><span class="dot"></span>{isToday ? `${tr('Today')} · ${new Date(`${todayKey()}T12:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })}` : dayLabel} <b>{ofDay.length}</b></p>
         {#each ofDay as n (n.id)}{@render plain(n)}{:else}<div class="empty">{tr('No note for this day.')}</div>{/each}
       {/if}
       {#if sticky.length}
