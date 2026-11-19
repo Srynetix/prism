@@ -1295,9 +1295,9 @@ export default {
   'Put this version back on its Notion HTML block ({page})': 'Remettre cette version sur son bloc HTML Notion ({page})',
   'Update on Notion': 'Mettre à jour sur Notion',
   'A Notion HTML block’s link (⋯ › Copy link to block), or an HTML page online': 'Le lien d’un bloc HTML Notion (⋯ › Copier le lien vers le bloc), ou une page HTML en ligne',
-  'Notion integration token': 'Jeton de l’intégration Notion',
-  'An internal integration’s token (Notion › Settings › Integrations), the page shared with it (⋯ › Connections). Kept in the system keychain.': 'Le jeton d’une intégration interne (Notion › Paramètres › Intégrations), la page partagée avec elle (⋯ › Connexions). Gardé dans le trousseau du système.',
-  'Notion integrations': 'Intégrations Notion',
   'The page it belongs to (optional): said to the agent': 'La page d’où il vient (facultatif) : dite à l’agent',
   'Read through Notion’s API into .prism/web/ of the agent’s folder (git ignores it); Update on Notion puts it back.': 'Lu par l’API Notion dans .prism/web/ du dossier de l’agent (ignoré par git) ; Mettre à jour sur Notion le remet en place.',
+  'Notion token': 'Jeton Notion',
+  'A personal access token (it opens what you can open), or an internal integration’s (the page shared with it: ⋯ › Connections). Kept in the system keychain.': 'Un jeton personnel (il ouvre ce que vous pouvez ouvrir), ou celui d’une intégration interne (la page partagée avec elle : ⋯ › Connexions). Gardé dans le trousseau du système.',
+  'Notion personal tokens': 'Jetons personnels Notion',
 } satisfies Dictionary

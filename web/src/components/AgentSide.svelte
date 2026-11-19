@@ -454,7 +454,7 @@
         <!-- svelte-ignore a11y_autofocus -->
         <input bind:value={importUrl} autofocus placeholder={t('A Notion HTML block’s link (⋯ › Copy link to block), or an HTML page online')} spellcheck="false" />
         {#if notionLink}
-          <TokenField tracker="notion" label={t('Notion integration token')} hint={t('An internal integration’s token (Notion › Settings › Integrations), the page shared with it (⋯ › Connections). Kept in the system keychain.')} create={{ url: 'https://www.notion.so/profile/integrations', label: t('Notion integrations') }} />
+          <TokenField tracker="notion" label={t('Notion token')} hint={t('A personal access token (it opens what you can open), or an internal integration’s (the page shared with it: ⋯ › Connections). Kept in the system keychain.')} create={{ url: 'https://www.notion.so/developers/tokens', label: t('Notion personal tokens') }} />
         {:else}
           <input bind:value={importPage} placeholder={t('The page it belongs to (optional): said to the agent')} spellcheck="false" />
         {/if}

@@ -1,14 +1,15 @@
 //! Notion's HTML blocks (an embed backed by an uploaded `.html` file, rendered live in the page),
 //! for the Web view's Import… and its Update on Notion: the block read by Notion's API (its file,
 //! through the temporary signed `embed.url` it returns), and its file replaced by a new upload
-//! (`file_uploads`, then the block's `embed.file_upload`). The integration's token is in the
-//! system keychain (`KEYCHAIN_SERVICE`, the profile's entry); the pages must be shared with it.
+//! (`file_uploads`, then the block's `embed.file_upload`). The token is in the system keychain
+//! (`KEYCHAIN_SERVICE`, the profile's entry): a personal access token (acting as its owner, every
+//! page they can open) or an internal integration's (the pages shared with it); both go as a bearer.
 
 use anyhow::{bail, ensure, Context, Result};
 use prism_base::{i18n::tr, tr};
 use serde_json::{json, Value};
 
-/// The keychain entry of the Notion integration's token (`prism token notion`, Settings).
+/// The keychain entry of the Notion token, personal or an integration's (`prism token notion`, Settings).
 pub const KEYCHAIN_SERVICE: &str = "prism-notion";
 const API: &str = "https://api.notion.com/v1";
 const VERSION: &str = "2026-03-11";
@@ -66,7 +67,7 @@ pub fn target(url: &str) -> Option<Target> {
 async fn token() -> Result<String> {
     prism_base::platform::secret(&prism_core::profile::service(KEYCHAIN_SERVICE))
         .await?
-        .context(tr("no Notion token: add the integration's token (Settings, or prism token notion), and share the page with it"))
+        .context(tr("no Notion token: add a personal access token (notion.so/developers/tokens) or an integration's, in Import… or with prism token notion"))
 }
 
 /// A call to Notion's API; its refusal said with its message (a page not shared, a token refused).
@@ -77,7 +78,7 @@ async fn call(req: reqwest::RequestBuilder, token: &str) -> Result<Value> {
     if !status.is_success() {
         let msg = body.get("message").and_then(Value::as_str).unwrap_or_default();
         if status.as_u16() == 404 || status.as_u16() == 403 {
-            bail!(tr!("Notion: {msg} (is the page shared with the integration?)", msg = msg));
+            bail!(tr!("Notion: {msg} (can the token open this page? A personal token: your access; an integration's: the page shared with it)", msg = msg));
         }
         bail!("Notion {}: {msg}", status.as_u16());
     }

@@ -205,7 +205,7 @@ pub enum Service {
     Jira,
     /// The Google OAuth client's secret
     Google,
-    /// A Notion integration's token (the Web view's Notion HTML blocks)
+    /// A Notion token, personal or an integration's (the Web view's Notion HTML blocks)
     Notion,
 }
 
