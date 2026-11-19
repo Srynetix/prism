@@ -2,6 +2,8 @@ import { invoke } from './bridge'
 import type { AgentShellInfo, ShellOwner } from './agents.svelte'
 import { rememberPanel } from './recent-panels.svelte'
 import { t } from './i18n.svelte'
+import { live } from './live.svelte'
+import { baseName } from './platform'
 
 /**
  * Shells with no agent, in a drawer: a worktree's (Worktrees view) or a pod's (its logs pane, by
@@ -13,6 +15,15 @@ export const shellDrawer = $state({ owner: null as ShellOwner | null, where: '',
 export function openWorktreeShell(path: string, name: string) {
   Object.assign(shellDrawer, { owner: worktreeShellOwner(path, name), where: path, kind: 'folder' })
 }
+
+/** A folder's shells under one name wherever they are opened from: its worktree's branch, else its name. */
+export function folderShellTitle(path: string) {
+  const w = live.snapshot?.worktrees.find((w) => w.path === path)
+  return w?.branch ?? (baseName(path) || path)
+}
+
+/** A folder's shells (a worktree, a clone, an agent's folder), titled by `folderShellTitle`. */
+export const openFolderShell = (path: string) => openWorktreeShell(path, folderShellTitle(path))
 
 /** A pod, as `pod_shell` takes it; no container: kubectl's default one. */
 export interface PodRef {

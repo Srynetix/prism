@@ -29,6 +29,7 @@
   import Icon from './Icon.svelte'
   import ArmedLabel from './ArmedLabel.svelte'
   import NewWorkstream from './NewWorkstream.svelte'
+  import ShellButton from './ShellButton.svelte'
   import Worktrees from './Worktrees.svelte'
 
   /**
@@ -160,6 +161,8 @@
         <button class="btn sm" onclick={() => archive(w)} title={t('Out of the list until a commit or a change')}><Icon name="hide" size={10} />{t('Archive')}</button>
       {/if}
       {#if !w.agents.some((a) => a.state === 'running')}<button class="btn sm" onclick={() => agentHere(w)} disabled={!agentsAvailable()} title={t('A new agent in this folder')}><Icon name="plus" size={10} />{t('Agent here')}</button>{/if}
+      <!-- The clone's shells are the header's. -->
+      {#if !w.clone}<ShellButton path={w.path} label />{/if}
       {#if isDesktop() && editor}<button class="btn sm" onclick={() => run(() => openWorktree(w.path, 'editor'))} title={t('Open in {app}', { app: editor })}>{t('Editor')}</button>{/if}
     </footer>
   </article>
@@ -209,6 +212,7 @@
         </div>
         <span class="grow"></span>
         {#if p.repo}
+          <ShellButton path={p.repo.path} label />
           {#if isDesktop() && editor}<button class="btn sm" onclick={() => run(() => openWorktree(p.repo!.path, 'editor'))} title={t('Open in {app}', { app: editor })}>{t('Editor')}</button>{/if}
           {#if isLocal()}
             <button class="btn sm" onclick={() => run(() => openWorktree(p.repo!.path, 'terminal'))} title={t('Open in {app}', { app: snap.open_with?.terminal ?? 'Terminal' })}>{t('Terminal')}</button>
