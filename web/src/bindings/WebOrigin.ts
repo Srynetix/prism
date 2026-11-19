@@ -8,4 +8,8 @@ export type WebOrigin = { url: string, page: string | null,
 /**
  * A Notion HTML block's id: its file read from it, and put back there (Update on Notion).
  */
-block?: string, };
+block?: string, 
+/**
+ * The block's file's own name, which it keeps when put back (here it may have another).
+ */
+file?: string, };

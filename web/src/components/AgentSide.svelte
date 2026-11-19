@@ -288,9 +288,16 @@
     const p = path
     void nonce
     origin = null
-    if (!p.startsWith(`${IMPORTED}/`)) return
     let gone = false
-    webOrigin(agent.id, p).then((o) => !gone && (origin = o), () => {})
+    void webOrigin(agent.id, p).then((o) => !gone && (origin = o))
+    return () => (gone = true)
+  })
+  /** The link typed in Import… is a Notion one (the core says): its token, no page field. */
+  let notionLink = $state(false)
+  $effect(() => {
+    const u = importUrl
+    let gone = false
+    void isNotionLink(u).then((n) => !gone && (notionLink = n))
     return () => (gone = true)
   })
   /** Update on Notion: the page's file put back on its block (a second click confirms: it changes the Notion page). */
@@ -446,13 +453,13 @@
       <form class="imp" onsubmit={(e) => { e.preventDefault(); void importPageFrom() }}>
         <!-- svelte-ignore a11y_autofocus -->
         <input bind:value={importUrl} autofocus placeholder={t('A Notion HTML block’s link (⋯ › Copy link to block), or an HTML page online')} spellcheck="false" />
-        {#if isNotionLink(importUrl)}
+        {#if notionLink}
           <TokenField tracker="notion" label={t('Notion integration token')} hint={t('An internal integration’s token (Notion › Settings › Integrations), the page shared with it (⋯ › Connections). Kept in the system keychain.')} create={{ url: 'https://www.notion.so/profile/integrations', label: t('Notion integrations') }} />
         {:else}
           <input bind:value={importPage} placeholder={t('The page it belongs to (optional): said to the agent')} spellcheck="false" />
         {/if}
         <div class="row">
-          <small class="muted">{isNotionLink(importUrl) ? t('Read through Notion’s API into .prism/web/ of the agent’s folder (git ignores it); Update on Notion puts it back.') : t('Downloaded into .prism/web/ of the agent’s folder (git ignores it); nothing of yours is sent with the link.')}</small>
+          <small class="muted">{notionLink ? t('Read through Notion’s API into .prism/web/ of the agent’s folder (git ignores it); Update on Notion puts it back.') : t('Downloaded into .prism/web/ of the agent’s folder (git ignores it); nothing of yours is sent with the link.')}</small>
           <span class="grow"></span>
           <button type="button" class="btn sm" onclick={() => (importing = false)}>{t('Cancel')}</button>
           <button type="submit" class="btn sm primary claude" class:busy={importBusy} disabled={!importUrl.trim() || importBusy}>{importBusy ? t('Importing…') : t('Import')}</button>

@@ -903,6 +903,13 @@ pub fn agent_web_remove(state: State<'_, AppState>, id: String, path: String) ->
     state.agents.web_remove(&id, &path).map_err(Into::into)
 }
 
+/// Whether a link given to Import… is a Notion page's or block's (read through Notion's API, its
+/// token asked for): the core's rule, the form's too.
+#[prism_macros::command]
+pub fn web_link_is_notion(url: String) -> bool {
+    crate::agents::notion::is_notion(&url)
+}
+
 /// Where an imported page of its Web view came from.
 #[prism_macros::command]
 pub fn agent_web_origin(state: State<'_, AppState>, id: String, path: String) -> Cmd<Option<crate::agents::web_import::Origin>> {

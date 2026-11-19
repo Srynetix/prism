@@ -261,6 +261,7 @@ commands! {
     // A page downloaded into an agent's Web view (Import…).
     agents::agent_web_import: Act [demo: refused] [phone: state, id: String, url: String, page: Option<String>],
     agents::agent_web_origin: Read [phone: state, id: String, path: String; sync],
+    agents::web_link_is_notion: Read [phone: url: String; sync],
     agents::agent_web_remove: Act [demo: refused] [phone: state, id: String, path: String; sync],
     // Its file replaced on the Notion HTML block it came from.
     agents::agent_web_publish: Act [demo: refused] [phone: state, id: String, path: String],

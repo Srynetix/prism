@@ -10,7 +10,6 @@
   import { holdEscape } from '../layers.svelte'
   import { toast, toastError } from '../toast.svelte'
   import type { WebOrigin } from '../bindings/WebOrigin'
-  import { IMPORTED } from '../web-address'
   import { annotateType, captures, elementLabel, noteId, pinsOf, readFound, readPick, setWebDraft, webDraft, webPrompt, type Pick, type WebNote } from '../web-comments.svelte'
   import type { Snippet } from 'svelte'
   import type { Agent } from '../types'
@@ -177,16 +176,11 @@
   const running = $derived(agent.state === 'running')
   /** An imported page's origin, said in the prompt (where to put the new version back). */
   let origin = $state<WebOrigin | null>(null)
-  const originOf = (p: string) => (p.startsWith(`${IMPORTED}/`) ? webOrigin(agent.id, p).catch(() => null) : Promise.resolve(null))
   $effect(() => {
     const p = page
     origin = null
-    if (!p.startsWith(`${IMPORTED}/`)) return
     let gone = false
-    webOrigin(agent.id, p).then(
-      (o) => !gone && (origin = o),
-      () => {},
-    )
+    void webOrigin(agent.id, p).then((o) => !gone && (origin = o))
     return () => (gone = true)
   })
   const preview = $derived(webPrompt(page, draft, {}, undefined, origin))
@@ -218,7 +212,7 @@
         }
       }
       // Read now, not from the view: sent at once after opening the page, it is said all the same.
-      const from = await originOf(page)
+      const from = origin ?? (await webOrigin(agent.id, page))
       if (!running) {
         const where = await invoke<string>('agent_page_file', { id: agent.id, path: page }).catch(() => undefined)
         openLauncher({ title: t('Remarks on {page}', { page: page.split('/').pop() ?? page }), prompt: webPrompt(page, draft, shots, where, from), cwd: agent.worktree ?? agent.cwd }, null, async () => clear())
