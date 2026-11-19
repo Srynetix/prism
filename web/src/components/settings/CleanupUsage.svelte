@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { todayKey } from '../../filter.svelte'
   import ArmedLabel from '../ArmedLabel.svelte'
   import { armer } from '../../armed.svelte'
   import { cfg, resetValue, setValue, valueOf } from '../../settings.svelte'
@@ -15,7 +16,8 @@
    */
   let { onToml }: { onToml: () => void } = $props()
 
-  const today = dayOf(new Date())
+  // Today as the views read it: the window's 30 days move with the clock.
+  const today = $derived(dayOf(new Date(`${todayKey()}T12:00`)))
   const doc = $derived(usageDoc())
   const counts = $derived(countsOver(doc, today))
   const counted = $derived(daysCounted(doc, today))

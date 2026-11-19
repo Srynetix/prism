@@ -86,21 +86,26 @@ impl Hub {
     }
 
     /// Wait between two collections: `every` with the window shown or a phone watching; four
-    /// times longer (at least one minute) otherwise, cut short as soon as either comes back, and
-    /// when a new day begins (`new_day`: the computer woken the next morning reads today's).
+    /// times longer (at least one minute) otherwise, cut short as soon as either comes back.
     pub async fn pause(&self, every: std::time::Duration) {
         if self.shown() {
-            tokio::select! {
-                _ = tokio::time::sleep(every) => {}
-                _ = new_day() => {}
-            }
+            tokio::time::sleep(every).await;
             return;
         }
         let shown = self.shown.notified();
         tokio::select! {
             _ = tokio::time::sleep((every * 4).max(HIDDEN_MIN)) => {}
             _ = shown => {}
-            _ = new_day() => {}
+        }
+    }
+
+    /// `pause` for a collection of one day's data (`day`, the date its read began on): over at
+    /// once when that day is gone, or as soon as it goes (`new_day`: midnight, or the computer
+    /// woken the next morning). Only those that read a day wait so: the others keep their pace.
+    pub async fn pause_daily(&self, every: std::time::Duration, day: chrono::NaiveDate) {
+        tokio::select! {
+            _ = self.pause(every) => {}
+            _ = new_day(day) => {}
         }
     }
 
@@ -225,16 +230,12 @@ impl Hub {
 /// How often `new_day` looks at the date.
 const DAY_CHECK: std::time::Duration = std::time::Duration::from_secs(15);
 
-/// Done once the local date is not the one it began on: midnight passed, or the computer woke on
-/// another day. Timers stand still while it sleeps (they count its waking time): the date is read
-/// again every few seconds, so a wake is seen within `DAY_CHECK`.
-pub async fn new_day() {
-    let day = chrono::Local::now().date_naive();
-    loop {
+/// Done once the local date is no longer `day`: midnight passed, or the computer woke on another
+/// day. Timers stand still while it sleeps (they count its waking time): the date is read again
+/// every few seconds, so a wake is seen within `DAY_CHECK`.
+pub async fn new_day(day: chrono::NaiveDate) {
+    while chrono::Local::now().date_naive() == day {
         tokio::time::sleep(DAY_CHECK).await;
-        if chrono::Local::now().date_naive() != day {
-            return;
-        }
     }
 }
 
@@ -353,6 +354,16 @@ mod tests {
         assert_eq!(snap.errors.get("ci_health").map(String::as_str), Some("down"));
         // The last data stays.
         assert_eq!(snap.worktree_stale_days, 3);
+    }
+
+    /// A day's collection waits no more once its day is over: the computer woken the next morning.
+    #[tokio::test(start_paused = true)]
+    async fn a_days_pause_ends_with_its_day() {
+        let hub = Hub::new();
+        let yesterday = chrono::Local::now().date_naive() - chrono::Duration::days(1);
+        let start = tokio::time::Instant::now();
+        hub.pause_daily(Duration::from_secs(60), yesterday).await;
+        assert_eq!(start.elapsed(), Duration::ZERO, "over at once");
     }
 
     #[tokio::test(start_paused = true)]
