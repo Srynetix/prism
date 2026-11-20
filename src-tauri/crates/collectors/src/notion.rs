@@ -30,13 +30,29 @@ pub enum Target {
     Page(String),
 }
 
-/// Whether `url` is a Notion page's or block's link (`notion.so`, `www.notion.so`, a workspace's
-/// `*.notion.site`): read through Notion's API. A file's own link (`file.notion.so`) is not: it is
-/// downloaded as any page online.
+/// Notion's app, under either of its domains (`notion.so`, `notion.com`: `www.`, `app.`).
+const APP_HOSTS: [&str; 5] = ["notion.so", "www.notion.so", "notion.com", "www.notion.com", "app.notion.com"];
+
+/// `url`'s host, lowercase, when it is `https`.
+fn https_host(url: &str) -> Option<String> {
+    let u = reqwest::Url::parse(url.trim()).ok()?;
+    (u.scheme() == "https").then(|| u.host_str().unwrap_or_default().trim_end_matches('.').to_ascii_lowercase())
+}
+
+/// Whether `url` is a Notion page's or block's link (its app's, `notion.so` or `notion.com`, or a
+/// workspace's `*.notion.site`): read through Notion's API. A file's own link (`file.notion.so`)
+/// is not: it is downloaded as any page online.
 pub fn is_notion(url: &str) -> bool {
-    let Ok(u) = reqwest::Url::parse(url.trim()) else { return false };
-    let host = u.host_str().unwrap_or_default().trim_end_matches('.').to_ascii_lowercase();
-    u.scheme() == "https" && (host == "notion.so" || host == "www.notion.so" || host.ends_with(".notion.site"))
+    https_host(url).is_some_and(|host| APP_HOSTS.contains(&host.as_str()) || host.ends_with(".notion.site"))
+}
+
+/// Whether `url` is on Notion's domains but neither a page's link (`is_notion`) nor a file's
+/// (`file.…`): downloaded, it would be Notion's app itself (its sign-in shell), never the page.
+pub fn is_other_notion(url: &str) -> bool {
+    https_host(url).is_some_and(|host| {
+        let notion = ["notion.so", "notion.com"].iter().any(|d| host == *d || host.ends_with(&format!(".{d}")));
+        notion && !is_notion(url) && !host.starts_with("file.")
+    })
 }
 
 /// 32 hex digits as Notion's dashed id.
@@ -171,6 +187,12 @@ mod tests {
         let page = "https://www.notion.so/acme/Maquette-pipeline-1a2b3c4d5e6f47a8b9c0d1e2f3a4b5c6";
         assert!(is_notion(page) && is_notion("https://acme.notion.site/x") && is_notion("https://notion.so/x"));
         assert!(!is_notion("https://notion.so.evil.com/x") && !is_notion("https://file.notion.so/f/f/a/b/Maquette.html?sig=1") && !is_notion("http://www.notion.so/x"));
+        // Its newer domain, notion.com (the app at app.notion.com): read the same way.
+        assert!(is_notion("https://app.notion.com/p/Maquette-1a2b3c4d5e6f47a8b9c0d1e2f3a4b5c6") && is_notion("https://www.notion.com/acme/x") && !is_notion("https://notion.com.evil.com/x"));
+        assert_eq!(target("https://app.notion.com/p/Maquette-1a2b3c4d5e6f47a8b9c0d1e2f3a4b5c6#0a1b2c3d4e5f60718293a4b5c6d7e8f9"), Some(Target::Block("0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9".into())));
+        // Elsewhere on Notion's domains, not a file's link: refused rather than its app's shell downloaded.
+        assert!(is_other_notion("https://calendar.notion.so/x") && is_other_notion("https://mail.notion.com/x"));
+        assert!(!is_other_notion("https://app.notion.com/p/x") && !is_other_notion("https://file.notion.so/f/a.html") && !is_other_notion("https://acme.notion.site/x") && !is_other_notion("https://example.com/a.html"));
         assert_eq!(target(page), Some(Target::Page("1a2b3c4d-5e6f-47a8-b9c0-d1e2f3a4b5c6".into())));
         assert_eq!(target(&format!("{page}?pvs=4#0f1e2d3c4b5a49687766554433221100")), Some(Target::Block("0f1e2d3c-4b5a-4968-7766-554433221100".into())));
         assert_eq!(target("https://www.notion.so/acme/Home?p=1a2b3c4d5e6f47a8b9c0d1e2f3a4b5c6&pm=s"), Some(Target::Page("1a2b3c4d-5e6f-47a8-b9c0-d1e2f3a4b5c6".into())));

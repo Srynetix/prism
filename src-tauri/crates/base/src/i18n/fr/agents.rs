@@ -66,6 +66,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("not a Notion page's or block's link", "pas le lien d’une page ou d’un bloc Notion"),
     ("this Notion block is not an HTML block (an embed of an .html file)", "ce bloc Notion n’est pas un bloc HTML (un embed de fichier .html)"),
     ("no HTML block on this Notion page (at its first level): copy the block's link (⋯ › Copy link to block)", "aucun bloc HTML sur cette page Notion (à son premier niveau) : copiez le lien du bloc (⋯ › Copier le lien vers le bloc)"),
+    ("{url}: a Notion link Prism does not read: copy the HTML block's link (⋯ › Copy link to block)", "{url} : un lien Notion que Prism ne lit pas : copiez le lien du bloc HTML (⋯ › Copier le lien vers le bloc)"),
     ("{n} HTML blocks on this Notion page: copy the link of the one to comment (⋯ › Copy link to block)", "{n} blocs HTML sur cette page Notion : copiez le lien de celui à commenter (⋯ › Copier le lien vers le bloc)"),
     ("this page did not come from a Notion HTML block", "cette page ne vient pas d’un bloc HTML Notion"),
     ("no Notion token: add a personal access token (notion.so/developers/tokens) or an integration's, in Import… or with prism token notion", "pas de jeton Notion : ajoutez un jeton personnel (notion.so/developers/tokens) ou celui d’une intégration, dans Importer… ou avec prism token notion"),

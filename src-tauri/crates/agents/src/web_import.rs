@@ -160,6 +160,8 @@ pub async fn import(folder: &Path, url: &str, page: Option<&str>) -> Result<Stri
         let folder = folder.to_path_buf();
         return tokio::task::spawn_blocking(move || keep(&folder, &name, &body, &origin)).await?;
     }
+    // Elsewhere on Notion: its app's shell would be downloaded (a blank page), never the page.
+    ensure!(!crate::notion::is_other_notion(url), tr!("{url}: a Notion link Prism does not read: copy the HTML block's link (⋯ › Copy link to block)", url = shown));
     let page = page.map(str::trim).filter(|p| !p.is_empty()).map(String::from);
     if let Some(p) = &page {
         ensure!(https_host(p).is_some(), tr!("{url}: only an https link is imported", url = bare(p)));
