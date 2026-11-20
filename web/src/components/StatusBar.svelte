@@ -38,8 +38,10 @@
   import { openSettings } from '../settings.svelte'
   import { feedbackOn, newlyShipped, openFeedback } from '../feedback.svelte'
   import { t, tn, tc } from '../i18n.svelte'
+  import { currentZoom, setZoom, zoomLabel } from '../zoom.svelte'
+  import { keys } from '../platform'
   import { initial, profileColor } from '../profiles.svelte'
-  import { invoke } from '../bridge'
+  import { invoke, isDesktop } from '../bridge'
 
   /**
    * Status bar, shared by all views (see statusbar.ts). The blocks read the full state,
@@ -312,6 +314,9 @@
     {:else}
       <button class="sbi" onclick={() => openFeedback({ where: 'status bar' })} title={t('Send feedback: an issue on Prism’s repository or a pack’s')}><span class="g"><Icon name="comment" /></span></button>
     {/if}
+  {:else if id === 'zoom' && isDesktop() && currentZoom() !== 1}
+    <!-- The window's zoom, while not 100 %: a click puts it back. -->
+    <button class="sbi" onclick={() => void setZoom(1)} title={t('The window at {zoom} · back to 100% ({keys})', { zoom: zoomLabel(currentZoom()), keys: keys('⌘0') })}><span class="g"><Icon name="search" /></span><b>{zoomLabel(currentZoom())}</b></button>
   {:else if id === 'clock'}
     {@const d = new Date(now)}
     <span class="sbi clock" title={d.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}>{d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}</span>

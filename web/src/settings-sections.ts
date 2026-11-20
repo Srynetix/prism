@@ -1,4 +1,4 @@
-import { t } from './i18n.svelte'
+import { t, tc } from './i18n.svelte'
 import { SCHEMA, type FieldSpec, type SectionSpec } from './settings-schema'
 import { LANGUAGES } from './i18n.svelte'
 import { THEMES } from './theme.svelte'
@@ -48,6 +48,7 @@ export const OWN_FIELDS: Record<string, FieldSpec[]> = {
     { key: 'theme', label: t('Theme'), kind: 'select', options: ['system', ...THEMES.map((th) => th.id)], syn: t('dark, light, colours, colors, night, synthwave') },
     toggle('theme_preview', t('Theme preview')),
     { key: 'density', label: t('Density'), kind: 'select', options: ['compact', 'comfortable'], syn: t('size, spacing, compact, comfortable, larger text') },
+    { key: 'zoom', label: tc('settings', 'Zoom'), kind: 'number', step: 0.05, syn: t('scale, size, bigger, smaller, larger text, magnify, zoom in, zoom out') },
     { key: 'font', label: t('Font'), kind: 'text', syn: t('typeface, font family, text') },
     { key: 'font_mono', label: t('Mono font'), kind: 'text', syn: t('typeface, monospace, code') },
     { key: 'font_terminal', label: t('Terminal font'), kind: 'text', syn: t('typeface, monospace, nerd font, shell') },

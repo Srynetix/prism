@@ -20,6 +20,12 @@ theme_preview: boolean,
  */
 density: string, 
 /**
+ * The whole window's zoom, as a browser's: 1.0 (100 %) as drawn, from 0.5 to 2.0. ⌘+ / ⌘− /
+ * ⌘0 step it (67, 75, 80, 90, 100, 110, 125, 150, 175, 200 %). Each profile's window its own;
+ * a machine's window the main one's; the phone keeps its pinch.
+ */
+zoom: number, 
+/**
  * Animations, a theme's glass and overlays even when macOS asks to reduce motion or
  * transparency.
  */

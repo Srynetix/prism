@@ -14,6 +14,7 @@
   import TomlPanel, { tomlModeOf } from './settings/TomlPanel.svelte'
   import SettingsSearch, { SearchState } from './settings/SettingsSearch.svelte'
   import StateMark, { pageState } from './settings/StateMark.svelte'
+  import { currentZoom, setZoom, ZOOMS, zoomLabel } from '../zoom.svelte'
   import DictationSettings from './settings/DictationSettings.svelte'
   import McpSettings from './settings/McpSettings.svelte'
   import { configurePrism } from '../prism-agent'
@@ -549,6 +550,16 @@
             <option value="compact">{tc('settings', 'Compact')}</option>
             <option value="comfortable">{t('Comfortable')}</option>
           </select>
+        </Field>
+        <Field label={tc('settings', 'Zoom')} hint={keys(t('The whole window, as a browser’s: text, icons, pictures and terminals, saved at once. ⌘+ / ⌘- / ⌘0 everywhere, or the View menu; the agents’ own text size is ⌘⌥+ / ⌘⌥- / ⌘⌥0.'))} path={['appearance', 'zoom']}>
+          {@const z = currentZoom()}
+          <span class="row">
+            <select class="t" value={ZOOMS.includes(z) ? String(z) : ''} onchange={(e) => void setZoom(Number(e.currentTarget.value))} aria-label={tc('settings', 'Zoom')}>
+              {#if !ZOOMS.includes(z)}<option value="">{zoomLabel(z)}</option>{/if}
+              {#each ZOOMS as s (s)}<option value={String(s)}>{zoomLabel(s)}</option>{/each}
+            </select>
+            {#if z !== 1}<button class="btn sm ghost" onclick={() => void setZoom(1)}>{t('Reset')}</button>{/if}
+          </span>
         </Field>
         {#each FONTS as f (f.key)}
           {@const name = valueOf(['appearance', f.key], '') as string}

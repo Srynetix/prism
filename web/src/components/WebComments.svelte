@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { currentZoom } from '../zoom.svelte'
   import { tick } from 'svelte'
   import Icon from './Icon.svelte'
   import { invoke, isDesktop } from '../bridge'
@@ -157,7 +158,9 @@
     const y1 = Math.min(f.bottom, f.top + p.rect.y + p.rect.h)
     if (x1 - x0 < 2 || y1 - y0 < 2) return null
     try {
-      return await invoke<string>('web_capture', { rect: [x0, y0, x1 - x0, y1 - y0] })
+      // The page's pixels are the window's points divided by its zoom (zoom.svelte.ts).
+      const z = currentZoom()
+      return await invoke<string>('web_capture', { rect: [x0 * z, y0 * z, (x1 - x0) * z, (y1 - y0) * z] })
     } catch (e) {
       toast(t('No picture of the element: {error}', { error: String(e) }), 4000, null, 'info')
       return null

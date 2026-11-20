@@ -22,6 +22,8 @@ Vous pouvez aussi taper `theme <nom>` dans la console ; `theme list` affiche le
 
 La **Densité** (`[appearance] density`, Réglages › Interface › Apparence) est indépendante du thème : **Compacte** telle que dessinée, ou **Confortable**, avec un texte plus grand et des lignes plus aérées.
 
+Le **Zoom** (`[appearance] zoom`, juste en dessous) agrandit ou réduit toute la fenêtre, comme un navigateur : textes, icônes, images et terminaux ensemble, la page disposée selon la place qu’elle a alors. `⌘+` / `⌘-` / `⌘0` le font varier partout (67, 75, 80, 90, 100, 110, 125, 150, 175 et 200 %), le menu Présentation aussi (Zoom avant, Zoom arrière, Taille réelle), chaque palier enregistré. Hors de 100 %, la barre d’état l’indique (`125%`) : un clic le remet à 100 %. Chaque fenêtre de profil a le sien ; la fenêtre d’un autre ordinateur suit celui de la fenêtre principale ; le téléphone garde son pincement. La densité donne plus d’air à taille égale, le zoom grandit tout : les deux s’ajoutent. Le terminal et le Chat d’un agent gardent leur propre taille de texte (`⌘⌥+` / `⌘⌥-` / `⌘⌥0`), le zoom par-dessus.
+
 ## Polices
 Des champs de **Réglages › Interface › Apparence** règlent les polices, chacun avec un aperçu en direct :
 - **Police** (`[appearance] font`) : le texte de l’application. Vide : Inter, fournie avec l’application (la même sur macOS et Linux).

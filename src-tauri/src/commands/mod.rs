@@ -40,6 +40,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         now_playing_command,
         feedback_capture,
         web_capture,
+        crate::zoom::ui_zoom,
+        crate::zoom::ui_zoom_main,
         agent_attach,
         crate::machines::machine_list,
         crate::machines::machine_token,
@@ -236,7 +238,7 @@ mod tests {
     /// module's, registered by `handler()`.
     #[test]
     fn the_desk_commands_are_here() {
-        let sources = [include_str!("mod.rs"), include_str!("profiles.rs"), include_str!("../machines.rs"), include_str!("../dictation.rs")].concat();
+        let sources = [include_str!("mod.rs"), include_str!("profiles.rs"), include_str!("../machines.rs"), include_str!("../dictation.rs"), include_str!("../zoom.rs")].concat();
         let handler = &sources[sources.find("generate_handler![").unwrap()..];
         let handler = &handler[..handler.find("];").unwrap()];
         for name in prism_commands::commands::DESK {

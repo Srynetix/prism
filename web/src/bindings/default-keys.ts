@@ -115,6 +115,7 @@ export const DEFAULT_KEYS: string[] = [
   "appearance.ticket_threads",
   "appearance.tooltip_delay",
   "appearance.tooltips",
+  "appearance.zoom",
   "argocd",
   "argocd_layout.apps_segment",
   "argocd_layout.customer_groups",

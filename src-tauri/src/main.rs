@@ -11,6 +11,7 @@ mod youtube_relay;
 mod machines;
 mod profile_windows;
 mod dictation;
+mod zoom;
 mod setup;
 
 
@@ -100,6 +101,7 @@ fn main() {
         // Other computers' Prism, each in a window of its own; this computer's other profiles too.
         .manage(std::sync::Arc::new(machines::Machines::default()))
         .manage(std::sync::Arc::new(profile_windows::Engines::default()))
+        .manage(zoom::Zoom::default())
         .setup({
             let (hub, time, team_id) = (hub.clone(), time.clone(), team_id.clone());
             move |app| setup::run(app, hub, time, team_id)
