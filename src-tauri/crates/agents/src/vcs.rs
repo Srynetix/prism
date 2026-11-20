@@ -220,6 +220,29 @@ pub fn branch_ok(branch: &str) -> Result<()> {
     Ok(())
 }
 
+/// Whether `branch` exists in the repository at `repo`, read from its files (no git process: asked
+/// at each read of a list of agents): a loose ref or a packed one.
+pub fn has_branch(repo: &Path, branch: &str) -> bool {
+    if branch_ok(branch).is_err() || branch.split('/').any(|part| part.is_empty() || part == "..") {
+        return false;
+    }
+    let Some(git) = common_dir(repo) else { return false };
+    let name = format!("refs/heads/{branch}");
+    git.join(&name).is_file() || std::fs::read_to_string(git.join("packed-refs")).is_ok_and(|packed| packed.lines().any(|l| l.split_once(' ').is_some_and(|(_, r)| r == name)))
+}
+
+/// The repository's git folder its branches are in: `.git`, or the main one's of a worktree.
+fn common_dir(repo: &Path) -> Option<std::path::PathBuf> {
+    let dot = repo.join(".git");
+    if dot.is_dir() {
+        return Some(dot);
+    }
+    let link = std::fs::read_to_string(&dot).ok()?;
+    let gitdir = repo.join(link.trim().strip_prefix("gitdir:")?.trim());
+    let common = std::fs::read_to_string(gitdir.join("commondir")).map(|c| gitdir.join(c.trim())).unwrap_or(gitdir);
+    Some(common)
+}
+
 /// The folder switched to `branch`, a local one or origin's (then made local, tracking it). Only
 /// with nothing uncommitted: changes carried to another branch are a surprise.
 pub async fn switch(dir: &Path, branch: &str) -> Result<String> {

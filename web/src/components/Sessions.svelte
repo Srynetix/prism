@@ -85,6 +85,7 @@
         {#if isWaiting(a) || a.status === 'review_ready'}{@render asks(a, true)}{/if}
         <ProposalChip agent={a} />
         {#if a.state !== 'running'}<span class="pill">{STOPPED[a.state]}</span>{/if}
+        {#if a.worktree_gone}<span class="pill warn" title={t('Its worktree {path} was removed', { path: a.worktree_gone.path })}>{t('worktree removed')}</span>{/if}
         {#if overlapsOfAgent(snap, a).length}<OverlapChip seen={overlapsOfAgent(snap, a)} short />{/if}
         {#if a.ticket}<button class="pill info" onclick={() => setQuery(a.ticket!)} title={t('Filter on {ticket}', { ticket: a.ticket })}>{a.ticket}</button>{/if}
         {#if mr}<a class="mono mr" href={mr.url} target="_blank" rel="noreferrer" title="{mr.title}{mr.state === 'merged' ? ` ${t('(merged)')}` : mr.draft ? ` ${t('(draft)')}` : ''}">{mrNumber(mr.iid)}</a>{/if}

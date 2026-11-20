@@ -216,6 +216,7 @@ mod tests {
             cwd: "/w/a1".into(),
             worktree: None,
             worktree_note: None,
+            worktree_gone: None,
             adopted: Vec::new(),
             also: Vec::new(),
             branch: None,

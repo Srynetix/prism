@@ -326,6 +326,8 @@ commands! {
     agents::draft_stop: Act [phone: state, id: String],
     agents::agent_start: Act,
     agents::agent_resume: Act [phone: state, id: String],
+    agents::agent_resume_in_repo: Act [phone: state, id: String],
+    agents::agent_recreate_worktree: Act [phone: state, id: String],
     agents::agent_reopen: Act [phone: state, repo: String],
     agents::agent_restart: Act [phone: state, id: String],
     agents::agent_interrupt: Act [phone: state, id: String],

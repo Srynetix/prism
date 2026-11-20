@@ -1346,4 +1346,13 @@ export default {
   '{machine}: an agent stopped on an API error': '{machine} : un agent arrêté par une erreur d’API',
   '{profile}: an agent stopped on an API error': '{profile} : un agent arrêté par une erreur d’API',
   'Agent stopped by an API error': 'Agent arrêté par une erreur d’API',
+  'Its worktree was removed': 'Son worktree a été supprimé',
+  'Its worktree {path} was removed': 'Son worktree {path} a été supprimé',
+  'worktree removed': 'worktree supprimé',
+  'Its conversation stays. Its files, shells and diff are not shown from the repository instead.': 'Sa conversation reste. Ses fichiers, ses shells et son diff ne sont pas montrés depuis le dépôt à la place.',
+  '{branch} is merged: archive it if its work is done.': '{branch} est mergée : archivez-le si son travail est fini.',
+  'Recreate the worktree': 'Recréer le worktree',
+  'Made again on {branch}, its conversation resumed in it': 'Refait sur {branch}, sa conversation reprise dedans',
+  'Resume in the repository': 'Reprendre dans le dépôt',
+  'Its conversation resumed in the repository, the worktree forgotten': 'Sa conversation reprise dans le dépôt, le worktree oublié',
 } satisfies Dictionary

@@ -74,6 +74,7 @@ fn agent(id: &str, f: impl FnOnce(&mut Agent)) -> Agent {
         cwd: format!("/w/{id}"),
         worktree: None,
         worktree_note: None,
+        worktree_gone: None,
         adopted: Vec::new(),
         also: Vec::new(),
         branch: None,

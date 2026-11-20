@@ -15,6 +15,7 @@ pub mod explore;
 mod failures;
 pub mod files;
 mod gate;
+mod guard;
 pub mod hook;
 mod input;
 mod left;
@@ -419,12 +420,15 @@ impl Agents {
         let events = self.inner.events.clone();
         // Each one's CLI folder (its account's), where its transcript is looked for.
         let homes: HashMap<String, PathBuf> = records.iter().filter_map(|r| Some((r.id.clone(), self.cli_home(r.provider, r.launch.as_ref().and_then(|l| l.account.as_deref()))?))).collect();
+        // The repository of each one's worktree: removed under it, its branch is looked for there.
+        let repos: HashMap<String, PathBuf> = records.iter().filter(|r| r.worktree.is_some()).filter_map(|r| Some((r.id.clone(), self.repo_of(r)?))).collect();
         let read = tokio::task::spawn_blocking(move || {
             folds.retain(|id, _| records.iter().any(|r| &r.id == id));
             usages.retain(|id, _| records.iter().any(|r| &r.id == id));
             let list: Vec<(Agent, Option<String>)> = records.into_iter().rev().map(|r| {
                 let home = homes.get(&r.id).cloned();
-                read_agent(r, home.as_deref(), &mut folds, &mut usages, &events, &panes)
+                let repo = repos.get(&r.id).cloned();
+                read_agent(r, home.as_deref(), repo.as_deref(), &mut folds, &mut usages, &events, &panes)
             }).collect();
             (list, folds, usages)
         })
@@ -437,6 +441,27 @@ impl Agents {
         *self.inner.folds.lock().unwrap() = folds;
         *self.inner.usages.lock().unwrap() = usages;
         drop(refreshing);
+        // The branch of each one's worktree, kept: removed under it, it is recreated on that branch.
+        let seen: Vec<(String, String)> = {
+            let reg = self.inner.registry.lock().unwrap();
+            read.iter()
+                .filter(|(a, _)| a.worktree.is_some())
+                .filter_map(|(a, _)| Some((a.id.clone(), a.branch.clone()?)))
+                .filter(|(id, b)| reg.get(id).is_some_and(|r| r.branch.as_ref() != Some(b)))
+                .collect()
+        };
+        if !seen.is_empty() {
+            let kept = self.update_registry(|reg| {
+                for (id, branch) in seen {
+                    if let Some(r) = reg.records.iter_mut().find(|r| r.id == id) {
+                        r.branch = Some(branch);
+                    }
+                }
+            });
+            if let Err(e) = kept {
+                tracing::warn!("agents: {e:#}");
+            }
+        }
         // The window of the CLIs that do not tell it (Command Code, OpenCode): from their caches.
         let list: Vec<Agent> = read
             .into_iter()
@@ -529,6 +554,16 @@ impl Agents {
     }
 
     /// The agent's record, as registered.
+    /// The repository its worktree was made in: its launch folder, unless that is the worktree
+    /// itself (a CLI Prism makes the worktree for), then the repository it was launched for.
+    pub(crate) fn repo_of(&self, r: &Record) -> Option<PathBuf> {
+        if r.worktree.as_ref() != Some(&r.cwd) {
+            return Some(r.cwd.clone());
+        }
+        let name = r.launch.as_ref().and_then(|l| l.worktree.as_ref()?.repo.clone());
+        self.worktree_repo(name.as_deref()).ok().map(|w| w.path)
+    }
+
     fn record(&self, id: &str) -> Result<Record> {
         self.inner.registry.lock().unwrap().get(id).cloned().context(tr("unknown agent"))
     }
@@ -557,20 +592,16 @@ fn claude_conversation_exists(home: Option<&Path>, id: &str) -> bool {
 
 /// An agent as its record, its hook log and (Claude Code) its transcript tell it, and the model
 /// it runs; the log and transcript are read from where they were left. Blocking: disk reads.
-fn read_agent(r: Record, home: Option<&Path>, folds: &mut HashMap<String, Fold>, usages: &mut HashMap<String, usage::UsageFold>, events: &std::path::Path, panes: &HashMap<String, Pane>) -> (Agent, Option<String>) {
+fn read_agent(r: Record, home: Option<&Path>, repo: Option<&Path>, folds: &mut HashMap<String, Fold>, usages: &mut HashMap<String, usage::UsageFold>, events: &std::path::Path, panes: &HashMap<String, Pane>) -> (Agent, Option<String>) {
     let fold = folds.entry(r.id.clone()).or_default();
     fold.read(&events.join(format!("{}.jsonl", r.id)));
     // Claude Code's transcript, named by its hooks or found by the conversation's id; Codex's
     // rollout, named by its hooks.
     let usage = r.provider.has_transcript().then(|| {
         let u = usages.entry(r.id.clone()).or_default();
-        if let Some(t) = fold.transcript.as_deref() {
-            u.located = Some(t.into());
-        } else if u.located.is_none() && !r.prepared && r.provider.finds_transcript() && u.searched.is_none_or(|t| t.elapsed() >= SEARCH_AGAIN) {
-            // A folder read per project each time: not every tick while it is still missing.
-            u.located = usage::find_transcript(home, fold.session.as_deref().unwrap_or(&r.id));
-            u.searched = Some(std::time::Instant::now());
-        }
+        let session = fold.session.as_deref().unwrap_or(&r.id);
+        let finds = !r.prepared && r.provider.finds_transcript();
+        locate(fold.transcript.as_deref().map(Path::new), &mut u.located, &mut u.searched, finds, || usage::find_transcript(home, session));
         if let Some(path) = u.located.clone() {
             u.read(&path);
         }
@@ -595,13 +626,25 @@ fn read_agent(r: Record, home: Option<&Path>, folds: &mut HashMap<String, Fold>,
     let needs_action = (state == AgentState::Running).then(|| fold.needs_action.clone()).flatten();
     let worktree = effective_worktree(&r, fold);
     let adopted = fold.adopted.iter().filter(|p| own_worktree(&r, Path::new(p))).cloned().collect();
-    let branch = git_branch(worktree.as_deref().unwrap_or(&r.cwd));
+    let gone = worktree.is_none().then(|| lost_worktree(&r, fold)).flatten().map(|path| {
+        // The branch it was on: as last seen in it, asked at launch, or as git still says it (its
+        // folder deleted, not its worktree).
+        let branch = lost_branch(&r, repo, &path);
+        let branch_exists = repo.zip(branch.as_deref()).is_some_and(|(repo, b)| vcs::has_branch(repo, b));
+        crate::state::WorktreeGone { path: path.display().to_string(), branch, branch_exists }
+    });
+    // Its worktree gone, the branch it was on, not the repository's.
+    let branch = match &gone {
+        Some(g) => g.branch.clone(),
+        None => git_branch(worktree.as_deref().unwrap_or(&r.cwd)),
+    };
     let agent = Agent {
         ticket: r.ticket.clone().or_else(|| ticket::find_in_session(&r.title, branch.as_deref())),
         ticket_linked: r.ticket.is_some(),
         mr: r.mr,
         worktree: worktree.map(|w| w.display().to_string()),
         worktree_note: fold.worktree_note.clone(),
+        worktree_gone: gone,
         adopted,
         also: r.extra.iter().filter(|p| p.is_dir()).map(|p| p.display().to_string()).collect(),
         id: r.id,
@@ -641,6 +684,34 @@ fn read_agent(r: Record, home: Option<&Path>, folds: &mut HashMap<String, Fold>,
         legs: r.legs,
     };
     (agent, fold.model.clone())
+}
+
+/// Where its conversation is written (`located`): the file its hooks named, else the one found by
+/// its session (`search`, `finds`: a CLI whose files can be, at most every `SEARCH_AGAIN`: a
+/// folder read per project). Named but missing, it is searched too: Claude Code resumed in
+/// another folder than the one it started in (its worktree, removed) names a file under that
+/// folder's, and goes on writing in the first one. Still not found, the one named, once written.
+fn locate(named: Option<&Path>, located: &mut Option<PathBuf>, searched: &mut Option<std::time::Instant>, finds: bool, search: impl FnOnce() -> Option<PathBuf>) {
+    if let Some(t) = named.filter(|t| t.is_file()) {
+        *located = Some(t.to_path_buf());
+        return;
+    }
+    // The one found earlier, still there and still this conversation's (none named since, or the
+    // named one still missing): kept.
+    let held = located.as_deref().is_some_and(|l| l.is_file() && named.is_none_or(|n| l.file_name() == n.file_name()));
+    if held {
+        return;
+    }
+    if finds && searched.is_none_or(|t| t.elapsed() >= SEARCH_AGAIN) {
+        *searched = Some(std::time::Instant::now());
+        if let Some(found) = search() {
+            *located = Some(found);
+            return;
+        }
+    }
+    if let Some(t) = named {
+        *located = Some(t.to_path_buf());
+    }
 }
 
 /// What the earlier stretches of `provider` on `session` consumed: a conversation resumed holds it.
@@ -730,6 +801,35 @@ pub(crate) fn stable_exe(work: &Path, exe: &Path) -> Result<PathBuf> {
 
 fn effective_worktree(r: &Record, fold: &Fold) -> Option<PathBuf> {
     fold.worktree.as_ref().map(PathBuf::from).filter(|p| own_worktree(r, p)).or_else(|| r.worktree.clone()).filter(|p| p.is_dir())
+}
+
+/// The worktree it worked in, removed under it (a command of its own, a script, by hand): the one
+/// Prism prepared for it, or one Claude Code made in its folder. Not one Claude Code removed by its
+/// own tool (`WorktreeRemove`): it left it first. Nor one never made (its creation failed): it was
+/// seen, by its hook (`WorktreeCreate`) or its branch read in it.
+pub(crate) fn lost_worktree(r: &Record, fold: &Fold) -> Option<PathBuf> {
+    if fold.worktree.is_none() && r.branch.is_none() {
+        return None;
+    }
+    let bases = [Some(r.cwd.as_path()), r.worktree.as_deref()];
+    let made = fold.worktree.as_deref().map(Path::new).filter(|p| p.parent().is_some_and(|parent| bases.iter().flatten().any(|b| parent == b.join(".claude/worktrees"))));
+    made.map(Path::to_path_buf).or_else(|| r.worktree.clone()).filter(|p| !p.exists())
+}
+
+/// The branch its worktree at `path` (removed) was on: as last seen in it, asked at launch, or as
+/// git still says it (its folder deleted, not its worktree).
+pub(crate) fn lost_branch(r: &Record, repo: Option<&Path>, path: &Path) -> Option<String> {
+    r.branch.clone().or_else(|| r.launch.as_ref().and_then(|l| l.worktree.as_ref()?.branch.clone())).or_else(|| stale_branch(repo?, path))
+}
+
+/// The branch git still names for the worktree at `path` of the repository `repo`, its folder
+/// deleted by hand (`.git/worktrees/<name>`, until a `git worktree prune`).
+fn stale_branch(repo: &Path, path: &Path) -> Option<String> {
+    let admin = repo.join(".git/worktrees");
+    std::fs::read_dir(admin).ok()?.flatten().find_map(|d| {
+        let gitdir = std::fs::read_to_string(d.path().join("gitdir")).ok()?;
+        (Path::new(gitdir.trim()).parent()? == path).then(|| std::fs::read_to_string(d.path().join("HEAD")).ok()?.trim().strip_prefix("ref: refs/heads/").map(String::from)).flatten()
+    })
 }
 
 /// A worktree its log names is the agent's: the one Prism prepared for it, or one Claude Code
@@ -1004,7 +1104,7 @@ mod tests {
         for d in [repo.join(".claude/worktrees/entered"), planned.clone(), other.clone()] {
             std::fs::create_dir_all(d).unwrap();
         }
-        let r = Record { id: "a".into(), provider: Default::default(), title: "T".into(), cwd: repo.clone(), prompt: None, worktree: Some(planned.clone()), category: None, tags: Vec::new(), ticket: None, mr: None, launch: None, prepared: false, extra: Vec::new(), legs: Vec::new(), resumed: None, created_at: Utc::now() };
+        let r = Record { id: "a".into(), provider: Default::default(), title: "T".into(), cwd: repo.clone(), prompt: None, worktree: Some(planned.clone()), category: None, tags: Vec::new(), ticket: None, mr: None, launch: None, prepared: false, extra: Vec::new(), legs: Vec::new(), resumed: None, branch: None, created_at: Utc::now() };
         assert!(own_worktree(&r, &planned));
         assert!(own_worktree(&r, &repo.join(".claude/worktrees/entered")), "one Claude Code made in its folder");
         assert!(!own_worktree(&r, &other), "another agent's");
@@ -1034,6 +1134,7 @@ mod tests {
             extra: Vec::new(),
             legs: Vec::new(),
             resumed: None,
+            branch: None,
             created_at: Utc::now(),
         };
         let mut records = vec![record("Review", &["api", "ui"]), record("Development", &["ui"])];

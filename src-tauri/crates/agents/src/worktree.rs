@@ -117,6 +117,13 @@ pub fn create(repo: &Path, intent: &Intent) -> Result<PathBuf> {
     Ok(intent.dir.clone())
 }
 
+/// The worktree at `dir`, removed (by its agent, a script, by hand), made again on `branch`, which
+/// still exists (locally or on origin): what git still kept of it pruned first.
+pub fn recreate(repo: &Path, dir: &Path, branch: &str) -> Result<PathBuf> {
+    let _ = git(repo, &["worktree", "prune"]);
+    create(repo, &Intent { dir: dir.to_path_buf(), branch: branch_name(branch)?, base: None })
+}
+
 /// A branch to check out, as git would name one: never an option for the git commands it goes
 /// into (`--upload-pack=…`), whoever gave it (an MR's, a phone's launch).
 pub fn branch_name(branch: &str) -> Result<String> {
