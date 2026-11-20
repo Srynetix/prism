@@ -1,10 +1,17 @@
 <script lang="ts" module>
-  /** Files' body heights, measured once drawn (`heightKey`): kept while Prism runs, a diff opened again lays out as it was. */
+  /**
+   * Files' body heights, measured once drawn (`heightKey`): kept while Prism runs, a diff opened
+   * again lays out as it was. `latest`: whatever the width, the last one (the first frame's, before
+   * the width is known).
+   */
   const heights = new Map<string, number>()
-  function keep(k: string, h: number) {
-    heights.delete(k)
-    heights.set(k, h)
-    if (heights.size > 4000) heights.delete(heights.keys().next().value!)
+  const latest = new Map<string, number>()
+  function keep(base: string, k: string, h: number) {
+    for (const [m, key] of [[heights, k], [latest, base]] as const) {
+      m.delete(key)
+      m.set(key, h)
+      if (m.size > 4000) m.delete(m.keys().next().value!)
+    }
   }
 </script>
 
@@ -211,10 +218,11 @@
    * top over a long file, folding would take it far up, out of sight.
    */
   async function keepHead(path: string, change: () => void) {
-    const area = root ? scroller(root) : null
+    const area = root ? (scroller(root) ?? (document.scrollingElement as HTMLElement | null)) : null
     const head = root?.querySelector<HTMLElement>(`[data-file="${CSS.escape(path)}"] > .fhead`)
     const before = head?.getBoundingClientRect()
-    const view = area?.getBoundingClientRect()
+    // The page's own scroll: the window is the view (the root element's box is the whole page).
+    const view = area === document.scrollingElement ? { top: 0, bottom: innerHeight } : area?.getBoundingClientRect()
     change()
     if (!area || !head || !before || !view || before.bottom < view.top || before.top > view.bottom) return
     await tick()
@@ -267,30 +275,36 @@
   const CHAR = 6.6
   /** The width the files have: a line wraps by it, a file's height is measured for it. */
   let filesW = $state(0)
-  /** A file's body height, by layout, width and fingerprint (`hl`): measured once drawn, kept for the MR. */
-  const heightKey = (x: Entry) => `${mode}:${viewOf(x)}:${Math.round(filesW / 8)}:${x.hl}`
-  /** By fingerprint and characters per line: the extra rows of its long lines, wrapped. */
-  const wraps = new Map<string, number>()
+  /** A file's body height, by layout, its threads and notes, fingerprint (`hl`); and (`heightKey`) width. */
+  const heightBase = (x: Entry) => `${mode}:${viewOf(x)}:${threadCount(x.path)}+${noteCount(x.path)}:${x.hl}`
+  const heightKey = (x: Entry) => `${heightBase(x)}:${Math.round(filesW / 8)}`
+  /** By fingerprint: the lengths of its lines that may wrap (once), and its extra rows at the last width. */
+  const longs = new Map<string, number[]>()
+  const wraps = new Map<string, { per: number; extra: number }>()
+  /** The sign column's width (+ and −), and a line number's. */
+  const SIGN = $derived(phone ? 14 : 16)
+  const GUTTER = $derived(phone ? 30 : 42)
   function ghost(x: Entry): number {
-    const kept = heights.get(heightKey(x))
+    // Before the width is known (the first frame): the last height measured, whatever its width.
+    const kept = filesW ? heights.get(heightKey(x)) : latest.get(heightBase(x))
     if (kept) return kept
-    const gutter = phone ? 30 : 42
-    const code = mode === 'unified' ? filesW - 2 * gutter - SIGN - 12 : (filesW - 2 * (gutter + SIGN)) / 2 - 12
-    // Before its width is known (the first frame), no line wraps.
-    const per = filesW ? Math.max(20, Math.floor(code / CHAR)) : Infinity
-    const k = `${x.hl}/${per}`
-    let extra = wraps.get(k)
-    if (extra === undefined) {
-      extra = 0
-      for (const l of x.lines) if (l.text.length > per) extra += Math.ceil(l.text.length / per) - 1
-      wraps.set(k, extra)
+    let extra = 0
+    if (filesW) {
+      const code = mode === 'unified' ? filesW - 2 * GUTTER - SIGN - 12 : (filesW - 2 * (GUTTER + SIGN)) / 2 - 12
+      const per = Math.max(20, Math.floor(code / CHAR))
+      const w = wraps.get(x.hl)
+      if (w?.per === per) extra = w.extra
+      else {
+        let ls = longs.get(x.hl)
+        if (!ls) longs.set(x.hl, (ls = x.lines.map((l) => l.text.length).filter((n) => n > 20)))
+        for (const n of ls) if (n > per) extra += Math.ceil(n / per) - 1
+        wraps.set(x.hl, { per, extra })
+      }
     }
     // Side by side, the two sides of a line share a row: about half the lines.
     const rows = mode === 'unified' ? x.lines.length : x.rows.length
     return (rows + (mode === 'unified' ? extra : extra / 2)) * LINE + (threadCount(x.path) + noteCount(x.path)) * THREAD
   }
-  /** The sign column's width (+ and −). */
-  const SIGN = 16
 
   let io: IntersectionObserver | undefined
   let held: ReturnType<typeof holdScroll> | undefined
@@ -307,20 +321,34 @@
     }
     return null
   }
-  /** The file at the top of the visible area, under the bar: the scroll holds it (`holdScroll`). */
+  /** The files' sections, in page order: read again only once one comes or goes (`lazy`). */
+  let sections: HTMLElement[] | null = null
+  /** The top of the visible area, under the bar. */
+  function edge(): number {
+    const area = root && scroller(root)
+    return (area ? area.getBoundingClientRect().top : 0) + barH
+  }
+  /** The file at the top of the visible area: the scroll holds it (`holdScroll`). */
   function topFile(): HTMLElement | null {
     if (!root) return null
-    const area = scroller(root)
-    const edge = (area ? area.getBoundingClientRect().top : 0) + barH
-    return firstBelow([...root.querySelectorAll<HTMLElement>('section.file')], (e) => e.getBoundingClientRect().bottom, edge)
+    sections ??= [...root.querySelectorAll<HTMLElement>('section.file')]
+    return firstBelow(sections, (e) => e.getBoundingClientRect().bottom, edge())
   }
+  /** In that file, its line at the top: where it is within the file, what changes above it out of sight undone. */
+  function topLine(section: HTMLElement): (() => number) | null {
+    const rows = [...section.querySelectorAll<HTMLElement>(':scope > table.fbody > tbody > tr')]
+    const row = firstBelow(rows, (e) => e.getBoundingClientRect().bottom, edge())
+    if (!row) return null
+    return () => (row.isConnected ? row.getBoundingClientRect().top - section.getBoundingClientRect().top : NaN)
+  }
+  const byPath = $derived(new Map(files.map((x) => [x.path, x])))
   /** A file drawn, or whose drawing changed (highlighted, a thread opened): its height kept. */
   function measure(entries: ResizeObserverEntry[]) {
     for (const e of entries) {
       const p = (e.target as HTMLElement).dataset.path
-      const x = p === undefined ? undefined : files.find((y) => y.path === p)
+      const x = p === undefined ? undefined : byPath.get(p)
       const body = (e.target as HTMLElement).querySelector<HTMLElement>(':scope > .fbody')
-      if (x && body && !body.classList.contains('ghost') && near.has(p!) && !folded.has(p!)) keep(heightKey(x), body.offsetHeight)
+      if (x && filesW && body && !body.classList.contains('ghost') && near.has(x.path) && !folded.has(x.path)) keep(heightBase(x), heightKey(x), body.offsetHeight)
     }
   }
   /** Its size, always (the scroll held); near the visible area or not, while unfolded only. */
@@ -328,8 +356,9 @@
     node.dataset.path = at.path
     if (!held) {
       const area = scroller(node) ?? (document.scrollingElement as HTMLElement | null)
-      if (area) held = holdScroll(area, topFile, measure)
+      if (area) held = holdScroll(area, { find: topFile, line: topLine }, measure)
     }
+    sections = null
     io ??= new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
@@ -357,6 +386,7 @@
       destroy() {
         watch(false)
         held?.unobserve(node)
+        sections = null
       },
     }
   }
@@ -595,7 +625,13 @@
     const shown = new Set(x.lines.filter((l) => l.kind !== 'hunk').map((l) => `${sideOf(l)}:${numOf(l)}`))
     return (review?.notes ?? []).filter((n) => n.status !== 'resolved' && n.path === x.path && !shown.has(`${n.side}:${n.to}`))
   }
-  const noteCount = (path: string) => (review?.notes ?? []).filter((n) => n.status !== 'resolved' && n.path === path).length
+  /** Notes not resolved, per file. */
+  const notesPer = $derived.by(() => {
+    const m = new Map<string, number>()
+    for (const n of review?.notes ?? []) if (n.status !== 'resolved') m.set(n.path, (m.get(n.path) ?? 0) + 1)
+    return m
+  })
+  const noteCount = (path: string) => notesPer.get(path) ?? 0
   /** Actions on a hunk: each writes a note on it, to complete or send as is; the agent does the work. */
   const HUNK_ACTIONS: [string, string, string][] = [
     [t('Explain'), t('Ask the agent to explain this hunk'), 'Explain this change: why it is needed, and what it does.'],

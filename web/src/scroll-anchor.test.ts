@@ -3,10 +3,16 @@ import { firstBelow, ScrollAnchor } from './scroll-anchor'
 
 /** Blocks one under the other in a scrolling area, as the diff's files: their tops worked out. */
 function page(heights: number[]) {
-  const blocks = heights.map((h, i) => ({ i, h }))
+  /** `inner`: where its line at the top is, from its own top (what grows above that line pushes it). */
+  const blocks = heights.map((h, i) => ({ i, h, gone: false, inner: 0 }))
   const area = { scrollTop: 0 }
-  const topOf = (b: (typeof blocks)[number]) => blocks.slice(0, b.i).reduce((n, x) => n + x.h, 0) - area.scrollTop
-  const anchor = new ScrollAnchor(area, () => blocks.find((b) => topOf(b) + b.h > 0) ?? null, (a, b) => a.i < b.i)
+  const topOf = (b: (typeof blocks)[number]) => blocks.slice(0, b.i).reduce((n, x) => n + (x.gone ? 0 : x.h), 0) - area.scrollTop
+  const anchor = new ScrollAnchor(area, {
+    find: () => blocks.find((b) => !b.gone && topOf(b) + b.h > 0) ?? null,
+    above: (a, b) => a.i < b.i,
+    alive: (b) => !b.gone,
+    line: (b) => () => b.inner,
+  })
   /** What the observer reports: the blocks given, at their height now. */
   const report = (...bs: (typeof blocks)[number][]) => anchor.hold(bs.map((b) => ({ el: b, height: b.h })))
   report(...blocks)
@@ -66,11 +72,34 @@ describe('scroll anchor', () => {
     expect(topOf(blocks[2])).toBe(at + 40)
   })
 
+  it('a line of the anchor pushed down by its own top, out of sight, stays', () => {
+    const { blocks, area, anchor, report } = page([200, 600, 200])
+    area.scrollTop = 500
+    blocks[1].inner = 300
+    anchor.note()
+    // An image loads in its top part: its line at the top is 120 further down within it.
+    blocks[1].inner = 420
+    blocks[1].h = 720
+    expect(report(blocks[1])).toBe(120)
+    expect(area.scrollTop).toBe(620)
+  })
+
+  it('an anchor removed is no anchor: the next one holds', () => {
+    const { blocks, area, topOf, anchor, report } = page([200, 200, 200, 200])
+    area.scrollTop = 450
+    anchor.note()
+    blocks[2].gone = true
+    const at = topOf(blocks[3])
+    blocks[0].h = 260
+    report(blocks[0])
+    expect(topOf(blocks[3])).toBe(at)
+  })
+
   it('a block seen for the first time moves nothing', () => {
     const { area, anchor } = page([200, 200])
     area.scrollTop = 250
     anchor.note()
-    expect(anchor.hold([{ el: { i: -1, h: 300 }, height: 300 }])).toBe(0)
+    expect(anchor.hold([{ el: { i: -1, h: 300, gone: false, inner: 0 }, height: 300 }])).toBe(0)
   })
 })
 
