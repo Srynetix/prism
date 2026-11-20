@@ -217,7 +217,7 @@
   .pt { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--src-k8s); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
   .axis { white-space: nowrap; display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; color: var(--text-muted); font-size: var(--fs-tag); font-variant-numeric: tabular-nums; }
   .lim { opacity: 0.85; }
-  @media (max-width: 640px) {
+  @media (width < 720px) {
     .charts { grid-template-columns: 1fr; }
   }
 </style>

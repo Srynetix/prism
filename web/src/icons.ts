@@ -124,6 +124,7 @@ import VolumeX from '@lucide/svelte/icons/volume-x'
 import X from '@lucide/svelte/icons/x'
 import Zap from '@lucide/svelte/icons/zap'
 import Diamond from '@lucide/svelte/icons/diamond'
+import PanelLeft from '@lucide/svelte/icons/panel-left'
 
 /**
  * Interface icons (Lucide), by role rather than by drawing: the data (menus, steps
@@ -159,6 +160,7 @@ export const ICONS = {
   expand: Maximize2, // full screen, zoom (⤢)
   shrink: Minimize2, // exit full screen (⤡)
   more: Ellipsis, // menu ⋯
+  sidebar: PanelLeft, // a list folded into a drawer (the Agents view, half a screen)
   settings: Settings, // Settings view
   terminal: SquareTerminal, // Agents view, an agent's terminal
   activity: Activity, // Agents view, what an agent did

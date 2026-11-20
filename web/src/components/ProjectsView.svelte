@@ -367,7 +367,7 @@
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--fs-tag); }
   .row q { flex-basis: 100%; color: var(--text-muted); font-style: italic; }
   code { font-family: var(--mono); font-size: var(--fs-tag); }
-  @media (max-width: 760px) {
+  @media (width < 720px) {
     .projects { flex-direction: column; overflow-y: auto; }
     .list { flex: 0 0 auto; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
     .detail { overflow: visible; }

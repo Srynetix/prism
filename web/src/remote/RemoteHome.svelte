@@ -179,8 +179,10 @@
   .pf { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r7); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c); font-size: var(--fs-tag); font-weight: 700; }
   .pf.big { width: 32px; height: 32px; border-radius: var(--r10); font-size: var(--fs-title); }
   ul.card button:disabled { opacity: 0.65; }
-  .chips { display: flex; gap: 6px; padding: 0 14px 12px 50px; overflow-x: auto; scrollbar-width: none; }
-  .chips :global(.qa) { flex-wrap: nowrap; }
+  /* Its quick answers wrap rather than scroll, none squeezed under its words. */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px 50px; }
+  .chips :global(.qa) { display: contents; }
+  .chips :global(.qa > button) { flex: none; max-width: 100%; }
   .chips :global(.qa button) { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .bar { flex: none; align-self: stretch; width: 3px; border-radius: var(--r2); background: var(--text-muted); }
   .bar.ko { background: var(--ko); }

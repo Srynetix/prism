@@ -82,6 +82,16 @@ Every other item is hidden until you show it: reminders, the digest, routines to
 > [!NOTE]
 > Right-click the status bar to choose which items it shows, or **Customize…** to arrange them: drag them along the bar, the orange line parting left from right, or into the tray above to hide them. The order is saved as `[appearance] statusbar`, the hidden items as `statusbar_hidden` (Settings › Interface › Appearance); **Default order** goes back to the default bar. A config that already sets either keeps its bar as written; the former `update`, `packs` and `problems` read as **Prism**.
 
+## On half a screen
+Prism fits half a screen, next to an editor or a browser: the window goes down to 640 × 480 px. Under 1,200 px wide, it lays itself out for the room it has rather than squeezing:
+
+- the rail shows its icons alone, their names in their tooltips;
+- a page's blocks go one under the other, the page scrolling;
+- a header or a bar keeps its main actions on one line, and moves the others into its **⋯**, measured as it goes: widen the window and they come back. The status bar does the same, its least needed items first;
+- the Agents view shows one agent at a time, its terminal or its Chat the whole width: its list is a drawer (the button at the start of its header, or `⌘B`), closed once an agent is picked; its side panel opens over the terminal (**Terminal** or **Chat** goes back), its tabs a selector in the **⋯** when they no longer fit; agents side by side wait for a wider window.
+
+Under 720 px, the drawers and dialogs take the whole width. A block follows its own width rather than the window's: narrow in a wide page, it behaves as on half a screen. The window zoom (`⌘+` / `⌘-`) changes the room too: at 125 %, a 1,440 px window lays out as a 1,150 px one.
+
 ## Custom blocks
 A block of your own, without Rust nor Svelte: a command, or a script written in `config.toml`, that prints JSON. Declare it in **Settings › Interface › Custom blocks** (or `[[custom_blocks]]`): **Command** runs a program with its arguments as given, never through a shell; **Script** holds the program itself, in the Files tab's editor, run by its shebang (bash, python3, node, `uv run --script` with its dependencies; `/bin/sh` without one), with starting templates that already print valid JSON. **Run now** runs what you are editing, saved or not, and shows its output; **Write with an agent** opens the launcher with the contract and your description, and **Load the agent’s script** brings what it wrote into the editor.
 

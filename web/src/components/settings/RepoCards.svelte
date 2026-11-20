@@ -360,7 +360,8 @@
   .repo .err { margin: 6px 0 0; }
   .btn.ghost.on { color: var(--accent); }
   .link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 0; border: none; background: none; color: var(--info); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
-  @media (max-width: 760px) {
+  /* The settings page narrow (its own width): one column. */
+  @container (width < 600px) {
     .cols, .branches, .wsedit { grid-template-columns: minmax(0, 1fr); }
     .head { grid-template-columns: 24px minmax(0, 1fr) 16px; }
     .head .chips { grid-column: 2 / -1; grid-row: 2; }

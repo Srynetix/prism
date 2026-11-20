@@ -5,6 +5,9 @@
  * - a `font-size` in px: a `--fs-*` token (app.css) instead;
  * - a `border-radius` in px: a `--r*` token (follows the theme's `--round`); 0, 50%, 999px stay;
  * - a `z-index` of 10 or more: a `--z-*` layer; a component's own stacking stays under 10;
+ * - a media query on another width than the interface's scale (app.css, « Widths »):
+ *   `(width < 720px)` or `(width < 1200px)` only; a block or a panel follows its own width with
+ *   `@container` instead;
  * - a shared primitive defined again in a component (`.btn { … }`, `.pill:hover { … }`): they live
  *   in app.css alone; placing one is fine (`.row .pill { margin-left: auto; }`).
  * Some files draw on their own (the boot, the pet, a theme's scene): `FREE` lets them be.
@@ -73,6 +76,11 @@ for (const path of walk(ROOT)) {
         const raw = m[1].replace(/var\([^()]*(?:\([^()]*\)[^()]*)*\)/g, '').replace(/calc\([^()]*(?:\([^()]*\)[^()]*)*\)/g, '')
         const px = [...raw.matchAll(/(-?[\d.]+)px/g)].map((x) => Number(x[1])).filter((n) => n !== 0 && n < 999)
         if (px.length) say(file, lineAt(m.index), `border-radius ${m[1].trim()}: a --r* token`)
+      }
+      for (const m of css.matchAll(/@media\s+([^{]*)\{/g)) {
+        for (const w of m[1].matchAll(/\(\s*(?:min-width|max-width|width)\b[^)]*\)/g)) {
+          if (!/^\(\s*width\s*<\s*(720|1200)px\s*\)$/.test(w[0])) say(file, lineAt(m.index), `@media ${w[0]}: the scale's (width < 720px) or (width < 1200px), or an @container`)
+        }
       }
       for (const m of css.matchAll(/z-index\s*:\s*(-?\d+)/g)) {
         if (Number(m[1]) >= 10) say(file, lineAt(m.index), `z-index ${m[1]}: a --z-* layer (a component's own stacking stays under 10)`)

@@ -45,6 +45,8 @@ if (machine() || profileWindow()) {
     unmount(gate)
   }
 }
+// Development only: `/?core`, the preview as if a core answered (the Agents view shows too).
+if (import.meta.env.DEV && !hasCore() && new URLSearchParams(location.search).has('core')) useTransport((await import('./preview-core')).previewCore())
 // Notes and layout are read from disk before the components initialize.
 await preload()
 // The snapshot before mounting: theme and config.toml settings known from the first frame.

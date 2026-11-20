@@ -494,5 +494,5 @@
   .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
   .blk { padding: 7px 8px; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); font-size: var(--fs-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help; }
   .grow { flex: 1; }
-  @media (max-width: 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  @media (width < 720px) { .split { grid-template-columns: minmax(0, 1fr); } }
 </style>
