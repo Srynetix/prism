@@ -142,14 +142,14 @@
     {#each roots as root (root.id)}
       {@const groups = groupsShown(root)}
       {#if groups.length}
-        <p class="sect">{root.label}</p>
+        <p class="sect"><span class="ico" style:background={root.color}>{#if root.icon}<Icon name={root.icon} />{/if}</span>{root.label}</p>
         {#each groups as g (g.id)}
           {#if g.label}<p class="grp">{g.label}</p>{/if}
           <ul class="list">
             {#each g.pages as n (n.id)}
               {@const own = sectionsOf(n).some(({ spec }) => spec)}
               <li><button onclick={() => open(n.id)} class:prov={isProvider(n)}>
-                <span class="dot" style="background: {root.color ?? 'var(--accent)'}"></span>
+                <span class="dot" style:background={isProvider(n) ? (n.color ?? 'var(--text-muted)') : (root.color ?? 'var(--accent)')}></span>
                 <span class="t">{n.label}</span>
                 {#if nodeEditable(n)}<span class="ed">{t('editable')}</span>{:else if own}<span class="ro">{t('read')}</span>{:else}<span class="ro">{t('on the computer')}</span>{/if}
                 <Icon name="next" />
@@ -252,7 +252,9 @@
   .banner { display: block; margin: 0; padding: 9px 12px; border-radius: var(--r10); background: var(--surface-muted); color: var(--text-muted); font-size: var(--fs-meta); }
   .banner.ok { background: color-mix(in srgb, var(--ok-bg) 55%, transparent); color: var(--ok); }
   .banner :global(svg) { vertical-align: -2px; margin-right: 4px; }
-  .sect { margin: 6px 4px -4px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
+  .sect { display: flex; align-items: center; gap: 8px; margin: 8px 4px -2px; color: var(--text-muted); font-size: var(--fs-micro); letter-spacing: 0.05em; text-transform: uppercase; }
+  .ico { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r6); color: #fff; font-size: var(--fs-meta); }
+  .ico :global(svg) { color: #fff; }
   .grp { margin: 2px 6px -6px; color: var(--text-muted); font-size: var(--fs-tag); }
   .list .prov .t { padding-left: 12px; }
   .note { margin: 12px 4px; color: var(--text-muted); font-size: var(--fs-meta); text-align: center; }

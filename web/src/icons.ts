@@ -1,4 +1,12 @@
 import type { Component } from 'svelte'
+import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal'
+import Palette from '@lucide/svelte/icons/palette'
+import Briefcase from '@lucide/svelte/icons/briefcase'
+import Bot from '@lucide/svelte/icons/bot'
+import Server from '@lucide/svelte/icons/server'
+import Smartphone from '@lucide/svelte/icons/smartphone'
+import LayoutGrid from '@lucide/svelte/icons/layout-grid'
+import CodeXml from '@lucide/svelte/icons/code-xml'
 import Activity from '@lucide/svelte/icons/activity'
 import Cpu from '@lucide/svelte/icons/cpu'
 import Camera from '@lucide/svelte/icons/camera'
@@ -254,6 +262,15 @@ export const ICONS = {
   // Block layout
   blockNormal: Rows3, // ▤
   blockShort: RectangleHorizontal, // ▭
+  // The Settings domains (settings-tree.ts) and their overview.
+  overview: LayoutGrid,
+  domGeneral: SlidersHorizontal,
+  domInterface: Palette,
+  domWork: Briefcase,
+  domCode: CodeXml,
+  domAgents: Bot,
+  domInfra: Server,
+  domRemote: Smartphone,
 } satisfies Record<string, Component<any>>
 
 export type IconName = keyof typeof ICONS

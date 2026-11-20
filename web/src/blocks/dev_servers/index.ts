@@ -19,7 +19,7 @@ export const devServers = {
     source: t('Prism’s tmux panes, the process tree (ps), the listening TCP ports (lsof, or ss on Linux) and docker ps, every [dev_servers] poll_seconds. Nothing to declare: the stack comes from the Tasks.'),
   },
   settings: {
-    parent: 'agents-root', group: 'tools',
+    parent: 'code', group: 'forge',
     node: { id: 'dev_servers', label: t('Dev servers'), sections: ['dev_servers'], toggle: 'dev_servers' },
     sections: [
       {

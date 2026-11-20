@@ -12,7 +12,7 @@
 
   /**
    * Agents view › Manage: the kinds and suggested tags of `[agents]`, edited in place and saved to
-   * config.toml at once (as Settings › Agents › Agent would). A rename carries the agents along; a
+   * config.toml at once (as Settings › Agents › Agent CLI would). A rename carries the agents along; a
    * kind removed stays on the agents carrying it until they change. A tag only in use (not
    * suggested) can be kept as a suggestion, or taken off every agent.
    */

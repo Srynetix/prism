@@ -46,7 +46,7 @@
     <BlockControls id="status" />
   </h2>
   {#if !status}
-    <State kind="off" title={t('Status pages are not read. Turn on Settings › Interface › Status pages, then restart Prism.')} />
+    <State kind="off" title={t('Status pages are not read. Turn on Settings › Infra › Status pages, then restart Prism.')} />
   {:else if !services.length}
     {#if error}<State kind="error" title={error} />{:else}<State kind="loading" title={t('Reading the status pages…')} />{/if}
   {:else}

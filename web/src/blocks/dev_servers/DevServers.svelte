@@ -107,7 +107,7 @@
     <BlockControls id="dev_servers" />
   </h2>
   {#if !enabled}
-    <State kind="off" title={t('The dev servers are not read. Turn on Settings › Agents › Dev servers, then restart Prism.')} />
+    <State kind="off" title={t('The dev servers are not read. Turn on Settings › Code › Dev servers, then restart Prism.')} />
   {:else if !dev?.read_at}
     {#if error}<State kind="error" title={t('Cannot read the processes: {error}', { error })} />{:else}<State kind="loading" title={t('Reading the processes…')} />{/if}
   {:else if isShort('dev_servers')}

@@ -65,7 +65,7 @@ Any ticket opens from there, even one Prism does not show (closed, on another bo
 
 `⌘↵` opens the chosen line's actions: an MR's or a ticket's menu (approve, rebase, merge, retry, statuses, agent actions…), an agent's quick answers, Allow, Interrupt. One that cannot be undone asks for a second `↵`. `Esc` goes back, then closes.
 
-In an agent's terminal, `⌘K` stays the terminal's: it clears it. **Keys kept by the terminal** (`[agents] terminal_keys`, Settings › Agents › Agent) lists the shortcuts a terminal keeps: `Cmd+K` by default; add `Cmd+N`, `Cmd+1`… to keep those too, remove `Cmd+K` to open the palette there. The palette also opens from **View › Command Palette…**, and on the phone from the search button. Its shortcut and its switch: Settings › Interface › Palette (`[palette]`).
+In an agent's terminal, `⌘K` stays the terminal's: it clears it. **Keys kept by the terminal** (`[agents] terminal_keys`, Settings › Agents › Agent CLI) lists the shortcuts a terminal keeps: `Cmd+K` by default; add `Cmd+N`, `Cmd+1`… to keep those too, remove `Cmd+K` to open the palette there. The palette also opens from **View › Command Palette…**, and on the phone from the search button. Its shortcut and its switch: Settings › Interface › Palette (`[palette]`).
 
 [Open Settings › Interface › Palette](prism:settings/palette)
 

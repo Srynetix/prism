@@ -13,6 +13,7 @@
   import ShortcutRecorder from './settings/ShortcutRecorder.svelte'
   import TomlPanel, { tomlModeOf } from './settings/TomlPanel.svelte'
   import SettingsSearch, { SearchState } from './settings/SettingsSearch.svelte'
+  import StateMark, { pageState } from './settings/StateMark.svelte'
   import DictationSettings from './settings/DictationSettings.svelte'
   import McpSettings from './settings/McpSettings.svelte'
   import { configurePrism } from '../prism-agent'
@@ -184,35 +185,53 @@
    * one chosen. The filters keep the keys changed, written in config.toml or given by a pack, or
    * the pages on or needing attention; each says how many (SettingsSearch.svelte).
    */
-  const search = new SearchState({ isOn, nodeAttention, attention, go })
+  const search = new SearchState({ isOn, nodeAttention, attention, go, stateOf: (n) => stateOf(n) })
   const searching = $derived(search.searching)
   const visiblePage = (n: TreeNode) => !searching || search.listedPages.has(n.id)
 
   /**
-   * Folded domains, remembered; a search unfolds every match, and showing a page unfolds its
-   * domain (which its caret folds again all the same).
+   * Three columns, as the system's own Settings: the domains (rail), the pages of one (list), the
+   * page. The list shows the shown page's domain, else the last one shown (remembered); while
+   * searching, the pages answering, from every domain, each naming its own.
    */
-  let folded = $state(new Set(pref<string[]>('settings.folded', [])))
-  const isOpen = (n: TreeNode) => searching || !folded.has(n.id)
-  function fold(n: TreeNode, open = !isOpen(n)) {
-    if (open !== folded.has(n.id)) return
-    const next = new Set(folded)
-    if (open) next.delete(n.id)
-    else next.add(n.id)
-    folded = next
-    setPref('settings.folded', [...next])
-  }
+  let lastRoot = $state(pref<string>('settings.domain', 'general'))
+  const pageRoot = $derived(page ? chainOf(page)[0] : undefined)
   $effect(() => {
-    const root = page && chainOf(page)[0]
-    if (root && root !== page) untrack(() => fold(root, true))
+    const id = pageRoot?.id
+    if (id && id !== untrack(() => lastRoot)) {
+      lastRoot = id
+      setPref('settings.domain', id)
+    }
   })
-  /** ← folds the domain whose row has the focus, → unfolds it. */
-  function onTreeKey(e: KeyboardEvent) {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-    const root = TREE.find((r) => r.id === (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-root]')?.dataset.root)
-    if (!root) return
-    e.preventDefault()
-    fold(root, e.key === 'ArrowRight')
+  const listRoot = $derived(pageRoot ?? TREE.find((r) => r.id === lastRoot) ?? TREE[0])
+  /** A page's providers, listed under it (the chosen one marked). */
+  const providersOf = (n: TreeNode) => n.children?.filter(isProvider) ?? []
+  /** A page's state, one mark everywhere (StateMark.svelte). */
+  const stateOf = (n: TreeNode) => pageState(nodeDirty(n), nodeAttention(n), isOn(n))
+  const sectionState = (s: Section) => pageState(dirty(s), attention(s), undefined)
+
+  /**
+   * Keyboard: ↑ ↓ move within the rail or the list, showing what they reach (in the list while
+   * searching, only the focus moves: ↵ opens); → goes from the rail to the list, ← back.
+   */
+  function onNavKey(e: KeyboardEvent, col: 'rail' | 'list') {
+    const box = e.currentTarget as HTMLElement
+    const rows = [...box.querySelectorAll<HTMLButtonElement>('button[data-go]')]
+    const i = rows.indexOf(document.activeElement as HTMLButtonElement)
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const next = rows[i < 0 ? 0 : (i + (e.key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length]
+      next?.focus()
+      if (next && !(col === 'list' && searching)) go(next.dataset.go!)
+    } else if (e.key === 'ArrowRight' && col === 'rail') {
+      e.preventDefault()
+      const list = document.querySelector<HTMLElement>('.settings .pages')
+      ;(list?.querySelector<HTMLButtonElement>('button[data-go].on') ?? list?.querySelector<HTMLButtonElement>('button[data-go]'))?.focus()
+    } else if (e.key === 'ArrowLeft' && col === 'list') {
+      e.preventDefault()
+      const rail = document.querySelector<HTMLElement>('.settings .rail')
+      ;(rail?.querySelector<HTMLButtonElement>('button[data-go].on') ?? rail?.querySelector<HTMLButtonElement>('button[data-go]'))?.focus()
+    }
   }
   /** `[cleanup] hide_off`: a feature turned off leaves the tree, unless searched for or shown. */
   const hideOff = $derived(!!valueOf(['cleanup', 'hide_off'], false))
@@ -394,48 +413,58 @@
 <svelte:window {onkeydown} />
 
 <div class="settings layer-in"><div class="layout" class:withtoml={showToml}>
-  <aside class="toc">
-    <SettingsSearch {search} part="box" />
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <nav class="tree" onkeydown={onTreeKey}>
-      <div class="node top" class:on={!page}><span class="car"></span><button class="lbl" onclick={() => go('overview')}><Icon name="kanban" /><span class="name">{t('Overview')}</span></button></div>
-      {#each TREE as root (root.id)}
-        {@const kids = (root.children ?? []).filter((n) => visiblePage(n) && !offHidden(n))}
-        {@const sw = switches(root)}
-        {#if kids.length || !searching}
-          <div class="node root" class:on={root === page} data-root={root.id}>
-            <button class="car" class:open={isOpen(root)} tabindex="-1" onclick={() => fold(root)} aria-label={isOpen(root) ? t('Fold {name}', { name: root.label }) : t('Unfold {name}', { name: root.label })}><Icon name="chevronRight" /></button>
-            <button class="lbl" onclick={() => go(root.id)}>
-              <span class="sw" style:background={root.color}></span><span class="name">{root.label}</span>
-              {#if sw.length}<span class="cnt" title={t('Features on')}>{sw.filter((n) => isOn(n)).length}/{sw.length}</span>{/if}
-            </button>
-          </div>
-          {#if isOpen(root)}
-            <div class="kids">
-              {#each groupsOf(root) as g (g.id)}
-                {@const shownPages = g.pages.filter((n) => kids.includes(n))}
-                {#if shownPages.length}
-                  {#if g.label}<span class="grp">{g.label}</span>{/if}
-                  {#each shownPages as n (n.id)}
-                    <div class="node" class:on={n === page} class:off={inactive(n)}>
-                      <button class="lbl" onclick={() => go(n.id)} title={sectionsOf(n).map((s) => s.table).join(' ')}>
-                        <span class="name">{n.label}</span>
-                        {#if n.choice}<span class="tag">{chosen(n)}</span>{/if}
-                        {#if nodeDirty(n)}<span class="dot warn" title={t('Unsaved changes')}></span>
-                        {:else if nodeAttention(n)}<span class="warn" title={t('A check failed, or this source could not be read')}><Icon name="warning" /></span>
-                        {:else if isOn(n) !== undefined}<span class="dot" class:ok={isOn(n)} title={isOn(n) ? t('On') : t('Off')}></span>{/if}
-                      </button>
-                    </div>
-                  {/each}
-                {/if}
-              {/each}
-            </div>
-          {/if}
-        {/if}
-      {/each}
-      {#if searching && !search.listedPages.size}<p class="hint none">{t('Nothing matches.')}</p>{/if}
-    </nav>
+  <!-- The domains, each its icon and how many of its features are on. -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <nav class="rail" aria-label={t('Settings domains')} onkeydown={(e) => onNavKey(e, 'rail')}>
+    <button class="rd" class:on={!page && !searching} data-go="overview" onclick={() => go('overview')} title={t('Overview')}><span class="ico ov"><Icon name="overview" /></span><span class="name">{t('Overview')}</span></button>
+    {#each TREE as root (root.id)}
+      {@const sw = switches(root)}
+      <button class="rd" class:on={root === pageRoot && !searching} data-go={root.id} onclick={() => go(root.id)} title={root.label}>
+        <span class="ico" style:background={root.color}>{#if root.icon}<Icon name={root.icon} />{/if}</span>
+        <span class="name">{root.label}</span>
+        {#if sw.length}<span class="cnt" title={t('Features on')}>{sw.filter((n) => isOn(n)).length}/{sw.length}</span>{/if}
+      </button>
+    {/each}
     <span class="ver" title="{t('Prism version, and the commit it was built from')}{COMMIT.endsWith('+') ? t(' (+: with uncommitted changes)') : ''}">Prism {versionLabel()}</span>
+  </nav>
+
+  <!-- The pages of a domain: groups apart, each page's providers under it; or the pages found. -->
+  <aside class="pages">
+    <SettingsSearch {search} part="box" />
+    {#snippet row(n: TreeNode, where: TreeNode | null)}
+      {@const provs = providersOf(n)}
+      {@const pick = chosen(n)}
+      <button class="pg" class:on={n === page && target === page} class:within={n === page && target !== page} class:off={inactive(n)} data-go={n.id} onclick={() => go(n.id)} title={sectionsOf(n).map((s) => s.table).join(' ')}>
+        <span class="name">{n.label}{#if where}<span class="where"> · {where.label}</span>{/if}</span>
+        <StateMark state={stateOf(n)} />
+      </button>
+      {#each provs as p (p.id)}
+        <button class="pg prov" class:on={p === target} class:unused={p.provider !== pick} data-go={p.id} onclick={() => go(p.id)}>
+          <span class="sw" style:background={p.color ?? 'var(--text-muted)'}></span>
+          <span class="name">{p.label}</span>
+          {#if p.provider === pick}<span class="inuse">{tc('settings', 'in use')}</span>{/if}
+        </button>
+      {/each}
+    {/snippet}
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <nav class="list" aria-label={searching ? t('Pages found') : listRoot.label} onkeydown={(e) => onNavKey(e, 'list')}>
+      {#if searching}
+        {#each TREE as root (root.id)}
+          {#each (root.children ?? []).filter((n) => visiblePage(n)) as n (n.id)}{@render row(n, root)}{/each}
+        {/each}
+        {#if !search.listedPages.size}<p class="hint none">{t('Nothing matches.')}</p>{/if}
+      {:else}
+        <button class="lhead" onclick={() => go(listRoot.id)}><span class="ico" style:background={listRoot.color}>{#if listRoot.icon}<Icon name={listRoot.icon} />{/if}</span><b>{listRoot.label}</b></button>
+        {#each groupsOf(listRoot) as g, gi (g.id)}
+          {@const shownPages = g.pages.filter((n) => !offHidden(n))}
+          {#if shownPages.length}
+            {#if gi}<hr />{/if}
+            {#if g.label}<span class="grp">{g.label}</span>{/if}
+            {#each shownPages as n (n.id)}{@render row(n, null)}{/each}
+          {/if}
+        {/each}
+      {/if}
+    </nav>
   </aside>
 
   <section class="body" inert={rawShown}>
@@ -741,18 +770,19 @@
           {@const sw = switches(root)}
           <div class="dom">
             <div class="dh">
-              <span class="sw" style:background={root.color}></span>
+              <span class="ico" style:background={root.color}>{#if root.icon}<Icon name={root.icon} />{/if}</span>
               <button class="dn" onclick={() => go(root.id)}>{root.label}</button>
               <span class="grow"></span>
               {#if sw.length}<span class="cnt" title={t('Features on')}>{sw.filter((n) => isOn(n)).length}/{sw.length}</span>{/if}
             </div>
-            {#each groupsOf(root) as g (g.id)}
+            {#each groupsOf(root) as g, gi (g.id)}
+              {#if gi}<hr />{/if}
               {#if g.label}<span class="grp">{g.label}</span>{/if}
               {#each g.pages as n (n.id)}
                 <div class="frow" class:off={inactive(n)}>
+                  <StateMark state={stateOf(n)} />
                   <button class="fname" onclick={() => go(n.id)}>{n.label}</button>
-                  {#if n.choice}<span class="tag">{chosen(n)}</span>{/if}
-                  {#if nodeDirty(n)}<span class="dot warn" title={t('Unsaved changes')}></span>{:else if nodeAttention(n)}<span class="warn" title={t('A check failed, or this source could not be read')}><Icon name="warning" /></span>{/if}
+                  {#if n.choice}<span class="soft">· {providersOf(n).find((p) => p.provider === chosen(n))?.label ?? chosen(n)}</span>{/if}
                   <span class="grow"></span>
                   {#if switchPath(n)}<button class="toggle" class:on={!!isOn(n)} role="switch" aria-checked={!!isOn(n)} aria-label={n.label} onclick={() => flip(n)}><i></i></button>{/if}
                 </div>
@@ -793,7 +823,7 @@
       {/if}
       {#if anchors.length > 1}
         <nav class="anchors" aria-label={t('Sections of the page')}>
-          {#each anchors as s (s.id)}<button onclick={() => anchorTo(s.id)}>{s.label}{#if dirty(s)}<span class="dot warn"></span>{:else if attention(s)}<span class="warn"><Icon name="warning" /></span>{/if}</button>{/each}
+          {#each anchors as s (s.id)}<button onclick={() => anchorTo(s.id)}>{s.label}<StateMark state={sectionState(s)} /></button>{/each}
         </nav>
       {/if}
       {#each shownSections as s, i (s.id)}
@@ -880,35 +910,40 @@
 
 <style>
   .settings { flex: 1; min-height: 0; display: flex; container-type: inline-size; }
-  .layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr); }
-  .layout.withtoml { grid-template-columns: 230px minmax(0, 1fr) minmax(260px, 30%); }
-  .toc { display: flex; flex-direction: column; gap: 1px; padding: 12px 8px; overflow: auto; background: var(--surface); border-right: 1px solid var(--border); }
-  .grp { margin: 7px 0 1px 6px; color: var(--text-muted); font-size: var(--fs-tag); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+  .layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 190px 230px minmax(0, 1fr); }
+  .layout.withtoml { grid-template-columns: 190px 230px minmax(0, 1fr) minmax(260px, 30%); }
+  /* Rail: the domains, an icon on each one's color. */
+  .rail { display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; overflow: auto; background: var(--surface); border-right: 1px solid var(--border); }
+  .rd { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
+  .rd:hover { background: var(--surface-muted); }
+  .rd.on { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 600; }
+  .rd:first-child { margin-bottom: 6px; }
+  .ico { display: inline-grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border-radius: var(--r6); color: #fff; font-size: var(--fs-title); }
+  .ico.ov { background: var(--surface-muted); color: var(--text-muted); }
   .cnt { color: var(--text-muted); font: var(--fs-tag) var(--mono); font-weight: 400; }
-  .node.top { margin-bottom: 2px; }
-  .node.top .lbl :global(svg) { color: var(--text-muted); }
-  /* Tree: a caret to fold, then the page; children indented along a line. */
-  .tree { display: flex; flex-direction: column; gap: 1px; }
-  .node { display: flex; align-items: center; border-radius: var(--r6); }
-  .node:hover { background: var(--surface-muted); }
-  .node.root { margin-top: 6px; }
-  .node.root .name { font-weight: 600; }
-  .node.on { background: color-mix(in srgb, var(--accent) 15%, transparent); }
-  .node.on .lbl { color: var(--accent); font-weight: 600; }
-  .node.off .name { color: var(--text-muted); }
-  .car { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 24px; flex-shrink: 0; padding: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  .car :global(svg) { transition: transform 0.12s; }
-  .car.open :global(svg) { transform: rotate(90deg); }
-  .lbl { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; padding: 4px 8px 4px 2px; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
+  .rail .ver { margin-top: auto; padding: 10px 8px 0; color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); user-select: text; }
+  /* Pages of the domain: groups apart by a line, providers under their page. */
+  .pages { display: flex; flex-direction: column; min-height: 0; padding: 12px 8px; overflow: auto; background: var(--surface); border-right: 1px solid var(--border); }
+  .list { display: flex; flex-direction: column; gap: 1px; }
+  .lhead { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; padding: 2px 6px; border: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-title); text-align: left; cursor: pointer; }
+  .lhead:hover b { color: var(--accent); }
+  .list hr { width: calc(100% - 16px); margin: 5px 8px; border: none; border-top: 1px solid var(--border); }
+  .grp { margin: 3px 0 1px 8px; color: var(--text-muted); font-size: var(--fs-tag); }
+  .pg { display: flex; align-items: center; gap: 7px; width: 100%; padding: 4px 8px; border: none; border-radius: var(--r6); background: none; color: var(--text); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; }
+  .pg:hover { background: var(--surface-muted); }
+  .pg.on { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 600; }
+  .pg.within { color: var(--accent); }
+  .pg.off .name, .pg.unused .name { color: var(--text-muted); }
+  .pg.prov { padding-left: 20px; font-size: var(--fs-meta); }
+  .pg.prov .sw { width: 7px; height: 7px; }
+  .inuse { color: var(--ok); font-size: var(--fs-tag); font-weight: 400; }
+  .where { color: var(--text-muted); font-size: var(--fs-tag); font-weight: 400; }
   .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .kids { display: flex; flex-direction: column; gap: 1px; margin-left: 15px; padding-left: 3px; border-left: 1px solid var(--border); }
   .tag { color: var(--text-muted); font-size: var(--fs-tag); font-weight: 400; }
   .tag.on { color: var(--ok); }
   .tag.repo { color: var(--info); }
-  /* A feature's state: lit when on, hollow when off. */
   .none { margin: 8px; }
   .sample { display: block; margin-top: 4px; padding: 6px 8px; border-radius: var(--r6); background: var(--surface-muted); font-size: var(--fs-title); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .toc .ver { margin-top: auto; padding: 10px 8px 0; color: var(--text-muted); font-family: var(--mono); font-size: var(--fs-tag); user-select: text; }
   .sw { width: 8px; height: 8px; flex-shrink: 0; border-radius: var(--r2); }
   .warn { display: inline-flex; color: var(--ko); font-size: var(--fs-meta); }
 
@@ -954,6 +989,7 @@
   .fname:hover { color: var(--accent); text-decoration: underline; }
   .frow.off .fname { color: var(--text-muted); }
   .dom .grp { margin: 6px 0 0; }
+  .dom hr { width: 100%; margin: 5px 0; border: none; border-top: 1px solid var(--border); }
   @container (max-width: 700px) { .counters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .sub { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: var(--fs-title); font-weight: 600; }
   .tabs { display: flex; gap: 0; margin: 4px 0 12px; border-bottom: 1px solid var(--border); }
@@ -1028,9 +1064,17 @@
   .savebar b { color: var(--text); }
   @keyframes up { from { transform: translateY(100%); } }
   /* Narrow: the file goes below the section rather than beside it. */
+  /* Narrow: the rail keeps its icons, the file goes below the page rather than beside it. */
+  @container (max-width: 1100px) {
+    .layout { grid-template-columns: 50px 210px minmax(0, 1fr); }
+    .layout.withtoml { grid-template-columns: 50px 210px minmax(0, 1fr) minmax(240px, 30%); }
+    .rail { padding: 12px 6px; }
+    .rd { justify-content: center; padding: 5px 0; }
+    .rd .name, .rd .cnt, .rail .ver { display: none; }
+  }
   @container (max-width: 980px) {
-    .layout.withtoml { grid-template-columns: 180px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 260px; }
-    .layout.withtoml > :global(.file) { grid-column: 2; border-left: none; border-top: 1px solid var(--border); }
-    .layout.withtoml .toc { grid-row: 1 / span 2; }
+    .layout.withtoml { grid-template-columns: 50px 200px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 260px; }
+    .layout.withtoml > :global(.file) { grid-column: 3; border-left: none; border-top: 1px solid var(--border); }
+    .layout.withtoml .rail, .layout.withtoml .pages { grid-row: 1 / span 2; }
   }
 </style>

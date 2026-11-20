@@ -86,7 +86,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{other} is not answered from another Prism", "{other} n’est pas accepté depuis un autre Prism"),
     ("no computer to accept", "aucun ordinateur à accepter"),
     ("not a peer of this Prism", "pas un pair de ce Prism"),
-    ("typing in a terminal from another Prism is off (Settings › Remote › Machines here)", "écrire dans un terminal depuis un autre Prism est désactivé (Réglages › Accès à distance › Machines, ici)"),
+    ("typing in a terminal from another Prism is off (Settings › General › Machines here)", "écrire dans un terminal depuis un autre Prism est désactivé (Réglages › Général › Machines, ici)"),
     ("{command}: [remote.peers] {what} is off on that computer", "{command} : [remote.peers] {what} est désactivé sur cet ordinateur-là"),
     ("{command}: not a command of this Prism", "{command} : pas une commande de ce Prism"),
 ];

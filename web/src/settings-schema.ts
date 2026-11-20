@@ -176,7 +176,7 @@ export const SCHEMA: SectionSpec[] = [
   },
   {
     id: 'palette', label: t('Palette'), table: '[palette]', path: ['palette'],
-    intro: t('One field to go to anything Prism shows — a page, a block, an agent, an MR, a ticket, a pipeline, an environment, a pod, a Settings page or key, a guide — and to run its commands, the console’s included (note …, agent …, remind …: their words after them). ↵ goes or runs, ⌘↵ opens the chosen line’s actions (an MR’s or a ticket’s menu, an agent’s quick answers), ⇥ completes a command. On the phone too, from the search button. In an agent’s terminal, ⌘K stays the terminal’s (Agents › Agent › Keys kept by the terminal).'),
+    intro: t('One field to go to anything Prism shows — a page, a block, an agent, an MR, a ticket, a pipeline, an environment, a pod, a Settings page or key, a guide — and to run its commands, the console’s included (note …, agent …, remind …: their words after them). ↵ goes or runs, ⌘↵ opens the chosen line’s actions (an MR’s or a ticket’s menu, an agent’s quick answers), ⇥ completes a command. On the phone too, from the search button. In an agent’s terminal, ⌘K stays the terminal’s (Agents › Agent CLI › Keys kept by the terminal).'),
     fields: [
       { key: 'enabled', label: t('Palette'), kind: 'toggle' },
       { key: 'key', syn: t('shortcut, hotkey, command palette'), label: t('Shortcut'), hint: t('A combination (Cmd+K, Cmd+P, Ctrl+Space). Applied at once.'), kind: 'text', placeholder: 'Cmd+K' },
@@ -207,7 +207,7 @@ export const SCHEMA: SectionSpec[] = [
       { key: 'enabled', syn: t('canned answers, replies'), label: t('Quick answers'), kind: 'toggle' },
       {
         key: 'answers', label: t('Answers'), kind: 'table', blank: { label: '', text: '', submit: true },
-        hint: t('In this order; the first three where room is short. Empty: Prism’s (OK, Do it, Continue, No wait, Commit), in the prompt language (Settings › Agents › Agent). Not submitted: typed into the agent’s input, to finish.'),
+        hint: t('In this order; the first three where room is short. Empty: Prism’s (OK, Do it, Continue, No wait, Commit), in the prompt language (Settings › Agents › Agent CLI). Not submitted: typed into the agent’s input, to finish.'),
         columns: [
           { key: 'label', label: t('Label'), kind: 'text', width: '120px' },
           { key: 'text', label: t('Text sent'), kind: 'text', placeholder: t('Go ahead, do it.') },

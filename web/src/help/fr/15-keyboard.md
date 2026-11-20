@@ -65,7 +65,7 @@ N’importe quel ticket s’ouvre de là, même un que Prism n’affiche pas (fe
 
 `⌘↵` ouvre les actions de la ligne choisie : le menu d’une MR ou d’un ticket (approuver, rebaser, merger, relancer, statuts, actions d’agent…), les réponses rapides d’un agent, Autoriser, Interrompre. Une action irréversible demande un second `↵`. `Esc` revient en arrière, puis ferme.
 
-Dans le terminal d’un agent, `⌘K` reste celui du terminal : il l’efface. **Touches gardées par le terminal** (`[agents] terminal_keys`, Réglages › Agents › Agent) liste les raccourcis qu’un terminal garde : `Cmd+K` par défaut ; ajoutez `Cmd+N`, `Cmd+1`… pour les garder aussi, retirez `Cmd+K` pour y ouvrir la palette. La palette s’ouvre aussi depuis **Présentation › Palette de commandes…**, et sur le téléphone depuis le bouton de recherche. Son raccourci et son interrupteur : Réglages › Interface › Palette (`[palette]`).
+Dans le terminal d’un agent, `⌘K` reste celui du terminal : il l’efface. **Touches gardées par le terminal** (`[agents] terminal_keys`, Réglages › Agents › CLI d’agent) liste les raccourcis qu’un terminal garde : `Cmd+K` par défaut ; ajoutez `Cmd+N`, `Cmd+1`… pour les garder aussi, retirez `Cmd+K` pour y ouvrir la palette. La palette s’ouvre aussi depuis **Présentation › Palette de commandes…**, et sur le téléphone depuis le bouton de recherche. Son raccourci et son interrupteur : Réglages › Interface › Palette (`[palette]`).
 
 [Ouvrir Réglages › Interface › Palette](prism:settings/palette)
 

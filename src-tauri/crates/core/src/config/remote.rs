@@ -255,7 +255,7 @@ mod tests {
 
 /// `[[machines]]`: another computer's Prism, opened in a window of this one (the profile menu),
 /// as its own. Its Prism made a token for this one (`prism peer add <name>` there), kept in the
-/// keychain (Settings › Remote › Machines). Personal: a pack does not set it.
+/// keychain (Settings › General › Machines). Personal: a pack does not set it.
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]

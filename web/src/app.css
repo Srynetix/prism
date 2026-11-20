@@ -249,6 +249,19 @@
  * Without the attribute, Paper. The "System" mode picks Paper or Graphite depending on macOS.
  */
 :root {
+  /* The Settings domains (settings-tree.ts): a color of their own, none a source's, white glyph on top. */
+  --dom-general: #6b7280;
+  --dom-interface: #9b5de5;
+  --dom-work: #2f9e5b;
+  --dom-code: #3a6df0;
+  --dom-agents: #d6457f;
+  --dom-infra: #0e93a8;
+  --dom-remote: #e08a13;
+  /* Sources without a themed color of their own: the providers' rows of Settings. */
+  --src-github: #6e7681;
+  --src-jira: #2684ff;
+  --src-google: #4285f4;
+  --src-obsidian: #8b6cef;
   --sans: var(--theme-sans, 'Inter', 'Twemoji', 'Prism Symbols', system-ui, sans-serif);
   --mono: 'Recursive Mono', 'Twemoji', 'Prism Symbols', ui-monospace, 'SF Mono', Menlo, monospace;
   --mono-term: 'RecMonoCasual Nerd Font Mono', var(--mono);

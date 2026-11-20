@@ -4,6 +4,7 @@
   import { TREE, type TreeNode } from '../../settings-tree'
   import type { Section } from '../../settings-sections'
   import { t, tc, tn } from '../../i18n.svelte'
+  import type { PageState } from './StateMark.svelte'
 
   export type Filter = 'all' | 'on' | 'changed' | 'file' | 'pack' | 'attention'
   /** What the search asks of the Settings view: a page's switch and state, and showing a page. */
@@ -12,6 +13,8 @@
     nodeAttention: (n: TreeNode) => boolean
     attention: (s: Section) => boolean
     go: (id: string) => void
+    /** A page's state, the same mark as in the list of pages. */
+    stateOf: (n: TreeNode) => PageState | undefined
   }
   /** Result rows drawn at first, each mounting a control: « Show N more » draws the rest. */
   const FIRST = 50
@@ -99,6 +102,7 @@
     listedPages = $derived(new Set([...this.results.map((e) => e.page.id), ...this.pageChips.map((n) => pageNode(n).id)]))
 
     isOn = (n: TreeNode) => this.#deps.isOn(n)
+    stateOf = (n: TreeNode) => this.#deps.stateOf(n)
     go = (id: string) => this.#deps.go(id)
 
     /** Out of the search: the query and the filter cleared. */
@@ -139,6 +143,7 @@
 <script lang="ts">
   import Icon from '../Icon.svelte'
   import Control from './Control.svelte'
+  import StateMark from './StateMark.svelte'
   import { chainOf } from '../../settings-tree'
   import { packLabel, setValue } from '../../settings.svelte'
 
@@ -178,8 +183,7 @@
     <div class="chips">
       {#each s.pageChips.slice(0, 16) as n (n.id)}
         {@const at = pageNode(n)}
-        {@const on = s.isOn(at)}
-        <button class="chip" class:off={on === false} onclick={() => s.go(n.id)}><span class="sw" style:background={chainOf(at)[0].color}></span>{chainOf(at)[0].label} › {n === at ? n.label : `${at.label} › ${n.label}`}{#if on !== undefined}<span class="dot" class:ok={on}></span>{/if}</button>
+        <button class="chip" class:off={s.isOn(at) === false} onclick={() => s.go(n.id)}><span class="sw" style:background={chainOf(at)[0].color}></span>{chainOf(at)[0].label} › {n === at ? n.label : `${at.label} › ${n.label}`}<StateMark state={s.stateOf(at)} /></button>
       {/each}
     </div>
   {/if}
