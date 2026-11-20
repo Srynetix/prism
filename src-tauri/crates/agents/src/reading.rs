@@ -18,16 +18,16 @@ impl Agents {
         if !provider.has_transcript() {
             return Ok(None);
         }
-        let Some(transcript) = self.inner.folds.lock().unwrap().get(id).and_then(|f| f.transcript.clone()) else { return Ok(None) };
-        let cwd = self.dir(id).ok();
-        Ok(tokio::task::spawn_blocking(move || breakdown::read(Path::new(&transcript), cwd.as_deref())).await?)
+        let Some(transcript) = self.transcript(id)? else { return Ok(None) };
+        let cwd = self.worked_in(id).ok();
+        Ok(tokio::task::spawn_blocking(move || breakdown::read(&transcript, cwd.as_deref())).await?)
     }
 
     /// The slash commands its CLI takes (its Chat box's autocomplete), as the CLI tells them for
     /// its folder, with its executable and arguments (`[agents.<cli>]`).
     pub async fn slash_commands(&self, id: &str) -> Result<Vec<slash::SlashCommand>> {
         let provider = self.provider(id)?;
-        let cwd = self.dir(id)?;
+        let cwd = self.run_dir(id)?;
         let argv = provider.with_cli(vec![provider.program().into()], self.inner.settings.lock().unwrap().cli(provider));
         slash::list(provider, argv, cwd).await
     }
@@ -113,8 +113,11 @@ impl Agents {
             return Ok(None);
         }
         let (session, transcript) = self.inner.folds.lock().unwrap().get(id).map(|f| (f.session.clone(), f.transcript.clone())).unwrap_or_default();
+        // The one its hooks named, else where the last read found it (`locate`): named under a
+        // folder it was resumed in, while still written under its first one (its worktree, removed).
+        let located = || self.inner.usages.lock().unwrap().get(id).and_then(|u| u.located.clone()).filter(|t| t.is_file());
         let transcript = match transcript {
-            Some(t) => Some(PathBuf::from(t)),
+            Some(t) => Some(PathBuf::from(t)).filter(|t| t.is_file()).or_else(located),
             None if provider.finds_transcript() => usage::find_transcript(self.home_of(id).as_deref(), session.as_deref().unwrap_or(id)),
             None if provider == Provider::CommandCode => session.as_deref().and_then(usage::find_command_code_transcript),
             None => None,
@@ -139,7 +142,7 @@ impl Agents {
         if transcript.is_none() && waiting.is_none() {
             return Ok(None);
         }
-        let cwd = self.dir(id).ok();
+        let cwd = self.worked_in(id).ok();
         // All of a session's turns, at most: the Chat's All (ChatView's ALL).
         let turns = turns.clamp(1, 5000) as usize;
         // Signed off the async workers too: all of a long session's turns are tens of ms.

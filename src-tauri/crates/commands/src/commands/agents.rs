@@ -157,6 +157,18 @@ pub async fn agent_resume(state: State<'_, AppState>, id: String) -> Cmd {
     state.agents.resume(&id).await.map_err(Into::into)
 }
 
+/// Its worktree removed under it: it goes on in the repository, resumed there.
+#[prism_macros::command]
+pub async fn agent_resume_in_repo(state: State<'_, AppState>, id: String) -> Cmd {
+    state.agents.resume_in_repo(&id).await.map_err(Into::into)
+}
+
+/// Its worktree removed under it, made again on its branch, and it resumed in it.
+#[prism_macros::command]
+pub async fn agent_recreate_worktree(state: State<'_, AppState>, id: String) -> Cmd {
+    state.agents.recreate_worktree(&id).await.map_err(Into::into)
+}
+
 /// The last agent closed in a repository back in the list, resumed (Agents view by project, Reopen).
 #[prism_macros::command]
 pub async fn agent_reopen(state: State<'_, AppState>, repo: String) -> Cmd<String> {

@@ -3,10 +3,44 @@
 use super::*;
 
 impl Agents {
-    /// The folder the agent works in: its worktree if it still exists, otherwise its launch folder.
+    /// The folder the agent works in: its worktree, otherwise its launch folder. Its worktree
+    /// removed under it, an error saying so: its files, shells and diff are not the repository's.
     pub fn dir(&self, id: &str) -> Result<PathBuf> {
+        let (record, worktree, lost) = self.folder(id)?;
+        if let (None, Some(lost)) = (&worktree, lost) {
+            bail!(tr!("its worktree {path} was removed", path = lost.display()));
+        }
+        Ok(worktree.unwrap_or(record.cwd))
+    }
+
+    /// Where a process of the agent can run: `dir`, else its launch folder (its worktree removed).
+    /// Its launch folder being that worktree (a CLI Prism makes the worktree for), its repository.
+    pub(crate) fn run_dir(&self, id: &str) -> Result<PathBuf> {
+        let (record, worktree, _) = self.folder(id)?;
+        if let Some(w) = worktree {
+            return Ok(w);
+        }
+        if record.cwd.is_dir() {
+            return Ok(record.cwd);
+        }
+        self.repo_of(&record).filter(|r| r.is_dir()).with_context(|| tr!("its folder is gone: {dir}", dir = record.cwd.display()))
+    }
+
+    /// The folder its conversation names files under: its worktree, even removed.
+    pub(crate) fn worked_in(&self, id: &str) -> Result<PathBuf> {
+        let (record, worktree, lost) = self.folder(id)?;
+        Ok(worktree.or(lost).unwrap_or(record.cwd))
+    }
+
+    /// Its record, its worktree if it exists, the one removed under it otherwise (`lost_worktree`).
+    pub(crate) fn folder(&self, id: &str) -> Result<(Record, Option<PathBuf>, Option<PathBuf>)> {
         let record = self.record(id)?;
-        Ok(self.inner.folds.lock().unwrap().get(id).and_then(|f| effective_worktree(&record, f)).unwrap_or(record.cwd))
+        let folds = self.inner.folds.lock().unwrap();
+        let fold = folds.get(id).cloned().unwrap_or_default();
+        drop(folds);
+        let worktree = effective_worktree(&record, &fold);
+        let lost = worktree.is_none().then(|| lost_worktree(&record, &fold)).flatten();
+        Ok((record, worktree, lost))
     }
 
     /// The files of the agent's folder the Web view can show (`ignored`: those `.gitignore` leaves out too).

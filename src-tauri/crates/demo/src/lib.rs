@@ -1047,6 +1047,7 @@ impl Demo {
             cwd: "/demo/shop".into(),
             worktree: Some(format!("/demo/shop.worktrees/{}", branch.rsplit('/').next().unwrap_or(branch).to_lowercase())),
             worktree_note: None,
+            worktree_gone: None,
             adopted: Vec::new(),
             also: Vec::new(),
             branch: Some(branch.into()),

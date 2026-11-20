@@ -37,6 +37,7 @@
   import AgentCliChip from './AgentCliChip.svelte'
   import AgentLimitBanner from './AgentLimitBanner.svelte'
   import AgentErrorBanner from './AgentErrorBanner.svelte'
+  import AgentWorktreeGone from './AgentWorktreeGone.svelte'
   import { atLabel, errorInfo } from '../agent-errors'
   import AgentLauncher from './AgentLauncher.svelte'
   import { agentHead, agentMenu, openMrOf } from '../menus'
@@ -585,6 +586,7 @@
               {#if e.kind === 'agent' && e.a.looping}<span class="pill loop" title={t('{command} failed {n} times in a row: going in circles? (Activity tab)', { command: e.a.looping.command, n: e.a.looping.count })}>↻ ×{e.a.looping.count}</span>{/if}
               {#if e.kind === 'agent' && e.a.state !== 'running'}<span class="pill">{AGENT_STATE[e.a.state]}</span>{/if}
               {#if e.kind === 'agent' && e.a.worktree}<span class="pill wt">{t('worktree')}</span>{/if}
+              {#if e.kind === 'agent' && e.a.worktree_gone}<span class="pill warn" title={t('Its worktree {path} was removed', { path: e.a.worktree_gone.path })}>{t('worktree removed')}</span>{/if}
               {#if e.kind === 'agent' && e.a.model}<span class="pill model" title={t('The model answering: {model}', { model: e.a.model })}>{modelName(e.a.model)}</span>{/if}
               <span class="br">{where(e)}</span>
               {#if e.kind === 'agent'}{#each agentPorts(e.a.id) as { port, server } (port)}<span class="pill port" title={t('Listens on :{port} · {server} · open it from its header', { port, server: serverTitle(server) })}>:{port}</span>{/each}{/if}
@@ -861,6 +863,7 @@
             {#if agentMr}<button class="link mr" class:on={!!mrView.ref && sameMr(mrView.ref, agentMr)} onclick={() => openMr(agentMr)} title={t('Show {mr}', { mr: mrKey(agentMr) })}><Icon name="mr" size={11} />{mrKey(agentMr)}</button><span class="dot">·</span>{/if}
             <span class="path" title="{a.branch ? `${t('Branch {branch}', { branch: a.branch })} · ` : ''}{tildePath(a.worktree ?? a.cwd)}">{a.branch ?? tildePath(a.worktree ?? a.cwd)}</span>
             {#if a.worktree}<span class="pill wt" title={t('Worktree of this agent: {path}', { path: tildePath(a.worktree) })}>{t('worktree')}</span>{/if}
+            {#if a.worktree_gone}<span class="pill warn" title={t('Its worktree {path} was removed', { path: tildePath(a.worktree_gone.path) })}>{t('worktree removed')}</span>{/if}
             {@render ports(a)}
             <span class="grow"></span>
             {#if a.category}<KindBadge name={a.category} />{/if}
@@ -883,6 +886,7 @@
           {#if a.branch}<span class="path" title={t('Branch')}>{a.branch}</span><span class="dot">·</span>{/if}
           <span class="path" title={a.worktree ?? a.cwd}>{tildePath(a.worktree ?? a.cwd)}</span>
           {#if a.worktree}<span class="pill wt" title={t('Worktree of this agent')}>{t('worktree')}</span>{/if}
+          {#if a.worktree_gone}<span class="pill warn" title={t('Its worktree {path} was removed', { path: tildePath(a.worktree_gone.path) })}>{t('worktree removed')}</span>{/if}
           {#each a.adopted ?? [] as p (p)}<span class="pill wt" title={t('{path}: created by a command of this agent (a skill)', { path: tildePath(p) })}>+ {baseName(p)}</span>{/each}
           {#each a.also ?? [] as p (p)}<span class="pill wt also" title={t('{path}: its worktree in this repository too, same branch (--add-dir)', { path: tildePath(p) })}>+ {agentRepo({ cwd: p, worktree: p }, live.snapshot) ?? baseName(p)}</span>{/each}
           {@render ports(a)}
@@ -907,6 +911,7 @@
       <!-- In its Chat, its chain is a chip of the rail. -->
       {#if !chatting(a.id)}<AgentChain agent={a} />{/if}
       <AgentErrorBanner {a} />
+      <AgentWorktreeGone {a} />
       <AgentLimitBanner {a} />
       {#if a.worktree && a.worktree_note}<p class="ask bar">{t('Worktree kept: {note}', { note: a.worktree_note })}</p>{/if}
       {#if error}<p class="err bar">{error}</p>{/if}

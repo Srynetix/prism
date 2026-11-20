@@ -41,6 +41,7 @@
   import { installedClis, openSwitch, targetsOf, targetUse } from '../agent-switch.svelte'
   import AgentLimitBanner from '../components/AgentLimitBanner.svelte'
   import AgentErrorBanner from '../components/AgentErrorBanner.svelte'
+  import AgentWorktreeGone from '../components/AgentWorktreeGone.svelte'
   import { agentStateLabel } from '../rules'
   import { draftOf, setDraft } from '../chat-drafts.svelte'
   import { terminalStack } from '../fonts.svelte'
@@ -523,7 +524,7 @@
     {/if}
     {#if !shell && quickAgent}<button class="btn ghost icon more" class:on={menu} onclick={() => { menu = !menu; effortOpen = false }} aria-expanded={menu} aria-label={t('Clear, stop or close the agent')}><Icon name="more" /></button>{/if}
   </header>
-  {#if !shell && quickAgent}<AgentErrorBanner a={quickAgent} />{/if}
+  {#if !shell && quickAgent}<AgentErrorBanner a={quickAgent} /><AgentWorktreeGone a={quickAgent} />{/if}
   {#if !shell && quickAgent && typing}<AgentLimitBanner a={quickAgent} />{/if}
   <!-- Its effort: a setting, under its chip in the header, over its Chat. -->
   {#if effortOpen && quickAgent && takesEffort(quickAgent)}

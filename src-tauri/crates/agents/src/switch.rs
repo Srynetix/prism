@@ -120,7 +120,7 @@ impl Agents {
     /// What a relay is written from (`Material`), its last `turns` turns recalled.
     pub async fn handoff_material(&self, id: &str, turns: u32) -> Result<Material> {
         let record = self.record(id)?;
-        let dir = self.dir(id)?;
+        let dir = self.worked_in(id)?;
         let transcript = self.transcript(id)?;
         let mut m = Material { provider: record.provider, title: record.title.clone(), prompt: record.prompt.clone(), readable: transcript.is_some(), ..Default::default() };
         if let Some(t) = transcript {
@@ -292,7 +292,7 @@ impl Agents {
         let record = self.record(id)?;
         let l = record.legs.get(leg).context("no such stretch")?;
         let Some(t) = l.transcript.clone().map(PathBuf::from).filter(|t| t.is_file()) else { return Ok(None) };
-        let cwd = self.dir(id).ok();
+        let cwd = self.worked_in(id).ok();
         let turns = turns.clamp(1, 5000) as usize;
         Ok(Some(tokio::task::spawn_blocking(move || conversation::read(&t, cwd.as_deref(), turns)).await?))
     }

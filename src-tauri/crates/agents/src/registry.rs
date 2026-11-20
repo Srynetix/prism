@@ -51,6 +51,12 @@ pub struct Record {
     /// conversation held then is that stretch's, not counted again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resumed: Option<String>,
+    /// The branch of its worktree, as last seen there: the worktree removed, it is recreated on it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    /// The repository its worktree belongs to, as git said it while the worktree was there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo: Option<PathBuf>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -98,7 +104,7 @@ mod tests {
         let path = dir.join("agents.json");
         let mut reg = Registry::load(path.clone());
         assert!(reg.records.is_empty());
-        reg.records.push(Record { id: "a".into(), provider: super::super::provider::Provider::CommandCode, title: "T".into(), cwd: "/tmp".into(), prompt: None, worktree: None, category: None, tags: vec!["api".into()], ticket: Some("ABC-1".into()), mr: None, launch: None, prepared: false, extra: Vec::new(), legs: Vec::new(), resumed: None, created_at: Utc::now() });
+        reg.records.push(Record { id: "a".into(), provider: super::super::provider::Provider::CommandCode, title: "T".into(), cwd: "/tmp".into(), prompt: None, worktree: None, category: None, tags: vec!["api".into()], ticket: Some("ABC-1".into()), mr: None, launch: None, prepared: false, extra: Vec::new(), legs: Vec::new(), resumed: None, branch: None, repo: None, created_at: Utc::now() });
         reg.save().unwrap();
         assert_eq!(Registry::load(path.clone()).records, reg.records);
         std::fs::write(&path, "{").unwrap();

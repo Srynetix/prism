@@ -1111,3 +1111,110 @@ async fn a_folder_launch_switches_to_its_branch() {
     // Already on it: nothing to switch, the changes no matter.
     b.agents.spawn(on("main")).await.unwrap();
 }
+
+/// A git repository with a worktree on `feat`, the agent's: as Prism prepares one.
+fn repo_with_worktree(root: &Path) -> (PathBuf, PathBuf) {
+    let (repo, wt) = (root.join("repo"), root.join("repo.worktrees/feat"));
+    std::fs::create_dir_all(&repo).unwrap();
+    let git = |dir: &Path, args: &[&str]| assert!(std::process::Command::new("git").arg("-C").arg(dir).args(args).output().unwrap().status.success(), "git {args:?}");
+    git(&repo, &["init", "-q", "-b", "main"]);
+    git(&repo, &["-c", "user.email=a@b", "-c", "user.name=A", "commit", "-q", "--allow-empty", "-m", "first"]);
+    git(&repo, &["worktree", "add", "-q", "-b", "feat", &wt.display().to_string()]);
+    (repo.canonicalize().unwrap(), wt.canonicalize().unwrap())
+}
+
+/// Its worktree removed under it (its own `git worktree remove`): its Chat keeps the whole
+/// conversation, though Claude Code, resumed in the repository, names a transcript there it never
+/// writes; its folder is said gone rather than shown as the repository; it goes on in the
+/// repository, asked.
+#[tokio::test]
+async fn an_agent_whose_worktree_is_removed_keeps_its_conversation() {
+    let b = Bench::new();
+    let (repo, wt) = repo_with_worktree(&b.root);
+    let id = b.agents.spawn(Launch { cwd: Some(repo.clone()), ..b.launch("Gone") }).await.unwrap();
+    b.agents.update_registry(|reg| reg.records.iter_mut().find(|r| r.id == id).unwrap().worktree = Some(wt.clone())).unwrap();
+    // Its conversation, written under its worktree's folder of Claude Code's.
+    let first = b.root.join("projects/-repo-worktrees-feat").join(format!("{id}.jsonl"));
+    std::fs::create_dir_all(first.parent().unwrap()).unwrap();
+    let turn = |text: &str| serde_json::json!({ "type": "user", "timestamp": "2026-10-17T10:00:00Z", "message": { "content": text } }).to_string() + "\n";
+    std::fs::write(&first, turn("Fix the build.")).unwrap();
+    let start = |transcript: &Path| hook::Line { t: chrono::Utc::now().timestamp_millis(), event: "SessionStart".into(), transcript: Some(transcript.display().to_string()), ..Default::default() };
+    hook::append(&b.agents.inner.events, &id, &start(&first)).unwrap();
+    let a = b.shown(&id).await.unwrap();
+    assert_eq!((a.branch.as_deref(), a.worktree_gone.is_none()), (Some("feat"), true));
+    assert_eq!(b.agents.inner.registry.lock().unwrap().get(&id).unwrap().branch.as_deref(), Some("feat"), "its branch kept");
+
+    std::process::Command::new("git").arg("-C").arg(&repo).args(["worktree", "remove", "--force"]).arg(&wt).output().unwrap();
+    // Resumed in the repository: named there, still written in the first one.
+    hook::append(&b.agents.inner.events, &id, &start(&b.root.join("projects/-repo").join(format!("{id}.jsonl")))).unwrap();
+    std::io::Write::write_all(&mut std::fs::OpenOptions::new().append(true).open(&first).unwrap(), turn("And the tests.").as_bytes()).unwrap();
+    let a = b.shown(&id).await.unwrap();
+    let gone = a.worktree_gone.expect("its worktree said gone");
+    assert_eq!((gone.path, gone.branch.as_deref(), gone.branch_exists), (wt.display().to_string(), Some("feat"), true));
+    assert_eq!(a.branch.as_deref(), Some("feat"), "its branch, not the repository's");
+    let c = b.agents.conversation(&id, 30, &[]).await.unwrap().expect("its conversation");
+    assert_eq!(c.turns.iter().map(|t| t.prompt.as_str()).collect::<Vec<_>>(), ["Fix the build.", "And the tests."]);
+    let err = b.agents.dir(&id).unwrap_err().to_string();
+    assert!(err.contains("was removed"), "{err}");
+
+    b.agents.resume_in_repo(&id).await.unwrap();
+    let a = b.shown(&id).await.unwrap();
+    assert!(a.worktree_gone.is_none() && a.worktree.is_none());
+    assert_eq!(b.agents.dir(&id).unwrap(), repo);
+    assert_eq!(b.tmux.calls_of("respawn-pane").len(), 1, "resumed there");
+}
+
+/// Its worktree removed, made again on its branch and resumed in.
+#[tokio::test]
+async fn a_removed_worktree_is_recreated_on_its_branch() {
+    let b = Bench::new();
+    let (repo, wt) = repo_with_worktree(&b.root);
+    let id = b.agents.spawn(Launch { cwd: Some(repo.clone()), ..b.launch("Again") }).await.unwrap();
+    b.agents.update_registry(|reg| reg.records.iter_mut().find(|r| r.id == id).unwrap().worktree = Some(wt.clone())).unwrap();
+    b.shown(&id).await.unwrap();
+    // Deleted by hand: git still names it, until pruned.
+    std::fs::remove_dir_all(&wt).unwrap();
+    assert!(b.shown(&id).await.unwrap().worktree_gone.is_some());
+    b.agents.recreate_worktree(&id).await.unwrap();
+    let a = b.shown(&id).await.unwrap();
+    assert_eq!((a.worktree_gone, a.worktree.as_deref(), a.branch.as_deref()), (None, Some(wt.display().to_string().as_str()), Some("feat")));
+}
+
+/// A CLI Prism makes the worktree for runs in it (its launch folder is the worktree): removed, its
+/// repository is the one git named while it was there, not the first of the config; it goes on there.
+#[tokio::test]
+async fn a_worktree_that_was_the_launch_folder_finds_its_repository() {
+    let b = Bench::new();
+    let (repo, wt) = repo_with_worktree(&b.root);
+    let id = b.agents.spawn(Launch { cwd: Some(wt.clone()), ..b.launch("Inside") }).await.unwrap();
+    b.agents.update_registry(|reg| reg.records.iter_mut().find(|r| r.id == id).unwrap().worktree = Some(wt.clone())).unwrap();
+    b.shown(&id).await.unwrap();
+    assert_eq!(b.agents.inner.registry.lock().unwrap().get(&id).unwrap().repo.as_deref(), Some(repo.as_path()), "its repository kept");
+    std::fs::remove_dir_all(&wt).unwrap();
+    let gone = b.shown(&id).await.unwrap().worktree_gone.expect("said gone");
+    assert!(gone.branch_exists);
+    assert_eq!(b.agents.run_dir(&id).unwrap(), repo, "never the folder removed");
+    b.agents.resume_in_repo(&id).await.unwrap();
+    assert_eq!(b.agents.dir(&id).unwrap(), repo);
+}
+
+/// Recreating one worktree leaves what git keeps of the others deleted by hand (their branch).
+#[test]
+fn recreating_one_worktree_leaves_the_others_stale() {
+    let root = std::env::temp_dir().join(format!("prism-stale-{}", uuid::Uuid::new_v4()));
+    let (repo, wt) = repo_with_worktree(&root);
+    let other = root.join("repo.worktrees/other");
+    std::process::Command::new("git").arg("-C").arg(&repo).args(["worktree", "add", "-q", "-b", "other"]).arg(&other).output().unwrap();
+    let other = other.canonicalize().unwrap();
+    std::fs::remove_dir_all(&wt).unwrap();
+    std::fs::remove_dir_all(&other).unwrap();
+    worktree::recreate(&repo, &wt, "feat").unwrap();
+    assert!(wt.join(".git").is_file());
+    assert_eq!(stale_branch(&repo, &other).as_deref(), Some("other"), "the other one's branch still read");
+    // A branch only on origin counts: a worktree is made on it too.
+    let refs = repo.join(".git/refs/remotes/origin");
+    std::fs::create_dir_all(&refs).unwrap();
+    std::fs::copy(repo.join(".git/refs/heads/main"), refs.join("pushed")).unwrap();
+    assert!(vcs::has_branch(&repo, "pushed") && !vcs::has_branch(&repo, "never"));
+    let _ = std::fs::remove_dir_all(root);
+}

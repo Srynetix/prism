@@ -117,6 +117,29 @@ pub fn create(repo: &Path, intent: &Intent) -> Result<PathBuf> {
     Ok(intent.dir.clone())
 }
 
+/// What git still keeps of the worktree at `dir`, its folder deleted (`.git/worktrees/<name>`,
+/// which holds its branch as checked out): this one only, not `git worktree prune`, which would
+/// forget the other worktrees deleted too, and the branch Prism reads from them (`stale_branch`).
+fn forget_stale(repo: &Path, dir: &Path) {
+    if dir.exists() {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(repo.join(".git/worktrees")) else { return };
+    for e in entries.flatten() {
+        let named = std::fs::read_to_string(e.path().join("gitdir")).is_ok_and(|g| Path::new(g.trim()).parent() == Some(dir));
+        if named {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
+}
+
+/// The worktree at `dir`, removed (by its agent, a script, by hand), made again on `branch`, which
+/// still exists (locally or on origin): what git still kept of it pruned first.
+pub fn recreate(repo: &Path, dir: &Path, branch: &str) -> Result<PathBuf> {
+    forget_stale(repo, dir);
+    create(repo, &Intent { dir: dir.to_path_buf(), branch: branch_name(branch)?, base: None })
+}
+
 /// A branch to check out, as git would name one: never an option for the git commands it goes
 /// into (`--upload-pack=…`), whoever gave it (an MR's, a phone's launch).
 pub fn branch_name(branch: &str) -> Result<String> {

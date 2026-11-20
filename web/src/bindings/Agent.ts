@@ -10,6 +10,7 @@ import type { LaunchSpec } from "./LaunchSpec";
 import type { Looping } from "./Looping";
 import type { MrLink } from "./MrLink";
 import type { SessionStatus } from "./SessionStatus";
+import type { WorktreeGone } from "./WorktreeGone";
 
 /**
  * Agent launched by Prism in its tmux server (Agents view).
@@ -39,6 +40,11 @@ tags: Array<string>, cwd: string,
  * The agent's worktree, if it has one; and why it was kept when Claude exited.
  */
 worktree: string | null, worktree_note: string | null, 
+/**
+ * Its worktree, removed under it (a command of its own, a script, by hand): its files, shells
+ * and diff are not shown from the repository instead.
+ */
+worktree_gone?: WorktreeGone, 
 /**
  * Worktrees created by a command of the agent (a skill), which stay linked to it; only
  * those whose folder still exists.

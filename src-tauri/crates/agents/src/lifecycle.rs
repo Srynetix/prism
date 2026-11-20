@@ -112,6 +112,8 @@ impl Agents {
             extra: Vec::new(),
             legs: Vec::new(),
             resumed: None,
+            branch: None,
+            repo: None,
             created_at: Utc::now(),
         };
         self.update_registry(|reg| reg.records.push(record))?;
@@ -298,7 +300,7 @@ impl Agents {
         }
         let category = launch.category.map(|c| c.trim().to_string()).filter(|c| !c.is_empty()).or_else(|| self.kind_of(prompt.as_deref()));
         let (ticket, mr) = prepared.map(|r| (r.ticket, r.mr)).unwrap_or_default();
-        let record = Record { id: id.clone(), provider, title, cwd, prompt, worktree, category, tags: clean_tags(launch.tags), ticket, mr, launch: Some(spec), prepared: false, extra, legs: Vec::new(), resumed: None, created_at: Utc::now() };
+        let record = Record { id: id.clone(), provider, title, cwd, prompt, worktree, category, tags: clean_tags(launch.tags), ticket, mr, launch: Some(spec), prepared: false, extra, legs: Vec::new(), resumed: None, branch: None, repo: None, created_at: Utc::now() };
         self.update_registry(|reg| {
             reg.records.retain(|r| r.id != id);
             reg.records.push(record)
@@ -501,8 +503,6 @@ impl Agents {
         }
         let provider = record.provider;
         let (session, transcript) = self.inner.folds.lock().unwrap().get(id).map(|f| (f.session.clone(), f.transcript.clone())).unwrap_or_default();
-        // In its worktree if it still exists: the CLI does not always bring it back there by itself.
-        let mut cwd = self.dir(id)?;
         // Claude Code writes a conversation at its first message: an agent that quit before (its
         // worktree not created, a crash at startup) has none to resume, and `--resume` would fail.
         // It starts again instead, under the same id, with its prompt and, when its worktree is
@@ -510,6 +510,9 @@ impl Agents {
         // In the permission mode it was launched in (plan stays plan).
         let mode = record.launch.as_ref().and_then(|l| l.permission_mode.as_deref());
         let started = session.is_some() || transcript.as_deref().is_some_and(|t| Path::new(t).is_file()) || claude_conversation_exists(self.home_of(id).as_deref(), &record.id);
+        // In its worktree: the CLI does not always bring it back there by itself. Removed under it,
+        // not in the repository without a word: Resume in the repository, Recreate the worktree.
+        let mut cwd = if started { self.dir(id)? } else { self.run_dir(id)? };
         let argv = if provider == Provider::Claude && !started {
             let missing = record.worktree.as_ref().filter(|w| !w.is_dir()).and_then(|w| w.file_name()).map(|n| n.to_string_lossy().into_owned());
             if missing.is_some() {
@@ -684,6 +687,43 @@ impl Agents {
             }
             Err(reason) => bail!(tr!("worktree kept: {reason}", reason = reason)),
         }
+    }
+
+    /// Its worktree removed under it: it goes on in the repository, its conversation resumed
+    /// there (restarted if it runs), the worktree forgotten.
+    pub async fn resume_in_repo(&self, id: &str) -> Result<()> {
+        let (record, _, lost) = self.folder(id)?;
+        lost.context(tr("its worktree is still there"))?;
+        let repo = self.repo_of(&record).filter(|r| r.is_dir()).context(tr("its repository is not found"))?;
+        // Its shells were in a folder that no longer exists.
+        self.close_shells(id).await;
+        {
+            let _refreshing = self.inner.refreshing.lock().await;
+            if let Some(f) = self.inner.folds.lock().unwrap().get_mut(id) {
+                (f.worktree, f.worktree_note) = (None, None);
+            }
+            // The log says it too: read again from the start (a restart of Prism), it stays forgotten.
+            let line = hook::Line { t: Utc::now().timestamp_millis(), event: "WorktreeRemove".into(), reason: Some("removed".into()), ..Default::default() };
+            hook::append(&self.inner.events, id, &line)?;
+            self.update_registry(|reg| {
+                if let Some(r) = reg.records.iter_mut().find(|r| r.id == id) {
+                    (r.worktree, r.cwd) = (None, repo);
+                }
+            })?;
+        }
+        self.relaunch(id, true).await
+    }
+
+    /// Its worktree removed under it, made again on the branch it was on (still there), and its
+    /// conversation resumed in it (restarted if it runs).
+    pub async fn recreate_worktree(&self, id: &str) -> Result<()> {
+        let (record, _, lost) = self.folder(id)?;
+        let lost = lost.context(tr("its worktree is still there"))?;
+        let repo = self.repo_of(&record).filter(|r| r.is_dir()).context(tr("its repository is not found"))?;
+        let branch = lost_branch(&record, Some(&repo), &lost).context(tr("the branch it was on is not known"))?;
+        tokio::task::spawn_blocking(move || worktree::recreate(&repo, &lost, &branch)).await??;
+        self.close_shells(id).await;
+        self.relaunch(id, true).await
     }
 
     pub(crate) async fn close_shells(&self, id: &str) {

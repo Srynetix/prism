@@ -142,6 +142,13 @@ pub fn main(work: &Path) -> ExitCode {
         "WorktreeCreate" => worktree_create(work, &events, input, t),
         "WorktreeRemove" => worktree_remove(&events, input, t),
         _ => {
+            // Its own worktree removed by a command of its own or of a subagent: refused, said why
+            // (`guard.rs`). Not logged, nor watched: it never runs, no PostToolUse closes it.
+            if input.hook_event_name == "PreToolUse" && input.tool_name.as_deref() == Some("Bash") && removes_own_folder(&input) {
+                let out = serde_json::json!({ "hookSpecificOutput": { "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": crate::guard::REFUSED } });
+                let _ = writeln!(std::io::stdout(), "{out}");
+                return ExitCode::SUCCESS;
+            }
             let adopted = adopted_worktrees(work, &input);
             let session = input.session_id.clone();
             let event = input.hook_event_name.clone();
@@ -164,6 +171,14 @@ pub fn main(work: &Path) -> ExitCode {
             ExitCode::SUCCESS
         }
     }
+}
+
+/// Its Bash command removes the folder it works in (`guard.rs`): the folder its shell is in, or the
+/// one its CLI started in (`CLAUDE_PROJECT_DIR`).
+fn removes_own_folder(input: &Input) -> bool {
+    let (Some(command), Some(cwd)) = (input.tool_input.get("command").and_then(|c| c.as_str()), input.cwd.as_deref()) else { return false };
+    let project = std::env::var_os("CLAUDE_PROJECT_DIR").map(PathBuf::from).filter(|p| p.is_absolute());
+    crate::guard::removes_own_folder(command, cwd, project.as_deref())
 }
 
 fn takes_news(event: &str) -> bool {

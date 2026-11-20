@@ -133,6 +133,7 @@
       {#if agentRepo(a, snap)}{@const repo = agentRepo(a, snap)!}<button class="repo" onclick={() => openProjectPage(repo)} aria-label={t('Open the project {repo}', { repo })}><Icon name="folder" size="12px" />{repo}</button>{/if}
       {#if a.ticket}<span class="tk">{a.ticket}</span>{/if}
       {#if a.mr}<span>{mrKey(a.mr)}</span>{:else if a.branch}<span class="br">{a.branch}</span>{/if}
+      {#if a.worktree_gone}<span class="gone">{t('worktree removed')}</span>{/if}
       {#if ctx(a)}<span>{ctx(a)}</span>{/if}
       <ProposalChip agent={a} />
       <AsideChip agent={a} />
@@ -305,6 +306,7 @@
   .q.tool { border-color: var(--ko); font-family: var(--mono); font-size: var(--fs-tag); }
   .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--text-muted); font-size: var(--fs-tag); }
   .meta .tk { color: var(--info); font-family: var(--mono); }
+  .meta .gone { color: var(--warn); }
   .meta .br { overflow: hidden; max-width: 100%; font-family: var(--mono); text-overflow: ellipsis; white-space: nowrap; }
   /* Its open ports: a chip per port, what holds it beside, scrolled sideways rather than wrapped. */
   .ports { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }

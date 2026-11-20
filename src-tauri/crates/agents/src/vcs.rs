@@ -220,6 +220,36 @@ pub fn branch_ok(branch: &str) -> Result<()> {
     Ok(())
 }
 
+/// Whether `branch` exists in the repository at `repo`, read from its files (no git process: asked
+/// at each read of a list of agents): a loose ref or a packed one.
+pub fn has_branch(repo: &Path, branch: &str) -> bool {
+    if branch_ok(branch).is_err() || branch.split('/').any(|part| part.is_empty() || part == "..") {
+        return false;
+    }
+    let Some(git) = common_dir(repo) else { return false };
+    // Local, or only on origin: a worktree is made on either (`worktree::create`).
+    let packed = std::fs::read_to_string(git.join("packed-refs")).unwrap_or_default();
+    [format!("refs/heads/{branch}"), format!("refs/remotes/origin/{branch}")].iter().any(|name| git.join(name).is_file() || packed.lines().any(|l| l.split_once(' ').is_some_and(|(_, r)| r == name)))
+}
+
+/// The repository a worktree (or a clone) at `dir` belongs to: the folder of its main `.git`.
+pub fn repo_root(dir: &Path) -> Option<std::path::PathBuf> {
+    let git = common_dir(dir)?.canonicalize().ok()?;
+    (git.file_name()? == ".git").then(|| git.parent().map(Path::to_path_buf)).flatten()
+}
+
+/// The repository's git folder its branches are in: `.git`, or the main one's of a worktree.
+fn common_dir(repo: &Path) -> Option<std::path::PathBuf> {
+    let dot = repo.join(".git");
+    if dot.is_dir() {
+        return Some(dot);
+    }
+    let link = std::fs::read_to_string(&dot).ok()?;
+    let gitdir = repo.join(link.trim().strip_prefix("gitdir:")?.trim());
+    let common = std::fs::read_to_string(gitdir.join("commondir")).map(|c| gitdir.join(c.trim())).unwrap_or(gitdir);
+    Some(common)
+}
+
 /// The folder switched to `branch`, a local one or origin's (then made local, tracking it). Only
 /// with nothing uncommitted: changes carried to another branch are a surprise.
 pub async fn switch(dir: &Path, branch: &str) -> Result<String> {

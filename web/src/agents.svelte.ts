@@ -412,6 +412,10 @@ export function slug(text: string): string {
     .replace(/-+$/, '')
 }
 export const resumeAgent = (id: string) => invoke('agent_resume', { id })
+/** Its worktree removed under it: it goes on in the repository, resumed there. */
+export const resumeInRepo = (id: string) => invoke('agent_resume_in_repo', { id })
+/** Its worktree removed under it, made again on its branch, it resumed in it. */
+export const recreateWorktree = (id: string) => invoke('agent_recreate_worktree', { id })
 /** Restarts Claude on its conversation (`claude --resume`), even mid-work. */
 export const restartAgent = (id: string) => invoke('agent_restart', { id })
 export const stopAgent = (id: string) => invoke('agent_stop', { id })

@@ -247,6 +247,16 @@ pub enum GateKind {
     Other,
 }
 
+/// An agent's worktree removed under it: where it was, the branch it was on and whether that
+/// branch still exists (Recreate the worktree).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct WorktreeGone {
+    pub path: String,
+    pub branch: Option<String>,
+    pub branch_exists: bool,
+}
+
 /// Agent launched by Prism in its tmux server (Agents view).
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -268,6 +278,11 @@ pub struct Agent {
     /// The agent's worktree, if it has one; and why it was kept when Claude exited.
     pub worktree: Option<String>,
     pub worktree_note: Option<String>,
+    /// Its worktree, removed under it (a command of its own, a script, by hand): its files, shells
+    /// and diff are not shown from the repository instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub worktree_gone: Option<WorktreeGone>,
     /// Worktrees created by a command of the agent (a skill), which stay linked to it; only
     /// those whose folder still exists.
     pub adopted: Vec<String>,
