@@ -20,7 +20,7 @@
   let { snap }: { snap: Snapshot } = $props()
 
   type Group = { p: PhoneProfile; agents: Agent[]; stopped: number; acts: boolean }
-  const RANK: Partial<Record<Agent['status'], number>> = { waiting_tool: 0, needs_you: 0, review_ready: 0, running: 1, background: 1 }
+  const RANK: Partial<Record<Agent['status'], number>> = { waiting_tool: 0, needs_you: 0, failed: 0, review_ready: 0, running: 1, background: 1 }
   const order = (a: Agent, b: Agent) => (RANK[a.status] ?? 2) - (RANK[b.status] ?? 2) || (b.last_activity ?? b.created_at).localeCompare(a.last_activity ?? a.created_at)
   const group = (p: PhoneProfile, s: Snapshot | null, acts: boolean): Group => {
     const agents = (s?.agents ?? []).filter((a) => !isArchived(a) || waitsForYou(a.status))
@@ -38,7 +38,7 @@
     return out
   })
 
-  const STATE: Partial<Record<Agent['status'], [string, string]>> = { needs_you: [t('Asks'), 'asks'], waiting_tool: [t('Permission'), 'tool'], review_ready: [t('Plan ready'), 'asks'], running: [t('Working'), 'run'], background: [t('In the background'), 'run'] }
+  const STATE: Partial<Record<Agent['status'], [string, string]>> = { needs_you: [t('Asks'), 'asks'], failed: [t('API error'), 'tool'], waiting_tool: [t('Permission'), 'tool'], review_ready: [t('Plan ready'), 'asks'], running: [t('Working'), 'run'], background: [t('In the background'), 'run'] }
   const label = (a: Agent) => STATE[a.status] ?? [tc('infra', 'Done'), '']
   const open = (g: Group, a: Agent) => (g.p.hub ? openAgents(a.id) : switchProfile(g.p.id, { view: 'agents', agent: a.id }))
 </script>

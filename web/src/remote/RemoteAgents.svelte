@@ -60,7 +60,7 @@
   let showArchived = $state(false)
   const live = $derived(agents.filter((a) => a.state === 'running'))
   /** Waiting for you: a question, a permission, a plan to approve. */
-  const waiting = $derived(live.filter((a) => a.status === 'needs_you' || a.status === 'waiting_tool' || a.status === 'review_ready'))
+  const waiting = $derived(live.filter((a) => a.status === 'needs_you' || a.status === 'failed' || a.status === 'waiting_tool' || a.status === 'review_ready'))
   const working = $derived(live.filter((a) => isWorking(a.status)))
   const idle = $derived(live.filter((a) => !waiting.includes(a) && !working.includes(a)))
   const stopped = $derived(agents.filter((a) => a.state !== 'running'))
@@ -73,7 +73,7 @@
   const five = $derived(lead?.usage?.five_hour ?? null)
   const seven = $derived(lead?.usage?.seven_day ?? null)
 
-  const STATE: Record<string, [string, string]> = { needs_you: [t('Asks'), 'asks'], waiting_tool: [t('Permission'), 'tool'], running: [t('Working'), 'run'], background: [t('In the background'), 'run'], review_ready: [t('Plan ready'), 'asks'], completed: [tc('infra', 'Done'), ''], idle: [t('Idle'), ''] }
+  const STATE: Record<string, [string, string]> = { needs_you: [t('Asks'), 'asks'], failed: [t('API error'), 'tool'], waiting_tool: [t('Permission'), 'tool'], running: [t('Working'), 'run'], background: [t('In the background'), 'run'], review_ready: [t('Plan ready'), 'asks'], completed: [tc('infra', 'Done'), ''], idle: [t('Idle'), ''] }
   /** Projects: the agents of each repository, those with an agent waiting for you, then working, first. */
   const repos = $derived((snap.repos ?? []).map((r) => r.name))
   const urgency = (g: Group) => Math.min(...g.items.map((e) => (waiting.some((a) => a.id === e.id) ? 0 : working.some((a) => a.id === e.id) ? 1 : 2)))

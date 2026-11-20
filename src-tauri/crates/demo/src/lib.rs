@@ -1077,6 +1077,7 @@ impl Demo {
             suggestion: None,
             gate: None,
             looping: None,
+            failure: None,
             legs: Vec::new(),
             // The review agent proposes plans (details.rs).
             planned: id == "demo-a2",

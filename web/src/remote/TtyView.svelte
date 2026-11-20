@@ -40,6 +40,7 @@
   import { CLIS } from '../agent-cli'
   import { installedClis, openSwitch, targetsOf, targetUse } from '../agent-switch.svelte'
   import AgentLimitBanner from '../components/AgentLimitBanner.svelte'
+  import AgentErrorBanner from '../components/AgentErrorBanner.svelte'
   import { agentStateLabel } from '../rules'
   import { draftOf, setDraft } from '../chat-drafts.svelte'
   import { terminalStack } from '../fonts.svelte'
@@ -522,6 +523,7 @@
     {/if}
     {#if !shell && quickAgent}<button class="btn ghost icon more" class:on={menu} onclick={() => { menu = !menu; effortOpen = false }} aria-expanded={menu} aria-label={t('Clear, stop or close the agent')}><Icon name="more" /></button>{/if}
   </header>
+  {#if !shell && quickAgent}<AgentErrorBanner a={quickAgent} />{/if}
   {#if !shell && quickAgent && typing}<AgentLimitBanner a={quickAgent} />{/if}
   <!-- Its effort: a setting, under its chip in the header, over its Chat. -->
   {#if effortOpen && quickAgent && takesEffort(quickAgent)}
@@ -704,6 +706,7 @@
   header .st { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
   header .st.running { background: var(--warn); animation: pulse 1.2s infinite; }
   header .st.waiting_tool, header .st.waiting_input { background: var(--warn); }
+  header .st.failed { background: var(--ko); }
   @keyframes pulse { 50% { opacity: 0.3; } }
   header .back { color: var(--info); }
   header .more { margin-left: auto; }

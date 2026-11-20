@@ -18,6 +18,7 @@
   import { openMr } from '../mr-view.svelte'
   import { branchPipelineAction, claudeClick, devServerPrompt, investigateAction, mrActions, type ClaudeAction } from '../claude-actions'
   import { openAgents, promptAgent } from '../agents.svelte'
+  import { resumeAgent } from '../agent-errors'
   import QuickAnswers from './QuickAnswers.svelte'
   import { branchName } from '../pipeline'
   import type { Agent, SessionStatus } from '../types'
@@ -64,12 +65,12 @@
     agent?: Agent
   }
   const agents = $derived((live.snapshot?.agents ?? []).filter((a) => a.state === 'running'))
-  const STATUS: Record<SessionStatus, string> = { running: t('on it'), background: t('on it, in the background'), waiting_tool: t('asks permission'), needs_you: t('waits for you'), review_ready: t('ready for review'), completed: tc('core', 'done'), idle: t('idle') }
+  const STATUS: Record<SessionStatus, string> = { running: t('on it'), background: t('on it, in the background'), waiting_tool: t('asks permission'), needs_you: t('waits for you'), failed: t('stopped on an API error'), review_ready: t('ready for review'), completed: tc('core', 'done'), idle: t('idle') }
   /** The agent working on an alert: launched on the MR's branch, or under the fix's title. */
   const onIt = (match: (a: Agent) => boolean) => agents.find(match)
   const agentFix = (a: Agent, key: string): QuickFix => ({ key: `on-${key}`, label: `${agentName()} ${a.gate ? t('waits for your trust') : STATUS[a.status]}`, title: t('{title} · open it', { title: a.title }), agent: a })
   /** Told now when it waits for a prompt; otherwise typed in its prompt, for you to send once it is free. */
-  const waitsForPrompt = (a: Agent) => a.status === 'idle' || a.status === 'background' || a.status === 'completed' || a.status === 'review_ready' || a.status === 'needs_you'
+  const waitsForPrompt = (a: Agent) => a.status === 'idle' || a.status === 'background' || a.status === 'completed' || a.status === 'review_ready' || a.status === 'needs_you' || a.status === 'failed'
   function quickFixes(a: Alert): QuickFix[] {
     const app = hasCore()
     return (a.fixes ?? []).flatMap((f: Fix): QuickFix[] => {
@@ -128,6 +129,10 @@
         }
         case 'read':
           return app ? [{ key: 'read', label: f.sessions.length > 1 ? t('Mark them read') : t('Mark as read'), title: t('Seen: out of the way until their next turn'), run: () => markRead(f.sessions) }] : []
+        case 'resume': {
+          const agent = live.snapshot?.agents?.find((x) => x.id === f.agent)
+          return app && agent ? [{ key: 'resume', label: t('Resume'), title: t('Send {title} its resume prompt: the error has passed', { title: agent.title }), run: () => resumeAgent(agent.id) }] : []
+        }
         case 'switch': {
           const agent = live.snapshot?.agents?.find((x) => x.id === f.agent)
           const to = agent ? suggestedFor(agent) : null

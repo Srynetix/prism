@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use super::{context::ContextUse, worktree};
 
 /// Events listened to; each one calls the same command.
-pub const EVENTS: [&str; 11] = [
+pub const EVENTS: [&str; 12] = [
     "SessionStart",
     "UserPromptSubmit",
     "PreToolUse",
@@ -28,6 +28,8 @@ pub const EVENTS: [&str; 11] = [
     "PermissionRequest",
     "Notification",
     "Stop",
+    // Sent instead of `Stop` when an API error ended the turn (overloaded, rate limit…).
+    "StopFailure",
     "SessionEnd",
     "WorktreeCreate",
     "WorktreeRemove",
@@ -118,6 +120,11 @@ struct Input {
     worktree_path: Option<PathBuf>,
     /// The conversation's transcript: only the usage figures of its last reply are read.
     transcript_path: Option<PathBuf>,
+    /// `StopFailure`: why the API refused the turn (`overloaded`, `rate_limit`…), its details and
+    /// the message the CLI showed (« API Error: 529 … »): the error's text only, cut short.
+    error: Option<String>,
+    error_details: Option<String>,
+    last_assistant_message: Option<String>,
 }
 
 /// Entry point of the subcommand, called by `main` before anything else; `work` is the agents'
@@ -303,6 +310,14 @@ fn parse(input: Input, t: i64) -> Option<(String, Line)> {
         _ => false,
     };
     let context = input.transcript_path.as_deref().filter(|_| measured).and_then(super::context::read);
+    // An API error: its kind as the reason, its message (the CLI's own words about it) as what.
+    let failed = input.hook_event_name == "StopFailure";
+    let (what, reason) = if failed {
+        let text = input.last_assistant_message.as_deref().or(input.error_details.as_deref()).map(error_text).filter(|t| !t.is_empty());
+        (text, Some(input.error.as_deref().map(error_kind).unwrap_or("unknown").to_string()))
+    } else {
+        (what, input.source.or(input.reason))
+    };
     let line = Line {
         background: (input.hook_event_name == "Stop" && background > 0).then_some(background),
         t,
@@ -310,7 +325,7 @@ fn parse(input: Input, t: i64) -> Option<(String, Line)> {
         notification: input.notification_type,
         tool: input.tool_name,
         what,
-        reason: input.source.or(input.reason),
+        reason,
         session: None,
         context,
         model: None,
@@ -341,6 +356,19 @@ pub(crate) fn append(dir: &Path, session: &str, line: &Line) -> std::io::Result<
     buf.push(b'\n');
     // A single write in append mode: two simultaneous hooks do not mix their lines.
     f.write_all(&buf)
+}
+
+/// The kinds of API error Claude Code names (`StopFailure`'s matcher); another is `unknown`.
+pub const ERROR_KINDS: [&str; 13] = ["rate_limit", "overloaded", "authentication_failed", "oauth_org_not_allowed", "account_on_hold", "verification_required", "billing_error", "invalid_request", "model_not_found", "server_error", "max_output_tokens", "cloud_credential_error", "unknown"];
+
+fn error_kind(kind: &str) -> &'static str {
+    ERROR_KINDS.iter().find(|k| **k == kind).copied().unwrap_or("unknown")
+}
+
+/// An API error's message, on one line, at most 300 characters.
+fn error_text(text: &str) -> String {
+    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if flat.chars().count() > 300 { format!("{}…", flat.chars().take(299).collect::<String>()) } else { flat }
 }
 
 /// A command's first line, at most 80 characters.
@@ -496,6 +524,21 @@ mod tests {
         assert!(!serde_json::to_string(&line).unwrap().contains("secret"));
         let (_, idle) = parse(serde_json::from_str(r#"{"session_id":"ab-12","hook_event_name":"Stop","background_tasks":[]}"#).unwrap(), 1).unwrap();
         assert_eq!(idle.background, None);
+    }
+
+    /// An API error ending the turn: its kind as the reason, its message (one line, cut) as what.
+    #[test]
+    fn keeps_an_api_errors_kind_and_message() {
+        let raw = r#"{"session_id":"ab-12","hook_event_name":"StopFailure","error":"overloaded","last_assistant_message":"API Error: 529\n  Overloaded"}"#;
+        let (_, line) = parse(serde_json::from_str(raw).unwrap(), 1).unwrap();
+        assert_eq!((line.event.as_str(), line.reason.as_deref(), line.what.as_deref()), ("StopFailure", Some("overloaded"), Some("API Error: 529 Overloaded")));
+        // A kind it does not know is `unknown`; none at all too.
+        let (_, odd) = parse(serde_json::from_str(r#"{"session_id":"ab-12","hook_event_name":"StopFailure","error":"weird"}"#).unwrap(), 1).unwrap();
+        assert_eq!((odd.reason.as_deref(), odd.what), (Some("unknown"), None));
+        assert!(EVENTS.contains(&"StopFailure"));
+        // The CLI's own words first, the raw details failing them.
+        let (_, both) = parse(serde_json::from_str(r#"{"session_id":"ab-12","hook_event_name":"StopFailure","error":"overloaded","error_details":"{\"type\":\"overloaded_error\"}","last_assistant_message":"API Error: 529 Overloaded"}"#).unwrap(), 1).unwrap();
+        assert_eq!(both.what.as_deref(), Some("API Error: 529 Overloaded"));
     }
 
     /// A tool call from within a subagent is marked as such, the subagent's id left out.

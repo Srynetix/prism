@@ -24,6 +24,7 @@ export const ALERT_RULES: { id: AlertRule; label: string }[] = [
   { id: 'agent-loop', label: t('Agent in circles') },
   { id: 'agent-cost', label: t('Agent past its cost limit') },
   { id: 'agent-limit', label: t('Agent at its plan’s limit') },
+  { id: 'agent-error', label: t('Agent stopped by an API error') },
   { id: 'overlap', label: t('Agents on the same lines') },
   { id: 'review', label: t('Review asked of you') },
   { id: 'open-threads', label: t('Unresolved threads') },

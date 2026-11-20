@@ -349,6 +349,7 @@
   .agent { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--fs-tag); }
   .agent .st { width: 7px; height: 7px; border-radius: var(--r-dot); background: var(--text-muted); }
   .agent .st.needs_you, .agent .st.waiting_tool, .agent .st.review_ready { background: var(--src-claude); }
+  .agent .st.failed { background: var(--ko); }
   .agent .st.running, .agent .st.background { background: var(--info); }
   .agent .st.gone { background: var(--border); }
   .agent .who { font-weight: 600; }

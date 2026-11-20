@@ -36,6 +36,8 @@
   import AgentChain from './AgentChain.svelte'
   import AgentCliChip from './AgentCliChip.svelte'
   import AgentLimitBanner from './AgentLimitBanner.svelte'
+  import AgentErrorBanner from './AgentErrorBanner.svelte'
+  import { atLabel, errorInfo } from '../agent-errors'
   import AgentLauncher from './AgentLauncher.svelte'
   import { agentHead, agentMenu, openMrOf } from '../menus'
   import { AgentPanes, LAYOUTS, layoutHint, TEMPLATE } from '../agent-panes.svelte'
@@ -544,7 +546,11 @@
             <span class="t">{#if at >= 0}<span class="slot" title={t('In pane {n}', { n: at + 1 })}>{at + 1}</span>{/if}{e.title}</span>
             <span class="tm">{ago(e.when)}</span>
             {#if e.kind === 'agent' && waitsForYou(e.status)}
-              <span class="why">{e.status === 'waiting_tool' ? '⚠' : '?'} {e.a.needs_action ?? (e.status === 'needs_you' ? t('Your turn') : t('Permission requested'))}</span>
+              {#if e.status === 'failed'}
+                <span class="why err">⚠ {errorInfo(e.a.failure?.kind ?? 'unknown').short}{#if e.a.failure?.resume_at} · {t('resumes at {at}', { at: atLabel(e.a.failure.resume_at) })}{/if}</span>
+              {:else}
+                <span class="why">{e.status === 'waiting_tool' ? '⚠' : '?'} {e.a.needs_action ?? (e.status === 'needs_you' ? t('Your turn') : t('Permission requested'))}</span>
+              {/if}
             {:else if e.kind === 'desktop' && waitsForYou(e.status) && e.c.needs_action}
               <span class="why">? {e.c.needs_action}</span>
             {/if}
@@ -826,6 +832,7 @@
       </header>
       <!-- In its Chat, its chain is a chip of the rail. -->
       {#if !chatting(a.id)}<AgentChain agent={a} />{/if}
+      <AgentErrorBanner {a} />
       <AgentLimitBanner {a} />
       {#if a.worktree && a.worktree_note}<p class="ask bar">{t('Worktree kept: {note}', { note: a.worktree_note })}</p>{/if}
       {#if error}<p class="err bar">{error}</p>{/if}
@@ -980,6 +987,7 @@
   .ag .t { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ag .tm { font-size: var(--fs-meta); color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .ag .why { grid-column: 2 / span 2; font-size: var(--fs-meta); color: var(--warn); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ag .why.err { color: var(--ko); }
   .ag .m { grid-column: 2 / span 2; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; min-width: 0; font-size: var(--fs-meta); color: var(--text-muted); }
   /* Too many pills for one line: they wrap; the branch shrinks first, then goes under them. */
   .ag .br { flex: 1 1 0; min-width: 72px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -992,6 +1000,7 @@
   .st.background { background: var(--ok); opacity: 0.6; }
   .st.needs_you { background: var(--warn); }
   .st.waiting_tool { background: var(--ko); }
+  .st.failed { background: var(--ko); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ko) 30%, transparent); }
   .st.review_ready { background: var(--info); }
   .st.completed, .st.idle { background: var(--text-muted); opacity: 0.5; }
   .agents .empty { padding: 14px 10px; font-size: var(--fs-meta); line-height: 1.5; }

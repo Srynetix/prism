@@ -196,10 +196,11 @@ export const changesRequested = (m: MergeRequest) => (m.changes_requested_by ?? 
 
 /** Sessions whose priority order reflects what they expect from me. */
 export const SESSION_RANK: Record<ClaudeSession['status'], number> = {
-  needs_you: 0, waiting_tool: 1, review_ready: 2, running: 3, background: 4, idle: 5, completed: 6,
+  failed: 0, needs_you: 0, waiting_tool: 1, review_ready: 2, running: 3, background: 4, idle: 5, completed: 6,
 }
 export const SESSION_LABEL: Record<ClaudeSession['status'], string> = {
   needs_you: tr('Needs your answer'),
+  failed: tr('API error'),
   waiting_tool: tr('Tool or permission'),
   review_ready: tr('Ready to review'),
   running: tr('Running'),
@@ -325,7 +326,7 @@ export interface WorktreeInfo {
 
 /** Idle for less time than this, a worktree is in use. */
 const DEFAULT_STALE_DAYS = 14
-const LIVE_STATUSES = new Set<ClaudeSession['status']>(['running', 'background', 'needs_you', 'waiting_tool', 'review_ready'])
+const LIVE_STATUSES = new Set<ClaudeSession['status']>(['running', 'background', 'needs_you', 'failed', 'waiting_tool', 'review_ready'])
 
 /** The most recent of these ISO dates, none when there is none. */
 export const latest = (dates: (string | null | undefined)[]) => dates.filter((d): d is string => !!d).sort().at(-1) ?? null

@@ -479,6 +479,9 @@
     {/if}
   {:else if row.entry.type === 'note'}
     <div class="note">{row.entry.text}</div>
+  {:else if row.entry.type === 'error'}
+    <!-- An API error that ended its turn (« API Error: 529 Overloaded »): an error, not its words. -->
+    <div class="apierr" role="alert"><Icon name="warning" /><span>{row.entry.text}</span></div>
   {:else if row.entry.type === 'reminder'}
     {@render reminder(remindersOf([row.entry])[0], `${row.key}:r`)}
   {:else if row.entry.type === 'thinking'}
@@ -765,6 +768,8 @@
   .rh bdi { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rtx { text-align: left; border: none; margin: 0; padding: 6px 8px; border-radius: var(--r8); background: var(--chat-code); color: var(--text-muted); font: 11px/1.45 ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   .rtx.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; line-clamp: 6; overflow: hidden; cursor: pointer; }
+  .apierr { display: flex; align-items: flex-start; gap: 7px; padding: 7px 11px; border: 1px solid color-mix(in srgb, var(--ko) 40%, var(--border)); border-radius: var(--r8); background: var(--ko-bg); color: var(--ko); font-family: var(--mono); font-size: var(--fs-mono); overflow-wrap: anywhere; }
+  .apierr :global(svg) { margin-top: 2px; }
   .note { align-self: center; font-size: var(--fs-body); color: var(--text-muted); font-style: italic; }
   .tool { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; font: inherit; font-size: var(--fs-title); color: var(--text-muted); background: var(--chat-card); border: 1px solid var(--border); border-radius: var(--r10); padding: 6px 10px; min-width: 0; }
   .tool b { color: var(--text); font-weight: 600; flex: none; }

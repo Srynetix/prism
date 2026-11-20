@@ -1,4 +1,5 @@
 import { invoke, isLocal, isMain } from './bridge'
+import { errorInfo } from './agent-errors'
 import { t, tn } from './i18n.svelte'
 import { countedSessions, waitingAlert, type Alert } from './rules'
 import type { Snapshot } from './types'
@@ -38,6 +39,9 @@ function events(s: Snapshot, alerts: Alert[], main: boolean): Event[] {
     // A Prism agent runs its own CLI; a desktop session is Claude's.
     const agent = c.origin === 'agent' ? s.agents?.find((a) => a.id === c.id) : undefined
     if (c.status === 'waiting_tool') out.push({ key: `session:${c.id}:tool`, title: t('{agent} needs a permission', { agent: agent ? nameOf(agent) : 'Claude' }), body: c.title, kind: 'agent' })
+    // Stopped by an API error: once per error (its time in the key), what kind in the body.
+    const failure = agent?.status === 'failed' ? agent.failure : null
+    if (failure) out.push({ key: `session:${c.id}:failed:${failure.at}`, title: t('{agent} stopped on an API error', { agent: nameOf(agent!) }), body: `${c.title} — ${errorInfo(failure.kind).short}`, kind: 'agent' })
   }
   // A routine delivered to the Digest (`deliver = "digest"`): its summary, or at once with the digest off.
   out.push(...routineEvents(s))
@@ -48,6 +52,7 @@ function events(s: Snapshot, alerts: Alert[], main: boolean): Event[] {
       const at = `profile:${p.id}:${w.id}`
       // Its Prism agents, as this profile's: a permission interrupts, a turn ended does not.
       if (w.status === 'waiting_tool') out.push({ key: `${at}:tool`, title: t('{profile}: an agent needs a permission', { profile: p.name }), body: w.title, kind: 'agent' })
+      else if (w.status === 'failed') out.push({ key: `${at}:failed`, title: t('{profile}: an agent stopped on an API error', { profile: p.name }), body: w.title, kind: 'agent' })
     }
   }
   // Another computer's agents waiting for you (`[[machines]]`), whether its window is open or not.
@@ -59,6 +64,7 @@ function events(s: Snapshot, alerts: Alert[], main: boolean): Event[] {
       const at = `machine:${m.name}:${w.profile ?? ''}:${w.id}`
       if (w.status === 'waiting_tool') out.push({ key: `${at}:tool`, title: t('{machine}: an agent needs a permission', { machine }), body: w.title, kind: 'agent' })
       else if (w.status === 'needs_you') out.push({ key: `${at}:needs_you`, title: t('{machine}: an agent waits for you', { machine }), body: w.title, kind: 'agent' })
+      else if (w.status === 'failed') out.push({ key: `${at}:failed`, title: t('{machine}: an agent stopped on an API error', { machine }), body: w.title, kind: 'agent' })
     }
   }
   return out
@@ -76,8 +82,8 @@ export async function syncDesktop(s: Snapshot, alerts: Alert[]) {
   const waiting = countedSessions(s).filter(waitingAlert)
   const urgent = alerts.filter((a) => a.severity !== 'info' && a.kind !== 'Claude')
   // As they notify: a permission or your turn, not a review ready.
-  const away = (s.machines ?? []).reduce((n, m) => n + m.waiting.filter((w) => w.status === 'waiting_tool' || w.status === 'needs_you').length, 0)
-  const elsewhere = (s.other_profiles ?? []).reduce((n, p) => n + (p.waiting_agents ?? []).filter((w) => w.status === 'waiting_tool' || w.status === 'needs_you').length, 0)
+  const away = (s.machines ?? []).reduce((n, m) => n + m.waiting.filter((w) => w.status === 'waiting_tool' || w.status === 'needs_you' || w.status === 'failed').length, 0)
+  const elsewhere = (s.other_profiles ?? []).reduce((n, p) => n + (p.waiting_agents ?? []).filter((w) => w.status === 'waiting_tool' || w.status === 'needs_you' || w.status === 'failed').length, 0)
   const lines = [
     waiting.length && tn(waiting.length, '{n} {agent} session waiting', '{n} {agent} sessions waiting', { agent: agentName() }),
     elsewhere && tn(elsewhere, '{n} agent waiting in another profile', '{n} agents waiting in other profiles'),

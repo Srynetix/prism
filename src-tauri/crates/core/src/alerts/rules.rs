@@ -111,9 +111,26 @@ pub(super) fn awaits_my_review(m: &MergeRequest, me: Option<&str>) -> bool {
     m.state == MrState::Opened && !m.draft && has(&m.reviewers) && !has(&m.approved_by) && !has(&m.changes_requested_by)
 }
 
-/// Waiting for an answer or a permission.
+/// Waiting for an answer or a permission, or stopped by an API error.
 pub(super) fn waits_for_you(s: SessionStatus) -> bool {
-    matches!(s, SessionStatus::NeedsYou | SessionStatus::WaitingTool)
+    matches!(s, SessionStatus::NeedsYou | SessionStatus::WaitingTool | SessionStatus::Failed)
+}
+
+/// The API errors a resume sent now may get past: not an account or a login to fix first, nor a
+/// usage limit (its banner plans the resume at the reset).
+const RESUMABLE: [&str; 5] = ["overloaded", "server_error", "unknown", "invalid_request", "max_output_tokens"];
+
+/// An API error's kind (`hook::ERROR_KINDS`), in words.
+pub fn error_words(kind: &str) -> &'static str {
+    match kind {
+        "overloaded" | "server_error" => tr("the service is overloaded or down"),
+        "rate_limit" => tr("usage limit reached"),
+        "authentication_failed" | "cloud_credential_error" | "verification_required" => tr("the CLI's login has expired"),
+        "billing_error" | "account_on_hold" | "oauth_org_not_allowed" => tr("an account or billing matter"),
+        "invalid_request" | "max_output_tokens" => tr("request refused or answer too long"),
+        "model_not_found" => tr("model unavailable"),
+        _ => tr("an unknown error"),
+    }
 }
 
 /// Working: on its turn, or its turn over while its subagents or background tasks go on.
@@ -721,6 +738,18 @@ impl<'a> Ctx<'a> {
             for a in s.agents.iter().filter(|a| a.state != AgentState::Prepared && !is_working(a.status) && self.plan_use(a.provider).unwrap_or(0.0) >= USED_UP) {
                 out.push(Alert::new("Claude", Severity::Warn, tr!("“{title}” stopped at its plan’s limit: another CLI can take it on", title = a.title)).rule(AlertRule::AgentLimit).fixes(vec![Fix::Switch { agent: a.id.clone() }]));
             }
+        }
+        // An agent stopped by an API error: what kind, and Resume when it is worth trying again.
+        // As long as a session waiting for you is flagged (`[alerts] waiting_session_hours`).
+        let hours = f64::from(self.cfg.waiting_session_hours) * 60.0;
+        for a in s.agents.iter().filter(|a| a.state == AgentState::Running && a.status == SessionStatus::Failed) {
+            let Some(f) = a.failure.as_ref().filter(|f| self.minutes_since(Some(f.at)) < hours) else { continue };
+            let what = error_words(&f.kind);
+            let mut alert = Alert::new("Claude", Severity::Ko, tr!("“{title}” stopped on an API error: {what}", title = a.title, what = what)).rule(AlertRule::AgentError).since(Some(f.at));
+            if RESUMABLE.contains(&f.kind.as_str()) {
+                alert = alert.fixes(vec![Fix::Resume { agent: a.id.clone() }]);
+            }
+            out.push(alert);
         }
         // An agent running the same failing command again and again (5 times: past a first warning in its row).
         for a in &s.agents {

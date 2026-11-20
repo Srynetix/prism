@@ -7,7 +7,7 @@ import { t, tn } from './i18n.svelte'
 import type { Agent } from './types'
 
 /** At its prompt: a note goes in at once. */
-export const isReady = (a: { status: string }) => ['needs_you', 'review_ready', 'completed', 'idle', 'background'].includes(a.status)
+export const isReady = (a: { status: string }) => ['needs_you', 'failed', 'review_ready', 'completed', 'idle', 'background'].includes(a.status)
 
 /**
  * A note sent as a prompt to a running agent: submitted at once when it waits at its prompt,

@@ -11,7 +11,7 @@ use super::{Alert, Severity};
 use crate::state::*;
 
 /// A session still at work, or waiting: its worktree is in use.
-const LIVE: [SessionStatus; 5] = [SessionStatus::Running, SessionStatus::Background, SessionStatus::NeedsYou, SessionStatus::WaitingTool, SessionStatus::ReviewReady];
+const LIVE: [SessionStatus; 6] = [SessionStatus::Running, SessionStatus::Background, SessionStatus::NeedsYou, SessionStatus::Failed, SessionStatus::WaitingTool, SessionStatus::ReviewReady];
 
 use crate::agents::DRAFTER;
 

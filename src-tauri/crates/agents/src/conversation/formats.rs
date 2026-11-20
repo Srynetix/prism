@@ -115,6 +115,13 @@ impl Fold {
             }
             Some("assistant") => {
                 let Some(msg) = r.get("message") else { return };
+                // An API error Claude Code wrote as its reply (a synthetic message): its text, as an error.
+                if r.get("isApiErrorMessage").and_then(Value::as_bool) == Some(true) {
+                    let text = msg.get("content").and_then(Value::as_array).into_iter().flatten().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join(" ");
+                    let text = text.trim();
+                    self.push(at, Entry::Error { text: cut(if text.is_empty() { "API Error" } else { text }, 600) });
+                    return;
+                }
                 match msg.get("model").and_then(Value::as_str) {
                     Some("<synthetic>") => return,
                     Some(m) if !m.is_empty() => self.model = Some(m.to_string()),

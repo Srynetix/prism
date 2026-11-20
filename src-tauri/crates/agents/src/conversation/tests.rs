@@ -175,6 +175,18 @@ fn reads_claude_codes_turns() {
 }
 
 #[test]
+fn an_api_error_reads_as_an_error_not_as_its_words() {
+    let path = file("claude-error", &[
+        json!({ "type": "user", "timestamp": "2026-11-20T10:00:00Z", "message": { "content": "go on" } }),
+        assistant(json!([{ "type": "text", "text": "Starting." }])),
+        json!({ "type": "assistant", "isApiErrorMessage": true, "message": { "model": "<synthetic>", "content": [{ "type": "text", "text": "API Error: 529 Overloaded" }] } }),
+        json!({ "type": "assistant", "message": { "model": "<synthetic>", "content": [{ "type": "text", "text": "No response requested." }] } }),
+    ]);
+    let c = read(&path, Some(Path::new("/repo")), 10);
+    assert_eq!(c.turns[0].entries, vec![Entry::Text { text: "Starting.".into() }, Entry::Error { text: "API Error: 529 Overloaded".into() }]);
+}
+
+#[test]
 fn reads_a_prompt_sent_while_it_worked() {
     let queued = |prompt: &str, extra: Value| {
         let mut a = json!({ "type": "queued_command", "commandMode": "prompt", "prompt": prompt, "origin": { "kind": "human" } });

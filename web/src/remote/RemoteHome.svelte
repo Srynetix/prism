@@ -32,11 +32,11 @@
 
   // Archived: out of the counts, until they wait for you (then they are no longer).
   const running = $derived((snap.agents ?? []).filter((a) => a.state === 'running' && !isArchived(a)))
-  const waiting = $derived(running.filter((a) => a.status === 'needs_you' || a.status === 'waiting_tool' || a.status === 'review_ready'))
+  const waiting = $derived(running.filter((a) => a.status === 'needs_you' || a.status === 'failed' || a.status === 'waiting_tool' || a.status === 'review_ready'))
   const working = $derived(running.filter((a) => isWorking(a.status)).length)
-  const ASKS: Partial<Record<Agent['status'], string>> = { needs_you: t('asks you'), waiting_tool: t('asks permission'), review_ready: t('plan ready') }
+  const ASKS: Partial<Record<Agent['status'], string>> = { needs_you: t('asks you'), failed: t('API error'), waiting_tool: t('asks permission'), review_ready: t('plan ready') }
 
-  const waitingIn = (s: Snapshot | null) => (s?.agents ?? []).filter((a) => a.state === 'running' && !isArchived(a) && (a.status === 'needs_you' || a.status === 'waiting_tool' || a.status === 'review_ready'))
+  const waitingIn = (s: Snapshot | null) => (s?.agents ?? []).filter((a) => a.state === 'running' && !isArchived(a) && (a.status === 'needs_you' || a.status === 'failed' || a.status === 'waiting_tool' || a.status === 'review_ready'))
   const hubProfile = $derived(phoneProfiles.list.find((p) => p.hub) ?? null)
   type Waiting = { a: Agent; p: PhoneProfile | null; acts: boolean }
   /** What waits for you: here, or in every profile in All, longest waiting first. */

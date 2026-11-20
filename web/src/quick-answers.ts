@@ -29,7 +29,7 @@ export const DEFAULT_ANSWERS: Record<'fr' | 'en', QuickAnswer[]> = {
 }
 
 /** At its prompt, free to read an answer: not working, not asking for a permission. */
-export const atPrompt = (a: Agent) => a.state === 'running' && ['needs_you', 'review_ready', 'completed', 'idle', 'background'].includes(a.status)
+export const atPrompt = (a: Agent) => a.state === 'running' && ['needs_you', 'failed', 'review_ready', 'completed', 'idle', 'background'].includes(a.status)
 
 /** A value a phone's answer may carry: a name, a ref, an id (the same as quick.rs's `plain`). */
 const plain = (v: string | undefined) => (v && /^[A-Za-z0-9._/#!:@+-]{1,120}$/.test(v) ? v : undefined)

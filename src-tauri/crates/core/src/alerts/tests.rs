@@ -95,6 +95,7 @@ fn agent(id: &str, f: impl FnOnce(&mut Agent)) -> Agent {
         moved_at: None,
         context: None,
         looping: None,
+        failure: None,
         planned: false,
         usage: None,
         model: None,
