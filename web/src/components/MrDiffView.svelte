@@ -1,3 +1,20 @@
+<script lang="ts" module>
+  /**
+   * Files' body heights, measured once drawn (`heightKey`): kept while Prism runs, a diff opened
+   * again lays out as it was. `latest`: whatever the width, the last one (the first frame's, before
+   * the width is known).
+   */
+  const heights = new Map<string, number>()
+  const latest = new Map<string, number>()
+  function keep(base: string, k: string, h: number) {
+    for (const [m, key] of [[heights, k], [latest, base]] as const) {
+      m.delete(key)
+      m.set(key, h)
+      if (m.size > 4000) m.delete(m.keys().next().value!)
+    }
+  }
+</script>
+
 <script lang="ts">
   import { t, tc, tn } from '../i18n.svelte'
   import { forgeName } from '../forge'
@@ -12,10 +29,11 @@
   import { highlightDiff, type Token } from '../highlight'
   import { expandLines, fits, gapsOf, hash, isTestPath, marksOf, pieces, splitRows, wholeLines, type Mark, type Shown } from '../diff-rows'
   import { pref, setPref } from '../layout.svelte'
-  import { untrack } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { SvelteMap, SvelteSet } from 'svelte/reactivity'
   import { diffStats, parseDiff, sameHunk, type DiffLine, type Discussion, type FileDiff, type LineRef, type MrDiff } from '../mr-review.svelte'
   import { keys } from '../platform'
+  import { firstBelow, holdScroll } from '../scroll-anchor'
   import { fileTree, hunkRange, numOf, quoteOf as quoteLines, refOf, sideOf, threadIndex, threadsAt as threadsIn, treeRows as rowsOf, type Side, type TreeRow } from '../mr-diff'
 
   /**
@@ -159,7 +177,7 @@
   let viewed = $state<Viewed>(pref<Viewed>('mr.viewed', {}))
   const isViewed = (path: string, h: string) => viewed[iid]?.[path] === h
   function setViewed(path: string, h: string, on: boolean) {
-    setViewedAll([{ path, hash: h }], on)
+    keepHead(path, () => setViewedAll([{ path, hash: h }], on))
   }
   function setViewedAll(xs: { path: string; hash: string }[], on: boolean) {
     const mine = { ...(viewed[iid] ?? {}) }
@@ -184,10 +202,33 @@
   // svelte-ignore state_referenced_locally
   let folded = $state<Set<string>>(new Set(files.filter((x) => x.lines.length > BIG || isViewed(x.path, x.hash)).map((x) => x.path)))
   function toggle(path: string) {
+    keepHead(path, () => flip(path))
+  }
+  function flip(path: string) {
     const next = new Set(folded)
-    if (next.has(path)) next.delete(path)
-    else next.add(path)
+    if (next.has(path)) {
+      next.delete(path)
+      // Clicked, so in view: drawn at once rather than as a box first.
+      near.add(path)
+    } else next.add(path)
     folded = next
+  }
+  /**
+   * A file folded or unfolded from its header, in view: the header stays where it is. Stuck at the
+   * top over a long file, folding would take it far up, out of sight.
+   */
+  async function keepHead(path: string, change: () => void) {
+    const area = root ? (scroller(root) ?? (document.scrollingElement as HTMLElement | null)) : null
+    const head = root?.querySelector<HTMLElement>(`[data-file="${CSS.escape(path)}"] > .fhead`)
+    const before = head?.getBoundingClientRect()
+    // The page's own scroll: the window is the view (the root element's box is the whole page).
+    const view = area === document.scrollingElement ? { top: 0, bottom: innerHeight } : area?.getBoundingClientRect()
+    change()
+    if (!area || !head || !before || !view || before.bottom < view.top || before.top > view.bottom) return
+    await tick()
+    const d = head.getBoundingClientRect().top - before.top
+    if (Math.abs(d) >= 1) area.scrollTop += d
+    held?.note()
   }
   const foldAll = (on: boolean) => (folded = on ? new Set(files.map((x) => x.path)) : new Set())
 
@@ -222,13 +263,51 @@
   /**
    * Files less than a screen and a half from the visible area: the only ones whose lines are
    * rendered. A file that moves away leaves a box of its measured height (or estimated, if it has
-   * never been shown) so that the scrollbar does not move.
+   * never been shown) so that the scrollbar does not move. A folded file is neither: no box, not
+   * observed.
+   * Whatever still changes height above the visible area (a file drawn, highlighted, an image
+   * loaded), the scroll is held (`holdScroll`): WebKit does not anchor it.
    */
   const near = new SvelteSet<string>()
-  const heights = new Map<string, number>()
-  /** Height of a code line (11px × 1.5): enough to estimate a never-shown file. */
+  /** Height of a code line (11px × 1.5), of a thread under its line, a character's width: to estimate a never-shown file. */
   const LINE = 16.5
+  const THREAD = 96
+  const CHAR = 6.6
+  /** The width the files have: a line wraps by it, a file's height is measured for it. */
+  let filesW = $state(0)
+  /** A file's body height, by layout, its threads and notes, fingerprint (`hl`); and (`heightKey`) width. */
+  const heightBase = (x: Entry) => `${mode}:${viewOf(x)}:${threadCount(x.path)}+${noteCount(x.path)}:${x.hl}`
+  const heightKey = (x: Entry) => `${heightBase(x)}:${Math.round(filesW / 8)}`
+  /** By fingerprint: the lengths of its lines that may wrap (once), and its extra rows at the last width. */
+  const longs = new Map<string, number[]>()
+  const wraps = new Map<string, { per: number; extra: number }>()
+  /** The sign column's width (+ and −), and a line number's. */
+  const SIGN = $derived(phone ? 14 : 16)
+  const GUTTER = $derived(phone ? 30 : 42)
+  function ghost(x: Entry): number {
+    // Before the width is known (the first frame): the last height measured, whatever its width.
+    const kept = filesW ? heights.get(heightKey(x)) : latest.get(heightBase(x))
+    if (kept) return kept
+    let extra = 0
+    if (filesW) {
+      const code = mode === 'unified' ? filesW - 2 * GUTTER - SIGN - 12 : (filesW - 2 * (GUTTER + SIGN)) / 2 - 12
+      const per = Math.max(20, Math.floor(code / CHAR))
+      const w = wraps.get(x.hl)
+      if (w?.per === per) extra = w.extra
+      else {
+        let ls = longs.get(x.hl)
+        if (!ls) longs.set(x.hl, (ls = x.lines.map((l) => l.text.length).filter((n) => n > 20)))
+        for (const n of ls) if (n > per) extra += Math.ceil(n / per) - 1
+        wraps.set(x.hl, { per, extra })
+      }
+    }
+    // Side by side, the two sides of a line share a row: about half the lines.
+    const rows = mode === 'unified' ? x.lines.length : x.rows.length
+    return (rows + (mode === 'unified' ? extra : extra / 2)) * LINE + (threadCount(x.path) + noteCount(x.path)) * THREAD
+  }
+
   let io: IntersectionObserver | undefined
+  let held: ReturnType<typeof holdScroll> | undefined
   /**
    * The area the diff scrolls in: the MR drawer's body, the agent panel's diff… Its nearest
    * scrolling ancestor, so that "near" is measured against it: with the window as the root, the
@@ -242,27 +321,79 @@
     }
     return null
   }
-  function lazy(node: HTMLElement, path: string) {
-    node.dataset.path = path
+  /** The files' sections, in page order: read again only once one comes or goes (`lazy`). */
+  let sections: HTMLElement[] | null = null
+  /** The top of the visible area, under the bar. */
+  function edge(): number {
+    const area = root && scroller(root)
+    return (area ? area.getBoundingClientRect().top : 0) + barH
+  }
+  /** The file at the top of the visible area: the scroll holds it (`holdScroll`). */
+  function topFile(): HTMLElement | null {
+    if (!root) return null
+    sections ??= [...root.querySelectorAll<HTMLElement>('section.file')]
+    return firstBelow(sections, (e) => e.getBoundingClientRect().bottom, edge())
+  }
+  /** In that file, its line at the top: where it is within the file, what changes above it out of sight undone. */
+  function topLine(section: HTMLElement): (() => number) | null {
+    const rows = [...section.querySelectorAll<HTMLElement>(':scope > table.fbody > tbody > tr')]
+    const row = firstBelow(rows, (e) => e.getBoundingClientRect().bottom, edge())
+    if (!row) return null
+    return () => (row.isConnected ? row.getBoundingClientRect().top - section.getBoundingClientRect().top : NaN)
+  }
+  const byPath = $derived(new Map(files.map((x) => [x.path, x])))
+  /** A file drawn, or whose drawing changed (highlighted, a thread opened): its height kept. */
+  function measure(entries: ResizeObserverEntry[]) {
+    for (const e of entries) {
+      const p = (e.target as HTMLElement).dataset.path
+      const x = p === undefined ? undefined : byPath.get(p)
+      const body = (e.target as HTMLElement).querySelector<HTMLElement>(':scope > .fbody')
+      if (x && filesW && body && !body.classList.contains('ghost') && near.has(x.path) && !folded.has(x.path)) keep(heightBase(x), heightKey(x), body.offsetHeight)
+    }
+  }
+  /** Its size, always (the scroll held); near the visible area or not, while unfolded only. */
+  function lazy(node: HTMLElement, at: { path: string; shut: boolean }) {
+    node.dataset.path = at.path
+    if (!held) {
+      const area = scroller(node) ?? (document.scrollingElement as HTMLElement | null)
+      if (area) held = holdScroll(area, { find: topFile, line: topLine }, measure)
+    }
+    sections = null
     io ??= new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
           const p = (e.target as HTMLElement).dataset.path!
           if (e.isIntersecting) near.add(p)
-          else if (near.has(p) && composing?.path !== p && drafting?.path !== p) {
-            const body = e.target.querySelector<HTMLElement>('.fbody')
-            if (body) heights.set(`${mode}:${mdView}:${p}`, body.offsetHeight)
-            near.delete(p)
-          }
+          else if (composing?.path !== p && drafting?.path !== p) near.delete(p)
         }
       },
       { root: scroller(node), rootMargin: '1500px 0px' },
     )
-    io.observe(node)
-    return { destroy: () => io?.unobserve(node) }
+    held?.observe(node)
+    let watched = false
+    const watch = (on: boolean) => {
+      if (on === watched) return
+      watched = on
+      if (on) io?.observe(node)
+      else io?.unobserve(node)
+    }
+    watch(!at.shut)
+    return {
+      update(next: { path: string; shut: boolean }) {
+        node.dataset.path = next.path
+        watch(!next.shut)
+      },
+      destroy() {
+        watch(false)
+        held?.unobserve(node)
+        sections = null
+      },
+    }
   }
-  $effect(() => () => io?.disconnect())
-  const ghost = (x: (typeof files)[number]) => heights.get(`${mode}:${mdView}:${x.path}`) ?? (mode === 'unified' ? x.lines.length : x.rows.length) * LINE
+  $effect(() => () => {
+    io?.disconnect()
+    held?.destroy()
+  })
 
   /* ---------- Highlighting ---------- */
 
@@ -494,7 +625,13 @@
     const shown = new Set(x.lines.filter((l) => l.kind !== 'hunk').map((l) => `${sideOf(l)}:${numOf(l)}`))
     return (review?.notes ?? []).filter((n) => n.status !== 'resolved' && n.path === x.path && !shown.has(`${n.side}:${n.to}`))
   }
-  const noteCount = (path: string) => (review?.notes ?? []).filter((n) => n.status !== 'resolved' && n.path === path).length
+  /** Notes not resolved, per file. */
+  const notesPer = $derived.by(() => {
+    const m = new Map<string, number>()
+    for (const n of review?.notes ?? []) if (n.status !== 'resolved') m.set(n.path, (m.get(n.path) ?? 0) + 1)
+    return m
+  })
+  const noteCount = (path: string) => notesPer.get(path) ?? 0
   /** Actions on a hunk: each writes a note on it, to complete or send as is; the agent does the work. */
   const HUNK_ACTIONS: [string, string, string][] = [
     [t('Explain'), t('Ask the agent to explain this hunk'), 'Explain this change: why it is needed, and what it does.'],
@@ -543,7 +680,7 @@
   function reveal(path: string, line: number | null, block: ScrollLogicalPosition) {
     // A phone shows one file: that one.
     if (phone) shownFile = Math.max(0, files.findIndex((x) => x.path === path))
-    if (folded.has(path)) toggle(path)
+    if (folded.has(path)) flip(path)
     near.add(path)
     const go = () => {
       const el = root?.querySelector<HTMLElement>(`[data-file="${CSS.escape(path)}"]`)
@@ -613,11 +750,14 @@
 
 <svelte:window onkeydown={(e) => root?.closest('aside[data-kbd]') && onkeydown(e)} onpointermove={dragOver} onpointerup={() => (dragging = null)} />
 
-<!-- A code line: highlighted tokens, the changed part emphasised. -->
+<!-- A code line: highlighted tokens, the changed part emphasised (its sign in its own column, `sign`). -->
 {#snippet code(hl: string, i: number, lines: DiffLine[], marks: Map<number, Mark>)}
   {@const l = lines[i]}
-  <span class="sign">{l.kind === 'add' ? '+' : l.kind === 'del' ? '−' : ' '}</span>{#each pieces(colors.get(hl)?.[i], l.text, marks.get(i)) as p, n (n)}<span style:color={p.color} class:it={p.italic} class:bd={p.bold} class:chg={p.changed}>{p.text}</span>{/each}
+  {#each pieces(colors.get(hl)?.[i], l.text, marks.get(i)) as p, n (n)}<span style:color={p.color} class:it={p.italic} class:bd={p.bold} class:chg={p.changed}>{p.text}</span>{/each}
 {/snippet}
+
+<!-- A line's + or −, out of its code: the code starts at the same edge on every line, and a copy leaves it out. -->
+{#snippet sign(l: DiffLine)}{l.kind === 'add' ? '+' : l.kind === 'del' ? '−' : ''}{/snippet}
 
 <!-- The gutter "+", to comment on the line (a note to the agent: shift-click extends it to a range). -->
 {#snippet plus(path: string, l: DiffLine)}
@@ -683,51 +823,54 @@
   {@const hover = viewOf(x) === 'both' && previews.has(key) && !f.new_file}
   {#if mode === 'unified'}
     <table class="fbody" data-path={path} style:--pick={review ? undefined : 'var(--src-gitlab)'} onmouseleave={hover ? () => hoverRow(key, null) : undefined}>
-      <colgroup><col class="cn" /><col class="cn" /><col /></colgroup>
+      <colgroup><col class="cn" /><col class="cn" /><col class="cs" /><col /></colgroup>
       <tbody>
         {#each lines as l, i (i)}
           {#if l.kind === 'hunk'}
-            <tr class="hunk"><td colspan="3" class="mono">{@render more(x, x.gapAt.get(i))}{l.text}{@render hunkActs(path, lines, i)}</td></tr>
+            <tr class="hunk"><td colspan="4" class="mono">{@render more(x, x.gapAt.get(i))}{l.text}{@render hunkActs(path, lines, i)}</td></tr>
           {:else}
             <tr class={l.kind} class:lit={isLit(key, i)} class:picked={review ? inDraft(path, l) : inComposing(path, l)} data-line={l.new ?? l.old} data-row={i} data-i={i} onmouseenter={hover ? () => hoverRow(key, i) : undefined}>
               <td class="n">{@render plus(path, l)}{l.old ?? ''}</td>
               <td class="n">{l.new ?? ''}</td>
+              <td class="sign" aria-hidden="true">{@render sign(l)}</td>
               <td class="code">{@render code(x.hl, i, lines, marks)}</td>
             </tr>
-            {@render extras(path, f, [l], 3)}
+            {@render extras(path, f, [l], 4)}
           {/if}
         {/each}
-        {@render tail(x, 3)}
+        {@render tail(x, 4)}
       </tbody>
     </table>
   {:else}
     <table class="fbody split" data-path={path} style:--pick={review ? undefined : 'var(--src-gitlab)'} onmouseleave={hover ? () => hoverRow(key, null) : undefined}>
-      <colgroup><col class="cn" /><col /><col class="cn" /><col /></colgroup>
+      <colgroup><col class="cn" /><col class="cs" /><col /><col class="cn" /><col class="cs" /><col /></colgroup>
       <tbody>
         {#each rows as r, n (n)}
           {#if r.hunk}
-            <tr class="hunk"><td colspan="4" class="mono">{@render more(x, x.gapAt.get(r.at ?? -1))}{r.hunk}{@render hunkActs(path, lines, r.at ?? 0)}</td></tr>
+            <tr class="hunk"><td colspan="6" class="mono">{@render more(x, x.gapAt.get(r.at ?? -1))}{r.hunk}{@render hunkActs(path, lines, r.at ?? 0)}</td></tr>
           {:else}
             {@const left = r.left !== null ? lines[r.left] : undefined}
             {@const right = r.right !== null ? lines[r.right] : undefined}
             <tr class:lit={isLit(key, r.right) || isLit(key, r.left)} class:picked={[left, right].some((x) => !!x && (review ? inDraft(path, x) : inComposing(path, x)))} data-line={right?.new ?? left?.old} data-row={r.right ?? r.left} onmouseenter={hover ? () => hoverRow(key, r.right ?? r.left) : undefined}>
               {#if left}
                 <td class="n {left.kind}" data-i={r.left}>{@render plus(path, left)}{left.old}</td>
+                <td class="sign {left.kind}" data-i={r.left} aria-hidden="true">{@render sign(left)}</td>
                 <td class="code {left.kind} side" data-i={r.left}>{@render code(x.hl, r.left!, lines, marks)}</td>
               {:else}
-                <td class="n empty"></td><td class="code empty"></td>
+                <td class="n empty"></td><td class="sign empty"></td><td class="code empty"></td>
               {/if}
               {#if right}
                 <td class="n {right.kind}" data-i={r.right}>{#if right !== left}{@render plus(path, right)}{/if}{right.new}</td>
+                <td class="sign {right.kind}" data-i={r.right} aria-hidden="true">{@render sign(right)}</td>
                 <td class="code {right.kind} side" data-i={r.right}>{@render code(x.hl, r.right!, lines, marks)}</td>
               {:else}
-                <td class="n empty"></td><td class="code empty"></td>
+                <td class="n empty"></td><td class="sign empty"></td><td class="code empty"></td>
               {/if}
             </tr>
-            {@render extras(path, f, [...new Set([left, right].filter((x) => !!x))] as DiffLine[], 4)}
+            {@render extras(path, f, [...new Set([left, right].filter((x) => !!x))] as DiffLine[], 6)}
           {/if}
         {/each}
-        {@render tail(x, 4)}
+        {@render tail(x, 6)}
       </tbody>
     </table>
   {/if}
@@ -894,12 +1037,12 @@
     </nav>
     {/if}
 
-    <div class="files">
+    <div class="files" bind:clientWidth={filesW}>
       {#each files as x, rank (x.path)}
         {@const { f, lines, stats, path, hash: h, key, marks, rows } = x}
         {@const v = isViewed(path, h)}
         {#if !phone || rank === shownFile}
-        <section class="file" class:viewed={v} data-file={path} use:lazy={path}>
+        <section class="file" class:viewed={v} data-file={path} use:lazy={{ path, shut: folded.has(path) }}>
           <div class="fhead">
             <button class="fold" onclick={() => toggle(path)} aria-expanded={!folded.has(path)}>
               <span class="chev"><Icon name={folded.has(path) ? 'chevronRight' : 'chevronDown'} /></span>
@@ -958,6 +1101,7 @@
   .psum .link { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: 0; background: none; color: var(--info); font: inherit; }
   .phone td.code { font-size: var(--fs-tag); }
   .phone col.cn { width: 30px; }
+  .phone col.cs { width: 14px; }
   /* Up against the scrolling area's edges, whatever its padding (`--diff-pad-y`, `--diff-pad-x`: the MR drawer's by default). */
   .bar { position: sticky; top: calc(-1 * var(--diff-pad-y, 12px)); z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: calc(-1 * var(--diff-pad-y, 12px)) calc(-1 * var(--diff-pad-x, 16px)) 0; padding: 8px var(--diff-pad-x, 16px); background: var(--surface); border-bottom: 1px solid var(--border); font-size: var(--fs-meta); }
   .msgs .pos { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; color: var(--text-muted); white-space: nowrap; }
@@ -1021,18 +1165,22 @@
   table { width: 100%; border-collapse: collapse; table-layout: fixed; font-family: var(--mono); font-size: var(--fs-meta); line-height: 1.5; }
   td { padding: 0 6px; vertical-align: top; }
   col.cn { width: 42px; }
+  col.cs { width: 16px; }
   td.n { position: relative; text-align: right; color: var(--text-muted); user-select: none; }
-  td.code { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--shiki-foreground, var(--text)); }
+  /* Selectable whatever its row: a context line's `tr.ctx` is also the app's context menu class, not selectable (app.css). */
+  td.code { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--shiki-foreground, var(--text)); -webkit-user-select: text; user-select: text; }
   /* Gutter "+": visible on line hover. */
   .plus { position: absolute; left: 2px; top: 0; width: 16px; height: 16px; padding: 0; border: none; border-radius: var(--r4); background: var(--src-gitlab); color: #fff; font: inherit; font-size: var(--fs-body); line-height: 16px; cursor: pointer; opacity: 0; }
   tr:hover .plus, td.n:hover .plus, .plus:focus-visible { opacity: 1; }
   .it { font-style: italic; }
   .bd { font-weight: 600; }
-  .sign { display: inline-block; width: 12px; color: var(--text-muted); user-select: none; }
+  /* The + and −: their own column, against the code, out of a selection (the code alone is copied). */
+  td.sign { padding: 0 0 0 4px; color: var(--text-muted); user-select: none; -webkit-user-select: none; }
+  td.code { padding-left: 2px; }
   tr.add td, td.add { background: color-mix(in srgb, var(--ok) 12%, transparent); }
   tr.del td, td.del { background: color-mix(in srgb, var(--ko) 12%, transparent); }
-  tr.add .sign, td.add .sign { color: var(--ok); }
-  tr.del .sign, td.del .sign { color: var(--ko); }
+  tr.add td.sign, td.sign.add { color: var(--ok); }
+  tr.del td.sign, td.sign.del { color: var(--ko); }
   /* The changed part of a modified line, stronger than the line. */
   tr.add .chg, td.add .chg { background: color-mix(in srgb, var(--ok) 32%, transparent); border-radius: var(--r2); }
   tr.del .chg, td.del .chg { background: color-mix(in srgb, var(--ko) 32%, transparent); border-radius: var(--r2); }
@@ -1040,7 +1188,7 @@
   .chg { --shiki-token-comment: var(--shiki-foreground, var(--text)); }
   td.empty { background: repeating-linear-gradient(-45deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 7%, transparent) 4px 8px); }
   /* Side by side: a rule separates the two versions. */
-  .split td.n:nth-child(3) { border-left: 1px solid var(--border); }
+  .split td.n:nth-child(4) { border-left: 1px solid var(--border); }
   tr.hunk td { padding: 2px 8px; background: color-mix(in srgb, var(--info) 8%, transparent); color: var(--text-muted); }
   /* A hunk's hidden lines, on demand. */
   .more { display: inline-flex; gap: 3px; margin-right: 8px; vertical-align: 1px; font-family: var(--sans); }
@@ -1069,7 +1217,7 @@
   .rtag { padding: 0 6px; border-radius: var(--r9); background: var(--surface-muted); font-size: var(--fs-tag); }
   .rtag.changed { background: var(--info-bg); color: var(--info); }
   .orphan { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: var(--fs-tag); }
-  tr.inline td { padding: 6px 8px 8px 96px; background: var(--bg); font-family: inherit; }
+  tr.inline td { padding: 6px 8px 8px 104px; background: var(--bg); font-family: inherit; }
   tr.inline :global(.thread) { font-family: var(--sans); line-height: 1.45; }
   tr.inline :global(.thread + .thread) { margin-top: 6px; }
 
