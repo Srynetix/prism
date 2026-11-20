@@ -182,6 +182,7 @@ theme = "system"        # or paper, graphite, fjord, midnight, sand, contrast, c
                         # dracula, tokyo-night, nord, github-light/dark, gruvbox-light/dark,
                         # solarized-light/dark, rose-pine, rose-pine-dawn…
 theme_preview = true    # hovering a theme in the Theme menu shows it on the whole window
+zoom = 1.0              # the whole window, as a browser: 0.5 to 2.0 (⌘+ / ⌘− / ⌘0 step it)
 boot = true             # splash screen on every launch
 animations = true       # refresh, Claude waiting or working, current step, counters, drag
 theme_motion = true     # a theme's own motion: Synthwave's sky and neon, Hacker's cursor, CRT sweep and rain

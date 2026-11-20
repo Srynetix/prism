@@ -201,6 +201,7 @@ export default {
   'mark the agent read': 'marquer l’agent comme lu',
   'side by side: the agent alone, or back': 'côte à côte\xa0: l’agent seul, ou de retour',
   'text size of the terminal or the Chat': 'taille du texte du terminal ou du Chat',
+  'zoom the whole window in, out, back to 100%': 'zoomer toute la fenêtre, dézoomer, revenir à 100 %',
   'one, two or four agents side by side': 'un, deux ou quatre agents côte à côte',
   'previous / next agent': 'agent précédent / suivant',
   'collapse / expand the agents list': 'replier / déplier la liste des agents',

@@ -6,7 +6,8 @@
   import { onMount, tick, untrack } from 'svelte'
   import { toast } from './toast.svelte'
   import type { Snippet } from 'svelte'
-  import { keyedAction, watchMenu } from './app-menu'
+  import { keyedAction, watchMenu, ZOOM_ACTIONS } from './app-menu'
+  import { watchZoom, zoomBy } from './zoom.svelte'
   import { t, tn, watchLanguage, tc } from './i18n.svelte'
   import { connect, live } from './live.svelte'
   import { meOn } from './forge'
@@ -120,7 +121,7 @@
   import ProjectsView from './components/ProjectsView.svelte'
   import { waitingWorkstreams } from './workstreams'
   import { agentsEnabled, agentsView, newAgent, openAgents, openProjects, projectsView, terminalKeeps } from './agents.svelte'
-  import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys } from './shortcuts'
+  import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys, sizeStep } from './shortcuts'
   import { BLOCK_HELP } from './block-help'
   import { chord, inTerminal, keys, pageDigit } from './platform'
   import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
@@ -146,6 +147,7 @@
   onMount(startReminders)
   onMount(watchCelebrations)
   onMount(watchAnimations)
+  onMount(watchZoom)
   onMount(() => watchArrivals(document.body))
   onMount(watchLanguage)
   onMount(watchIdle)
@@ -327,6 +329,16 @@
     if (inTerminal(e) && terminalKeeps(e)) {
       const echo = (['new-agent', 'settings', 'zen'] as const).find((id) => hit(id, e))
       if (echo) keyedAction(echo)
+      else if (hit('window-zoom', e)) keyedAction(ZOOM_ACTIONS[sizeStep(e)!])
+      return
+    }
+    // ⌘+ / ⌘− / ⌘0: the whole window's zoom, everywhere, an agent's terminal and Chat too (their
+    // own text size is ⌘⌥+ / ⌘⌥− / ⌘⌥0, the Agents view's).
+    if (hit('window-zoom', e)) {
+      e.preventDefault()
+      const step = sizeStep(e)!
+      keyedAction(ZOOM_ACTIONS[step])
+      void zoomBy(step)
       return
     }
     // The command palette (`[palette] key`, ⌘K), over anything.

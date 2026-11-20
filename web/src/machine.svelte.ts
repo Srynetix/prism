@@ -40,6 +40,8 @@ const LOCAL = new Set([
   'list_profiles', 'create_profile', 'setup_profile', 'rename_profile', 'remove_profile', 'switch_profile', 'open_profile', 'stop_profile',
   'set_help_guides', 'font_face', 'font_faces', 'youtube_relay', 'copy_text', 'paste_text', 'quit_app', 'toggle_fullscreen',
   'audio_sources', 'audio_feed', 'now_playing', 'now_playing_command', 'feedback_capture', 'reduce_transparency',
+  // The window's zoom: its webview's, at the main window's.
+  'ui_zoom', 'ui_zoom_main',
   // Written where this computer's save dialog said.
   'save_csv',
   // This computer's Prism, updated by its app.

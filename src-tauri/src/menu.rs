@@ -60,6 +60,9 @@ pub fn tr(en: &'static str) -> &'static str {
         "Help" => "Aide",
         "Zen Mode" => "Mode zen",
         "Enter Full Screen" => "Plein écran",
+        "Zoom In" => "Zoom avant",
+        "Zoom Out" => "Zoom arrière",
+        "Actual Size" => "Taille réelle",
         "Window" => "Fenêtre",
         "Minimize" => "Placer dans le Dock",
         "Zoom" => "Réduire/agrandir",
@@ -166,7 +169,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
     // No shortcut here for what Prism's keys already do and the config may change (pages, console).
-    let view = Submenu::with_items(app, tr("View"), true, &[&item("palette", tr("Command Palette…"), None)?, &sep()?, &item("agents", tr("Agents"), None)?, &item("help", tr("Help"), None)?, &sep()?, &item("zen", tr("Zen Mode"), Some("CmdOrCtrl+Shift+F"))?, &PredefinedMenuItem::fullscreen(app, Some(tr("Enter Full Screen")))?])?;
+    // The zoom (⌘+ / ⌘− / ⌘0) is the window's too: its echo is ignored (app-menu.ts).
+    let view = Submenu::with_items(app, tr("View"), true, &[&item("palette", tr("Command Palette…"), None)?, &sep()?, &item("agents", tr("Agents"), None)?, &item("help", tr("Help"), None)?, &sep()?, &item("zoom-in", tr("Zoom In"), Some("CmdOrCtrl+="))?, &item("zoom-out", tr("Zoom Out"), Some("CmdOrCtrl+-"))?, &item("zoom-reset", tr("Actual Size"), Some("CmdOrCtrl+0"))?, &sep()?, &item("zen", tr("Zen Mode"), Some("CmdOrCtrl+Shift+F"))?, &PredefinedMenuItem::fullscreen(app, Some(tr("Enter Full Screen")))?])?;
     let window = Submenu::with_items(
         app,
         tr("Window"),

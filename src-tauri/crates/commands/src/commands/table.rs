@@ -37,6 +37,9 @@ commands! {
         feedback_capture: Never,
         // An element of a page the Web view comments on, captured from the window.
         web_capture: Never,
+        // The window's zoom (`[appearance] zoom`), its webview's; the main one's, for a machine's window.
+        ui_zoom: Never,
+        ui_zoom_main: Never,
         // Read-only from a phone (tmux's `-r`), through its socket: typing is `agent_write`.
         agent_attach: Read,
         // Other computers' Prism, each in a window of this one (`[[machines]]`).

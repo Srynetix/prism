@@ -15,7 +15,7 @@ import { BLOCK_DEFS } from './blocks'
  * work (repositories, sprint day), and on the right the computer (plan usage, Prism, the clock);
  * every other item is hidden until « Customize… » or a right-click shows it.
  */
-type CoreStatus = 'alerts' | 'live' | 'prism' | 'repos' | 'pipeline' | 'meeting' | 'reminder' | 'claude' | 'profiles' | 'machines' | 'shells' | 'digest' | 'routines' | 'mcp' | 'aside' | 'usage' | 'sprint' | 'audio' | 'clock' | 'feedback'
+type CoreStatus = 'zoom' | 'alerts' | 'live' | 'prism' | 'repos' | 'pipeline' | 'meeting' | 'reminder' | 'claude' | 'profiles' | 'machines' | 'shells' | 'digest' | 'routines' | 'mcp' | 'aside' | 'usage' | 'sprint' | 'audio' | 'clock' | 'feedback'
 /** A core item, or a block's (its id: `BlockDef.status`). */
 export type StatusId = CoreStatus | (string & {})
 export type Zone = 'you' | 'work' | 'machine'
@@ -46,6 +46,7 @@ const CORE: StatusItem[] = [
   { id: 'audio', label: 'Audio', zone: 'machine', rank: 2 },
   { id: 'feedback', label: 'Feedback', zone: 'machine', rank: 1 },
   { id: 'live', label: 'Connection', zone: 'machine', rank: 8 },
+  { id: 'zoom', label: 'Window zoom', zone: 'machine', rank: Infinity },
   { id: 'clock', label: 'Clock', zone: 'machine', rank: Infinity },
 ]
 const CORE_BREAK = 'usage'
@@ -74,7 +75,7 @@ export const statusItem = (id: StatusId) => BY_ID.get(id)
 export const DEFAULT_ORDER: string[] = STATUS_ITEMS.flatMap((i) => (i.id === CORE_BREAK ? [SIDE_BREAK, i.id] : [i.id]))
 
 /** Shown by default; every other item (core or block) is hidden until shown. */
-export const DEFAULT_SHOWN: StatusId[] = ['claude', 'pipeline', 'meeting', 'repos', 'sprint', 'usage', 'prism', 'clock']
+export const DEFAULT_SHOWN: StatusId[] = ['claude', 'pipeline', 'meeting', 'repos', 'sprint', 'usage', 'prism', 'zoom', 'clock']
 /** `[appearance] statusbar_hidden` when neither it nor `statusbar` is set. */
 export const DEFAULT_HIDDEN: string[] = STATUS_ITEMS.map((i) => i.id).filter((id) => !DEFAULT_SHOWN.includes(id))
 

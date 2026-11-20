@@ -2,8 +2,8 @@
   import { holdEscape, inField, inLayer, layers } from '../layers.svelte'
   import { suggest } from '../suggest'
   import { untrack } from 'svelte'
-  import { chordKey, extraShift, inTerminal, keys, tildePath, baseName } from '../platform'
-  import { hit, shortcutKeys } from '../shortcuts'
+  import { chordKey, inTerminal, keys, tildePath, baseName } from '../platform'
+  import { hit, shortcutKeys, sizeStep } from '../shortcuts'
   import Icon from './Icon.svelte'
   import Terminal from './Terminal.svelte'
   import QuickAnswers from './QuickAnswers.svelte'
@@ -269,11 +269,10 @@
       return
     }
     if (hit('text-size', e)) {
-      // Shift added only to leave the terminal (Linux, Windows) does not count.
-      const shift = e.shiftKey && !extraShift(e)
-      const k = chordKey(e)
-      const zoom = k === '=' || k === '+' ? TERMINAL_FONT.step * 2 : k === '-' || k === '_' ? -TERMINAL_FONT.step * 2 : !shift ? 0 : null
-      if (zoom === null) return
+      // ⌘⌥+ / ⌘⌥− / ⌘⌥0: ⌘+ alone zooms the whole window (zoom.svelte.ts).
+      const step = sizeStep(e)
+      if (step === null) return
+      const zoom = step * TERMINAL_FONT.step * 2
       e.preventDefault()
       // The agent shown reads as its Chat: its text; otherwise the terminals'.
       if (current?.kind === 'agent' && chatting(current.a.id)) zoomChat(zoom)

@@ -22,6 +22,8 @@ You can also type `theme <name>` in the console; `theme list` prints the names.
 
 **Density** (`[appearance] density`, Settings › Interface › Appearance) is separate from the theme: **Compact** as drawn, or **Comfortable**, with larger text and airier rows.
 
+**Zoom** (`[appearance] zoom`, just below) makes the whole window larger or smaller, as a browser does: text, icons, pictures and terminals together, the page laid out for the room it has then. `⌘+` / `⌘-` / `⌘0` step it everywhere (67, 75, 80, 90, 100, 110, 125, 150, 175 and 200 %), the View menu too (Zoom In, Zoom Out, Actual Size), each step saved. Off 100 %, the status bar says it (`125%`): a click puts it back. Each profile's window has its own; another computer's window shows at the main window's; the phone keeps its pinch. Density gives more air at the same size, the zoom scales everything: the two add up. An agent's terminal and Chat keep their own text size (`⌘⌥+` / `⌘⌥-` / `⌘⌥0`), the zoom on top.
+
 ## Fonts
 Two fields in **Settings › Interface › Appearance** set the fonts, each with a live sample:
 - **Font** (`[appearance] font`): the text of the app. Empty: Inter, bundled in the app (the same on macOS and Linux).

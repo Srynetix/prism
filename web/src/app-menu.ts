@@ -10,6 +10,7 @@ import { keys } from './platform'
 import { feedbackOn, openFeedback } from './feedback.svelte'
 import { openPalette } from './palette.svelte'
 import { lang, t } from './i18n.svelte'
+import { zoomBy } from './zoom.svelte'
 
 /**
  * The macOS menu bar (src-tauri/src/menu.rs): its Help menu lists the guides, which the window
@@ -21,10 +22,16 @@ let keyed = { action: '', at: 0 }
 /** The window's keys ran this action (`settings`, `new-agent`): the menu's echo is ignored. */
 export const keyedAction = (action: string) => (keyed = { action, at: Date.now() })
 
+/** The View menu's zoom items, by step (`sizeStep`): ⌘+, ⌘−, ⌘0. */
+export const ZOOM_ACTIONS: Record<1 | -1 | 0, string> = { 1: 'zoom-in', [-1]: 'zoom-out', 0: 'zoom-reset' }
+
 export function run(action: string) {
   if (keyed.action === action && Date.now() - keyed.at < 500) return
   if (action === 'settings') openSettings()
   else if (action === 'new-agent') newAgent()
+  else if (action === 'zoom-in') void zoomBy(1)
+  else if (action === 'zoom-out') void zoomBy(-1)
+  else if (action === 'zoom-reset') void zoomBy(0)
   else if (action === 'agents') {
     if (agentsEnabled()) openAgents()
   } else if (action === 'zen') {

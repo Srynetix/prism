@@ -153,6 +153,8 @@ export default {
   'Default order': 'Ordre par défaut',
   'Items without room in the bar': 'Éléments sans place dans la barre',
   'Connection': 'Connexion',
+  'Window zoom': 'Zoom de la fenêtre',
+  'The window at {zoom} · back to 100% ({keys})': 'La fenêtre à {zoom} · revenir à 100 % ({keys})',
   'Problems': 'Problèmes',
   'problem': 'problème',
   'problems': 'problèmes',

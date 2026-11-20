@@ -36,6 +36,24 @@ export const paletteKey = () => parseShortcut(live.snapshot?.palette?.key || 'Cm
 
 /** ⌘ + `k` (Ctrl elsewhere), without a Shift of its own (a Shift only added to leave the terminal does not count). */
 const cmd = (k: string) => (e: KeyboardEvent) => chord(e) && !e.altKey && !(e.shiftKey && !extraShift(e)) && chordKey(e) === k
+/**
+ * A size step from a chord's key: + (`1`), − (`-1`), 0 (`0`), whatever the layout. By the character
+ * typed, else by the physical key: ⌥ changes the character on a Mac (⌥= types ≠), and 0 takes
+ * Shift on an AZERTY keyboard.
+ */
+export function sizeStep(e: KeyboardEvent): 1 | -1 | 0 | null {
+  const k = chordKey(e)
+  if (k === '=' || k === '+') return 1
+  if (k === '-' || k === '_') return -1
+  if (k === '0' || e.code === 'Digit0' || e.code === 'Numpad0') return 0
+  if (e.code === 'NumpadAdd') return 1
+  if (e.code === 'NumpadSubtract') return -1
+  if (e.altKey) {
+    if (k === '≠' || k === '±' || e.code === 'Equal') return 1
+    if (k === '–' || k === '—' || e.code === 'Minus') return -1
+  }
+  return null
+}
 /** ⌘⇧ + `k`. */
 const cmdShift = (k: string) => (e: KeyboardEvent) => chord(e) && e.shiftKey && chordKey(e).toLowerCase() === k
 
@@ -87,7 +105,7 @@ export const REGISTRY: ShortcutDef[] = [
   { id: 'interrupt', keys: '⌘.', label: 'interrupt the agent (Esc)', group: 'Agents', match: cmd('.') },
   { id: 'mark-read', keys: '⌘E', label: 'mark the agent read', group: 'Agents', match: cmd('e') },
   { id: 'agent-zoom', keys: '⌘↵', label: 'side by side: the agent alone, or back', group: 'Agents', match: cmd('enter') },
-  { id: 'text-size', keys: '⌘+ / ⌘- / ⌘0', label: 'text size of the terminal or the Chat', group: 'Agents', match: (e) => chord(e) && !e.altKey && ['=', '+', '-', '_', '0'].includes(chordKey(e)) },
+  { id: 'text-size', keys: '⌘⌥+ / ⌘⌥- / ⌘⌥0', label: 'text size of the terminal or the Chat', group: 'Agents', match: (e) => chord(e) && e.altKey && sizeStep(e) !== null },
   { id: 'agents-layout', keys: () => (isMac ? '⌃1 / ⌃2 / ⌃4' : 'Ctrl+Alt+1 / 2 / 4'), label: 'one, two or four agents side by side', group: 'Agents' },
   { id: 'shift-click', keys: '⇧-click', label: 'an agent action launches at once', group: 'Agents' },
   // Everywhere
@@ -100,6 +118,7 @@ export const REGISTRY: ShortcutDef[] = [
   { id: 'palette', keys: () => shortcutLabel(paletteKey()), label: 'command palette: go to anything, run a command (in an agent’s terminal: clears it)', group: 'Everywhere' },
   { id: 'reopen', keys: '⌘⇧T', label: 'reopen the panel closed last (MR, ticket, logs, shell…)', group: 'Everywhere', match: cmdShift('t') },
   { id: 'assistant', keys: '⌥↵', label: 'the Assistant: ask Prism, its conversations (out of a field)', group: 'Everywhere', when: () => assistantOn(), match: (e) => e.altKey && e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey },
+  { id: 'window-zoom', keys: '⌘+ / ⌘- / ⌘0', label: 'zoom the whole window in, out, back to 100%', group: 'Everywhere', match: (e) => chord(e) && !e.altKey && sizeStep(e) !== null },
   { id: 'settings', keys: '⌘,', label: 'settings', group: 'Everywhere', match: (e) => chord(e) && chordKey(e) === ',' },
   { id: 'zen', keys: '⌘⇧F', label: 'Zen mode: rail and header folded away', group: 'Everywhere', match: cmdShift('f') },
   { id: 'help', keys: '⌘? / F1', label: 'Help: guides and references', group: 'Everywhere', match: (e) => (chord(e) && chordKey(e) === '?') || e.key === 'F1' },

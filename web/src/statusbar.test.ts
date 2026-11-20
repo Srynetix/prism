@@ -37,7 +37,7 @@ describe('the default bar', () => {
   it('shows what waits for you, the work and the computer, and hides the rest', () => {
     const [left, right] = arrange([], DEFAULT_HIDDEN)
     expect(left.zones.map((z) => [z.zone, z.items.map((i) => i.id)])).toEqual([['you', ['claude', 'pipeline', 'meeting']], ['work', ['repos', 'sprint']]])
-    expect(right.zones.map((z) => [z.zone, z.items.map((i) => i.id)])).toEqual([['machine', ['usage', 'prism', 'clock']]])
+    expect(right.zones.map((z) => [z.zone, z.items.map((i) => i.id)])).toEqual([['machine', ['usage', 'prism', 'zoom', 'clock']]])
   })
 })
 
