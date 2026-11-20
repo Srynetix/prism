@@ -136,6 +136,9 @@
   .drawer.l { width: min(var(--dw-l), 94vw); }
   .drawer.xl { width: min(1320px, 96vw); }
   .drawer.full { left: 0; width: auto; border-left: none; box-shadow: none; }
+  /* Narrow (app.css, « Widths »): the whole width, whatever its size; from edge to edge, not
+     100vw, which counts a scrollbar's room too. */
+  @media (max-width: 719.98px) { .drawer:is(.m, .l, .xl), .drawer { left: 0; width: auto; border-left: none; } }
   /* Under the one on top: it steps back, still readable. */
   .drawer.under { transform: translateX(-24px); filter: brightness(0.92); }
   :global(html[data-reduce-motion]) .drawer { transition: none; }

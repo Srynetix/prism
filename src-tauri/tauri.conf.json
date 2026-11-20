@@ -22,8 +22,8 @@
         "title": "Prism",
         "width": 1440,
         "height": 900,
-        "minWidth": 900,
-        "minHeight": 560,
+        "minWidth": 640,
+        "minHeight": 480,
         "dragDropEnabled": false
       }
     ],

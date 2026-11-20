@@ -1,3 +1,4 @@
+import { foldOut } from './fold'
 import { BLOCK_DEFS } from './blocks'
 
 /**
@@ -125,27 +126,6 @@ export function arrange(order: string[], given: string[]): { side: 'left' | 'rig
   return [{ side: 'left', zones: side(full.slice(0, at)) }, { side: 'right', zones: side(full.slice(at + 1)) }]
 }
 
-/**
- * The items moved into the ⋯ for the bar to fit `room` px: the lowest `rank` first, and of two
- * alike the one further right; then those that fit again in the room left come back. `widths`: each item's last width in the bar (0: nothing to say).
- * `more`: the ⋯'s own width, counted as soon as one item goes.
- */
-export function overflow(shown: StatusId[], widths: Map<StatusId, number>, room: number, more: number): StatusId[] {
-  let need = shown.reduce((n, id) => n + (widths.get(id) ?? 0), 0)
-  if (need <= room) return []
-  need += more
-  const out: StatusId[] = []
-  const candidates = shown.filter((id) => (widths.get(id) ?? 0) > 0 && (BY_ID.get(id)?.rank ?? 0) < Infinity).sort((a, b) => BY_ID.get(a)!.rank - BY_ID.get(b)!.rank || shown.indexOf(b) - shown.indexOf(a))
-  for (const id of candidates) {
-    if (need <= room) break
-    out.push(id)
-    need -= widths.get(id)!
-  }
-  // A wide item gone may leave room for a narrower one taken before it: back in the bar.
-  for (const id of [...out].reverse()) {
-    if (need + widths.get(id)! > room) continue
-    out.splice(out.indexOf(id), 1)
-    need += widths.get(id)!
-  }
-  return out
-}
+/** The items moved into the ⋯ for the bar to fit `room` px (`foldOut`): by their `rank`. */
+export const overflow = (shown: StatusId[], widths: Map<StatusId, number>, room: number, more: number): StatusId[] =>
+  foldOut(shown, widths, room, more, (id) => BY_ID.get(id)?.rank ?? 0)

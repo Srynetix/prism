@@ -82,6 +82,16 @@ Tous les autres éléments sont masqués tant que vous ne les affichez pas : le
 > [!NOTE]
 > Faites un clic droit sur la barre d’état pour choisir les éléments qu’elle affiche, ou **Personnaliser…** pour les ranger : glissez-les le long de la barre, le trait orange séparant la gauche de la droite, ou dans le tiroir au-dessus pour les masquer. L’ordre est enregistré dans `[appearance] statusbar`, les éléments masqués dans `statusbar_hidden` (Réglages › Interface › Apparence) ; **Ordre par défaut** revient à la barre par défaut. Une config qui règle déjà l’un des deux garde sa barre telle qu’écrite ; les anciens `update`, `packs` et `problems` se lisent comme **Prism**.
 
+## Sur une moitié d’écran
+Prism tient sur une moitié d’écran, à côté d’un éditeur ou d’un navigateur : la fenêtre descend à 640 × 480 px. Sous 1 200 px de large, il s’organise pour la place qu’il a plutôt que de se tasser :
+
+- le rail ne montre que ses icônes, leur nom dans leur infobulle ;
+- les blocs d’une page passent les uns sous les autres, la page défile ;
+- un en-tête ou une barre garde ses actions principales sur une ligne et range les autres dans son **⋯**, mesuré au fur et à mesure : élargissez la fenêtre et elles reviennent. La barre d’état fait de même, ses éléments les moins utiles d’abord ;
+- la vue Agents montre un agent à la fois, son terminal ou son Chat sur toute la largeur : sa liste est un tiroir (le bouton au début de son en-tête, ou `⌘B`), refermé dès qu’un agent est choisi ; son panneau latéral s’ouvre par-dessus le terminal (**Terminal** ou **Chat** y revient), ses onglets en sélecteur dans le **⋯** quand ils ne tiennent plus ; les agents côte à côte attendent une fenêtre plus large.
+
+Sous 720 px, les tiroirs et les fenêtres de dialogue prennent toute la largeur. Un bloc suit sa propre largeur plutôt que celle de la fenêtre : étroit dans une page large, il se comporte comme sur une moitié d’écran. Le zoom de la fenêtre (`⌘+` / `⌘-`) change aussi la place : à 125 %, une fenêtre de 1 440 px se dispose comme une de 1 150 px.
+
 ## Les blocs sur mesure
 Un bloc à vous, sans Rust ni Svelte : une commande, ou un script écrit dans `config.toml`, qui affiche du JSON. Déclarez-le dans **Réglages › Interface › Blocs sur mesure** (ou `[[custom_blocks]]`) : **Commande** lance un programme avec ses arguments tels quels, jamais par un shell ; **Script** contient le programme lui-même, dans l’éditeur de l’onglet Fichiers, lancé par son shebang (bash, python3, node, `uv run --script` avec ses dépendances ; `/bin/sh` sans shebang), avec des modèles de départ qui affichent déjà un JSON valide. **Lancer maintenant** lance ce que vous éditez, enregistré ou non, et montre sa sortie ; **Écrire avec un agent** ouvre le lanceur avec le contrat et votre description, et **Charger le script de l’agent** amène ce qu’il a écrit dans l’éditeur.
 

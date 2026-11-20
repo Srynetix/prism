@@ -25,6 +25,10 @@ dev:
 web:
     pnpm --dir web dev
 
+# The interface at 390, 720, 960 and 1440 px (the browser preview in a headless Chromium): lists the buttons that cover one another or leave the window
+overlaps *args:
+    node web/scripts/overlaps.mjs {{args}}
+
 # Builds the example module, its back end (rustup target add wasm32-wasip2) then its web part, in examples/modules/hello/dist/hello: copy it into modules/ next to config.toml
 module-example:
     cargo build --release --target wasm32-wasip2 --manifest-path examples/modules/hello/backend/Cargo.toml

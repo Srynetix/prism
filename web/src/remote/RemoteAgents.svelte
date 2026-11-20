@@ -150,7 +150,7 @@
           <button class="btn sm" disabled={busy === a.id} onclick={() => act(a.id, () => interruptAgent(a.id))} title={t('Refuse and interrupt its turn (Esc): the agent stays')}><Icon name="pause" /> {t('Interrupt')}</button>
         </div>
       {:else if a.status !== 'running'}
-        <div class="chips"><QuickAnswers agent={a} />{#if canMarkRead(a)}<button class="btn sm" disabled={busy === a.id} onclick={() => act(a.id, () => markRead([a.id]))} title={t('Seen: it waits for you no more until its next turn')}><Icon name="check" /> {t('Mark as read')}</button>{/if}</div>
+        <div class="chips"><QuickAnswers agent={a} />{#if canMarkRead(a)}<button class="btn sm read" disabled={busy === a.id} onclick={() => act(a.id, () => markRead([a.id]))} title={t('Seen: it waits for you no more until its next turn')}><Icon name="check" /> {t('Mark as read')}</button>{/if}</div>
       {/if}
     {:else if acts && a.state === 'prepared'}
       <!-- Its Then steps: started by the computer with it (remote.rs, agent_start). -->
@@ -310,8 +310,12 @@
   .ports { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
   .port { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ok); font: 600 13px var(--mono); }
   .port small { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font: 400 11.5px var(--sans); }
-  .chips { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
-  .chips :global(.qa) { flex-wrap: nowrap; }
+  /* Its answers and actions: they wrap rather than scroll, none squeezed under its words (Mark
+     as read at the end of the last line). */
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+  .chips :global(.qa) { display: contents; }
+  .chips > :global(button), .chips :global(.qa > button) { flex: none; max-width: 100%; }
+  .chips .read { margin-left: auto; }
   /* Round, as its quick answers beside. */
   .chips :global(.qa button) { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .chips .btn { border-radius: 999px; }

@@ -87,7 +87,7 @@
   .foot { border-top: 0; }
   .warn { display: inline-flex; align-items: center; gap: 4px; color: var(--warn); font-size: var(--fs-meta); }
   .miss { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-  @media (max-width: 640px) {
+  @container (max-width: 599.98px) {
     .row { grid-template-columns: 80px 70px minmax(0, 1fr); }
     .role { display: none; }
   }

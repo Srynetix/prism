@@ -78,8 +78,10 @@
   .st.asks { color: var(--warn); } .st.tool { color: var(--ko); } .st.run { color: var(--info); }
   .q { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--warn); border-radius: var(--r4); background: var(--bg); font-size: var(--fs-meta); line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
   .q.tool { border-color: var(--ko); font-family: var(--mono); font-size: var(--fs-tag); }
-  .chips { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
-  .chips :global(.qa) { flex-wrap: nowrap; }
+  /* Its quick answers wrap rather than scroll, none squeezed under its words. */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chips :global(.qa) { display: contents; }
+  .chips :global(.qa > button) { flex: none; max-width: 100%; }
   .chips :global(.qa button) { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-meta); }
   .more { display: flex; justify-content: space-between; width: calc(100% - 28px); margin: 8px 14px 0; padding: 9px 12px; border: 0; border-radius: var(--r10); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--fs-meta); }
   .note { margin: 18px 14px 0; color: var(--text-muted); font-size: var(--fs-tag); text-align: center; }

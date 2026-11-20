@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "check": "svelte-check --tsconfig ./tsconfig.app.json --tsgo && node node_modules/@typescript/native/bin/tsc -p tsconfig.node.json && node scripts/lint-style.mjs",
-    "lint:style": "node scripts/lint-style.mjs"
+    "lint:style": "node scripts/lint-style.mjs",
+    "overlaps": "node scripts/overlaps.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

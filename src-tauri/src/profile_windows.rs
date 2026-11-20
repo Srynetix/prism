@@ -121,7 +121,7 @@ pub fn open(app: &AppHandle, id: &str) -> Result<()> {
     let window = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("index.html".into()))
         .title(title(id))
         .inner_size(1440.0, 900.0)
-        .min_inner_size(900.0, 560.0)
+        .min_inner_size(640.0, 480.0)
         .disable_drag_drop_handler()
         .initialization_script(&script)
         .build();

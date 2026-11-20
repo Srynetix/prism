@@ -438,8 +438,8 @@
   /* Not `.ok`: that is the tone of a complete day in the week (`.wd.ok`). */
   .entry .save { --btn-c: var(--info); }
   .edit-error { padding: 2px 12px 6px; font-size: var(--fs-meta); }
-  /* Narrow window: the day is already shown in the header's date picker. */
-  @media (max-width: 1250px) {
+  /* A narrow header: the day is already shown in its date picker. */
+  @container band (max-width: 1199.98px) {
     .chip .day { display: none; }
   }
 </style>

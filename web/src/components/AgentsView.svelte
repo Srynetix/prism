@@ -54,6 +54,8 @@
   import RoutineReview from './RoutineReview.svelte'
   import OverlapChip from './OverlapChip.svelte'
   import AsideChip from './AsideChip.svelte'
+  import Toolbar from './Toolbar.svelte'
+  import { squeezed } from '../widths.svelte'
   import ProposalChip from './ProposalChip.svelte'
   import AsideList from './AsideList.svelte'
   import { asideView, asidesOf, badged } from '../asides.svelte'
@@ -389,7 +391,11 @@
   const resizeSide = (delta: number, [left, right]: [number, number]) => setWidth(Math.round(Math.max(280, Math.min(left + right - 320, right - delta))))
   /** The panel over the whole width, for a while (never remembered): the terminal stays attached, at its size. */
   let fullSides = $state<Record<string, boolean>>({})
+  /** Half a screen: one column, the list in a drawer (below). */
+  const drawer = $derived(squeezed())
   const full = $derived(!!shownAgent && !!side && !!fullSides[shownAgent.id])
+  /** The side panel over the terminal, the whole width: asked for, or half a screen. */
+  const whole = $derived(full || (drawer && !!side))
   /**
    * Esc, while the view is shown and no layer is open over it: leaves the kinds and tags (unless it
    * is meant for a text, the terminal or a name being changed), then restores a full-width panel
@@ -397,6 +403,8 @@
    */
   $effect(() => {
     if (full) return holdEscape(() => setFull(false), (e) => agentsShown() && !layers.stack.length && !inField(e.target))
+    // Half a screen, the panel over the terminal: Escape gives the terminal (or the Chat) back.
+    if (whole) return holdEscape(() => setSide(null), (e) => agentsShown() && !layers.stack.length && !inField(e.target))
   })
   $effect(() => {
     if (managing) return holdEscape(() => (managing = false), (e) => agentsShown() && !layers.stack.length && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm, .rename'))
@@ -424,7 +432,7 @@
 
   /** Agents side by side (`agent-panes.svelte.ts`): 1, 2 or 4 panes, the focused one the selected agent's. */
   const grid = new AgentPanes(() => agents, select)
-  const split = $derived(grid.count > 1 && !grid.zoomed && !agentsView.creating && current?.kind === 'agent')
+  const split = $derived(grid.count > 1 && !grid.zoomed && !agentsView.creating && current?.kind === 'agent' && !drawer)
   $effect(() => {
     agentsView.split = split
   })
@@ -434,6 +442,11 @@
   const mounted = $derived([...new Set([...(grid.count > 1 ? grid.visible.filter((id): id is string => !!id) : []), ...seen])].filter(live_))
   const agentOf = (id: string | null) => (id ? agents.find((a) => a.id === id) : undefined)
   /** A pane's panel, in place of its terminal: the agent's own (see `sides`). */
+  /** Its terminal or its Chat; half a screen, from under its side panel (closed then). */
+  function showMain(id: string, chat: boolean) {
+    setChat(id, chat)
+    if (drawer && side) setSide(null)
+  }
   function setSideOf(id: string, tab: SideTab | null) {
     const { [id]: _, ...others } = sides
     sides = tab ? { ...others, [id]: tab } : others
@@ -471,7 +484,16 @@
    * on hover. ‹ / › or ⌘B; state remembered (`agents.collapsed`).
    */
   let collapsed = $state(pref<boolean>('agents.collapsed', false))
-  const toggleCollapsed = () => setPref('agents.collapsed', (collapsed = !collapsed))
+  /**
+   * Half a screen (under 1 200 px, `widths.svelte.ts`): one column, the agent's terminal or Chat
+   * full width, its side panel over it, the list in a drawer (☰ or ⌘B), closed once an agent is
+   * picked; agents side by side wait for a wider window (`drawer`, above).
+   */
+  let listOpen = $state(false)
+  const toggleCollapsed = () => (drawer ? (listOpen = !listOpen) : setPref('agents.collapsed', (collapsed = !collapsed)))
+  $effect(() => {
+    if (drawer && listOpen) return holdEscape(() => (listOpen = false), () => agentsShown() && !layers.stack.length)
+  })
 
   /** A prepared agent starts: its launch as kept, its Then steps with it. */
   async function start(a: Agent) {
@@ -603,8 +625,18 @@
   {/if}
 {/snippet}
 
-<section class="agents" class:collapsed>
-  {#if collapsed}
+<!-- Its list's button, half a screen: what it holds waiting for you, at a glance. -->
+{#snippet listButton()}
+  {@const waiting = agents.filter((x) => x.state === 'running' && waitsForYou(x.status)).length}
+  <button class="listb" class:on={listOpen} onclick={toggleCollapsed} aria-expanded={listOpen} title={keys(t('The agents’ list (⌘B)'))} aria-label={t('The agents’ list')}><Icon name="sidebar" />{#if waiting}<span class="n">{waiting}</span>{/if}</button>
+{/snippet}
+
+<section class="agents" class:collapsed={collapsed && !drawer} class:drawer class:listed={drawer && listOpen}>
+  {#if drawer}
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions : Escape and ⌘B close it too -->
+    <div class="scrim" hidden={!listOpen} onclick={() => (listOpen = false)}></div>
+  {/if}
+  {#if collapsed && !drawer}
     <aside class="rail" aria-label={t('Agents')}>
       <button class="ctl" onclick={toggleCollapsed} title={keys(t('Expand the list (⌘B)'))} aria-label={t('Expand the list')}><Icon name="chevronRight" /></button>
       <button class="ctl plus" onclick={newAgent} disabled={!agentsAvailable()} title={`${t('New agent')} (${shortcutKeys('new-agent')})`} aria-label={t('New agent')}><Icon name="plus" stroke={2.5} /></button>
@@ -624,7 +656,8 @@
       </div>
     </aside>
   {:else}
-  <aside class="list">
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions : picking an agent (a button) closes the drawer -->
+  <aside class="list" inert={drawer && !listOpen} onclick={(e) => { if (drawer && (e.target as Element).closest('.ag')) listOpen = false }}>
     <div class="top">
       <span class="layouts" role="group" aria-label={t('Agents side by side')}>
         {#each LAYOUTS as [l, label, k] (l)}
@@ -690,6 +723,7 @@
   {/if}
 
   <section class="pane">
+    {#if drawer && (agentsView.creating || !current || current.kind === 'desktop')}<div class="lbar">{@render listButton()}</div>{/if}
     <div class="launcher" hidden={!(agentsView.creating || !current)}><AgentLauncher bind:this={launcher} kinds={categories} {withDesktop} canCancel={entries.length > 0} /></div>
     {#if agentsView.creating || !current}
       <!-- The launcher, above: mounted once, what is typed in it stays. -->
@@ -719,13 +753,15 @@
       {@const a = current.a}
       {@const agentMr = openMrOf(a)}
       <header class="two">
-        <div class="row">
+        <!-- Squeezed, its chips go into its ⋯ first, then Stop, its panel's tabs (a selector there), Terminal or Chat last. -->
+        {#snippet lead()}
+          {#if drawer}{@render listButton()}{/if}
           <span class="st {a.status}"></span>
           {#if renaming === a.id}
             <input class="rename" bind:value={newTitle} use:focus spellcheck="false" onblur={() => endRename(a, true)} onkeydown={(e) => { if (e.key === 'Enter') endRename(a, true); else if (e.key === 'Escape') { e.stopPropagation(); endRename(a, false) } }} />
           {:else}
             <!-- svelte-ignore a11y_no_static_element_interactions : ⋯ › Rename is the keyboard path -->
-            <b class="title" ondblclick={() => startRename(a)} title="{a.title} · {t('double-click to rename')}">{a.title}</b>
+            <b class="title shrink" ondblclick={() => startRename(a)} title="{a.title} · {t('double-click to rename')}">{a.title}</b>
           {/if}
           <span class="pill {waitsForYou(a.status) ? 'warn' : isWorking(a.status) ? 'info' : ''}" class:working={isWorking(a.status)} title={a.needs_action ?? undefined}>{#if isWorking(a.status)}<span class="spin-ascii" aria-hidden="true"></span>{/if}{agentStateLabel(a)}</span>
           <!-- The one action of the moment: answer Claude, or bring a stopped agent back. -->
@@ -741,11 +777,13 @@
           {:else if a.state !== 'running'}
             <button class="primary" onclick={() => act(() => resumeAgent(a.id))} title={t('{command}, same folder', { command: cliOf(a.provider).resume })}><Icon name="retry" />{t('Resume')}</button>
           {/if}
-          <AgentCliChip {a} />
-          <ProposalChip agent={a} />
-          <AsideChip agent={a} />
-          {#if overlapsOf(a).length}<OverlapChip seen={overlapsOf(a)} />{/if}
-          {#if live.snapshot?.overlaps?.other_base.some((x) => x.path === (a.worktree ?? a.cwd))}<span class="chip" title={t('On another base than its repository’s: its changes are not compared with those of the other agents')}>{t('not compared: other base')}</span>{/if}
+        {/snippet}
+        {#snippet cliChip()}<AgentCliChip {a} />{/snippet}
+        {#snippet proposal()}<ProposalChip agent={a} />{/snippet}
+        {#snippet asideChip()}<AsideChip agent={a} />{/snippet}
+        {#snippet overlap()}{#if overlapsOf(a).length}<OverlapChip seen={overlapsOf(a)} />{/if}{/snippet}
+        {#snippet otherBase()}{#if live.snapshot?.overlaps?.other_base.some((x) => x.path === (a.worktree ?? a.cwd))}<span class="chip" title={t('On another base than its repository’s: its changes are not compared with those of the other agents')}>{t('not compared: other base')}</span>{/if}{/snippet}
+        {#snippet effortChip()}
           {#if takesEffort(a)}
             {@const cli = cliEffort(a)}
             <label class="chip effort" title="{t('Its reasoning effort, kept on resume: higher thinks longer and uses your limits faster')}{a.provider === 'codex' ? t('. Codex takes it from its next resume') : ''}">
@@ -756,27 +794,63 @@
               </select>
             </label>
           {/if}
-          <span class="grow"></span>
+        {/snippet}
+        {#snippet chatSeg()}
           {#if canChat(a)}
             <span class="seg" role="group" aria-label={t('Terminal or Chat')}>
-              <button class:on={!chatting(a.id)} onclick={() => setChat(a.id, false)} aria-pressed={!chatting(a.id)} title={t('Its terminal, as it runs')}>{t('Terminal')}</button>
-              <button class:on={chatting(a.id)} onclick={() => setChat(a.id, true)} aria-pressed={chatting(a.id)} title={t('Its conversation, read from its transcript: its questions as cards, a box to write to it')}>Chat</button>
+              <button class:on={!chatting(a.id) && !(whole && drawer)} onclick={() => showMain(a.id, false)} aria-pressed={!chatting(a.id) && !(whole && drawer)} title={t('Its terminal, as it runs')}>{t('Terminal')}</button>
+              <button class:on={chatting(a.id) && !(whole && drawer)} onclick={() => showMain(a.id, true)} aria-pressed={chatting(a.id) && !(whole && drawer)} title={t('Its conversation, read from its transcript: its questions as cards, a box to write to it')}>Chat</button>
             </span>
           {/if}
-          <span class="seg" role="group" aria-label={t('Side panel')}>
-            {#each sideOf(a, side) as [tb, , label] (tb)}
-              <button class:on={side === tb} onclick={() => setSide(side === tb ? null : tb)} title={label} aria-pressed={side === tb}>{SIDE_SHORT[tb]}</button>
-            {/each}
-          </span>
+        {/snippet}
+        {#snippet sideTabs(menu: boolean)}
+          {#if menu}
+            <label class="chip sidesel"><span class="k">{t('Panel')}</span>
+              <select value={side ?? ''} onchange={(e) => setSide((e.currentTarget.value || null) as SideTab | null)} aria-label={t('Side panel')}>
+                <option value="">—</option>
+                {#each sideOf(a, side) as [tb, , label] (tb)}<option value={tb}>{label}</option>{/each}
+              </select>
+            </label>
+          {:else}
+            <span class="seg" role="group" aria-label={t('Side panel')}>
+              {#each sideOf(a, side) as [tb, , label] (tb)}
+                <button class:on={side === tb} onclick={() => setSide(side === tb ? null : tb)} title={label} aria-pressed={side === tb}>{SIDE_SHORT[tb]}</button>
+              {/each}
+            </span>
+          {/if}
+        {/snippet}
+        {#snippet zoomBack()}
           {#if grid.zoomed}<button class="quiet icon" onclick={() => (grid.zoomed = false)} aria-label={t('Back to the agents side by side')} title={keys(t('Back to the agents side by side (⌘↵)'))}><Icon name="shrink" /></button>{/if}
+        {/snippet}
+        {#snippet fullButton()}{#if !drawer}
           {#if side}
             <button class="quiet icon" onclick={() => setFull(!full)} aria-pressed={full} aria-label={full ? t('Restore the panel') : t('Panel full width')} title={full ? t('Restore the panel (Esc)') : t('Panel full width, for a while')}><Icon name={full ? 'shrink' : 'expand'} /></button>
           {/if}
+        {/if}{/snippet}
+        {#snippet stopButton()}
           {#if a.state === 'running' && !chatting(a.id)}
             <button class="quiet" onclick={() => act(() => stopAgent(a.id))} title={t('Ctrl-C twice: {agent} exits, its last screen stays', { agent: nameOf(a) })}><Icon name="stop" />{t('Stop')}</button>
           {/if}
+        {/snippet}
+        {#snippet actions()}
           <ActionMenu sections={agentMenu(a, () => startRename(a))} head={agentHead(a)} label={t('All actions on {name}', { name: a.title })} />
-        </div>
+        {/snippet}
+        <!-- One bar per agent: what folded for one is weighed again for the next. -->
+        {#key a.id}
+        <Toolbar class="hrow" label={a.title} {lead} tail={actions} tools={[
+          { id: 'cli', render: cliChip, rank: 1 },
+          { id: 'proposal', render: proposal, rank: 2 },
+          { id: 'aside', render: asideChip, rank: 2 },
+          { id: 'overlap', render: overlap, rank: 3, shown: overlapsOf(a).length > 0 },
+          { id: 'base', render: otherBase, rank: 0, shown: !!live.snapshot?.overlaps?.other_base.some((x) => x.path === (a.worktree ?? a.cwd)) },
+          { id: 'effort', render: effortChip, rank: 0, shown: takesEffort(a) },
+          { id: 'chat', render: chatSeg, rank: 9, at: 'end', shown: canChat(a) },
+          { id: 'side', render: sideTabs, rank: 6, at: 'end' },
+          { id: 'zoom', render: zoomBack, rank: 7, at: 'end', shown: grid.zoomed },
+          { id: 'full', render: fullButton, rank: 5, at: 'end', shown: !drawer && !!side },
+          { id: 'stop', render: stopButton, rank: 4, at: 'end', shown: a.state === 'running' && !chatting(a.id) },
+        ]} />
+        {/key}
         {#if readMeta && !editMeta}
           <!-- `[agents] header_meta = "read"`: where it works and how it is filed, read; changed behind Edit. -->
           <div class="row meta read">
@@ -843,7 +917,7 @@
       Outside the branches above: terminals stay mounted (and attached) when switching to another
       agent, a desktop session or the launcher; hidden, they keep their size.
     -->
-    <div class="body" class:off={!shownAgent} class:full={full && !split} style:grid-template-columns={side && shownAgent && !full && !split ? `minmax(0, 1fr) 6px ${sideW}px` : null}>
+    <div class="body" class:off={!shownAgent} class:full={whole && !split} style:grid-template-columns={side && shownAgent && !whole && !split ? `minmax(0, 1fr) 6px ${sideW}px` : null}>
       <div class="main" class:split role="region" aria-label={t('Terminal')} style:grid-template={split ? TEMPLATE[grid.layout] : null}
         ondragentercapture={(e) => { if (draggedFiles(e) && shownAgent?.state === 'running') dropping = true }}
         ondragovercapture={(e) => { if (dropping) e.preventDefault() }}
@@ -908,7 +982,7 @@
         {#if !split && shownAgent && !chatting(shownAgent.id) && (shownAgent.context || shownAgent.usage)}<footer class="ctxbar"><ContextDetail agent={shownAgent} /><span class="ctxgrow"></span>{#if shownAgent.usage}<AgentUsageChip usage={shownAgent.usage} provider={shownAgent.provider} />{/if}</footer>{/if}
       </div>
       {#if side && shownAgent && !split}
-        {#if !full}<Gutter dir="x" onresize={resizeSide} onreset={() => setWidth(SIDE_W)} />{/if}
+        {#if !whole}<Gutter dir="x" onresize={resizeSide} onreset={() => setWidth(SIDE_W)} />{/if}
         {#key shownAgent.id}<AgentSide agent={shownAgent} bind:tab={() => side ?? 'files', (tb) => setSide(tb)} />{/key}
       {/if}
     </div>
@@ -918,6 +992,17 @@
 <style>
   .agents { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr); }
   .agents.collapsed { grid-template-columns: 62px minmax(0, 1fr); }
+  /* Half a screen: one column, the list a drawer over the pane (its layouts wait for a wider window). */
+  .agents.drawer { position: relative; grid-template-columns: minmax(0, 1fr); }
+  .agents.drawer > .list { position: absolute; z-index: 6; top: 0; bottom: 0; left: 0; width: min(320px, 88%); box-shadow: 8px 0 24px rgba(0, 0, 0, 0.18); transform: translateX(-105%); visibility: hidden; transition: transform var(--t-fast) var(--ease), visibility var(--t-fast); }
+  .agents.listed > .list { transform: none; visibility: visible; }
+  .agents.drawer .layouts, .agents.drawer .top .by { display: none; }
+  .scrim { position: absolute; inset: 0; z-index: 5; background: rgba(0, 0, 0, 0.25); }
+  .scrim[hidden] { display: none; }
+  .lbar { display: flex; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .listb { position: relative; display: inline-grid; flex: none; place-items: center; width: 28px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: var(--r6); background: var(--surface); color: var(--text-muted); cursor: pointer; }
+  .listb:hover, .listb.on { border-color: var(--src-claude); color: var(--src-claude); }
+  .listb .n { position: absolute; top: -5px; right: -6px; min-width: 14px; padding: 0 3px; border-radius: var(--r8); background: var(--src-claude); color: #fff; font-size: var(--fs-micro); font-weight: 700; line-height: 14px; text-align: center; }
   /* Rail: the collapsed list. */
   .rail { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 0; padding: 8px 0 0; border-right: 1px solid var(--border); background: var(--surface); }
   .rail .ctl { width: 30px; justify-content: center; padding: 2px 0; color: var(--text-muted); }
@@ -941,7 +1026,7 @@
   .top { display: flex; align-items: center; gap: 8px; padding: 10px 10px 6px; }
   .top b { font-size: var(--fs-title); }
   .grow { flex: 1; }
-  .filter { display: flex; gap: 4px; padding: 0 10px 6px; }
+  .filter { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0 10px 6px; }
   .filter button { padding: 1px 9px; border-radius: var(--r10); font-size: var(--fs-meta); color: var(--text-muted); background: none; }
   .filter button.on { background: color-mix(in srgb, var(--src-claude) 15%, transparent); border-color: color-mix(in srgb, var(--src-claude) 40%, transparent); color: var(--src-claude); }
   .scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 6px 10px; display: flex; flex-direction: column; gap: 2px; }
@@ -1048,7 +1133,7 @@
   /* An agent's header: row 1 says what to do now,
      row 2, small and muted, where it works and how it is filed. */
   header.two { flex-direction: column; align-items: stretch; gap: 3px; padding: 7px 12px 6px; }
-  header.two .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  header.two .row, header.two > :global(.hrow) { display: flex; align-items: center; gap: 8px; min-width: 0; }
   header.two .meta { gap: 6px; padding-left: 16px; color: var(--text-muted); font-size: var(--fs-meta); }
   .meta .dot { opacity: 0.5; }
   .meta.read { gap: 6px; }

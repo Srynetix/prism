@@ -16,6 +16,8 @@
   import Alerts from './components/Alerts.svelte'
   import { addColumn, bandsOf, columnsOf, currentView, editing, ensureSizes, showBlock, modeOf, moveBand, moveBlock, resetLayout, setView, shift, sizesOf, stepView, toggleEditing, toggleZen, zen, zoom } from './layout.svelte'
   import LayoutMenu from './components/LayoutMenu.svelte'
+  import Toolbar from './components/Toolbar.svelte'
+  import { timeDraft } from './timeDraft.svelte'
   import ViewIcon from './components/ViewIcon.svelte'
   import { MAX_COLUMNS, bandRanges, hiddenViews, isCustom, views, type BlockId, type View } from './views'
   import { look, movePage, pageUi, renamePage, startRename, startStyling } from './pages.svelte'
@@ -534,57 +536,64 @@
 -->
 {#snippet pageHeader(kind: 'page' | 'agents' | 'projects', preview?: Snippet<[BlockId]>)}
   <header style:--view={kind === 'agents' ? 'var(--src-claude)' : kind === 'projects' ? 'var(--src-gitlab)' : undefined} class:folded={!headerShown}>
-    {#if kind === 'page' && editing.on}
-      <!-- Edit layout: the page's icon and color, and its name, changed in place. -->
-      <span class="title editable">
-        <button class="look" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); startStyling(view.id, r.left, r.bottom + 4) }} title={t('Icon and color…')} aria-label={t('Icon and color…')}>{@render icon(look(view).icon)}</button>
-        {#if pageUi.renaming?.id === view.id && pageUi.renaming.at === 'header'}
-          {@render renameInput(view)}
-        {:else}
-          <button class="name" onclick={() => startRename(view.id, 'header')} title={t('Rename (F2)')}>{t(view.label)}</button>
-        {/if}
-        {#if view.origin}<span class="packmark" class:changed={view.origin === 'copy'} title={view.origin === 'pack' ? t('A page of a pack, kept up to date with it') : t('A page of a pack, changed here: it no longer follows the pack')}>{view.origin === 'pack' ? t('pack') : t('pack, changed')}</span>{/if}
-      </span>
-    {:else}
-    <span class="title">{#if kind === 'agents'}{@render icon('agents')}{t('Agents')}{:else if kind === 'projects'}{@render icon('worktrees')}{t('Projects')}{:else}{@render icon(look(view).icon)}{t(view.label)}{/if}</span>
-    {/if}
-    <div class="filter" class:active={kind === 'projects' ? !!filter.query.trim() : !!focus}>
-      <input
-        bind:this={input}
-        value={filter.query}
-        oninput={(e) => setQuery(e.currentTarget.value)}
-        onblur={() => (filterPeek = false)}
-        placeholder={t('Filter: {examples}!1957, text…  ( / )', { examples: hasTickets() ? `${ticketExample(4688)}, ` : '' })}
-        spellcheck="false"
-      />
-      {#if kind === 'projects' && filter.query.trim()}
-        <span class="match" class:none={!projectsView.matching}>{projectsView.matching ? tn(projectsView.matching, '{n} project', '{n} projects') : t('no match')}</span>
-        <button onclick={() => setQuery('')} aria-label={t('Clear filter')}><Icon name="close" /></button>
-      {:else if kind !== 'projects' && focus}
-        <span class="match" class:none={focus.summary === 'no match'}>{focus.summary === 'no match' ? t('no match') : focus.summary}</span>
-        <button onclick={() => setQuery('')} aria-label={t('Clear filter')}><Icon name="close" /></button>
+    <!-- Squeezed (half a screen), what is not the title and the filter goes into its ⋯, the Assistant last. -->
+    {#snippet lead()}
+      {#if kind === 'page' && editing.on}
+        <!-- Edit layout: the page's icon and color, and its name, changed in place. -->
+        <span class="title editable">
+          <button class="look" onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); startStyling(view.id, r.left, r.bottom + 4) }} title={t('Icon and color…')} aria-label={t('Icon and color…')}>{@render icon(look(view).icon)}</button>
+          {#if pageUi.renaming?.id === view.id && pageUi.renaming.at === 'header'}
+            {@render renameInput(view)}
+          {:else}
+            <button class="name" onclick={() => startRename(view.id, 'header')} title={t('Rename (F2)')}>{t(view.label)}</button>
+          {/if}
+          {#if view.origin}<span class="packmark" class:changed={view.origin === 'copy'} title={view.origin === 'pack' ? t('A page of a pack, kept up to date with it') : t('A page of a pack, changed here: it no longer follows the pack')}>{view.origin === 'pack' ? t('pack') : t('pack, changed')}</span>{/if}
+        </span>
+      {:else}
+        <span class="title">{#if kind === 'agents'}{@render icon('agents')}{t('Agents')}{:else if kind === 'projects'}{@render icon('worktrees')}{t('Projects')}{:else}{@render icon(look(view).icon)}{t(view.label)}{/if}</span>
       {/if}
-    </div>
-    {#if kind === 'page'}
-      <button class="mine" class:on={filter.mine} onclick={toggleMine} aria-pressed={filter.mine} title={t('Only my MRs and my tickets (m)')}>{t('Mine')}</button>
-      <DatePicker />
-      <LayoutMenu preview={snap ? preview : undefined} />
-    {/if}
-    {#if snap}
-      <HeaderStats {managers} {jobs} failures={protectedFailures} {reviews} {waiting} {syncs} />
-    {/if}
-    {#if full && full.tracker !== null && full.tracker_features?.time !== false}<TimeTracker snap={full} />{/if}
-    {#if assistantOn()}
-      <!-- The Assistant: a panel over the page, not a page; ⌥↵ and the palette open it too. -->
-      <button class="assist" class:on={assistantView.open} onclick={toggleAssistant} title={t('Assistant: ask Prism in your own words ({keys}, or from the palette)', { keys: shortcutKeys('assistant') })} aria-pressed={assistantView.open}>
-        <Icon name="sparkles" /><span class="lbl">{t('Assistant')}</span><kbd>{shortcutKeys('assistant')}</kbd>
-        {#if assistantWaiting}<span class="count" title={t('{n} proposals to validate', { n: assistantWaiting })}>{assistantWaiting}</span>{/if}
-      </button>
-    {/if}
+      <div class="filter" class:active={kind === 'projects' ? !!filter.query.trim() : !!focus}>
+        <input
+          bind:this={input}
+          value={filter.query}
+          oninput={(e) => setQuery(e.currentTarget.value)}
+          onblur={() => (filterPeek = false)}
+          placeholder={t('Filter: {examples}!1957, text…  ( / )', { examples: hasTickets() ? `${ticketExample(4688)}, ` : '' })}
+          spellcheck="false"
+        />
+        {#if kind === 'projects' && filter.query.trim()}
+          <span class="match" class:none={!projectsView.matching}>{projectsView.matching ? tn(projectsView.matching, '{n} project', '{n} projects') : t('no match')}</span>
+          <button onclick={() => setQuery('')} aria-label={t('Clear filter')}><Icon name="close" /></button>
+        {:else if kind !== 'projects' && focus}
+          <span class="match" class:none={focus.summary === 'no match'}>{focus.summary === 'no match' ? t('no match') : focus.summary}</span>
+          <button onclick={() => setQuery('')} aria-label={t('Clear filter')}><Icon name="close" /></button>
+        {/if}
+      </div>
+    {/snippet}
+    {#snippet mine()}<button class="mine" class:on={filter.mine} onclick={toggleMine} aria-pressed={filter.mine} title={t('Only my MRs and my tickets (m)')}>{t('Mine')}</button>{/snippet}
+    {#snippet date()}<DatePicker />{/snippet}
+    {#snippet layoutMenu()}<LayoutMenu preview={snap ? preview : undefined} />{/snippet}
+    {#snippet stats()}{#if snap}<HeaderStats {managers} {jobs} failures={protectedFailures} {reviews} {waiting} {syncs} />{/if}{/snippet}
+    {#snippet time()}{#if full && full.tracker !== null && full.tracker_features?.time !== false}<TimeTracker snap={full} />{/if}{/snippet}
+    {#snippet assistant()}
+      {#if assistantOn()}
+        <!-- The Assistant: a panel over the page, not a page; ⌥↵ and the palette open it too. -->
+        <button class="assist" class:on={assistantView.open} onclick={toggleAssistant} title={t('Assistant: ask Prism in your own words ({keys}, or from the palette)', { keys: shortcutKeys('assistant') })} aria-pressed={assistantView.open}>
+          <Icon name="sparkles" /><span class="lbl">{t('Assistant')}</span><kbd>{shortcutKeys('assistant')}</kbd>
+          {#if assistantWaiting}<span class="count" title={t('{n} proposals to validate', { n: assistantWaiting })}>{assistantWaiting}</span>{/if}
+        </button>
+      {/if}
+    {/snippet}
+    <Toolbar class="hbar" label={t('Page header')} {lead} tail={assistant} tools={[
+      ...(kind === 'page' ? [{ id: 'mine', render: mine, rank: 2 }, { id: 'date', render: date, rank: 3 }, { id: 'layout', render: layoutMenu, rank: 1 }] : []),
+      // Their popover (`i`) and their drawer (Log time, from a row) are asked for from elsewhere too.
+      { id: 'stats', render: stats, rank: 4, at: 'end' as const, shown: !!snap, wanted: !!headerStats.open, dismiss: () => (headerStats.open = null) },
+      { id: 'time', render: time, rank: 5, at: 'end' as const, shown: !!full && full.tracker !== null && full.tracker_features?.time !== false, wanted: timeDraft.open, dismiss: () => (timeDraft.open = false) },
+    ]} />
   </header>
 {/snippet}
 
-<div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!(machine() || profileWindow()) && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={look(view).color}>
+<div class="app" class:blocks={!(agentsView.open && agentsEnabled()) && !settingsView.open && !helpView.open && !(projectsView.open && projectsOn)} class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!(machine() || profileWindow()) && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={look(view).color}>
   <div class="shell">
   <!-- Two fingers up or down on the rail: the next or previous page, while one is shown. -->
   <nav class="rail" aria-label={t('Views')} {@attach pageSwipe(stepView, () => appearance().page_swipe && !editing.on && !zoomed && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open)}>
@@ -875,8 +884,9 @@
   .tour span { flex: 1; min-width: 0; }
   .tour .go { flex-shrink: 0; padding: 3px 10px; border: none; border-radius: var(--r6); background: var(--accent); background-image: var(--btn-sheen); box-shadow: 0 0 var(--btn-glow) var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; text-transform: var(--btn-case); letter-spacing: var(--btn-spacing); cursor: pointer; }
   .tour .x { display: inline-flex; flex-shrink: 0; border: none; background: none; color: var(--text-muted); cursor: pointer; }
-  header { container: band / inline-size; position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: linear-gradient(90deg, color-mix(in srgb, var(--view) 11%, var(--chrome-bg)), var(--chrome-bg) 45%); }
+  header { container: band / inline-size; position: relative; display: flex; align-items: center; padding: 8px 12px; background: linear-gradient(90deg, color-mix(in srgb, var(--view) 11%, var(--chrome-bg)), var(--chrome-bg) 45%); }
   header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, var(--view), color-mix(in srgb, var(--view) 25%, transparent) 40%, transparent 75%), var(--border); background-size: 100% 2px, 100% 1px; background-position: 0 0, 0 100%; background-repeat: no-repeat; pointer-events: none; }
+  header > :global(.hbar) { flex: 1; gap: 10px; }
   .title { view-transition-name: view-title; display: flex; align-items: center; gap: 6px; flex-shrink: 0; color: var(--view); font-size: var(--fs-title); font-weight: 600; white-space: nowrap; }
   .title.editable { gap: 4px; }
   .title .look, .title .name { display: inline-flex; align-items: center; padding: 2px 5px; border: 1px dashed color-mix(in srgb, var(--view) 50%, var(--border)); border-radius: var(--r6); background: none; color: inherit; font: inherit; cursor: pointer; }
@@ -924,15 +934,26 @@
   main.editing .col.over { background: color-mix(in srgb, var(--accent) 8%, transparent); }
   .col > .dragging { opacity: 0.4; }
   .drop { flex: 1; min-height: 80px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: var(--fs-meta); }
-  /* Narrow window: the header tightens (the stats lose their labels, see HeaderStats). */
-  @media (max-width: 1250px) {
+  /*
+   * Half a screen (app.css, « Widths »): the rail in icons (their names in their tooltips), the
+   * header without the page's title (the rail says it), a page's blocks one under the other, the
+   * page scrolling (a page of blocks only: Agents, Settings, Help and Projects keep the window's
+   * height, their panes scrolling inside). Each column takes its blocks' height: on its basis of 0,
+   * the next one came over it.
+   */
+  @media (max-width: 1199.98px) {
+    .rail { flex-basis: 48px; }
+    /* Their names out (the badges keep their own size). */
+    .rail :global(.v) { width: 40px; padding: 7px 0; gap: 0; font-size: 0; }
+    .rail .count { right: 1px; }
+    .rail .alert-dot { right: 4px; }
+    .rail .brand { margin-bottom: 6px; }
     .title { display: none; }
-  }
-  @media (max-width: 1100px) {
-    .app { height: auto; min-height: 100%; }
-    .rail { position: sticky; top: 0; height: calc(100vh - 26px); }
-    .app > :global(.statusbar) { position: sticky; bottom: 0; z-index: 5; }
+    .app.blocks { height: auto; min-height: 100%; }
+    .app.blocks .rail { position: sticky; top: 0; height: calc(100vh - 26px); }
+    .app.blocks > :global(.statusbar) { position: sticky; bottom: 0; z-index: 5; }
     .band { flex-direction: column; flex: none !important; }
+    .band > .col { flex: none !important; }
     .col > div { height: 60vh; flex: none !important; }
     main > :global(.gutter), .band > :global(.gutter), .col > :global(.gutter) { display: none; }
   }
