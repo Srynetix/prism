@@ -117,6 +117,13 @@ pub struct AgentsConfig {
     /// An agent whose CLI's plan is used up is offered another CLI to continue with (a banner in
     /// its view, an alert, the phone).
     pub suggest_switch: bool,
+    /// An agent stopped by a passing API error (`overloaded`, `server_error`) is resumed on its
+    /// own, 3 times at most (after 1, 5, then 15 minutes), the countdown shown and cancellable. A
+    /// usage limit never is: Resume at HH:MM plans it. Off by default.
+    pub retry_on_error: bool,
+    /// What an agent stopped by an API error is sent to go on (Resume, and the automatic resume).
+    /// Empty: Prism's, in `prompt_language`.
+    pub resume_prompt: String,
     /// How the CLI an agent continues with is told what was done: `prism` (a relay Prism writes
     /// from the transcript and git), `agent` (a summary the former agent writes), `task` (the task only).
     #[cfg_attr(feature = "ts", ts(type = "'prism' | 'agent' | 'task'"))]
@@ -638,6 +645,21 @@ impl AgentsConfig {
     }
 }
 
+/// `[agents] resume_prompt` left empty, in English and in French.
+pub const RESUME_PROMPT: &str = "An API error interrupted your last turn; it has passed. Carry on where you were (check first what was done).";
+pub const RESUME_PROMPT_FR: &str = "Une erreur d'API a interrompu ton dernier tour ; elle est passée. Reprends où tu en étais (vérifie d'abord ce qui a été fait).";
+
+impl AgentsConfig {
+    /// What an agent stopped by an API error is sent: `resume_prompt`, or Prism's in the prompt language.
+    pub fn resume_text(&self) -> String {
+        match self.resume_prompt.trim() {
+            "" if self.prompt_language == "fr" => RESUME_PROMPT_FR.into(),
+            "" => RESUME_PROMPT.into(),
+            own => own.into(),
+        }
+    }
+}
+
 impl Default for AgentsConfig {
     fn default() -> Self {
         Self {
@@ -674,6 +696,8 @@ impl Default for AgentsConfig {
             header_meta: "read".into(),
             comment_answers: true,
             suggest_switch: true,
+            retry_on_error: false,
+            resume_prompt: String::new(),
             handoff: "prism".into(),
             handoff_turns: 8,
             handoff_review: true,

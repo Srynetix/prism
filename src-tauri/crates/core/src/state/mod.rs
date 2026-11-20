@@ -109,7 +109,7 @@ pub struct WaitingAgent {
 /// review ready), longest first: what a phone, another computer and the other profiles are told.
 pub fn waiting_agents(snap: &Snapshot) -> (usize, Vec<WaitingAgent>) {
     let running: Vec<_> = snap.agents.iter().filter(|a| a.state == AgentState::Running).collect();
-    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, SessionStatus::WaitingTool | SessionStatus::NeedsYou | SessionStatus::ReviewReady)).collect();
+    let mut waiting: Vec<_> = running.iter().filter(|a| matches!(a.status, SessionStatus::WaitingTool | SessionStatus::NeedsYou | SessionStatus::Failed | SessionStatus::ReviewReady)).collect();
     waiting.sort_by_key(|a| a.last_activity);
     let waiting = waiting
         .iter()

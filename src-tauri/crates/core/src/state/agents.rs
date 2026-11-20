@@ -319,6 +319,10 @@ pub struct Agent {
     /// the agent is going in circles.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub looping: Option<Looping>,
+    /// Its turn ended on an API error (status `Failed`): what kind, its message, the resume planned.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub failure: Option<AgentFailure>,
     /// It has proposed a plan (plan mode) in this conversation: its Plan tab is offered.
     #[serde(default)]
     pub planned: bool,
@@ -371,6 +375,25 @@ pub struct AgentLeg {
     pub message: String,
 }
 
+/// An API error that ended an agent's turn (Claude Code's `StopFailure`), and its resume.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct AgentFailure {
+    /// `overloaded`, `server_error`, `rate_limit`, `authentication_failed`… (`hook::ERROR_KINDS`).
+    pub kind: String,
+    /// The CLI's message about it (« API Error: 529 Overloaded »), on one line.
+    pub text: Option<String>,
+    pub at: DateTime<Utc>,
+    /// A resume planned (Resume at HH:MM, or the automatic one): when, and whether it is automatic.
+    pub resume_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<bool>", optional))]
+    pub auto: bool,
+    /// The automatic resumes already made in a row for this error (3 at most).
+    #[serde(default)]
+    pub attempts: u32,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Looping {
@@ -404,6 +427,9 @@ pub enum SessionStatus {
     WaitingTool,
     /// Turn finished, Claude is waiting for an answer or a decision.
     NeedsYou,
+    /// Its turn ended on an API error (overloaded, rate limit, login expired…): `needs_action` is
+    /// its kind. It waits for you too, but to be resumed (`Agent::failure`).
+    Failed,
     /// Turn finished, a deliverable is ready to review.
     ReviewReady,
     Completed,

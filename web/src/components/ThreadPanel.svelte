@@ -45,7 +45,7 @@
     title: string
     open?: () => void
   }
-  const AGENT: Record<SessionStatus, string> = { running: tc('tickets', 'working'), background: tr('works in the background'), waiting_tool: tr('asks permission'), needs_you: tr('waits for you'), review_ready: tr('ready for review'), completed: tc('tickets', 'done'), idle: tr('idle') }
+  const AGENT: Record<SessionStatus, string> = { running: tc('tickets', 'working'), background: tr('works in the background'), waiting_tool: tr('asks permission'), needs_you: tr('waits for you'), failed: tr('stopped on an API error'), review_ready: tr('ready for review'), completed: tc('tickets', 'done'), idle: tr('idle') }
 
   const nodes = $derived.by((): Node[] => {
     if (!th) return []

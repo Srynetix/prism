@@ -180,6 +180,17 @@ comment_answers: boolean,
  */
 suggest_switch: boolean, 
 /**
+ * An agent stopped by a passing API error (`overloaded`, `server_error`) is resumed on its
+ * own, 3 times at most (after 1, 5, then 15 minutes), the countdown shown and cancellable. A
+ * usage limit never is: Resume at HH:MM plans it. Off by default.
+ */
+retry_on_error: boolean, 
+/**
+ * What an agent stopped by an API error is sent to go on (Resume, and the automatic resume).
+ * Empty: Prism's, in `prompt_language`.
+ */
+resume_prompt: string, 
+/**
  * How the CLI an agent continues with is told what was done: `prism` (a relay Prism writes
  * from the transcript and git), `agent` (a summary the former agent writes), `task` (the task only).
  */

@@ -6,7 +6,7 @@ use crate::state::{Agent, AgentState, SessionStatus};
 
 /// At its prompt, free to read an answer: not working, not asking for a permission.
 pub fn at_prompt(state: AgentState, status: SessionStatus) -> bool {
-    state == AgentState::Running && matches!(status, SessionStatus::NeedsYou | SessionStatus::ReviewReady | SessionStatus::Completed | SessionStatus::Idle | SessionStatus::Background)
+    state == AgentState::Running && matches!(status, SessionStatus::NeedsYou | SessionStatus::Failed | SessionStatus::ReviewReady | SessionStatus::Completed | SessionStatus::Idle | SessionStatus::Background)
 }
 
 /// What an agent gives the variables; `None`: it has none.

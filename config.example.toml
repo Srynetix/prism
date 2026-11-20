@@ -343,7 +343,7 @@ target = "agent"            # Claude actions of the menus: "agent" (Prism launch
 # worktrees_dir = "~/Development/app.worktrees"   # absent: <repo>.worktrees, next to the repository
 branch_prefix = "agent/"    # branch of a new worktree: prefix + its name
 permission_mode = "default" # offered by the launcher: default (the CLI's settings), acceptEdits, plan
-font_size = 12.5            # terminal text, in points (⌘+ / ⌘- / ⌘0 in the Agents view)
+font_size = 12.5            # terminal text, in points (⌘⌥+ / ⌘⌥- / ⌘⌥0 in the Agents view)
 scrollback = 5000           # lines kept by a terminal, on top of tmux's history
 categories = ["Refinement", "Development", "Review"]   # to sort agents; the Agents view can group them this way
 stages = ["waiting", "doing", "review", "done"]          # where an agent's work stands, set by hand; groups too
@@ -353,6 +353,8 @@ terminal_keys = ["Cmd+K"]   # Prism's shortcuts an agent's terminal keeps (Cmd+K
 view = "chat"               # an agent read as its Chat (Claude Code, Codex) or its "terminal", until its Terminal | Chat says otherwise
 tasks_depth = 3             # Tasks panel: subfolder levels searched for justfile, Taskfile, package.json (0: the folder alone)
 prism_mcp = false           # every agent Prism launches gets Prism's MCP server and its "prism" skill ([mcp]); off: only "Configure Prism"
+retry_on_error = false      # an agent stopped by an overloaded or failing API resumes on its own (3 tries: 1, 5, 15 min)
+# resume_prompt = ""        # what an agent stopped by an API error is sent to go on; empty: Prism's, in prompt_language
 
 # Quick answers: one click answers an agent at its prompt (its view, the panes, the Agents block,
 # its alert, the phone); ⇧-click types the text instead. Nothing while it works or asks for a

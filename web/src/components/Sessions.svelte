@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorInfo, resumable, resumeAgent } from '../agent-errors'
   import ProposalChip from './ProposalChip.svelte'
   import { threadAttr } from '../thread.svelte'
   import { mrNumber } from '../forge'
@@ -45,9 +46,21 @@
       .filter(Boolean)
       .join('\n')
   /** A session's status as a dot's tone (`.dot`). */
-  const DOT: Record<string, string> = { running: 'ok pulse', background: 'ok bg', needs_you: 'warn', waiting_tool: 'ko', review_ready: 'info' }
+  const DOT: Record<string, string> = { running: 'ok pulse', background: 'ok bg', needs_you: 'warn', failed: 'ko', waiting_tool: 'ko', review_ready: 'info' }
   const dot = (status: string) => `dot ${DOT[status] ?? 'idle'}`
 </script>
+
+<!-- What it asks of you: its quick answers and why; stopped by an API error, Resume and its kind. -->
+{#snippet asks(a: Agent, full: boolean)}
+  {#if a.status === 'failed'}
+    {@const kind = a.failure?.kind ?? 'unknown'}
+    {#if resumable(kind) && kind !== 'rate_limit'}<button class="btn sm" onclick={() => resumeAgent(a.id)} title={a.failure?.text ?? ''}>{t('Resume')}</button>{/if}
+    <span class="pill ko" class:asks={full} title={a.failure?.text ?? errorInfo(kind).message}>{errorInfo(kind).short}</span>
+  {:else}
+    <span class="qa"><QuickAnswers agent={a} compact /></span>
+    {#if isWaiting(a)}<span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'}" class:asks={full} title={a.needs_action ?? sessionLabel(a)}>{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span>{/if}
+  {/if}
+{/snippet}
 
 <section class="panel" style="--src: var(--src-claude)" class:collapsed={isCollapsed('sessions')}>
   <h2><span class="title"><Logo name="agent" />Agents</span> <small>{t('{running} running · {waiting} waiting', { running, waiting })}</small><BlockControls id="sessions" /></h2>
@@ -55,7 +68,7 @@
     <!-- Short: only the agents waiting for me. -->
     <div class="short-body">
       {#each agents.filter(isWaiting) as a (a.id)}
-        <div class="srow"><span class={dot(a.status)}></span><button class="t" onclick={() => openAgents(a.id)} title={tooltip(a)}>{a.title}</button><span class="qa"><QuickAnswers agent={a} compact /></span><span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'}">{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span></div>
+        <div class="srow"><span class={dot(a.status)}></span><button class="t" onclick={() => openAgents(a.id)} title={tooltip(a)}>{a.title}</button>{@render asks(a, false)}</div>
       {:else}
         <div class="srow more">{t('No agent waiting for you.')}</div>
       {/each}
@@ -69,8 +82,7 @@
       <div class="s" class:dim={status === 'completed' || status === 'idle'} data-thread={threadAttr({ agent: a.id })}>
         <span class={dot(status)} title={a.state === 'running' ? sessionLabel(a) : STOPPED[a.state]}></span>
         <button class="t" onclick={() => openAgents(a.id)} title={tooltip(a)}><Icon name="terminal" />{a.title}</button>
-        {#if isWaiting(a) || a.status === 'review_ready'}<span class="qa"><QuickAnswers agent={a} compact /></span>{/if}
-        {#if isWaiting(a)}<span class="pill {a.status === 'waiting_tool' ? 'ko' : 'warn'} asks" title={a.needs_action ?? sessionLabel(a)}>{a.status === 'waiting_tool' ? t('tool') : t('asks')}</span>{/if}
+        {#if isWaiting(a) || a.status === 'review_ready'}{@render asks(a, true)}{/if}
         <ProposalChip agent={a} />
         {#if a.state !== 'running'}<span class="pill">{STOPPED[a.state]}</span>{/if}
         {#if overlapsOfAgent(snap, a).length}<OverlapChip seen={overlapsOfAgent(snap, a)} short />{/if}

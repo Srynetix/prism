@@ -836,6 +836,20 @@ pub async fn agent_send(state: State<'_, AppState>, id: String, text: String) ->
     state.agents.send(&id, &text).await.map_err(Into::into)
 }
 
+/// An agent stopped by an API error, resumed: its resume prompt sent now, or at `at` (a usage
+/// limit's reset).
+#[prism_macros::command]
+pub async fn agent_error_resume(state: State<'_, AppState>, id: String, at: Option<chrono::DateTime<chrono::Utc>>) -> Cmd {
+    state.agents.resume_failed(&id, at).await.map_err(Into::into)
+}
+
+/// The resume planned for an agent stopped by an API error, cancelled (the automatic ones too).
+#[prism_macros::command]
+pub fn agent_error_resume_cancel(state: State<'_, AppState>, id: String) -> Cmd {
+    state.agents.resume_cancel(&id);
+    Ok(())
+}
+
 /// The files that say what a task runs (package.json…) the agent's branch changed, and those of
 /// its folder's dependencies written since its launch: a task run then is the agent's to choose.
 #[prism_macros::command]

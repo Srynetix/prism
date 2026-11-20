@@ -253,6 +253,9 @@ pub enum Entry {
     Tool(Tool),
     /// What happened besides: an interruption, a compaction.
     Note { text: String },
+    /// An API error that ended the turn (Claude Code's `isApiErrorMessage`, « API Error: 529 … »):
+    /// shown as an error, not as the agent's words.
+    Error { text: String },
     /// Its thinking: its words when the CLI keeps them (often it keeps none), and how long since
     /// the step before.
     Thinking { text: String, ms: Option<u64> },

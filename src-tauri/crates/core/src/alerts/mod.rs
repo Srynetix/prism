@@ -53,6 +53,7 @@ pub enum AlertRule {
     AgentCost,
     AgentLoop,
     AgentLimit,
+    AgentError,
     Review,
     OpenThreads,
     MrCi,
@@ -216,6 +217,10 @@ pub enum Fix {
         tail: String,
     },
     Switch {
+        agent: String,
+    },
+    /// An agent stopped by a passing API error: sent its resume prompt (`[agents] resume_prompt`).
+    Resume {
         agent: String,
     },
     /// Sessions whose turn is over, asking nothing: marked read in one click (`read_marks`).

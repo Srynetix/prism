@@ -12,6 +12,7 @@ pub mod conversation;
 mod costs;
 pub mod draft;
 pub mod explore;
+mod failures;
 pub mod files;
 mod gate;
 pub mod hook;
@@ -267,6 +268,8 @@ struct Inner {
     opencode_windows: Mutex<OpenCodeWindows>,
     /// The chains and the inbox (`chains`).
     book: Mutex<chains::Book>,
+    /// The resumes planned for agents stopped by an API error (`failures`).
+    resumes: Mutex<failures::Book>,
     /// Wakes the chains' loop: a prompt queued, a queued one sent.
     chains_wake: Notify,
     /// The routines: their times, their runs, their trust (`routines`).
@@ -343,6 +346,7 @@ impl Agents {
                 command_code_window: Mutex::default(),
                 opencode_windows: Mutex::default(),
                 book: Mutex::new(chains::Book::load(&dir)),
+                resumes: Mutex::new(failures::Book::default()),
                 chains_wake: Notify::new(),
                 routines: Mutex::new(routines::Book::load(&dir)),
                 routines_wake: Notify::new(),
@@ -465,6 +469,17 @@ impl Agents {
             prism_core::read_marks::apply(&a.id, &mut a.status, &mut a.needs_action, a.moved_at.or(a.last_activity), &mut a.read);
         }
         prism_core::read_marks::flush();
+        // Stopped by an API error: the resumes planned, the automatic ones, those due now.
+        let retry = self.inner.settings.lock().unwrap().retry_on_error;
+        let due = self.inner.resumes.lock().unwrap().tick(&mut list, retry, Utc::now());
+        for id in due {
+            let me = self.clone();
+            tokio::spawn(async move {
+                if let Err(e) = me.send_resume(&id).await {
+                    tracing::warn!("agents: resuming {id} after its API error: {e:#}");
+                }
+            });
+        }
         // Agents also appear among the Claude sessions: Claude block, menu bar,
         // notifications and alerts see them like the desktop ones.
         let sessions: Vec<ClaudeSession> = list.iter().filter(|a| a.state != AgentState::Prepared).map(as_session).collect();
@@ -615,6 +630,14 @@ fn read_agent(r: Record, home: Option<&Path>, folds: &mut HashMap<String, Fold>,
         gate: None,
         planned: fold.planned,
         looping: fold.failing.clone().filter(|(_, n)| *n >= LOOPING && state == AgentState::Running).map(|(command, count)| crate::state::Looping { command, count }),
+        failure: fold.failure.as_ref().filter(|_| status == SessionStatus::Failed).map(|(kind, text, at)| crate::state::AgentFailure {
+            kind: kind.clone(),
+            text: text.clone(),
+            at: chrono::DateTime::from_timestamp_millis(*at).unwrap_or_else(chrono::Utc::now),
+            resume_at: None,
+            auto: false,
+            attempts: 0,
+        }),
         legs: r.legs,
     };
     (agent, fold.model.clone())

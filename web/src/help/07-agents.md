@@ -186,6 +186,21 @@ The window also picks the next CLI's model, effort and permission mode (the agen
 
 Settings › Agents › Agent CLI: **Offer another CLI at the limit** (`[agents] suggest_switch`), **Relay** (`handoff`: the one picked first), **Turns in the relay** (`handoff_turns`, 8), **Read the relay first** (`handoff_review`; off, the chip, palette and ⋯ menu send Prism's relay or the task in one click). From a phone the relay is typing (`[remote] typing`, the passkey).
 
+## When the API fails
+
+A Claude Code agent whose turn ends on an API error (« API Error: 529 Overloaded », a usage limit, an expired login…) is **in error**, red, rather than looking at work or simply waiting: its row says what kind, a banner over it says what to do, and its Chat shows the error as an error, not as its answer. It counts among what waits for you, has its own alert (**Agent stopped by an API error**) and notification, and the phone shows the same banner.
+
+| Kind | What to do |
+|---|---|
+| Overloaded, server error | **Resume**: the error has passed, it goes on where it was |
+| Usage limit | **Resume at HH:MM**: planned for the plan's reset; **Resume now** too |
+| Login expired | **Log in again** types `/login` in its terminal; then **Resume** |
+| Account or billing | Nothing to resume until it is settled in the provider's console |
+| Request refused, answer too long | **Compact then resume** (`/compact`, then the resume) |
+| Model unavailable | Pick another model, then **Resume** |
+
+**Resume** sends its resume prompt (`[agents] resume_prompt`; empty: Prism's, in the prompt language), asking it to check first what was done. With **Resume after a passing API error** (`[agents] retry_on_error`, off by default), an overloaded or failing service is resumed on its own: 3 times at most, after 1, 5 then 15 minutes, the countdown in its banner, **Cancel** to stop it. A usage limit never resumes on its own. Codex, OpenCode and Command Code do not say their API errors yet.
+
 ## Claude Desktop sessions
 Your Claude Desktop sessions appear in the same list, with a dotted edge and a **Desktop** badge, grouped as in the desktop sidebar. **Show Desktop sessions** (`[agents.claude] show_desktop`, Settings › Agents › Agent CLI › Claude Code) hides them, and they show only with Claude Code agents; hidden, they are not counted either. Prism only reads their status from disk, never their conversation; **Open in Claude Desktop** opens one there.
 

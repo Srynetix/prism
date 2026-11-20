@@ -95,6 +95,8 @@ export const AGENTS_DEFAULTS: AgentsConfig = {
     "answers": [],
     "enabled": true
   },
+  "resume_prompt": "",
+  "retry_on_error": false,
   "routines": [],
   "scratch_dir": null,
   "scrollback": 5000,

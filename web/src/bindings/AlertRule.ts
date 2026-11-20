@@ -3,4 +3,4 @@
 /**
  * What raised an alert (`Alert.rule`), as `[alerts] band_*` names them.
  */
-export type AlertRule = "question" | "permission" | "proposal" | "your-turn" | "agent-cost" | "agent-loop" | "agent-limit" | "review" | "open-threads" | "mr-ci" | "conflicts" | "rebase-failed" | "need-rebase" | "only-ci" | "no-reviewer" | "no-ticket" | "sync" | "queue" | "branch-ci" | "infra" | "argo" | "source" | "block" | "worktree" | "overlap";
+export type AlertRule = "question" | "permission" | "proposal" | "your-turn" | "agent-cost" | "agent-loop" | "agent-limit" | "agent-error" | "review" | "open-threads" | "mr-ci" | "conflicts" | "rebase-failed" | "need-rebase" | "only-ci" | "no-reviewer" | "no-ticket" | "sync" | "queue" | "branch-ci" | "infra" | "argo" | "source" | "block" | "worktree" | "overlap";

@@ -66,6 +66,7 @@ export const answerProposal = (id: number, status: string, detail: Record<string
 export function conversationState(a: Agent, s: Snapshot | null | undefined): { label: string; tone: 'wait' | 'run' | 'done' | 'idle' } {
   if (proposalsOf(s, a.id).length) return { label: t('Proposal to validate'), tone: 'wait' }
   if (a.state === 'exited' || a.state === 'gone') return { label: t('Ended'), tone: 'idle' }
+  if (a.status === 'failed') return { label: t('API error'), tone: 'wait' }
   if (a.status === 'needs_you' || a.status === 'waiting_tool') return { label: t('Waiting for you'), tone: 'wait' }
   if (a.status === 'running') return { label: t('Working…'), tone: 'run' }
   return { label: t('Answered'), tone: 'done' }

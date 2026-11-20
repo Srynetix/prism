@@ -180,7 +180,7 @@
   /** One line for the Claude column: what works in it, otherwise what worked in it. */
   /** `agent`: the linked Prism agent, which the row opens in the Agents view. */
   /** A session's status as a dot's tone (`.dot`): working, waiting for you, stopped. */
-  const DOT: Record<string, string> = { running: 'ok pulse', background: 'ok bg', needs_you: 'warn', waiting_tool: 'ko', review_ready: 'info', gone: 'gone' }
+  const DOT: Record<string, string> = { running: 'ok pulse', background: 'ok bg', needs_you: 'warn', failed: 'ko', waiting_tool: 'ko', review_ready: 'info', gone: 'gone' }
   const dot = (status: string | undefined) => `dot ${DOT[status ?? ''] ?? 'idle'}`
   function claude(i: WorktreeInfo): { dot: string; text: string; agent?: string } | null {
     const a = i.agents.find((a) => a.state === 'running') ?? i.agents[0]

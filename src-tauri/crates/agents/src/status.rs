@@ -68,6 +68,8 @@ pub struct Fold {
     working_since: Option<i64>,
     /// The time of the line being applied (milliseconds), for the active time.
     now: i64,
+    /// The API error that ended its turn (`StopFailure`): kind, message, when (milliseconds).
+    pub failure: Option<(String, Option<String>, i64)>,
     /// Bytes of the log already read, and incomplete line ending pending.
     offset: u64,
     partial: Vec<u8>,
@@ -79,7 +81,7 @@ const LONGEST_STRETCH_MS: i64 = 3 * 3_600_000;
 
 impl Default for Fold {
     fn default() -> Self {
-        Self { status: SessionStatus::Idle, needs_action: None, last_activity: None, turn_at: None, worktree: None, worktree_note: None, adopted: Vec::new(), background: false, session: None, context: None, model: None, failing: None, transcript: None, planned: false, waiting: None, replied: false, active_ms: 0, working_since: None, now: 0, offset: 0, partial: Vec::new() }
+        Self { status: SessionStatus::Idle, needs_action: None, last_activity: None, turn_at: None, worktree: None, worktree_note: None, adopted: Vec::new(), background: false, session: None, context: None, model: None, failing: None, transcript: None, planned: false, waiting: None, replied: false, active_ms: 0, working_since: None, now: 0, failure: None, offset: 0, partial: Vec::new() }
     }
 }
 
@@ -232,6 +234,12 @@ impl Fold {
             }
             // Codex: interrupted (Esc), it waits for you as after a reply.
             "Stop" | "Interrupt" => self.set(SessionStatus::NeedsYou, None),
+            // Claude Code: an API error ended the turn, in place of `Stop`.
+            "StopFailure" if !l.sub => {
+                let kind = l.reason.clone().unwrap_or_else(|| "unknown".into());
+                self.set(SessionStatus::Failed, Some(kind.clone()));
+                self.failure = Some((kind, l.what.clone(), l.t));
+            }
             "SessionEnd" => self.set(SessionStatus::Completed, None),
             // Command Code or OpenCode compacted the conversation: its size comes with the next request.
             "Compacted" => self.context = None,
@@ -286,6 +294,9 @@ impl Fold {
         }
         // Whatever comes next, it no longer waits on it; set again by the line that says so.
         self.waiting = None;
+        if status != SessionStatus::Failed {
+            self.failure = None;
+        }
         self.status = status;
         self.needs_action = needs_action;
     }
@@ -323,6 +334,24 @@ mod tests {
         // Its successor reports its own, read again from the log's start as well.
         f.apply(&Line { session: Some("019a-codex".into()), ..line("SessionStart") });
         assert_eq!(f.session.as_deref(), Some("019a-codex"));
+    }
+
+    /// An API error ends the turn in error, with its kind; the next prompt works again, and a
+    /// turn ending well is not in error.
+    #[test]
+    fn an_api_error_is_its_own_state_until_the_next_prompt() {
+        let mut f = Fold::default();
+        f.apply(&line("UserPromptSubmit"));
+        f.apply(&Line { reason: Some("overloaded".into()), what: Some("API Error: 529 Overloaded".into()), ..line("StopFailure") });
+        assert_eq!((f.status, f.needs_action.as_deref()), (SessionStatus::Failed, Some("overloaded")));
+        assert_eq!(f.failure.as_ref().map(|(k, t, _)| (k.as_str(), t.as_deref())), Some(("overloaded", Some("API Error: 529 Overloaded"))));
+        // Claude Code says it idles a minute later: still in error.
+        f.apply(&Line { notification: Some("idle_prompt".into()), ..line("Notification") });
+        assert_eq!(f.status, SessionStatus::Failed);
+        f.apply(&line("UserPromptSubmit"));
+        assert_eq!((f.status, f.failure.is_none()), (SessionStatus::Running, true));
+        f.apply(&line("Stop"));
+        assert_eq!((f.status, f.failure.is_none()), (SessionStatus::NeedsYou, true));
     }
 
     #[test]

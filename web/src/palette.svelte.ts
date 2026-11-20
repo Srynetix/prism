@@ -107,7 +107,7 @@ function agentActions(a: Agent): PaletteAction[] {
   return out
 }
 
-const STATUS_PILL: Record<string, [string, string]> = { needs_you: [t('asks'), 'warn'], waiting_tool: [t('permission'), 'ko'], review_ready: [t('plan'), 'warn'], running: [t('working'), 'info'], background: [t('in the background'), 'info'] }
+const STATUS_PILL: Record<string, [string, string]> = { needs_you: [t('asks'), 'warn'], waiting_tool: [t('permission'), 'ko'], failed: [t('API error'), 'ko'], review_ready: [t('plan'), 'warn'], running: [t('working'), 'info'], background: [t('in the background'), 'info'] }
 
 function agentEntries(s: Snapshot): Entry[] {
   if (!agentsEnabled()) return []

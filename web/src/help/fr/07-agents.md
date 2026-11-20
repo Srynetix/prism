@@ -186,6 +186,21 @@ La fenêtre choisit aussi le modèle, l’effort et le mode d’autorisation de 
 
 Réglages › Agents › CLI d’agent : **Proposer une autre CLI à la limite** (`[agents] suggest_switch`), **Relais** (`handoff` : celui choisi d’abord), **Tours dans le relais** (`handoff_turns`, 8), **Relire le relais d’abord** (`handoff_review` ; désactivé, la puce, la palette et le menu ⋯ envoient le relais de Prism ou la tâche en un clic). Depuis un téléphone, le relais est de la saisie (`[remote] typing`, la clé d’accès).
 
+## Quand l’API échoue
+
+Un agent Claude Code dont le tour s’arrête sur une erreur d’API (« API Error: 529 Overloaded », une limite d’usage, une connexion expirée…) est **en erreur**, en rouge, au lieu de sembler au travail ou simplement en attente : sa ligne dit de quoi il s’agit, un bandeau au-dessus dit quoi faire, et son Chat montre l’erreur comme une erreur, pas comme sa réponse. Il compte parmi ce qui vous attend, a sa propre alerte (**Agent arrêté par une erreur d’API**) et sa notification, et le téléphone montre le même bandeau.
+
+| Motif | Quoi faire |
+|---|---|
+| Surcharge, erreur du serveur | **Reprendre** : l’erreur est passée, il reprend où il en était |
+| Limite d’usage | **Reprendre à HH:MM** : programmé à la remise à zéro du forfait ; **Reprendre maintenant** aussi |
+| Connexion expirée | **Se reconnecter** tape `/login` dans son terminal ; puis **Reprendre** |
+| Compte ou facturation | Rien à reprendre tant que ce n’est pas réglé dans la console du fournisseur |
+| Requête refusée, réponse trop longue | **Compacter puis reprendre** (`/compact`, puis la reprise) |
+| Modèle indisponible | Choisir un autre modèle, puis **Reprendre** |
+
+**Reprendre** envoie son prompt de reprise (`[agents] resume_prompt` ; vide : celui de Prism, dans la langue des prompts), qui lui demande de vérifier d’abord ce qui a été fait. Avec **Reprendre après une erreur d’API passagère** (`[agents] retry_on_error`, éteint par défaut), un service surchargé ou en panne reprend tout seul : 3 fois au plus, après 1, 5 puis 15 minutes, le compte à rebours dans son bandeau, **Annuler** pour l’arrêter. Une limite d’usage ne reprend jamais toute seule. Codex, OpenCode et Command Code ne disent pas encore leurs erreurs d’API.
+
 ## Les sessions Claude Desktop
 Vos sessions Claude Desktop apparaissent dans la même liste, avec un bord en pointillés et un badge **Desktop**, groupées comme dans la barre latérale de l’app. **Afficher les sessions Desktop** (`[agents.claude] show_desktop`, Réglages › Agents › CLI d’agent › Claude Code) les masque, et elles ne s’affichent qu’avec les agents Claude Code ; masquées, elles ne sont pas comptées non plus. Prism ne lit que leur état sur le disque, jamais leur conversation ; **Ouvrir dans Claude Desktop** en ouvre une là-bas.
 
