@@ -1,5 +1,6 @@
 import { BLOCK_DEFS } from './blocks'
 import { t } from './i18n.svelte'
+import type { IconName } from './icons'
 
 /**
  * The Settings tree: settings sorted by what they configure, not by config.toml table. Seven
@@ -18,7 +19,10 @@ import { t } from './i18n.svelte'
 export interface TreeNode {
   id: string
   label: string
+  /** A domain: its own color (`--dom-*`); a provider: its source's. */
   color?: string
+  /** A domain: its icon, on its color, in the Settings' rail. */
+  icon?: IconName
   sections?: string[]
   toggle?: string
   choice?: { path: string[]; fallback: string; noun: string }
@@ -26,20 +30,25 @@ export interface TreeNode {
   tabs?: boolean
   /** A domain's page: the id of its group in the domain's `groups`. */
   group?: string
-  /** A domain: its groups of pages, in order (a group without label: the pages alone). */
+  /**
+   * A domain: its groups of pages, in order, drawn apart by a line; a label only where it adds
+   * something (never a page's name or the domain's: settings-tree.test.ts).
+   */
   groups?: { id: string; label: string }[]
   children?: TreeNode[]
 }
 
 export const TREE: TreeNode[] = [
   {
-    id: 'general', label: t('General'), color: 'var(--accent)',
-    groups: [{ id: 'config', label: t('Configuration') }, { id: 'prism', label: 'Prism' }, { id: 'diagnostic', label: t('Diagnostics') }],
+    id: 'general', label: t('General'), color: 'var(--dom-general)', icon: 'domGeneral',
+    groups: [{ id: 'config', label: t('Configuration') }, { id: 'others', label: t('Profiles and machines') }, { id: 'prism', label: 'Prism' }, { id: 'diagnostic', label: t('Diagnostics') }],
     children: [
-      { id: 'profiles', label: t('Profiles'), sections: ['profiles'], group: 'config' },
       { id: 'packs', label: t('Packs'), sections: ['packs'], group: 'config' },
       { id: 'file', label: t('Config file'), sections: ['file'], group: 'config' },
       { id: 'cleanup', label: t('Cleanup'), sections: ['cleanup', 'cleanup-usage'], group: 'config' },
+      // The other Prism: this computer's other profiles, and the other computers'.
+      { id: 'profiles', label: t('Profiles'), sections: ['profiles'], group: 'others' },
+      { id: 'machines', label: t('Machines'), sections: ['machines', 'remote-peers'], group: 'others' },
       { id: 'updates', label: t('Updates'), sections: ['updates-now', 'updates'], toggle: 'updates', group: 'prism' },
       { id: 'feedback', label: t('Feedback'), sections: ['feedback-requests', 'feedback', 'feedback-labels'], toggle: 'feedback', group: 'prism' },
       { id: 'cli', label: t('Command line'), sections: ['cli-command'], group: 'prism' },
@@ -48,8 +57,8 @@ export const TREE: TreeNode[] = [
     ],
   },
   {
-    id: 'interface', label: t('Interface'), color: 'var(--violet)',
-    groups: [{ id: 'look', label: t('Appearance') }, { id: 'alerts', label: t('Alerts') }, { id: 'tools', label: t('Shortcuts and tools') }],
+    id: 'interface', label: t('Interface'), color: 'var(--dom-interface)', icon: 'domInterface',
+    groups: [{ id: 'look', label: '' }, { id: 'alerts', label: t('Alerts') }, { id: 'tools', label: t('Shortcuts and tools') }],
     children: [
       { id: 'appearance', label: t('Appearance'), sections: ['appearance'], group: 'look' },
       { id: 'views', label: t('Pages'), sections: ['views'], group: 'look' },
@@ -62,38 +71,38 @@ export const TREE: TreeNode[] = [
     ],
   },
   {
-    id: 'work', label: t('Work'), color: 'var(--src-clickup)',
+    id: 'work', label: t('Work'), color: 'var(--dom-work)', icon: 'domWork',
     children: [
       {
         id: 'tracker', label: t('Tracker'), sections: ['tracker'], choice: { path: ['tracker', 'provider'], fallback: 'clickup', noun: t('the tracker') }, children: [
-          { id: 'clickup', label: t('ClickUp'), sections: ['clickup'], toggle: 'clickup', provider: 'clickup' },
-          { id: 'jira', label: t('Jira'), sections: ['jira'], provider: 'jira' },
-          { id: 'obsidian', label: t('Obsidian'), sections: ['obsidian'], provider: 'obsidian' },
+          { id: 'clickup', label: t('ClickUp'), sections: ['clickup'], toggle: 'clickup', provider: 'clickup', color: 'var(--src-clickup)' },
+          { id: 'jira', label: t('Jira'), sections: ['jira'], provider: 'jira', color: 'var(--src-jira)' },
+          { id: 'obsidian', label: t('Obsidian'), sections: ['obsidian'], provider: 'obsidian', color: 'var(--src-obsidian)' },
         ],
       },
       {
         id: 'calendar', label: t('Calendar'), sections: ['calendar'], toggle: 'calendar', choice: { path: ['calendar', 'provider'], fallback: 'macos', noun: t('the calendar') }, children: [
-          { id: 'calendar-macos', label: t('macOS Calendar'), sections: ['calendar-macos'], provider: 'macos' },
-          { id: 'calendar-google', label: t('Google Calendar'), sections: ['google'], provider: 'google' },
+          { id: 'calendar-macos', label: t('macOS Calendar'), sections: ['calendar-macos'], provider: 'macos', color: 'var(--src-calendar)' },
+          { id: 'calendar-google', label: t('Google Calendar'), sections: ['google'], provider: 'google', color: 'var(--src-google)' },
         ],
       },
       {
         id: 'mail', label: t('Mail'), sections: ['mail'], toggle: 'mail', choice: { path: ['mail', 'provider'], fallback: 'microsoft', noun: t('the mail provider') }, children: [
-          { id: 'mail-microsoft', label: t('Microsoft 365'), sections: ['mail-microsoft'], provider: 'microsoft' },
-          { id: 'mail-gmail', label: t('Gmail'), sections: ['google'], provider: 'gmail' },
+          { id: 'mail-microsoft', label: t('Microsoft 365'), sections: ['mail-microsoft'], provider: 'microsoft', color: 'var(--src-calendar)' },
+          { id: 'mail-gmail', label: t('Gmail'), sections: ['google'], provider: 'gmail', color: 'var(--src-google)' },
         ],
       },
       { id: 'notes', label: t('Notes'), sections: ['notes'] },
     ],
   },
   {
-    id: 'code', label: t('Code'), color: 'var(--src-gitlab)',
+    id: 'code', label: t('Code'), color: 'var(--dom-code)', icon: 'domCode',
     groups: [{ id: 'forge', label: t('Forge and repositories') }, { id: 'quality', label: t('Quality') }],
     children: [
       {
         id: 'forge', label: t('Forge'), sections: ['forge'], toggle: 'forge', group: 'forge', choice: { path: ['forge', 'provider'], fallback: 'gitlab', noun: t('the forge') }, children: [
-          { id: 'forge-gitlab', label: t('GitLab'), sections: ['gitlab'], provider: 'gitlab' },
-          { id: 'forge-github', label: t('GitHub'), sections: ['github'], provider: 'github' },
+          { id: 'forge-gitlab', label: t('GitLab'), sections: ['gitlab'], provider: 'gitlab', color: 'var(--src-gitlab)' },
+          { id: 'forge-github', label: t('GitHub'), sections: ['github'], provider: 'github', color: 'var(--src-github)' },
         ],
       },
       { id: 'repos', label: t('Repositories'), sections: ['repos', 'repo-blocks'], group: 'forge' },
@@ -103,15 +112,15 @@ export const TREE: TreeNode[] = [
     ],
   },
   {
-    id: 'agents-root', label: t('Agents'), color: 'var(--src-claude)',
-    groups: [{ id: 'cli', label: t('CLI') }, { id: 'session', label: t('In session') }, { id: 'prism', label: t('Prism and the agents') }, { id: 'tools', label: t('Tools') }],
+    id: 'agents-root', label: t('Agents'), color: 'var(--dom-agents)', icon: 'domAgents',
+    groups: [{ id: 'cli', label: '' }, { id: 'session', label: t('In session') }, { id: 'prism', label: t('Prism and the agents') }, { id: 'tools', label: t('Tools') }],
     children: [
       {
-        id: 'agents', label: t('Agent'), sections: ['agents'], toggle: 'agents', group: 'cli', choice: { path: ['agents', 'provider'], fallback: 'claude', noun: t('the default CLI') }, children: [
-          { id: 'cli-claude', label: t('Claude Code'), sections: ['agents-claude'], provider: 'claude' },
-          { id: 'cli-command-code', label: t('Command Code'), sections: ['agents-command-code'], provider: 'command-code' },
-          { id: 'cli-opencode', label: t('OpenCode'), sections: ['agents-opencode'], provider: 'opencode' },
-          { id: 'cli-codex', label: t('Codex'), sections: ['agents-codex'], provider: 'codex' },
+        id: 'agents', label: t('Agent CLI'), sections: ['agents'], toggle: 'agents', group: 'cli', choice: { path: ['agents', 'provider'], fallback: 'claude', noun: t('the default CLI') }, children: [
+          { id: 'cli-claude', label: t('Claude Code'), sections: ['agents-claude'], provider: 'claude', color: 'var(--src-claude)' },
+          { id: 'cli-command-code', label: t('Command Code'), sections: ['agents-command-code'], provider: 'command-code', color: 'var(--text-muted)' },
+          { id: 'cli-opencode', label: t('OpenCode'), sections: ['agents-opencode'], provider: 'opencode', color: 'var(--text-muted)' },
+          { id: 'cli-codex', label: t('Codex'), sections: ['agents-codex'], provider: 'codex', color: 'var(--text-muted)' },
         ],
       },
       { id: 'quick-answers', label: t('Quick answers'), sections: ['agents-quick'], toggle: 'agents-quick', group: 'session' },
@@ -128,7 +137,7 @@ export const TREE: TreeNode[] = [
     ],
   },
   {
-    id: 'infra', label: t('Infra'), color: 'var(--src-k8s)',
+    id: 'infra', label: t('Infra'), color: 'var(--dom-infra)', icon: 'domInfra',
     groups: [{ id: 'kubernetes', label: t('Kubernetes') }, { id: 'machine', label: t('Machine') }, { id: 'watch', label: t('Monitoring') }],
     children: [
       { id: 'kubernetes', label: t('Clusters'), sections: ['clusters', 'envs'], toggle: 'clusters', group: 'kubernetes' },
@@ -137,14 +146,13 @@ export const TREE: TreeNode[] = [
     ],
   },
   {
-    id: 'remote-root', label: t('Remote'), color: 'var(--info)',
+    id: 'remote-root', label: t('Remote'), color: 'var(--dom-remote)', icon: 'domRemote',
     children: [
       { id: 'remote-access', label: t('Access'), sections: ['remote'], toggle: 'remote' },
       { id: 'remote-devices', label: t('Devices'), sections: ['remote-devices'] },
       { id: 'remote-exposure', label: t('Exposure'), sections: ['remote-exposure'] },
       { id: 'remote-sessions', label: t('Sessions'), sections: ['remote-sessions'] },
       { id: 'remote-away', label: t('Away'), sections: ['remote-away', 'remote-away-checks'] },
-      { id: 'machines', label: t('Machines'), sections: ['machines', 'remote-peers'] },
     ],
   },
 ]

@@ -65,7 +65,7 @@ Open Settings (`⌘,`). The sources are grouped under **Sources** and **Infra** 
 4. **Clusters** and **Pods**: pick the **Default context** from your kubeconfig (the check says `reachable`), then add the **Targets** of the Pods block: a context (the default one if empty) and its namespaces, `*` matching any characters. GitLab runners and their CI jobs are recognized among them.
 5. **Environments** and **ArgoCD**: one row per environment and cluster, read-only.
 6. **Claude sessions**: the folders where Claude Desktop keeps its session metadata and transcripts. Prism only looks at whether a session is working or waiting, never at what is said.
-7. **Agents**: the **Agents view** switch checks that `tmux` and `claude` are found. [Open Settings › Agents › Agent](prism:settings/agents)
+7. **Agents**: the **Agents view** switch checks that `tmux` and `claude` are found. [Open Settings › Agents › Agent CLI](prism:settings/agents)
 8. **Calendar**: with the macOS Calendar (the default), macOS asks for access to your calendars on first launch; if you refused, allow it again in System Settings › Privacy & Security › Calendars. An Exchange or Microsoft 365 account: [Exchange in the macOS Calendar](prism:help/exchange). On Linux or Windows, or to read Google Calendar directly, set **Provider** to `google` and sign in to Google ([Signing in to Google](prism:help/google)).
 9. **Data (GCP)**: off by default. Turn on **GCP access**, list the **Projects** to read, and the check says `gcloud logged in`.
 

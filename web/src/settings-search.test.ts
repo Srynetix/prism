@@ -76,6 +76,34 @@ describe('settings tree', () => {
     expect(pageOf('envs')?.id).toBe('kubernetes')
   })
 
+  it('names no group after one of its pages or its domain', () => {
+    const repeats = TREE.flatMap((r) => groupsOf(r).filter((g) => g.label && [r.label, ...(r.children ?? []).map((n) => n.label)].some((l) => l.toLowerCase() === g.label.toLowerCase())).map((g) => `${r.id} › ${g.label}`))
+    expect(repeats).toEqual([])
+  })
+
+  it('gives each domain an icon and a color of its own, none a source’s', () => {
+    for (const r of TREE) {
+      expect(r.icon).toBeTruthy()
+      expect(r.color).toMatch(/^var\(--dom-/)
+    }
+    expect(new Set(TREE.map((r) => r.color)).size).toBe(TREE.length)
+  })
+
+  it('puts the blocks’ pages where one looks for them', () => {
+    const where = (id: string) => {
+      const n = NODES.get(id)!
+      const root = TREE.find((r) => r.children?.includes(n))!
+      return `${root.id} › ${n.group ?? ''}`
+    }
+    expect(where('sound')).toBe('interface › alerts')
+    expect(where('status')).toBe('infra › watch')
+    expect(where('dev_servers')).toBe('code › forge')
+    // The other Prism, of this computer or another: one group of General.
+    expect(where('profiles')).toBe('general › others')
+    expect(where('machines')).toBe('general › others')
+    expect(pageOf('machines')?.id).toBe('machines')
+  })
+
   it('opens every page the help and the code link to', () => {
     const texts = Object.values(import.meta.glob(['./**/*.{md,ts,svelte}', '!./**/*.test.ts', '!./bindings/**'], { query: '?raw', import: 'default', eager: true })) as string[]
     const ids = new Set(texts.flatMap((x) => [...x.matchAll(/prism:settings\/([a-z_-]+)|openSettings\(\s*'([a-z_-]+)'/g)].map((m) => m[1] ?? m[2])))

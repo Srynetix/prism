@@ -439,7 +439,7 @@ export default {
   'or': 'ou',
   'After its work: each step once the one before has finished. A failed task goes back to the agent once. Nothing merges; no push to a protected branch.': 'Après son travail : chaque étape une fois la précédente terminée. Une tâche en échec revient une fois à l’agent. Rien n’est mergé ; aucun push sur une branche protégée.',
   'The computer runs them; a task needs critical actions on.': 'L’ordinateur les exécute ; une tâche demande que les actions critiques soient activées.',
-  'Guessed from the command the prompt starts with (Settings › Agents › Agent › Kinds)': 'Deviné d’après la commande par laquelle commence le prompt (Réglages › Agents › Agent › Types)',
+  'Guessed from the command the prompt starts with (Settings › Agents › Agent CLI › Kinds)': 'Deviné d’après la commande par laquelle commence le prompt (Réglages › Agents › CLI d’agent › Types)',
   'Remove #{tag}': 'Retirer #{tag}',
   'Remove tag {tag}': 'Retirer l’étiquette {tag}',
   'Add #{tag}': 'Ajouter #{tag}',

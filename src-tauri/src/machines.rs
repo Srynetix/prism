@@ -320,7 +320,7 @@ async fn call_confirmed(state: &Machines, window: &WebviewWindow, command: &str,
         #[cfg(not(windows))]
         let hwnd = None;
         if !tokio::task::spawn_blocking(move || confirm_here(&reason, hwnd)).await? {
-            return Err(format!("{command}: not confirmed on this computer (Touch ID or its password on a Mac, polkit's agent on Linux, Windows Hello on Windows; Settings › Remote › Machines › No confirmation goes without)").into());
+            return Err(format!("{command}: not confirmed on this computer (Touch ID or its password on a Mac, polkit's agent on Linux, Windows Hello on Windows; Settings › General › Machines › No confirmation goes without)").into());
         }
     }
     match machine.ask(command, args, Some(&purpose)).await? {

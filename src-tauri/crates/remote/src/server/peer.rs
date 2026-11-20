@@ -151,7 +151,7 @@ pub(super) struct PeerTtyQuery {
 pub(super) async fn peer_tty(State(inner): State<Shared>, local: Option<Extension<Local>>, headers: HeaderMap, axum::extract::Query(q): axum::extract::Query<PeerTtyQuery>, ws: WebSocketUpgrade) -> Response {
     let Some((name, token)) = peer_of(&inner, &headers, local.is_some()) else { return refuse(StatusCode::UNAUTHORIZED, tr("not a peer of this Prism")) };
     if local.is_none() && !inner.live().peers.typing {
-        return refuse(StatusCode::FORBIDDEN, tr("typing in a terminal from another Prism is off (Settings › Remote › Machines here)"));
+        return refuse(StatusCode::FORBIDDEN, tr("typing in a terminal from another Prism is off (Settings › General › Machines here)"));
     }
     let size = (q.cols.clamp(20, 500), q.rows.clamp(5, 300));
     ws.max_message_size(1 << 20).on_upgrade(move |socket| watch(inner, socket, None, q.agent, Some(size), Some((size.0, size.1, name)), Some(token)))

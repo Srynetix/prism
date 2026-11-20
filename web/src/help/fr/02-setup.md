@@ -65,7 +65,7 @@ Ouvrez les Réglages (`⌘,`). Les sources sont regroupées sous **Sources** et 
 4. **Clusters** et **Pods** : choisissez le **Contexte par défaut** dans votre kubeconfig (la vérification indique `reachable`), puis ajoutez les **Cibles** du bloc Pods : un contexte (celui par défaut s’il est vide) et ses namespaces, `*` correspondant à n’importe quels caractères. Les runners GitLab et leurs jobs de CI y sont reconnus.
 5. **Environnements** et **ArgoCD** : une ligne par environnement et cluster, en lecture seule.
 6. **Sessions Claude** : les dossiers où Claude Desktop garde les métadonnées et transcriptions de ses sessions. Prism regarde seulement si une session travaille ou attend, jamais ce qui s’y dit.
-7. **Agents** : l’interrupteur **Vue Agents** vérifie que `tmux` et `claude` sont trouvés. [Ouvrir Réglages › Agents › Agent](prism:settings/agents)
+7. **Agents** : l’interrupteur **Vue Agents** vérifie que `tmux` et `claude` sont trouvés. [Ouvrir Réglages › Agents › CLI d’agent](prism:settings/agents)
 8. **Calendrier** : avec le Calendrier de macOS (par défaut), macOS demande l’accès à vos calendriers au premier lancement ; si vous avez refusé, autorisez-le à nouveau dans Réglages Système › Confidentialité et sécurité › Calendriers. Un compte Exchange ou Microsoft 365 : [Exchange dans le Calendrier macOS](prism:help/exchange). Sous Linux ou Windows, ou pour lire Google Agenda directement, réglez **Fournisseur** sur `google` et connectez-vous à Google ([Se connecter à Google](prism:help/google)).
 9. **Data (GCP)** : désactivé par défaut. Activez **Accès GCP**, listez les **Projets** à lire, et la vérification indique `gcloud logged in`.
 

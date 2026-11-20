@@ -146,7 +146,7 @@
     <div class="row head">
       <div>
         <b>{t('Other computers')}</b>
-        <small>{t('A computer’s Prism opens this one in a window of its own (Settings › Remote › Machines there), as this account would: its agents, terminals, settings. What it may do: Remote › Machines here.')}</small>
+        <small>{t('A computer’s Prism opens this one in a window of its own (Settings › General › Machines there), as this account would: its agents, terminals, settings. What it may do: General › Machines here.')}</small>
       </div>
       {#if !peerPairing}<button class="btn primary" onclick={() => run('remote_peer_pair_start')}>{t('Pair a computer')}</button>{/if}
     </div>

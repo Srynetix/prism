@@ -19,7 +19,7 @@ export const status = {
   },
   status: { label: t('Service incidents'), side: 'right', after: 'usage' },
   settings: {
-    parent: 'interface', group: 'tools',
+    parent: 'infra', group: 'watch',
     node: { id: 'status', label: t('Status pages'), sections: ['status'], toggle: 'status' },
     sections: [
       {

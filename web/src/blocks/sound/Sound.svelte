@@ -77,7 +77,7 @@
     <BlockControls id="sound" />
   </h2>
   {#if !snd}
-    <State kind="off" title={t('Sound is not read. Turn on Settings › Infra › Sound, then restart Prism.')} />
+    <State kind="off" title={t('Sound is not read. Turn on Settings › Interface › Sound, then restart Prism.')} />
   {:else if !snd.updated_at}
     {#if error}<State kind="error" title={error} />{:else}<State kind="loading" title={t('Reading the audio devices…')} />{/if}
   {:else if short}

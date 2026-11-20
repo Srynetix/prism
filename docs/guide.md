@@ -198,7 +198,7 @@ packs. Prism's updater does not replace `prism-server` either: build it again.
 
 The Prism of a desk opens a server's (or another computer's) in a window of its own, the same
 page as its own: agents and their terminals, worktrees, settings, everything the window does,
-answered by that Prism. Its remote is on (above). On the desk, Settings › Remote › Machines (or
+answered by that Prism. Its remote is on (above). On the desk, Settings › General › Machines (or
 by hand):
 
 ```toml
@@ -244,7 +244,7 @@ on does not stop code from running there). Pairing needs the tailnet's user when
 Tailscale (a peer with its token may come through `ssh -L` without it).
 
 A token is worth that machine's account: keep it as an SSH key. What a desk may do there is
-`[remote.peers]` on that machine (Settings › Remote › Machines): `actions`, `critical`, `typing`,
+`[remote.peers]` on that machine (Settings › General › Machines): `actions`, `critical`, `typing`,
 `settings`, all on by default; it always reads, and each call that changes something is logged
 with the desk's name. What opens on a screen (Finder or the file
 manager, a terminal, an app) stays on the desk or is not offered; the editor opens the machine's folders over
