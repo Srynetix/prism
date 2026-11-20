@@ -1,6 +1,8 @@
 import { isDesktop, localInvoke, localListen, machine } from './bridge'
 import { appearance } from './fun.svelte'
-import { saveNow } from './settings.svelte'
+import { saveEdits } from './settings.svelte'
+import { toastError } from './toast.svelte'
+import { t } from './i18n.svelte'
 
 /**
  * The whole window's zoom (`[appearance] zoom`), the webview's own as a browser's (`zoom.rs`):
@@ -26,48 +28,79 @@ export const zoomLabel = (z: number) => `${Math.round(z * 100)}%`
 
 /** A machine's window: the main window's zoom, as its app last said. */
 const main = $state({ zoom: 1 })
+/**
+ * A step taken here, shown at once while config.toml is saved (a moment after the last key, as
+ * the terminal's text size): held keys or quick presses step from it, not from the file.
+ */
+const local = $state({ zoom: null as number | null })
 
+/** What config.toml says this window's zoom is (a machine's: the main window's). */
+const saved = (): number => (machine() ? main.zoom : clampZoom(appearance().zoom))
 /** The zoom this window shows at. */
-export const currentZoom = (): number => (machine() ? main.zoom : clampZoom(appearance().zoom))
+export const currentZoom = (): number => local.zoom ?? saved()
 
-/** Saved in config.toml, this computer's for a machine's window; 100 % removes the key. */
-export async function setZoom(z: number) {
+/** The zoom the webview was last given (100 % at first: nothing to ask then). */
+let shown = 1
+/** Once the zoom applied: the canvases, terminals and popovers measure the window again. */
+const remeasure = () => requestAnimationFrame(() => dispatchEvent(new Event('resize')))
+function apply(zoom: number) {
+  if (zoom === shown) return
+  shown = zoom
+  void localInvoke('ui_zoom', { zoom }).then(remeasure, () => {})
+}
+
+let saving: ReturnType<typeof setTimeout> | undefined
+/**
+ * Shown at once, saved a moment after the last step: this computer's config.toml for a machine's
+ * window (the main window then gives it to every machine's). Written even at 100 %, so a pack's
+ * value does not come back.
+ */
+export function setZoom(z: number) {
   const zoom = Math.round(clampZoom(z) * 100) / 100
-  const value = zoom === 1 ? null : zoom
-  if (machine()) {
-    main.zoom = zoom
-    await localInvoke('save_config', { edits: [{ path: ['appearance', 'zoom'], value }] }).catch(() => {})
-  } else await saveNow(['appearance', 'zoom'], value)
+  local.zoom = zoom
+  if (isDesktop()) apply(zoom)
+  clearTimeout(saving)
+  saving = setTimeout(() => void save(zoom), 400)
+}
+async function save(zoom: number) {
+  const edits = [{ path: ['appearance', 'zoom'], value: zoom }]
+  try {
+    if (machine()) {
+      await localInvoke('save_config', { edits })
+      main.zoom = zoom
+    } else await saveEdits(edits)
+  } catch (e) {
+    toastError(t('The zoom was not saved: {error}', { error: String(e) }))
+    local.zoom = null
+    if (isDesktop()) apply(saved())
+  }
 }
 
 /** ⌘+ (`1`), ⌘− (`-1`), ⌘0 (`0`: 100 %). */
 export const zoomBy = (dir: 1 | -1 | 0) => setZoom(dir === 0 ? 1 : stepZoom(currentZoom(), dir))
 
-/** Once the zoom applied: the canvases, terminals and popovers measure the window again. */
-const remeasure = () => requestAnimationFrame(() => dispatchEvent(new Event('resize')))
-
 /** The window follows its zoom (desktop only: the phone keeps its pinch). */
 export function watchZoom() {
   if (!isDesktop()) return
   if (machine()) {
-    // The app applies the main window's to this one: here, only what it is, for the keys and the badge.
+    // The app gives this window the main one's (at once, then at each change): here, what it is.
     void localInvoke<number>('ui_zoom_main').then((z) => {
       main.zoom = z
-      return localInvoke('ui_zoom', { zoom: z })
-    }).then(remeasure, () => {})
+      apply(z)
+    }, () => {})
     void localListen<number>('ui-zoom', (e) => {
       main.zoom = e.payload
+      shown = e.payload
+      if (local.zoom === e.payload) local.zoom = null
       remeasure()
     })
     return
   }
   return $effect.root(() => {
-    let shown = 1
     $effect(() => {
-      const zoom = currentZoom()
-      if (zoom === shown && zoom === 1) return
-      shown = zoom
-      void localInvoke('ui_zoom', { zoom }).then(remeasure, () => {})
+      // The file caught up with the step taken here: it speaks again.
+      if (local.zoom !== null && saved() === local.zoom) local.zoom = null
+      apply(currentZoom())
     })
   })
 }

@@ -257,8 +257,8 @@ export const agentsSettings = (): AgentsSettings => live.snapshot?.agents_settin
  */
 export const terminalKeeps = (e: KeyboardEvent) => agentsSettings().terminal_keys.some((k) => matches(e, parseShortcut(k)))
 /**
- * Terminal text size (`[agents] font_size`), and its keyboard adjustment (⌘+ / ⌘- / ⌘0
- * in the Agents view): applied right away to all terminals, saved a moment after the
+ * Terminal text size (`[agents] font_size`), and its keyboard adjustment (⌘⌥+ / ⌘⌥- / ⌘⌥0
+ * in the Agents view; ⌘+ alone zooms the whole window): applied right away to all terminals, saved a moment after the
  * last key.
  */
 export const TERMINAL_FONT = { min: 8, max: 28, step: 0.5 }
@@ -275,7 +275,7 @@ export function zoomTerminal(delta: number) {
 }
 
 /**
- * Chat text size (`[agents] chat_font_size`), the same way: ⌘+ / ⌘- / ⌘0 in the Agents view while
+ * Chat text size (`[agents] chat_font_size`), the same way: ⌘⌥+ / ⌘⌥- / ⌘⌥0 in the Agents view while
  * the agent shown reads as its Chat.
  */
 export const CHAT_FONT = { min: 10, max: 24, step: 0.5 }

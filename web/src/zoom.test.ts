@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { clampZoom, stepZoom, ZOOMS, zoomLabel } from './zoom.svelte'
 import { sizeStep } from './shortcuts'
+import { isMac } from './platform'
 
 const key = (k: string, code = '', alt = false) => ({ key: k, code, altKey: alt, metaKey: true, ctrlKey: false, shiftKey: false, target: null }) as unknown as KeyboardEvent
 
@@ -32,9 +33,17 @@ describe('window zoom', () => {
     expect(sizeStep(key('0'))).toBe(0)
     // AZERTY: 0 is on the à key.
     expect(sizeStep(key('à', 'Digit0'))).toBe(0)
-    // ⌥ on a Mac changes the character.
-    expect(sizeStep(key('≠', 'Equal', true))).toBe(1)
-    expect(sizeStep(key('—', 'Digit6', true))).toBe(-1)
+    // ⌘⇧0 on a US keyboard types ): not a reset.
+    expect(sizeStep({ ...key(')', 'Digit0'), shiftKey: true } as KeyboardEvent)).toBe(null)
     expect(sizeStep(key('k', 'KeyK'))).toBe(null)
+    if (isMac) {
+      // ⌥ on a Mac changes the character.
+      expect(sizeStep(key('≠', 'Equal', true))).toBe(1)
+      expect(sizeStep(key('—', 'Digit6', true))).toBe(-1)
+    } else {
+      // Ctrl+Alt is AltGr on Windows: AltGr+à types @, not a reset.
+      expect(sizeStep(key('@', 'Digit0', true))).toBe(null)
+      expect(sizeStep(key('=', 'Equal', true))).toBe(1)
+    }
   })
 })

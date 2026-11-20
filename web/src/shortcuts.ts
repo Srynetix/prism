@@ -38,16 +38,20 @@ export const paletteKey = () => parseShortcut(live.snapshot?.palette?.key || 'Cm
 const cmd = (k: string) => (e: KeyboardEvent) => chord(e) && !e.altKey && !(e.shiftKey && !extraShift(e)) && chordKey(e) === k
 /**
  * A size step from a chord's key: + (`1`), − (`-1`), 0 (`0`), whatever the layout. By the character
- * typed, else by the physical key: ⌥ changes the character on a Mac (⌥= types ≠), and 0 takes
- * Shift on an AZERTY keyboard.
+ * typed, else by the physical key: ⌥ changes the character on a Mac (⌥= types ≠), and 0 is the à
+ * key unshifted on an AZERTY keyboard. Elsewhere, Ctrl+Alt is also AltGr (Windows): only the
+ * character typed counts then, so AltGr+à (@) stays a character.
  */
 export function sizeStep(e: KeyboardEvent): 1 | -1 | 0 | null {
   const k = chordKey(e)
   if (k === '=' || k === '+') return 1
   if (k === '-' || k === '_') return -1
-  if (k === '0' || e.code === 'Digit0' || e.code === 'Numpad0') return 0
+  if (k === '0') return 0
+  if (e.altKey && !isMac) return null
   if (e.code === 'NumpadAdd') return 1
   if (e.code === 'NumpadSubtract') return -1
+  // ⌘⇧0 on a US keyboard types ): not a reset.
+  if ((e.code === 'Digit0' || e.code === 'Numpad0') && !e.shiftKey) return 0
   if (e.altKey) {
     if (k === '≠' || k === '±' || e.code === 'Equal') return 1
     if (k === '–' || k === '—' || e.code === 'Minus') return -1

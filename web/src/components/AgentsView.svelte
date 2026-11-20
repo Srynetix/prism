@@ -240,7 +240,7 @@
 
   /**
    * The Agents view's keys, declared in shortcuts.ts: ⌘[ / ⌘] previous / next agent in the list,
-   * ⌘. interrupt Claude (Escape), ⌘E mark it read, ⌘+ / ⌘- / ⌘0 text size, ⌘↵ an agent alone or
+   * ⌘. interrupt Claude (Escape), ⌘E mark it read, ⌘⌥+ / ⌘⌥- / ⌘⌥0 text size, ⌘↵ an agent alone or
    * back beside the others, ⌘B the list, F2 rename the agent. Only while the view is the one shown
    * (Settings or Help may be open over it).
    */
