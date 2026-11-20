@@ -3,74 +3,147 @@
 //! for a passing error (`[agents] retry_on_error`: overloaded or server error, 3 times at most,
 //! after 1, 5 then 15 minutes). A plan is dropped as soon as the agent is no longer in error.
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
 use crate::state::{Agent, AgentState, SessionStatus};
 
 /// The errors that pass on their own: resumed automatically when asked.
 pub const PASSING: [&str; 2] = ["overloaded", "server_error"];
-/// The automatic resumes' delays, after the error (the first) or the previous resume.
+/// The automatic resumes' delays: from the error (or, an error seen late, from when Prism saw it).
 pub const DELAYS_MIN: [i64; 3] = [1, 5, 15];
+/// A compaction asked before the resume (Compact then resume) is given this long.
+const COMPACTING_MIN: i64 = 15;
 
 /// A resume planned for an agent.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Plan {
     pub at: DateTime<Utc>,
     pub auto: bool,
 }
 
-/// The plans, and the automatic resumes made in a row by agent (forgotten once a turn ends well).
-#[derive(Debug, Default)]
-pub struct Book {
+/// What lasts across a restart: the plans (Resume at HH:MM), the automatic resumes made in a row,
+/// the errors dealt with by hand.
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+struct Kept {
     plans: HashMap<String, Plan>,
     attempts: HashMap<String, u32>,
+    /// The error (its time) already resumed or cancelled: no automatic resume for it — its
+    /// resume sent, the next refresh may come before its hook says it works again.
+    handled: HashMap<String, DateTime<Utc>>,
+}
+
+/// The resumes of the agents in error (`resumes.json` in the agents' folder).
+#[derive(Debug, Default)]
+pub struct Book {
+    kept: Kept,
+    /// When Prism first saw each error (its time, then when): the automatic delays count from
+    /// the later of the two, so an old error is not resumed at once, its countdown unseen.
+    seen: HashMap<String, (DateTime<Utc>, DateTime<Utc>)>,
+    /// Compacting before its resume (Compact then resume): sent once back at its prompt.
+    compacting: HashMap<String, DateTime<Utc>>,
+    path: Option<PathBuf>,
 }
 
 impl Book {
+    pub fn load(dir: &Path) -> Self {
+        let path = dir.join("resumes.json");
+        let kept = std::fs::read(&path).ok().and_then(|raw| serde_json::from_slice(&raw).ok()).unwrap_or_default();
+        Self { kept, path: Some(path), ..Default::default() }
+    }
+
+    fn save(&self) {
+        let Some(path) = &self.path else { return };
+        let tmp = path.with_extension("json.tmp");
+        let done = serde_json::to_vec_pretty(&self.kept).map_err(anyhow::Error::from).and_then(|raw| Ok(std::fs::write(&tmp, raw).and_then(|()| std::fs::rename(&tmp, path))?));
+        if let Err(e) = done {
+            tracing::warn!("agents: writing {}: {e:#}", path.display());
+        }
+    }
+
+    /// Resume at `at` (a usage limit's reset).
     pub fn plan(&mut self, id: &str, at: DateTime<Utc>) {
-        self.plans.insert(id.to_string(), Plan { at, auto: false });
+        self.kept.plans.insert(id.to_string(), Plan { at, auto: false });
+        self.save();
     }
 
-    /// Cancelled: no automatic resume either for this error.
-    pub fn cancel(&mut self, id: &str) {
-        self.plans.remove(id);
-        self.attempts.insert(id.to_string(), DELAYS_MIN.len() as u32);
+    /// The error at `error` cancelled: its plan dropped, no automatic resume for it (a new error is
+    /// resumed again).
+    pub fn cancel(&mut self, id: &str, error: Option<DateTime<Utc>>) {
+        self.kept.plans.remove(id);
+        if let Some(at) = error {
+            self.kept.handled.insert(id.to_string(), at);
+        }
+        self.save();
     }
 
-    /// A resume sent by hand: the automatic ones start over if it fails again.
-    pub fn resumed(&mut self, id: &str) {
-        self.plans.remove(id);
-        self.attempts.remove(id);
+    /// The error at `error` resumed by hand: no automatic resume for it, and those of the next
+    /// errors start over.
+    pub fn resumed(&mut self, id: &str, error: Option<DateTime<Utc>>) {
+        self.kept.plans.remove(id);
+        self.kept.attempts.remove(id);
+        if let Some(at) = error {
+            self.kept.handled.insert(id.to_string(), at);
+        }
+        self.save();
+    }
+
+    /// Compacting (Compact then resume): its resume goes once it is back at its prompt.
+    pub fn compacting(&mut self, id: &str, now: DateTime<Utc>) {
+        self.compacting.insert(id.to_string(), now);
     }
 
     /// Goes over the agents: plans dropped for those no longer in error, automatic ones planned,
     /// the plan shown on each failure. Returns the agents whose resume is due, now taken out.
     pub fn tick(&mut self, list: &mut [Agent], retry: bool, now: DateTime<Utc>) -> Vec<String> {
-        self.plans.retain(|id, _| list.iter().any(|a| &a.id == id && failed(a)));
-        // A turn over without an error (or the agent gone): its automatic resumes start over.
-        self.attempts.retain(|id, _| list.iter().any(|a| &a.id == id && (failed(a) || a.status == SessionStatus::Running)));
+        let before = serde_json::to_vec(&self.kept).unwrap_or_default();
         let mut due = Vec::new();
+        let error_of = |id: &str| list.iter().find(|a| a.id == id && failed(a)).and_then(|a| a.failure.as_ref()).map(|f| f.at);
+        // Compacted: back at its prompt (no longer in error), its resume goes; too long, forgotten.
+        self.compacting.retain(|id, since| match list.iter().find(|a| &a.id == id) {
+            Some(a) if a.state == AgentState::Running && matches!(a.status, SessionStatus::Idle | SessionStatus::NeedsYou) => {
+                due.push(id.clone());
+                false
+            }
+            Some(a) if a.state == AgentState::Running => now - *since < Duration::minutes(COMPACTING_MIN),
+            _ => false,
+        });
+        self.kept.plans.retain(|id, _| error_of(id).is_some());
+        // A turn over without an error (or the agent gone): its automatic resumes start over.
+        self.kept.attempts.retain(|id, _| list.iter().any(|a| &a.id == id && (failed(a) || a.status == SessionStatus::Running)));
+        // Another error than the one dealt with: that one is over.
+        self.kept.handled.retain(|id, at| error_of(id) == Some(*at));
+        self.seen.retain(|id, (at, _)| error_of(id) == Some(*at));
         for a in list.iter_mut().filter(|a| failed(a)) {
             let Some(f) = a.failure.as_mut() else { continue };
-            let attempts = self.attempts.get(&a.id).copied().unwrap_or(0);
-            if retry && PASSING.contains(&f.kind.as_str()) && !self.plans.contains_key(&a.id) && (attempts as usize) < DELAYS_MIN.len() {
-                self.plans.insert(a.id.clone(), Plan { at: f.at + Duration::minutes(DELAYS_MIN[attempts as usize]), auto: true });
+            let since = self.seen.entry(a.id.clone()).or_insert((f.at, now)).1.max(f.at);
+            let mut attempts = self.kept.attempts.get(&a.id).copied().unwrap_or(0);
+            let handled = self.kept.handled.get(&a.id) == Some(&f.at);
+            if retry && PASSING.contains(&f.kind.as_str()) && !handled && !self.kept.plans.contains_key(&a.id) && (attempts as usize) < DELAYS_MIN.len() {
+                self.kept.plans.insert(a.id.clone(), Plan { at: since + Duration::minutes(DELAYS_MIN[attempts as usize]), auto: true });
             }
-            f.attempts = attempts;
-            match self.plans.get(&a.id) {
+            match self.kept.plans.get(&a.id) {
                 Some(p) if p.at <= now => {
-                    let auto = p.auto;
-                    self.plans.remove(&a.id);
-                    if auto {
-                        self.attempts.insert(a.id.clone(), attempts + 1);
+                    if p.auto {
+                        attempts += 1;
+                        self.kept.attempts.insert(a.id.clone(), attempts);
                     }
+                    self.kept.plans.remove(&a.id);
+                    self.kept.handled.insert(a.id.clone(), f.at);
                     due.push(a.id.clone());
                 }
                 Some(p) => (f.resume_at, f.auto) = (Some(p.at), p.auto),
                 None => {}
             }
+            f.attempts = attempts;
+        }
+        if serde_json::to_vec(&self.kept).unwrap_or_default() != before {
+            self.save();
         }
         due
     }
@@ -83,12 +156,18 @@ impl crate::Agents {
         self.send(id, &text).await
     }
 
+    /// The time of the error agent `id` is stopped by.
+    fn error_at(&self, id: &str) -> Option<DateTime<Utc>> {
+        self.agent(id).filter(failed).and_then(|a| a.failure.map(|f| f.at))
+    }
+
     /// Resume, at once (`at` none or past) or at `at` (a usage limit's reset): Resume, Resume at HH:MM.
     pub async fn resume_failed(&self, id: &str, at: Option<DateTime<Utc>>) -> anyhow::Result<()> {
         match at.filter(|t| *t > Utc::now()) {
             Some(t) => self.inner.resumes.lock().unwrap().plan(id, t),
             None => {
-                self.inner.resumes.lock().unwrap().resumed(id);
+                let error = self.error_at(id);
+                self.inner.resumes.lock().unwrap().resumed(id, error);
                 self.send_resume(id).await?;
             }
         }
@@ -96,9 +175,23 @@ impl crate::Agents {
         Ok(())
     }
 
+    /// Compact then resume: `/compact` now, its resume prompt once it is back at its prompt.
+    pub async fn compact_then_resume(&self, id: &str) -> anyhow::Result<()> {
+        let error = self.error_at(id);
+        {
+            let mut book = self.inner.resumes.lock().unwrap();
+            book.resumed(id, error);
+            book.compacting(id, Utc::now());
+        }
+        self.send(id, "/compact").await?;
+        self.inner.changed.notify_one();
+        Ok(())
+    }
+
     /// The resume planned is cancelled, the automatic ones too for this error.
     pub fn resume_cancel(&self, id: &str) {
-        self.inner.resumes.lock().unwrap().cancel(id);
+        let error = self.error_at(id);
+        self.inner.resumes.lock().unwrap().cancel(id, error);
         self.inner.changed.notify_one();
     }
 }
@@ -170,12 +263,53 @@ mod tests {
         book.tick(&mut list, true, t1);
         assert_eq!(list[0].failure.as_ref().unwrap().resume_at, Some(t1 + Duration::minutes(5)));
         assert_eq!(book.tick(&mut list, true, t1 + Duration::minutes(5)).len(), 1);
-        list = vec![agent("overloaded", t1)];
-        book.tick(&mut list, true, t1);
-        assert_eq!(book.tick(&mut list, true, t1 + Duration::minutes(15)).len(), 1);
-        list = vec![agent("overloaded", t1)];
-        assert!(book.tick(&mut list, true, t1 + Duration::hours(2)).is_empty());
+        let t2 = t1 + Duration::minutes(6);
+        list = vec![agent("overloaded", t2)];
+        book.tick(&mut list, true, t2);
+        assert_eq!(book.tick(&mut list, true, t2 + Duration::minutes(15)).len(), 1);
+        assert_eq!(list[0].failure.as_ref().unwrap().attempts, 3, "counted as it goes");
+        let t3 = t2 + Duration::minutes(16);
+        list = vec![agent("overloaded", t3)];
+        assert!(book.tick(&mut list, true, t3 + Duration::hours(2)).is_empty());
         assert_eq!(list[0].failure.as_ref().unwrap().attempts, 3);
+    }
+
+    /// Resumed by hand: the next refresh, before its hook says it works, plans nothing for that
+    /// error (no second resume); an error seen late counts its delay from when it was seen.
+    #[test]
+    fn a_hand_resume_or_a_late_error_is_not_resumed_at_once() {
+        let t0 = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        let mut book = Book::default();
+        let mut list = vec![agent("overloaded", t0)];
+        book.resumed("a1", Some(t0));
+        assert!(book.tick(&mut list, true, t0 + Duration::minutes(5)).is_empty());
+        assert_eq!(list[0].failure.as_ref().unwrap().resume_at, None);
+        // Seen two hours after it happened (retry turned on, Prism started): a minute from now.
+        let mut book = Book::default();
+        let late = t0 + Duration::hours(2);
+        assert!(book.tick(&mut list, true, late).is_empty());
+        assert_eq!(list[0].failure.as_ref().unwrap().resume_at, Some(late + Duration::minutes(1)));
+        // Cancelled: not for this error, but for the next.
+        book.cancel("a1", Some(t0));
+        assert!(book.tick(&mut list, true, late + Duration::hours(1)).is_empty());
+        let t1 = late + Duration::hours(2);
+        let mut next = vec![agent("overloaded", t1)];
+        book.tick(&mut next, true, t1);
+        assert_eq!(next[0].failure.as_ref().unwrap().resume_at, Some(t1 + Duration::minutes(1)));
+    }
+
+    /// Compact then resume: the resume waits until it is back at its prompt.
+    #[test]
+    fn a_compaction_resumes_once_back_at_its_prompt() {
+        let t0 = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        let mut book = Book::default();
+        let mut list = vec![agent("max_output_tokens", t0)];
+        book.compacting("a1", t0);
+        assert!(book.tick(&mut list, false, t0).is_empty(), "still compacting");
+        list[0].status = SessionStatus::Idle;
+        list[0].failure = None;
+        assert_eq!(book.tick(&mut list, false, t0 + Duration::minutes(1)), vec!["a1".to_string()]);
+        assert!(book.tick(&mut list, false, t0 + Duration::minutes(2)).is_empty(), "once");
     }
 
     #[test]
@@ -192,7 +326,7 @@ mod tests {
         list[0].status = SessionStatus::Running;
         book.tick(&mut list, true, t0);
         list = vec![agent("overloaded", t0)];
-        book.cancel("a1");
+        book.cancel("a1", Some(t0));
         assert!(book.tick(&mut list, true, t0 + Duration::hours(1)).is_empty());
     }
 }

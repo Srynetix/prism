@@ -313,7 +313,7 @@ fn parse(input: Input, t: i64) -> Option<(String, Line)> {
     // An API error: its kind as the reason, its message (the CLI's own words about it) as what.
     let failed = input.hook_event_name == "StopFailure";
     let (what, reason) = if failed {
-        let text = input.error_details.as_deref().or(input.last_assistant_message.as_deref()).map(error_text).filter(|t| !t.is_empty());
+        let text = input.last_assistant_message.as_deref().or(input.error_details.as_deref()).map(error_text).filter(|t| !t.is_empty());
         (text, Some(input.error.as_deref().map(error_kind).unwrap_or("unknown").to_string()))
     } else {
         (what, input.source.or(input.reason))
@@ -536,6 +536,9 @@ mod tests {
         let (_, odd) = parse(serde_json::from_str(r#"{"session_id":"ab-12","hook_event_name":"StopFailure","error":"weird"}"#).unwrap(), 1).unwrap();
         assert_eq!((odd.reason.as_deref(), odd.what), (Some("unknown"), None));
         assert!(EVENTS.contains(&"StopFailure"));
+        // The CLI's own words first, the raw details failing them.
+        let (_, both) = parse(serde_json::from_str(r#"{"session_id":"ab-12","hook_event_name":"StopFailure","error":"overloaded","error_details":"{\"type\":\"overloaded_error\"}","last_assistant_message":"API Error: 529 Overloaded"}"#).unwrap(), 1).unwrap();
+        assert_eq!(both.what.as_deref(), Some("API Error: 529 Overloaded"));
     }
 
     /// A tool call from within a subagent is marked as such, the subagent's id left out.

@@ -341,6 +341,7 @@ commands! {
     // An agent stopped by an API error, resumed with the config's prompt (no free text).
     agents::agent_error_resume: Act [phone: state, id: String, at: Option<chrono::DateTime<chrono::Utc>>],
     agents::agent_error_resume_cancel: Act [phone: state, id: String],
+    agents::agent_error_compact: Act [phone: state, id: String],
     // A quick answer: the config's text, filled and checked on the computer (no free text).
     agents::agent_quick_answer: Act [phone: state, id: String, label: String, text: String],
     // Trusting a folder lets its settings, hooks and MCP servers run: from a phone, its passkey.

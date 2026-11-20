@@ -3,7 +3,7 @@
   import { live } from '../live.svelte'
   import { isDesktop } from '../bridge'
   import { sendPrompt } from '../agent-inbox.svelte'
-  import { atLabel, cancelResume, errorInfo, failureOf, limitResetOf, resumeAgent } from '../agent-errors'
+  import { atLabel, cancelResume, compactThenResume, errorInfo, failureOf, limitResetOf, resumeAgent } from '../agent-errors'
   import { toast } from '../toast.svelte'
   import { t } from '../i18n.svelte'
   import type { Agent } from '../types'
@@ -11,8 +11,8 @@
   /**
    * An agent stopped by an API error (`failed`): what it is, what to do, and its resume — now,
    * at its usage limit's reset, or the automatic one (`[agents] retry_on_error`) counting down,
-   * cancellable. The same in the Agents view and on the phone; what types in its terminal
-   * (/login, /compact) only on the computer.
+   * cancellable. The same in the Agents view and on the phone; /login (free typing in its
+   * terminal) only on the computer.
    */
   let { a }: { a: Agent } = $props()
 
@@ -73,7 +73,7 @@
         {#if isDesktop()}<button class="btn sm primary" disabled={busy} onclick={() => run(() => type('/login', t('/login typed in its terminal: log in there, then Resume.')))}>{t('Log in again')}</button>{/if}
         <button class="btn sm" disabled={busy} onclick={() => run(() => resumeAgent(a.id))}>{t('Resume')}</button>
       {:else if info.action === 'compact'}
-        {#if isDesktop()}<button class="btn sm primary" disabled={busy} onclick={() => run(async () => { await sendPrompt(a.id, '/compact'); await resumeAgent(a.id) })} title={t('/compact, then its resume prompt once compacted')}>{t('Compact then resume')}</button>{/if}
+        <button class="btn sm primary" disabled={busy} onclick={() => run(() => compactThenResume(a.id))} title={t('/compact, then its resume prompt once compacted')}>{t('Compact then resume')}</button>
         <button class="btn sm" disabled={busy} onclick={() => run(() => resumeAgent(a.id))}>{t('Resume')}</button>
       {:else if info.action === 'model'}
         <button class="btn sm" disabled={busy} onclick={() => run(() => resumeAgent(a.id))} title={t('After picking another model')}>{t('Resume')}</button>

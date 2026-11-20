@@ -346,7 +346,7 @@ impl Agents {
                 command_code_window: Mutex::default(),
                 opencode_windows: Mutex::default(),
                 book: Mutex::new(chains::Book::load(&dir)),
-                resumes: Mutex::new(failures::Book::default()),
+                resumes: Mutex::new(failures::Book::load(&dir)),
                 chains_wake: Notify::new(),
                 routines: Mutex::new(routines::Book::load(&dir)),
                 routines_wake: Notify::new(),

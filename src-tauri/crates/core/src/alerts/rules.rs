@@ -116,8 +116,9 @@ pub(super) fn waits_for_you(s: SessionStatus) -> bool {
     matches!(s, SessionStatus::NeedsYou | SessionStatus::WaitingTool | SessionStatus::Failed)
 }
 
-/// The API errors a resume may get past (not an account or a login to fix first).
-const RESUMABLE: [&str; 6] = ["overloaded", "server_error", "rate_limit", "unknown", "invalid_request", "max_output_tokens"];
+/// The API errors a resume sent now may get past: not an account or a login to fix first, nor a
+/// usage limit (its banner plans the resume at the reset).
+const RESUMABLE: [&str; 5] = ["overloaded", "server_error", "unknown", "invalid_request", "max_output_tokens"];
 
 /// An API error's kind (`hook::ERROR_KINDS`), in words.
 pub fn error_words(kind: &str) -> &'static str {
@@ -739,8 +740,10 @@ impl<'a> Ctx<'a> {
             }
         }
         // An agent stopped by an API error: what kind, and Resume when it is worth trying again.
+        // As long as a session waiting for you is flagged (`[alerts] waiting_session_hours`).
+        let hours = f64::from(self.cfg.waiting_session_hours) * 60.0;
         for a in s.agents.iter().filter(|a| a.state == AgentState::Running && a.status == SessionStatus::Failed) {
-            let Some(f) = &a.failure else { continue };
+            let Some(f) = a.failure.as_ref().filter(|f| self.minutes_since(Some(f.at)) < hours) else { continue };
             let what = error_words(&f.kind);
             let mut alert = Alert::new("Claude", Severity::Ko, tr!("“{title}” stopped on an API error: {what}", title = a.title, what = what)).rule(AlertRule::AgentError).since(Some(f.at));
             if RESUMABLE.contains(&f.kind.as_str()) {

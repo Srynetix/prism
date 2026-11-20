@@ -79,6 +79,15 @@ export async function resumeAgent(id: string, at?: Date | null) {
   }
 }
 
+/** `/compact`, then its resume prompt once compacted (a refused request, an answer too long). */
+export async function compactThenResume(id: string) {
+  try {
+    await invoke('agent_error_compact', { id })
+  } catch (e) {
+    toastError(t('Not resumed: {error}', { error: String(e) }))
+  }
+}
+
 /** The resume planned, cancelled (the automatic ones too, for this error). */
 export async function cancelResume(id: string) {
   try {

@@ -205,7 +205,7 @@ impl Agents {
         let _ = self.book().notices.send(Notice { text, ms, system });
     }
 
-    fn agent(&self, id: &str) -> Option<Agent> {
+    pub(crate) fn agent(&self, id: &str) -> Option<Agent> {
         self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id == id).cloned()
     }
 
