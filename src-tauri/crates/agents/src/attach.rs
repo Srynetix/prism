@@ -10,7 +10,7 @@ use anyhow::{bail, Context, Result};
 use prism_base::tr;
 
 /// Larger files are refused: a prompt is no place for them.
-const MAX_BYTES: usize = 25 * 1024 * 1024;
+pub(crate) const MAX_BYTES: usize = 25 * 1024 * 1024;
 /// What one folder of attachments may hold in all: a phone sending photos in a loop fills no disk.
 const MAX_FOLDER_BYTES: u64 = 500 * 1024 * 1024;
 /// Days the attachments of launches are kept.
@@ -58,7 +58,7 @@ pub fn save(dir: &Path, name: &str, data: &[u8]) -> Result<PathBuf> {
 }
 
 /// A file name without a path, safe in a prompt: letters, digits, `.`, `-`, `_`.
-fn safe_name(name: &str) -> String {
+pub(crate) fn safe_name(name: &str) -> String {
     let base = Path::new(name).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let clean: String = base.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_') { c } else { '-' }).collect();
     let clean = clean.trim_matches(|c| c == '-' || c == '.').to_string();
@@ -130,7 +130,7 @@ pub fn prune(root: &Path) {
 
 /// `.prism/` in the git's own exclude file (shared by its worktrees), once (a git run each time
 /// was 11 ms an attachment).
-fn exclude(folder: &Path) {
+pub(crate) fn exclude(folder: &Path) {
     static DONE: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
     if DONE.lock().unwrap().iter().any(|d| d == folder) {
         return;

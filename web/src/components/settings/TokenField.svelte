@@ -14,7 +14,7 @@
    */
   let {
     tracker, hint, label = t('API token'), create, check = null,
-  }: { tracker: 'clickup' | 'jira' | 'google'; hint: string; label?: string; create?: { url: string; label: string }; check?: CheckRequest | null } = $props()
+  }: { tracker: 'clickup' | 'jira' | 'google' | 'notion'; hint: string; label?: string; create?: { url: string; label: string }; check?: CheckRequest | null } = $props()
   let saves = $state(0)
 
   let service = $state('')

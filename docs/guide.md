@@ -456,7 +456,7 @@ keep-running job): not in the help.
 | `mcp install <claude\|codex\|opencode>` | Add Prism's MCP server and skill to an agent CLI's user config | ✓ | ✓ |
 | `mcp uninstall <claude\|codex\|opencode>` | Take them out | ✓ | ✓ |
 | `mcp status` | Where they are installed | ✓ | ✓ |
-| `token <clickup\|jira\|google>` | Store a token in the keychain: typed hidden on a terminal, read from stdin otherwise | ✓ | ✓ |
+| `token <clickup\|jira\|google\|notion>` | Store a token in the keychain: typed hidden on a terminal, read from stdin otherwise | ✓ | ✓ |
 | `serve` | Run Prism without a window, until stopped (a systemd service) |  | ✓ |
 | `completions <bash\|elvish\|fish\|powershell\|zsh>` | Print the completion script of a shell | ✓ | ✓ |
 <!-- cli:end -->

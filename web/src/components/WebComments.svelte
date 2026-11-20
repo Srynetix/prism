@@ -2,13 +2,14 @@
   import { tick } from 'svelte'
   import Icon from './Icon.svelte'
   import { invoke, isDesktop } from '../bridge'
-  import { attachFiles, openLauncher } from '../agents.svelte'
+  import { attachFiles, openLauncher, webOrigin } from '../agents.svelte'
   import { sendPrompt } from '../agent-inbox.svelte'
   import { nameOf } from '../agent-cli'
   import { pref, setPref } from '../layout.svelte'
   import { keys } from '../platform'
   import { holdEscape } from '../layers.svelte'
   import { toast, toastError } from '../toast.svelte'
+  import type { WebOrigin } from '../bindings/WebOrigin'
   import { annotateType, captures, elementLabel, noteId, pinsOf, readFound, readPick, setWebDraft, webDraft, webPrompt, type Pick, type WebNote } from '../web-comments.svelte'
   import type { Snippet } from 'svelte'
   import type { Agent } from '../types'
@@ -173,7 +174,16 @@
     setPref('agents.web.capture', v)
   }
   const running = $derived(agent.state === 'running')
-  const preview = $derived(webPrompt(page, draft))
+  /** An imported page's origin, said in the prompt (where to put the new version back). */
+  let origin = $state<WebOrigin | null>(null)
+  $effect(() => {
+    const p = page
+    origin = null
+    let gone = false
+    void webOrigin(agent.id, p).then((o) => !gone && (origin = o))
+    return () => (gone = true)
+  })
+  const preview = $derived(webPrompt(page, draft, {}, undefined, origin))
 
   /** The drafts gone, once the agent has them. */
   function clear() {
@@ -201,13 +211,15 @@
           if (path) shots[k + 1] = path
         }
       }
+      // Read now, not from the view: sent at once after opening the page, it is said all the same.
+      const from = origin ?? (await webOrigin(agent.id, page))
       if (!running) {
         const where = await invoke<string>('agent_page_file', { id: agent.id, path: page }).catch(() => undefined)
-        openLauncher({ title: t('Remarks on {page}', { page: page.split('/').pop() ?? page }), prompt: webPrompt(page, draft, shots, where), cwd: agent.worktree ?? agent.cwd }, null, async () => clear())
+        openLauncher({ title: t('Remarks on {page}', { page: page.split('/').pop() ?? page }), prompt: webPrompt(page, draft, shots, where, from), cwd: agent.worktree ?? agent.cwd }, null, async () => clear())
         return
       }
       await onsend?.()
-      const r = await sendPrompt(agent.id, webPrompt(page, draft, shots))
+      const r = await sendPrompt(agent.id, webPrompt(page, draft, shots, undefined, from))
       if (r === 'already-queued') return toast(t('These remarks already wait for {agent}', { agent: nameOf(agent) }), 3000, null, 'info')
       toast(r === 'queued' ? t('Remarks queued: {agent} reads them once its menu is answered', { agent: nameOf(agent) }) : r === 'already-sent' ? t('Already sent to {agent}', { agent: nameOf(agent) }) : tn(count, '{n} remark sent to {agent}', '{n} remarks sent to {agent}', { agent: nameOf(agent) }))
       clear()

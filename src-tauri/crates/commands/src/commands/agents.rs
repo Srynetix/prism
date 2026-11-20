@@ -884,6 +884,38 @@ pub async fn agent_pages(state: State<'_, AppState>, id: String, ignored: bool) 
     state.agents.pages(&id, ignored).await.map_err(Into::into)
 }
 
+/// A file's link (a Notion page's attachment…) downloaded into the agent's Web view: its address
+/// there (`@imported/<name>`). `page`: the page it belongs to, kept with it.
+#[prism_macros::command]
+pub async fn agent_web_import(state: State<'_, AppState>, id: String, url: String, page: Option<String>) -> Cmd<String> {
+    state.agents.web_import(&id, &url, page.as_deref()).await.map_err(Into::into)
+}
+
+/// An imported page put back on the Notion HTML block it came from (its file replaced there).
+#[prism_macros::command]
+pub async fn agent_web_publish(state: State<'_, AppState>, id: String, path: String) -> Cmd {
+    state.agents.web_publish(&id, &path).await.map_err(Into::into)
+}
+
+/// An imported page of an agent's Web view removed.
+#[prism_macros::command]
+pub fn agent_web_remove(state: State<'_, AppState>, id: String, path: String) -> Cmd {
+    state.agents.web_remove(&id, &path).map_err(Into::into)
+}
+
+/// Whether a link given to Import… is a Notion page's or block's (read through Notion's API, its
+/// token asked for): the core's rule, the form's too.
+#[prism_macros::command]
+pub fn web_link_is_notion(url: String) -> bool {
+    crate::agents::notion::is_notion(&url)
+}
+
+/// Where an imported page of its Web view came from.
+#[prism_macros::command]
+pub fn agent_web_origin(state: State<'_, AppState>, id: String, path: String) -> Cmd<Option<crate::agents::web_import::Origin>> {
+    state.agents.web_origin(&id, &path).map_err(Into::into)
+}
+
 /// Where a page of an agent's Web view is on disk (`@scratchpad/…` too): for a new agent to read it.
 #[prism_macros::command]
 pub fn agent_page_file(state: State<'_, AppState>, id: String, path: String) -> Cmd<String> {

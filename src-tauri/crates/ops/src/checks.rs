@@ -28,6 +28,8 @@ pub enum Check {
     ClickupToken,
     /// The Jira token, with the site and the account of the form (saved or not).
     JiraToken { site: String, email: String },
+    /// The Notion token (this profile's keychain entry): who it signs in as.
+    NotionToken,
     /// glab's or gh's login (`gitlab`, `github`), on the profile's instance.
     ForgeLogin { forge: crate::forge::Provider },
     /// tmux and the agents' CLI (`[agents] provider`).
@@ -139,6 +141,10 @@ async fn check_inner(check: Check) -> Outcome {
         Check::ClickupToken => match crate::collectors::clickup::whoami().await {
             Ok(who) => ok(tr!("signed in as {who}", who = who)),
             Err(e) => ko(token_error("ClickUp", &format!("{e:#}"))),
+        },
+        Check::NotionToken => match crate::collectors::notion::whoami().await {
+            Ok(who) => ok(tr!("signed in as {who}", who = who)),
+            Err(e) => ko(token_error("Notion", &format!("{e:#}"))),
         },
         Check::JiraToken { site, email } => {
             if site.trim().is_empty() || email.trim().is_empty() {

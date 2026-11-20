@@ -158,6 +158,7 @@ fn token(service: Service) -> anyhow::Result<String> {
         Service::Clickup => (crate::collectors::clickup::KEYCHAIN_SERVICE, "ClickUp token"),
         Service::Jira => (crate::collectors::jira::KEYCHAIN_SERVICE, "Jira API token"),
         Service::Google => (crate::collectors::google::SECRET_SERVICE, "Google client secret"),
+        Service::Notion => (crate::agents::notion::KEYCHAIN_SERVICE, "Notion token"),
     };
     let token = if std::io::stdin().is_terminal() {
         read_hidden(&format!("{label} (not shown): "))?

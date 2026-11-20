@@ -13,6 +13,7 @@ pub mod github;
 pub mod gitlab;
 pub mod google;
 pub mod jira;
+pub mod notion;
 pub mod oauth;
 pub mod obsidian;
 pub mod overlaps;

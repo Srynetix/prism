@@ -24,6 +24,7 @@ import type { FilePreview } from './bindings/FilePreview'
 import type { AgentDownload } from './bindings/AgentDownload'
 import type { AgentArtifact } from './bindings/AgentArtifact'
 import type { AgentPage } from './bindings/AgentPage'
+import type { WebOrigin } from './bindings/WebOrigin'
 import { t } from './i18n.svelte'
 import { waitsForYou } from './agents-list'
 import type { WorktreePlan } from './bindings/WorktreePlan'
@@ -658,6 +659,19 @@ export const agentArtifacts = (id: string) => invoke<AgentArtifact[]>('agent_art
 export const SCRATCHPAD = '@scratchpad'
 /** A Markdown or text page of the Web view (`<path>`, or `@scratchpad/<path>`), as `prismfile:` would serve it. */
 export const agentPageText = (id: string, path: string) => invoke<string>('agent_page_text', { id, path })
+import { IMPORTED } from './web-address'
+export { IMPORTED }
+/** An imported page removed from the agent's folder. */
+export const webRemove = (id: string, path: string) => invoke('agent_web_remove', { id, path })
+/** An imported page put back on the Notion HTML block it came from. */
+export const webPublish = (id: string, path: string) => invoke('agent_web_publish', { id, path })
+/** A Notion page's or block's link (its HTML block read through Notion's API): the core says. */
+export const isNotionLink = (url: string) => (url.trim() ? invoke<boolean>('web_link_is_notion', { url }).catch(() => false) : Promise.resolve(false))
+/** A file's link downloaded into the agent's Web view (`page`: the page it belongs to): its address there. */
+export const webImport = (id: string, url: string, page: string) => invoke<string>('agent_web_import', { id, url, page: page.trim() || null })
+/** Where an imported page came from (its link without its keys, its page, its Notion block); null for any other page. */
+export const webOrigin = (id: string, path: string): Promise<WebOrigin | null> =>
+  path.startsWith(`${IMPORTED}/`) ? invoke<WebOrigin | null>('agent_web_origin', { id, path }).catch(() => null) : Promise.resolve(null)
 /** A file of the agent's folder, served by the Rust core's `prismfile:` scheme. */
 export const agentFileUrl = (id: string, path: string) => `prismfile://localhost/${encodeURIComponent(id)}/${path.split('/').map(encodeURIComponent).join('/')}`
 

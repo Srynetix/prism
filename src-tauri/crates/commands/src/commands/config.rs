@@ -471,6 +471,7 @@ fn token_service(tracker: &str) -> Cmd<String> {
         "clickup" => crate::collectors::clickup::KEYCHAIN_SERVICE,
         "jira" => crate::collectors::jira::KEYCHAIN_SERVICE,
         "google" => crate::collectors::google::SECRET_SERVICE,
+        "notion" => crate::agents::notion::KEYCHAIN_SERVICE,
         other => return Err(format!("no token for {other}").into()),
     };
     Ok(crate::profile::service(base))

@@ -123,6 +123,7 @@ export const TREE: TreeNode[] = [
       { id: 'prism-mcp', label: t('Prism MCP'), sections: ['mcp', 'agents-mcp', 'mcp-agents'], toggle: 'mcp', group: 'prism' },
       { id: 'dictation', label: t('Dictation'), sections: ['agents-dictation', 'dictation-panel'], toggle: 'agents-dictation', group: 'prism' },
       { id: 'files', label: t('Files'), sections: ['files'], group: 'tools' },
+      { id: 'notion', label: 'Notion', sections: ['notion'], group: 'tools' },
       { id: 'console', label: t('Console'), sections: ['console'], group: 'tools' },
     ],
   },
