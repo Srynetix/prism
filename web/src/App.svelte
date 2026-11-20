@@ -17,6 +17,7 @@
   import { addColumn, bandsOf, columnsOf, currentView, editing, ensureSizes, showBlock, modeOf, moveBand, moveBlock, resetLayout, setView, shift, sizesOf, stepView, toggleEditing, toggleZen, zen, zoom } from './layout.svelte'
   import LayoutMenu from './components/LayoutMenu.svelte'
   import Toolbar from './components/Toolbar.svelte'
+  import { timeDraft } from './timeDraft.svelte'
   import ViewIcon from './components/ViewIcon.svelte'
   import { MAX_COLUMNS, bandRanges, hiddenViews, isCustom, views, type BlockId, type View } from './views'
   import { look, movePage, pageUi, renamePage, startRename, startStyling } from './pages.svelte'
@@ -585,13 +586,14 @@
     {/snippet}
     <Toolbar class="hbar" label={t('Page header')} {lead} tail={assistant} tools={[
       ...(kind === 'page' ? [{ id: 'mine', render: mine, rank: 2 }, { id: 'date', render: date, rank: 3 }, { id: 'layout', render: layoutMenu, rank: 1 }] : []),
-      { id: 'stats', render: stats, rank: 4, at: 'end' as const },
-      { id: 'time', render: time, rank: 5, at: 'end' as const },
+      // Their popover (`i`) and their drawer (Log time, from a row) are asked for from elsewhere too.
+      { id: 'stats', render: stats, rank: 4, at: 'end' as const, shown: !!snap, wanted: !!headerStats.open, dismiss: () => (headerStats.open = null) },
+      { id: 'time', render: time, rank: 5, at: 'end' as const, shown: !!full && full.tracker !== null && full.tracker_features?.time !== false, wanted: timeDraft.open, dismiss: () => (timeDraft.open = false) },
     ]} />
   </header>
 {/snippet}
 
-<div class="app" class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!(machine() || profileWindow()) && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={look(view).color}>
+<div class="app" class:blocks={!(agentsView.open && agentsEnabled()) && !settingsView.open && !helpView.open && !(projectsView.open && projectsOn)} class:zen={zen.on} class:machine={!!machine()} class:machine-away={!!(machine() || profileWindow()) && !machineState.connected && !!machineState.since && clock(1000).now - machineState.since >= GRACE} style:--view={look(view).color}>
   <div class="shell">
   <!-- Two fingers up or down on the rail: the next or previous page, while one is shown. -->
   <nav class="rail" aria-label={t('Views')} {@attach pageSwipe(stepView, () => appearance().page_swipe && !editing.on && !zoomed && !agentsView.open && !projectsView.open && !settingsView.open && !helpView.open)}>
@@ -934,10 +936,12 @@
   .drop { flex: 1; min-height: 80px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: var(--fs-meta); }
   /*
    * Half a screen (app.css, « Widths »): the rail in icons (their names in their tooltips), the
-   * header without the page's title (the rail says it), the bands' blocks one under the other, the
-   * page scrolling. Each column takes its blocks' height: on its basis of 0, the next one came over it.
+   * header without the page's title (the rail says it), a page's blocks one under the other, the
+   * page scrolling (a page of blocks only: Agents, Settings, Help and Projects keep the window's
+   * height, their panes scrolling inside). Each column takes its blocks' height: on its basis of 0,
+   * the next one came over it.
    */
-  @media (width < 1200px) {
+  @media (max-width: 1199.98px) {
     .rail { flex-basis: 48px; }
     /* Their names out (the badges keep their own size). */
     .rail :global(.v) { width: 40px; padding: 7px 0; gap: 0; font-size: 0; }
@@ -945,9 +949,9 @@
     .rail .alert-dot { right: 4px; }
     .rail .brand { margin-bottom: 6px; }
     .title { display: none; }
-    .app { height: auto; min-height: 100%; }
-    .rail { position: sticky; top: 0; height: calc(100vh - 26px); }
-    .app > :global(.statusbar) { position: sticky; bottom: 0; z-index: 5; }
+    .app.blocks { height: auto; min-height: 100%; }
+    .app.blocks .rail { position: sticky; top: 0; height: calc(100vh - 26px); }
+    .app.blocks > :global(.statusbar) { position: sticky; bottom: 0; z-index: 5; }
     .band { flex-direction: column; flex: none !important; }
     .band > .col { flex: none !important; }
     .col > div { height: 60vh; flex: none !important; }

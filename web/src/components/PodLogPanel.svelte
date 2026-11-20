@@ -257,7 +257,7 @@
   .txt-line { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
   .b { font-weight: 700; }
   /* A phone, a narrow window: the header wraps, the pods a strip above the log. */
-  @media (width < 720px) {
+  @media (max-width: 719.98px) {
     :global(.podlogs .dh) { flex-wrap: wrap; row-gap: 6px; }
     .filter { flex: 1; min-width: 120px; }
     .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }

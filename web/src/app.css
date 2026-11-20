@@ -306,9 +306,10 @@
    * - half: 720 to 1 200 px (half of a screen, next to an editor): the rail in icons, one column of
    *   blocks, the Agents view on one column (its list in a drawer), bars folding into their ⋯;
    * - narrow: under 720 px (the phone; the window goes down to 640): drawers and dialogs full width.
-   * A media query names these widths only, `(width < 1200px)` or `(width < 720px)` (the style lint
-   * holds it). A block or a panel follows its own width (`@container`), not the window's: narrow in
-   * a wide page, it behaves as on half a screen.
+   * A media query names these widths only, `(max-width: 1199.98px)` or `(max-width: 719.98px)`,
+   * never the range syntax older webviews ignore (the style lint holds it). A block or a panel
+   * follows its own width (`@container`), not the window's: narrow in a wide page, it behaves as on
+   * half a screen.
    */
   /* Motion: one curve, two durations; none with Reduce motion (`html[data-reduce-motion]`). */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);

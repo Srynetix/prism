@@ -403,6 +403,8 @@
    */
   $effect(() => {
     if (full) return holdEscape(() => setFull(false), (e) => agentsShown() && !layers.stack.length && !inField(e.target))
+    // Half a screen, the panel over the terminal: Escape gives the terminal (or the Chat) back.
+    if (whole) return holdEscape(() => setSide(null), (e) => agentsShown() && !layers.stack.length && !inField(e.target))
   })
   $effect(() => {
     if (managing) return holdEscape(() => (managing = false), (e) => agentsShown() && !layers.stack.length && !(e.target as HTMLElement | null)?.closest?.('textarea, .xterm, .rename'))
@@ -796,8 +798,8 @@
         {#snippet chatSeg()}
           {#if canChat(a)}
             <span class="seg" role="group" aria-label={t('Terminal or Chat')}>
-              <button class:on={!chatting(a.id) && !(whole && drawer)} onclick={() => showMain(a.id, false)} aria-pressed={!chatting(a.id)} title={t('Its terminal, as it runs')}>{t('Terminal')}</button>
-              <button class:on={chatting(a.id) && !(whole && drawer)} onclick={() => showMain(a.id, true)} aria-pressed={chatting(a.id)} title={t('Its conversation, read from its transcript: its questions as cards, a box to write to it')}>Chat</button>
+              <button class:on={!chatting(a.id) && !(whole && drawer)} onclick={() => showMain(a.id, false)} aria-pressed={!chatting(a.id) && !(whole && drawer)} title={t('Its terminal, as it runs')}>{t('Terminal')}</button>
+              <button class:on={chatting(a.id) && !(whole && drawer)} onclick={() => showMain(a.id, true)} aria-pressed={chatting(a.id) && !(whole && drawer)} title={t('Its conversation, read from its transcript: its questions as cards, a box to write to it')}>Chat</button>
             </span>
           {/if}
         {/snippet}
@@ -833,19 +835,22 @@
         {#snippet actions()}
           <ActionMenu sections={agentMenu(a, () => startRename(a))} head={agentHead(a)} label={t('All actions on {name}', { name: a.title })} />
         {/snippet}
+        <!-- One bar per agent: what folded for one is weighed again for the next. -->
+        {#key a.id}
         <Toolbar class="hrow" label={a.title} {lead} tail={actions} tools={[
           { id: 'cli', render: cliChip, rank: 1 },
           { id: 'proposal', render: proposal, rank: 2 },
           { id: 'aside', render: asideChip, rank: 2 },
-          { id: 'overlap', render: overlap, rank: 3 },
-          { id: 'base', render: otherBase, rank: 0 },
-          { id: 'effort', render: effortChip, rank: 0 },
-          { id: 'chat', render: chatSeg, rank: 9, at: 'end' },
+          { id: 'overlap', render: overlap, rank: 3, shown: overlapsOf(a).length > 0 },
+          { id: 'base', render: otherBase, rank: 0, shown: !!live.snapshot?.overlaps?.other_base.some((x) => x.path === (a.worktree ?? a.cwd)) },
+          { id: 'effort', render: effortChip, rank: 0, shown: takesEffort(a) },
+          { id: 'chat', render: chatSeg, rank: 9, at: 'end', shown: canChat(a) },
           { id: 'side', render: sideTabs, rank: 6, at: 'end' },
-          { id: 'zoom', render: zoomBack, rank: 7, at: 'end' },
-          { id: 'full', render: fullButton, rank: 5, at: 'end' },
-          { id: 'stop', render: stopButton, rank: 4, at: 'end' },
+          { id: 'zoom', render: zoomBack, rank: 7, at: 'end', shown: grid.zoomed },
+          { id: 'full', render: fullButton, rank: 5, at: 'end', shown: !drawer && !!side },
+          { id: 'stop', render: stopButton, rank: 4, at: 'end', shown: a.state === 'running' && !chatting(a.id) },
         ]} />
+        {/key}
         {#if readMeta && !editMeta}
           <!-- `[agents] header_meta = "read"`: where it works and how it is filed, read; changed behind Edit. -->
           <div class="row meta read">

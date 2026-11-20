@@ -12,13 +12,22 @@
     rank?: number
     /** After the space that pushes to the right end (`end`), or right after the lead. */
     at?: 'start' | 'end'
+    /** False: nothing to show now (out of the bar and of its ⋯, never weighed). */
+    shown?: boolean
+    /**
+     * Something of its own is open, asked from elsewhere (a drawer, a popover by a key): folded,
+     * the ⋯ opens for it to show there.
+     */
+    wanted?: boolean
+    /** The ⋯ closed while it was wanted there: what it had open is closed too. */
+    dismiss?: () => void
   }
 </script>
 
 <script lang="ts">
   import { untrack } from 'svelte'
   import { foldOut } from '../fold'
-  import { anchored, exclusive } from '../popup'
+  import { anchored } from '../popup'
   import { holdEscape } from '../layers.svelte'
   import Icon from './Icon.svelte'
   import { t } from '../i18n.svelte'
@@ -57,14 +66,14 @@
     }
     const room = bar.clientWidth - px(style.paddingLeft) - px(style.paddingRight) - leadMin - (tailEl ? tailEl.offsetWidth + gap : 0)
     const next = foldOut(
-      tools.map((x) => x.id),
+      present.map((x) => x.id),
       widths,
       room,
       MORE + gap,
-      (id) => tools.find((x) => x.id === id)?.rank ?? 0,
+      (id) => present.find((x) => x.id === id)?.rank ?? 0,
     )
     if (next.join() !== folded.join()) folded = next
-    if (!next.length) open = false
+    if (!next.length) close()
   }
   let frame = 0
   const soon = () => {
@@ -78,16 +87,31 @@
     return () => sizes?.unobserve(el)
   }
   $effect(() => {
-    void tools.map((x) => x.id).join()
+    void present.map((x) => x.id).join()
     untrack(soon)
   })
 
-  const inBar = $derived(tools.filter((x) => !folded.includes(x.id)))
-  const inMenu = $derived(tools.filter((x) => folded.includes(x.id)))
+  const present = $derived(tools.filter((x) => x.shown !== false))
+  const inBar = $derived(present.filter((x) => !folded.includes(x.id)))
+  const inMenu = $derived(present.filter((x) => folded.includes(x.id)))
+
+  /* A folded tool wanted (its drawer asked for from elsewhere, or a tool folding while it is): the ⋯ opens. */
+  let wantedFolded = new Set<string>()
+  $effect(() => {
+    const now = new Set(inMenu.filter((x) => x.wanted).map((x) => x.id))
+    if ([...now].some((id) => !wantedFolded.has(id))) open = true
+    wantedFolded = now
+  })
+  /** The ⋯ closed: what its tools had open from elsewhere, closed too (or it would come back later). */
+  function close() {
+    open = false
+    for (const x of inMenu) if (x.wanted) x.dismiss?.()
+  }
 
   /**
    * The ⋯ panel: a click outside closes it, but not one in a popup a tool opened from it (a date
-   * picker, a menu attached to the page), nor Escape meant for that popup.
+   * picker, a menu attached to the page), nor Escape meant for that popup. Not `exclusive`: a
+   * tool's own popup is, and opening it would close the ⋯, and the tool with it.
    */
   function panel(el: HTMLElement) {
     const opened = performance.now()
@@ -95,10 +119,10 @@
       const target = e.target as Element | null
       if (e.timeStamp <= opened || !target?.isConnected || el.contains(target) || moreButton?.contains(target)) return
       if (target.closest('.popover, [role=menu], [role=dialog], [role=listbox]')) return
-      open = false
+      close()
     }
     window.addEventListener('click', click)
-    const letGo = holdEscape(() => (open = false))
+    const letGo = holdEscape(close)
     return () => {
       letGo()
       window.removeEventListener('click', click)
@@ -107,18 +131,18 @@
 </script>
 
 <div class="toolbar {cls}" bind:this={bar} {@attach observe} role="toolbar" aria-label={label}>
-  {#if lead}<div class="lead" bind:this={leadEl}>{@render lead()}</div>{/if}
+  {#if lead}<div class="lead" bind:this={leadEl} {@attach observe}>{@render lead()}</div>{/if}
   {#each inBar.filter((x) => x.at !== 'end') as x (x.id)}<span class="tool" data-id={x.id} {@attach observe}>{@render x.render(false)}</span>{/each}
   <span class="grow"></span>
   {#each inBar.filter((x) => x.at === 'end') as x (x.id)}<span class="tool" data-id={x.id} {@attach observe}>{@render x.render(false)}</span>{/each}
   {#if inMenu.length}
-    <button bind:this={moreButton} class="more" class:open onclick={(e) => { e.stopPropagation(); open = !open }} aria-expanded={open} aria-label={t('More tools')} title={t('What has no room in the bar')}><Icon name="more" /></button>
+    <button bind:this={moreButton} class="more" class:open onclick={(e) => { e.stopPropagation(); if (open) close(); else open = true }} aria-expanded={open} aria-label={t('More tools')} title={t('What has no room in the bar')}><Icon name="more" /></button>
   {/if}
-  {#if tail}<div class="tail" bind:this={tailEl}>{@render tail()}</div>{/if}
+  {#if tail}<div class="tail" bind:this={tailEl} {@attach observe}>{@render tail()}</div>{/if}
 </div>
 
 {#if open && inMenu.length}
-  <div class="folded popover" role="dialog" aria-label={t('What has no room in the bar')} {@attach anchored(() => moreButton, { align: 'end' })} {@attach exclusive(() => (open = false))} {@attach panel}>
+  <div class="folded popover" role="dialog" aria-label={t('What has no room in the bar')} {@attach anchored(() => moreButton, { align: 'end' })} {@attach panel}>
     {#each inMenu as x (x.id)}<div class="row">{@render x.render(true)}</div>{/each}
   </div>
 {/if}

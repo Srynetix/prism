@@ -439,7 +439,7 @@
   .entry .save { --btn-c: var(--info); }
   .edit-error { padding: 2px 12px 6px; font-size: var(--fs-meta); }
   /* A narrow header: the day is already shown in its date picker. */
-  @container band (width < 1200px) {
+  @container band (max-width: 1199.98px) {
     .chip .day { display: none; }
   }
 </style>

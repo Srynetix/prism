@@ -186,7 +186,7 @@
   .foot.link:hover { color: var(--text); }
 
   /* A narrow header (App's band): the stats keep their figures. */
-  @container band (width < 1200px) {
+  @container band (max-width: 1199.98px) {
     .lbl, .inbox .k { display: none; }
   }
 </style>

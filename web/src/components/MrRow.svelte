@@ -148,7 +148,7 @@
     --c: var(--text-muted);
   }
   /* A phone (the remote): the pipeline under the title, the next step beside it. */
-  @media (width < 720px) {
+  @media (max-width: 719.98px) {
     .mr { grid-template-columns: 10px minmax(0, 1fr) auto; grid-template-areas: 'dot l1 right' 'dot l2 l2' 'dot pipe pipe'; gap: 2px 8px; }
   }
   .mr:hover { background: rgba(127, 127, 127, 0.06); }

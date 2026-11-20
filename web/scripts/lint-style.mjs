@@ -6,7 +6,8 @@
  * - a `border-radius` in px: a `--r*` token (follows the theme's `--round`); 0, 50%, 999px stay;
  * - a `z-index` of 10 or more: a `--z-*` layer; a component's own stacking stays under 10;
  * - a media query on another width than the interface's scale (app.css, « Widths »):
- *   `(width < 720px)` or `(width < 1200px)` only; a block or a panel follows its own width with
+ *   `(max-width: 719.98px)` or `(max-width: 1199.98px)` only (not the range syntax `(width < …)`,
+ *   unknown to older webviews); a block or a panel follows its own width with
  *   `@container` instead;
  * - a shared primitive defined again in a component (`.btn { … }`, `.pill:hover { … }`): they live
  *   in app.css alone; placing one is fine (`.row .pill { margin-left: auto; }`).
@@ -79,7 +80,7 @@ for (const path of walk(ROOT)) {
       }
       for (const m of css.matchAll(/@media\s+([^{]*)\{/g)) {
         for (const w of m[1].matchAll(/\(\s*(?:min-width|max-width|width)\b[^)]*\)/g)) {
-          if (!/^\(\s*width\s*<\s*(720|1200)px\s*\)$/.test(w[0])) say(file, lineAt(m.index), `@media ${w[0]}: the scale's (width < 720px) or (width < 1200px), or an @container`)
+          if (!/^\(\s*max-width\s*:\s*(719|1199)\.98px\s*\)$/.test(w[0])) say(file, lineAt(m.index), `@media ${w[0]}: the scale's (max-width: 719.98px) or (max-width: 1199.98px), or an @container`)
         }
       }
       for (const m of css.matchAll(/z-index\s*:\s*(-?\d+)/g)) {
