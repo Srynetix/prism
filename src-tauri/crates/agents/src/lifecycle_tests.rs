@@ -1179,3 +1179,42 @@ async fn a_removed_worktree_is_recreated_on_its_branch() {
     let a = b.shown(&id).await.unwrap();
     assert_eq!((a.worktree_gone, a.worktree.as_deref(), a.branch.as_deref()), (None, Some(wt.display().to_string().as_str()), Some("feat")));
 }
+
+/// A CLI Prism makes the worktree for runs in it (its launch folder is the worktree): removed, its
+/// repository is the one git named while it was there, not the first of the config; it goes on there.
+#[tokio::test]
+async fn a_worktree_that_was_the_launch_folder_finds_its_repository() {
+    let b = Bench::new();
+    let (repo, wt) = repo_with_worktree(&b.root);
+    let id = b.agents.spawn(Launch { cwd: Some(wt.clone()), ..b.launch("Inside") }).await.unwrap();
+    b.agents.update_registry(|reg| reg.records.iter_mut().find(|r| r.id == id).unwrap().worktree = Some(wt.clone())).unwrap();
+    b.shown(&id).await.unwrap();
+    assert_eq!(b.agents.inner.registry.lock().unwrap().get(&id).unwrap().repo.as_deref(), Some(repo.as_path()), "its repository kept");
+    std::fs::remove_dir_all(&wt).unwrap();
+    let gone = b.shown(&id).await.unwrap().worktree_gone.expect("said gone");
+    assert!(gone.branch_exists);
+    assert_eq!(b.agents.run_dir(&id).unwrap(), repo, "never the folder removed");
+    b.agents.resume_in_repo(&id).await.unwrap();
+    assert_eq!(b.agents.dir(&id).unwrap(), repo);
+}
+
+/// Recreating one worktree leaves what git keeps of the others deleted by hand (their branch).
+#[test]
+fn recreating_one_worktree_leaves_the_others_stale() {
+    let root = std::env::temp_dir().join(format!("prism-stale-{}", uuid::Uuid::new_v4()));
+    let (repo, wt) = repo_with_worktree(&root);
+    let other = root.join("repo.worktrees/other");
+    std::process::Command::new("git").arg("-C").arg(&repo).args(["worktree", "add", "-q", "-b", "other"]).arg(&other).output().unwrap();
+    let other = other.canonicalize().unwrap();
+    std::fs::remove_dir_all(&wt).unwrap();
+    std::fs::remove_dir_all(&other).unwrap();
+    worktree::recreate(&repo, &wt, "feat").unwrap();
+    assert!(wt.join(".git").is_file());
+    assert_eq!(stale_branch(&repo, &other).as_deref(), Some("other"), "the other one's branch still read");
+    // A branch only on origin counts: a worktree is made on it too.
+    let refs = repo.join(".git/refs/remotes/origin");
+    std::fs::create_dir_all(&refs).unwrap();
+    std::fs::copy(repo.join(".git/refs/heads/main"), refs.join("pushed")).unwrap();
+    assert!(vcs::has_branch(&repo, "pushed") && !vcs::has_branch(&repo, "never"));
+    let _ = std::fs::remove_dir_all(root);
+}

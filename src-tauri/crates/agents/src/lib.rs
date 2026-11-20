@@ -441,20 +441,22 @@ impl Agents {
         *self.inner.folds.lock().unwrap() = folds;
         *self.inner.usages.lock().unwrap() = usages;
         drop(refreshing);
-        // The branch of each one's worktree, kept: removed under it, it is recreated on that branch.
-        let seen: Vec<(String, String)> = {
+        // The branch and repository of each one's worktree, kept: removed under it, it is
+        // recreated on that branch, in that repository.
+        let seen: Vec<(String, Option<String>, Option<PathBuf>)> = {
             let reg = self.inner.registry.lock().unwrap();
             read.iter()
-                .filter(|(a, _)| a.worktree.is_some())
-                .filter_map(|(a, _)| Some((a.id.clone(), a.branch.clone()?)))
-                .filter(|(id, b)| reg.get(id).is_some_and(|r| r.branch.as_ref() != Some(b)))
+                .filter_map(|(a, _)| Some((a, a.worktree.as_deref()?)))
+                .map(|(a, w)| (a.id.clone(), a.branch.clone(), vcs::repo_root(Path::new(w))))
+                .filter(|(id, b, repo)| reg.get(id).is_some_and(|r| (b.is_some() && r.branch != *b) || (repo.is_some() && r.repo != *repo)))
                 .collect()
         };
         if !seen.is_empty() {
             let kept = self.update_registry(|reg| {
-                for (id, branch) in seen {
+                for (id, branch, repo) in seen {
                     if let Some(r) = reg.records.iter_mut().find(|r| r.id == id) {
-                        r.branch = Some(branch);
+                        r.branch = branch.or(r.branch.take());
+                        r.repo = repo.or(r.repo.take());
                     }
                 }
             });
@@ -553,17 +555,21 @@ impl Agents {
         tokio::task::spawn_blocking(move || descends(pid, root)).await.unwrap_or(false)
     }
 
-    /// The agent's record, as registered.
-    /// The repository its worktree was made in: its launch folder, unless that is the worktree
-    /// itself (a CLI Prism makes the worktree for), then the repository it was launched for.
+    /// The repository its worktree was made in: as git said it while the worktree was there
+    /// (`Record::repo`); else its launch folder, unless that is the worktree itself (a CLI Prism
+    /// makes the worktree for), then the repository its launch names. None rather than a guess.
     pub(crate) fn repo_of(&self, r: &Record) -> Option<PathBuf> {
+        if let Some(repo) = &r.repo {
+            return Some(repo.clone());
+        }
         if r.worktree.as_ref() != Some(&r.cwd) {
             return Some(r.cwd.clone());
         }
-        let name = r.launch.as_ref().and_then(|l| l.worktree.as_ref()?.repo.clone());
-        self.worktree_repo(name.as_deref()).ok().map(|w| w.path)
+        let name = r.launch.as_ref().and_then(|l| l.worktree.as_ref()?.repo.clone())?;
+        self.worktree_repo(Some(&name)).ok().map(|w| w.path)
     }
 
+    /// The agent's record, as registered.
     fn record(&self, id: &str) -> Result<Record> {
         self.inner.registry.lock().unwrap().get(id).cloned().context(tr("unknown agent"))
     }
@@ -1104,7 +1110,7 @@ mod tests {
         for d in [repo.join(".claude/worktrees/entered"), planned.clone(), other.clone()] {
             std::fs::create_dir_all(d).unwrap();
         }
-        let r = Record { id: "a".into(), provider: Default::default(), title: "T".into(), cwd: repo.clone(), prompt: None, worktree: Some(planned.clone()), category: None, tags: Vec::new(), ticket: None, mr: None, launch: None, prepared: false, extra: Vec::new(), legs: Vec::new(), resumed: None, branch: None, created_at: Utc::now() };
+        let r = Record { id: "a".into(), provider: Default::default(), title: "T".into(), cwd: repo.clone(), prompt: None, worktree: Some(planned.clone()), category: None, tags: Vec::new(), ticket: None, mr: None, launch: None, prepared: false, extra: Vec::new(), legs: Vec::new(), resumed: None, branch: None, repo: None, created_at: Utc::now() };
         assert!(own_worktree(&r, &planned));
         assert!(own_worktree(&r, &repo.join(".claude/worktrees/entered")), "one Claude Code made in its folder");
         assert!(!own_worktree(&r, &other), "another agent's");
@@ -1135,6 +1141,7 @@ mod tests {
             legs: Vec::new(),
             resumed: None,
             branch: None,
+            repo: None,
             created_at: Utc::now(),
         };
         let mut records = vec![record("Review", &["api", "ui"]), record("Development", &["ui"])];

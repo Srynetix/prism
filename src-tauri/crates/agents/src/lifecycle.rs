@@ -113,6 +113,7 @@ impl Agents {
             legs: Vec::new(),
             resumed: None,
             branch: None,
+            repo: None,
             created_at: Utc::now(),
         };
         self.update_registry(|reg| reg.records.push(record))?;
@@ -299,7 +300,7 @@ impl Agents {
         }
         let category = launch.category.map(|c| c.trim().to_string()).filter(|c| !c.is_empty()).or_else(|| self.kind_of(prompt.as_deref()));
         let (ticket, mr) = prepared.map(|r| (r.ticket, r.mr)).unwrap_or_default();
-        let record = Record { id: id.clone(), provider, title, cwd, prompt, worktree, category, tags: clean_tags(launch.tags), ticket, mr, launch: Some(spec), prepared: false, extra, legs: Vec::new(), resumed: None, branch: None, created_at: Utc::now() };
+        let record = Record { id: id.clone(), provider, title, cwd, prompt, worktree, category, tags: clean_tags(launch.tags), ticket, mr, launch: Some(spec), prepared: false, extra, legs: Vec::new(), resumed: None, branch: None, repo: None, created_at: Utc::now() };
         self.update_registry(|reg| {
             reg.records.retain(|r| r.id != id);
             reg.records.push(record)

@@ -14,9 +14,16 @@ impl Agents {
     }
 
     /// Where a process of the agent can run: `dir`, else its launch folder (its worktree removed).
+    /// Its launch folder being that worktree (a CLI Prism makes the worktree for), its repository.
     pub(crate) fn run_dir(&self, id: &str) -> Result<PathBuf> {
         let (record, worktree, _) = self.folder(id)?;
-        Ok(worktree.unwrap_or(record.cwd))
+        if let Some(w) = worktree {
+            return Ok(w);
+        }
+        if record.cwd.is_dir() {
+            return Ok(record.cwd);
+        }
+        self.repo_of(&record).filter(|r| r.is_dir()).with_context(|| tr!("its folder is gone: {dir}", dir = record.cwd.display()))
     }
 
     /// The folder its conversation names files under: its worktree, even removed.

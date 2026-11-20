@@ -142,9 +142,14 @@ pub fn main(work: &Path) -> ExitCode {
         "WorktreeCreate" => worktree_create(work, &events, input, t),
         "WorktreeRemove" => worktree_remove(&events, input, t),
         _ => {
+            // Its own worktree removed by a command of its own or of a subagent: refused, said why
+            // (`guard.rs`). Not logged, nor watched: it never runs, no PostToolUse closes it.
+            if input.hook_event_name == "PreToolUse" && input.tool_name.as_deref() == Some("Bash") && removes_own_folder(&input) {
+                let out = serde_json::json!({ "hookSpecificOutput": { "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": crate::guard::REFUSED } });
+                let _ = writeln!(std::io::stdout(), "{out}");
+                return ExitCode::SUCCESS;
+            }
             let adopted = adopted_worktrees(work, &input);
-            // Its own worktree removed by a command of its own: refused, said why (`guard.rs`).
-            let refused = input.hook_event_name == "PreToolUse" && input.agent_id.is_none() && input.tool_name.as_deref() == Some("Bash") && removes_own_folder(&input);
             let session = input.session_id.clone();
             let event = input.hook_event_name.clone();
             // A subagent's tool call: its context is not the agent's, the news waits for the agent's own.
@@ -158,11 +163,6 @@ pub fn main(work: &Path) -> ExitCode {
             for path in adopted {
                 let line = Line { t, event: "WorktreeAdopted".into(), what: Some(path), ..Default::default() };
                 let _ = append(&events, &session, &line);
-            }
-            if refused {
-                let out = serde_json::json!({ "hookSpecificOutput": { "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": crate::guard::REFUSED } });
-                let _ = writeln!(std::io::stdout(), "{out}");
-                return ExitCode::SUCCESS;
             }
             // What became of the tasks it proposed in passing: told now, in its context.
             if let Some(out) = std::env::var("PRISM_AGENT").ok().filter(|_| !sub && takes_news(&event)).and_then(|agent| news_output(&event, crate::asides::take_news(&events, &agent))) {

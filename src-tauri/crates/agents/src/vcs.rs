@@ -227,8 +227,15 @@ pub fn has_branch(repo: &Path, branch: &str) -> bool {
         return false;
     }
     let Some(git) = common_dir(repo) else { return false };
-    let name = format!("refs/heads/{branch}");
-    git.join(&name).is_file() || std::fs::read_to_string(git.join("packed-refs")).is_ok_and(|packed| packed.lines().any(|l| l.split_once(' ').is_some_and(|(_, r)| r == name)))
+    // Local, or only on origin: a worktree is made on either (`worktree::create`).
+    let packed = std::fs::read_to_string(git.join("packed-refs")).unwrap_or_default();
+    [format!("refs/heads/{branch}"), format!("refs/remotes/origin/{branch}")].iter().any(|name| git.join(name).is_file() || packed.lines().any(|l| l.split_once(' ').is_some_and(|(_, r)| r == name)))
+}
+
+/// The repository a worktree (or a clone) at `dir` belongs to: the folder of its main `.git`.
+pub fn repo_root(dir: &Path) -> Option<std::path::PathBuf> {
+    let git = common_dir(dir)?.canonicalize().ok()?;
+    (git.file_name()? == ".git").then(|| git.parent().map(Path::to_path_buf)).flatten()
 }
 
 /// The repository's git folder its branches are in: `.git`, or the main one's of a worktree.

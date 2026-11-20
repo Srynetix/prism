@@ -70,8 +70,9 @@ impl Agents {
         match source {
             Source::Agent(id) => {
                 let record = self.record(&id)?;
-                let dir = self.dir(&id)?;
-                let prompts = read_prompts(self.transcript(&id)?, dir.clone()).await;
+                // Its worktree removed: its prompts still read under it, the action made in the repository.
+                let prompts = read_prompts(self.transcript(&id)?, self.worked_in(&id)?).await;
+                let dir = self.run_dir(&id)?;
                 let at = self.inner.hub.subscribe().borrow().agents.iter().find(|a| a.id == id).and_then(|a| a.last_activity.map(|t| t.to_rfc3339()));
                 Ok(from_record(&record, dir, prompts, at.or_else(|| Some(record.created_at.to_rfc3339()))))
             }
