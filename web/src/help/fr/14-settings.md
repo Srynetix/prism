@@ -108,7 +108,7 @@ Ce que Prism n’a pas pu faire ne reste plus dans le log : l’élément **Pri
 [Ouvrir Réglages › Général › Dépendances](prism:settings/dependencies)
 
 ## Mises à jour
-**Réglages › Général › Mises à jour** montre la version de ce Prism et la release la plus récente de sa source (`[updates] source` : `glab:group/project` ou `gh:owner/repo`, lue avec glab ou gh). Le pack de votre équipe la définit en général : ses builds embarquent les blocs de l’équipe, le Prism open source a la sienne. Prism vérifie au lancement et toutes les 6 heures (**Rechercher des mises à jour**) ; une version plus récente apparaît dans la barre d’état. **Installer** (deux clics) remplace Prism et le redémarre sur macOS et depuis une AppImage ; avec un `.deb` ou un paquet Arch, il télécharge le paquet pour `sudo apt install` ou `sudo pacman -U`.
+**Réglages › Général › Mises à jour** montre la version de ce Prism et la release la plus récente de sa source (`[updates] source` : `glab:group/project`, lue avec glab, ou `gh:owner/repo`, lue directement sur GitHub : ni gh ni compte GitHub pour un dépôt public, gh et sa connexion seulement pour un dépôt privé). Le pack de votre équipe la définit en général ; le Prism open source suit `gh:Srynetix/prism`. Prism vérifie au lancement et toutes les 6 heures (**Rechercher des mises à jour**) ; une version plus récente apparaît dans la barre d’état. **Installer** (deux clics) remplace Prism et le redémarre sur macOS et depuis une AppImage ; avec un `.deb` ou un paquet Arch, il télécharge le paquet pour `sudo apt install` ou `sudo pacman -U`.
 
 [Ouvrir Réglages › Général › Mises à jour](prism:settings/updates)
 

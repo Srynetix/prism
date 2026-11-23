@@ -44,6 +44,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("the capture could not be uploaded", "la capture n’a pas pu être envoyée"),
     ("[updates] source: glab:group/project or gh:owner/repo, not {text}", "[updates] source : glab:groupe/projet ou gh:owner/repo, pas {text}"),
     ("no release {tag} in {source}", "aucune release {tag} dans {source}"),
+    ("GitHub's releases of {repo} cannot be read: {direct} (with gh: {gh})", "les releases GitHub de {repo} ne se lisent pas : {direct} (avec gh : {gh})"),
     ("Prism {version} is not newer than this one ({current}): not installed", "Prism {version} n’est pas plus récent que celui-ci ({current}) : non installé"),
     ("this release has no file for this system", "cette release n’a pas de fichier pour ce système"),
     ("downloading {name}", "téléchargement de {name}"),

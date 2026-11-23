@@ -1,6 +1,8 @@
-//! Prism's own updates: the releases of a repository (`[updates] source`), read with glab or gh,
-//! so with the access each one already has, and no token of Prism's. A team's pack names its own
-//! private repository, whose builds carry its blocks; the open-source Prism, its public one.
+//! Prism's own updates: the releases of a repository (`[updates] source`). On GitLab, read with
+//! glab, so with the access it already has, and no token of Prism's. On GitHub, read from its
+//! public API and downloaded from the release's own links: neither gh nor an account is needed
+//! for a public repository (Prism's); gh, with its login, only when that fails (a private
+//! repository, GitHub's limit of anonymous calls reached).
 //!
 //! A release is tagged `prism-v<version>` (scripts/release.sh), next to anything else the
 //! repository publishes, and carries one file per system, each with its `.sha256` and its
@@ -74,7 +76,13 @@ struct Asset {
     /// GitLab: the API path after `/api/v4/` (a generic package); GitHub: `repos/o/r/releases/assets/<id>`.
     api: String,
     host: String,
+    /// GitHub: the file's public link (`browser_download_url`), downloaded without gh.
+    url: String,
 }
+
+/// GitHub's API, called without gh: anonymous, so a public repository's releases only, 60 calls
+/// an hour per address (Prism checks at launch and every 6 hours).
+const GITHUB_API: &str = "https://api.github.com";
 
 #[derive(Debug, PartialEq)]
 enum Source<'a> {
@@ -174,7 +182,7 @@ async fn releases(src: Source<'_>) -> Result<Vec<Release>> {
                         .filter_map(|l| {
                             // `https://host/api/v4/projects/…/packages/generic/…`: read through glab, with its access.
                             let (base, api) = l.url.split_once("/api/v4/")?;
-                            Some(Asset { name: l.name, api: api.to_string(), host: base.trim_start_matches("https://").trim_start_matches("http://").to_string() })
+                            Some(Asset { name: l.name, api: api.to_string(), host: base.trim_start_matches("https://").trim_start_matches("http://").to_string(), url: String::new() })
                         })
                         .collect();
                     Some(Release { version: version(&r.tag_name)?, notes: r.description.unwrap_or_default(), url: r._links.this, tag: r.tag_name, assets })
@@ -197,14 +205,21 @@ async fn releases(src: Source<'_>) -> Result<Vec<Release>> {
             struct A {
                 name: String,
                 id: u64,
+                #[serde(default)]
+                browser_download_url: String,
             }
-            let out = crate::collectors::github::gh_bytes(&["api".into(), format!("repos/{repo}/releases?per_page=50")]).await?;
+            let path = format!("repos/{repo}/releases?per_page=50");
+            // Without gh first: Prism's users need no GitHub account. gh, with its login, when that fails.
+            let out = match github(&path).await {
+                Ok(out) => out,
+                Err(direct) => crate::collectors::github::gh_bytes(&["api".into(), path.clone()]).await.map_err(|gh| anyhow!(tr!("GitHub's releases of {repo} cannot be read: {direct} (with gh: {gh})", repo = repo, direct = direct, gh = gh)))?,
+            };
             let list: Vec<R> = serde_json::from_slice(&out).context("GitHub's answer is not a list of releases")?;
             Ok(list
                 .into_iter()
                 .filter(|r| !r.draft)
                 .filter_map(|r| {
-                    let assets = r.assets.into_iter().map(|a| Asset { name: a.name, api: format!("repos/{repo}/releases/assets/{}", a.id), host: String::new() }).collect();
+                    let assets = r.assets.into_iter().map(|a| Asset { name: a.name, api: format!("repos/{repo}/releases/assets/{}", a.id), host: String::new(), url: a.browser_download_url }).collect();
                     Some(Release { version: version(&r.tag_name)?, notes: r.body.unwrap_or_default(), url: r.html_url, tag: r.tag_name, assets })
                 })
                 .collect())
@@ -218,13 +233,44 @@ async fn glab(api: &str, host: &str) -> Result<Vec<u8>> {
     cli.output(cli.command_on(host), &["api", api]).await
 }
 
-/// A file of a release, as is.
+/// A call to GitHub's API without gh (`GITHUB_API`): the body of its answer.
+async fn github(path: &str) -> Result<Vec<u8>> {
+    let resp = crate::http::client()
+        .get(format!("{GITHUB_API}/{path}"))
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        // GitHub refuses a call without one.
+        .header("User-Agent", concat!("Prism/", env!("CARGO_PKG_VERSION")))
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .context("api.github.com")?;
+    Ok(crate::http::body("GitHub", path, resp).await?.into_bytes())
+}
+
+/// A file of a release, as is. GitHub's: from its public link (redirected to GitHub's storage),
+/// else through gh.
 async fn download(asset: &Asset) -> Result<Vec<u8>> {
-    if asset.host.is_empty() {
-        let octet = "Accept: application/octet-stream".to_string();
-        crate::collectors::github::gh_bytes(&["api".into(), "-H".into(), octet, asset.api.clone()]).await
-    } else {
-        glab(&asset.api, &asset.host).await
+    if !asset.host.is_empty() {
+        return glab(&asset.api, &asset.host).await;
+    }
+    let direct = async {
+        ensure!(asset.url.starts_with("https://"), "no public link");
+        let resp = crate::http::client()
+            .get(&asset.url)
+            .header("User-Agent", concat!("Prism/", env!("CARGO_PKG_VERSION")))
+            .timeout(std::time::Duration::from_secs(600))
+            .send()
+            .await?;
+        ensure!(resp.status().is_success(), "HTTP {}", resp.status());
+        Ok::<_, anyhow::Error>(resp.bytes().await?.to_vec())
+    };
+    match direct.await {
+        Ok(bytes) => Ok(bytes),
+        Err(direct) => {
+            let octet = "Accept: application/octet-stream".to_string();
+            crate::collectors::github::gh_bytes(&["api".into(), "-H".into(), octet, asset.api.clone()]).await.map_err(|gh| anyhow!("{}: {direct} (with gh: {gh})", asset.name))
+        }
     }
 }
 
@@ -440,7 +486,7 @@ mod tests {
 
     #[test]
     fn picks_the_file_of_this_system() {
-        let asset = |name: &str| Asset { name: name.into(), api: String::new(), host: String::new() };
+        let asset = |name: &str| Asset { name: name.into(), api: String::new(), host: String::new(), url: String::new() };
         let assets = [
             asset("Prism_0.2.0_macos-universal.dmg"),
             asset("Prism_0.2.0_macos-universal.app.tar.gz"),

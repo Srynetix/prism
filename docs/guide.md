@@ -293,7 +293,8 @@ update replaces), with `--linux` the `amd64` `.deb`, AppImage and Arch package, 
   `BREAKING CHANGE` under "Read first". `--notes` or `--notes-file` replace them. The script tags
   the commit it publishes, in this clone (`--no-tag`: not).
 
-Installed Prisms follow `[updates] source` (the same `glab:`/`gh:` form, read with glab or gh):
+Installed Prisms follow `[updates] source` (the same `glab:`/`gh:` form; glab reads a GitLab one,
+a public GitHub one is read without gh nor an account, gh only for a private one):
 they check at launch and every 6 hours, and Settings › General › Updates installs the new
 version. On Windows, the installer of the computer's architecture is downloaded and checked, then
 runs as Prism restarts, without a question, and starts the new Prism; the agents go on in
