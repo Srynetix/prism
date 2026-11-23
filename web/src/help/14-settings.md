@@ -108,7 +108,7 @@ What Prism could not do no longer stays in the log: the status bar's **Prism** i
 [Open Settings › General › Dependencies](prism:settings/dependencies)
 
 ## Updates
-**Settings › General › Updates** shows this Prism's version and the newest release of its source (`[updates] source`: `glab:group/project` or `gh:owner/repo`, read with glab or gh). Your team's pack usually sets it: its builds carry the team's blocks, the open-source Prism has its own. Prism checks at launch and every 6 hours (**Check for updates**); a newer one shows in the status bar. **Install** (click twice) replaces Prism and restarts it on macOS and from an AppImage; with a `.deb` or an Arch package, it downloads the package for `sudo apt install` or `sudo pacman -U`.
+**Settings › General › Updates** shows this Prism's version and the newest release of its source (`[updates] source`: `glab:group/project`, read with glab, or `gh:owner/repo`, read from GitHub directly: neither gh nor a GitHub account for a public repository, gh and its login only for a private one). Your team's pack usually sets it; the open-source Prism follows `gh:Srynetix/prism`. Prism checks at launch and every 6 hours (**Check for updates**); a newer one shows in the status bar. **Install** (click twice) replaces Prism and restarts it on macOS and from an AppImage; with a `.deb` or an Arch package, it downloads the package for `sudo apt install` or `sudo pacman -U`.
 
 [Open Settings › General › Updates](prism:settings/updates)
 

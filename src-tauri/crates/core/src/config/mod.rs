@@ -220,8 +220,8 @@ impl Default for LogsConfig {
     }
 }
 
-/// Prism's own updates (`[updates]`): the releases of a repository, read with glab or gh. A
-/// team's pack names its own, whose builds carry its blocks; the open-source Prism, its public one.
+/// Prism's own updates (`[updates]`): the releases of a repository, read with glab, or from
+/// GitHub without gh for a public one. A team's pack usually names it.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(default)]
