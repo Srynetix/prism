@@ -348,7 +348,7 @@
       const p = (e.target as HTMLElement).dataset.path
       const x = p === undefined ? undefined : byPath.get(p)
       const body = (e.target as HTMLElement).querySelector<HTMLElement>(':scope > .fbody')
-      if (x && filesW && body && !body.classList.contains('ghost') && near.has(x.path) && !folded.has(x.path)) keep(heightBase(x), heightKey(x), body.offsetHeight)
+      if (x && filesW && body && !body.classList.contains('ghost') && near.has(x.path) && !folded.has(x.path)) keep(heightBase(x), heightKey(x), body.getBoundingClientRect().height)
     }
   }
   /** Its size, always (the scroll held); near the visible area or not, while unfolded only. */
