@@ -78,7 +78,8 @@ fn target(id: String, name: String, repo: &str, why: String, labels: &BTreeMap<S
     Some(Target { id, name, repo: repo.trim().to_string(), forge: forge.into(), project: project.into(), web, why, labels: labels.clone() })
 }
 
-/// Where feedback can go: Prism first (when it has a repository), then each pack with one.
+/// Where feedback can go: Prism first (when it has a repository), then each pack with one; a pack
+/// whose project is Prism's already (its `[feedback] repo` sends Prism's feedback there) not twice.
 pub fn targets(cfg: &crate::config::Config, packs: &[crate::packs::PackInfo]) -> Vec<Target> {
     let labels = &cfg.feedback.labels;
     let own = Some(cfg.feedback.repo.trim()).filter(|r| !r.is_empty()).unwrap_or(cfg.updates.source.trim());
@@ -90,7 +91,13 @@ pub fn targets(cfg: &crate::config::Config, packs: &[crate::packs::PackInfo]) ->
         let why = p.description.clone().filter(|d| !d.trim().is_empty()).unwrap_or_else(|| "its values and templates".into());
         target(format!("pack:{}", p.name), name, &repo, why, labels)
     });
-    prism.into_iter().chain(packs).collect()
+    let mut all: Vec<Target> = prism.into_iter().collect();
+    for t in packs {
+        if !all.iter().any(|o| o.forge == t.forge && o.project == t.project) {
+            all.push(t);
+        }
+    }
+    all
 }
 
 /// The config and its packs, read anew (a pack imported since launch counts).
@@ -529,6 +536,21 @@ mod tests {
         clear_drafts(&store);
         assert!(!a.exists() && !b.exists() && dir.join("notes.json").exists());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A pack that sends Prism's feedback to its own project (`[feedback] repo`): one target, Prism's.
+    #[test]
+    fn a_pack_on_prisms_project_is_one_target() {
+        let pack = |name: &str, source: &str| crate::packs::PackInfo {
+            name: name.into(), version: None, description: None, source: Some(source.into()), commit: None,
+            requires: None, too_new: false, missing: false, modules: Vec::new(),
+        };
+        let packs = [pack("team", "glab:team/prism-pack:team.toml@main"), pack("other", "gh:o/other:p.toml@main")];
+        let mut cfg: crate::config::Config = serde_json::from_value(serde_json::json!({ "updates": { "source": "gh:o/prism" } })).unwrap();
+        let ids = |cfg: &crate::config::Config| targets(cfg, &packs).into_iter().map(|t| (t.id, t.repo)).collect::<Vec<_>>();
+        assert_eq!(ids(&cfg).len(), 3);
+        cfg.feedback.repo = "glab:team/prism-pack".into();
+        assert_eq!(ids(&cfg), [("prism".to_string(), "glab:team/prism-pack".to_string()), ("pack:other".into(), "gh:o/other".into())]);
     }
 
     #[test]

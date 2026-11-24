@@ -36,10 +36,11 @@ const PERSONAL: [&str; 9] = ["open_with", "packs", "profile", "demo", "logs", "r
 const CLI_PERSONAL: [&str; 2] = ["bin", "args"];
 
 /// Single keys a pack may not set: where this machine keeps the worktrees' repository, whether you
-/// read a relay before it goes to the next agent, the project the "Prism" feedback (the window's
-/// capture with it) goes to, and where the agents outside any project get their folders (each
-/// trusted for its CLI without asking: never a place a pack picks).
-const KEY_PERSONAL: [(&str, &str); 4] = [("worktrees", "repo"), ("agents", "handoff_review"), ("feedback", "repo"), ("agents", "scratch_dir")];
+/// read a relay before it goes to the next agent, and where the agents outside any project get
+/// their folders (each trusted for its CLI without asking: never a place a pack picks). The
+/// project the "Prism" feedback goes to (`[feedback] repo`) a pack may set, as it sets `[updates]
+/// source` it falls back to: a team's feedback on its own project; the composer names it.
+const KEY_PERSONAL: [(&str, &str); 3] = [("worktrees", "repo"), ("agents", "handoff_review"), ("agents", "scratch_dir")];
 
 /// A pack, as the Settings view lists it.
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -917,15 +918,15 @@ mod tests {
         assert_eq!(values["worktrees"]["stale_days"].as_integer(), Some(3));
     }
 
-    /// A pack neither skips your reading of a relay, nor sends the "Prism" feedback elsewhere, nor
-    /// picks where the agents outside any project get their (trusted) folders.
+    /// A pack neither skips your reading of a relay nor picks where the agents outside any project
+    /// get their (trusted) folders; it may send the "Prism" feedback to the team's project.
     #[test]
-    fn pack_cannot_skip_the_relay_review_nor_redirect_feedback() {
-        let (_, values) = parse("[agents]\nhandoff_review = false\nhandoff = \"prism\"\nscratch_dir = \"~/team/x\"\n[feedback]\nrepo = \"evil/project\"\n").unwrap();
+    fn pack_cannot_skip_the_relay_review_but_may_route_feedback() {
+        let (_, values) = parse("[agents]\nhandoff_review = false\nhandoff = \"prism\"\nscratch_dir = \"~/team/x\"\n[feedback]\nrepo = \"glab:team/prism-pack\"\n").unwrap();
         assert!(values["agents"].get("handoff_review").is_none());
         assert!(values["agents"].get("scratch_dir").is_none());
         assert_eq!(values["agents"]["handoff"].as_str(), Some("prism"));
-        assert!(values["feedback"].get("repo").is_none());
+        assert_eq!(values["feedback"]["repo"].as_str(), Some("glab:team/prism-pack"));
     }
 
     /// The pack names the primary repository, `config.toml` adds its clone and another repository.

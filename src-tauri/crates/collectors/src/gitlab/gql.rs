@@ -32,20 +32,20 @@ struct GqlJob {
     id: Option<String>,
     name: String,
     status: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     allow_failure: bool,
     started_at: Option<DateTime<Utc>>,
     finished_at: Option<DateTime<Utc>>,
     web_path: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     playable: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     can_play_job: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     manual_job: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     retryable: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     retried: bool,
     user_permissions: Option<GqlJobPermissions>,
 }
@@ -53,8 +53,14 @@ struct GqlJob {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GqlJobPermissions {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     update_build: bool,
+}
+
+/// A GraphQL boolean that may come as `null` (`manualJob` of some jobs): false. `default` alone
+/// only covers a field left out.
+fn null_false<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    Ok(Option::<bool>::deserialize(d)?.unwrap_or_default())
 }
 
 /// `gid://gitlab/Ci::Build/123` → 123
@@ -239,13 +245,13 @@ pub(super) struct GqlMr {
     conflicts: bool,
     #[serde(default)]
     mergeability_checks: Vec<GqlCheck>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     should_be_rebased: bool,
     #[serde(default)]
     merge_error: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     rebase_in_progress: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_false")]
     auto_merge_enabled: bool,
     labels: Option<Nodes<GqlLabel>>,
     resolvable_discussions_count: Option<i64>,
@@ -391,6 +397,22 @@ mod tests {
         assert_eq!(stage.manual_jobs.iter().map(|j| j.id).collect::<Vec<_>>(), [2], "still to run: as before");
         assert_eq!(stage.played_jobs.iter().map(|j| (j.id, j.status)).collect::<Vec<_>>(), [(1, PipelineStatus::Success), (6, PipelineStatus::Failed)]);
         assert!(stage.played_jobs[0].finished_at.is_some() && stage.played_jobs[0].url.ends_with("/g/app/-/jobs/1"));
+    }
+
+    /// GitLab answers `null` for some jobs' booleans (`manualJob`): read as false, the pipeline with them.
+    #[test]
+    fn a_null_job_boolean_is_false() {
+        let p: GqlPipelineFull = serde_json::from_value(serde_json::json!({
+            "id": "gid://gitlab/Ci::Pipeline/9", "status": "SUCCESS", "ref": "release/1", "updatedAt": "2026-11-08T10:00:00Z", "path": null,
+            "stages": { "nodes": [{ "name": "deploy", "status": "success", "jobs": { "nodes": [{
+                "id": "gid://gitlab/Ci::Build/1", "name": "trigger", "status": "SUCCESS", "allowFailure": null,
+                "startedAt": null, "finishedAt": null, "webPath": null, "playable": null, "canPlayJob": null,
+                "manualJob": null, "retryable": null, "retried": null, "userPermissions": { "updateBuild": null }
+            }] } }] }
+        }))
+        .unwrap();
+        let stage = &Pipeline::from(p).stages[0];
+        assert!(stage.manual_jobs.is_empty() && stage.played_jobs.is_empty());
     }
 
     #[test]
