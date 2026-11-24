@@ -1,6 +1,6 @@
 /**
- * Scroll anchoring, done by hand. WebKit (Prism's view on macOS) has none: a block above the
- * visible area that changes height (a file of a diff drawn as it nears, highlighted, an image
+ * Scroll anchoring, done by hand. The engine's (`overflow-anchor`) is missing (older WebKit) or
+ * wrong over sticky headers (WebKit's, see `holdScroll`): without it, a block above the visible area that changes height (a file of a diff drawn as it nears, highlighted, an image
  * loaded, a thread opened) moves everything under it, and the view seems to scroll by itself.
  * Each block's height is known (a `ResizeObserver`); noted at each scroll, the first one visible
  * (the anchor), and the line of it at the top. A block above it that changes height: the scroll
@@ -94,17 +94,13 @@ export function firstBelow<T>(items: readonly T[], bottomOf: (t: T) => number, e
 }
 
 /**
- * The engine anchors the scroll itself (`overflow-anchor`: Chromium, Firefox), over everything in
- * the area: left to it. WebKit does not.
- */
-export const anchorsItself = () => typeof CSS !== 'undefined' && CSS.supports?.('overflow-anchor', 'auto') === true
-
-/**
  * Holds `area`'s scroll (a scrolling element, or the page's) over the blocks observed: notes at
- * each scroll, holds at each change of their size. Where the engine anchors by itself, only
- * `onresize` (the sizes) is called: its anchoring covers the whole area, not only these blocks.
+ * each scroll, holds at each change of their size. Always by hand, the engine's own anchoring
+ * (`overflow-anchor`) turned off in the area: WebKit has one now, but over sticky headers (a diff's
+ * file headers) it picks one stuck at the top as its anchor, and any layout below moves the scroll
+ * by that header's offset: a scroll up pulled back down at each file drawn.
  */
-export function holdScroll(area: HTMLElement, hooks: Omit<AnchorHooks<HTMLElement>, 'above' | 'alive'>, onresize?: (entries: ResizeObserverEntry[]) => void, manual = !anchorsItself()) {
+export function holdScroll(area: HTMLElement, hooks: Omit<AnchorHooks<HTMLElement>, 'above' | 'alive'>, onresize?: (entries: ResizeObserverEntry[]) => void) {
   const page = area === document.scrollingElement
   const anchor = new ScrollAnchor<HTMLElement>(area, {
     ...hooks,
@@ -113,22 +109,25 @@ export function holdScroll(area: HTMLElement, hooks: Omit<AnchorHooks<HTMLElemen
   })
   const target: EventTarget = page ? window : area
   const onscroll = () => anchor.note()
-  if (manual) target.addEventListener('scroll', onscroll, { passive: true })
+  target.addEventListener('scroll', onscroll, { passive: true })
+  const anchoring = area.style.overflowAnchor
+  area.style.overflowAnchor = 'none'
   const sizes = new ResizeObserver((entries) => {
     onresize?.(entries)
-    if (manual) anchor.hold(entries.map((e) => ({ el: e.target as HTMLElement, height: e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height })))
+    anchor.hold(entries.map((e) => ({ el: e.target as HTMLElement, height: e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height })))
   })
-  if (manual) anchor.note()
+  anchor.note()
   return {
     observe: (el: HTMLElement) => sizes.observe(el),
     unobserve: (el: HTMLElement) => {
       sizes.unobserve(el)
       anchor.forget(el)
     },
-    note: () => manual && anchor.note(),
+    note: () => anchor.note(),
     destroy() {
       sizes.disconnect()
       target.removeEventListener('scroll', onscroll)
+      area.style.overflowAnchor = anchoring
     },
   }
 }
