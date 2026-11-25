@@ -92,7 +92,7 @@ pub async fn pod_close_shell(state: State<'_, AppState>, pod: crate::agents::Pod
     state.agents.close_pod_shell(&pod, n).await.map_err(Into::into)
 }
 
-use crate::blocks::container_files::{Container, ContainerFileText, ContainerListing, ContainerRef};
+use crate::blocks::container_files::{Container, ContainerFileText, ContainerListing, ContainerRef, ContainerSave};
 use prism_core::config::FileAccess;
 
 /// A container whose files may be reached: one Prism shows (the Docker block's, a pod of the Pods
@@ -173,6 +173,15 @@ pub async fn container_files_put(state: State<'_, AppState>, target: ContainerRe
     let c = files_container(&state, &target, true)?;
     let bytes = base64::engine::general_purpose::STANDARD.decode(data.trim()).map_err(|e| tr!("{name}: unreadable data ({error})", name = name, error = e))?;
     c.put(&dir, &name, &bytes).await.map_err(Into::into)
+}
+
+/// A container's text file edited in the drawer, written over in place. With `expected` (its
+/// fingerprint when read), left as it is when it changed since: its text now comes back.
+#[prism_macros::command]
+pub async fn container_file_save(state: State<'_, AppState>, target: ContainerRef, path: String, text: String, expected: Option<String>) -> Cmd<ContainerSave> {
+    let c = files_container(&state, &target, true)?;
+    tracing::info!("front: {path} of a container edited");
+    c.rewrite(&path, &text, expected.as_deref()).await.map_err(Into::into)
 }
 
 /// Settings: the `kubectl` contexts, to pick them rather than type them.

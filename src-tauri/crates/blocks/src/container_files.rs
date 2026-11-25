@@ -6,7 +6,9 @@
 //! Listing needs a shell in the container (`sh`, `stat`): a minimal image has none, and says so.
 //! Reading a file needs `cat` in a pod; Docker copies it out of a container even stopped or without
 //! a shell (`docker cp`, a tar). A folder comes as a `.tar.gz`: `tar` in a pod, `docker cp` in Docker.
-//! A file is sent by `docker cp`, or into a pod by `sh -c 'cat > …'` (no `tar` needed there).
+//! A file is sent by `docker cp`, or into a pod by `sh -c 'cat > …'` (no `tar` needed there). A
+//! file edited is written over in place (`REWRITE`), keeping its owner and mode, once Prism checked
+//! it did not change since it was read.
 
 use std::{
     collections::HashMap,
@@ -80,6 +82,18 @@ pub struct ContainerFileText {
     pub text: Option<String>,
     pub binary: bool,
     pub truncated: bool,
+    /// The text's fingerprint (SHA-256), when it is whole: what an edit checks before writing.
+    pub hash: Option<String>,
+}
+
+/// An edit's outcome: written, or not, the file having changed since it was read (its text now,
+/// none when it is no longer text Prism shows whole).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum ContainerSave {
+    Saved { hash: String },
+    Changed { text: Option<String>, hash: Option<String> },
 }
 
 /// Lists `$1`: its absolute path, `stat`'s sizes and dates, `//`, then one line per entry by its
@@ -103,6 +117,23 @@ exit 0"#;
 
 /// Writes its standard input to `$1`.
 const WRITE: &str = r#"cat > "$1""#;
+
+/// Writes its standard input over the file `$1`, in place: it keeps its owner and its mode. Read
+/// first into a file beside it when its folder lets (`$1.prism-edit.<pid>`, only its owner's): a
+/// send cut short leaves the file as it was. Exit 4: not a file.
+const REWRITE: &str = r#"[ -f "$1" ] || exit 4
+t="$1.prism-edit.$$"
+if (umask 077; : > "$t") 2>/dev/null; then
+  cat > "$t" || { rm -f "$t"; exit 1; }
+  cat "$t" > "$1"; s=$?; rm -f "$t"; exit $s
+fi
+exec cat > "$1""#;
+
+/// SHA-256 of `bytes`, in hex.
+fn digest(bytes: &[u8]) -> String {
+    use sha2::Digest;
+    sha2::Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
 
 /// A Kubernetes object's name (DNS-1123): nothing of an option or a path reaches `kubectl`.
 fn k8s_name(what: &str, s: &str) -> Result<()> {
@@ -237,6 +268,44 @@ impl Container {
             }
         }
         Ok(as_text(bytes, truncated))
+    }
+
+    /// The text file `path` written over with `text`, in place (`REWRITE`). With `expected` (its
+    /// fingerprint when read), read again first: changed since, it is left as it is and its text
+    /// now returned. Running containers only (`exec`).
+    pub async fn rewrite(&self, path: &str, text: &str, expected: Option<&str>) -> Result<ContainerSave> {
+        let path = absolute(path)?;
+        ensure!(text.len() <= TEXT_MAX, tr!("over {size} MB: too big to edit here", size = (TEXT_MAX >> 20).to_string()));
+        if let Some(expected) = expected {
+            let now = self.text(path).await?;
+            if now.hash.as_deref() != Some(expected) {
+                let whole = !now.truncated;
+                return Ok(ContainerSave::Changed { text: now.text.filter(|_| whole), hash: now.hash });
+            }
+        }
+        let mut child = self.exec(true, &["sh", "-c", REWRITE, "sh", path]).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().with_context(|| tr!("{program} not found", program = self.program()))?;
+        let mut stdin = child.stdin.take().context("no input")?;
+        let bytes = text.as_bytes().to_vec();
+        let write = async move {
+            use tokio::io::AsyncWriteExt;
+            stdin.write_all(&bytes).await?;
+            stdin.shutdown().await
+        };
+        let limit = WAIT + Duration::from_secs(text.len() as u64 / SLOW_LINK);
+        let run = async {
+            // A refused write (the command ended early) says why on its error output.
+            let _ = write.await;
+            child.wait_with_output().await
+        };
+        let out = tokio::time::timeout(limit, run).await.map_err(|_| late())??;
+        if out.status.code() == Some(4) {
+            bail!(tr!("{path}: not a file in the container", path = path));
+        }
+        if !out.status.success() {
+            return Err(self.failure(&out.stderr, out.status.code(), path));
+        }
+        tracing::info!("container files: {path} edited");
+        Ok(ContainerSave::Saved { hash: digest(text.as_bytes()) })
     }
 
     /// `path` written to `dest`: a file as it is, a folder (`dir`) as a `.tar.gz`; refused beyond
@@ -456,8 +525,8 @@ fn as_text(bytes: Vec<u8>, truncated: bool) -> ContainerFileText {
         }
     });
     match text.flatten() {
-        Some(text) => ContainerFileText { text: Some(text), binary: false, truncated },
-        None => ContainerFileText { text: None, binary: true, truncated },
+        Some(text) => ContainerFileText { hash: (!truncated).then(|| digest(text.as_bytes())), text: Some(text), binary: false, truncated },
+        None => ContainerFileText { text: None, binary: true, truncated, hash: None },
     }
 }
 
@@ -553,7 +622,9 @@ mod tests {
 
     #[test]
     fn text_or_binary() {
-        assert_eq!(as_text(b"hello".to_vec(), false), ContainerFileText { text: Some("hello".into()), binary: false, truncated: false });
+        assert_eq!(as_text(b"hello".to_vec(), false), ContainerFileText { text: Some("hello".into()), binary: false, truncated: false, hash: Some(digest(b"hello")) });
+        assert_eq!(digest(b"hello"), "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+        assert_eq!(as_text(b"hello".to_vec(), true).hash, None, "a part is never fingerprinted");
         assert!(as_text(vec![b'a', 0, b'b'], false).binary);
         // A character cut by the limit: the text before it.
         let mut cut = "été".as_bytes().to_vec();
@@ -615,6 +686,36 @@ mod tests {
         assert_eq!(missing.status.code(), Some(3));
         std::fs::remove_dir_all(dir).unwrap();
     }
+
+    #[test]
+    #[cfg(unix)]
+    fn the_rewrite_script_keeps_the_file_mode() {
+        use std::{io::Write as _, os::unix::fs::PermissionsExt};
+        let dir = std::env::temp_dir().join(format!("prism-rw-{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("run.sh");
+        std::fs::write(&file, "old\n").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o751)).unwrap();
+        let rewrite = |path: &Path, text: &str| {
+            let mut child = std::process::Command::new("sh").args(["-c", REWRITE, "sh"]).arg(path).stdin(Stdio::piped()).spawn().unwrap();
+            child.stdin.take().unwrap().write_all(text.as_bytes()).unwrap();
+            child.wait().unwrap().code()
+        };
+        assert_eq!(rewrite(&file, "new text\n"), Some(0));
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "new text\n");
+        assert_eq!(std::fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o751);
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "nothing left beside it");
+        // In a folder it cannot write to, the file itself is still written over.
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert_eq!(rewrite(&file, "again\n"), Some(0));
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "again\n");
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(rewrite(&dir, "x"), Some(4), "a folder");
+        assert_eq!(rewrite(&dir.join("absent"), "x"), Some(4), "no such file");
+        assert!(!dir.join("absent").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }
 
 /// Against a real container: `PRISM_CF_DOCKER=<id> cargo test -p prism-blocks real_container -- --ignored`.
@@ -664,6 +765,17 @@ mod real {
         let t = c.list("/tmp").await.unwrap();
         assert!(t.entries.iter().any(|e| e.name == "sent file.txt" && e.size == Some(11)), "{t:?}");
         assert_eq!(c.text("/tmp/dropped.txt").await.unwrap().text.as_deref(), Some("dropped\n"));
+
+        // An edit: written over when unchanged since read, left as it is otherwise.
+        let read = c.text("/tmp/dropped.txt").await.unwrap();
+        let saved = c.rewrite("/tmp/dropped.txt", "edited\n", read.hash.as_deref()).await.unwrap();
+        assert_eq!(saved, ContainerSave::Saved { hash: digest(b"edited\n") });
+        assert_eq!(c.text("/tmp/dropped.txt").await.unwrap().text.as_deref(), Some("edited\n"));
+        let stale = c.rewrite("/tmp/dropped.txt", "mine\n", read.hash.as_deref()).await.unwrap();
+        assert_eq!(stale, ContainerSave::Changed { text: Some("edited\n".into()), hash: Some(digest(b"edited\n")) });
+        assert!(matches!(c.rewrite("/tmp/dropped.txt", "forced\n", None).await.unwrap(), ContainerSave::Saved { .. }));
+        assert_eq!(c.text("/tmp/dropped.txt").await.unwrap().text.as_deref(), Some("forced\n"));
+        assert!(c.rewrite("/tmp", "x", None).await.unwrap_err().to_string().contains("not a file"));
         std::fs::remove_dir_all(tmp).unwrap();
     }
 
@@ -678,5 +790,16 @@ mod real {
         c.save("/etc/os-release", false, &dest, 1 << 20, |p| std::fs::File::create(p)).await.unwrap();
         assert!(std::fs::read_to_string(&dest).unwrap().contains("NAME="));
         std::fs::remove_file(dest).unwrap();
+    }
+    /// `PRISM_CF_DOCKER=<id>`, with `/tmp/run.sh` mode 751 owned by nobody: an edit keeps both.
+    #[tokio::test]
+    #[ignore]
+    async fn real_edit_keeps_mode() {
+        let c = Container::docker("", &std::env::var("PRISM_CF_DOCKER").unwrap()).unwrap();
+        let read = c.text("/tmp/run.sh").await.unwrap();
+        assert!(matches!(c.rewrite("/tmp/run.sh", "echo new\n", read.hash.as_deref()).await.unwrap(), ContainerSave::Saved { .. }));
+        let out = c.exec(false, &["sh", "-c", "stat -c '%a %U' /tmp/run.sh; /tmp/run.sh; ls /tmp"]).output().await.unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout).lines().take(2).collect::<Vec<_>>(), ["751 nobody", "new"]);
+        assert!(!String::from_utf8_lossy(&out.stdout).contains("prism-edit"));
     }
 }

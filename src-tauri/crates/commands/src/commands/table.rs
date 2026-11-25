@@ -100,6 +100,7 @@ commands! {
     infra::container_files_export: Never [demo: refused],
     infra::container_files_upload: Never [demo: refused],
     infra::container_files_put: Never [demo: refused],
+    infra::container_file_save: Never [demo: refused],
     // Both, listed in the status bar.
     agents::open_shells: Never,
     agents::close_open_shell: Never [demo: refused],

@@ -1,8 +1,8 @@
 /**
  * A container's files (`ContainerFiles.svelte`): a pod's, from its logs pane, or a container's of
  * the Docker block. Its folders listed, a text file shown, a file or a folder (`.tar.gz`)
- * downloaded, files sent into the open folder (`[docker] files`, `[clusters] files` = "write").
- * On a phone: listing, showing and downloading only.
+ * downloaded, files sent into the open folder, a text file edited (`[docker] files`,
+ * `[clusters] files` = "write"). On a phone: listing, showing and downloading only.
  */
 import { invoke, isDesktop } from './bridge'
 import { t } from './i18n.svelte'
@@ -11,6 +11,7 @@ import type { AgentDownload } from './bindings/AgentDownload'
 import type { ContainerFileText } from './bindings/ContainerFileText'
 import type { ContainerListing } from './bindings/ContainerListing'
 import type { ContainerRef } from './bindings/ContainerRef'
+import type { ContainerSave } from './bindings/ContainerSave'
 
 export type { ContainerRef }
 
@@ -30,6 +31,25 @@ interface Pending {
   paths: string[]
   files: File[]
   replaced: string[]
+}
+
+/** The file shown, edited: written over in place, once the container's still has the text read. */
+export interface Edit {
+  path: string
+  /** The container's text the edit starts from: what a save checks is still there (`hash`), and
+   * what a production save shows the changes against. */
+  original: string
+  hash: string | null
+  /** What the editor holds. */
+  draft: string
+  saving: boolean
+  /** Production: the changes shown, waiting for their Save. */
+  review: boolean
+  /** The file changed in the container since it was read: its text now (null: no longer text
+   * shown whole), and its fingerprint. */
+  conflict: { text: string | null; hash: string | null } | null
+  /** The editor shows what differs from `original` (the container's text, after a conflict). */
+  comparing: boolean
 }
 
 export const containerFiles = $state({
@@ -52,6 +72,7 @@ export const containerFiles = $state({
   /** The last thing done (`2 files sent`), or why it failed. */
   note: null as { ok: boolean; text: string } | null,
   pending: null as Pending | null,
+  edit: null as Edit | null,
 })
 
 /** `name` in the folder `dir`. */
@@ -103,12 +124,12 @@ export function isProdContext(context: string): boolean {
 }
 
 export function openContainerFiles(target: ContainerRef, label: string, opts: { write: boolean; prod?: boolean }) {
-  Object.assign(containerFiles, { open: true, target, label, write: opts.write && isDesktop(), prod: !!opts.prod, path: '', listing: null, error: null, file: null, busy: null, note: null, pending: null })
+  Object.assign(containerFiles, { open: true, target, label, write: opts.write && isDesktop(), prod: !!opts.prod, path: '', listing: null, error: null, file: null, busy: null, note: null, pending: null, edit: null })
   void go('')
 }
 
 export function closeContainerFiles() {
-  Object.assign(containerFiles, { open: false, target: null, listing: null, file: null, pending: null, note: null, error: null })
+  Object.assign(containerFiles, { open: false, target: null, listing: null, file: null, pending: null, note: null, error: null, edit: null })
 }
 
 /** Incremented on each listing: an older one answering late is ignored. */
@@ -119,7 +140,7 @@ export async function go(path: string) {
   const target = containerFiles.target
   if (!target) return
   const mine = ++seq
-  Object.assign(containerFiles, { path, loading: true, error: null, file: null, pending: null })
+  Object.assign(containerFiles, { path, loading: true, error: null, file: null, pending: null, edit: null })
   try {
     const listing = await invoke<ContainerListing>('container_files', { target, path })
     if (mine !== seq) return
@@ -137,6 +158,7 @@ export async function show(path: string) {
   const target = containerFiles.target
   if (!target) return
   containerFiles.file = { path, text: null, loading: true, error: null }
+  containerFiles.edit = null
   try {
     const text = await invoke<ContainerFileText>('container_file_text', { target, path })
     if (containerFiles.file?.path === path) containerFiles.file = { path, text, loading: false, error: null }
@@ -243,4 +265,89 @@ function base64(f: Blob): Promise<string> {
     r.onerror = () => reject(r.error)
     r.readAsDataURL(f)
   })
+}
+
+/** Changes not saved yet. */
+export const editDirty = () => !!containerFiles.edit && containerFiles.edit.draft !== containerFiles.edit.original
+
+/** The file shown may be edited: a container files are sent into, its text shown whole. */
+export function editable(): boolean {
+  const f = containerFiles.file
+  return containerFiles.write && !!f?.text && f.text.text !== null && !f.text.truncated && !f.text.binary
+}
+
+export function startEdit() {
+  const f = containerFiles.file
+  if (!f?.text || f.text.text === null || !editable()) return
+  const text = f.text.text
+  containerFiles.note = null
+  containerFiles.edit = { path: f.path, original: text, hash: f.text.hash, draft: text, saving: false, review: false, conflict: null, comparing: false }
+}
+
+export function cancelEdit() {
+  containerFiles.edit = null
+}
+
+/**
+ * Saves the edit: written over the container's file, unless it changed since it was read (then
+ * its text now, to compare or overwrite). Into production, the changes are shown first, and
+ * written at the second Save. Without a fingerprint to check (a conflict with a file no longer
+ * shown whole, overwritten), written whatever it holds.
+ */
+export async function saveEdit() {
+  const e = containerFiles.edit
+  const target = containerFiles.target
+  if (!e || !target || e.saving || e.conflict) return
+  if (containerFiles.prod && !e.review) {
+    e.review = true
+    return
+  }
+  e.saving = true
+  containerFiles.note = null
+  const draft = e.draft
+  try {
+    const r = await invoke<ContainerSave>('container_file_save', { target, path: e.path, text: draft, expected: e.hash })
+    if (containerFiles.edit !== e) return
+    if (r.kind === 'changed') {
+      Object.assign(e, { saving: false, review: false, conflict: { text: r.text, hash: r.hash } })
+      return
+    }
+    containerFiles.edit = null
+    if (containerFiles.file?.path === e.path) containerFiles.file = { path: e.path, text: { text: draft, binary: false, truncated: false, hash: r.hash }, loading: false, error: null }
+    containerFiles.note = { ok: true, text: t('{name} saved', { name: nameOf(e.path) }) }
+  } catch (err) {
+    if (containerFiles.edit === e) Object.assign(e, { saving: false, review: false })
+    containerFiles.note = { ok: false, text: String(err) }
+  }
+}
+
+/** A conflict: the container's text now becomes what the edit is compared to and checked against. */
+function rebase(e: Edit) {
+  const c = e.conflict
+  if (!c) return
+  Object.assign(e, { original: c.text ?? '', hash: c.hash, conflict: null })
+}
+
+/** A conflict: what changed between the container's text now and yours, each change kept or not. */
+export function compareConflict() {
+  const e = containerFiles.edit
+  if (!e?.conflict || e.conflict.text === null) return
+  rebase(e)
+  e.comparing = true
+}
+
+/** A conflict: yours written over the container's text now (still checked: a third change stops it). */
+export function overwriteConflict() {
+  const e = containerFiles.edit
+  if (!e?.conflict) return
+  rebase(e)
+  void saveEdit()
+}
+
+/** A conflict: yours dropped, the container's text now edited instead. */
+export function takeTheirs() {
+  const e = containerFiles.edit
+  if (!e?.conflict || e.conflict.text === null) return
+  rebase(e)
+  Object.assign(e, { draft: e.original, comparing: false })
 }

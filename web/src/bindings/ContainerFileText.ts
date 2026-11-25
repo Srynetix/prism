@@ -3,4 +3,8 @@
 /**
  * A file shown: its text, unless it is binary; its first `TEXT_MAX` bytes only.
  */
-export type ContainerFileText = { text: string | null, binary: boolean, truncated: boolean, };
+export type ContainerFileText = { text: string | null, binary: boolean, truncated: boolean, 
+/**
+ * The text's fingerprint (SHA-256), when it is whole: what an edit checks before writing.
+ */
+hash: string | null, };

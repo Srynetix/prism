@@ -202,6 +202,8 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{path}: only files can be sent, not a folder", "{path} : seuls des fichiers peuvent être envoyés, pas un dossier"),
     ("{path}: a name the container cannot take", "{path} : un nom que le conteneur ne peut pas prendre"),
     ("over {size} MB: too big to download", "plus de {size} Mo : trop gros pour être téléchargé"),
+    ("over {size} MB: too big to edit here", "plus de {size} Mo : trop gros pour être modifié ici"),
+    ("{path}: not a file in the container", "{path} : ce n'est pas un fichier dans le conteneur"),
     ("this is a folder: download it as a folder", "c'est un dossier : téléchargez-le comme un dossier"),
     ("nothing to download there (a link or a special file)", "rien à télécharger ici (un lien ou un fichier spécial)"),
 ];

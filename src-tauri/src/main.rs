@@ -302,6 +302,7 @@ fn export_bindings() {
     prism_blocks::container_files::ContainerRef::export_all(&cfg).unwrap();
     prism_blocks::container_files::ContainerListing::export_all(&cfg).unwrap();
     prism_blocks::container_files::ContainerFileText::export_all(&cfg).unwrap();
+    prism_blocks::container_files::ContainerSave::export_all(&cfg).unwrap();
     prism_blocks::status::StatusState::export_all(&cfg).unwrap();
     prism_blocks::dev_servers::DevServersState::export_all(&cfg).unwrap();
     prism_blocks::system::SystemState::export_all(&cfg).unwrap();

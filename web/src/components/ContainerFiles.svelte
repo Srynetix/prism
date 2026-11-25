@@ -3,19 +3,38 @@
    * A container's files (`container-files.svelte.ts`): the folder's path as crumbs (a path typed and
    * Enter goes there), its entries, folders first; a text file shown below them. ⬇ downloads a file,
    * or a folder as a `.tar.gz`; Send… and files dropped on it send them into the open folder, when
-   * its block allows it. Into prod, or replacing files, a send waits for its Send button.
+   * its block allows it. Into prod, or replacing files, a send waits for its Send button. A text
+   * file shown is edited there too (Edit, `ContainerFileEditor.svelte`): into prod, its changes are
+   * shown before they are written; changed in the container meanwhile, compared or overwritten.
    */
   import Drawer from './ui/Drawer.svelte'
   import State from './ui/State.svelte'
   import Icon from './Icon.svelte'
+  import ContainerFileEditor from './ContainerFileEditor.svelte'
+  import { armer } from '../armed.svelte'
   import { t, tn } from '../i18n.svelte'
   import { ago } from '../time'
-  import { cancelSend, closeContainerFiles, confirmSend, containerFiles as cf, crumbs, download, dropFiles, go, joinPath, parentPath, pickAndSend, reloadFolder, show } from '../container-files.svelte'
+  import { cancelEdit, cancelSend, closeContainerFiles, compareConflict, confirmSend, containerFiles as cf, crumbs, download, dropFiles, editable, editDirty, go as goNow, joinPath, overwriteConflict, parentPath, pickAndSend, reloadFolder as reloadNow, saveEdit, show as showNow, startEdit, takeTheirs } from '../container-files.svelte'
   import { highlightText, type Token } from '../highlight'
   import type { ContainerEntry } from '../bindings/ContainerEntry'
   import type { ContainerFileText } from '../bindings/ContainerFileText'
 
   const phone = document.documentElement.classList.contains('remote')
+  const armed = armer()
+
+  /** Unsaved changes are left only at a second click (Tauri's webview has no `confirm()`). */
+  function leave(key: string): boolean {
+    if (!editDirty()) return true
+    if (armed.confirm(key)) return true
+    cf.note = { ok: false, text: t('Unsaved changes: click again to leave them') }
+    return false
+  }
+  const go = (p: string) => leave(`go:${p}`) && goNow(p)
+  const show = (p: string) => leave(`show:${p}`) && showNow(p)
+  const reloadFolder = () => leave('reload') && reloadNow()
+  const close = () => leave('close') && closeContainerFiles()
+  const closeFile = () => leave('close-file') && ((cf.edit = null), (cf.file = null))
+  const cancel = () => leave('cancel') && cancelEdit()
   const listing = $derived(cf.listing)
   let query = $state('')
   let typed = $state<string | null>(null)
@@ -79,7 +98,7 @@
   }
 </script>
 
-<Drawer open={cf.open && !!cf.target} key="container-files" identity={cf.label} crumb={cf.label} label={t('Container files')} size={phone ? 'full' : 'l'} source={cf.target?.kind === 'pod' ? 'var(--src-k8s)' : 'var(--info)'} class="cfiles" onclose={closeContainerFiles}>
+<Drawer open={cf.open && !!cf.target} key="container-files" identity={cf.label} crumb={cf.label} label={t('Container files')} size={phone ? 'full' : 'l'} source={cf.target?.kind === 'pod' ? 'var(--src-k8s)' : 'var(--info)'} class="cfiles" onclose={close}>
   {#snippet head()}
     <Icon name="folder" />
     <span class="what" title={cf.label}>{cf.label}</span>
@@ -153,15 +172,46 @@
 
     {#if cf.file}
       {@const f = cf.file}
-      <section class="file" aria-label={f.path}>
+      {@const e = cf.edit?.path === f.path ? cf.edit : null}
+      <section class="file" class:editing={!!e} aria-label={f.path}>
         <header>
           <b class="mono" title={f.path}>{f.path.split('/').pop()}</b>
           {#if f.text?.truncated}<span class="muted">{t('first MB only')}</span>{/if}
+          {#if e}{#if editDirty()}<span class="dirty" title={t('Unsaved changes')}>●</span>{/if}{/if}
           <span class="grow"></span>
-          <button class="btn sm" onclick={() => void download(f.path, false)} disabled={cf.busy !== null}><Icon name="download" /> {t('Download')}</button>
-          <button class="btn sm icon ghost" onclick={() => (cf.file = null)} title={t('Close')} aria-label={t('Close')}><Icon name="close" /></button>
+          {#if e}
+            <button class="btn sm" class:armed={armed.is('cancel')} onclick={cancel} disabled={e.saving}>{armed.is('cancel') ? t('Click again to drop the changes') : t('Cancel')}</button>
+            {#if !e.review && !e.conflict}<button class="btn sm primary" onclick={() => void saveEdit()} disabled={e.saving || !editDirty()} title={t('Save into the container (⌘S)')}>{e.saving ? t('Saving…') : t('Save')}</button>{/if}
+          {:else}
+            {#if editable()}<button class="btn sm" onclick={startEdit} disabled={cf.busy !== null} title={t('Edit this file in the container')}><Icon name="edit" /> {t('Edit')}</button>{/if}
+            <button class="btn sm" onclick={() => void download(f.path, false)} disabled={cf.busy !== null}><Icon name="download" /> {t('Download')}</button>
+          {/if}
+          <button class="btn sm icon ghost" onclick={closeFile} title={t('Close')} aria-label={t('Close')}><Icon name="close" /></button>
         </header>
-        {#if f.loading}
+        {#if e?.review}
+          <div class="confirm" role="alert">
+            <span>{t('This is production: here is what changes.')}</span>
+            <button class="btn sm ghost" onclick={() => (e.review = false)} disabled={e.saving}>{t('Back to editing')}</button>
+            <button class="btn sm danger" class:armed={armed.is('prod')} onclick={() => armed.confirm('prod') && void saveEdit()} disabled={e.saving}>{e.saving ? t('Saving…') : armed.is('prod') ? t('Click again to save into production') : t('Save into production')}</button>
+          </div>
+        {:else if e?.conflict}
+          <div class="confirm" role="alert">
+            <span>{e.conflict.text === null ? t('{name} changed in the container since you opened it, and can no longer be shown.', { name: f.path.split('/').pop() ?? '' }) : t('{name} changed in the container since you opened it.', { name: f.path.split('/').pop() ?? '' })}</span>
+            {#if e.conflict.text !== null}
+              <button class="btn sm" onclick={compareConflict}>{t('Compare')}</button>
+              <button class="btn sm ghost" onclick={takeTheirs}>{t('Take theirs')}</button>
+            {/if}
+            <button class="btn sm danger" class:armed={armed.is('overwrite')} onclick={() => armed.confirm('overwrite') && overwriteConflict()}>{armed.is('overwrite') ? t('Click again to overwrite') : t('Overwrite')}</button>
+          </div>
+        {:else if e?.comparing}
+          <div class="confirm info">
+            <span>{t('What differs from the container’s version: keep or put back each change, then Save.')}</span>
+            <button class="btn sm ghost" onclick={() => (e.comparing = false)}>{t('Done comparing')}</button>
+          </div>
+        {/if}
+        {#if e}
+          <ContainerFileEditor path={e.path} bind:value={e.draft} against={e.review || e.comparing ? e.original : null} readOnly={e.review || e.saving} onsave={() => void saveEdit()} />
+        {:else if f.loading}
           <State kind="loading" lines={4} />
         {:else if f.error}
           <State kind="error" title={f.error} />
@@ -213,6 +263,10 @@
   .file { flex: 1 1 55%; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--border); }
   .file header { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--surface-muted); font-size: var(--fs-meta); }
   .file b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .file.editing { flex-basis: 70%; }
+  .dirty { color: var(--warn); font-size: var(--fs-tag); }
+  .confirm.info { background: color-mix(in srgb, var(--info) 10%, transparent); }
+  .armed { background: var(--ko-bg); color: var(--ko); }
   .file pre .it { font-style: italic; }
   .file pre .bd { font-weight: 600; }
   .file pre { flex: 1; min-height: 0; margin: 0; padding: 8px 14px 16px; overflow: auto; background: var(--bg); color: var(--text); font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
