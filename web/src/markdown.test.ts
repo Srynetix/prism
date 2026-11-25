@@ -121,3 +121,14 @@ describe('mentions', () => {
     expect(chips('@Annabelle, @Ann.', { known: [{ text: '@Ann', mine: false }] })).toEqual(['@Ann:other'])
   })
 })
+
+describe('bare URLs', () => {
+  const links = (md: string) => inline(md).filter((s) => s.href).map((s) => s.href)
+  it('leaves the punctuation that ends a sentence out of the link', () => {
+    expect(links('See https://example.org/a/b.')).toEqual(['https://example.org/a/b'])
+    expect(links('https://example.org/x, then https://example.org/y; https://example.org/z?!')).toEqual(['https://example.org/x', 'https://example.org/y', 'https://example.org/z'])
+  })
+  it('keeps the dots and the query inside the URL', () => {
+    expect(links('Open https://example.org/v1.2/file.ts?a=1&b=2 now')).toEqual(['https://example.org/v1.2/file.ts?a=1&b=2'])
+  })
+})

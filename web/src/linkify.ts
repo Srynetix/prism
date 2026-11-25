@@ -16,7 +16,7 @@ export type Segment = { text: string } | { text: string; href: string; title?: s
  * repositories an agent works in) and http(s) URLs, in this order of priority at equal position.
  */
 const token = (signs = mrSign()) =>
-  ticketRegex(`linkify${signs}`, (t) => String.raw`\b(${t})\b|(?<![\w/&])${signs ? String.raw`([${signs}])(\d+)` : '(?!)()()'}\b|(https?:\/\/[^\s<>"')\]]+)`, 'gi')
+  ticketRegex(`linkify${signs}`, (t) => String.raw`\b(${t})\b|(?<![\w/&])${signs ? String.raw`([${signs}])(\d+)` : '(?!)()()'}\b|(https?:\/\/[^\s<>"')\]]*[^\s<>"')\].,;:!?])`, 'gi')
 
 /**
  * A repository an agent works in whose MRs Prism reads: its `!12` are that repository's. `repo`:
