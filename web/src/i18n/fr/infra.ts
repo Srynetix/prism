@@ -796,6 +796,7 @@ export default {
   'first MB only': 'premier Mo seulement',
   '{name} downloaded': '{name} téléchargé',
   '{name} saved': '{name} enregistré',
+  'Save or cancel the changes to {name} first': 'Enregistrez ou annulez d’abord les modifications de {name}',
   'Unsaved changes: click again to leave them': 'Modifications non enregistrées : cliquez à nouveau pour les abandonner',
   'Click again to drop the changes': 'Cliquez à nouveau pour abandonner les modifications',
   'Save into the container (⌘S)': 'Enregistrer dans le conteneur (⌘S)',

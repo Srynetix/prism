@@ -210,7 +210,7 @@
           </div>
         {/if}
         {#if e}
-          <ContainerFileEditor path={e.path} bind:value={e.draft} against={e.review || e.comparing ? e.original : null} readOnly={e.review || e.saving} onsave={() => void saveEdit()} />
+          <ContainerFileEditor path={e.path} bind:value={e.draft} against={e.review || e.comparing ? e.original : null} readOnly={e.review || e.saving} onsave={() => { if (!e.review) void saveEdit() }} />
         {:else if f.loading}
           <State kind="loading" lines={4} />
         {:else if f.error}

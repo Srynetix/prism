@@ -35,7 +35,7 @@ export const docker = {
           { key: 'context', label: t('Context'), hint: t('The docker context read. Empty: the current one (docker context use).'), kind: 'text', optional: true, placeholder: t('current') },
           { key: 'poll_seconds', label: t('Poll every'), hint: t('Containers and their usage; the disk is measured every 3 minutes.'), kind: 'number', unit: t('seconds') },
           { key: 'reclaimable_gb', label: t('Reclaimable'), hint: t('Docker’s unused images, volumes and build cache beyond this are flagged in Alerts (formerly [alerts] docker_reclaimable_gb). 0: never.'), kind: 'number', unit: t('GB') },
-          { key: 'files', label: t('Container files'), hint: t('A Files button on each container: its folders, a text file shown, a file or a folder (.tar.gz) downloaded, even from a stopped container. write (the default): files are also sent into it, from the computer only; read: no sending; off: no button.'), kind: 'select', options: ['write', 'read', 'off'] },
+          { key: 'files', label: t('Container files'), hint: t('A Files button on each container: its folders, a text file shown, a file or a folder (.tar.gz) downloaded, even from a stopped container. write (the default): files are also sent into it, from the computer only; read: no sending; off: no button.'), kind: 'select', options: ['write', 'read', 'off'], bools: ['write', 'off'] },
         ],
       },
     ],

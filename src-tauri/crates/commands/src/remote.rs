@@ -191,8 +191,12 @@ fn container_secret(command: &str, a: &Value) -> bool {
     secret_path(a.get("path").and_then(Value::as_str).unwrap_or_default())
 }
 
-/// A path of a container that looks like a secret.
+/// A path of a container that looks like a secret; or one not written plainly (`//`, `.`, `..`,
+/// relative), which could reach one by another name.
 fn secret_path(path: &str) -> bool {
+    if !path.starts_with('/') || path.contains("//") || path.split('/').any(|part| part == "." || part == "..") {
+        return true;
+    }
     const UNDER: [&str; 7] = ["/proc", "/sys", "/root", "/run/secrets", "/var/run/secrets", "/etc/shadow", "/etc/gshadow"];
     const NAMED: [&str; 6] = ["secret", "token", "credential", "password", "private", "id_rsa"];
     const ENDS: [&str; 7] = [".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".kubeconfig"];
@@ -204,11 +208,28 @@ fn secret_path(path: &str) -> bool {
         || ENDS.iter().any(|e| name.ends_with(e))
 }
 
+/// The real path of the container's file a phone asks for (its links followed), refused when it
+/// looks like a secret: that path asked for by its name takes the passkey. Not known (a stopped
+/// container, no `readlink`): refused too.
+async fn linked_secret(state: &AppState, a: &Value) -> Result<()> {
+    let path = a.get("path").and_then(Value::as_str).unwrap_or_default();
+    let target = serde_json::from_value(a.get("target").cloned().unwrap_or_default())?;
+    let real = commands::infra::container_real_path(state, &target, path).await.map_err(|e| anyhow::anyhow!(tr!("from a phone, {path} is read once Prism knows where it leads: {error}", path = path, error = e)))?;
+    if real != path && secret_path(&real) {
+        bail!(tr!("{path} leads to {real}: ask for that path, with the phone's passkey", path = path, real = real));
+    }
+    Ok(())
+}
+
 async fn dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Value> {
     use commands::{agents as ag, feedback as fb, infra as inf};
     // The window's guard (`commands::handler`), which a phone's calls do not go through.
     if commands::refused_in_demo(&command) {
         bail!(crate::demo::READ_ONLY);
+    }
+    // A file a phone reads without its passkey: not one reached through a link to a secret.
+    if (command == "container_file_text" || command == "container_files_download") && !container_secret(&command, &a) && files_shown(&state.hub.subscribe().borrow(), &a) {
+        linked_secret(&state, &a).await?;
     }
     match command.as_str() {
         // Answered first: the relaunch closes the socket, and the phone reconnects to the new Prism.
@@ -621,6 +642,11 @@ mod tests {
         assert!(!secret("container_file_text", json!({ "path": "/app/config.yml" })));
         assert!(!secret("container_files_download", json!({ "path": "/var/log/app.log", "dir": false })));
         assert!(secret("container_files_download", json!({ "path": "/var/log", "dir": true })), "a whole folder");
+        // Another name for a secret: `..`, `.`, `//`, relative.
+        for path in ["/app/../proc/1/environ", "//proc/1/environ", "/srv/./run/secrets/x", "/app/..", "proc/1/environ"] {
+            assert!(secret("container_file_text", json!({ "path": path })), "{path}");
+        }
+        assert!(!secret("container_file_text", json!({ "path": "/app/a..b.txt" })), "dots inside a name");
         for path in ["/var/run/secrets/kubernetes.io/serviceaccount/token", "/proc/1/environ", "/app/.env", "/etc/ssl/private/site.key", "/root/notes.txt", "/srv/db-password.txt", "/home/app/.ssh/id_rsa"] {
             assert!(secret("container_file_text", json!({ "path": path })), "{path}");
         }

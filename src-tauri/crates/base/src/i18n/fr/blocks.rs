@@ -204,6 +204,8 @@ pub const TABLE: &[(&str, &str)] = &[
     ("over {size} MB: too big to download", "plus de {size} Mo : trop gros pour être téléchargé"),
     ("over {size} MB: too big to edit here", "plus de {size} Mo : trop gros pour être modifié ici"),
     ("{path}: not a file in the container", "{path} : ce n'est pas un fichier dans le conteneur"),
+    ("nothing to show there (a link or a special file)", "rien à afficher ici (un lien ou un fichier spécial)"),
+    ("This container is stopped: start it to save the file.", "Ce conteneur est arrêté : démarrez-le pour enregistrer le fichier."),
     ("this is a folder: download it as a folder", "c'est un dossier : téléchargez-le comme un dossier"),
     ("nothing to download there (a link or a special file)", "rien à télécharger ici (un lien ou un fichier spécial)"),
 ];

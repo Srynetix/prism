@@ -31,7 +31,8 @@
           doc.includes('\r\n') ? EditorState.lineSeparator.of('\r\n') : [],
           keymap.of([{ key: 'Mod-s', preventDefault: true, run: () => (onsave(), true) }]),
           EditorView.updateListener.of((u) => {
-            if (u.docChanged) value = u.state.doc.toString()
+            // `sliceDoc`, not `doc.toString()`: the latter joins lines with `\n` whatever the separator.
+            if (u.docChanged) value = u.state.sliceDoc()
           }),
           EditorView.contentAttributes.of({ 'aria-label': path }),
         ]),
@@ -70,7 +71,7 @@
   // Set from outside (the container's text taken after a conflict): the editor follows.
   $effect(() => {
     const v = value
-    if (view && v !== view.state.doc.toString()) view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: v } })
+    if (view && v !== view.state.sliceDoc()) view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: v } })
   })
 
   onDestroy(() => view?.destroy())

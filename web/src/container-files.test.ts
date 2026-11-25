@@ -105,6 +105,16 @@ describe('editing a container\'s file', () => {
     expect(mocked).toHaveBeenLastCalledWith('container_file_save', { target, path: '/app/a.conf', text: 'mine\n', expected: 'h5' })
   })
 
+  it('keeps an unsaved edit: another container asked for, files sent', async () => {
+    const { openContainerFiles } = await import('./container-files.svelte')
+    opened()
+    containerFiles.listing = { path: '/app', truncated: false, entries: [] }
+    openContainerFiles({ kind: 'docker', id: 'other' }, 'other', { write: true })
+    expect(containerFiles.target).toEqual(target)
+    expect(containerFiles.edit?.draft).toBe('two\n')
+    expect(containerFiles.note?.ok).toBe(false)
+  })
+
   it('is not offered for a part of a file', () => {
     Object.assign(containerFiles, { write: true, edit: null, file: { path: '/big.log', text: { text: 'x', binary: false, truncated: true, hash: null }, loading: false, error: null } })
     startEdit()

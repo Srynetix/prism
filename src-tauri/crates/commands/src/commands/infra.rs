@@ -133,6 +133,12 @@ pub async fn container_file_text(state: State<'_, AppState>, target: ContainerRe
     c.text(&path).await.map_err(Into::into)
 }
 
+/// Where `path` leads in the container, its links followed (a phone's read checked by it).
+pub async fn container_real_path(state: &AppState, target: &ContainerRef, path: &str) -> Result<String, String> {
+    let c = files_container(state, target, false)?;
+    c.real_path(path).await.map_err(|e| e.to_string())
+}
+
 /// A container's file, or folder (`dir`) as a `.tar.gz`, written where the save dialog said.
 #[prism_macros::command]
 pub async fn container_files_export(state: State<'_, AppState>, target: ContainerRef, path: String, dir: bool, dest: String) -> Cmd {

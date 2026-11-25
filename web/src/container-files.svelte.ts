@@ -123,7 +123,12 @@ export function isProdContext(context: string): boolean {
   return envs.some((e) => prodEnvs.has(e.env.toLowerCase()) || PROD.test(e.env)) || PROD.test(context)
 }
 
+/** Another container's files asked for while an edit is unsaved: the drawer stays on it, saying so. */
 export function openContainerFiles(target: ContainerRef, label: string, opts: { write: boolean; prod?: boolean }) {
+  if (containerFiles.open && editDirty()) {
+    containerFiles.note = { ok: false, text: t('Save or cancel the changes to {name} first', { name: nameOf(containerFiles.edit!.path) }) }
+    return
+  }
   Object.assign(containerFiles, { open: true, target, label, write: opts.write && isDesktop(), prod: !!opts.prod, path: '', listing: null, error: null, file: null, busy: null, note: null, pending: null, edit: null })
   void go('')
 }
@@ -148,6 +153,19 @@ export async function go(path: string) {
   } catch (e) {
     if (mine !== seq) return
     Object.assign(containerFiles, { listing: null, loading: false, error: String(e) })
+  }
+}
+
+/** The folder `dir` listed again, the file shown and its edit kept (after a send). */
+async function refreshListing(dir: string) {
+  const target = containerFiles.target
+  if (!target) return
+  const mine = ++seq
+  try {
+    const listing = await invoke<ContainerListing>('container_files', { target, path: dir })
+    if (mine === seq && containerFiles.target === target) containerFiles.listing = listing
+  } catch {
+    // The send's note stays; the listing as it was.
   }
 }
 
@@ -249,7 +267,7 @@ async function send({ paths, files }: { paths: string[]; files: File[] }) {
     for (const f of files) await invoke('container_files_put', { target, dir, name: f.name, data: await base64(f) })
     const n = paths.length + files.length
     containerFiles.note = { ok: true, text: n === 1 ? t('{name} sent into {dir}', { name: nameOf(paths[0] ?? files[0].name), dir }) : t('{n} files sent into {dir}', { n, dir }) }
-    if (containerFiles.listing?.path === dir) await go(dir)
+    if (containerFiles.listing?.path === dir) await refreshListing(dir)
   } catch (e) {
     containerFiles.note = { ok: false, text: String(e) }
   } finally {

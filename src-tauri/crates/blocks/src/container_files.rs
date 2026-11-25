@@ -4,8 +4,9 @@
 //! to check (`[docker] files`, `[clusters] files`, a container Prism shows).
 //!
 //! Listing needs a shell in the container (`sh`, `stat`): a minimal image has none, and says so.
-//! Reading a file needs `cat` in a pod; Docker copies it out of a container even stopped or without
-//! a shell (`docker cp`, a tar). A folder comes as a `.tar.gz`: `tar` in a pod, `docker cp` in Docker.
+//! Reading a file (shown or downloaded) needs `cat` in a pod; Docker copies it out of a container
+//! even stopped or without a shell (`docker cp`, a tar). Editing one needs it running, with `sh`.
+//! A folder comes as a `.tar.gz`: `tar` in a pod, `docker cp` in Docker.
 //! A file is sent by `docker cp`, or into a pod by `sh -c 'cat > …'` (no `tar` needed there). A
 //! file edited is written over in place (`REWRITE`), keeping its owner and mode, once Prism checked
 //! it did not change since it was read.
@@ -28,6 +29,8 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 const MAX_ENTRIES: usize = 5000;
 /// A text file shown up to this many bytes.
 pub const TEXT_MAX: usize = 1 << 20;
+/// Room for a tar's headers before its file (`docker cp`): its own, a long name's, PAX's.
+const TAR_ROOM: usize = 16 << 10;
 /// How long a listing or a read waits for the container; a transfer, for its next bytes.
 const WAIT: Duration = Duration::from_secs(30);
 /// A send is given this many bytes a second, beyond `WAIT`, before it is given up.
@@ -247,27 +250,64 @@ impl Container {
         parse_listing(&String::from_utf8_lossy(&out.stdout))
     }
 
-    /// The first `TEXT_MAX` bytes of a file, as text unless they look binary.
+    /// Where `path` leads, its links followed (`readlink -f`): a running container only.
+    pub async fn real_path(&self, path: &str) -> Result<String> {
+        let path = absolute(path)?;
+        let run = self.exec(false, &["readlink", "-f", "--", path]).stdin(Stdio::null()).output();
+        let out = tokio::time::timeout(WAIT, run).await.map_err(|_| late())?.with_context(|| tr!("{program} not found", program = self.program()))?;
+        if !out.status.success() {
+            return Err(self.failure(&out.stderr, out.status.code(), path));
+        }
+        let real = String::from_utf8_lossy(&out.stdout).trim_end_matches('\n').to_string();
+        ensure!(real.starts_with('/'), "the container's answer cannot be read");
+        Ok(real)
+    }
+
+    /// The first `TEXT_MAX` bytes of a file, as text unless they look binary. Docker: out of a tar
+    /// of it (`docker cp`), even from a stopped container or one without a shell; a pod: `cat`.
     pub async fn text(&self, path: &str) -> Result<ContainerFileText> {
         let path = absolute(path)?;
-        let mut child = self.exec(false, &["cat", "--", path]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().with_context(|| tr!("{program} not found", program = self.program()))?;
-        let mut stdout = child.stdout.take().context("no output")?;
-        let mut bytes = Vec::new();
-        let mut capped = (&mut stdout).take(TEXT_MAX as u64 + 1);
-        let read = capped.read_to_end(&mut bytes);
-        tokio::time::timeout(WAIT, read).await.map_err(|_| late())??;
-        let truncated = bytes.len() > TEXT_MAX;
-        if truncated {
-            bytes.truncate(TEXT_MAX);
-            let _ = child.start_kill();
-        } else {
-            // Killed on the way out (`kill_on_drop`) if it hangs once its output is read.
-            let out = tokio::time::timeout(WAIT, child.wait_with_output()).await.map_err(|_| late())??;
-            if !out.status.success() {
-                return Err(self.failure(&out.stderr, out.status.code(), path));
+        let (bytes, truncated) = match self {
+            Self::Docker { context, id } => {
+                let mut cmd = Self::docker_cli(context);
+                // `-L`: a link gives what it points to.
+                cmd.args(["cp", "-L", &format!("{id}:{path}"), "-"]);
+                let (tar, _) = self.head(cmd, path, (TEXT_MAX + 1 + TAR_ROOM) as u64).await?;
+                tar_head(&tar)?
             }
-        }
+            Self::Pod { .. } => {
+                let (mut bytes, _) = self.head(self.exec(false, &["cat", "--", path]), path, TEXT_MAX as u64 + 1).await?;
+                let truncated = bytes.len() > TEXT_MAX;
+                bytes.truncate(TEXT_MAX);
+                (bytes, truncated)
+            }
+        };
         Ok(as_text(bytes, truncated))
+    }
+
+    /// The first `cap` bytes `cmd` writes, and whether it ended before them (its failure said then).
+    /// Its errors read meanwhile: a full pipe of them would stop it.
+    async fn head(&self, mut cmd: tokio::process::Command, path: &str, cap: u64) -> Result<(Vec<u8>, bool)> {
+        let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true).spawn().with_context(|| tr!("{program} not found", program = self.program()))?;
+        let mut stdout = child.stdout.take().context("no output")?;
+        let mut stderr = child.stderr.take().context("no errors")?;
+        let errors = tokio::spawn(async move {
+            let mut e = Vec::new();
+            let _ = stderr.read_to_end(&mut e).await;
+            e
+        });
+        let mut bytes = Vec::new();
+        tokio::time::timeout(WAIT, (&mut stdout).take(cap).read_to_end(&mut bytes)).await.map_err(|_| late())??;
+        if bytes.len() as u64 >= cap {
+            let _ = child.start_kill();
+            return Ok((bytes, false));
+        }
+        // Killed on the way out (`kill_on_drop`) if it hangs once its output is read.
+        let status = tokio::time::timeout(WAIT, child.wait()).await.map_err(|_| late())??;
+        if !status.success() {
+            return Err(self.failure(&errors.await.unwrap_or_default(), status.code(), path));
+        }
+        Ok((bytes, true))
     }
 
     /// The text file `path` written over with `text`, in place (`REWRITE`). With `expected` (its
@@ -300,6 +340,9 @@ impl Container {
         let out = tokio::time::timeout(limit, run).await.map_err(|_| late())??;
         if out.status.code() == Some(4) {
             bail!(tr!("{path}: not a file in the container", path = path));
+        }
+        if matches!(self, Self::Docker { .. }) && String::from_utf8_lossy(&out.stderr).contains("is not running") {
+            bail!(tr("This container is stopped: start it to save the file."));
         }
         if !out.status.success() {
             return Err(self.failure(&out.stderr, out.status.code(), path));
@@ -511,6 +554,29 @@ fn untar_one(tar: &Path, dest: &Path, max: u64, create: fn(&Path) -> std::io::Re
     bail!(tr("nothing to download there (a link or a special file)"))
 }
 
+/// The file at the head of a tar (`docker cp`'s, cut after `TEXT_MAX` bytes of it): its first
+/// `TEXT_MAX` bytes, and whether it has more.
+fn tar_head(tar: &[u8]) -> Result<(Vec<u8>, bool)> {
+    let mut at = 0;
+    while at + 512 <= tar.len() {
+        let header = tar::Header::from_byte_slice(&tar[at..at + 512]);
+        let size = header.size()? as usize;
+        let kind = header.entry_type();
+        let data = at + 512;
+        if kind.is_dir() {
+            bail!(tr("this is a folder: download it as a folder"));
+        }
+        if kind.is_file() && !header.as_bytes().iter().all(|&b| b == 0) {
+            let shown = size.min(TEXT_MAX);
+            ensure!(data + shown <= tar.len(), "the container's answer cannot be read");
+            return Ok((tar[data..data + shown].to_vec(), size > TEXT_MAX));
+        }
+        // What comes before the file (a long name, PAX's attributes): skipped.
+        at = data + size.div_ceil(512) * 512;
+    }
+    bail!(tr("nothing to show there (a link or a special file)"))
+}
+
 /// Bytes read from a file, as text unless they look binary (a NUL, or not UTF-8 beyond a cut
 /// character at the end).
 fn as_text(bytes: Vec<u8>, truncated: bool) -> ContainerFileText {
@@ -688,6 +754,31 @@ mod tests {
     }
 
     #[test]
+    fn a_tar_head_gives_its_file_even_cut() {
+        let tar_of = |name: &str, body: &[u8]| {
+            let mut b = tar::Builder::new(Vec::new());
+            let mut h = tar::Header::new_gnu();
+            h.set_size(body.len() as u64);
+            h.set_mode(0o644);
+            b.append_data(&mut h, name, body).unwrap();
+            b.into_inner().unwrap()
+        };
+        assert_eq!(tar_head(&tar_of("a.txt", b"hello")).unwrap(), (b"hello".to_vec(), false));
+        // A name past 100 characters: a long name's header first, skipped.
+        let long = format!("{}.conf", "n".repeat(150));
+        assert_eq!(tar_head(&tar_of(&long, b"x = 1\n")).unwrap(), (b"x = 1\n".to_vec(), false));
+        // A file over the limit, its tar cut as `text` reads it.
+        let big = vec![b'a'; TEXT_MAX + 2 * TAR_ROOM];
+        let tar = tar_of("big.log", &big);
+        let (head, more) = tar_head(&tar[..TEXT_MAX + 1 + TAR_ROOM]).unwrap();
+        assert_eq!((head.len(), more), (TEXT_MAX, true));
+        let mut dir = tar::Builder::new(Vec::new());
+        dir.append_dir("etc", std::env::temp_dir()).unwrap();
+        assert!(tar_head(&dir.into_inner().unwrap()).unwrap_err().to_string().contains("folder"));
+        assert!(tar_head(&[0u8; 1024]).is_err());
+    }
+
+    #[test]
     #[cfg(unix)]
     fn the_rewrite_script_keeps_the_file_mode() {
         use std::{io::Write as _, os::unix::fs::PermissionsExt};
@@ -743,6 +834,13 @@ mod real {
 
         let text = c.text("/etc/hostname").await.unwrap();
         assert!(!text.binary && text.text.as_deref().is_some_and(|t| !t.trim().is_empty()));
+        assert!(c.text("/nowhere/at/all").await.is_err());
+        assert!(c.text("/etc").await.unwrap_err().to_string().contains("folder"));
+        // Where a link leads (a phone's read checked by it).
+        assert_eq!(c.real_path("/etc/../etc/hostname").await.unwrap(), "/etc/hostname");
+        let out = c.exec(false, &["ln", "-sf", "/proc/1/environ", "/tmp/innocent.txt"]).output().await.unwrap();
+        assert!(out.status.success());
+        assert_eq!(c.real_path("/tmp/innocent.txt").await.unwrap(), "/proc/1/environ");
 
         c.save("/etc/hostname", false, &tmp.join("hostname"), 1 << 20, create).await.unwrap();
         assert_eq!(std::fs::read_to_string(tmp.join("hostname")).unwrap(), text.text.clone().unwrap());
@@ -790,6 +888,10 @@ mod real {
         c.save("/etc/os-release", false, &dest, 1 << 20, |p| std::fs::File::create(p)).await.unwrap();
         assert!(std::fs::read_to_string(&dest).unwrap().contains("NAME="));
         std::fs::remove_file(dest).unwrap();
+        // Shown too (`docker cp`, a link followed); not saved.
+        let text = c.text("/etc/os-release").await.unwrap();
+        assert!(text.text.as_deref().is_some_and(|t| t.contains("NAME=")) && text.hash.is_some(), "{text:?}");
+        assert!(c.rewrite("/etc/os-release", "x", None).await.unwrap_err().to_string().contains("stopped"));
     }
     /// `PRISM_CF_DOCKER=<id>`, with `/tmp/run.sh` mode 751 owned by nobody: an edit keeps both.
     #[tokio::test]

@@ -200,7 +200,7 @@
         </button>
         <div class="rv">
           {#if e.field.kind === 'toggle' || e.field.kind === 'select' || e.field.kind === 'number' || e.field.kind === 'text'}
-            <Control kind={e.field.kind} value={valueOf(e.path)} onchange={(v) => setValue(e.path, v)} options={e.field.options} labels={e.field.labels} optional={e.field.optional} placeholder={e.field.placeholder} unit={e.field.unit} step={e.field.step} compact />
+            <Control kind={e.field.kind} value={valueOf(e.path)} onchange={(v) => setValue(e.path, v)} options={e.field.options} labels={e.field.labels} bools={e.field.bools} optional={e.field.optional} placeholder={e.field.placeholder} unit={e.field.unit} step={e.field.step} compact />
           {:else}<span class="val mono" title={showValue(valueOf(e.path))}>{showValue(valueOf(e.path))}</span>{/if}
           <span class="origin {o}">{o === 'changed' ? t('not saved') : o === 'file' ? 'config.toml' : o === 'pack' ? packLabel(e.path) : tc('settings', 'default')}</span>
         </div>

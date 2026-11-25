@@ -98,7 +98,7 @@
       </div>
     {:else}
       <Field label={f.label} hint={f.hint} {path} section={spec.id}>
-        <Control kind={f.kind} value={valueOf(path)} onchange={(v) => setValue(path, v)} options={f.options} labels={f.labels} optional={f.optional} placeholder={f.placeholder} unit={f.unit} step={f.step} />
+        <Control kind={f.kind} value={valueOf(path)} onchange={(v) => setValue(path, v)} options={f.options} labels={f.labels} bools={f.bools} optional={f.optional} placeholder={f.placeholder} unit={f.unit} step={f.step} />
         {#if f.check}<CheckBadge req={requestOf(f.check, valueOf(path), (k) => valueOf(pathOf(k)))} />{/if}
       </Field>
     {/if}

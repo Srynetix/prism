@@ -18,7 +18,7 @@
    * leaving the field (or Enter), for a TOML preview that does not move with every letter.
    */
   let {
-    kind, value, onchange, options, labels, optional = false, placeholder, unit, step = 1, compact = false,
+    kind, value, onchange, options, labels, bools, optional = false, placeholder, unit, step = 1, compact = false,
   }: {
     kind: Exclude<Kind, 'table'>
     value: unknown
@@ -26,6 +26,8 @@
     options?: Source | string[]
     /** `checks`: an option's words, by value. */
     labels?: Record<string, string>
+    /** `select`: the options a boolean value stands for (true, false): `files = true` reads as write. */
+    bools?: [string, string]
     optional?: boolean
     placeholder?: string
     unit?: string
@@ -60,7 +62,7 @@
 {:else if kind === 'number'}
   <span class="row"><input class="t num" type="number" min="0" {step} value={value ?? ''} onchange={(e) => onchange(Math.max(0, Number((Math.round((Number(e.currentTarget.value) || 0) / step) * step).toFixed(4))))} />{#if unit}<span class="unit">{t(unit)}</span>{/if}</span>
 {:else if kind === 'select'}
-  {@const current = (value as string | null) ?? ''}
+  {@const current = typeof value === 'boolean' && bools ? bools[value ? 0 : 1] : ((value as string | null) ?? '')}
   <select class="t" class:compact value={current} onchange={(e) => onchange(text(e.currentTarget.value))}>
     {#if optional || !current}<option value="">{placeholder ?? '—'}</option>{/if}
     {#if current && !list.includes(current)}<option value={current}>{current}</option>{/if}
