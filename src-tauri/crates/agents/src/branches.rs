@@ -98,8 +98,9 @@ fn track(s: &str) -> (bool, u32, u32) {
 
 const FORMAT: &str = "%(refname:short)%00%(objectname:short)%00%(committerdate:iso-strict)%00%(authorname)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(worktreepath)%00%(subject)";
 
-/// Per-branch reads run at once, at most.
-const AT_ONCE: usize = 8;
+/// Per-branch reads run at once, at most, every project together (the Cleanup tab reads them all):
+/// each is a git process, and its pipes count among the open files.
+static AT_ONCE: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(8);
 
 /// One line of `for-each-ref`, read.
 struct Ref {
@@ -146,13 +147,12 @@ pub async fn list(repo: &Path, facts: &Facts) -> Result<Vec<LocalBranch>> {
     };
     let refs: Vec<Ref> = refs.lines().filter_map(|l| parse_ref(l, counted)).collect();
 
-    let limit = std::sync::Arc::new(tokio::sync::Semaphore::new(AT_ONCE));
     let mut tasks = tokio::task::JoinSet::new();
     for (i, r) in refs.into_iter().enumerate() {
-        let (repo, facts, here, base, limit) = (repo.to_path_buf(), facts.clone(), here.clone(), base.clone(), limit.clone());
+        let (repo, facts, here, base) = (repo.to_path_buf(), facts.clone(), here.clone(), base.clone());
         let base_name = base_name.clone();
         tasks.spawn(async move {
-            let _turn = limit.acquire_owned().await;
+            let _turn = AT_ONCE.acquire().await;
             (i, branch(&repo, &facts, &here, has_base.then_some(base.as_str()), &base_name, r).await)
         });
     }

@@ -31,6 +31,10 @@ pub use prism_commands::config_path;
 use tauri::{Manager, WindowEvent};
 
 fn main() {
+    // A Mac app may hold 256 open files: a profile's cluster watches, WebKit and a burst of git
+    // commands outgrow it ("Too many open files"). Raised for Prism and what it starts.
+    #[cfg(unix)]
+    let _ = prism_sys::fd::raise_open_files(10_240);
     // Prism's own blocks; the profile's modules once it is known.
     prism_commands::process::register_blocks();
 
