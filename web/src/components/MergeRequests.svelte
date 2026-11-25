@@ -122,7 +122,7 @@
     <div class="branches">
       {#each branches as p (p.id)}
         <span class="branch">
-          <a href={p.url} target="_blank" rel="noreferrer" onclick={logsClick(p.url, branchName(p))} title={canShowLogs() ? keys(t('{branch} pipeline · click: logs, ⌘-click: {forge}', { branch: branchName(p), forge: forgeName() })) : undefined}>
+          <a href={p.url} target="_blank" rel="noreferrer" onclick={logsClick(p.url, branchName(p), p.project ?? null)} title={canShowLogs() ? keys(t('{branch} pipeline · click: logs, ⌘-click: {forge}', { branch: branchName(p), forge: forgeName() })) : undefined}>
             <span class="mono">{branchName(p)}</span>
             <PipelineBar pipeline={p} {now} />
             <span class="mono muted">{ago(p.updated_at)}</span>
