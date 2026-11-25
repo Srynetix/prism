@@ -52,6 +52,13 @@ pub fn init(config: &Path) {
             tracing::warn!("logs: no log file: {e:#}");
         }
     }
+    // The open files raised at start (`main`), said once there is a log to say it in.
+    #[cfg(unix)]
+    match prism_sys::fd::open_files_note() {
+        Some(Ok(note)) => tracing::info!("{note}"),
+        Some(Err(e)) => tracing::warn!("open files not raised, \"Too many open files\" may come: {e}"),
+        None => {}
+    }
 }
 
 /// The filter of both outputs, set again when the config changes (`apply`).

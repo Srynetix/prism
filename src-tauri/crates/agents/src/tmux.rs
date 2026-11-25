@@ -257,9 +257,15 @@ impl Tmux {
         if let Some(server) = &self.fake {
             return server.run(args);
         }
-        let out = crate::platform::command("tmux")
-            .args(self.base_args())
-            .args(args)
+        let mut cmd = crate::platform::command("tmux");
+        cmd.args(self.base_args()).args(args);
+        // What may start the server (agents and shells run under it): with the open files limit
+        // Prism started with, not the one it raised for itself (`main`), as its programs had.
+        #[cfg(unix)]
+        if matches!(args.first(), Some(&"new-session" | &"start-server")) {
+            prism_sys::fd::start_with_original_open_files(&mut cmd);
+        }
+        let out = cmd
             .output()
             .await
             .with_context(|| tr!("tmux not found ({hint})", hint = crate::platform::install_hint("tmux")))?;

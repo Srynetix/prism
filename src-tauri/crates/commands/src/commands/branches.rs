@@ -8,7 +8,7 @@ use prism_base::{i18n::tr, tr};
 use serde::Serialize;
 
 use super::{Cmd, State};
-use crate::agents::branches::{self, Facts, LocalBranch};
+use crate::agents::branches::{self, Facts, LocalBranch, Need};
 use crate::app::AppState;
 use crate::state::{AgentState, MrState};
 
@@ -42,9 +42,9 @@ fn clone_of(state: &AppState, repo: &str) -> Result<(PathBuf, Facts), String> {
     Ok((PathBuf::from(&r.path), Facts { base: r.base.clone(), conventions: snap.conventions.clone(), mrs, busy }))
 }
 
-async fn list(state: &AppState, repo: &str) -> Cmd<(PathBuf, Vec<LocalBranch>)> {
+async fn list(state: &AppState, repo: &str, need: Need) -> Cmd<(PathBuf, Vec<LocalBranch>)> {
     let (path, facts) = clone_of(state, repo)?;
-    let all = branches::list(&path, &facts).await?;
+    let all = branches::list(&path, &facts, need).await?;
     Ok((path, all))
 }
 
@@ -66,14 +66,14 @@ pub async fn project_branches(state: State<'_, AppState>, repo: String) -> Cmd<V
     if crate::demo::active() {
         return Ok(Vec::new());
     }
-    Ok(list(&state, &repo).await?.1)
+    Ok(list(&state, &repo, Need::Shown).await?.1)
 }
 
 /// A project's branch deleted, its worktree with it: nothing to lose, or `force` (never a locked
 /// one: protected, the clone's, one an agent works on).
 #[prism_macros::command]
 pub async fn project_branch_delete(state: State<'_, AppState>, repo: String, branch: String, force: bool) -> Cmd {
-    let (path, all) = list(&state, &repo).await?;
+    let (path, all) = list(&state, &repo, Need::Action).await?;
     let b = all.iter().find(|b| b.name == branch).ok_or_else(|| tr!("{branch}: no such branch in {repo}", branch = branch, repo = repo))?;
     delete_one(&state, &path, b, force).await?;
     tracing::info!("front: branch {branch} of {repo} deleted{}", if force { " (forced)" } else { "" });
@@ -83,7 +83,7 @@ pub async fn project_branch_delete(state: State<'_, AppState>, repo: String, bra
 /// A worktree opened on a project's branch, next to its clone, without an agent: its path.
 #[prism_macros::command]
 pub async fn project_branch_worktree(state: State<'_, AppState>, repo: String, branch: String) -> Cmd<String> {
-    let (path, all) = list(&state, &repo).await?;
+    let (path, all) = list(&state, &repo, Need::Action).await?;
     let b = all.iter().find(|b| b.name == branch).ok_or_else(|| tr!("{branch}: no such branch in {repo}", branch = branch, repo = repo))?;
     if let Some(w) = &b.worktree {
         return Err(tr!("{branch} is already checked out in {path}", branch = branch, path = w).into());
@@ -106,7 +106,7 @@ pub async fn project_switch(state: State<'_, AppState>, repo: String, branch: St
 pub async fn project_tidy_prepare(state: State<'_, AppState>, repo: String) -> Cmd<Vec<LocalBranch>> {
     let (path, _) = clone_of(&state, &repo)?;
     branches::refresh(&path).await?;
-    Ok(list(&state, &repo).await?.1)
+    Ok(list(&state, &repo, Need::Action).await?.1)
 }
 
 /// What a tidy did: the branches deleted, those kept and why.
@@ -128,7 +128,7 @@ pub struct TidyKept {
 /// again and only when safe (done, nothing to lose, not locked). Never forced.
 #[prism_macros::command]
 pub async fn project_tidy(state: State<'_, AppState>, repo: String, branches: Vec<String>) -> Cmd<TidyReport> {
-    let (path, all) = list(&state, &repo).await?;
+    let (path, all) = list(&state, &repo, Need::Action).await?;
     let mut report = TidyReport { deleted: Vec::new(), kept: Vec::new() };
     for name in branches {
         let Some(b) = all.iter().find(|b| b.name == name) else {
