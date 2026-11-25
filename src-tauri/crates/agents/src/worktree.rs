@@ -120,7 +120,7 @@ pub fn create(repo: &Path, intent: &Intent) -> Result<PathBuf> {
 /// What git still keeps of the worktree at `dir`, its folder deleted (`.git/worktrees/<name>`,
 /// which holds its branch as checked out): this one only, not `git worktree prune`, which would
 /// forget the other worktrees deleted too, and the branch Prism reads from them (`stale_branch`).
-fn forget_stale(repo: &Path, dir: &Path) {
+pub(crate) fn forget_stale(repo: &Path, dir: &Path) {
     if dir.exists() {
         return;
     }

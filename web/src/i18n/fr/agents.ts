@@ -1383,6 +1383,7 @@ export default {
   'The clone checks this branch out (nothing uncommitted, no agent in it)': 'Le clone passe sur cette branche (rien de non commité, aucun agent dedans)',
   'The clone is on {branch}': 'Le clone est sur {branch}',
   'Tidy up': 'Faire le ménage',
+  'branches unreadable': 'branches illisibles',
   'Worktree opened: {path}': 'Worktree ouvert : {path}',
   'gone from origin': 'disparue d’origin',
   'its worktree too': 'son worktree aussi',

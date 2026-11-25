@@ -58,7 +58,7 @@
   // The Cleanup tab counts every clone's safe branches: read when it opens.
   $effect(() => {
     if (projectsView.tab !== 'cleanup') return
-    for (const p of untrack(() => projects.filter((x) => x.repo))) if (!branchesOf(p.name).list && !branchesOf(p.name).loading) void loadBranches(p.name)
+    for (const p of untrack(() => projects.filter((x) => x.repo))) if (!branchesOf(p.name).list && !branchesOf(p.name).loading && !branchesOf(p.name).error) void loadBranches(p.name)
   })
 
   let sort = $state<'stage' | 'activity'>('stage')
@@ -214,7 +214,8 @@
           {@const n = list?.filter(safe).length ?? 0}
           {#if n}<span class="tidy-one">{p.name} <span class="muted">{tn(n, '{n} branch safe to delete', '{n} branches safe to delete')}</span><button class="btn sm" onclick={() => { pick(p); void prepareTidy(p.name) }}><Icon name="trash" size={10} />{t('Tidy up')}</button></span>{/if}
         {/each}
-        {#if clones.every((p) => branchesOf(p.name).list && !branchesOf(p.name).list!.some(safe))}<span class="muted">{t('No branch to delete.')}</span>{:else if clones.some((p) => !branchesOf(p.name).list)}<span class="muted">{t('Reading the branches…')}</span>{/if}
+        {#each clones.filter((p) => branchesOf(p.name).error) as p (p.name)}<span class="tidy-one ko" title={branchesOf(p.name).error}>{p.name} <span class="muted">{t('branches unreadable')}</span></span>{/each}
+        {#if clones.some((p) => branchesOf(p.name).loading || (!branchesOf(p.name).list && !branchesOf(p.name).error))}<span class="muted">{t('Reading the branches…')}</span>{:else if !clones.some((p) => branchesOf(p.name).list?.some(safe))}<span class="muted">{t('No branch to delete.')}</span>{/if}
       </div>
       <Worktrees {snap} />
     {:else if current && snap}
@@ -315,6 +316,7 @@
 <style>
   .tidies { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--r6); font-size: var(--fs-meta); }
   .tidy-one { display: inline-flex; align-items: center; gap: 6px; }
+  .tidy-one.ko { color: var(--ko); }
   .projects { flex: 1; display: flex; min-height: 0; overflow: hidden; }
   .list { flex: 0 0 250px; display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; border-right: 1px solid var(--border); overflow-y: auto; background: var(--chrome-bg); }
   .lh { display: flex; align-items: center; gap: 6px; padding: 0 4px 6px; }

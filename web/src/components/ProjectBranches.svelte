@@ -47,12 +47,13 @@
   const safeCount = $derived(list.filter(safe).length)
   const mine = $derived(tidy.repo === repo)
 
-  /** A branch's MR: its open one, else its latest. */
+  /** A branch's MR, as its verdict reads it: its open one, else the latest merged, else the latest. */
   function mrOf(name: string): MergeRequest | undefined {
     const s = live.snapshot
     if (!s) return undefined
     const of = s.merge_requests.filter((m) => repoName(m.repo, s) === repo && m.source_branch === name)
-    return of.find((m) => m.state === 'opened') ?? of[0]
+    const latest = (ms: MergeRequest[], at: (m: MergeRequest) => string | null | undefined) => [...ms].sort((a, b) => (at(b) ?? '').localeCompare(at(a) ?? ''))[0]
+    return of.find((m) => m.state === 'opened') ?? latest(of.filter((m) => m.merged_at), (m) => m.merged_at) ?? latest(of, (m) => m.updated_at)
   }
 
   async function act(key: string, f: () => Promise<unknown>, done?: string) {

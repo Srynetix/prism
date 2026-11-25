@@ -77,11 +77,14 @@ export async function switchClone(repo: string, branch: string): Promise<string>
 
 /** A tidy's first step: origin pruned, its list read; the safe branches picked. */
 export async function prepareTidy(repo: string) {
+  // A plain read still under way would answer with the state from before the prune: ignored.
+  seq[repo] = (seq[repo] ?? 0) + 1
   Object.assign(tidy, { repo, preparing: true, running: false, list: null, picked: [], report: null, error: null })
   try {
     const list = await invoke<LocalBranch[]>('project_tidy_prepare', { repo })
     if (tidy.repo !== repo) return
     Object.assign(tidy, { preparing: false, list, picked: list.filter(safe).map((b) => b.name) })
+    seq[repo] = (seq[repo] ?? 0) + 1
     projectBranches[repo] = { list, loading: false, error: null }
   } catch (e) {
     if (tidy.repo === repo) Object.assign(tidy, { preparing: false, error: String(e) })

@@ -72,7 +72,7 @@ pub(crate) async fn remove_worktree(state: &AppState, path: String, force: bool)
             return Err(tr("this worktree is locked (git worktree unlock)").into());
         }
         let inside = |dir: &str| dir == path || dir.starts_with(&format!("{path}/"));
-        if let Some(a) = snap.agents.iter().find(|a| a.state == AgentState::Running && (a.worktree.as_deref() == Some(&path) || a.adopted.contains(&path) || inside(&a.cwd))) {
+        if let Some(a) = snap.agents.iter().find(|a| a.state == AgentState::Running && (a.worktree.as_deref() == Some(&path) || a.adopted.contains(&path) || a.also.contains(&path) || inside(&a.cwd))) {
             return Err(tr!("the agent “{title}” is running in it: stop it first", title = a.title).into());
         }
         if let Some(c) = snap.sessions.iter().find(|c| c.origin == SessionOrigin::Desktop && c.worktree.as_deref().is_some_and(inside)) {

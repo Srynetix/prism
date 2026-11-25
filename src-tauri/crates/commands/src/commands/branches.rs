@@ -30,11 +30,12 @@ fn clone_of(state: &AppState, repo: &str) -> Result<(PathBuf, Facts), String> {
             *merged = None;
         }
     }
-    // An agent at work in a folder: in its worktree, or below it.
+    // An agent at work in a folder: its worktree, one it adopted, its other repositories' (`also`),
+    // or below it.
     let mut busy = std::collections::HashMap::new();
     for w in snap.worktrees.iter().filter(|w| w.repo == repo) {
         let inside = |dir: &str| dir == w.path || dir.starts_with(&format!("{}/", w.path));
-        if let Some(a) = snap.agents.iter().find(|a| a.state == AgentState::Running && (a.worktree.as_deref() == Some(&w.path) || a.adopted.contains(&w.path) || inside(&a.cwd))) {
+        if let Some(a) = snap.agents.iter().find(|a| a.state == AgentState::Running && (a.worktree.as_deref() == Some(&w.path) || a.adopted.contains(&w.path) || a.also.contains(&w.path) || inside(&a.cwd))) {
             busy.insert(w.path.clone(), a.title.clone());
         }
     }
@@ -53,8 +54,9 @@ async fn delete_one(state: &AppState, path: &std::path::Path, b: &LocalBranch, f
         return Err(tr!("{branch} is kept: {why}", branch = b.name, why = why).into());
     }
     match &b.worktree {
-        Some(w) => super::agents::remove_worktree(state, w.clone(), force).await,
-        None => branches::delete(path, b, force).await.map_err(Into::into),
+        // Its worktree goes with it; one whose folder is gone, the branch alone (`branches::delete`).
+        Some(w) if std::path::Path::new(w).is_dir() => super::agents::remove_worktree(state, w.clone(), force).await,
+        _ => branches::delete(path, b, force).await.map_err(Into::into),
     }
 }
 
