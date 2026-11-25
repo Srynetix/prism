@@ -5,7 +5,7 @@ import type { Snapshot } from './types'
 const page = globalThis as { location?: unknown; addEventListener?: unknown }
 page.location ??= { hash: '' }
 page.addEventListener ??= () => {}
-const { knownMr, mrScopeOf, refOfUrl, refsIn, withMrs } = await import('./linkify')
+const { knownMr, linkify, mrScopeOf, refOfUrl, refsIn, withMrs } = await import('./linkify')
 const { live } = await import('./live.svelte')
 
 const snap = {
@@ -126,5 +126,12 @@ describe("an agent's `!12` in the repositories it works in", () => {
 
   it('in the Chat, as spans of their own', () => {
     expect(withMrs([{ text: 'in !215' }], scope('a-helm'))).toEqual([{ text: 'in ' }, { text: '!215', mr: [{ ref: { iid: 215, repo: 'helm' }, url: at('helm', 215) }] }])
+  })
+})
+
+describe('linkify', () => {
+  it('leaves the dot that ends a sentence out of a URL', () => {
+    const urls = linkify('Deployed on https://example.org/app/v1.2.', snap).filter((s) => 'href' in s && s.text.startsWith('http'))
+    expect(urls.map((s) => s.text)).toEqual(['https://example.org/app/v1.2'])
   })
 })
