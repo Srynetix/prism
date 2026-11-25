@@ -98,8 +98,18 @@ fn track(s: &str) -> (bool, u32, u32) {
 
 const FORMAT: &str = "%(refname:short)%00%(objectname:short)%00%(committerdate:iso-strict)%00%(authorname)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(worktreepath)%00%(subject)";
 
-/// Per-branch reads run at once, at most.
+/// A list's per-branch reads run at once, at most: each is a git process, its pipes among the open
+/// files. And every background list together (the Cleanup tab reads every project), at most
+/// `BACKGROUND`; a list an action needs (a deletion, a tidy) does not queue behind them.
 const AT_ONCE: usize = 8;
+static BACKGROUND: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(32);
+
+/// Whom a list is for: shown (queued with the others), or an action the user waits on.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Need {
+    Shown,
+    Action,
+}
 
 /// One line of `for-each-ref`, read.
 struct Ref {
@@ -128,7 +138,7 @@ fn parse_ref(line: &str, counted: bool) -> Option<Ref> {
 }
 
 /// The local branches of the clone `repo`, most recent first.
-pub async fn list(repo: &Path, facts: &Facts) -> Result<Vec<LocalBranch>> {
+pub async fn list(repo: &Path, facts: &Facts, need: Need) -> Result<Vec<LocalBranch>> {
     let real = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
     let here = real(Path::new(&git(repo, &["rev-parse", "--show-toplevel"]).await?));
     let base_name = facts.base.trim_start_matches("origin/").to_string();
@@ -146,13 +156,17 @@ pub async fn list(repo: &Path, facts: &Facts) -> Result<Vec<LocalBranch>> {
     };
     let refs: Vec<Ref> = refs.lines().filter_map(|l| parse_ref(l, counted)).collect();
 
-    let limit = std::sync::Arc::new(tokio::sync::Semaphore::new(AT_ONCE));
+    let mine = std::sync::Arc::new(tokio::sync::Semaphore::new(AT_ONCE));
     let mut tasks = tokio::task::JoinSet::new();
     for (i, r) in refs.into_iter().enumerate() {
-        let (repo, facts, here, base, limit) = (repo.to_path_buf(), facts.clone(), here.clone(), base.clone(), limit.clone());
+        let (repo, facts, here, base, mine) = (repo.to_path_buf(), facts.clone(), here.clone(), base.clone(), mine.clone());
         let base_name = base_name.clone();
         tasks.spawn(async move {
-            let _turn = limit.acquire_owned().await;
+            let _mine = mine.acquire_owned().await;
+            let _shared = match need {
+                Need::Shown => Some(BACKGROUND.acquire().await),
+                Need::Action => None,
+            };
             (i, branch(&repo, &facts, &here, has_base.then_some(base.as_str()), &base_name, r).await)
         });
     }
@@ -342,7 +356,7 @@ mod tests {
 
         let merged_at = Utc::now() + chrono::Duration::seconds(5);
         let facts = Facts { base: "main".into(), conventions: Conventions { main_branch: "main".into(), ..Default::default() }, mrs: HashMap::from([("squashed".to_string(), (Some(merged_at), false))]), busy: HashMap::new() };
-        let all = list(&repo, &facts).await.unwrap();
+        let all = list(&repo, &facts, Need::Shown).await.unwrap();
         let get = |n: &str| all.iter().find(|b| b.name == n).unwrap_or_else(|| panic!("{n}: {all:?}")).clone();
         let main = get("main");
         assert!(main.current && main.locked.is_some() && !main.safe());
@@ -364,7 +378,7 @@ mod tests {
         assert!(delete(&repo, &main, true).await.is_err(), "never the clone's, even forced");
         delete(&repo, &squashed, false).await.unwrap();
         delete(&repo, &local, true).await.unwrap();
-        let left: Vec<String> = list(&repo, &facts).await.unwrap().into_iter().map(|b| b.name).collect();
+        let left: Vec<String> = list(&repo, &facts, Need::Shown).await.unwrap().into_iter().map(|b| b.name).collect();
         assert!(!left.contains(&"squashed".into()) && !left.contains(&"local".into()), "{left:?}");
 
         // A same-named MR merged (a fork's, an old one) says nothing of a branch never pushed as itself.
@@ -373,7 +387,7 @@ mod tests {
         sh(&repo, &["checkout", "-q", "main"]);
         let mut fork = facts.clone();
         fork.mrs.insert("patch-1".into(), (Some(merged_at), false));
-        let patch = list(&repo, &fork).await.unwrap().into_iter().find(|b| b.name == "patch-1").unwrap();
+        let patch = list(&repo, &fork, Need::Shown).await.unwrap().into_iter().find(|b| b.name == "patch-1").unwrap();
         assert_eq!(patch.keep.as_deref(), Some("1 unpushed commit"), "{patch:?}");
         assert!(!patch.done.iter().any(|d| d == "MR merged") && !patch.safe());
 
@@ -381,21 +395,21 @@ mod tests {
         sh(&repo, &["branch", "develop", "main"]);
         sh(&repo, &["push", "-q", "origin", "develop"]);
         let on_develop = Facts { base: "develop".into(), ..facts.clone() };
-        let develop = list(&repo, &on_develop).await.unwrap().into_iter().find(|b| b.name == "develop").unwrap();
+        let develop = list(&repo, &on_develop, Need::Action).await.unwrap().into_iter().find(|b| b.name == "develop").unwrap();
         assert!(develop.locked.is_some() && !develop.safe(), "{develop:?}");
 
         // A worktree whose folder was deleted by hand: its branch deleted all the same.
         let gone = root.join("app.worktrees/gone");
         sh(&repo, &["worktree", "add", "-q", "-b", "gone", gone.to_str().unwrap(), "main"]);
         std::fs::remove_dir_all(&gone).unwrap();
-        let g = list(&repo, &facts).await.unwrap().into_iter().find(|b| b.name == "gone").unwrap();
+        let g = list(&repo, &facts, Need::Shown).await.unwrap().into_iter().find(|b| b.name == "gone").unwrap();
         assert!(g.keep.is_none() && g.worktree.is_some(), "{g:?}");
         delete(&repo, &g, false).await.unwrap();
-        assert!(!list(&repo, &facts).await.unwrap().iter().any(|b| b.name == "gone"));
+        assert!(!list(&repo, &facts, Need::Shown).await.unwrap().iter().any(|b| b.name == "gone"));
 
         let made = add_worktree(&repo, "merged").unwrap();
         assert_eq!(made.file_name().unwrap(), "merged");
-        assert!(list(&repo, &facts).await.unwrap().iter().any(|b| b.name == "merged" && b.worktree.is_some()));
+        assert!(list(&repo, &facts, Need::Shown).await.unwrap().iter().any(|b| b.name == "merged" && b.worktree.is_some()));
         let _ = std::fs::remove_dir_all(&root);
     }
 }
