@@ -1544,4 +1544,8 @@ export default {
   'vi, keybindings, modal editing': 'vi, raccourcis, édition modale',
   'voice, speech, microphone, whisper': 'voix, parole, micro, microphone, whisper',
   'worklogs, hours, timesheet': 'temps passé, heures, feuille de temps, imputations',
+  // A container's files: [clusters] files, [docker] files.
+  'Files in a pod': 'Fichiers d’un pod',
+  'A Files button in a pod’s logs pane: its container’s folders, a text file shown, a file or a folder (.tar.gz) downloaded, from a phone too. read (the default): that much; write: files are also sent into it, from the computer only, a production environment asking again; off: no button.': 'Un bouton Fichiers dans le volet des logs d’un pod : les dossiers de son conteneur, un fichier texte affiché, un fichier ou un dossier (.tar.gz) téléchargé, depuis un téléphone aussi. read (par défaut) : rien de plus ; write : on peut aussi y envoyer des fichiers, depuis l’ordinateur seulement, un environnement de production demandant confirmation ; off : pas de bouton.',
+  'A Files button on each container: its folders, a text file shown, a file or a folder (.tar.gz) downloaded, even from a stopped container. write (the default): files are also sent into it, from the computer only; read: no sending; off: no button.': 'Un bouton Fichiers sur chaque conteneur : ses dossiers, un fichier texte affiché, un fichier ou un dossier (.tar.gz) téléchargé, même d’un conteneur arrêté. write (par défaut) : on peut aussi y envoyer des fichiers, depuis l’ordinateur seulement ; read : pas d’envoi ; off : pas de bouton.',
 } satisfies Dictionary

@@ -92,6 +92,85 @@ pub async fn pod_close_shell(state: State<'_, AppState>, pod: crate::agents::Pod
     state.agents.close_pod_shell(&pod, n).await.map_err(Into::into)
 }
 
+use crate::blocks::container_files::{Container, ContainerFileText, ContainerListing, ContainerRef};
+use prism_core::config::FileAccess;
+
+/// A container whose files may be reached: one Prism shows (the Docker block's, a pod of the Pods
+/// block or of an environment), its block's `files` letting it (`write`: files sent into it).
+fn files_container(state: &AppState, target: &ContainerRef, write: bool) -> Result<Container, String> {
+    let (container, access) = match target {
+        ContainerRef::Docker { id } => {
+            let (context, _, access) = crate::blocks::docker::files_target(id).map_err(|e| e.to_string())?;
+            (Container::docker(&context, id).map_err(|e| e.to_string())?, access)
+        }
+        ContainerRef::Pod { context, namespace, pod, container } => {
+            let access = state.hub.subscribe().borrow().pod_files;
+            if access == FileAccess::Off {
+                return Err(tr("a pod's files are off ([clusters] files)").into());
+            }
+            pod_shown(state, context, namespace, pod)?;
+            (Container::pod(context, namespace, pod, container.as_deref()).map_err(|e| e.to_string())?, access)
+        }
+    };
+    if write && access != FileAccess::Write {
+        let key = if matches!(target, ContainerRef::Docker { .. }) { "[docker] files" } else { "[clusters] files" };
+        return Err(tr!("sending files into a container is off ({key} = \"write\")", key = key));
+    }
+    Ok(container)
+}
+
+/// A container's folder (`path`; empty: its working folder): its entries, folders first.
+#[prism_macros::command]
+pub async fn container_files(state: State<'_, AppState>, target: ContainerRef, path: String) -> Cmd<ContainerListing> {
+    let c = files_container(&state, &target, false)?;
+    c.list(&path).await.map_err(Into::into)
+}
+
+/// A container's file, shown: its first MB, as text unless binary.
+#[prism_macros::command]
+pub async fn container_file_text(state: State<'_, AppState>, target: ContainerRef, path: String) -> Cmd<ContainerFileText> {
+    let c = files_container(&state, &target, false)?;
+    c.text(&path).await.map_err(Into::into)
+}
+
+/// A container's file, or folder (`dir`) as a `.tar.gz`, written where the save dialog said.
+#[prism_macros::command]
+pub async fn container_files_export(state: State<'_, AppState>, target: ContainerRef, path: String, dir: bool, dest: String) -> Cmd {
+    let c = files_container(&state, &target, false)?;
+    tracing::info!("front: {path} of a container downloaded");
+    c.save(&path, dir, std::path::Path::new(&dest), crate::agents::files::MAX_DOWNLOAD, |p| std::fs::File::create(p)).await.map_err(Into::into)
+}
+
+/// The same made ready for a phone: a file of Prism's own the remote serves it once.
+#[prism_macros::command]
+pub async fn container_files_download(state: State<'_, AppState>, target: ContainerRef, path: String, dir: bool) -> Cmd<crate::agents::files::Prepared> {
+    let c = files_container(&state, &target, false)?;
+    let dest = state.agents.download_slot()?;
+    c.save(&path, dir, &dest, crate::agents::files::MAX_DOWNLOAD, crate::agents::files::create_private).await?;
+    let base = path.trim_end_matches('/').rsplit('/').next().filter(|s| !s.is_empty()).unwrap_or("root");
+    let name = if dir { format!("{base}.tar.gz") } else { base.to_string() };
+    Ok(crate::agents::files::Prepared { name, path: dest.display().to_string() })
+}
+
+/// Files of the computer (`sources`, from its file dialog or dropped on the window) sent into a
+/// container's folder `dir`, each under its own name: how many.
+#[prism_macros::command]
+pub async fn container_files_upload(state: State<'_, AppState>, target: ContainerRef, dir: String, sources: Vec<String>) -> Cmd<usize> {
+    let c = files_container(&state, &target, true)?;
+    let sources: Vec<std::path::PathBuf> = sources.into_iter().map(Into::into).collect();
+    c.upload(&dir, &sources).await.map_err(Into::into)
+}
+
+/// A file dropped on the window (its bytes in base64: the window has no path for it) sent into a
+/// container's folder `dir` as `name`.
+#[prism_macros::command]
+pub async fn container_files_put(state: State<'_, AppState>, target: ContainerRef, dir: String, name: String, data: String) -> Cmd {
+    use base64::Engine;
+    let c = files_container(&state, &target, true)?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data.trim()).map_err(|e| tr!("{name}: unreadable data ({error})", name = name, error = e))?;
+    c.put(&dir, &name, &bytes).await.map_err(Into::into)
+}
+
 /// Settings: the `kubectl` contexts, to pick them rather than type them.
 #[prism_macros::command]
 pub async fn kube_contexts() -> Cmd<Vec<String>> {

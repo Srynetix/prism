@@ -96,6 +96,10 @@ pub struct ClustersConfig {
     /// A shell in a pod (`kubectl exec`) from its logs pane, with the rights of the kubeconfig.
     #[serde(default = "default_true")]
     pub shell: bool,
+    /// A pod's files from its logs pane (`kubectl exec`): `"read"` (default) lists, shows and
+    /// downloads them; `"write"` also sends files into it; `false` neither.
+    #[serde(default = "FileAccess::read")]
+    pub files: FileAccess,
     /// A pod's CPU and memory over time, in its logs pane: Prism keeps the `[[pods]]` targets'
     /// metrics-server readings (6 h) for it.
     #[serde(default = "default_true")]
@@ -106,13 +110,65 @@ pub struct ClustersConfig {
     pub gcp_metrics: bool,
 }
 
+/// What Prism may do with a container's files (`[clusters] files`, `[docker] files`): `false`
+/// (nothing), `"read"` (list, show, download) or `"write"` (send files into it too); `true` is `"write"`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+pub enum FileAccess {
+    #[default]
+    Off,
+    Read,
+    Write,
+}
+
+impl FileAccess {
+    pub fn read() -> Self {
+        Self::Read
+    }
+    pub fn write() -> Self {
+        Self::Write
+    }
+}
+
+impl<'de> Deserialize<'de> for FileAccess {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            On(bool),
+            Level(String),
+        }
+        Ok(match Raw::deserialize(d)? {
+            Raw::On(false) => Self::Off,
+            Raw::On(true) => Self::Write,
+            Raw::Level(l) => match l.trim().to_ascii_lowercase().as_str() {
+                "off" | "false" | "none" | "" => Self::Off,
+                "read" => Self::Read,
+                "write" => Self::Write,
+                other => return Err(serde::de::Error::custom(format!("files: {other} is not false, \"read\" nor \"write\""))),
+            },
+        })
+    }
+}
+
+#[cfg(feature = "schema")]
+impl schemars::JsonSchema for FileAccess {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "FileAccess".into()
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "description": "false, \"read\" or \"write\"", "anyOf": [{ "type": "boolean" }, { "enum": ["off", "read", "write"] }] })
+    }
+}
+
 fn default_stages() -> String {
     "none".into()
 }
 
 impl Default for ClustersConfig {
     fn default() -> Self {
-        Self { enabled: true, default_context: String::new(), stages: default_stages(), shell: true, usage_history: true, gcp_metrics: true }
+        Self { enabled: true, default_context: String::new(), stages: default_stages(), shell: true, files: FileAccess::Read, usage_history: true, gcp_metrics: true }
     }
 }
 

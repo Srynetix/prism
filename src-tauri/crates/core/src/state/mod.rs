@@ -227,6 +227,8 @@ pub struct Snapshot {
     pub cluster: bool,
     /// A shell in a pod may be opened (`[clusters] shell`, the clusters read).
     pub pod_shell: bool,
+    /// What may be done with a pod's files (`[clusters] files`, the clusters read).
+    pub pod_files: crate::config::FileAccess,
     /// A pod's CPU and memory over time may be shown (`[clusters] usage_history`, the clusters read).
     pub pod_history: bool,
     /// The forge and the repository read (`[forge] enabled`).

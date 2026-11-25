@@ -10,6 +10,7 @@
   import { ago } from '../../time'
   import { t, tn, tc } from '../../i18n.svelte'
   import { openLogs } from '../../pod-logs.svelte'
+  import { openContainerFiles } from '../../container-files.svelte'
   import { call, type BlockProps } from '../block'
   import { containerFailing } from '.'
   import type { DockerContainer, DockerDisk, DockerState } from './types'
@@ -150,6 +151,7 @@
               <span class="acts">
                 {#if hasCore()}
                   <button class="btn sm icon ghost" onclick={() => logs(c)} title={t('Log')} aria-label={t('Log of {name}', { name: c.name })}><Icon name="logs" /></button>
+                  {#if docker?.files && docker.files !== 'off'}<button class="btn sm icon ghost" onclick={() => openContainerFiles({ kind: 'docker', id: c.id }, c.name, { write: docker?.files === 'write' })} title={t('Files')} aria-label={t('Files of {name}', { name: c.name })}><Icon name="folder" /></button>{/if}
                   {#if c.state === 'running'}
                     <button class="btn sm icon ghost" disabled={busy !== null} onclick={() => act(c, 'restart')} title={t('Restart')} aria-label={t('Restart {name}', { name: c.name })}><Icon name="retry" /></button>
                     <button class="btn sm icon ghost" class:armed={arming.is(`stop:${c.id}`)} disabled={busy !== null} onclick={() => act(c, 'stop')} title={arming.is(`stop:${c.id}`) ? t('Click again to stop it') : t('Stop')} aria-label={t('Stop {name}', { name: c.name })}><Icon name="stop" /></button>

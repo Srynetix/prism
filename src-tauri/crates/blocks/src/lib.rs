@@ -5,6 +5,7 @@ pub use prism_core::blocks::*;
 
 mod alerts;
 pub mod changes;
+pub mod container_files;
 pub mod custom;
 pub mod data;
 pub mod dev_servers;

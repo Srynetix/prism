@@ -424,6 +424,7 @@ fn start(hub: &state::Hub, time: &collectors::time::TimeService, team_id: collec
     hub.update(|s| {
         s.cluster = cluster;
         s.pod_shell = cluster && cfg.clusters.shell;
+        s.pod_files = if cluster { cfg.clusters.files } else { Default::default() };
         s.pod_history = cluster && cfg.clusters.usage_history;
         s.gitlab = code;
         s.calendar = cfg.calendar.enabled;

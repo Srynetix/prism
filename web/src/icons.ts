@@ -52,6 +52,7 @@ import Disc3 from '@lucide/svelte/icons/disc-3'
 import Ellipsis from '@lucide/svelte/icons/ellipsis'
 import Eye from '@lucide/svelte/icons/eye'
 import Download from '@lucide/svelte/icons/download'
+import Upload from '@lucide/svelte/icons/upload'
 import EyeOff from '@lucide/svelte/icons/eye-off'
 import GitBranch from '@lucide/svelte/icons/git-branch'
 import FileDiff from '@lucide/svelte/icons/file-diff'
@@ -171,6 +172,7 @@ export const ICONS = {
   show: Eye,
   hide: EyeOff,
   download: Download, // a file or a zip saved
+  upload: Upload, // files sent into a container
   // States
   check: Check, // succeeded, done, approved (✓)
   fail: X, // failed (✗)

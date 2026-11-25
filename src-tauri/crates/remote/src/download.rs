@@ -23,6 +23,12 @@ use crate::{
     Inner,
 };
 
+/// The commands whose answer is a file prepared for a phone (`{name, path}`): an agent's files, a
+/// container's.
+pub(crate) fn prepares(command: &str) -> bool {
+    matches!(command, "agent_files_download" | "container_files_download")
+}
+
 /// How long an address stays good, unfetched.
 const KEPT: Duration = Duration::from_secs(5 * 60);
 

@@ -9,9 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::{Block, BlockCtx};
-use prism_core::remote::Class as RemoteClass;
+use prism_core::{config::FileAccess, remote::Class as RemoteClass};
 
 mod collector;
+pub use collector::files_target;
 mod demo;
 
 pub struct Docker;
@@ -41,7 +42,7 @@ impl Block for Docker {
         let cfg = settings(config)?;
         if cfg.enabled {
             // The block knows it is on before the first read answers.
-            ctx.publish(&DockerState { context: cfg.context.trim().to_string(), reclaimable_gb: cfg.reclaimable_gb, ..Default::default() });
+            ctx.publish(&DockerState { context: cfg.context.trim().to_string(), reclaimable_gb: cfg.reclaimable_gb, files: cfg.files, ..Default::default() });
             prism_base::rt::spawn(collector::run(cfg, ctx));
         }
         Ok(())
@@ -108,6 +109,10 @@ pub struct DockerConfig {
     /// Docker's reclaimable disk (unused images, volumes, build cache) above this: flagged in Alerts. 0: never.
     #[serde(default = "default_reclaimable_gb")]
     pub reclaimable_gb: f64,
+    /// A container's files: `"write"` (default: the computer's own containers) lists, shows,
+    /// downloads and sends files; `"read"` does not send; `false` neither.
+    #[serde(default = "FileAccess::write")]
+    pub files: FileAccess,
 }
 
 fn default_poll() -> u64 {
@@ -135,6 +140,8 @@ pub struct DockerState {
     pub disk_at: Option<DateTime<Utc>>,
     /// Reclaimable disk beyond this many GB is flagged in Alerts (`[docker] reclaimable_gb`); 0: never.
     pub reclaimable_gb: f64,
+    /// What may be done with a container's files (`[docker] files`).
+    pub files: FileAccess,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -208,7 +215,9 @@ mod tests {
     fn the_threshold_moved_from_alerts() {
         let read = |text: &str| settings(&toml::from_str(text).unwrap()).unwrap();
         let none = read("");
-        assert_eq!((none.enabled, none.poll_seconds, none.reclaimable_gb), (false, 15, 10.0));
+        assert_eq!((none.enabled, none.poll_seconds, none.reclaimable_gb, none.files), (false, 15, 10.0, FileAccess::Write));
+        assert_eq!(read("[docker]\nfiles = \"read\"\n").files, FileAccess::Read);
+        assert_eq!(read("[docker]\nfiles = false\n").files, FileAccess::Off);
         assert_eq!(read("[alerts]\ndocker_reclaimable_gb = 25\n").reclaimable_gb, 25.0);
         assert_eq!(read("[alerts]\ndocker_reclaimable_gb = 25\n[docker]\nreclaimable_gb = 0.0\n").reclaimable_gb, 0.0);
     }

@@ -67,6 +67,7 @@
     TicketPanel: once(() => import('../components/TicketPanel.svelte')),
     LogPanel: once(() => import('../components/LogPanel.svelte')),
     PodLogPanel: once(() => import('../components/PodLogPanel.svelte')),
+    ContainerFiles: once(() => import('../components/ContainerFiles.svelte')),
     ThreadPanel: once(() => import('../components/ThreadPanel.svelte')),
     ArgoPanel: once(() => import('../components/ArgoPanel.svelte')),
     OverlapPanel: once(() => import('../components/OverlapPanel.svelte')),
@@ -88,6 +89,7 @@
   import { backTicket, closeTicket, ticketView } from '../ticket-view.svelte'
   import { closeLogs, logs } from '../logs.svelte'
   import { closePodLogs, podLogs } from '../pod-logs.svelte'
+  import { containerFiles } from '../container-files.svelte'
   import { closeThread, threadView } from '../thread.svelte'
   import { argoView, closeArgo } from '../argo-view.svelte'
   import { overlapView, closeOverlap } from '../overlap-view.svelte'
@@ -514,6 +516,7 @@
 {#if ticketView.id}{#await lazy.TicketPanel() then { default: TicketPanel }}<TicketPanel phone />{/await}{/if}
 {#if logs.open}{#await lazy.LogPanel() then { default: LogPanel }}<LogPanel />{/await}{/if}
 {#if podLogs.open}{#await lazy.PodLogPanel() then { default: PodLogPanel }}<PodLogPanel />{/await}{/if}
+{#if containerFiles.open}{#await lazy.ContainerFiles() then { default: ContainerFiles }}<ContainerFiles />{/await}{/if}
 {#if threadView.ref}{#await lazy.ThreadPanel() then { default: ThreadPanel }}<ThreadPanel />{/await}{/if}
 {#if argoView.open}{#await lazy.ArgoPanel() then { default: ArgoPanel }}<ArgoPanel />{/await}{/if}
 {#if overlapView.open}{#await lazy.OverlapPanel() then { default: OverlapPanel }}<OverlapPanel phone />{/await}{/if}

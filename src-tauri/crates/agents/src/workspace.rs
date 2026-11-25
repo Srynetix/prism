@@ -92,8 +92,18 @@ impl Agents {
     /// once, then removes; in its data folder (the owner's only, not a shared /tmp), a new file
     /// never one there already (a link). A folder brings no hidden file (`.env`…) unless named.
     pub async fn prepare_download(&self, id: &str, paths: Vec<String>, name: String) -> Result<files::Prepared> {
-        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let folder = self.dir(id)?;
+        let dest = self.download_slot()?;
+        let to = dest.clone();
+        let name = tokio::task::spawn_blocking(move || files::export(&folder, &paths, &name, files::MAX_DOWNLOAD, false, &to, files::create_private)).await??;
+        Ok(files::Prepared { name, path: dest.display().to_string() })
+    }
+
+    /// A new file of Prism's own for a phone's download (`prepare_download`, a container's files):
+    /// in its data folder (the owner's only, not a shared /tmp), never one there already (a link),
+    /// which the remote serves once, then removes. Refused while too much waits to be fetched.
+    pub fn download_slot(&self) -> Result<std::path::PathBuf> {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let dir = self.inner.work.join("downloads");
         let mut builder = std::fs::DirBuilder::new();
         builder.recursive(true);
@@ -111,17 +121,7 @@ impl Agents {
         if waiting > 2 * files::MAX_DOWNLOAD {
             bail!(tr("downloads are still waiting to be fetched: try again in a few minutes"));
         }
-        let dest = dir.join(format!("{}-{}-{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed), uuid::Uuid::new_v4().simple()));
-        let create = |p: &std::path::Path| {
-            let mut open = std::fs::OpenOptions::new();
-            open.write(true).create_new(true);
-            #[cfg(unix)]
-            std::os::unix::fs::OpenOptionsExt::mode(&mut open, 0o600);
-            open.open(p)
-        };
-        let to = dest.clone();
-        let name = tokio::task::spawn_blocking(move || files::export(&folder, &paths, &name, files::MAX_DOWNLOAD, false, &to, create)).await??;
-        Ok(files::Prepared { name, path: dest.display().to_string() })
+        Ok(dir.join(format!("{}-{}-{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed), uuid::Uuid::new_v4().simple())))
     }
 
     /// Files of its folder's dependencies written since it was launched (`files::deps_changed`).
