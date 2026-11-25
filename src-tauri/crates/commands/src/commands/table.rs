@@ -92,6 +92,8 @@ commands! {
     // Pulled fast-forward only (nothing rebased nor merged): from a phone too, with the actions right.
     agents::worktree_pull: Act [demo: refused] [phone: state, path: String],
     agents::worktree_switch: Act [demo: refused] [phone: state, path: String, branch: String],
+    branches::project_tidy_prepare: Act [demo: refused] [phone: state, repo: String],
+    branches::project_tidy: Critical [demo: refused] [phone: state, repo: String, branches: Vec<String>],
     // A pod's shell (`kubectl exec`): the desk only, the phone never reaches the clusters' insides.
     infra::pod_shells: Never,
     infra::pod_shell: Never,
@@ -101,6 +103,9 @@ commands! {
     infra::container_files_upload: Never [demo: refused],
     infra::container_files_put: Never [demo: refused],
     infra::container_file_save: Never [demo: refused],
+    branches::project_branch_delete: Never [demo: refused],
+    branches::project_branch_worktree: Never [demo: refused],
+    branches::project_switch: Never [demo: refused],
     // Both, listed in the status bar.
     agents::open_shells: Never,
     agents::close_open_shell: Never [demo: refused],
@@ -252,6 +257,7 @@ commands! {
     infra::workload_pods: Read [phone: state, context: String, namespace: String, deployment: String],
     infra::pod_log: Read [phone: state, context: String, namespace: String, pod: String, container: Option<String>, previous: bool, lines: Option<u32>],
     infra::pod_usage_history: Read [phone: state, context: String, namespace: String, pod: String, minutes: u32],
+    branches::project_branches: Read [phone: state, repo: String],
     infra::container_files: Read [phone: state, target: crate::blocks::container_files::ContainerRef, path: String],
     infra::container_file_text: Read [phone: state, target: crate::blocks::container_files::ContainerRef, path: String],
     infra::container_files_download: Read [phone: state, target: crate::blocks::container_files::ContainerRef, path: String, dir: bool],

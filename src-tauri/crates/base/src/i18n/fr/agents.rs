@@ -200,4 +200,13 @@ pub const TABLE: &[(&str, &str)] = &[
     ("the exploration took more than {s} s: ask a narrower question", "l’exploration a pris plus de {s} s : posez une question plus précise"),
     ("the exploration failed: {why}", "l’exploration a échoué : {why}"),
     ("Command Code cannot explore a repository on its own: pick another CLI for the assistant ([agents.assistant] provider)", "Command Code ne sait pas explorer un repo seul : choisissez un autre CLI pour l’assistant ([agents.assistant] provider)"),
+    // Projects › Branches
+    ("a protected branch", "une branche protégée"),
+    ("the clone is on it", "le clone est dessus"),
+    ("the agent “{title}” works on it", "l'agent « {title} » travaille dessus"),
+    ("its MR is open", "sa MR est ouverte"),
+    ("MR merged", "MR mergée"),
+    ("gone from origin", "disparue d'origin"),
+    ("already in {base}", "déjà dans {base}"),
+    ("{branch} is kept: {why}", "{branch} est gardée : {why}"),
 ];

@@ -677,6 +677,7 @@ mod tests {
     fn a_routed_command_gets_its_arguments_in_its_order() {
         let sources = [
             include_str!("commands/agents.rs"),
+            include_str!("commands/branches.rs"),
             include_str!("commands/config.rs"),
             include_str!("commands/feedback.rs"),
             include_str!("commands/forge.rs"),

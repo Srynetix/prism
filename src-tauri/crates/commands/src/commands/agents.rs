@@ -56,7 +56,11 @@ pub async fn agent_remove_scratch(state: State<'_, AppState>, id: String) -> Cmd
 /// is working in it.
 #[prism_macros::command]
 pub async fn worktree_remove(state: State<'_, AppState>, path: String, force: Option<bool>) -> Cmd {
-    let force = force.unwrap_or(false);
+    remove_worktree(&state, path, force.unwrap_or(false)).await
+}
+
+/// `worktree_remove`'s work, a project's branch deleted with its worktree too (`branches`).
+pub(crate) async fn remove_worktree(state: &AppState, path: String, force: bool) -> Cmd {
     let merged_at = {
         let snap = state.hub.subscribe();
         let snap = snap.borrow();

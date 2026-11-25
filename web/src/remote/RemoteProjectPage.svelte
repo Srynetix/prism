@@ -10,6 +10,7 @@
   import { nextOf } from '../project-actions'
   import { byActivity, projectSummaries, ticketsFor, waitingAgent, type Stage, type Workstream } from '../workstreams'
   import NewWorkstream from '../components/NewWorkstream.svelte'
+  import ProjectBranches from '../components/ProjectBranches.svelte'
   import Icon from '../components/Icon.svelte'
   import State from '../components/ui/State.svelte'
   import type { Snapshot } from '../types'
@@ -17,7 +18,8 @@
   /**
    * A project on the phone: its workstreams as cards, by stage (in progress, in review, done · to
    * clean up, to pick up), each with its agents (a tap opens one), its ticket and its MR; « New
-   * workstream » at the bottom opens the launcher's sheet, prefilled. Reached from « By project »
+   * workstream » at the bottom opens the launcher's sheet, prefilled; its branches below, read only,
+   * tidied up with the passkey. Reached from « By project »
    * and from an agent's card, one tap away.
    */
   let { snap, repo, acts, onback }: { snap: Snapshot; repo: string; acts: boolean; onback: () => void } = $props()
@@ -59,6 +61,7 @@
     {#if acts && p.repo}
       <div class="new"><NewWorkstream repo={p.name} tickets={ticketsFor(snap, p.name, p.workstreams, nextOf(p.name))} direct={false} /></div>
     {/if}
+    {#if p.repo}<div class="br">{#key p.name}<ProjectBranches repo={p.name} tidyable={acts} />{/key}</div>{/if}
   {/if}
 </div>
 
@@ -82,4 +85,5 @@
   .what.asks { color: var(--warn); font-weight: 600; }
   .tm { color: var(--text-muted); font-size: var(--fs-tag); }
   .new { margin: 12px 10px 0; }
+  .br { margin: 4px 10px 0; }
 </style>

@@ -3,6 +3,7 @@
 //! a phone's.
 
 pub mod agents;
+pub mod branches;
 pub mod assistant;
 pub mod system;
 pub mod infra;
@@ -59,6 +60,12 @@ pub type Cmd<T = ()> = Result<T, CmdError>;
 impl serde::Serialize for CmdError {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.serialize_str(&self.0)
+    }
+}
+
+impl std::fmt::Display for CmdError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 

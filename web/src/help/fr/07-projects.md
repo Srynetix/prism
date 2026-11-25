@@ -24,6 +24,13 @@ Où en est mon travail ? La page **Projets** montre chaque dépôt comme un proj
 - **À reprendre** : le dernier agent fermé dans le projet (**Rouvrir** ramène sa conversation), et les chantiers où rien ne tourne et aucune MR n’est ouverte : un worktree fait à la main, un agent arrêté (**Reprendre**, ou **Agent ici**).
 - **Le dépôt** : son clone, **Tirer** (en avance rapide seulement), et un lien vers ses réglages.
 
+## Branches
+Sous les chantiers, **Branches** liste les branches locales du clone, les plus récentes d’abord : dernier commit, worktree, MR, ↑↓ par rapport à sa branche d’origin, +/− par rapport à la base, et un verdict. **Sûre** (en vert) : terminée, sans rien à perdre : sa MR mergée (en squash aussi), disparue d’origin ou déjà dans la base, sans commit absent de toute branche distante ni changement dans son worktree. Une branche protégée, celle du clone ou celle où travaille un agent n’est jamais supprimée.
+
+Sur l’ordinateur, chaque branche propose **Worktree** (un worktree à côté du clone, sans agent), **Basculer le clone**, **Agent ici** dans son worktree, et **Supprimer** au second clic, son worktree avec elle. Ce qui perdrait des commits ou des changements ne part que par **Forcer**, qui dit ce qui est perdu. Rien n’est supprimé sur la forge.
+
+**Faire le ménage** relit origin et l’élague (`fetch --prune`, `worktree prune`), puis liste les branches sûres, cochées : **Supprimer** les retire, chacune revérifiée, et dit ce qui a été supprimé, ce qui a été gardé et pourquoi. Sur le téléphone, les branches sont en lecture, et **Faire le ménage** demande la passkey. L’onglet Nettoyage compte les branches sûres de chaque projet, avec son propre **Faire le ménage**.
+
 ## Nettoyer
 Un chantier terminé montre le même verdict que le bloc Worktrees : **Rien à perdre**, ou ce qu’une suppression perdrait. **Supprimer le worktree** se fait en deux clics ; quand du travail serait perdu, le second dit lequel. **Archiver** le retire de la liste jusqu’à un nouveau commit ou changement.
 

@@ -24,6 +24,13 @@ On the left, the projects, grouped by working folder (`[[workspaces]]`). Each on
 - **To pick up**: the last agent closed in it (**Reopen** brings its conversation back), and the workstreams where nothing runs and no MR is open: a worktree made by hand, an agent stopped (**Resume**, or **Agent here**).
 - **The repository**: its clone, **Pull** (fast-forward only), and a link to its settings.
 
+## Branches
+Below the workstreams, **Branches** lists the clone's local branches, most recent first: last commit, worktree, MR, ↑↓ against its origin branch, +/− against the base, and a verdict. **Safe** (green): done, with nothing to lose: its MR merged (a squash too), gone from origin, or already in the base, with no commit on no remote branch and no change in its worktree. A protected branch, the clone's, or one an agent works on is never deleted.
+
+On the computer, each branch offers **Worktree** (one next to the clone, without an agent), **Switch the clone**, **Agent here** in its worktree, and **Delete** at a second click, its worktree with it. What would lose commits or changes only goes by **Force**, which says what is lost. Nothing is deleted on the forge.
+
+**Tidy up** reads origin again and prunes it (`fetch --prune`, `worktree prune`), then lists the safe branches, ticked: **Delete** removes them, each checked again, and says what was deleted and what was kept, and why. On the phone, branches are read only, and **Tidy up** asks for the passkey. The Cleanup tab counts each project's safe branches, with a **Tidy up** of its own.
+
 ## Cleaning up
 A workstream done shows the same verdict as the Worktrees block: **Nothing to lose**, or what a removal would lose. **Remove the worktree** takes two clicks; when work would be lost, the second click says what. **Archive** takes it out of the list until a new commit or change.
 
