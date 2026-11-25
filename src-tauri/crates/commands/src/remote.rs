@@ -163,6 +163,47 @@ fn usage_shown(snap: &crate::state::Snapshot, a: &Value) -> bool {
     shown_workload(snap, a) || snap.pods.iter().any(|p| p.context == field("context") && p.namespace == field("namespace") && p.name == field("pod"))
 }
 
+/// The container whose files a phone asks for (`target`): one of the Docker block's (checked by
+/// it), or a pod whose logs or usage the phone may already read, not any pod of a namespace an
+/// environment covers.
+fn files_shown(snap: &crate::state::Snapshot, a: &Value) -> bool {
+    let target = a.get("target").unwrap_or(&Value::Null);
+    match target.get("kind").and_then(Value::as_str) {
+        Some("docker") => true,
+        Some("pod") => usage_shown(snap, target),
+        _ => false,
+    }
+}
+
+/// The commands that read a container's files from a phone.
+const CONTAINER_READS: [&str; 3] = ["container_files", "container_file_text", "container_files_download"];
+
+/// A container's file a phone reads only with its passkey: a folder downloaded whole (it may hold
+/// anything), or a path that looks like a secret (a hidden file, a key, a token, the process'
+/// environment, Kubernetes' service account). Listing a folder shows names only: never one.
+fn container_secret(command: &str, a: &Value) -> bool {
+    if command != "container_file_text" && command != "container_files_download" {
+        return false;
+    }
+    if command == "container_files_download" && a.get("dir").and_then(Value::as_bool).unwrap_or(true) {
+        return true;
+    }
+    secret_path(a.get("path").and_then(Value::as_str).unwrap_or_default())
+}
+
+/// A path of a container that looks like a secret.
+fn secret_path(path: &str) -> bool {
+    const UNDER: [&str; 7] = ["/proc", "/sys", "/root", "/run/secrets", "/var/run/secrets", "/etc/shadow", "/etc/gshadow"];
+    const NAMED: [&str; 6] = ["secret", "token", "credential", "password", "private", "id_rsa"];
+    const ENDS: [&str; 7] = [".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".kubeconfig"];
+    let lower = path.to_lowercase();
+    let name = lower.rsplit('/').next().unwrap_or_default();
+    lower.split('/').any(|part| part.starts_with('.') && part != "." && part != "..")
+        || UNDER.iter().any(|u| lower == *u || lower.starts_with(&format!("{u}/")))
+        || NAMED.iter().any(|n| name.contains(n))
+        || ENDS.iter().any(|e| name.ends_with(e))
+}
+
 async fn dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Value> {
     use commands::{agents as ag, feedback as fb, infra as inf};
     // The window's guard (`commands::handler`), which a phone's calls do not go through.
@@ -184,6 +225,9 @@ async fn dispatch(state: Arc<AppState>, command: String, a: Value) -> Result<Val
         // A pod's usage: also a Pods block's, whose usage of the moment the phone already has.
         "pod_usage_history" if !usage_shown(&State(&state).hub.subscribe().borrow(), &a) => {
             bail!(tr("from a phone, only the usage of a pod the Pods or Environments block shows"))
+        }
+        c if CONTAINER_READS.contains(&c) && !files_shown(&State(&state).hub.subscribe().borrow(), &a) => {
+            bail!(tr("from a phone, only the files of a pod the Pods or Environments block shows"))
         }
         // A task of the agent's folder, its line as detected, never one the page would write.
         "agent_run" => {
@@ -392,7 +436,7 @@ impl prism_remote::Host for Host {
         }
         // Prism still starting: nothing it cannot class yet (a hidden file would pass as Read).
         let state = self.state().ok()?;
-        if secret_file(&state, command, args) {
+        if secret_file(&state, command, args) || container_secret(command, args) {
             return Some(prism_core::remote::Class::Critical);
         }
         commands::remote::class(command)
@@ -555,6 +599,31 @@ mod tests {
         assert!(usage(serde_json::json!({ "context": p.context, "namespace": p.namespace, "pod": p.name })));
         assert!(usage(serde_json::json!({ "context": env.context, "namespace": env.namespace, "pod": format!("{w}-7f9c-x2") })));
         assert!(!usage(serde_json::json!({ "context": p.context, "namespace": "kube-system", "pod": p.name })), "another namespace");
+    }
+
+    /// A phone reads the files of the containers it may read the logs or usage of, nothing else;
+    /// a secret, or a whole folder, with its passkey.
+    #[test]
+    fn a_phone_reads_the_files_prism_shows_and_secrets_with_its_passkey() {
+        use serde_json::json;
+        let hub = crate::state::Hub::new();
+        crate::demo::fill(&hub, chrono::Utc::now());
+        let snap = hub.subscribe().borrow().clone();
+        let p = &snap.pods[0];
+        let shown = |v: serde_json::Value| super::files_shown(&snap, &v);
+        assert!(shown(json!({ "target": { "kind": "pod", "context": p.context, "namespace": p.namespace, "pod": p.name, "container": null } })));
+        assert!(!shown(json!({ "target": { "kind": "pod", "context": p.context, "namespace": p.namespace, "pod": "vault-0", "container": null } })), "another pod of the namespace");
+        assert!(shown(json!({ "target": { "kind": "docker", "id": "c1" } })));
+        assert!(!shown(json!({ "path": "/" })));
+
+        let secret = |command: &str, v: serde_json::Value| super::container_secret(command, &v);
+        assert!(!secret("container_files", json!({ "path": "/var/run/secrets" })), "names only");
+        assert!(!secret("container_file_text", json!({ "path": "/app/config.yml" })));
+        assert!(!secret("container_files_download", json!({ "path": "/var/log/app.log", "dir": false })));
+        assert!(secret("container_files_download", json!({ "path": "/var/log", "dir": true })), "a whole folder");
+        for path in ["/var/run/secrets/kubernetes.io/serviceaccount/token", "/proc/1/environ", "/app/.env", "/etc/ssl/private/site.key", "/root/notes.txt", "/srv/db-password.txt", "/home/app/.ssh/id_rsa"] {
+            assert!(secret("container_file_text", json!({ "path": path })), "{path}");
+        }
     }
 
     /// Every command that reads or acts is answered from a phone, but the snapshot and the

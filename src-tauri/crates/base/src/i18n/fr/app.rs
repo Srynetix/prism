@@ -147,6 +147,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("The system’s dictation is macOS’s only: choose whisper", "La dictée du système n’existe que sur macOS : choisissez whisper"),
     ("ask something", "demandez quelque chose"),
     // A container's files (commands/infra.rs).
+    ("from a phone, only the files of a pod the Pods or Environments block shows", "depuis un téléphone, seuls les fichiers d'un pod que montrent les blocs Pods ou Environnements"),
     ("a pod's files are off ([clusters] files)", "les fichiers d'un pod sont désactivés ([clusters] files)"),
     ("sending files into a container is off ({key} = \"write\")", "l'envoi de fichiers dans un conteneur est désactivé ({key} = \"write\")"),
 ];

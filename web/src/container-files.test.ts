@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('./bridge', () => ({ invoke: vi.fn(() => Promise.resolve(null)), isDesktop: () => false }))
-vi.mock('./live.svelte', () => ({ live: { snapshot: { environments: { envs: [{ context: 'gke_prod', env: 'prod' }, { context: 'gke_staging', env: 'staging' }] } } } }))
+vi.mock('./live.svelte', () => ({
+  live: {
+    snapshot: {
+      stages: [{ role: 'production', name: 'production', env: 'clients' }],
+      environments: { envs: [{ context: 'cluster-a', env: 'prod' }, { context: 'gke_staging', env: 'staging' }, { context: 'cluster-b', env: 'prd' }, { context: 'cluster-c', env: 'clients' }] },
+    },
+  },
+}))
 
 const { crumbs, downloadName, isProdContext, joinPath, parentPath, replacedBy } = await import('./container-files.svelte')
 
@@ -28,8 +35,14 @@ describe('container paths', () => {
   })
 
   it('knows a production context', () => {
-    expect(isProdContext('gke_prod')).toBe(true)
+    expect(isProdContext('cluster-a')).toBe(true)
+    expect(isProdContext('cluster-b')).toBe(true)
+    // The production stage's environment, whatever its name.
+    expect(isProdContext('cluster-c')).toBe(true)
+    // A Pods block's context no environment names, prod by its own name.
+    expect(isProdContext('gke_acme-production_europe-west9-a_prod')).toBe(true)
     expect(isProdContext('gke_staging')).toBe(false)
     expect(isProdContext('kind-local')).toBe(false)
+    expect(isProdContext('products-dev')).toBe(false)
   })
 })

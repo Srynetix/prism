@@ -141,10 +141,14 @@ pub async fn container_files_export(state: State<'_, AppState>, target: Containe
     c.save(&path, dir, std::path::Path::new(&dest), crate::agents::files::MAX_DOWNLOAD, |p| std::fs::File::create(p)).await.map_err(Into::into)
 }
 
-/// The same made ready for a phone: a file of Prism's own the remote serves it once.
+/// The same made ready for a phone: a file of Prism's own the remote serves it once, one at a time.
 #[prism_macros::command]
 pub async fn container_files_download(state: State<'_, AppState>, target: ContainerRef, path: String, dir: bool) -> Cmd<crate::agents::files::Prepared> {
     let c = files_container(&state, &target, false)?;
+    // One at a time: each may write up to 256 MB before the remote serves it, and the room left is
+    // counted from what is already written.
+    static ONE: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(1);
+    let _turn = ONE.acquire().await.map_err(|e| e.to_string())?;
     let dest = state.agents.download_slot()?;
     c.save(&path, dir, &dest, crate::agents::files::MAX_DOWNLOAD, crate::agents::files::create_private).await?;
     let base = path.trim_end_matches('/').rsplit('/').next().filter(|s| !s.is_empty()).unwrap_or("root");

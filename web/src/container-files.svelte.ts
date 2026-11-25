@@ -87,9 +87,19 @@ export function replacedBy(names: string[], listing: ContainerListing | null): s
   return names.filter((n) => there.has(n))
 }
 
-/** A pod of a production environment (`[[environments]] env = "prod"` on its context). */
+/** A production environment's name: `prod`, `prd`, `production`, `live`, alone or as a word. */
+const PROD = /(^|[^a-z])(prod|prd|production|live)([^a-z]|$)/i
+
+/**
+ * A pod of production: an environment on its context whose name is the production stage's
+ * (`[clusters] stages`, its `production` role) or reads as one, or a context whose own name does
+ * (`gke_acme-production_…`, a Pods block's target no environment names).
+ */
 export function isProdContext(context: string): boolean {
-  return (live.snapshot?.environments?.envs ?? []).some((e) => e.context === context && /^prod/i.test(e.env))
+  const snap = live.snapshot
+  const prodEnvs = new Set((snap?.stages ?? []).filter((s) => s.role === 'production').map((s) => s.env.toLowerCase()))
+  const envs = (snap?.environments?.envs ?? []).filter((e) => e.context === context)
+  return envs.some((e) => prodEnvs.has(e.env.toLowerCase()) || PROD.test(e.env)) || PROD.test(context)
 }
 
 export function openContainerFiles(target: ContainerRef, label: string, opts: { write: boolean; prod?: boolean }) {

@@ -26,8 +26,10 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 const MAX_ENTRIES: usize = 5000;
 /// A text file shown up to this many bytes.
 pub const TEXT_MAX: usize = 1 << 20;
-/// How long a listing or a read waits for the container.
+/// How long a listing or a read waits for the container; a transfer, for its next bytes.
 const WAIT: Duration = Duration::from_secs(30);
+/// A send is given this many bytes a second, beyond `WAIT`, before it is given up.
+const SLOW_LINK: u64 = 256 << 10;
 
 /// A container, as the window names it.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -190,7 +192,7 @@ impl Container {
         if code == Some(3) {
             return anyhow!(tr!("{path}: no such folder in the container", path = path));
         }
-        if lower.contains("is not running") || lower.contains("container not found") && matches!(self, Self::Docker { .. }) {
+        if (lower.contains("is not running") || lower.contains("container not found")) && matches!(self, Self::Docker { .. }) {
             return anyhow!(tr("This container is stopped: start it to list its files. A file whose path you know still downloads."));
         }
         if lower.contains("executable file not found") || lower.contains("no such file or directory: unknown") || lower.contains("exec: \"sh\"") {
@@ -207,7 +209,7 @@ impl Container {
     pub async fn list(&self, path: &str) -> Result<ContainerListing> {
         let dir = if path.trim().is_empty() { "." } else { absolute(path)? };
         let run = self.exec(false, &["sh", "-c", LIST, "sh", dir]).stdin(Stdio::null()).output();
-        let out = tokio::time::timeout(WAIT, run).await.map_err(|_| anyhow!(tr("the container did not answer in time")))?.with_context(|| tr!("{program} not found", program = self.program()))?;
+        let out = tokio::time::timeout(WAIT, run).await.map_err(|_| late())?.with_context(|| tr!("{program} not found", program = self.program()))?;
         if !out.status.success() {
             return Err(self.failure(&out.stderr, out.status.code(), dir));
         }
@@ -222,13 +224,14 @@ impl Container {
         let mut bytes = Vec::new();
         let mut capped = (&mut stdout).take(TEXT_MAX as u64 + 1);
         let read = capped.read_to_end(&mut bytes);
-        tokio::time::timeout(WAIT, read).await.map_err(|_| anyhow!(tr("the container did not answer in time")))??;
+        tokio::time::timeout(WAIT, read).await.map_err(|_| late())??;
         let truncated = bytes.len() > TEXT_MAX;
         if truncated {
             bytes.truncate(TEXT_MAX);
             let _ = child.start_kill();
         } else {
-            let out = child.wait_with_output().await?;
+            // Killed on the way out (`kill_on_drop`) if it hangs once its output is read.
+            let out = tokio::time::timeout(WAIT, child.wait_with_output()).await.map_err(|_| late())??;
             if !out.status.success() {
                 return Err(self.failure(&out.stderr, out.status.code(), path));
             }
@@ -237,17 +240,25 @@ impl Container {
     }
 
     /// `path` written to `dest`: a file as it is, a folder (`dir`) as a `.tar.gz`; refused beyond
-    /// `max` bytes (`dest` removed then). `create` makes `dest`.
+    /// `max` bytes. Written beside it first, then renamed: a failure leaves a file already at
+    /// `dest` (one the save dialog replaces) as it was. `create` makes the files written.
     pub async fn save(&self, path: &str, dir: bool, dest: &Path, max: u64, create: fn(&Path) -> std::io::Result<std::fs::File>) -> Result<()> {
         let path = absolute(path)?;
-        let done = self.save_into(path, dir, dest, max, create).await;
+        let part = beside(dest, "prism-part");
+        let _ = std::fs::remove_file(&part);
+        let done = match self.save_into(path, dir, &part, max, create).await {
+            Ok(()) => std::fs::rename(&part, dest).with_context(|| format!("writing {}", dest.display())),
+            Err(e) => Err(e),
+        };
         if done.is_err() {
-            let _ = std::fs::remove_file(dest);
+            let _ = std::fs::remove_file(&part);
         }
         done
     }
 
     async fn save_into(&self, path: &str, dir: bool, dest: &Path, max: u64, create: fn(&Path) -> std::io::Result<std::fs::File>) -> Result<()> {
+        let gz = |file| flate2::write::GzEncoder::new(file, flate2::Compression::default());
+        let gz_end = |gz: flate2::write::GzEncoder<std::fs::File>| gz.finish().and_then(|f| f.sync_all());
         match (self, dir) {
             // Docker: a tar of it, even from a stopped container or one without a shell.
             (Self::Docker { context, id }, _) => {
@@ -255,47 +266,42 @@ impl Container {
                 // `-L`: a link (`/etc/os-release` on Alpine) gives what it points to.
                 cmd.args(["cp", "-L", &format!("{id}:{path}"), "-"]).kill_on_drop(true);
                 if dir {
-                    let file = create(dest)?;
-                    self.pipe(cmd, path, max, flate2::write::GzEncoder::new(file, flate2::Compression::default()), |gz| gz.finish().map(drop)).await
+                    self.pipe(cmd, path, max, gz(create(dest)?), gz_end).await
                 } else {
                     // The tar beside where the file goes, then the file taken out of it.
-                    let part = part_of(dest);
-                    let _ = std::fs::remove_file(&part);
-                    let tar = std::fs::File::create(&part)?;
-                    let piped = self.pipe(cmd, path, max.saturating_add(1 << 20), tar, |f| f.sync_all()).await;
+                    let tar = beside(dest, "tar");
+                    let piped = self.pipe(cmd, path, max.saturating_add(1 << 20), create(&tar)?, |f| f.sync_all()).await;
                     let out = match piped {
                         Ok(()) => {
-                            let (part, dest) = (part.clone(), dest.to_path_buf());
-                            tokio::task::spawn_blocking(move || untar_one(&part, &dest, max, create)).await?
+                            let (tar, dest) = (tar.clone(), dest.to_path_buf());
+                            tokio::task::spawn_blocking(move || untar_one(&tar, &dest, max, create)).await?
                         }
                         Err(e) => Err(e),
                     };
-                    let _ = std::fs::remove_file(&part);
+                    let _ = std::fs::remove_file(&tar);
                     out
                 }
             }
-            (Self::Pod { .. }, false) => {
-                let file = create(dest)?;
-                self.pipe(self.exec(false, &["cat", "--", path]), path, max, file, |f| f.sync_all()).await
-            }
+            (Self::Pod { .. }, false) => self.pipe(self.exec(false, &["cat", "--", path]), path, max, create(dest)?, |f| f.sync_all()).await,
             (Self::Pod { .. }, true) => {
                 let parent = match path.trim_end_matches('/').rsplit_once('/') {
                     Some(("", _)) | None => "/",
                     Some((p, _)) => p,
                 };
                 let name = if path.trim_end_matches('/').is_empty() { "." } else { base_name(path) };
-                let file = create(dest)?;
-                let gz = flate2::write::GzEncoder::new(file, flate2::Compression::default());
-                self.pipe(self.exec(false, &["tar", "cf", "-", "-C", parent, "--", name]), path, max, gz, |gz| gz.finish().map(drop))
+                let no_shell = tr("This container has no shell (a minimal image): its files cannot be listed nor read.");
+                self.pipe(self.exec(false, &["tar", "cf", "-", "-C", parent, "--", name]), path, max, gz(create(dest)?), gz_end)
                     .await
-                    .map_err(|e| if e.to_string().contains(tr("This container has no shell (a minimal image): its files cannot be listed nor read.")) || e.to_string().contains("\"tar\"") { anyhow!(tr("This container has no tar: a folder cannot be downloaded from it, its files can, one by one.")) } else { e })
+                    .map_err(|e| if e.to_string().contains(no_shell) || e.to_string().contains("\"tar\"") { anyhow!(tr("This container has no tar: a folder cannot be downloaded from it, its files can, one by one.")) } else { e })
             }
         }
     }
 
-    /// `cmd`'s output written to `out`, then `end` (a gzip's last bytes); its failure said.
-    async fn pipe<W: Write>(&self, mut cmd: tokio::process::Command, path: &str, max: u64, mut out: W, end: impl FnOnce(W) -> std::io::Result<()>) -> Result<()> {
-        let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().with_context(|| tr!("{program} not found", program = self.program()))?;
+    /// `cmd`'s output written to `out`, then `end` (a gzip's last bytes); its failure said. The
+    /// disk and the compression on a thread of their own, not the async runtime's; a container
+    /// that sends nothing for `WAIT` is given up (and its command killed).
+    async fn pipe<W: Write + Send + 'static>(&self, mut cmd: tokio::process::Command, path: &str, max: u64, mut out: W, end: impl FnOnce(W) -> std::io::Result<()> + Send + 'static) -> Result<()> {
+        let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true).spawn().with_context(|| tr!("{program} not found", program = self.program()))?;
         let mut stdout = child.stdout.take().context("no output")?;
         let mut stderr = child.stderr.take().context("no errors")?;
         let errors = tokio::spawn(async move {
@@ -303,17 +309,28 @@ impl Container {
             let _ = stderr.read_to_end(&mut e).await;
             e
         });
-        let copied = copy_capped(&mut stdout, &mut out, max).await;
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(8);
+        let writer = tokio::task::spawn_blocking(move || -> std::io::Result<W> {
+            while let Some(chunk) = rx.blocking_recv() {
+                out.write_all(&chunk)?;
+            }
+            Ok(out)
+        });
+        let copied = copy_capped(&mut stdout, &tx, max).await;
+        drop(tx);
+        let written = writer.await?;
         if let Err(e) = copied {
             let _ = child.start_kill();
-            return Err(e);
+            // The disk's failure, when it made the copy stop.
+            return Err(written.err().map(anyhow::Error::from).unwrap_or(e));
         }
-        let status = child.wait().await?;
+        let out = written?;
+        let status = tokio::time::timeout(WAIT, child.wait()).await.map_err(|_| late())??;
         let err = errors.await.unwrap_or_default();
         if !status.success() {
             return Err(self.failure(&err, status.code(), path));
         }
-        end(out)?;
+        tokio::task::spawn_blocking(move || end(out)).await??;
         Ok(())
     }
 
@@ -325,36 +342,42 @@ impl Container {
             ensure!(meta.is_file(), tr!("{path}: only files can be sent, not a folder", path = src.display().to_string()));
             ensure!(src.is_absolute(), "not an absolute path: {}", src.display());
             let name = src.file_name().and_then(|n| n.to_str()).with_context(|| tr!("{path}: a name the container cannot take", path = src.display().to_string()))?;
-            self.send(dir, src, name).await?;
+            self.send(dir, src, name, meta.len()).await?;
         }
         Ok(sources.len())
     }
 
-    /// Bytes (a file dropped on the window) sent into the folder `dir` as `name`.
+    /// Bytes (a file dropped on the window) sent into the folder `dir` as `name`: written first to
+    /// a folder only its owner reads (on Linux, `/tmp` is everyone's), removed after.
     pub async fn put(&self, dir: &str, name: &str, bytes: &[u8]) -> Result<()> {
         file_name(name)?;
         let tmp = std::env::temp_dir().join(format!("prism-put-{}", uuid::Uuid::new_v4().simple()));
-        std::fs::create_dir(&tmp)?;
+        let mut folder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        std::os::unix::fs::DirBuilderExt::mode(&mut folder, 0o700);
+        folder.create(&tmp)?;
         let src = tmp.join(name);
         let sent = async {
-            std::fs::write(&src, bytes)?;
-            self.send(dir, &src, name).await
+            prism_agents::files::create_private(&src)?.write_all(bytes)?;
+            self.send(dir, &src, name, bytes.len() as u64).await
         }
         .await;
         let _ = std::fs::remove_dir_all(&tmp);
         sent
     }
 
-    /// The local file `src` written into the folder `dir` as `name`, replacing one there.
-    async fn send(&self, dir: &str, src: &Path, name: &str) -> Result<()> {
+    /// The local file `src` (`size` bytes) written into the folder `dir` as `name`, replacing one
+    /// there. Given up (its command killed) when it takes longer than `WAIT` plus a slow link's
+    /// time for its size.
+    async fn send(&self, dir: &str, src: &Path, name: &str, size: u64) -> Result<()> {
         let dir = absolute(dir)?.trim_end_matches('/');
         file_name(name)?;
         let to = format!("{dir}/{name}");
-        let out = match self {
-            Self::Docker { context, id } => Self::docker_cli(context).arg("cp").arg(src).arg(format!("{id}:{to}")).stdin(Stdio::null()).kill_on_drop(true).output().await,
-            Self::Pod { .. } => self.exec(true, &["sh", "-c", WRITE, "sh", &to]).stdin(Stdio::from(std::fs::File::open(src)?)).output().await,
-        }
-        .with_context(|| tr!("{program} not found", program = self.program()))?;
+        let run = match self {
+            Self::Docker { context, id } => Self::docker_cli(context).arg("cp").arg(src).arg(format!("{id}:{to}")).stdin(Stdio::null()).kill_on_drop(true).output(),
+            Self::Pod { .. } => self.exec(true, &["sh", "-c", WRITE, "sh", &to]).stdin(Stdio::from(std::fs::File::open(src)?)).output(),
+        };
+        let out = tokio::time::timeout(WAIT + Duration::from_secs(size / SLOW_LINK), run).await.map_err(|_| late())?.with_context(|| tr!("{program} not found", program = self.program()))?;
         if !out.status.success() {
             return Err(self.failure(&out.stderr, out.status.code(), if dir.is_empty() { "/" } else { dir }));
         }
@@ -363,25 +386,32 @@ impl Container {
     }
 }
 
+/// The container stopped answering.
+fn late() -> anyhow::Error {
+    anyhow!(tr("the container did not answer in time"))
+}
+
 /// A file's name, as the container takes it: one segment, on one line.
 fn file_name(name: &str) -> Result<()> {
     ensure!(!name.is_empty() && name != "." && name != ".." && !name.contains(['/', '\\', '\n', '\0']), tr!("{path}: a name the container cannot take", path = name));
     Ok(())
 }
 
-/// Where a Docker file's tar waits beside its destination.
-fn part_of(dest: &Path) -> PathBuf {
+/// A file beside `dest`, its name followed by `.<what>`: where a download is written before it
+/// takes `dest`'s place.
+fn beside(dest: &Path, what: &str) -> PathBuf {
     let mut name = dest.file_name().unwrap_or_default().to_os_string();
-    name.push(".prism-part");
+    name.push(format!(".{what}"));
     dest.with_file_name(name)
 }
 
-/// `from` copied into `to`, refused beyond `max` bytes.
-async fn copy_capped<R: AsyncRead + Unpin, W: Write>(from: &mut R, to: &mut W, max: u64) -> Result<()> {
+/// `from` sent to the writer (`to`) chunk by chunk, refused beyond `max` bytes; given up when
+/// nothing comes for `WAIT`, or when the writer stopped (its error said by the caller).
+async fn copy_capped<R: AsyncRead + Unpin>(from: &mut R, to: &tokio::sync::mpsc::Sender<Vec<u8>>, max: u64) -> Result<()> {
     let mut buf = vec![0u8; 64 << 10];
     let mut total = 0u64;
     loop {
-        let n = from.read(&mut buf).await?;
+        let n = tokio::time::timeout(WAIT, from.read(&mut buf)).await.map_err(|_| late())??;
         if n == 0 {
             return Ok(());
         }
@@ -389,7 +419,7 @@ async fn copy_capped<R: AsyncRead + Unpin, W: Write>(from: &mut R, to: &mut W, m
         if total > max {
             bail!(tr!("over {size} MB: too big to download", size = (max >> 20).to_string()));
         }
-        to.write_all(&buf[..n])?;
+        to.send(buf[..n].to_vec()).await.map_err(|_| anyhow!("the file could not be written"))?;
     }
 }
 
@@ -539,6 +569,9 @@ mod tests {
         assert!(said("Error response from daemon: container c1 is not running", Some(1)).contains("stopped"));
         assert!(said("OCI runtime exec failed: exec failed: unable to start container process: exec: \"sh\": executable file not found in $PATH: unknown", Some(126)).contains("no shell"));
         assert_eq!(said("permission denied\n", Some(1)), "docker: permission denied");
+        // A pod not running: kubectl's words, not Docker's promise of a download.
+        let pod = Container::pod("ctx", "apps", "api-1", None).unwrap();
+        assert_eq!(pod.failure(b"error: cannot exec into a container in a completed pod; current phase is Succeeded: pod api-1 is not running", Some(1), "/x").to_string(), "kubectl: error: cannot exec into a container in a completed pod; current phase is Succeeded: pod api-1 is not running");
     }
 
     #[test]
@@ -619,6 +652,11 @@ mod real {
         assert!(!tmp.join("etc-as-file").exists());
         assert!(c.save("/etc", true, &tmp.join("small.tar.gz"), 10, create).await.unwrap_err().to_string().contains("too big"));
         assert!(!tmp.join("small.tar.gz").exists());
+        // A failed download leaves the file it was to replace as it was, and nothing beside it.
+        std::fs::write(tmp.join("kept"), "mine").unwrap();
+        assert!(c.save("/nowhere/at/all", false, &tmp.join("kept"), 1 << 20, create).await.is_err());
+        assert_eq!(std::fs::read_to_string(tmp.join("kept")).unwrap(), "mine");
+        assert_eq!(std::fs::read_dir(&tmp).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().contains(".prism-part") || e.file_name().to_string_lossy().ends_with(".tar")).count(), 0);
 
         std::fs::write(tmp.join("sent file.txt"), "from prism\n").unwrap();
         c.upload("/tmp", &[tmp.join("sent file.txt")]).await.unwrap();
