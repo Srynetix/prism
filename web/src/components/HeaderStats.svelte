@@ -5,7 +5,8 @@
 </script>
 
 <script lang="ts">
-  import { branchName } from '../pipeline'
+  import { branchName, pipelineProject } from '../pipeline'
+  import { logsClick } from '../logs.svelte'
   import { hasCore } from '../bridge'
   import { anchored, dismissable, exclusive } from '../popup'
   import { openMr } from '../mr-view.svelte'
@@ -122,7 +123,7 @@
     {#if failures.length}
       <div class="sec" style:--g="var(--ko)"><i></i>{t('Failed on main/release')} · {failures.length}</div>
       {#each failures as p (p.id)}
-        <a class="row" href={p.url} target="_blank" rel="noreferrer"><span class="s ko"></span><span class="m">{branchName(p)}</span><span class="t">{p.failed_jobs.join(', ') || `#${p.id}`}</span><span class="m">{ago(p.updated_at)}</span></a>
+        <a class="row" href={p.url} target="_blank" rel="noreferrer" onclick={(e) => { logsClick(p.url, branchName(p), pipelineProject(p))(e); if (e.defaultPrevented) close() }}><span class="s ko"></span><span class="m">{branchName(p)}</span><span class="t">{p.failed_jobs.join(', ') || `#${p.id}`}</span><span class="m">{ago(p.updated_at)}</span></a>
       {/each}
     {/if}
     <div class="sec" style:--g="var(--src-k8s)"><i></i>Runners · {healthy}/{managers.length}</div>

@@ -3,6 +3,7 @@ import { showBlock } from './layout.svelte'
 import { canShowLogs, openPipeline } from './logs.svelte'
 import { openMr } from './mr-view.svelte'
 import { mrKey } from './mr-ref'
+import { pipelineProject } from './pipeline'
 import type { MergeRequest, Pipeline } from './types'
 
 /**
@@ -27,7 +28,7 @@ export function openWaiting(id?: string) {
  */
 export function showPipeline(p: Pipeline, mr?: MergeRequest | null) {
   const label = mr ? mrKey(mr) : p.target
-  const project = p.project ?? mr?.project ?? null
+  const project = pipelineProject(p) ?? mr?.project ?? null
   if (p.status === 'failed' && canShowLogs()) void openPipeline(p.id, label, project)
   else if (mr) openMr(mr)
   else if (canShowLogs()) void openPipeline(p.id, label, project)
