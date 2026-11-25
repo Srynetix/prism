@@ -78,7 +78,7 @@
       {@const count = repoNotes(r.name).length}
       <div class="repo" class:main={r.is_main}>
         <div class="info">
-          <b>{r.name}</b>
+          <b title={r.name}>{r.name}</b>
           {#if r.error}
             <span class="bad" title={r.error}>{r.error}</span>
           {:else}
@@ -88,8 +88,8 @@
             {#if r.ahead}<span class="ahead" title={tn(r.ahead, '{n} commit ahead of origin/{base}', '{n} commits ahead of origin/{base}', { base: r.base ?? '' })}><Icon name="up" />{r.ahead}</span>{/if}
           {/if}
         </div>
+        <button class="btn sm act proj" onclick={() => { open = false; openProjects(r.name) }} title={t('Its page in Projects: its workstreams, its agents, its MRs')}>{t('Open the project')}</button>
         <div class="acts">
-          <button class="btn sm act proj" onclick={() => { open = false; openProjects(r.name) }} title={t('Its page in Projects: its workstreams, its agents, its MRs')}>{t('Open the project')}</button>
           <button class="btn sm act" class:has={count > 0} onclick={() => showNotes(r.name)} title={count ? tn(count, 'Its {n} open note, and a new one', 'Its {n} open notes, and a new one') : t('A note about it')}><Icon name="pin" />{count || ''}</button>
           <a class="btn sm act claude" href={repoAction(r.name, r.path).href} onclick={claudeClick(repoAction(r.name, r.path))} title={t('New {agent} agent in {path}', { agent: actorName(r.name), path: r.path })}><Logo name="agent" size={10} repo={r.name} />{actorName(r.name)}</a>
           {#if isDesktop()}
@@ -119,21 +119,25 @@
   .sbi:hover, .sbi.on { background: var(--surface-muted); color: var(--text); }
   .g { color: var(--src-gitlab); }
   .flag { min-width: 14px; padding: 0 4px; border-radius: var(--r7); background: var(--warn-bg); color: var(--warn); font-size: var(--fs-tag); font-weight: 600; text-align: center; }
-  .pop { position: fixed; left: 8px; bottom: 30px; width: min(460px, calc(100vw - 16px)); font-size: var(--fs-body); white-space: normal; }
+  .pop { position: fixed; left: 8px; bottom: 30px; width: min(520px, calc(100vw - 16px)); max-height: calc(100vh - 60px); overflow-y: auto; font-size: var(--fs-body); white-space: normal; }
   .hd { margin: 0; }
-  .repo { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: var(--r6); }
+  /* Two lines: its name, branch and state with « Open the project »; its other actions below. */
+  .repo { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; padding: 6px 8px; border-radius: var(--r6); }
   .repo:hover { background: var(--surface-muted); }
   .repo.main { border-bottom: 1px solid var(--border); border-radius: var(--r6) var(--r6) 0 0; margin-bottom: 2px; }
   .info { flex: 1; display: flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; }
-  .info b { font-weight: 600; }
-  .branch { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); font-size: var(--fs-tag); }
+  /* The name first: whole up to two thirds of the line; the branch takes what is left. */
+  .info b { flex: 0 0 auto; max-width: 66%; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .branch { flex: 0 1 auto; min-width: 3ch; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); font-size: var(--fs-tag); }
   .branch.off { color: var(--info); }
   .dirty { align-self: center; display: inline-flex; color: var(--warn); font-size: var(--fs-meta); }
   .behind { color: var(--warn); font-family: var(--mono); font-size: var(--fs-tag); }
   .ahead { color: var(--ok); font-family: var(--mono); font-size: var(--fs-tag); }
   .bad { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ko); font-size: var(--fs-tag); }
   .mono { font-family: var(--mono); }
-  .acts { display: flex; gap: 4px; flex-shrink: 0; }
+  .acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+  .acts .act { opacity: 0.8; }
+  .repo:hover .acts .act, .acts .act:focus-visible { opacity: 1; }
   .acts .act, .foot .act { padding: 0 var(--sp-3); font-size: var(--fs-tag); }
   .act.has { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); }
   .act.proj { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); font-weight: 600; }
