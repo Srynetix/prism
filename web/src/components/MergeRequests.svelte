@@ -3,7 +3,7 @@
   import { clock } from '../clock.svelte'
   import { locale } from '../locale'
   import { forgeLogo, forgeName, meOn, onGithub } from '../forge'
-  import { branchName } from '../pipeline'
+  import { branchName, pipelineProject } from '../pipeline'
   import BlockControls from './BlockControls.svelte'
   import State from './ui/State.svelte'
   import { isCollapsed, isShort, pref, setPref } from '../layout.svelte'
@@ -122,7 +122,7 @@
     <div class="branches">
       {#each branches as p (p.id)}
         <span class="branch">
-          <a href={p.url} target="_blank" rel="noreferrer" onclick={logsClick(p.url, branchName(p), p.project ?? null)} title={canShowLogs() ? keys(t('{branch} pipeline · click: logs, ⌘-click: {forge}', { branch: branchName(p), forge: forgeName() })) : undefined}>
+          <a href={p.url} target="_blank" rel="noreferrer" onclick={logsClick(p.url, branchName(p), pipelineProject(p))} title={canShowLogs() ? keys(t('{branch} pipeline · click: logs, ⌘-click: {forge}', { branch: branchName(p), forge: forgeName() })) : undefined}>
             <span class="mono">{branchName(p)}</span>
             <PipelineBar pipeline={p} {now} />
             <span class="mono muted">{ago(p.updated_at)}</span>

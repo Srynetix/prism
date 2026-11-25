@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pipelineLabel } from './pipeline'
+import { pipelineLabel, pipelineProject } from './pipeline'
 import type { Pipeline, Stage } from './types'
 
 const stage = (name: string, status: Stage['status']): Stage => ({ name, status, jobs: 1, finished: 1, failed: 0, failed_jobs: [], manual_jobs: [], played_jobs: [], started_at: null, finished_at: null })
@@ -16,5 +16,13 @@ describe('pipelineLabel', () => {
 
   it('still says passed for a successful pipeline', () => {
     expect(pipelineLabel(pipeline('success', [stage('build', 'success')]), 0)).toEqual({ text: 'passed', tone: 'ok' })
+  })
+})
+
+describe('pipelineProject', () => {
+  it('reads the primary repository\'s pipeline as no project, another one\'s by its project', () => {
+    expect(pipelineProject({ repo: null, project: 'acme/shop' })).toBe(null)
+    expect(pipelineProject({ repo: 'infra', project: 'acme/infra' })).toBe('acme/infra')
+    expect(pipelineProject({ repo: 'infra', project: null })).toBe(null)
   })
 })

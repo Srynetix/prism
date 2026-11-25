@@ -46,3 +46,7 @@ export function pipelineLabel(p: Pipeline, now: number): { text: string; tone: S
 
 /** A protected branch's pipeline, named with its repository unless it is the primary one's: `helm · main`. */
 export const branchName = (p: { repo?: string | null; target: string }) => (p.repo ? `${p.repo} · ${p.target}` : p.target)
+
+/** The project a branch pipeline's logs are read from: null for the primary repository's (as an MR
+ * of it says), so that the same pipeline is one logs pane whichever way it is opened. */
+export const pipelineProject = (p: { repo?: string | null; project?: string | null }) => (p.repo ? (p.project ?? null) : null)
