@@ -323,6 +323,17 @@ impl Agents {
         vcs::current_branch(&self.repo_folder(dir)?).await
     }
 
+    /// A project's clone switched to `branch` (Projects › Branches): refused while an agent works
+    /// in it, one at a time with the other switches, and with changes not committed.
+    pub async fn folder_switch(&self, clone: &Path, branch: &str) -> Result<String> {
+        let top = self.repo_folder(clone)?;
+        let _switching = self.inner.switching.lock().await;
+        if let Some(title) = self.running_in("", &top).await? {
+            bail!(tr!("the agent “{title}” is running in it: stop it first", title = title));
+        }
+        vcs::switch(&top, branch).await
+    }
+
     /// The branches a launch's folder can be switched to, in a repository Prism follows.
     pub async fn folder_branches(&self, dir: &Path) -> Result<Vec<vcs::BranchChoice>> {
         vcs::branches(&self.repo_folder(dir)?).await

@@ -152,4 +152,10 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{path} leads to {real}: ask for that path, with the phone's passkey", "{path} mène à {real} : demandez ce chemin-là, avec la passkey du téléphone"),
     ("a pod's files are off ([clusters] files)", "les fichiers d'un pod sont désactivés ([clusters] files)"),
     ("sending files into a container is off ({key} = \"write\")", "l'envoi de fichiers dans un conteneur est désactivé ({key} = \"write\")"),
+    // Projects › Branches
+    ("{repo}: no clone of it on this computer", "{repo} : pas de clone sur cet ordinateur"),
+    ("{branch}: no such branch in {repo}", "aucune branche {branch} dans {repo}"),
+    ("{branch} is already checked out in {path}", "{branch} est déjà extraite dans {path}"),
+    ("no such branch any more", "cette branche n'existe plus"),
+    ("not done yet", "pas encore terminée"),
 ];

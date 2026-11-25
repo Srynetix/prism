@@ -56,7 +56,11 @@ pub async fn agent_remove_scratch(state: State<'_, AppState>, id: String) -> Cmd
 /// is working in it.
 #[prism_macros::command]
 pub async fn worktree_remove(state: State<'_, AppState>, path: String, force: Option<bool>) -> Cmd {
-    let force = force.unwrap_or(false);
+    remove_worktree(&state, path, force.unwrap_or(false)).await
+}
+
+/// `worktree_remove`'s work, a project's branch deleted with its worktree too (`branches`).
+pub(crate) async fn remove_worktree(state: &AppState, path: String, force: bool) -> Cmd {
     let merged_at = {
         let snap = state.hub.subscribe();
         let snap = snap.borrow();
@@ -68,7 +72,7 @@ pub async fn worktree_remove(state: State<'_, AppState>, path: String, force: Op
             return Err(tr("this worktree is locked (git worktree unlock)").into());
         }
         let inside = |dir: &str| dir == path || dir.starts_with(&format!("{path}/"));
-        if let Some(a) = snap.agents.iter().find(|a| a.state == AgentState::Running && (a.worktree.as_deref() == Some(&path) || a.adopted.contains(&path) || inside(&a.cwd))) {
+        if let Some(a) = snap.agents.iter().find(|a| a.state == AgentState::Running && (a.worktree.as_deref() == Some(&path) || a.adopted.contains(&path) || a.also.contains(&path) || inside(&a.cwd))) {
             return Err(tr!("the agent “{title}” is running in it: stop it first", title = a.title).into());
         }
         if let Some(c) = snap.sessions.iter().find(|c| c.origin == SessionOrigin::Desktop && c.worktree.as_deref().is_some_and(inside)) {
