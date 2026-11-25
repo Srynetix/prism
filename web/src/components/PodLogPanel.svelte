@@ -13,6 +13,7 @@
   import { live } from '../live.svelte'
   import { isDesktop } from '../bridge'
   import { openPodShell } from '../shell-drawer.svelte'
+  import { isProdContext, openContainerFiles } from '../container-files.svelte'
   import PodUsage from './PodUsage.svelte'
   import { changesOn, openWhatChanged } from '../changes-view.svelte'
 
@@ -112,6 +113,16 @@
     closePodLogs()
   }
 
+  /** The container's files (`[clusters] files`), in their drawer that replaces this one. */
+  const canFiles = $derived(!!live.snapshot?.pod_files && live.snapshot.pod_files !== 'off' && !podLogs.target?.read && !!pod)
+  function files() {
+    const target = podLogs.target
+    if (!target || !pod) return
+    const label = `${target.label} › ${short(pod.name)}${podLogs.container && pod.containers.length > 1 ? ` › ${podLogs.container}` : ''}`
+    openContainerFiles({ kind: 'pod', context: target.context, namespace: target.namespace, pod: pod.name, container: podLogs.container }, label, { write: live.snapshot?.pod_files === 'write', prod: isProdContext(target.context) })
+    closePodLogs()
+  }
+
   /** The pod's CPU and memory over time above its log (`[clusters] usage_history`), remembered under `logs.usage`. */
   const canUsage = $derived(!!live.snapshot?.pod_history && !podLogs.target?.read && !!pod)
   /** A workload of an environment (not a block's items): its timeline, around its crash. */
@@ -156,6 +167,7 @@
       <button class="btn sm" onclick={() => toLine(lines.length - 1)} title={t('Scroll to the end and follow')}>{t('End')} <Icon name="down" /></button>
       {#if changed}<button class="btn sm" onclick={() => openWhatChanged(changed.env, changed.app)} title={t('The timeline of {env} around the crash, the change just before it highlighted', { env: changed.env ?? '' })}><Icon name="activity" /> {t('What changed')}</button>{/if}
       {#if canUsage}<button class="btn sm" class:on={usage} onclick={toggleUsage} aria-pressed={usage} title={t('CPU and memory of this pod over time')}><Icon name="chart" /> {t('Usage')}</button>{/if}
+      {#if canFiles}<button class="btn sm" onclick={files} title={t('Browse this container’s files, download them{send}', { send: live.snapshot?.pod_files === 'write' ? t(', send files into it') : '' })}><Icon name="folder" /> {t('Files')}</button>{/if}
       {#if canShell}<button class="btn sm" onclick={shell} title={t('A shell in this container (kubectl exec): tmux keeps it after closing')}><Icon name="terminal" /> {t('Shell')}</button>{/if}
       <button class="btn sm icon ghost" onclick={() => reload(true)} disabled={podLogs.loading || !podLogs.pod} title={t('Reload the log')} aria-label={t('Reload')}><Icon name="refresh" /></button>
       <button class="btn sm icon ghost" onclick={toggleFull} title={full ? t('Exit full screen (f)') : t('Full screen (f)')} aria-label={t('Full screen')} aria-pressed={full}><Icon name={full ? 'shrink' : 'expand'} /></button>

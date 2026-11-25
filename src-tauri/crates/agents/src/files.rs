@@ -217,6 +217,15 @@ pub struct Prepared {
     pub path: String,
 }
 
+/// A new file only its owner reads, never one there already (a link planted there).
+pub fn create_private(p: &Path) -> std::io::Result<std::fs::File> {
+    let mut open = std::fs::OpenOptions::new();
+    open.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut open, 0o600);
+    open.open(p)
+}
+
 /// What a phone gets for it: the name to save it under, and the address to fetch it from, once.
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "AgentDownload"))]

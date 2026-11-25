@@ -771,8 +771,8 @@ async fn call(inner: &Inner, device: &str, name: &str, command: String, args: Va
         anyhow::ensure!(inner.host.class("agent_page_text", &args) == Some(Class::Read), "{}", tr!("{other} is not answered from a phone", other = command));
         return crate::pages::open(inner, &args).map(Reply::Value);
     }
-    // An agent's files: prepared on the computer, then fetched once over HTTP (`download`).
-    if command == "agent_files_download" {
+    // An agent's or a container's files: prepared on the computer, then fetched once over HTTP (`download`).
+    if crate::download::prepares(&command) {
         match inner.host.class(&command, &args) {
             Some(Class::Read) => {}
             // A secret of its folder (`.env`…): with the passkey, as what is critical.

@@ -146,4 +146,10 @@ pub const TABLE: &[(&str, &str)] = &[
     ("The microphone did not answer", "Le micro n’a pas répondu"),
     ("The system’s dictation is macOS’s only: choose whisper", "La dictée du système n’existe que sur macOS : choisissez whisper"),
     ("ask something", "demandez quelque chose"),
+    // A container's files (commands/infra.rs).
+    ("from a phone, only the files of a pod the Pods or Environments block shows", "depuis un téléphone, seuls les fichiers d'un pod que montrent les blocs Pods ou Environnements"),
+    ("from a phone, {path} is read once Prism knows where it leads: {error}", "depuis un téléphone, {path} se lit une fois que Prism sait où il mène : {error}"),
+    ("{path} leads to {real}: ask for that path, with the phone's passkey", "{path} mène à {real} : demandez ce chemin-là, avec la passkey du téléphone"),
+    ("a pod's files are off ([clusters] files)", "les fichiers d'un pod sont désactivés ([clusters] files)"),
+    ("sending files into a container is off ({key} = \"write\")", "l'envoi de fichiers dans un conteneur est désactivé ({key} = \"write\")"),
 ];

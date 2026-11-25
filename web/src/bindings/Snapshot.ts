@@ -21,6 +21,7 @@ import type { DictationConfig } from "./DictationConfig";
 import type { EnvironmentStage } from "./EnvironmentStage";
 import type { Environments } from "./Environments";
 import type { Features } from "./Features";
+import type { FileAccess } from "./FileAccess";
 import type { FilesConfig } from "./FilesConfig";
 import type { ForgeProvider } from "./ForgeProvider";
 import type { LeftSession } from "./LeftSession";
@@ -169,6 +170,10 @@ cluster: boolean,
  * A shell in a pod may be opened (`[clusters] shell`, the clusters read).
  */
 pod_shell: boolean, 
+/**
+ * What may be done with a pod's files (`[clusters] files`, the clusters read).
+ */
+pod_files: FileAccess, 
 /**
  * A pod's CPU and memory over time may be shown (`[clusters] usage_history`, the clusters read).
  */

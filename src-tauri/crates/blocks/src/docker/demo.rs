@@ -28,6 +28,8 @@ pub fn state(now: DateTime<Utc>) -> DockerState {
     let disk = |kind: &str, total: u32, active: u32, size: u64, reclaimable: u64| DockerDisk { kind: kind.into(), total, active, size_bytes: size, reclaimable_bytes: reclaimable };
     DockerState {
         context: "orbstack".into(),
+        // The demo reaches no container: no Files button.
+        files: prism_core::config::FileAccess::Off,
         server: Some("29.4.0".into()),
         containers: vec![
             container("c1", "shop-api-1", "shop/api:dev", Some("shop"), "running", "Up 3 days (healthy)", Some("healthy"), None, &["8080→8080/tcp"], Some(1.8), Some(310_000_000)),

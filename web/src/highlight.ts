@@ -3,7 +3,7 @@ import type { DiffLine } from './mr-review.svelte'
 import { baseName } from './platform'
 
 /**
- * Syntax highlighting of MR diffs, by Shiki (VS Code's grammars) with its JavaScript
+ * Syntax highlighting of MR diffs and of a container's files, by Shiki (VS Code's grammars) with its JavaScript
  * regular expression engine (no WebAssembly). Everything is loaded on demand, when
  * a diff is opened: the engine, then the grammar of each language encountered. The theme
  * is only CSS variables (`--shiki-token-*`, app.css): the colors follow Prism's
@@ -30,6 +30,15 @@ const GRAMMARS = {
   sql: () => import('shiki/langs/sql.mjs'),
   svelte: () => import('shiki/langs/svelte.mjs'),
   rust: () => import('shiki/langs/rust.mjs'),
+  go: () => import('shiki/langs/go.mjs'),
+  java: () => import('shiki/langs/java.mjs'),
+  php: () => import('shiki/langs/php.mjs'),
+  ruby: () => import('shiki/langs/ruby.mjs'),
+  xml: () => import('shiki/langs/xml.mjs'),
+  nginx: () => import('shiki/langs/nginx.mjs'),
+  dotenv: () => import('shiki/langs/dotenv.mjs'),
+  properties: () => import('shiki/langs/properties.mjs'),
+  log: () => import('shiki/langs/log.mjs'),
 } as const
 type Lang = keyof typeof GRAMMARS
 
@@ -41,10 +50,17 @@ const EXTENSIONS: Record<string, Lang> = {
   md: 'markdown', mdx: 'mdx', html: 'html', css: 'css',
   sh: 'shellscript', bash: 'shellscript', bats: 'shellscript',
   toml: 'toml', ini: 'ini', cfg: 'ini', sql: 'sql', svelte: 'svelte', rs: 'rust',
+  go: 'go', java: 'java', php: 'php', rb: 'ruby', xml: 'xml', xsd: 'xml', pom: 'xml',
+  env: 'dotenv', properties: 'properties', log: 'log',
 }
 
 /** Beyond this, a file stays plain text: highlighting would cost more than it brings. */
 const MAX_LINES = 2000
+/** Beyond this, a whole file stays plain text. */
+const MAX_FILE_LINES = 5000
+/** Lines of a whole file highlighted in one go, the window free between two. */
+const FILE_SLICE = 300
+
 /** Beyond this, a diff's hunks are highlighted without the file above them. */
 const MAX_CONTEXT = 3000
 /** Lines of the file above a hunk read in one go, the window free between two (tens of ms each). */
@@ -53,6 +69,8 @@ const CONTEXT_SLICE = 100
 export function langOf(path: string): Lang | null {
   const name = baseName(path)
   if (/^Dockerfile(\..+)?$|\.dockerfile$/i.test(name)) return 'docker'
+  if (/^\.env(\..+)?$/.test(name)) return 'dotenv'
+  if (/^nginx\.conf$|\.nginx$/.test(name) || /[\\/]nginx[\\/].+\.conf$/.test(path)) return 'nginx'
   const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
   return EXTENSIONS[ext] ?? null
 }
@@ -145,6 +163,29 @@ export async function highlightDiff(path: string, lines: DiffLine[], whole: stri
     tokenize(hunk.filter((n) => lines[n].kind !== 'del'))
     tokenize(hunk.filter((n) => lines[n].kind === 'del' || lines[n].kind === 'ctx'))
     start = i + 1
+  }
+  return out
+}
+
+/**
+ * Tokens of each line of a whole file (a container's file shown), or null: a language not
+ * highlighted, or too many lines. Highlighted by slices, each from the state the one above left,
+ * the window free between two.
+ */
+export async function highlightText(path: string, text: string): Promise<Token[][] | null> {
+  const lang = langOf(path)
+  const lines = text.split('\n')
+  if (!lang || lines.length > MAX_FILE_LINES) return null
+  const h = await ready(lang)
+  const out: Token[][] = []
+  let grammarState: ReturnType<HighlighterCore['getLastGrammarState']> | undefined
+  for (let at = 0; at < lines.length; at += FILE_SLICE) {
+    if (at) await new Promise((r) => setTimeout(r, 0))
+    const code = lines.slice(at, at + FILE_SLICE).join('\n')
+    const r = h.codeToTokens(code, { lang, theme: 'prism', grammarState })
+    const rows = r.tokens
+    grammarState = r.grammarState
+    out.push(...lines.slice(at, at + FILE_SLICE).map((l, n) => rows[n]?.map(toToken) ?? [{ text: l }]))
   }
   return out
 }

@@ -3,6 +3,7 @@ import type { DockerContainer } from "./DockerContainer";
 import type { DockerDisk } from "./DockerDisk";
 import type { DockerImage } from "./DockerImage";
 import type { DockerVolume } from "./DockerVolume";
+import type { FileAccess } from "./FileAccess";
 
 /**
  * A Docker daemon, as the `docker` CLI reports it. No environment variable, no mount path.
@@ -27,4 +28,8 @@ disk_at: string | null,
 /**
  * Reclaimable disk beyond this many GB is flagged in Alerts (`[docker] reclaimable_gb`); 0: never.
  */
-reclaimable_gb: number, };
+reclaimable_gb: number, 
+/**
+ * What may be done with a container's files (`[docker] files`).
+ */
+files: FileAccess, };

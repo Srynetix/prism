@@ -94,7 +94,7 @@ pub(super) async fn converse_peer(inner: Shared, socket: WebSocket, name: String
                 drop(permit);
                 return;
             }
-            let download = command == "agent_files_download";
+            let download = crate::download::prepares(&command);
             let answer = match allowed {
                 Ok(()) if local => inner.host.local_call(command, args).await,
                 Ok(()) => inner.host.peer_call(command, args).await,

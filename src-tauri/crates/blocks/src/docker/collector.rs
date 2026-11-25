@@ -77,7 +77,7 @@ pub async fn run(cfg: DockerConfig, ctx: BlockCtx) {
             Err(e) => {
                 tracing::warn!("docker: {e:#}");
                 ctx.set_error(Some(format!("{e:#}")));
-                d.show(DockerState { context: d.cfg.context.trim().to_string(), reclaimable_gb: d.cfg.reclaimable_gb, ..Default::default() });
+                d.show(DockerState { context: d.cfg.context.trim().to_string(), reclaimable_gb: d.cfg.reclaimable_gb, files: d.cfg.files, ..Default::default() });
                 // Measured again as soon as the daemon is back.
                 measured = None;
             }
@@ -135,7 +135,7 @@ impl Docker {
         // Running first, then by Compose project and name.
         containers.sort_by(|a, b| (a.state != "running", &a.project, &a.name).cmp(&(b.state != "running", &b.project, &b.name)));
         let measured_disk = if disk { Some(self.disk().await?) } else { None };
-        Ok(Pass { state: DockerState { context, server: Some(server), containers, reclaimable_gb: self.cfg.reclaimable_gb, ..Default::default() }, measured_disk })
+        Ok(Pass { state: DockerState { context, server: Some(server), containers, reclaimable_gb: self.cfg.reclaimable_gb, files: self.cfg.files, ..Default::default() }, measured_disk })
     }
 
     /// Images, volumes, containers' layers and build cache, with their sizes; the totals per kind.
@@ -205,6 +205,15 @@ pub async fn logs(id: &str) -> Result<String> {
         text.push_str(&err);
     }
     Ok(text)
+}
+
+/// A displayed container's files may be reached: its `docker --context` (empty: the current one),
+/// its name, and what `[docker] files` allows (never `Off` here: refused before).
+pub fn files_target(id: &str) -> Result<(String, String, prism_core::config::FileAccess)> {
+    let d = docker()?;
+    anyhow::ensure!(d.cfg.files != prism_core::config::FileAccess::Off, tr("a container's files are off ([docker] files)"));
+    let c = d.container(id)?;
+    Ok((d.cfg.context.trim().to_string(), c.name, d.cfg.files))
 }
 
 /// Removes a displayed image (Docker refuses one a container uses).

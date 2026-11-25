@@ -71,6 +71,7 @@
   import Refinement from './components/Refinement.svelte'
   import LogPanel from './components/LogPanel.svelte'
   import PodLogPanel from './components/PodLogPanel.svelte'
+  import ContainerFiles from './components/ContainerFiles.svelte'
   import Agenda from './components/Agenda.svelte'
   import Pickup from './components/Pickup.svelte'
   import { startMeetingAlerts } from './agenda.svelte'
@@ -799,6 +800,7 @@
   <TicketPanel />
   <LogPanel />
   <PodLogPanel />
+  <ContainerFiles />
   <EventPanel />
   <ThreadPanel />
   <ArgoPanel />
