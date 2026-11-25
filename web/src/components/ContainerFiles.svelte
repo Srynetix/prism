@@ -11,7 +11,9 @@
   import { t, tn } from '../i18n.svelte'
   import { ago } from '../time'
   import { cancelSend, closeContainerFiles, confirmSend, containerFiles as cf, crumbs, download, dropFiles, go, joinPath, parentPath, pickAndSend, reloadFolder, show } from '../container-files.svelte'
+  import { highlightText, type Token } from '../highlight'
   import type { ContainerEntry } from '../bindings/ContainerEntry'
+  import type { ContainerFileText } from '../bindings/ContainerFileText'
 
   const phone = document.documentElement.classList.contains('remote')
   const listing = $derived(cf.listing)
@@ -24,6 +26,18 @@
     return (listing?.entries ?? []).filter((e) => !q || e.name.toLowerCase().includes(q))
   })
   const path = $derived(listing?.path ?? cf.path)
+
+  /** The file shown, highlighted (highlight.ts) once its grammar is read: its text plain until then. */
+  let colored = $state<{ of: ContainerFileText; lines: Token[][] } | null>(null)
+  $effect(() => {
+    const f = cf.file
+    const of = f?.text
+    if (!f || !of?.text || of.binary) return
+    highlightText(f.path, of.text).then(
+      (lines) => { if (lines && cf.file?.text === of) colored = { of, lines } },
+      (e) => console.warn('highlight', f.path, e),
+    )
+  })
 
   const size = (b: number | null | undefined) => (b === null || b === undefined ? '' : b >= 1e9 ? t('{n} GB', { n: (b / 1e9).toFixed(1) }) : b >= 1e6 ? t('{n} MB', { n: (b / 1e6).toFixed(1) }) : b >= 1e3 ? t('{n} kB', { n: Math.round(b / 1e3) }) : t('{n} B', { n: b }))
 
@@ -154,7 +168,8 @@
         {:else if f.text?.binary}
           <State kind="empty" icon="files" title={t('A binary file: download it to open it.')} />
         {:else}
-          <pre class="mono">{f.text?.text ?? ''}</pre>
+          {@const lines = colored?.of === f.text ? colored.lines : null}
+          <pre class="mono">{#if lines}{#each lines as line, i (i)}{#each line as p, n (n)}<span style:color={p.color} class:it={p.italic} class:bd={p.bold}>{p.text}</span>{/each}{#if i < lines.length - 1}{'\n'}{/if}{/each}{:else}{f.text?.text ?? ''}{/if}</pre>
         {/if}
       </section>
     {/if}
@@ -198,6 +213,8 @@
   .file { flex: 1 1 55%; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--border); }
   .file header { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--surface-muted); font-size: var(--fs-meta); }
   .file b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .file pre .it { font-style: italic; }
+  .file pre .bd { font-weight: 600; }
   .file pre { flex: 1; min-height: 0; margin: 0; padding: 8px 14px 16px; overflow: auto; background: var(--bg); color: var(--text); font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
   @media (max-width: 719.98px) {
     :global(.cfiles .dh) { flex-wrap: wrap; row-gap: 6px; }
