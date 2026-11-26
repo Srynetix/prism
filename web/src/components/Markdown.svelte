@@ -2,7 +2,7 @@
   import { forgeLink, onGithubWeb } from '../forge'
   import { projectOf, withEmoji } from '../emoji.svelte'
   import CustomEmoji from './CustomEmoji.svelte'
-  import { inline, parse, slug, withMentions, type Block, type MdMarks, type MentionMarks, type Span } from '../markdown'
+  import { inline, listTree, parse, slug, withMentions, type Block, type ListNode, type MdMarks, type MentionMarks, type Span } from '../markdown'
   import { canPreview, openTicket } from '../ticket-view.svelte'
   import { hasCore } from '../bridge'
   import { knownMr, withMrs, type MrOption, type MrPlace } from '../linkify'
@@ -114,6 +114,21 @@
   {/if}
 {/snippet}
 
+<!-- A list, nested: each item's sublist inside it, under its text (bullets or numbers of its own). -->
+{#snippet items(nodes: ListNode[], attrs: Record<string, unknown> = {})}
+  <ul class:nested={!!nodes[0]?.item.depth} {...attrs}>
+    {#each nodes as { item: it, children }, n (n)}
+      <li class:task={it.checked !== null} class:checked={it.checked} class:num={it.number !== undefined}>
+        {#if it.checked !== null}<span class="box"><Icon name={it.checked ? 'checked' : 'unchecked'} /></span>{:else}<span class="bullet" aria-hidden="true">{it.number !== undefined ? `${it.number}.` : it.depth % 2 ? '◦' : '•'}</span>{/if}
+        <div class="item">
+          <span class="text">{@render spans(it.spans)}</span>{#if it.blocks}{@render render(it.blocks, false)}{/if}
+          {#if children.length}{@render items(children)}{/if}
+        </div>
+      </li>
+    {/each}
+  </ul>
+{/snippet}
+
 {#snippet render(list: Block[], top: boolean)}
   {#each list as b, i (i)}
     {#if top}{@render gone(i)}{/if}
@@ -130,14 +145,7 @@
     {:else if b.kind === 'rule'}
       <hr {...at(top, i)} />
     {:else if b.kind === 'list'}
-      <ul class:ordered={b.ordered} {...at(top, i)}>
-        {#each b.items as it, n (n)}
-          <li style="--depth: {it.depth}" class:task={it.checked !== null} class:checked={it.checked}>
-            {#if it.checked !== null}<span class="box"><Icon name={it.checked ? 'checked' : 'unchecked'} /></span>{:else}<span class="bullet" aria-hidden="true">{it.number !== undefined ? `${it.number}.` : '•'}</span>{/if}
-            <span class="item">{@render spans(it.spans)}{#if it.blocks}{@render render(it.blocks, false)}{/if}</span>
-          </li>
-        {/each}
-      </ul>
+      {@render items(listTree(b.items), at(top, i))}
     {:else if b.kind === 'details'}
       <details open={b.open} {...at(top, i)}>
         <summary>{@render spans(b.summary)}</summary>
@@ -178,13 +186,18 @@
   blockquote { margin: 4px 0 14px; padding: 6px 12px; border-left: 3px solid color-mix(in srgb, var(--accent) 50%, var(--border)); border-radius: 0 var(--r6) var(--r6) 0; background: color-mix(in srgb, var(--surface-muted) 60%, transparent); color: var(--text-muted); white-space: pre-wrap; }
   hr { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
   ul { list-style: none; margin: 0 0 12px; padding: 0; }
-  li { display: flex; gap: 8px; margin: 0 0 5px; padding-left: calc(var(--depth) * 18px + 6px); }
+  li { display: flex; gap: 8px; margin: 0 0 5px; padding-left: 6px; }
+  /* A sublist: under its item's text, a little closer. */
+  ul.nested { margin: 5px 0 0; }
+  ul.nested li { padding-left: 0; }
   .bullet { flex-shrink: 0; min-width: 10px; color: var(--accent); font-weight: 700; }
-  .ordered .bullet { min-width: 16px; color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+  li.num > .bullet { min-width: 16px; color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
   .box { flex-shrink: 0; color: var(--text-muted); }
-  li.checked > span:last-child { color: var(--text-muted); text-decoration: line-through; }
+  /* A task done: its text and what it holds under it, not its sublist. */
+  li.checked > .item > :is(.text, p, pre) { color: var(--text-muted); }
+  li.checked > .item > :is(.text, p) { text-decoration: line-through; }
   /* An item's text, then what it holds under it (a code block): the column's width at most. */
-  .item { min-width: 0; }
+  .item { flex: 1; min-width: 0; }
   .item > pre { margin: 6px 0 8px; }
   .item > p { margin: 6px 0 0; }
   .inline-img { display: block; margin: 6px 0; }
