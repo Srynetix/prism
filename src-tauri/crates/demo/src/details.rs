@@ -51,7 +51,7 @@ fn hunk(old: u32, new: u32, context: &str, body: &str) -> String {
 }
 
 fn changed(path: &str, hunks: &[String]) -> FileDiff {
-    FileDiff { old_path: path.into(), new_path: path.into(), new_file: false, deleted_file: false, renamed_file: false, diff: hunks.concat(), collapsed: false }
+    FileDiff { old_path: path.into(), new_path: path.into(), new_file: false, deleted_file: false, renamed_file: false, diff: hunks.concat(), collapsed: false, empty: false }
 }
 
 fn added(path: &str) -> FileDiff {
@@ -65,6 +65,7 @@ fn added(path: &str) -> FileDiff {
         renamed_file: false,
         diff: format!("@@ -0,0 +1,{} @@\n{}\n", lines.len(), lines.join("\n")),
         collapsed: false,
+        empty: false,
     }
 }
 

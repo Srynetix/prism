@@ -198,6 +198,10 @@
   const tests = $derived(files.filter((x) => isTestPath(x.path)))
   const testsSeen = $derived(tests.filter((x) => isViewed(x.path, x.hash)).length)
   const toggleTests = () => setViewedAll(tests, testsSeen < tests.length)
+  /** The empty files: no line changed (an empty new file, a rename, a mode change), nothing to read. */
+  const empties = $derived(files.filter((x) => x.f.empty))
+  const emptiesSeen = $derived(empties.filter((x) => isViewed(x.path, x.hash)).length)
+  const toggleEmpties = () => setViewedAll(empties, emptiesSeen < empties.length)
 
   // svelte-ignore state_referenced_locally
   let folded = $state<Set<string>>(new Set(files.filter((x) => x.lines.length > BIG || isViewed(x.path, x.hash)).map((x) => x.path)))
@@ -447,7 +451,7 @@
     setPref('diff.md', v)
   }
   /** A Markdown file that still exists, with its diff: it can be read rendered. */
-  const previewable = (x: Entry) => /\.(md|markdown)$/i.test(x.path) && !x.f.deleted_file && !x.f.collapsed
+  const previewable = (x: Entry) => /\.(md|markdown)$/i.test(x.path) && !x.f.deleted_file && !x.f.collapsed && !x.f.empty
   const viewOf = (x: Entry): MdView => (previewable(x) ? mdView : 'diff')
 
   /** The file's new version, by fingerprint: read once, when it nears the visible area. */
@@ -663,7 +667,14 @@
   }
   /** The test files checked on a phone: off a test file shown, on to the first file not yet viewed. */
   function testsAndNext() {
-    toggleTests()
+    andNext(toggleTests)
+  }
+  /** The same with the empty files. */
+  function emptiesAndNext() {
+    andNext(toggleEmpties)
+  }
+  function andNext(toggle: () => void) {
+    toggle()
     const x = files[shownFile]
     if (!x || !isViewed(x.path, x.hash)) return
     const next = files.findIndex((y) => !isViewed(y.path, y.hash))
@@ -749,6 +760,12 @@
 </script>
 
 <svelte:window onkeydown={(e) => root?.closest('aside[data-kbd]') && onkeydown(e)} onpointermove={dragOver} onpointerup={() => (dragging = null)} />
+
+<!-- The Empty button: the files with no line changed, viewed at once (as Tests). -->
+{#snippet emptyButton(onclick: () => void)}
+  {@const all = emptiesSeen === empties.length}
+  <button class="tests" class:on={all} {onclick} aria-pressed={all} title={all ? t('Uncheck the empty files') : tn(empties.length, 'Mark the {n} empty file as viewed: no line changed (an empty new file, a rename, a mode change)', 'Mark the {n} empty files as viewed: no line changed (empty new files, renames, mode changes)')}><Icon name="check" /> {t('Empty')} <b>{emptiesSeen} / {empties.length}</b></button>
+{/snippet}
 
 <!-- A code line: highlighted tokens, the changed part emphasised (its sign in its own column, `sign`). -->
 {#snippet code(hl: string, i: number, lines: DiffLine[], marks: Map<number, Mark>)}
@@ -980,7 +997,7 @@
       </select>
       <button class="nav" onclick={() => pickAt(shownFile + 1)} disabled={shownFile >= files.length - 1} aria-label={t('Next file')}><Icon name="chevronRight" /></button>
       {#if x}<label class="seen big"><input type="checkbox" checked={isViewed(x.path, x.hash)} onchange={(e) => seenAndNext(x, e.currentTarget.checked)} />{t('Viewed')}</label>{/if}
-      <span class="psum"><span class="add">+{total.add}</span> <span class="del">−{total.del}</span> · {t('{seen}/{total} viewed', { seen, total: files.length })}{#if tests.length}{@const all = testsSeen === tests.length}{' '}· <button class="tests" class:on={all} onclick={testsAndNext} aria-pressed={all} title={all ? t('Uncheck the test files') : tn(tests.length, 'Mark the {n} test file as viewed, to review the code first', 'Mark the {n} test files as viewed, to review the code first')}><Icon name="check" /> {t('Tests')} <b>{testsSeen} / {tests.length}</b></button>{/if}{#if messages.length}{' '}· <button class="link" onclick={() => goMessage(1)}><Icon name="comment" /> {messages.length}</button>{/if}</span>
+      <span class="psum"><span class="add">+{total.add}</span> <span class="del">−{total.del}</span> · {t('{seen}/{total} viewed', { seen, total: files.length })}{#if tests.length}{@const all = testsSeen === tests.length}{' '}· <button class="tests" class:on={all} onclick={testsAndNext} aria-pressed={all} title={all ? t('Uncheck the test files') : tn(tests.length, 'Mark the {n} test file as viewed, to review the code first', 'Mark the {n} test files as viewed, to review the code first')}><Icon name="check" /> {t('Tests')} <b>{testsSeen} / {tests.length}</b></button>{/if}{#if empties.length}{' '}· {@render emptyButton(emptiesAndNext)}{/if}{#if messages.length}{' '}· <button class="link" onclick={() => goMessage(1)}><Icon name="comment" /> {messages.length}</button>{/if}</span>
     </div>
   {:else}
   <div class="bar" bind:offsetHeight={barH}>
@@ -991,6 +1008,7 @@
       {@const all = testsSeen === tests.length}
       <button class="tests" class:on={all} onclick={toggleTests} aria-pressed={all} title={all ? t('Uncheck the test files') : tn(tests.length, 'Mark the {n} test file as viewed, to review the code first', 'Mark the {n} test files as viewed, to review the code first')}><Icon name="check" /> {t('Tests')} <b>{testsSeen} / {tests.length}</b></button>
     {/if}
+    {#if empties.length}{@render emptyButton(toggleEmpties)}{/if}
     {#if diff.truncated}<span class="warn">· {t('too large: the last files are not loaded')}</span>{/if}
     <span class="grow"></span>
     {#if messages.length}
@@ -1065,6 +1083,8 @@
             {#each orphans(x) as n (n.id)}<div class="orphan"><span class="muted">{t('No longer in the diff ({path}, {range}):', { path: n.path, range: range(n) })}</span>{@render note(n)}</div>{/each}
             {#if isImage(x) && (f.collapsed || !lines.length)}
               {#if near.has(path)}{@render images(x)}{:else}<div class="fbody ghost" style:height="200px"></div>{/if}
+            {:else if f.empty}
+              <p class="muted pad">{f.renamed_file ? t('Renamed, no line changed.') : f.new_file || f.deleted_file ? t('An empty file.') : t('No line changed (its mode only).')}</p>
             {:else if f.collapsed}
               <p class="muted pad">{t('No preview (binary, too large, or beyond the size limit) — open it in {forge}.', { forge: forgeName() })}</p>
             {:else if !near.has(path)}

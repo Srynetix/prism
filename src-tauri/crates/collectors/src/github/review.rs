@@ -213,6 +213,24 @@ struct RawFile {
     previous_filename: Option<String>,
     status: String,
     patch: Option<String>,
+    /// Its blob: the empty one, an empty file.
+    #[serde(default)]
+    sha: Option<String>,
+    #[serde(default)]
+    changes: u64,
+}
+
+/// Git's empty blob: a file with nothing in it.
+const EMPTY_BLOB: &str = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
+
+/// No line changed: an empty file (its blob, or removed with no line), or renamed, copied or its
+/// mode changed without an edit. A binary file has no patch and no changes either, even edited:
+/// one whose extension says binary never is.
+fn empty_file(f: &RawFile) -> bool {
+    f.patch.as_deref().unwrap_or_default().is_empty()
+        && f.changes == 0
+        && !crate::forge::binary_path(&f.filename)
+        && (f.sha.as_deref() == Some(EMPTY_BLOB) || matches!(f.status.as_str(), "renamed" | "copied" | "changed" | "removed"))
 }
 
 pub async fn diff(project: &str, hub: &Hub, repo: Option<&str>, number: u64) -> Result<MrDiff> {
@@ -224,10 +242,12 @@ pub async fn diff(project: &str, hub: &Hub, repo: Option<&str>, number: u64) -> 
         let batch: Vec<RawFile> = api(&format!("repos/{project}/pulls/{number}/files?per_page={PER_PAGE}&page={page}")).await?;
         let last = batch.len() < PER_PAGE;
         for f in batch {
+            let empty = empty_file(&f);
             let patch = f.patch.unwrap_or_default();
             diff.push(FileDiff {
-                // No patch: a binary file, or too big for GitHub.
-                collapsed: patch.is_empty(),
+                empty,
+                // No patch: a binary file, or too big for GitHub (an empty one holds nothing to give).
+                collapsed: patch.is_empty() && !empty,
                 diff: patch,
                 old_path: f.previous_filename.unwrap_or_else(|| f.filename.clone()),
                 new_file: f.status == "added",
@@ -485,6 +505,19 @@ fn signed_src(html: &str, url: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_empty_file_is_told_from_a_binary_one() {
+        let file = |status: &str, sha: &str, changes: u64, patch: Option<&str>| RawFile { filename: "f".into(), previous_filename: None, status: status.into(), patch: patch.map(String::from), sha: Some(sha.into()), changes };
+        assert!(empty_file(&file("added", EMPTY_BLOB, 0, None)), "an empty file added");
+        assert!(empty_file(&file("renamed", "abc", 0, None)), "renamed without an edit");
+        assert!(!empty_file(&file("added", "abc", 0, None)), "a binary file");
+        assert!(!empty_file(&file("modified", "abc", 120, None)), "too big for a patch");
+        assert!(!empty_file(&file("renamed", "abc", 2, Some("@@ -1 +1 @@\n-a\n+b"))), "renamed and edited");
+        assert!(empty_file(&file("removed", "abc", 0, None)), "an empty file removed");
+        let logo = RawFile { filename: "assets/Logo.PNG".into(), ..file("renamed", "abc", 0, None) };
+        assert!(!empty_file(&logo), "a binary file renamed, edited or not");
+    }
 
     #[test]
     fn a_contents_path_stays_in_contents() {
