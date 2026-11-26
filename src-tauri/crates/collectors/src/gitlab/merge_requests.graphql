@@ -8,7 +8,7 @@ query($path: ID!, $state: MergeRequestState!, $after: Time, $stages: Boolean!) {
         assignees { nodes { username } }
         reviewers { nodes { username mergeRequestInteraction { reviewState } } }
         approvedBy { nodes { username } }
-        approvalsLeft approvalsRequired
+        approvalsLeft approvalsRequired userPermissions { canApprove }
         headPipeline {
           id status ref updatedAt path
           stages @include(if: $stages) {

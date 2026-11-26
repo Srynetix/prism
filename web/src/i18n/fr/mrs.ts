@@ -256,6 +256,7 @@ export default {
   'Approve': 'Approuver',
   'Revoke my approval': 'Retirer mon approbation',
   'you approved': 'vous avez approuvé',
+  'Click again to approve: GitHub cannot take it back': 'Cliquer à nouveau pour approuver : GitHub ne peut pas le retirer',
   'Review': 'Revue',
   'Request changes…': 'Demander des modifications…',
   'Link': 'Lien',

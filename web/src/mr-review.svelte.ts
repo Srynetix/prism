@@ -57,10 +57,23 @@ export const mrFile = (mr: MrRef, path: string) => invoke<string>('mr_file', { .
 /** An image of the MR's diff as a `data:` URL: on its source branch, or (`old`) on its target branch. */
 export const mrImage = (mr: MrRef, path: string, old: boolean) => invoke<string>('mr_image', { ...mrArgs(mr), path, old })
 
-/** Approve, or withdraw my approval; the snapshot follows on the Rust side, the detail is re-read. */
+/** Approvals under way, per MR: a second one (its drawer, its ⋯ menu, the palette) waits for the first. */
+const approving = new Set<string>()
+
+/**
+ * Approve, or withdraw my approval, from its drawer or its ⋯ menu; the snapshot follows on the Rust
+ * side, the detail is re-read (the drawer's button reads it). Ignored while one is under way.
+ */
 export async function approve(mr: MrRef, on: boolean, at: string) {
-  await invoke<void>('approve_mr', { ...mrArgs(mr), approve: on })
-  await loadDetail(mr, at, true)
+  const key = mrKey(mr)
+  if (approving.has(key)) return
+  approving.add(key)
+  try {
+    await invoke<void>('approve_mr', { ...mrArgs(mr), approve: on })
+    await loadDetail(mr, at, true)
+  } finally {
+    approving.delete(key)
+  }
 }
 
 /** Request changes, `body` its comment (required on GitHub), or take my request back (GitLab). */

@@ -921,6 +921,7 @@ impl From<GqlPr> for MergeRequest {
             approved_by,
             changes_requested_by,
             approvals_left: left,
+            can_approve: None,
             pipeline: head_pipeline.as_ref().map(|h| h.status),
             head_pipeline,
             merge_status: merge_status(&p.merge_state_status, p.review_decision.as_deref()).into(),

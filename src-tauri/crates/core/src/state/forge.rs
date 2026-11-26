@@ -206,6 +206,11 @@ pub struct MergeRequest {
     #[serde(default)]
     pub changes_requested_by: Vec<String>,
     pub approvals_left: i64,
+    /// Whether I may approve it, as the forge says (GitLab's `userPermissions.canApprove`: an
+    /// eligible approver, its author too when the project allows it), whether or not I already did;
+    /// `None` when it does not say (GitHub: anyone but its author).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub can_approve: Option<bool>,
     /// Its head pipeline's status.
     pub pipeline: Option<PipelineStatus>,
     pub merge_status: String,
