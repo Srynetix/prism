@@ -223,10 +223,14 @@ struct RawFile {
 /// Git's empty blob: a file with nothing in it.
 const EMPTY_BLOB: &str = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
 
-/// No line changed: an empty file, or renamed, copied or its mode changed without an edit. A binary
-/// file has no patch either: only these say it holds nothing to read.
+/// No line changed: an empty file (its blob, or removed with no line), or renamed, copied or its
+/// mode changed without an edit. A binary file has no patch and no changes either, even edited:
+/// one whose extension says binary never is.
 fn empty_file(f: &RawFile) -> bool {
-    f.patch.as_deref().unwrap_or_default().is_empty() && f.changes == 0 && (f.sha.as_deref() == Some(EMPTY_BLOB) || matches!(f.status.as_str(), "renamed" | "copied" | "changed"))
+    f.patch.as_deref().unwrap_or_default().is_empty()
+        && f.changes == 0
+        && !crate::forge::binary_path(&f.filename)
+        && (f.sha.as_deref() == Some(EMPTY_BLOB) || matches!(f.status.as_str(), "renamed" | "copied" | "changed" | "removed"))
 }
 
 pub async fn diff(project: &str, hub: &Hub, repo: Option<&str>, number: u64) -> Result<MrDiff> {
@@ -242,8 +246,8 @@ pub async fn diff(project: &str, hub: &Hub, repo: Option<&str>, number: u64) -> 
             let patch = f.patch.unwrap_or_default();
             diff.push(FileDiff {
                 empty,
-                // No patch: a binary file, or too big for GitHub.
-                collapsed: patch.is_empty(),
+                // No patch: a binary file, or too big for GitHub (an empty one holds nothing to give).
+                collapsed: patch.is_empty() && !empty,
                 diff: patch,
                 old_path: f.previous_filename.unwrap_or_else(|| f.filename.clone()),
                 new_file: f.status == "added",
@@ -510,6 +514,9 @@ mod tests {
         assert!(!empty_file(&file("added", "abc", 0, None)), "a binary file");
         assert!(!empty_file(&file("modified", "abc", 120, None)), "too big for a patch");
         assert!(!empty_file(&file("renamed", "abc", 2, Some("@@ -1 +1 @@\n-a\n+b"))), "renamed and edited");
+        assert!(empty_file(&file("removed", "abc", 0, None)), "an empty file removed");
+        let logo = RawFile { filename: "assets/Logo.PNG".into(), ..file("renamed", "abc", 0, None) };
+        assert!(!empty_file(&logo), "a binary file renamed, edited or not");
     }
 
     #[test]

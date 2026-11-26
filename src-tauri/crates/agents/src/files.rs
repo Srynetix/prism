@@ -371,6 +371,11 @@ pub async fn diff(dir: &Path, base: Option<&str>) -> Result<Diff> {
     let raw = git(dir, &["diff", "--no-color", "--no-ext-diff", "--no-textconv", "-M", &rev]).await?;
     let mut truncated = raw.len() > MAX_DIFF;
     let mut files = parse_diff(if truncated { cut(&raw, MAX_DIFF) } else { &raw });
+    // Cut: the last file's hunks may be missing (cut in its header, even), nothing says it is empty.
+    if truncated && let Some(last) = files.last_mut() {
+        last.empty = false;
+        last.collapsed |= last.diff.trim().is_empty();
+    }
     let mut size = raw.len().min(MAX_DIFF);
     let untracked = git(dir, &["ls-files", "-z", "--others", "--exclude-standard"]).await?;
     for path in untracked.split('\0').filter(|p| !p.is_empty()) {

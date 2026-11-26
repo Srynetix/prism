@@ -451,7 +451,7 @@
     setPref('diff.md', v)
   }
   /** A Markdown file that still exists, with its diff: it can be read rendered. */
-  const previewable = (x: Entry) => /\.(md|markdown)$/i.test(x.path) && !x.f.deleted_file && !x.f.collapsed
+  const previewable = (x: Entry) => /\.(md|markdown)$/i.test(x.path) && !x.f.deleted_file && !x.f.collapsed && !x.f.empty
   const viewOf = (x: Entry): MdView => (previewable(x) ? mdView : 'diff')
 
   /** The file's new version, by fingerprint: read once, when it nears the visible area. */
@@ -761,6 +761,12 @@
 
 <svelte:window onkeydown={(e) => root?.closest('aside[data-kbd]') && onkeydown(e)} onpointermove={dragOver} onpointerup={() => (dragging = null)} />
 
+<!-- The Empty button: the files with no line changed, viewed at once (as Tests). -->
+{#snippet emptyButton(onclick: () => void)}
+  {@const all = emptiesSeen === empties.length}
+  <button class="tests" class:on={all} {onclick} aria-pressed={all} title={all ? t('Uncheck the empty files') : tn(empties.length, 'Mark the {n} empty file as viewed: no line changed (an empty new file, a rename, a mode change)', 'Mark the {n} empty files as viewed: no line changed (empty new files, renames, mode changes)')}><Icon name="check" /> {t('Empty')} <b>{emptiesSeen} / {empties.length}</b></button>
+{/snippet}
+
 <!-- A code line: highlighted tokens, the changed part emphasised (its sign in its own column, `sign`). -->
 {#snippet code(hl: string, i: number, lines: DiffLine[], marks: Map<number, Mark>)}
   {@const l = lines[i]}
@@ -768,10 +774,6 @@
 {/snippet}
 
 <!-- A line's + or −, out of its code: the code starts at the same edge on every line, and a copy leaves it out. -->
-{#snippet emptyButton(onclick: () => void)}
-  {@const all = emptiesSeen === empties.length}
-  <button class="tests" class:on={all} {onclick} aria-pressed={all} title={all ? t('Uncheck the empty files') : tn(empties.length, 'Mark the {n} empty file as viewed: no line changed (an empty new file, a rename, a mode change)', 'Mark the {n} empty files as viewed: no line changed (empty new files, renames, mode changes)')}><Icon name="check" /> {t('Empty')} <b>{emptiesSeen} / {empties.length}</b></button>
-{/snippet}
 {#snippet sign(l: DiffLine)}{l.kind === 'add' ? '+' : l.kind === 'del' ? '−' : ''}{/snippet}
 
 <!-- The gutter "+", to comment on the line (a note to the agent: shift-click extends it to a range). -->

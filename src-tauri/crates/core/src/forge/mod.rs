@@ -38,6 +38,18 @@ const IMAGE_MAX_BYTES: usize = 15 * 1024 * 1024;
 
 /// An attached image as a `data:` URL: only PNG, JPEG, GIF and WebP (never an SVG, which can
 /// carry script), recognized by their content rather than by what the server says.
+/// A path whose extension says binary (images, documents, archives, fonts, media, builds): a forge
+/// may give such a file no lines at all, and it is never taken for an empty one.
+pub fn binary_path(path: &str) -> bool {
+    const EXT: &[&str] = &[
+        "png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "icns", "tif", "tiff", "avif", "heic", "psd", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "zip", "gz", "tgz", "bz2",
+        "xz", "zst", "7z", "rar", "tar", "jar", "war", "woff", "woff2", "ttf", "otf", "eot", "mp3", "mp4", "mov", "avi", "webm", "wav", "ogg", "flac", "exe", "dll", "so", "dylib", "a", "o",
+        "class", "pyc", "wasm", "bin", "db", "sqlite", "parquet", "pkl", "npy", "h5", "onnx", "pt",
+    ];
+    let name = path.rsplit('/').next().unwrap_or(path);
+    name.rsplit_once('.').is_some_and(|(_, ext)| EXT.contains(&ext.to_ascii_lowercase().as_str()))
+}
+
 pub fn image_data_url(bytes: &[u8]) -> Result<String> {
     use base64::Engine;
     if bytes.len() > IMAGE_MAX_BYTES {
@@ -295,6 +307,16 @@ pub struct JobLog {
 #[cfg(test)]
 mod label_tests {
     use super::*;
+
+    #[test]
+    fn a_binary_path_by_its_extension() {
+        for p in ["a/Logo.PNG", "doc.pdf", "fonts/x.woff2", "lib.so"] {
+            assert!(binary_path(p), "{p}");
+        }
+        for p in ["__init__.py", ".gitkeep", "a.png.md", "Makefile", "src/a.rs"] {
+            assert!(!binary_path(p), "{p}");
+        }
+    }
 
     #[test]
     fn changes_only_the_labels_that_move() {
