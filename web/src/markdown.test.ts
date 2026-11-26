@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inline, parse, withMentions, type Block } from './markdown'
+import { inline, listTree, parse, withMentions, type Block, type ListNode } from './markdown'
 
 const lists = (md: string) => parse(md).filter((b): b is Extract<Block, { kind: 'list' }> => b.kind === 'list')
 const numbers = (md: string) => lists(md).map((l) => l.items.map((i) => i.number ?? '•'))
@@ -28,6 +28,30 @@ describe('numbered lists', () => {
 
   it('separates a bulleted list from a numbered one', () => {
     expect(numbers('- a\n- b\n\n1. c')).toEqual([['•', '•'], [1]])
+  })
+})
+
+describe('nested lists', () => {
+  const depths = (md: string) => lists(md).map((l) => l.items.map((i) => i.depth))
+  const shape = (nodes: ListNode[]): unknown[] => nodes.map((n) => (n.children.length ? [n.item.spans.map((s) => s.text).join(''), shape(n.children)] : n.item.spans.map((s) => s.text).join('')))
+
+  it('goes one level down per deeper indentation, whatever its width (2, 3 or 4 spaces)', () => {
+    expect(depths('- a\n  - b\n    - c\n- d')).toEqual([[0, 1, 2, 0]])
+    expect(depths('- a\n    - b\n        - c\n    - d')).toEqual([[0, 1, 2, 1]])
+    expect(depths('1. a\n   - b\n   - c\n2. d')).toEqual([[0, 1, 1, 0]])
+  })
+
+  it('comes back to the level its indentation matches', () => {
+    expect(depths('- a\n    - b\n        - c\n  - d')).toEqual([[0, 1, 2, 1]])
+  })
+
+  it('numbers each level on its own', () => {
+    expect(numbers('1. a\n   1. a1\n   2. a2\n2. b\n   1. b1')).toEqual([[1, 1, 2, 2, 1]])
+  })
+
+  it('makes a tree: each item with the items under it', () => {
+    const [l] = lists('- a\n  - b\n    - c\n  - d\n- e')
+    expect(shape(listTree(l.items))).toEqual([['a', [['b', ['c']], 'd']], 'e'])
   })
 })
 

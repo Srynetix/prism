@@ -94,6 +94,24 @@ export interface ListItem {
   blocks?: Block[]
 }
 
+/** A list's items as a tree: each with the items under it (deeper, until one as shallow). */
+export interface ListNode {
+  item: ListItem
+  children: ListNode[]
+}
+
+export function listTree(items: ListItem[]): ListNode[] {
+  const top: ListNode[] = []
+  const open: ListNode[] = []
+  for (const item of items) {
+    const node: ListNode = { item, children: [] }
+    while (open.length && open[open.length - 1].item.depth >= item.depth) open.pop()
+    ;(open.length ? open[open.length - 1].children : top).push(node)
+    open.push(node)
+  }
+  return top
+}
+
 export type Block = (
   | { kind: 'heading'; level: number; spans: Span[] }
   | { kind: 'paragraph'; spans: Span[] }
@@ -258,6 +276,9 @@ export function parse(md: string): Block[] {
       const items: ListItem[] = []
       /** The last number at each depth: `1.` `1.` `1.` count on, `3.` stays 3. */
       const last: number[] = []
+      /** The indentation of each level open: deeper than the last, one level down (2, 3 or 4
+       * spaces, whatever the author's), shallower, back to the level it matches. */
+      const indents: number[] = []
       for (; i < lines.length; i++) {
         const f = items.length && /^\s+/.test(lines[i]) ? FENCE.exec(lines[i]) : null
         if (f) {
@@ -271,7 +292,10 @@ export function parse(md: string): Block[] {
         // A numbered list following a bulleted list (or the reverse) is a separate one.
         if (m && !m[1] && /\d/.test(m[2]) !== ordered) break
         if (m) {
-          const depth = Math.floor(m[1].replace(/\t/g, '  ').length / 2)
+          const w = m[1].replace(/\t/g, '  ').length
+          while (indents.length > 1 && w < indents[indents.length - 1]) indents.pop()
+          if (!indents.length || w > indents[indents.length - 1]) indents.push(w)
+          const depth = indents.length - 1
           last.length = depth + 1
           const written = /\d/.test(m[2]) ? parseInt(m[2], 10) : undefined
           const number = written === undefined ? undefined : last[depth] !== undefined && written <= last[depth] ? last[depth] + 1 : written
