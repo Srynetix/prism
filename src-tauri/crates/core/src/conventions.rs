@@ -28,6 +28,10 @@ pub struct Conventions {
     pub after_merge_statuses: Vec<String>,
     pub done_statuses: Vec<String>,
     pub blocked_statuses: Vec<String>,
+    /// A ticket waiting on its blockers (`[tracker] waiting_statuses`, else the blocked ones).
+    pub waiting_statuses: Vec<String>,
+    /// Where it moves once they are all done (`[tracker] unblocked_status`, else the first ready status).
+    pub unblocked_status: String,
     pub time_history_days: u32,
     /// Hours to log per working day (`[clickup] day_hours`).
     pub day_hours: f64,
@@ -86,6 +90,8 @@ impl Conventions {
             after_merge_statuses: t.after_merge_statuses.clone(),
             done_statuses: t.done_statuses.clone(),
             blocked_statuses: t.blocked_statuses.clone(),
+            waiting_statuses: if t.waiting_statuses.is_empty() { t.blocked_statuses.clone() } else { t.waiting_statuses.clone() },
+            unblocked_status: Some(t.unblocked_status.trim()).filter(|s| !s.is_empty()).or_else(|| t.pick_statuses.first().map(String::as_str)).unwrap_or_default().to_string(),
             time_history_days: c.time_history_days,
             day_hours: if c.day_hours > 0.0 { c.day_hours } else { 8.0 },
             validation_statuses: t.validation_statuses.clone(),
@@ -106,8 +112,8 @@ impl Conventions {
     /// statuses, the estimates, the avatars and the actuals. The rest (prefix, host, branches…) stays as configured at
     /// launch. Every field is named: a new one must say which kind it is.
     pub fn with_live(&self, read: Conventions) -> Conventions {
-        let Conventions { ticket_prefix: _, ticket_patterns: _, forge: _, gitlab_host: _, main_branch: _, release_prefix: _, time_history_days: _, day_hours: _, branch_aliases: _, workflow_statuses, before_dev_statuses, in_progress_statuses, review_statuses, approved_statuses, merge_queue_statuses, after_merge_statuses, done_statuses, blocked_statuses, validation_statuses, pick_statuses, estimate_builtin, estimate_fields, avatars, forge_avatars, actuals, next_action, actuals_logged_only, ticket_type } = read;
-        Conventions { workflow_statuses, before_dev_statuses, in_progress_statuses, review_statuses, approved_statuses, merge_queue_statuses, after_merge_statuses, done_statuses, blocked_statuses, validation_statuses, pick_statuses, estimate_builtin, estimate_fields, avatars, forge_avatars, actuals, next_action, actuals_logged_only, ticket_type, ..self.clone() }
+        let Conventions { ticket_prefix: _, ticket_patterns: _, forge: _, gitlab_host: _, main_branch: _, release_prefix: _, time_history_days: _, day_hours: _, branch_aliases: _, workflow_statuses, before_dev_statuses, in_progress_statuses, review_statuses, approved_statuses, merge_queue_statuses, after_merge_statuses, done_statuses, blocked_statuses, waiting_statuses, unblocked_status, validation_statuses, pick_statuses, estimate_builtin, estimate_fields, avatars, forge_avatars, actuals, next_action, actuals_logged_only, ticket_type } = read;
+        Conventions { workflow_statuses, before_dev_statuses, in_progress_statuses, review_statuses, approved_statuses, merge_queue_statuses, after_merge_statuses, done_statuses, blocked_statuses, waiting_statuses, unblocked_status, validation_statuses, pick_statuses, estimate_builtin, estimate_fields, avatars, forge_avatars, actuals, next_action, actuals_logged_only, ticket_type, ..self.clone() }
     }
 
     /// Finished ticket: closed, or in an end status (`[tracker] done_statuses`), whatever its case

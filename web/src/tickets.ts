@@ -1,5 +1,5 @@
 import { live } from './live.svelte'
-import type { Dependency, Ticket } from './types'
+import type { Dependency, StatusOption, Ticket } from './types'
 import { conventions } from './conventions'
 
 /**
@@ -34,11 +34,23 @@ function known(): Ticket[] {
   return all.filter((t) => !seen.has(t.task_id) && !!seen.add(t.task_id))
 }
 
-/** A dependency's other ticket is finished: closed, or in an end status (`done_statuses`). */
-export const dependencyDone = (d: Dependency) => d.closed || conventions().done_statuses.includes(d.status)
+/** A dependency's other ticket is finished: closed, or in an end status (`done_statuses`, whatever its case). */
+export const dependencyDone = (d: Dependency) => d.closed || conventions().done_statuses.some((s) => s.toLowerCase() === d.status.toLowerCase())
 
 /** The tickets `t` still waits on. */
 export const openBlockers = (t: Ticket) => (t.waiting_on ?? []).filter((d) => !dependencyDone(d))
+
+/**
+ * A ticket waiting on its blockers (`waiting_statuses`) whose blockers are all done: the status it
+ * can move to (`unblocked_status`), when its list has it; null otherwise. The Sync alert's rule.
+ */
+export function unblockedTo(t: Ticket, statuses: StatusOption[]): string | null {
+  const c = conventions()
+  const to = c.unblocked_status
+  const deps = t.waiting_on ?? []
+  if (t.closed || !to || t.status === to || !deps.length || !(c.waiting_statuses ?? []).includes(t.status) || !deps.every(dependencyDone)) return null
+  return statuses.some((s) => s.status === to) ? to : null
+}
 
 /** Waiting on at least one unfinished ticket. */
 export const isBlocked = (t: Ticket) => openBlockers(t).length > 0

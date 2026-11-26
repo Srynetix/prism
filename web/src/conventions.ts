@@ -21,6 +21,8 @@ const DEFAULTS: Conventions = {
   after_merge_statuses: ['complete'],
   done_statuses: ['complete'],
   blocked_statuses: ['blocked'],
+  waiting_statuses: ['blocked'],
+  unblocked_status: 'to do',
   validation_statuses: [],
   branch_aliases: [],
   pick_statuses: ['to do'],

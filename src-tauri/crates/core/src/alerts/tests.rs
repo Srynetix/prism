@@ -358,6 +358,35 @@ fn tickets_against_their_mrs() {
     assert!(run(&s).is_empty());
 }
 
+fn dep(id: &str, status: &str) -> Dependency {
+    Dependency { task_id: format!("t{id}"), id: id.into(), name: format!("Ticket {id}"), status: status.into(), closed: false, url: String::new() }
+}
+
+#[test]
+fn a_ticket_whose_blockers_are_done_can_move_on() {
+    let mut s = snap();
+    s.conventions.done_statuses = vec!["complete".into()];
+    s.conventions.waiting_statuses = vec!["ready".into()];
+    s.conventions.unblocked_status = "to do".into();
+    let mut sp = sprint(vec![ticket("ABC-1", "ready"), ticket("ABC-2", "ready"), ticket("ABC-3", "ready"), ticket("ABC-4", "in progress")]);
+    sp.statuses.push(status("ready"));
+    // Its blockers done (one closed, one Complete in another case): flagged, with its move.
+    sp.tickets[0].waiting_on = vec![dep("ABC-9", "Complete"), Dependency { closed: true, ..dep("ABC-8", "") }];
+    // One still under way, or never read: not yet.
+    sp.tickets[1].waiting_on = vec![dep("ABC-9", "complete"), dep("ABC-7", "review")];
+    sp.tickets[2].waiting_on = vec![dep("", "")];
+    // Not waiting (another status), or never blocked: nothing to say.
+    sp.tickets[3].waiting_on = vec![dep("ABC-9", "complete")];
+    s.sprint = Some(sp);
+    let list = run(&s);
+    assert_eq!(texts(&list), ["ABC-1 “ready” — its blockers are done: “to do”?"]);
+    assert!(matches!(&list[0].fixes.as_ref().unwrap()[..], [Fix::Status { status, ticket, .. }] if status == "to do" && ticket == "ABC-1"));
+    assert_eq!(list[0].rule, Some(AlertRule::Sync));
+    // No status to move it to: no rule.
+    s.conventions.unblocked_status.clear();
+    assert!(run(&s).is_empty());
+}
+
 #[test]
 fn a_draft_in_review_or_approved_moves_its_ticket() {
     let mut s = snap();

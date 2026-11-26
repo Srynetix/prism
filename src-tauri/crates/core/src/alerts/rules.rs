@@ -604,6 +604,29 @@ impl<'a> Ctx<'a> {
         out
     }
 
+    /// A ticket waiting on its blockers (`waiting_statuses`) whose blockers are now all done: it can
+    /// move on (`unblocked_status`). Wherever Prism reads it (sprint, pick boards); a blocker
+    /// whose status is not known yet (another list, not read) is not done.
+    pub fn unblocked_alerts(&self) -> Vec<Alert> {
+        let c = self.c;
+        if c.waiting_statuses.is_empty() || c.unblocked_status.is_empty() {
+            return Vec::new();
+        }
+        let done = |d: &Dependency| d.closed || c.done_statuses.iter().any(|s| s.eq_ignore_ascii_case(&d.status));
+        let mut out = Vec::new();
+        let mut entries: Vec<_> = self.ticket_index().iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        for (_, e) in entries {
+            let t = e.t;
+            if t.closed || t.waiting_on.is_empty() || !Self::has(&c.waiting_statuses, &t.status) || t.status == c.unblocked_status || !t.waiting_on.iter().all(done) {
+                continue;
+            }
+            let text = tr!("{id} “{status}” — its blockers are done: “{wanted}”?", id = t.id, status = t.status, wanted = c.unblocked_status);
+            out.push(Alert::new("Sync", Severity::Info, text).url(t.url.clone()).open(self.ticket_open(t)).fixes(Self::move_to(Some(e), std::slice::from_ref(&c.unblocked_status))));
+        }
+        out
+    }
+
     /// A ticket "to merge" whose open MR, in a repository with a merge queue, is not in it: nothing
     /// will merge it. Already merging or a draft, left alone; in conflict, after a failed rebase or
     /// still short of an approval, flagged without the fix.

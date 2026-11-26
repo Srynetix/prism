@@ -490,6 +490,10 @@ pub struct Conventions {
     pub after_merge_statuses: Vec<String>,
     pub done_statuses: Vec<String>,
     pub blocked_statuses: Vec<String>,
+    /// A ticket waiting on its blockers (`[tracker] waiting_statuses`, else the blocked ones).
+    pub waiting_statuses: Vec<String>,
+    /// Where it moves once they are all done (`[tracker] unblocked_status`, else the first ready status).
+    pub unblocked_status: String,
     pub time_history_days: u32,
     /// Hours to log per working day (`[clickup] day_hours`).
     pub day_hours: f64,
