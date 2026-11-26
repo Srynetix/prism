@@ -47,6 +47,14 @@ export function fileTree<F extends { path: string; stats: { add: number; del: nu
   return { ...top, dirs: new Map([...top.dirs].map(([k, v]) => [k, compact(v)])) }
 }
 
+/**
+ * The files in the tree's order (folders first, then files, by name): the diff shows them so, its
+ * list, its file picker and n / p too, as the tree lists them (git's order puts `Z` before `a`).
+ */
+export function inTreeOrder<F extends { path: string; stats: { add: number; del: number } }>(files: F[]): F[] {
+  return treeRows(fileTree(files), { has: () => false }).flatMap((r) => ('file' in r ? [r.file] : []))
+}
+
 /** The tree as rows: folders first, then files, in alphabetical order; those under a `shut` folder left out. */
 export function treeRows<F extends { path: string }>(tree: DiffDir<F>, shut: { has(path: string): boolean }): TreeRow<F>[] {
   const out: TreeRow<F>[] = []

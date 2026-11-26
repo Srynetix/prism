@@ -34,7 +34,7 @@
   import { diffStats, parseDiff, sameHunk, type DiffLine, type Discussion, type FileDiff, type LineRef, type MrDiff } from '../mr-review.svelte'
   import { keys } from '../platform'
   import { firstBelow, holdScroll } from '../scroll-anchor'
-  import { fileTree, hunkRange, numOf, quoteOf as quoteLines, refOf, sideOf, threadIndex, threadsAt as threadsIn, treeRows as rowsOf, type Side, type TreeRow } from '../mr-diff'
+  import { fileTree, hunkRange, inTreeOrder, numOf, quoteOf as quoteLines, refOf, sideOf, threadIndex, threadsAt as threadsIn, treeRows as rowsOf, type Side, type TreeRow } from '../mr-diff'
 
   /**
    * An MR's diff, for review:
@@ -97,14 +97,14 @@
   }
 
   const parsed = $derived(
-    diff.files.map((f) => {
+    inTreeOrder(diff.files.map((f) => {
       const base = f.collapsed ? [] : parseDiff(f.diff)
       const path = f.new_path || f.old_path
       const h = hash(f.diff)
       // A new or removed file is whole in its diff.
       const gaps = source && !f.new_file && !f.deleted_file ? gapsOf(base) : []
       return { f, base, gaps, stats: diffStats(f.diff), path, hash: h, key: `${path}@${h}` }
-    }),
+    })),
   )
 
   /* ---------- Lines around the hunks ---------- */
