@@ -41,6 +41,8 @@ export const setAutoMerge = (mr: MrRef, enable: boolean) => invoke<void>('set_au
 
 /** Set an MR to draft, or mark it ready (`Draft:` title prefix, set by GitLab). */
 export const setDraft = (mr: MrRef, draft: boolean) => invoke<void>('set_draft', { ...mrArgs(mr), draft })
+/** Approve an MR, or take my approval back; the snapshot follows on the Rust side. */
+export const approveMr = (mr: MrRef, approve: boolean) => invoke<void>('approve_mr', { ...mrArgs(mr), approve })
 
 export const playRenovate = () => invoke<void>('play_renovate')
 

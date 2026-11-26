@@ -255,6 +255,7 @@ export default {
   'No change.': 'Aucune modification.',
   'Approve': 'Approuver',
   'Revoke my approval': 'Retirer mon approbation',
+  'you approved': 'vous avez approuvé',
   'Review': 'Revue',
   'Request changes…': 'Demander des modifications…',
   'Link': 'Lien',

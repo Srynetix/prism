@@ -6,7 +6,7 @@ import { hasCore } from './bridge'
 import { claudeItem, mrActions, openAgentAction, ticketActions, type ClaudeAction } from './claude-actions'
 import { setQuery } from './filter.svelte'
 import { namesTicket } from './conventions'
-import { forgeName, mrNumber } from './forge'
+import { forgeName, mrNumber, onGithub } from './forge'
 import { live } from './live.svelte'
 import { canShowLogs, openPipeline } from './logs.svelte'
 import { timeDescription } from './mr-actions'
@@ -15,7 +15,7 @@ import { pickLabels } from './mr-labels.svelte'
 import { mrKey, sameMr, type MrRef } from './mr-ref'
 import { openMr } from './mr-view.svelte'
 import { FILE_MANAGER, keys, tildePath } from './platform'
-import { canCancel, canRetry, canRunPipeline, cancelPipeline, mergeMr, rebaseMr, retryPipeline, runMrPipeline, setAutoMerge, setDraft, setMergePriority, setMergeQueue } from './pipeline-actions'
+import { approveMr, canCancel, canRetry, canRunPipeline, cancelPipeline, mergeMr, rebaseMr, retryPipeline, runMrPipeline, setAutoMerge, setDraft, setMergePriority, setMergeQueue } from './pipeline-actions'
 import { hasMergeQueue } from './repositories'
 import { mergePriority, priorityLevels } from './merge-queue'
 import { agentStateLabel, canMerge, canQueue, mergeState, mrForSession, rebaseHint, isWorking, statusColor, waitsForYou } from './rules'
@@ -69,6 +69,13 @@ export function mrMenu(mr: MergeRequest, queueLabel: string | null | undefined, 
   ]
 
   const sections = ((): MenuSection[] => {
+    // Approve someone else's MR, or take my approval back (GitHub cannot: its review is dismissed there).
+    const review: MenuItem[] = []
+    if (mr.state === 'opened' && hasCore() && me && mr.author !== me) {
+      const mine = mr.approved_by.includes(me)
+      if (!mine) review.push({ key: 'approve', icon: 'check', label: tr('Approve'), kbd: 'A', run: () => approveMr(mr, true) })
+      else if (!onGithub(mr)) review.push({ key: 'approve', icon: 'check', label: tr('Revoke my approval'), hint: tr('you approved'), run: () => approveMr(mr, false) })
+    }
     const merge: MenuItem[] = []
     if (mr.state === 'opened') {
       if (canMerge(mr)) merge.push({ key: 'merge', icon: 'merge', label: tr('Merge now'), hint: tr('into {branch}', { branch: mr.target_branch }), confirm: tr('Click again to merge into {branch}', { branch: mr.target_branch }), run: () => mergeMr(mr) })
@@ -114,6 +121,7 @@ export function mrMenu(mr: MergeRequest, queueLabel: string | null | undefined, 
     }
     if (mr.ticket && offers('time')) other.push({ key: 'time', icon: 'timer', label: tr('Log time'), hint: mr.ticket, kbd: 'T', run: () => openTimeDraft(mr.ticket!, timeDescription(mr)) })
     return [
+      { title: tr('Review'), items: review },
       { title: tr('Merge'), items: merge },
       { title: tr('Merge priority'), segment: priority },
       { title: tr('Pipeline'), items: pipeline },

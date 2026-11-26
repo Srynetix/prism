@@ -257,8 +257,9 @@
     const own: FlatAction[] = []
     if (canApprove && !(onGithub(m) && detail?.data?.user_has_approved)) own.push({ key: 'approve', label: detail?.data?.user_has_approved ? t('Revoke my approval') : t('Approve'), group: t('Review'), run: async () => { await toggleApproval(); if (approveError) throw approveError } })
     if (canApprove && !detail?.data?.user_requested_changes) own.push({ key: 'changes', label: t('Request changes…'), group: t('Review'), run: () => { tab = 'overview'; asking = true } })
-    // The MR's actions first, its links after them; filtering the dashboard means nothing here.
-    const menu = flatten(mrMenu(m, queueLabel, me)).filter((a) => a.key !== 'filter')
+    // The MR's actions first, its links after them; filtering the dashboard means nothing here, and
+    // its approval is the one above (read from its detail).
+    const menu = flatten(mrMenu(m, queueLabel, me)).filter((a) => a.key !== 'filter' && a.key !== 'approve')
     const links = menu.filter((a) => !a.group).map((a) => ({ ...a, group: t('Link') }))
     return [...own, ...menu.filter((a) => a.group), ...links]
   })
