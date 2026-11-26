@@ -76,6 +76,16 @@
   let busy = $state(false)
   let error = $state('')
   let durationInput: HTMLInputElement | undefined = $state()
+  // "Log time" on a ticket: the duration focused, the drawer open or already there.
+  // Each ask focuses once (`timeDraft.focused`); closed before, it is dropped: opened by hand
+  // later, the drawer is left as it is.
+  $effect(() => {
+    if (timeDraft.asked === timeDraft.focused) return
+    if (!timeDraft.open) return void (timeDraft.focused = timeDraft.asked)
+    if (!durationInput) return
+    timeDraft.focused = timeDraft.asked
+    durationInput.focus()
+  })
 
   function toggle() {
     timeDraft.open = !timeDraft.open
