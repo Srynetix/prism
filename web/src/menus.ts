@@ -6,13 +6,14 @@ import { hasCore } from './bridge'
 import { claudeItem, mrActions, openAgentAction, ticketActions, type ClaudeAction } from './claude-actions'
 import { setQuery } from './filter.svelte'
 import { namesTicket } from './conventions'
-import { forgeName, mrNumber } from './forge'
+import { forgeName, mrNumber, onGithub } from './forge'
 import { live } from './live.svelte'
 import { canShowLogs, openPipeline } from './logs.svelte'
 import { timeDescription } from './mr-actions'
 import { pickPeople, setMrPeople } from './mr-people.svelte'
 import { pickLabels } from './mr-labels.svelte'
 import { mrKey, sameMr, type MrRef } from './mr-ref'
+import { approve } from './mr-review.svelte'
 import { openMr } from './mr-view.svelte'
 import { FILE_MANAGER, keys, tildePath } from './platform'
 import { canCancel, canRetry, canRunPipeline, cancelPipeline, mergeMr, rebaseMr, retryPipeline, runMrPipeline, setAutoMerge, setDraft, setMergePriority, setMergeQueue } from './pipeline-actions'
@@ -69,6 +70,16 @@ export function mrMenu(mr: MergeRequest, queueLabel: string | null | undefined, 
   ]
 
   const sections = ((): MenuSection[] => {
+    // Approve it when the forge lets me (GitLab says; elsewhere, anyone but its author), or take my
+    // approval back. GitHub cannot take one back (its review is dismissed there): a second click.
+    const review: MenuItem[] = []
+    if (mr.state === 'opened' && hasCore()) {
+      const mine = !!me && mr.approved_by.includes(me)
+      const may = mr.can_approve ?? (!!me && mr.author !== me)
+      const github = onGithub(mr)
+      if (!mine && may) review.push({ key: 'approve', icon: 'check', label: tr('Approve'), kbd: 'A', confirm: github ? tr('Click again to approve: GitHub cannot take it back') : undefined, run: () => approve(mr, true, mr.updated_at) })
+      else if (mine && !github) review.push({ key: 'approve', icon: 'check', label: tr('Revoke my approval'), hint: tr('you approved'), run: () => approve(mr, false, mr.updated_at) })
+    }
     const merge: MenuItem[] = []
     if (mr.state === 'opened') {
       if (canMerge(mr)) merge.push({ key: 'merge', icon: 'merge', label: tr('Merge now'), hint: tr('into {branch}', { branch: mr.target_branch }), confirm: tr('Click again to merge into {branch}', { branch: mr.target_branch }), run: () => mergeMr(mr) })
@@ -114,6 +125,7 @@ export function mrMenu(mr: MergeRequest, queueLabel: string | null | undefined, 
     }
     if (mr.ticket && offers('time')) other.push({ key: 'time', icon: 'timer', label: tr('Log time'), hint: mr.ticket, kbd: 'T', run: () => openTimeDraft(mr.ticket!, timeDescription(mr)) })
     return [
+      { title: tr('Review'), items: review },
       { title: tr('Merge'), items: merge },
       { title: tr('Merge priority'), segment: priority },
       { title: tr('Pipeline'), items: pipeline },

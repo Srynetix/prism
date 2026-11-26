@@ -240,6 +240,8 @@ pub(super) struct GqlMr {
     reviewers: Nodes<GqlReviewer>,
     approved_by: Nodes<GqlUser>,
     approvals_left: Option<i64>,
+    #[serde(default)]
+    user_permissions: Option<GqlMrPermissions>,
     head_pipeline: Option<GqlPipelineFull>,
     detailed_merge_status: Option<String>,
     conflicts: bool,
@@ -258,6 +260,13 @@ pub(super) struct GqlMr {
     resolved_discussions_count: Option<i64>,
     #[serde(default)]
     diff_stats_summary: Option<GqlDiffStats>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GqlMrPermissions {
+    #[serde(default)]
+    can_approve: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -292,6 +301,7 @@ impl From<GqlMr> for MergeRequest {
             reviewers: m.reviewers.nodes.into_iter().map(|u| u.username).collect(),
             approved_by: m.approved_by.nodes.into_iter().map(|u| u.username).collect(),
             approvals_left: m.approvals_left.unwrap_or(0),
+            can_approve: m.user_permissions.and_then(|p| p.can_approve),
             pipeline: m.head_pipeline.as_ref().map(|p| PipelineStatus::of(&p.status)),
             head_pipeline: m.head_pipeline.map(Pipeline::from),
             conflicts: conflicts(m.conflicts, m.detailed_merge_status.as_deref(), m.mergeability_checks.iter().find(|c| c.identifier == "CONFLICT").map(|c| c.status.as_str())),
@@ -429,6 +439,7 @@ mod tests {
         let mr = MergeRequest::from(m);
         assert_eq!(mr.merge_error.as_deref(), Some("Rebase failed: Rebase locally, resolve all conflicts, then push the branch. Try again."));
         assert!(!mr.rebase_in_progress && !mr.needs_rebase, "GitLab does not always say it is to rebase");
+        assert_eq!(mr.can_approve, None, "an answer without it says nothing");
     }
 
     /// GitLab's merge status says "conflict" before its `conflicts` does: a conflict all the same.
@@ -438,7 +449,7 @@ mod tests {
             "iid": "43", "title": "feat: y", "draft": false, "webUrl": "https://g/x/-/merge_requests/43",
             "sourceBranch": "feat/y", "targetBranch": "release/1", "updatedAt": "2026-10-12T08:00:00Z", "mergedAt": null,
             "state": "opened", "author": { "username": "me" }, "reviewers": { "nodes": [] }, "approvedBy": { "nodes": [] },
-            "approvalsLeft": 0, "headPipeline": null, "detailedMergeStatus": "CONFLICT", "conflicts": false, "shouldBeRebased": true,
+            "approvalsLeft": 0, "userPermissions": { "canApprove": false }, "headPipeline": null, "detailedMergeStatus": "CONFLICT", "conflicts": false, "shouldBeRebased": true,
             "mergeError": null, "rebaseInProgress": false,
             "labels": { "nodes": [] }, "resolvableDiscussionsCount": 0, "resolvedDiscussionsCount": 0
         }))
@@ -446,5 +457,6 @@ mod tests {
         let mr = MergeRequest::from(m);
         assert!(mr.conflicts && mr.needs_rebase);
         assert_eq!(mr.merge_status, "conflict");
+        assert_eq!(mr.can_approve, Some(false), "my right to approve it, as GitLab says");
     }
 }

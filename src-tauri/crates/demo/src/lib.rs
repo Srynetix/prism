@@ -240,6 +240,7 @@ impl Demo {
             approved_by: Vec::new(),
             changes_requested_by: Vec::new(),
             approvals_left: 1,
+            can_approve: Some(true),
             pipeline: pipeline.as_ref().map(|p| p.status),
             merge_status: merge_status.into(),
             conflicts: false,
