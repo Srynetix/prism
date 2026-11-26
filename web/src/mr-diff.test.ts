@@ -6,7 +6,7 @@ const page = globalThis as { location?: unknown; addEventListener?: unknown }
 page.location ??= { hash: '' }
 page.addEventListener ??= () => {}
 const { parseDiff } = await import('./mr-review.svelte')
-const { fileTree, hunkRange, inTreeOrder, numOf, quoteOf, refOf, sideOf, threadIndex, threadsAt, treeRows } = await import('./mr-diff')
+const { fileTree, filesOf, hunkRange, pathsInTreeOrder, numOf, quoteOf, refOf, sideOf, threadIndex, threadsAt, treeRows } = await import('./mr-diff')
 
 const file = (path: string, add = 1, del = 0) => ({ path, stats: { add, del } })
 const names = (rows: ReturnType<typeof treeRows<{ path: string }>>) => rows.map((r) => `${'  '.repeat(r.depth)}${'dir' in r ? `${r.dir.name}/` : r.file.path}`)
@@ -28,7 +28,8 @@ describe('the file tree', () => {
 
   it('gives the diff its files in the tree’s order, not git’s (`Z` before `a`, files among folders)', () => {
     const git = ['README.md', 'Zeta.ts', 'alpha.ts', 'src/b.ts', 'src/A.ts', 'src/lib/c.ts'].map((p) => file(p))
-    expect(inTreeOrder(git).map((f) => f.path)).toEqual(['src/lib/c.ts', 'src/A.ts', 'src/b.ts', 'alpha.ts', 'README.md', 'Zeta.ts'])
+    expect(filesOf(fileTree(git)).map((f) => f.path)).toEqual(['src/lib/c.ts', 'src/A.ts', 'src/b.ts', 'alpha.ts', 'README.md', 'Zeta.ts'])
+    expect(pathsInTreeOrder(['Zeta.ts', 'alpha.ts', 'src/b.ts'])).toEqual(['src/b.ts', 'alpha.ts', 'Zeta.ts'])
   })
 })
 
