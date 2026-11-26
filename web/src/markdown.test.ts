@@ -49,6 +49,22 @@ describe('nested lists', () => {
     expect(numbers('1. a\n   1. a1\n   2. a2\n2. b\n   1. b1')).toEqual([[1, 1, 2, 2, 1]])
   })
 
+  it('takes a stray space for no level, and a first item indented for the list’s own level', () => {
+    expect(depths('- a\n - b\n- c')).toEqual([[0, 0, 0]])
+    expect(depths('  - a\n- b\n  - c')).toEqual([[0, 0, 1]])
+  })
+
+  it('stops at eight levels deep', () => {
+    const stairs = Array.from({ length: 20 }, (_, k) => `${' '.repeat(2 * k)}- ${k}`).join('\n')
+    expect(Math.max(...depths(stairs)[0])).toBe(8)
+  })
+
+  it('gives a line back at an item’s indentation, after its sublist, to that item', () => {
+    const [l] = lists('- a\n  - b\n  more about a\n- c')
+    expect(l.items.map((i) => i.spans.map((s) => s.text).join(''))).toEqual(['a', 'b', 'c'])
+    expect(l.items[0].blocks).toEqual([{ kind: 'paragraph', spans: [{ text: 'more about a' }] }])
+  })
+
   it('makes a tree: each item with the items under it', () => {
     const [l] = lists('- a\n  - b\n    - c\n  - d\n- e')
     expect(shape(listTree(l.items))).toEqual([['a', [['b', ['c']], 'd']], 'e'])

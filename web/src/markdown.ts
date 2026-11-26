@@ -144,6 +144,11 @@ export interface MdMarks {
 export type MdTarget = { block: number } | { gone: number }
 
 const HEADING = /^(#{1,6})\s+(.*)$/
+/** A line's indentation in columns, a tab as two. */
+const indentOf = (line: string) => (/^\s*/.exec(line)?.[0] ?? '').replace(/\t/g, '  ').length
+/** Beyond this, deeper items stay at the last level: a staircase of indents is no tree of hundreds. */
+const MAX_DEPTH = 8
+
 const ITEM = /^(\s*)([-*+]|\d+[.)])\s+(?:\[([ xX])\]\s+)?(.*)$/
 /** A code fence's opening: three backticks or tildes at least, then the language (no backtick after backticks). */
 const FENCE = /^(\s*)(`{3,}(?=[^`]*$)|~{3,})(.*)$/
@@ -276,15 +281,24 @@ export function parse(md: string): Block[] {
       const items: ListItem[] = []
       /** The last number at each depth: `1.` `1.` `1.` count on, `3.` stays 3. */
       const last: number[] = []
-      /** The indentation of each level open: deeper than the last, one level down (2, 3 or 4
-       * spaces, whatever the author's), shallower, back to the level it matches. */
+      /** The indentation of each level open: 2 columns deeper than the last or more, one level
+       * down (2, 3 or 4 spaces, whatever the author's; a stray space is no level); shallower,
+       * back to the level it matches. */
       const indents: number[] = []
+      /** Each item's own indentation, by its index. */
+      const widths: number[] = []
+      /** The item a line indented by `w` belongs to: the last one indented less (an item's own
+       * text after its sublist goes back to it, not to its last child). */
+      const owner = (w: number) => {
+        for (let k = items.length - 1; k >= 0; k--) if (widths[k] < w) return k
+        return items.length - 1
+      }
       for (; i < lines.length; i++) {
         const f = items.length && /^\s+/.test(lines[i]) ? FENCE.exec(lines[i]) : null
         if (f) {
           // A code block indented under an item: in it, read whole (its lines are no items).
           const code = fenced(lines, i, f)
-          ;(items[items.length - 1].blocks ??= []).push({ kind: 'code', text: code.text })
+          ;(items[owner(indentOf(lines[i]))].blocks ??= []).push({ kind: 'code', text: code.text })
           i = code.end
           continue
         }
@@ -292,20 +306,27 @@ export function parse(md: string): Block[] {
         // A numbered list following a bulleted list (or the reverse) is a separate one.
         if (m && !m[1] && /\d/.test(m[2]) !== ordered) break
         if (m) {
-          const w = m[1].replace(/\t/g, '  ').length
+          const w = indentOf(m[1])
           while (indents.length > 1 && w < indents[indents.length - 1]) indents.pop()
-          if (!indents.length || w > indents[indents.length - 1]) indents.push(w)
+          if (!indents.length) indents.push(w)
+          // A first item indented, then one less: the list's own level moves left with it.
+          else if (indents.length === 1 && w < indents[0]) indents[0] = w
+          else if (w >= indents[indents.length - 1] + 2 && indents.length <= MAX_DEPTH) indents.push(w)
           const depth = indents.length - 1
+          widths[items.length] = w
           last.length = depth + 1
           const written = /\d/.test(m[2]) ? parseInt(m[2], 10) : undefined
           const number = written === undefined ? undefined : last[depth] !== undefined && written <= last[depth] ? last[depth] + 1 : written
           if (number !== undefined) last[depth] = number
           items.push({ spans: inline(m[4]), depth, ...(number === undefined ? {} : { number }), checked: m[3] === undefined ? null : m[3] !== ' ' })
         } else if (lines[i].trim() && /^\s+/.test(lines[i]) && items.length) {
-          // Continuation of an item on the next line, indented; after its code block, a paragraph under it.
-          const it = items[items.length - 1]
+          // Continuation of an item on the next line, indented; after its code block, a paragraph under
+          // it. Back at an item's own indentation after its sublist: a paragraph of that item.
+          const k = owner(indentOf(lines[i]))
+          const it = items[k]
           const after = it.blocks?.at(-1)
-          if (!it.blocks) it.spans.push({ text: ' ' }, ...inline(lines[i].trim()))
+          if (k !== items.length - 1 && !after) (it.blocks ??= []).push({ kind: 'paragraph', spans: inline(lines[i].trim()) })
+          else if (!it.blocks) it.spans.push({ text: ' ' }, ...inline(lines[i].trim()))
           else if (after?.kind === 'paragraph' && lines[i - 1].trim()) after.spans.push({ text: ' ' }, ...inline(lines[i].trim()))
           else it.blocks.push({ kind: 'paragraph', spans: inline(lines[i].trim()) })
         } else if (!lines[i].trim() && items.length) {

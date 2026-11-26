@@ -115,14 +115,14 @@
 {/snippet}
 
 <!-- A list, nested: each item's sublist inside it, under its text (bullets or numbers of its own). -->
-{#snippet items(nodes: ListNode[], ordered: boolean, attrs: Record<string, unknown> = {})}
-  <ul class:ordered class:nested={!!nodes[0]?.item.depth} {...attrs}>
+{#snippet items(nodes: ListNode[], attrs: Record<string, unknown> = {})}
+  <ul class:nested={!!nodes[0]?.item.depth} {...attrs}>
     {#each nodes as { item: it, children }, n (n)}
-      <li class:task={it.checked !== null} class:checked={it.checked}>
+      <li class:task={it.checked !== null} class:checked={it.checked} class:num={it.number !== undefined}>
         {#if it.checked !== null}<span class="box"><Icon name={it.checked ? 'checked' : 'unchecked'} /></span>{:else}<span class="bullet" aria-hidden="true">{it.number !== undefined ? `${it.number}.` : it.depth % 2 ? '◦' : '•'}</span>{/if}
         <div class="item">
           <span class="text">{@render spans(it.spans)}</span>{#if it.blocks}{@render render(it.blocks, false)}{/if}
-          {#if children.length}{@render items(children, children[0].item.number !== undefined)}{/if}
+          {#if children.length}{@render items(children)}{/if}
         </div>
       </li>
     {/each}
@@ -145,7 +145,7 @@
     {:else if b.kind === 'rule'}
       <hr {...at(top, i)} />
     {:else if b.kind === 'list'}
-      {@render items(listTree(b.items), b.ordered, at(top, i))}
+      {@render items(listTree(b.items), at(top, i))}
     {:else if b.kind === 'details'}
       <details open={b.open} {...at(top, i)}>
         <summary>{@render spans(b.summary)}</summary>
@@ -191,9 +191,11 @@
   ul.nested { margin: 5px 0 0; }
   ul.nested li { padding-left: 0; }
   .bullet { flex-shrink: 0; min-width: 10px; color: var(--accent); font-weight: 700; }
-  .ordered > li > .bullet { min-width: 16px; color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+  li.num > .bullet { min-width: 16px; color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
   .box { flex-shrink: 0; color: var(--text-muted); }
-  li.checked > .item > .text { color: var(--text-muted); text-decoration: line-through; }
+  /* A task done: its text and what it holds under it, not its sublist. */
+  li.checked > .item > :is(.text, p, pre) { color: var(--text-muted); }
+  li.checked > .item > :is(.text, p) { text-decoration: line-through; }
   /* An item's text, then what it holds under it (a code block): the column's width at most. */
   .item { flex: 1; min-width: 0; }
   .item > pre { margin: 6px 0 8px; }
