@@ -3,6 +3,7 @@ import { interruptAgent } from './agents.svelte'
 import { ready } from './agent-inbox.svelte'
 import { pref, setPref } from './layout.svelte'
 import type { MrDiff } from './mr-review.svelte'
+import { pathsInTreeOrder } from './mr-diff'
 
 /**
  * Review of an agent's diff (its Diff tab): notes on lines or ranges, a draft until sent as one
@@ -161,13 +162,17 @@ export async function sendReview(id: string, how: 'send' | 'insert' | 'interrupt
     save()
     return
   }
-  await deliver(id, how !== 'insert', fingerprints(diff), diff.files.map(pathOf))
+  await deliver(id, how !== 'insert', fingerprints(diff), pathsInTreeOrder(diff.files.map(pathOf)))
 }
 export function cancelQueue(id: string) {
   if (all[id]) all[id].queued = false
   save()
 }
-const fingerprints = (diff: MrDiff) => Object.fromEntries(diff.files.map((f) => [pathOf(f), fingerprint(f.diff)]))
+/** By path, in the tree's order: a queued review is sent later in the order the diff showed. */
+const fingerprints = (diff: MrDiff) => {
+  const by = new Map(diff.files.map((f) => [pathOf(f), fingerprint(f.diff)]))
+  return Object.fromEntries(pathsInTreeOrder([...by.keys()]).map((p) => [p, by.get(p)!]))
+}
 
 async function deliver(id: string, enter: boolean, sentDiff: Record<string, string>, order: string[]) {
   const r = of(id)

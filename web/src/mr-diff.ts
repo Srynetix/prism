@@ -36,27 +36,42 @@ export function fileTree<F extends { path: string; stats: { add: number; del: nu
     }
     d.files.push(x)
   }
+  const byName = (a: string, b: string) => a.localeCompare(b)
+  // Sorted once here, by name whatever its case: folders, then files (`treeRows` walks them so).
+  const sorted = (d: DiffDir<F>): DiffDir<F> => ({
+    ...d,
+    dirs: new Map([...d.dirs].map(([k, v]) => [k, compact(v)] as const).sort((a, b) => byName(a[1].name, b[1].name))),
+    files: [...d.files].sort((a, b) => byName(a.path, b.path)),
+  })
   const compact = (d: DiffDir<F>): DiffDir<F> => {
     let c = d
     while (c.files.length === 0 && c.dirs.size === 1) {
       const only = [...c.dirs.values()][0]
       c = { ...only, name: `${c.name}/${only.name}` }
     }
-    return { ...c, dirs: new Map([...c.dirs].map(([k, v]) => [k, compact(v)])) }
+    return sorted(c)
   }
-  return { ...top, dirs: new Map([...top.dirs].map(([k, v]) => [k, compact(v)])) }
+  return sorted(top)
 }
 
-/** The tree as rows: folders first, then files, in alphabetical order; those under a `shut` folder left out. */
+/**
+ * The files in the tree's order (folders first, then files, by name): the diff shows them so, its
+ * list, its file picker and n / p too, as the tree lists them (git's order puts `Z` before `a`).
+ */
+export const filesOf = <F extends { path: string }>(tree: DiffDir<F>): F[] => treeRows(tree, { has: () => false }).flatMap((r) => ('file' in r ? [r.file] : []))
+
+/** Paths in the tree's order: a review's notes, sent as the diff showed them. */
+export const pathsInTreeOrder = (paths: string[]): string[] => filesOf(fileTree(paths.map((path) => ({ path, stats: { add: 0, del: 0 } })))).map((f) => f.path)
+
+/** The tree as rows: folders first, then files, in alphabetical order (`fileTree`'s); those under a `shut` folder left out. */
 export function treeRows<F extends { path: string }>(tree: DiffDir<F>, shut: { has(path: string): boolean }): TreeRow<F>[] {
   const out: TreeRow<F>[] = []
-  const byName = <T>(key: (t: T) => string) => (a: T, b: T) => key(a).localeCompare(key(b))
   const walk = (d: DiffDir<F>, depth: number) => {
-    for (const sub of [...d.dirs.values()].sort(byName((x: DiffDir<F>) => x.name))) {
+    for (const sub of d.dirs.values()) {
       out.push({ dir: sub, depth })
       if (!shut.has(sub.path)) walk(sub, depth + 1)
     }
-    for (const file of [...d.files].sort(byName((x: F) => x.path))) out.push({ file, depth })
+    for (const file of d.files) out.push({ file, depth })
   }
   walk(tree, 0)
   return out

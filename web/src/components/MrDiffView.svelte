@@ -34,7 +34,7 @@
   import { diffStats, parseDiff, sameHunk, type DiffLine, type Discussion, type FileDiff, type LineRef, type MrDiff } from '../mr-review.svelte'
   import { keys } from '../platform'
   import { firstBelow, holdScroll } from '../scroll-anchor'
-  import { fileTree, hunkRange, numOf, quoteOf as quoteLines, refOf, sideOf, threadIndex, threadsAt as threadsIn, treeRows as rowsOf, type Side, type TreeRow } from '../mr-diff'
+  import { fileTree, filesOf, hunkRange, numOf, quoteOf as quoteLines, refOf, sideOf, threadIndex, threadsAt as threadsIn, treeRows as rowsOf, type Side, type TreeRow } from '../mr-diff'
 
   /**
    * An MR's diff, for review:
@@ -96,7 +96,7 @@
     setPref('diff.mode', m)
   }
 
-  const parsed = $derived(
+  const unordered = $derived(
     diff.files.map((f) => {
       const base = f.collapsed ? [] : parseDiff(f.diff)
       const path = f.new_path || f.old_path
@@ -106,6 +106,11 @@
       return { f, base, gaps, stats: diffStats(f.diff), path, hash: h, key: `${path}@${h}` }
     }),
   )
+  type Parsed = (typeof unordered)[number]
+  /** Tree: folders first, then files, by name; a folder holding only a folder merged with it (`mr-diff.ts`). */
+  const tree = $derived(fileTree(unordered))
+  /** The files in the tree's order, not git's: the diff, its list, its picker and n / p follow the tree. */
+  const parsed = $derived(filesOf(tree))
 
   /* ---------- Lines around the hunks ---------- */
 
@@ -254,12 +259,10 @@
 
   type Entry = (typeof files)[number]
 
-  /** Tree: folders first, then files; a folder holding only a folder merged with it (`mr-diff.ts`). */
-  const tree = $derived(fileTree(files))
 
   /** Collapsed folders in the tree. */
   const shut = new SvelteSet<string>()
-  const treeRows = $derived<TreeRow<Entry>[]>(rowsOf(tree, shut))
+  const treeRows = $derived<TreeRow<Parsed>[]>(rowsOf(tree, shut))
   const toggleDir = (path: string) => (shut.has(path) ? shut.delete(path) : shut.add(path))
 
   /* ---------- On-demand rendering ---------- */
@@ -652,10 +655,11 @@
 
   /* ---------- Navigation ---------- */
 
-  /** The phone's file, by its rank. */
-  let shownFile = $state(0)
+  /** The phone's file: by its path (a push adding a file before it keeps it shown), and its rank. */
+  let shownPath = $state<string | null>(null)
+  const shownFile = $derived(Math.max(0, shownPath === null ? 0 : files.findIndex((x) => x.path === shownPath)))
   const pickAt = (i: number) => {
-    shownFile = Math.max(0, Math.min(files.length - 1, i))
+    shownPath = files[Math.max(0, Math.min(files.length - 1, i))]?.path ?? null
     root?.scrollIntoView({ block: 'start' })
   }
   /** Viewed on a phone: on to the next file not yet viewed. */
@@ -690,7 +694,7 @@
    */
   function reveal(path: string, line: number | null, block: ScrollLogicalPosition) {
     // A phone shows one file: that one.
-    if (phone) shownFile = Math.max(0, files.findIndex((x) => x.path === path))
+    if (phone && files.some((x) => x.path === path)) shownPath = path
     if (folded.has(path)) flip(path)
     near.add(path)
     const go = () => {
@@ -974,7 +978,7 @@
 {/snippet}
 
 <!-- A file in the left list: flat (with its folder) or in the tree. -->
-{#snippet item(x: Entry, depth: number, flat: boolean)}
+{#snippet item(x: Parsed, depth: number, flat: boolean)}
   {@const v = isViewed(x.path, x.hash)}
   <div class="titem" class:viewed={v} style:padding-left={flat ? null : `${4 + depth * 12}px`}>
     <input type="checkbox" checked={v} onchange={(e) => setViewed(x.path, x.hash, e.currentTarget.checked)} title={t('Viewed')} aria-label={t('{path} viewed', { path: x.path })} />
