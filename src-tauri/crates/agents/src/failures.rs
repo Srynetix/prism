@@ -322,7 +322,7 @@ mod tests {
         book.plan("a1", t0 + Duration::hours(2));
         book.tick(&mut list, true, t0);
         assert_eq!(list[0].failure.as_ref().unwrap().resume_at, Some(t0 + Duration::hours(2)));
-        assert_eq!(list[0].failure.as_ref().unwrap().auto, false);
+        assert!(!list[0].failure.as_ref().unwrap().auto);
         // Back at work by hand: the plan goes.
         list[0].status = SessionStatus::Running;
         book.tick(&mut list, true, t0);
