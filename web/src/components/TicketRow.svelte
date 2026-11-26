@@ -72,7 +72,9 @@
   const blockers = $derived(done ? [] : (t.waiting_on ?? []))
   const waiting = $derived(openBlockers(t))
   /** Its blockers all done while it waits on them: the status it moves to in one click. */
-  const unblock = $derived(hasCore() && offers('status') ? unblockedTo(t, statuses) : null)
+  // Moved: hidden until the snapshot says so (its status read again), not offered twice.
+  let moved = $state<string | null>(null)
+  const unblock = $derived(hasCore() && offers('status') && moved !== `${t.task_id}:${t.status}` ? unblockedTo(t, statuses) : null)
   let moving = $state(false)
   async function moveOn(e: MouseEvent) {
     e.stopPropagation()
@@ -80,6 +82,7 @@
     moving = true
     try {
       await changeStatus(t.task_id, unblock, statuses)
+      moved = `${t.task_id}:${t.status}`
     } catch (err) {
       toastError(tr('Failed: {error}', { error: String(err) }))
     } finally {
@@ -168,6 +171,7 @@
     {#if blockers.length && folded}
       <span class="sep">·</span>
       <button class="depchip" class:free={!waiting.length} onclick={(e) => fold(e, false)} title={`${waiting.length ? tr('Waiting on {n} of {total}', { n: waiting.length, total: blockers.length }) : tr('Unblocked: its blockers are done')}\n${depsTitle}\n${tr('Click: show the blockers of every ticket')}`}><Icon name={waiting.length ? 'lock' : 'unlock'} />{waiting.length ? tr('waiting on {n}', { n: waiting.length }) : tr('unblocked')}</button>
+      {#if unblock}<button class="btn sm move" disabled={moving} onclick={moveOn} title={tr('Its blockers are done: move it to “{status}”', { status: unblock })}><Icon name="next" />{unblock}</button>{/if}
     {/if}
     {#if blocks.length}
       <span class="sep">·</span>
@@ -241,7 +245,7 @@
   .tk.deps { grid-template-areas: 'flag l1 mr st right' 'flag l2 mr st right' 'flag l3 l3 l3 l3'; }
   .tk.waiting { background: linear-gradient(90deg, color-mix(in srgb, var(--ko) 6%, transparent), transparent 55%); }
   .l3 { grid-area: l3; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-width: 0; margin: 2px 0 1px; padding-top: 3px; border-top: 1px dashed color-mix(in srgb, var(--ko) 28%, transparent); font-size: var(--fs-tag); }
-  .l3 .move { padding: 0 var(--sp-3); border-color: color-mix(in srgb, var(--ok) 55%, var(--border)); color: var(--ok); font-size: var(--fs-tag); }
+  .move { padding: 0 var(--sp-3); border-color: color-mix(in srgb, var(--ok) 55%, var(--border)); color: var(--ok); font-size: var(--fs-tag); }
   .l3.free { border-top-color: color-mix(in srgb, var(--ok) 30%, transparent); }
   .l3 .lbl { display: inline-flex; align-items: center; gap: 4px; padding: 0 3px 0 0; border: none; border-radius: var(--r4); background: none; color: var(--ko); font: inherit; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; cursor: pointer; }
   .l3 .lbl:hover { background: color-mix(in srgb, currentColor 12%, transparent); }

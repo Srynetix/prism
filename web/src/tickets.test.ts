@@ -22,6 +22,8 @@ describe('unblockedTo', () => {
   it('offers the next status once every blocker is done, whatever its case', () => {
     conventions()
     expect(unblockedTo(ticket('ready', [dep('Complete'), dep('', true)]), lanes)).toBe('to do')
+    conventions({ waiting_statuses: ['Ready'], unblocked_status: 'TO DO' })
+    expect(unblockedTo(ticket('ready', [dep('complete')]), lanes)).toBe('to do')
   })
 
   it('waits while a blocker is open, and says nothing of a ticket never blocked or elsewhere', () => {

@@ -382,6 +382,14 @@ fn a_ticket_whose_blockers_are_done_can_move_on() {
     assert_eq!(texts(&list), ["ABC-1 “ready” — its blockers are done: “to do”?"]);
     assert!(matches!(&list[0].fixes.as_ref().unwrap()[..], [Fix::Status { status, ticket, .. }] if status == "to do" && ticket == "ABC-1"));
     assert_eq!(list[0].rule, Some(AlertRule::Sync));
+    // Statuses whatever their case, the list's spelling kept.
+    s.conventions.waiting_statuses = vec!["Ready".into()];
+    s.conventions.unblocked_status = "TO DO".into();
+    let list = run(&s);
+    assert!(matches!(&list[0].fixes.as_ref().unwrap()[..], [Fix::Status { status, .. }] if status == "to do"));
+    // A list without that status: nothing to do, no alert.
+    s.conventions.unblocked_status = "next".into();
+    assert!(run(&s).is_empty());
     // No status to move it to: no rule.
     s.conventions.unblocked_status.clear();
     assert!(run(&s).is_empty());

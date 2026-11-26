@@ -35,7 +35,9 @@ function known(): Ticket[] {
 }
 
 /** A dependency's other ticket is finished: closed, or in an end status (`done_statuses`, whatever its case). */
-export const dependencyDone = (d: Dependency) => d.closed || conventions().done_statuses.some((s) => s.toLowerCase() === d.status.toLowerCase())
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+
+export const dependencyDone = (d: Dependency) => d.closed || conventions().done_statuses.some((s) => same(s, d.status))
 
 /** The tickets `t` still waits on. */
 export const openBlockers = (t: Ticket) => (t.waiting_on ?? []).filter((d) => !dependencyDone(d))
@@ -46,10 +48,11 @@ export const openBlockers = (t: Ticket) => (t.waiting_on ?? []).filter((d) => !d
  */
 export function unblockedTo(t: Ticket, statuses: StatusOption[]): string | null {
   const c = conventions()
-  const to = c.unblocked_status
+  const to = c.unblocked_status ?? ''
   const deps = t.waiting_on ?? []
-  if (t.closed || !to || t.status === to || !deps.length || !(c.waiting_statuses ?? []).includes(t.status) || !deps.every(dependencyDone)) return null
-  return statuses.some((s) => s.status === to) ? to : null
+  if (t.closed || !to || same(t.status, to) || !deps.length || !(c.waiting_statuses ?? []).some((s) => same(s, t.status)) || !deps.every(dependencyDone)) return null
+  // Its list's own spelling.
+  return statuses.find((s) => same(s.status, to))?.status ?? null
 }
 
 /** Waiting on at least one unfinished ticket. */
