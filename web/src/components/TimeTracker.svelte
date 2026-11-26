@@ -77,11 +77,13 @@
   let error = $state('')
   let durationInput: HTMLInputElement | undefined = $state()
   // "Log time" on a ticket: the duration focused, the drawer open or already there.
-  // Each ask focuses once: opened by hand later, the drawer is left as it is.
-  let focused = timeDraft.asked
+  // Each ask focuses once (`timeDraft.focused`); closed before, it is dropped: opened by hand
+  // later, the drawer is left as it is.
   $effect(() => {
-    if (timeDraft.asked === focused || !timeDraft.open || !durationInput) return
-    focused = timeDraft.asked
+    if (timeDraft.asked === timeDraft.focused) return
+    if (!timeDraft.open) return void (timeDraft.focused = timeDraft.asked)
+    if (!durationInput) return
+    timeDraft.focused = timeDraft.asked
     durationInput.focus()
   })
 
