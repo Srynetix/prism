@@ -88,7 +88,13 @@ const previewModules = {
 export default defineConfig(({ mode }) => ({
   plugins: [svelte(), noDevSnapshot, previewModules],
   // Tests read the stylesheets as written (`?raw`): vitest otherwise gives it empty.
-  test: { css: { include: [/\.css\b/] } },
+  test: {
+    css: { include: [/\.css\b/] },
+    // Many tests import their module in the test (a fresh one, with fake timers or a page set up):
+    // a busy computer (a cargo build alongside) takes more than the default 5 s over a large graph.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
+  },
   define: {
     __PRISM_VERSION__: JSON.stringify(version),
     __PRISM_COMMIT__: JSON.stringify(commit ? `${commit}${dirty ? '+' : ''}` : ''),
