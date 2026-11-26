@@ -163,6 +163,9 @@ pub struct FileDiff {
     pub diff: String,
     /// The forge did not provide the content (binary file, too big, or beyond the limit).
     pub collapsed: bool,
+    /// No line changed, and nothing withheld: an empty file added or removed, a rename, a mode
+    /// change (the diff's Empty button marks them viewed at once).
+    pub empty: bool,
 }
 
 #[derive(Debug, Serialize)]

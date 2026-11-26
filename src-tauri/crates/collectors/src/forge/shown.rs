@@ -78,7 +78,7 @@ mod tests {
     use super::*;
 
     fn file(name: &str, bytes: usize) -> FileDiff {
-        FileDiff { old_path: name.into(), new_path: name.into(), new_file: false, deleted_file: false, renamed_file: false, diff: "x".repeat(bytes), collapsed: false }
+        FileDiff { old_path: name.into(), new_path: name.into(), new_file: false, deleted_file: false, renamed_file: false, diff: "x".repeat(bytes), collapsed: false, empty: false }
     }
 
     #[test]

@@ -121,8 +121,11 @@ pub async fn diff(project: &str, hub: &Hub, repo: Option<&str>, iid: u64) -> Res
         let batch: Vec<RawDiff> = api(&format!("projects/{p}/merge_requests/{iid}/diffs?per_page={PER_PAGE}&page={page}")).await?;
         let last = batch.len() < PER_PAGE;
         for d in batch {
+            // An empty diff GitLab did not cut: nothing changed in its lines (a binary file says so in it).
+            let withheld = d.too_large.unwrap_or(false) || d.collapsed.unwrap_or(false);
             diff.push(FileDiff {
-                collapsed: d.too_large.unwrap_or(false) || d.collapsed.unwrap_or(false) || d.diff.is_empty(),
+                empty: !withheld && d.diff.trim().is_empty(),
+                collapsed: withheld,
                 diff: d.diff,
                 old_path: d.old_path,
                 new_path: d.new_path,

@@ -506,7 +506,8 @@ fn cut(s: &str, max: usize) -> &str {
 /// An untracked file, like a new file; binary or too large, without content.
 fn untracked_diff(dir: &Path, path: &str) -> FileDiff {
     let content = std::fs::read(dir.join(path)).ok().filter(|b| b.len() <= MAX_UNTRACKED && !b.contains(&0)).and_then(|b| String::from_utf8(b).ok());
-    let diff = content
+    let empty = content.as_deref() == Some("");
+    let diff = content.filter(|c| !c.is_empty())
         .map(|c| {
             let lines: Vec<&str> = c.lines().collect();
             let mut d = format!("@@ -0,0 +1,{} @@\n", lines.len());
@@ -518,7 +519,7 @@ fn untracked_diff(dir: &Path, path: &str) -> FileDiff {
             d
         })
         .unwrap_or_default();
-    FileDiff { old_path: path.into(), new_path: path.into(), new_file: true, deleted_file: false, renamed_file: false, collapsed: diff.is_empty(), diff }
+    FileDiff { old_path: path.into(), new_path: path.into(), new_file: true, deleted_file: false, renamed_file: false, collapsed: diff.is_empty() && !empty, empty, diff }
 }
 
 /// Splits `git diff` output per file, in GitLab's diff format: the hunks only.
@@ -535,7 +536,7 @@ fn parse_diff(raw: &str) -> Vec<FileDiff> {
         let first = head.lines().next().unwrap_or("");
         // `a/<old> b/<new>`: with no space in the paths, the halves; otherwise the ---/+++ lines.
         let (mut old, mut new) = first.split_once(" b/").map(|(a, b)| (a.trim_start_matches("a/").to_string(), b.to_string())).unwrap_or_default();
-        let mut f = FileDiff { old_path: String::new(), new_path: String::new(), new_file: false, deleted_file: false, renamed_file: false, diff: String::new(), collapsed: false };
+        let mut f = FileDiff { old_path: String::new(), new_path: String::new(), new_file: false, deleted_file: false, renamed_file: false, diff: String::new(), collapsed: false, empty: false };
         for l in head.lines().skip(1) {
             if l.starts_with("new file mode") {
                 f.new_file = true;
@@ -557,6 +558,8 @@ fn parse_diff(raw: &str) -> Vec<FileDiff> {
         f.old_path = if old.is_empty() { new.clone() } else { old };
         f.new_path = if new.is_empty() { f.old_path.clone() } else { new };
         f.diff = body.to_string();
+        // No hunk and not binary: an empty file, a rename or a mode change.
+        f.empty = f.diff.trim().is_empty() && !f.collapsed;
         if !f.diff.is_empty() && !f.diff.ends_with('\n') {
             f.diff.push('\n');
         }
@@ -1110,6 +1113,20 @@ mod tests {
         assert!(files[1].renamed_file);
         assert_eq!((files[1].old_path.as_str(), files[1].new_path.as_str()), ("old.txt", "new.txt"));
         assert!(files[2].new_file && files[2].collapsed);
+        // Nothing to read: the rename alone; not the code, nor the binary file.
+        assert_eq!(files.iter().map(|f| f.empty).collect::<Vec<_>>(), [false, true, false]);
+    }
+
+    #[test]
+    fn an_empty_untracked_file_is_empty_not_collapsed() {
+        let dir = std::env::temp_dir().join(format!("prism-empty-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("__init__.py"), "").unwrap();
+        std::fs::write(dir.join("a.txt"), "x\n").unwrap();
+        let (e, a) = (untracked_diff(&dir, "__init__.py"), untracked_diff(&dir, "a.txt"));
+        assert!(e.empty && !e.collapsed && e.diff.is_empty());
+        assert!(!a.empty && !a.collapsed);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
