@@ -22,6 +22,7 @@ import { mergePriority, priorityLevels } from './merge-queue'
 import { agentStateLabel, canMerge, canQueue, mergeState, mrForSession, rebaseHint, isWorking, statusColor, waitsForYou } from './rules'
 import { openThread } from './thread.svelte'
 import { mrsOf } from './ticket-step'
+import { unblockedTo } from './tickets'
 import { addToSprint, canPreview, changeStatus, openTicket, setMine, setPriority, type Priority } from './ticket-view.svelte'
 import { openTimeDraft } from './timeDraft.svelte'
 import { copy, toast } from './toast.svelte'
@@ -201,6 +202,9 @@ export function ticketMenu(t: Ticket, me: Person | null, statuses: StatusOption[
         run: () => addToSprint(t.task_id),
       })
     }
+    // Its blockers all done while it waits on them: on to the next status (the Sync alert's move).
+    const unblock = app && offers('status') ? unblockedTo(t, statuses) : null
+    if (unblock) ticket.unshift({ key: 'unblock', icon: 'next', label: tr('Move to “{status}”', { status: unblock }), hint: tr('its blockers are done'), kbd: 'U', run: () => changeStatus(t.task_id, unblock, statuses) })
     if (offers('time')) ticket.push({ key: 'time', icon: 'timer', label: tr('Log time'), kbd: 'T', run: () => openTimeDraft(t.id, '') })
     for (const m of mrsOf(t.id, t.repo).slice(0, 4)) ticket.push({ key: `mr-${mrKey(m)}`, icon: 'mr', label: tr('Open {name}', { name: mrNumber(m.iid, m.forge) }), hint: m.state === 'merged' ? tr('merged') : m.source_branch, run: () => openMr(m) })
     // The ticket's actions (or the block's), then an agent with no defined work, whatever the status.

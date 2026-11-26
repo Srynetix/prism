@@ -9,7 +9,15 @@ ticket_patterns: Array<string>,
 /**
  * The forge's provider (`[forge] provider`).
  */
-forge: ForgeProvider, gitlab_host: string, main_branch: string, release_prefix: string, workflow_statuses: Array<string>, before_dev_statuses: Array<string>, in_progress_statuses: Array<string>, review_statuses: Array<string>, approved_statuses: Array<string>, merge_queue_statuses: Array<string>, after_merge_statuses: Array<string>, done_statuses: Array<string>, blocked_statuses: Array<string>, time_history_days: number, 
+forge: ForgeProvider, gitlab_host: string, main_branch: string, release_prefix: string, workflow_statuses: Array<string>, before_dev_statuses: Array<string>, in_progress_statuses: Array<string>, review_statuses: Array<string>, approved_statuses: Array<string>, merge_queue_statuses: Array<string>, after_merge_statuses: Array<string>, done_statuses: Array<string>, blocked_statuses: Array<string>, 
+/**
+ * A ticket waiting on its blockers (`[tracker] waiting_statuses`, else the blocked ones).
+ */
+waiting_statuses: Array<string>, 
+/**
+ * Where it moves once they are all done (`[tracker] unblocked_status`, else the first ready status).
+ */
+unblocked_status: string, time_history_days: number, 
 /**
  * Hours to log per working day (`[clickup] day_hours`).
  */

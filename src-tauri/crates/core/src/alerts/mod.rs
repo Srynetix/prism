@@ -394,6 +394,7 @@ pub fn compute(s: &Snapshot, prefs: &Prefs, now: DateTime<Utc>) -> Vec<Alert> {
     sync.extend(x.draft_alerts());
     sync.extend(x.in_review_alerts());
     sync.extend(x.approved_alerts());
+    sync.extend(x.unblocked_alerts());
     ruled(&mut out, AlertRule::Sync, sync);
     ruled(&mut out, AlertRule::Queue, x.queue_alerts());
     out.extend(x.session_alerts());

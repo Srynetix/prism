@@ -107,6 +107,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{id} “{status}” for over {days} days with no branch or MR", "{id} « {status} » depuis plus de {days} jours sans branche ni MR"),
     ("in progress", "en cours"),
     ("{mr} is a draft — {id} is “{status}”, not “{wanted}”", "{mr} est un brouillon — {id} est « {status} », pas « {wanted} »"),
+    ("{id} “{status}” — its blockers are done: “{wanted}”?", "{id} « {status} » — ses blocages sont terminés : « {wanted} » ?"),
     ("{mr} in review — {id} still “{status}”, not “{wanted}”", "{mr} en revue — {id} encore « {status} », pas « {wanted} »"),
     (" (conflicts first)", " (conflits d’abord)"),
     (" (failed rebase first)", " (rebase échoué d’abord)"),

@@ -16,8 +16,8 @@
   import type { ClaudeAction } from '../claude-actions'
   import { isDone, statusColor } from '../rules'
   import { mrsOf, ticketStep } from '../ticket-step'
-  import { byTaskId, dependencyDone, openBlockers } from '../tickets'
-  import { canPreview, openTicket, previewClick, ticketView } from '../ticket-view.svelte'
+  import { byTaskId, dependencyDone, openBlockers, unblockedTo } from '../tickets'
+  import { canPreview, changeStatus, openTicket, previewClick, ticketView } from '../ticket-view.svelte'
   import { openMr } from '../mr-view.svelte'
   import { ago, minutesSince } from '../time'
   import type { Dependency, Person, StatusOption, Ticket } from '../types'
@@ -26,6 +26,8 @@
   import { threadAttr } from '../thread.svelte'
   import { appearance } from '../fun.svelte'
   import ThreadLinks from './ThreadLinks.svelte'
+  import { toastError } from '../toast.svelte'
+  import { hasCore } from '../bridge'
 
   /**
    * A ticket on two lines of text: the full title, and below it the context (ID, assignees,
@@ -69,6 +71,24 @@
   /** Its blockers, shown while it is open; `waiting`: those not finished. */
   const blockers = $derived(done ? [] : (t.waiting_on ?? []))
   const waiting = $derived(openBlockers(t))
+  /** Its blockers all done while it waits on them: the status it moves to in one click. */
+  // Moved: hidden until the snapshot says so (its status read again), not offered twice.
+  let moved = $state<string | null>(null)
+  const unblock = $derived(hasCore() && offers('status') && moved !== `${t.task_id}:${t.status}` ? unblockedTo(t, statuses) : null)
+  let moving = $state(false)
+  async function moveOn(e: MouseEvent) {
+    e.stopPropagation()
+    if (!unblock || moving) return
+    moving = true
+    try {
+      await changeStatus(t.task_id, unblock, statuses)
+      moved = `${t.task_id}:${t.status}`
+    } catch (err) {
+      toastError(tr('Failed: {error}', { error: String(err) }))
+    } finally {
+      moving = false
+    }
+  }
   /** The open tickets it blocks: worth finishing first. */
   const blocks = $derived(done ? [] : (t.blocking ?? []).filter((d) => !dependencyDone(d)))
   const PRIORITY: Record<string, string> = { urgent: tr('Urgent'), high: tr('High'), normal: tc('tickets', 'Normal'), low: tr('Low') }
@@ -151,6 +171,7 @@
     {#if blockers.length && folded}
       <span class="sep">·</span>
       <button class="depchip" class:free={!waiting.length} onclick={(e) => fold(e, false)} title={`${waiting.length ? tr('Waiting on {n} of {total}', { n: waiting.length, total: blockers.length }) : tr('Unblocked: its blockers are done')}\n${depsTitle}\n${tr('Click: show the blockers of every ticket')}`}><Icon name={waiting.length ? 'lock' : 'unlock'} />{waiting.length ? tr('waiting on {n}', { n: waiting.length }) : tr('unblocked')}</button>
+      {#if unblock}<button class="btn sm move" disabled={moving} onclick={moveOn} title={tr('Its blockers are done: move it to “{status}”', { status: unblock })}><Icon name="next" />{unblock}</button>{/if}
     {/if}
     {#if blocks.length}
       <span class="sep">·</span>
@@ -168,6 +189,7 @@
           {#if d.name}<span class="dn">{d.name}</span>{/if}
         </span>
       {/each}
+      {#if unblock}<button class="btn sm move" disabled={moving} onclick={moveOn} title={tr('Its blockers are done: move it to “{status}”', { status: unblock })}><Icon name="next" />{unblock}</button>{/if}
     </div>
   {/if}
   <div class="mr">
@@ -223,6 +245,7 @@
   .tk.deps { grid-template-areas: 'flag l1 mr st right' 'flag l2 mr st right' 'flag l3 l3 l3 l3'; }
   .tk.waiting { background: linear-gradient(90deg, color-mix(in srgb, var(--ko) 6%, transparent), transparent 55%); }
   .l3 { grid-area: l3; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-width: 0; margin: 2px 0 1px; padding-top: 3px; border-top: 1px dashed color-mix(in srgb, var(--ko) 28%, transparent); font-size: var(--fs-tag); }
+  .move { padding: 0 var(--sp-3); border-color: color-mix(in srgb, var(--ok) 55%, var(--border)); color: var(--ok); font-size: var(--fs-tag); }
   .l3.free { border-top-color: color-mix(in srgb, var(--ok) 30%, transparent); }
   .l3 .lbl { display: inline-flex; align-items: center; gap: 4px; padding: 0 3px 0 0; border: none; border-radius: var(--r4); background: none; color: var(--ko); font: inherit; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; cursor: pointer; }
   .l3 .lbl:hover { background: color-mix(in srgb, currentColor 12%, transparent); }

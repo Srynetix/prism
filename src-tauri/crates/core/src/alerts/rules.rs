@@ -604,6 +604,35 @@ impl<'a> Ctx<'a> {
         out
     }
 
+    /// A ticket waiting on its blockers (`waiting_statuses`) whose blockers are now all done: it can
+    /// move on (`unblocked_status`), when its list has that status (the alert is its move). Every
+    /// such ticket Prism reads, the team's too: one waiting is seldom assigned yet. A blocker whose
+    /// status is not known yet (another list, not read) is not done. Statuses whatever their case,
+    /// as `unblockedTo` of `web/src/tickets.ts`.
+    pub fn unblocked_alerts(&self) -> Vec<Alert> {
+        let c = self.c;
+        if c.waiting_statuses.is_empty() || c.unblocked_status.is_empty() {
+            return Vec::new();
+        }
+        let same = |a: &str, b: &str| a.to_lowercase() == b.to_lowercase();
+        let done = |d: &Dependency| d.closed || c.done_statuses.iter().any(|s| same(s, &d.status));
+        let mut out = Vec::new();
+        let mut entries: Vec<_> = self.ticket_index().iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        for (_, e) in entries {
+            let t = e.t;
+            if t.closed || t.waiting_on.is_empty() || !c.waiting_statuses.iter().any(|s| same(s, &t.status)) || same(&t.status, &c.unblocked_status) || !t.waiting_on.iter().all(done) {
+                continue;
+            }
+            // Its list's own spelling of the status; a list without it, no alert (nothing to do).
+            let Some(to) = e.statuses.iter().find(|o| same(&o.status, &c.unblocked_status)) else { continue };
+            let text = tr!("{id} “{status}” — its blockers are done: “{wanted}”?", id = t.id, status = t.status, wanted = to.status);
+            let fix = Fix::Status { task_id: t.task_id.clone(), ticket: t.id.clone(), status: to.status.clone(), statuses: e.statuses.to_vec() };
+            out.push(Alert::new("Sync", Severity::Info, text).url(t.url.clone()).open(self.ticket_open(t)).fixes(vec![fix]));
+        }
+        out
+    }
+
     /// A ticket "to merge" whose open MR, in a repository with a merge queue, is not in it: nothing
     /// will merge it. Already merging or a draft, left alone; in conflict, after a failed rebase or
     /// still short of an approval, flagged without the fix.

@@ -102,6 +102,15 @@ pub struct TrackerConfig {
     /// Statuses of a blocked ticket: no Sync rule flags it (MR, branch, status).
     #[serde(default = "default_blocked_statuses")]
     pub blocked_statuses: Vec<String>,
+    /// Statuses of a ticket waiting on its blockers (ClickUp's dependencies): once they are all
+    /// done, it is flagged (Sync) with `unblocked_status` as its fix. Empty (the default): the
+    /// blocked statuses (`blocked_statuses`).
+    #[serde(default)]
+    pub waiting_statuses: Vec<String>,
+    /// Where a ticket waiting on its blockers moves once they are all done. Empty (the default):
+    /// the first ready status (`pick_statuses`).
+    #[serde(default)]
+    pub unblocked_status: String,
     /// Validation statuses: on a ticket in one of them, "Validate locally"; launched from the
     /// first, the ticket moves to the last and is assigned to me. Empty: no such action.
     #[serde(default = "default_validation_statuses")]

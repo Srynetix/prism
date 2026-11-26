@@ -36,6 +36,12 @@ assignees: Array<string>, reviewers: Array<string>, approved_by: Array<string>,
  */
 changes_requested_by: Array<string>, approvals_left: number, 
 /**
+ * Whether I may approve it, as the forge says (GitLab's `userPermissions.canApprove`: an
+ * eligible approver, its author too when the project allows it), whether or not I already did;
+ * `None` when it does not say (GitHub: anyone but its author).
+ */
+can_approve?: boolean | null, 
+/**
  * Its head pipeline's status.
  */
 pipeline: PipelineStatus | null, merge_status: string, conflicts: boolean, 
