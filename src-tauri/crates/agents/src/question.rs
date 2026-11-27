@@ -161,13 +161,9 @@ impl Ask {
         let words = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
         let screen = words(&screen.lines().map(crate::suggestion::visible).collect::<Vec<_>>().join("\n"));
         let menu = screen.contains("Enter to select") || screen.contains("Ready to submit") || screen.contains("to go back and edit");
-        // A menu taller than the window has its question scrolled off the top: its choices, below,
-        // still say it is this one (every one of them, numbered, as its menu writes them).
         menu && self.questions.iter().any(|q| {
-            let text = words(&q.question);
-            let asked = !text.is_empty() && screen.contains(&text.chars().take(40).collect::<String>());
-            let choices = !q.options.is_empty() && q.options.iter().enumerate().all(|(i, o)| screen.contains(&format!("{}. {}", i + 1, words(&o.label))));
-            asked || choices
+            let q = words(&q.question);
+            !q.is_empty() && screen.contains(&q.chars().take(40).collect::<String>())
         })
     }
 }
@@ -236,8 +232,6 @@ mod tests {
         assert!(a.on_screen("Review your answers\n ● Which\n   color?\n   → Red\nReady to submit your answers?\n❯ 1. Submit answers"), "the review tab, a question wrapped");
         assert!(!a.on_screen("⏺ User answered Claude's questions:\n  ⎿  · Which color? → Red\n❯ \n  -- INSERT --"), "answered: its menu gone");
         assert!(!a.on_screen("Which pet?\n❯ 1. Cat\nEnter to select"), "another question's menu");
-        assert!(a.on_screen("   Warm\n❯ 1. Red\n     Warm\n  2. Blue\n     Cool\n  3. Type something.\nEnter to select · ↑/↓ to navigate"), "its question scrolled off the top, its choices there");
-        assert!(!a.on_screen("❯ 1. Red\n  2. Green\nEnter to select"), "not every one of its choices");
     }
 
     #[test]

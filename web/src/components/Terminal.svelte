@@ -245,7 +245,11 @@
     // reports (`\e[<…`, `\e[M…`) and focus ones go to tmux as they are, and may enter it.
     let queue: Promise<unknown> = Promise.resolve()
     let leaving = false
+    /** Its attachment (`attach`): true once attached, false if that failed; none before. */
+    let link: Promise<boolean> | null = null
     const input = xt.onData((d) => {
+      // Not attached yet (hidden since its start): nothing to type into.
+      if (!link) return
       if (/^\x1b\[(<|M|I$|O$)/.test(d)) {
         if (d.startsWith('\x1b[<') || d.startsWith('\x1b[M')) {
           mayBeInCopyMode = true
@@ -262,17 +266,24 @@
       if (leaving) queue = queue.then(() => writeAgent(id, d))
       else void writeAgent(id, d)
     })
-    let attached = false
-    const resize = xt.onResize(({ cols, rows }) => attached && resizeAgent(id, cols, rows))
+    const resize = xt.onResize(({ cols, rows }) => link && resizeAgent(id, cols, rows))
     // Attached at its frame's size: one hidden from the start (an agent opened on its Chat) waits
     // until it shows. Attached at xterm's 80×24 instead, it would shrink the agent's window (the
     // latest client's size), a tall question's menu scrolled off its screen.
+    // Failed, it is tried again at its frame's next size.
     function attach() {
-      if (attached || disposed) return
-      attached = true
-      attachAgent(id, xt.cols, xt.rows, (bytes) => xt.write(bytes), () => !disposed && onend?.())
-        .then(() => active && xt.focus())
-        .catch((e) => xt.write(`\r\n\x1b[31m${String(e)}\x1b[0m\r\n`))
+      if (link || disposed) return
+      link = attachAgent(id, xt.cols, xt.rows, (bytes) => xt.write(bytes), () => !disposed && onend?.()).then(
+        () => {
+          if (active) xt.focus()
+          return true
+        },
+        (e) => {
+          xt.write(`\r\n\x1b[31m${String(e)}\x1b[0m\r\n`)
+          link = null
+          return false
+        },
+      )
     }
     if (el.clientWidth && el.clientHeight) attach()
 
@@ -300,7 +311,8 @@
       input.dispose()
       resize.dispose()
       cancelAnimationFrame(frame)
-      if (attached) void detachAgent(id)
+      // Once its attachment is through: a detach sent before it would leave it attached.
+      void link?.then((ok) => ok && detachAgent(id))
       xt.dispose()
       term = undefined
     }
