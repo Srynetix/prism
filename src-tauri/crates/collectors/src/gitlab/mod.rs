@@ -15,11 +15,12 @@ use crate::forge::cli::{Cli, Graphql};
 use crate::forge::{poll, shown};
 use crate::{
     config::GitlabConfig,
-    state::{Hub, JobLink, ManualJob, MergeRequest, PlayedJob, MrSize, MrState, PendingJob, Pipeline, PipelineStatus, Stage},
+    state::{Hub, JobLink, ManualJob, MergeRequest, MrBlocker, PlayedJob, MrSize, MrState, PendingJob, Pipeline, PipelineStatus, Stage},
     ticket,
 };
 
 pub mod ci_health;
+pub mod hold;
 pub mod logs;
 pub mod renovate;
 pub mod review;
@@ -229,10 +230,29 @@ pub async fn run_elsewhere(forge: crate::config::ForgeConfig, repos: Vec<(String
     }
 }
 
+/// The MR dependencies' field of `MR_QUERY` (a GitLab Premium feature): a GitLab without it
+/// (Community Edition) refuses the whole query for it, so it is left out from then on.
+const DEPS_FIELD: &str = "        blockingMergeRequests @include(if: $stages) { visibleMergeRequests { iid project { fullPath } } }\n";
+static NO_DEPS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 async fn merge_requests(project: &str, state: &str, updated_after: Option<&str>) -> Result<(Option<String>, Vec<MergeRequest>)> {
+    use std::sync::atomic::Ordering::Relaxed;
+    let deps = !NO_DEPS.load(Relaxed);
+    match read_merge_requests(project, state, updated_after, deps).await {
+        Err(e) if deps && format!("{e:#}").contains("blockingMergeRequests") => {
+            tracing::info!("gitlab: no MR dependencies on this GitLab ({e:#}): read without them");
+            NO_DEPS.store(true, Relaxed);
+            read_merge_requests(project, state, updated_after, false).await
+        }
+        read => read,
+    }
+}
+
+async fn read_merge_requests(project: &str, state: &str, updated_after: Option<&str>, deps: bool) -> Result<(Option<String>, Vec<MergeRequest>)> {
+    let query = if deps { MR_QUERY.to_string() } else { MR_QUERY.replace(DEPS_FIELD, "") };
     let mut args = vec![
         "api".to_string(), "graphql".into(),
-        "-f".into(), format!("query={MR_QUERY}"),
+        "-f".into(), format!("query={query}"),
         "-f".into(), format!("path={project}"),
         "-f".into(), format!("state={state}"),
         // Stage details, diff size and merge checks are only useful for open MRs: no point
@@ -332,6 +352,12 @@ struct RawJob {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_dependencies_field_can_be_left_out() {
+        assert!(super::MR_QUERY.contains(super::DEPS_FIELD));
+        assert!(!super::MR_QUERY.replace(super::DEPS_FIELD, "").contains("blocking"));
+    }
+
     use super::*;
 
     /// Without a primary repository, nothing is asked of GitLab for it, and it is not an error.

@@ -288,6 +288,10 @@ pub struct Snapshot {
     /// The plan usage of the other CLIs agents run on, in the order their first agent was launched.
     pub other_usage: Vec<ProviderUsage>,
     pub merge_requests: Vec<MergeRequest>,
+    /// Which open MR waits for which (`crate::mr_deps`), computed with the alerts.
+    pub mr_deps: Vec<crate::mr_deps::MrDep>,
+    /// MRs held out of the merge queue until the MR they depend on is merged (`crate::queue_hold`).
+    pub queue_held: Vec<crate::queue_hold::Held>,
     pub pipelines: Vec<Pipeline>,
     pub pending_jobs: Vec<PendingJob>,
     /// Absent until the pipelines have been read.

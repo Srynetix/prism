@@ -13,6 +13,8 @@
   import { cleanTitle, primaryAction } from '../mr-actions'
   import MrTitle from './MrTitle.svelte'
   import OverlapChip from './OverlapChip.svelte'
+  import MrDepChips from './MrDepChips.svelte'
+  import { depHover } from '../mr-deps-view.svelte'
   import { overlapsOfMr } from '../overlaps'
   import { previewClick } from '../ticket-view.svelte'
   import { ticketLink } from '../linkify'
@@ -82,7 +84,7 @@
   }
 </script>
 
-<div class="mr {step.tone}" data-mr={mrKey(mr)} data-thread={threadAttr({ mr: { repo: mr.repo ?? null, iid: mr.iid } })} class:selected class:merged={mr.state === 'merged'} class:draft={mr.draft} class:automerge={auto} role="button" tabindex="0" {onclick} {onkeydown} title="{mrKey(mr)} · {cleanTitle(mr)}">
+<div class="mr {step.tone}" data-mr={mrKey(mr)} data-thread={threadAttr({ mr: { repo: mr.repo ?? null, iid: mr.iid } })} class:selected class:lit={depHover.lit.size > 1 && depHover.lit.has(mrKey(mr))} class:merged={mr.state === 'merged'} class:draft={mr.draft} class:automerge={auto} role="button" tabindex="0" {onclick} {onkeydown} title="{mrKey(mr)} · {cleanTitle(mr)}">
   <span class="dot" aria-hidden="true"></span>
   <div class="l1">
     <span class="av" class:pic={!!pic} style:--c={personColor(mr.author)} title="{mine ? t('You') : mr.author_name || mr.author} · @{mr.author}">{#if pic}<img src={pic} alt="" />{:else}{initialsOf(mr.author_name, mr.author)}{/if}</span>
@@ -95,6 +97,7 @@
     <!-- Behind its target: flagged even when another step shows (merge queue, auto-merge, review). -->
     {#if rebaseHint(mr) && step.label !== t('Rebase needed')}<span class="rb" title={queued ? t('Behind {branch}: to rebase (the merge queue’s job rebases it when its turn comes)', { branch: mr.target_branch }) : t('Behind {branch}: to rebase', { branch: mr.target_branch })} role="img" aria-label={t('To rebase')}><Icon name="rebase" /></span>{/if}
     {#if live.snapshot && overlapsOfMr(live.snapshot, mr).length}<OverlapChip seen={overlapsOfMr(live.snapshot, mr)} short />{/if}
+    {#if mr.state === 'opened'}<MrDepChips {mr} />{/if}
     {#if queued && step.label !== t('In merge queue')}<span class="chip q" title={t('Label “{label}”: the CI job rebases, then auto-merges', { label: queueLabel ?? '' })}>{t('queue')}</span>{/if}
   </div>
   <div class="l2">
@@ -153,6 +156,8 @@
   }
   .mr:hover { background: rgba(127, 127, 127, 0.06); }
   .mr.selected { background: color-mix(in srgb, var(--src-gitlab) 9%, transparent); }
+  /* Its lineage pointed at (a dependency chip, a node of the graph). */
+  .mr.lit { background: color-mix(in srgb, var(--info) 10%, transparent); }
   .mr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   /* The colour only tells the step: red blocked, orange to do, blue waiting, green ready, purple automatic. */
   .mr.blocked { --c: var(--ko); } .mr.todo { --c: var(--warn); } .mr.wait { --c: var(--info); } .mr.ready { --c: var(--ok); } .mr.auto { --c: var(--accent); }

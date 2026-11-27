@@ -129,6 +129,13 @@ pub enum Fix {
         iid: u64,
         repo: Option<String>,
     },
+    /// Out of the merge queue until the MR it depends on is merged (`crate::queue_hold`).
+    Hold {
+        iid: u64,
+        repo: Option<String>,
+        on_iid: u64,
+        on_repo: Option<String>,
+    },
     Retry {
         pipeline: u64,
         label: String,

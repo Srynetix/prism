@@ -1,7 +1,7 @@
 //! The forge and the repositories: worktrees, MRs, pipelines, Renovate, vulnerabilities, CI health.
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -240,6 +240,21 @@ pub struct MergeRequest {
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: DateTime<Utc>,
     pub merged_at: Option<DateTime<Utc>>,
+    /// The MRs it waits for, as declared on the forge: GitLab's MR dependencies, GitHub's
+    /// « Depends on #12 » / « Blocked by #12 » lines of its description. `crate::mr_deps` adds
+    /// the stacked branches and the tickets' blockers.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts", ts(optional, as = "Option<Vec<MrBlocker>>"))]
+    pub blocked_by: Vec<MrBlocker>,
+}
+
+/// Another MR, as the forge names it: its project's path (empty: the same project as the MR
+/// naming it) and its number.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct MrBlocker {
+    pub project: String,
+    pub iid: u64,
 }
 
 /// Lines added and removed, files touched.

@@ -228,6 +228,10 @@ impl Actions {
         review::labels(self.project_of(repo)?).await
     }
 
+    pub async fn declare_dependency(&self, hub: &Hub, repo: Option<&str>, number: u64, on: &crate::state::MrBlocker) -> Result<()> {
+        actions::declare_dependency(self.project_of(repo)?, hub, repo, number, on).await
+    }
+
     pub async fn set_labels(&self, hub: &Hub, repo: Option<&str>, number: u64, labels: Vec<String>) -> Result<()> {
         actions::set_labels(self.project_of(repo)?, hub, repo, number, labels).await
     }
@@ -788,6 +792,9 @@ struct GqlPr {
     updated_at: DateTime<Utc>,
     merged_at: Option<DateTime<Utc>>,
     state: String,
+    /// Its description (open PRs only): the PRs it declares it waits for.
+    #[serde(default)]
+    body: Option<String>,
     author: Option<Actor>,
     assignees: Nodes<Login>,
     review_requests: Nodes<ReviewRequest>,
@@ -936,6 +943,7 @@ impl From<GqlPr> for MergeRequest {
             created_at: p.created_at,
             updated_at: p.updated_at,
             merged_at: p.merged_at,
+            blocked_by: p.body.as_deref().map(prism_core::mr_deps::declared).unwrap_or_default(),
         }
     }
 }

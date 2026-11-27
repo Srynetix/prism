@@ -15,6 +15,8 @@
   import CancelPipeline from './CancelPipeline.svelte'
   import RetryPipeline from './RetryPipeline.svelte'
   import MrRow from './MrRow.svelte'
+  import MrGraph from './MrGraph.svelte'
+  import { chains, tree, viaLabel, type DepFilter } from '../mr-deps'
   import { mrView, openMr } from '../mr-view.svelte'
   import MrTitle from './MrTitle.svelte'
   import { ago } from '../time'
@@ -79,6 +81,20 @@
   })
   const byRepo = (m: MergeRequest) => repo === null || (m.repo ?? '') === repo
   const shown = $derived(listed.filter(byRepo))
+  /**
+   * The dependencies between the MRs listed (`mr_deps`): with at least one, the list may show
+   * them as chains (each MR under the one it waits for) or as a graph (`mrs.view`); the graph's
+   * filters (`mrs.graph`): the dependencies via tickets, the merged MRs still waited on.
+   */
+  type View = 'list' | 'chains' | 'graph'
+  let view = $state<View>(pref<View>('mrs.view', 'list'))
+  const setView = (v: View) => setPref('mrs.view', (view = v))
+  let depFilter = $state<DepFilter>(pref<DepFilter>('mrs.graph', { tickets: true, merged: true }))
+  const setDepFilter = (f: Partial<DepFilter>) => setPref('mrs.graph', (depFilter = { ...depFilter, ...f }))
+  const linked = $derived(chains(snap, shown, depFilter))
+  const hasDeps = $derived(chains(snap, shown, { tickets: true, merged: true }).chains.length > 0)
+  const shownView = $derived<View>(hasDeps ? view : 'list')
+
   /** Short: my open MRs and those awaiting my review, one row each. */
   const concerning = $derived(all.filter((m) => isMine(m) || awaitsMyReview(m, meOn(snap, m))))
   const day = $derived(selectedDay())
@@ -116,6 +132,13 @@
       <button class:on={filter === 'mine'} onclick={() => setFilter('mine')}>{tc('mrs', 'Mine')} {mine.length}</button>
       <button class:on={filter === 'review'} onclick={() => setFilter('review')}>{t('To review')} {toReview.length}</button>
     </span>
+    {#if hasDeps && !isShort('mrs')}
+      <span class="seg views" role="group" aria-label={t('Dependencies')}>
+        <button class:on={shownView === 'list'} onclick={() => setView('list')} title={t('One row per MR')}>{t('List')}</button>
+        <button class:on={shownView === 'chains'} onclick={() => setView('chains')} title={t('Each MR under the one it waits for')}>{t('Chains')} {linked.chains.length}</button>
+        <button class:on={shownView === 'graph'} onclick={() => setView('graph')} title={t('The dependencies between MRs, in the order they can merge')}>{t('Graph')}</button>
+      </span>
+    {/if}
     <BlockControls id="mrs" />
   </h2>
   {#if branches.length}
@@ -170,11 +193,35 @@
     </div>
   {:else}
     <div class="scroll">
-      {#each shown as m (mrKey(m))}
-        {@render row(m)}
+      {#if shownView === 'graph'}
+        <div class="graph-bar">
+          <label><input type="checkbox" checked={depFilter.merged} onchange={(e) => setDepFilter({ merged: e.currentTarget.checked })} /> {t('recently merged')}</label>
+          <label><input type="checkbox" checked={depFilter.tickets} onchange={(e) => setDepFilter({ tickets: e.currentTarget.checked })} /> {t('via tickets')}</label>
+          <span class="legend"><i class="ln stacked"></i>{viaLabel('stacked')} <i class="ln declared"></i>{viaLabel('declared')} <i class="ln ticket"></i>{viaLabel('ticket')}</span>
+        </div>
+        <MrGraph mrs={shown} filter={depFilter} />
+        {#if linked.alone.length}
+          <div class="section">{t('No dependency')} · {linked.alone.length}</div>
+          {#each linked.alone as m (mrKey(m))}{@render row(m)}{/each}
+        {/if}
+      {:else if shownView === 'chains'}
+        {#each linked.chains as c, i (i)}
+          <div class="section">{t('Chain')} · {tn(c.mrs.length, '{n} MR', '{n} MRs')}</div>
+          {#each tree(c) as r (mrKey(r.mr))}
+            <div class="nest" style:--d={r.depth} class:child={r.depth > 0} title={r.dep ? viaLabel(r.dep.via) : undefined}>{@render row(r.mr)}</div>
+          {/each}
+        {/each}
+        {#if linked.alone.length}
+          <div class="section">{t('No dependency')} · {linked.alone.length}</div>
+          {#each linked.alone as m (mrKey(m))}{@render row(m)}{/each}
+        {/if}
       {:else}
-        <State kind="empty" icon="mr" title={t('No merge request here.')} />
-      {/each}
+        {#each shown as m (mrKey(m))}
+          {@render row(m)}
+        {:else}
+          <State kind="empty" icon="mr" title={t('No merge request here.')} />
+        {/each}
+      {/if}
       {#if beyondHistory}
         <div class="section">{mergedLabel} · {t('merged MRs are only kept for the last 7 days')}</div>
       {:else if merged.length}
@@ -219,6 +266,14 @@
   .fold:hover { color: var(--text); }
   .chev { display: inline-flex; align-items: center; justify-content: center; width: 10px; height: 10px; line-height: 1; transition: transform 0.15s; }
   .chev.down { transform: rotate(90deg); }
+  /* Chains: each MR under the one it waits for, a guide on its left. */
+  .nest.child { padding-left: calc(var(--d) * 16px); background: linear-gradient(90deg, transparent calc(var(--d) * 16px - 9px), var(--border) calc(var(--d) * 16px - 9px), var(--border) calc(var(--d) * 16px - 8px), transparent calc(var(--d) * 16px - 8px)); }
+  .graph-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 5px 10px; border-bottom: 1px solid var(--border); font-size: var(--fs-meta); color: var(--text-muted); }
+  .graph-bar label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .legend { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+  .ln { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--text); margin-left: 6px; }
+  .ln.declared { border-top: 2px dashed var(--info); }
+  .ln.ticket { border-top: 2px dotted var(--text-muted); }
   /* Short: one row per MR, the step on the right. */
   .iid { border: none; background: none; padding: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--info); cursor: pointer; }
   .sec { color: var(--ko); margin-right: 4px; }

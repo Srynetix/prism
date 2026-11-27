@@ -183,4 +183,5 @@ pub const TABLE: &[(&str, &str)] = &[
     ("the module {id} was not installed by Prism (its folder put there): nothing to read it again from", "le module {id} n’a pas été installé par Prism (son dossier a été posé là) : rien d’où le relire"),
     ("no module {id} in modules/", "pas de module {id} dans modules/"),
     ("a module {id} is already installed by hand from {source}: remove it first", "un module {id} est déjà installé à la main depuis {source} : supprimez-le d’abord"),
+    ("{mr} would merge before {on}, which it depends on", "{mr} serait mergée avant {on}, dont elle dépend"),
 ];

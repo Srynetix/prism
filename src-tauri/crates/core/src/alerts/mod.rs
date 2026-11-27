@@ -168,6 +168,15 @@ pub enum Fix {
         #[cfg_attr(feature = "ts", ts(optional = nullable))]
         repo: Option<String>,
     },
+    /// Out of the merge queue until the MR it depends on is merged (`crate::queue_hold`).
+    Hold {
+        iid: u64,
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        repo: Option<String>,
+        on_iid: u64,
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        on_repo: Option<String>,
+    },
     Retry {
         pipeline: u64,
         label: String,
@@ -397,6 +406,7 @@ pub fn compute(s: &Snapshot, prefs: &Prefs, now: DateTime<Utc>) -> Vec<Alert> {
     sync.extend(x.unblocked_alerts());
     ruled(&mut out, AlertRule::Sync, sync);
     ruled(&mut out, AlertRule::Queue, x.queue_alerts());
+    ruled(&mut out, AlertRule::Queue, x.dep_queue_alerts());
     out.extend(x.session_alerts());
     ruled(&mut out, AlertRule::Proposal, x.proposal_alerts());
     ruled(&mut out, AlertRule::Overlap, x.overlap_alerts());

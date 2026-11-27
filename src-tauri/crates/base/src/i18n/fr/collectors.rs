@@ -173,4 +173,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{what} refresh timed out", "rafraîchissement de {what} : délai dépassé"),
     ("{who} did not answer", "{who} n’a pas répondu"),
     ("{who}'s answer is not understood", "réponse de {who} incompréhensible"),
+    ("!{iid} has dependencies hidden from you: declare this one on GitLab", "!{iid} a des dépendances qui vous sont cachées : déclarez celle-ci sur GitLab"),
+    ("unexpected merge request reference: {r}", "référence de merge request inattendue : {r}"),
 ];

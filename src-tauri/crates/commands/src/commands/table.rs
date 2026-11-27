@@ -405,9 +405,14 @@ commands! {
     agents::worktree_prune: Act [phone: state],
     // The order of the merge queue: nothing merges sooner than it would have.
     forge::set_merge_priority: Act [phone: state, repo: Option<String>, iid: u64, priority: Option<u32>],
+    // A dependency between MRs, on the forge: it merges nothing.
+    forge::declare_dependency: Act [phone: state, repo: Option<String>, iid: u64, on_repo: Option<String>, on_iid: u64],
     // A merge, or what ends in one without another gesture.
     forge::merge_mr: Critical [phone: state, repo: Option<String>, iid: u64],
     forge::set_merge_queue: Critical [phone: state, repo: Option<String>, iid: u64, on: bool],
+    // Out of the queue until the MR it waits for is merged; forgetting the hold leaves it out.
+    forge::hold_in_queue: Act [phone: state, repo: Option<String>, iid: u64, on_repo: Option<String>, on_iid: u64],
+    forge::queue_release: Act [phone: state, repo: Option<String>, iid: u64],
     forge::set_auto_merge: Critical [phone: state, repo: Option<String>, iid: u64, enable: bool],
     // A label can be the merge queue's (set_merge_queue) or one a repo's CI runs or deploys on;
     // a new pipeline runs with the project's secrets on a branch whose jobs never ran (label-gated CI).

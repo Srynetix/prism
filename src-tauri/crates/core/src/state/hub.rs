@@ -160,12 +160,16 @@ impl Hub {
     pub fn refresh_alerts(&self) {
         let _one = self.refreshing.lock().unwrap_or_else(|e| e.into_inner());
         let prefs = std::sync::Arc::clone(&self.prefs.read().unwrap_or_else(|e| e.into_inner()));
-        let snap = self.tx.borrow().clone();
+        let mut snap = self.tx.borrow().clone();
+        // The dependencies first: the merge queue alerts read them.
+        snap.mr_deps = crate::mr_deps::compute(&snap);
         let alerts = crate::alerts::compute(&snap, &prefs, Utc::now());
+        let deps = std::mem::take(&mut snap.mr_deps);
         drop(snap);
         self.tx.send_if_modified(|s| {
-            let changed = alerts != s.alerts;
+            let changed = alerts != s.alerts || deps != s.mr_deps;
             s.alerts = alerts;
+            s.mr_deps = deps;
             changed
         });
     }

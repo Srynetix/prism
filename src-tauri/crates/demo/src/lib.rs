@@ -77,7 +77,8 @@ pub fn preview(now: DateTime<Utc>) -> serde_json::Value {
     let cfg: crate::config::Config = toml::from_str(CONFIG).expect("demo config");
     let mut s = Snapshot { views: cfg.views.clone(), conventions: prism_core::conventions::Conventions::of(&cfg), ..Default::default() };
     Demo { now }.write(&mut s);
-    // Its alerts, as the core computes them.
+    // Its dependencies and alerts, as the core computes them.
+    s.mr_deps = prism_core::mr_deps::compute(&s);
     s.alerts = prism_core::alerts::compute(&s, &Default::default(), now);
     let mut v = serde_json::to_value(&s).expect("demo snapshot");
     v["answered"] = serde_json::json!(SOURCES);
@@ -256,6 +257,7 @@ impl Demo {
             created_at: Some(self.ago(minutes + 3 * 24 * 60)),
             updated_at: self.ago(minutes),
             merged_at: None,
+            blocked_by: Vec::new(),
         }
     }
 
@@ -282,9 +284,11 @@ impl Demo {
                 ..self.mr(1293, "Update dependency axios to v1.7.9", 4, "renovate/axios-1.x", None, 95, Some(self.pipeline(9104, "!1293", "success", 90)), "mergeable")
             },
             MergeRequest { draft: true, ..self.mr(1294, "Draft: SHOP-425 Lazy-load product images", 3, "feat/SHOP-425-lazy-images", Some(425), 50, Some(self.pipeline(9105, "!1294", "running", 3)), "draft_status") },
+            // Stacked on the order history's pagination: its branch is the target.
             MergeRequest {
                 approvals_left: 0,
                 approved_by: vec!["alex".into(), "sam".into()],
+                target_branch: "feat/SHOP-418-order-pagination".into(),
                 ..self.mr(1292, "SHOP-427 Export orders as CSV", 2, "feat/SHOP-427-orders-csv", Some(427), 70, Some(self.pipeline(9106, "!1292", "success", 65)), "mergeable")
             },
             // The merge queue, oldest first: the job rebased the first and set its auto-merge; the
@@ -302,6 +306,8 @@ impl Demo {
                 approved_by: vec!["alex".into()],
                 labels: vec!["merge-queue".into(), "merge-priority::0".into()],
                 needs_rebase: true,
+                // Declared on GitLab: it waits for the coupons, which its priority puts behind it.
+                blocked_by: vec![MrBlocker { project: String::new(), iid: 1284 }],
                 ..self.mr(1286, "SHOP-415 Show delivery slots in the cart", 3, "feat/SHOP-415-delivery-slots", Some(415), 600, Some(self.pipeline(9108, "!1286", "success", 120)), "need_rebase")
             },
             MergeRequest {
@@ -591,7 +597,11 @@ impl Demo {
             self.ticket(433, "Fix VAT rounding on invoices", "doing", Some(0), Some("urgent"), Some("Bug"), 1),
             self.ticket(418, "Orders API: paginate the order history", "review", Some(1), Some("normal"), None, 5),
             self.ticket(421, "Payments: retry webhooks with backoff", "to validate", Some(2), Some("high"), None, 4),
-            self.ticket(425, "Storefront: lazy-load product images", "doing", Some(3), Some("normal"), None, 3),
+            // Waits for the saved cart (the tracker's blocker): its MR waits for that one's.
+            Ticket {
+                waiting_on: vec![Dependency { task_id: "demo412".into(), id: "SHOP-412".into(), name: "Checkout: save the cart between sessions".into(), status: "review".into(), closed: false, url: String::new() }],
+                ..self.ticket(425, "Storefront: lazy-load product images", "doing", Some(3), Some("normal"), None, 3)
+            },
             self.ticket(427, "Back office: export orders as CSV", "to merge", Some(2), Some("low"), None, 4),
             self.ticket(430, "Catalog: search by SKU", "done", Some(4), Some("normal"), None, 8),
             self.ticket(436, "Orders: email the invoice once paid", "todo", None, Some("normal"), None, 2),

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdInQueue } from '../mr-deps'
   import { markRead } from '../session-read'
   import { openOverlap } from '../overlap-view.svelte'
   import { openWhatChanged } from '../changes-view.svelte'
@@ -89,6 +90,10 @@
           const mr = live.snapshot?.merge_requests.find((m) => (m.repo ?? null) === (f.repo ?? null) && m.iid === f.iid)
           const label = live.snapshot?.merge_queue_label
           return app && mr && label ? [{ key: 'queue', label: t('Merge queue'), title: t('Add the “{label}” label to {mr}: the CI job rebases, then auto-merges', { label, mr: mrKey(f) }), run: () => setMergeQueue(mr, true) }] : []
+        }
+        case 'hold': {
+          const on = { iid: f.on_iid, repo: f.on_repo ?? null }
+          return app ? [{ key: 'hold', label: t('Hold until {mr} is merged', { mr: mrKey(on) }), title: t('Take {mr} out of the merge queue: Prism puts it back once {on} is merged', { mr: mrKey(f), on: mrKey(on) }), run: () => holdInQueue(f, on) }] : []
         }
         case 'mr':
           return app ? [{ key: 'mr', label: mrKey(f), title: t('Open {name}', { name: mrKey(f) }), run: () => openMr(f) }] : []

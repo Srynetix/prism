@@ -563,6 +563,8 @@ fn start_code(cfg: &config::Config, primary: &Primary, worktree_repos: &[config:
             true
         });
         spawn(hub, "gitlab", collectors::gitlab::run(gitlab_cfg.clone(), cfg.forge.clone(), mr_repos, cfg.pipeline_repos(), hub.clone()));
+        // The MRs held out of the merge queue, put back once the MR they wait for is merged.
+        spawn(hub, "queue hold", collectors::gitlab::hold::run(forges.gitlab.clone(), hub.clone()));
     } else {
         let repos: collectors::github::Repos = project.clone().map(|p| (None, p)).into_iter().chain(mr_repos.into_iter().map(|(name, p)| (Some(name), p))).collect();
         forges.github.configure(repos.clone(), cfg.pipeline_repos().into_iter().map(|r| r.project).collect());

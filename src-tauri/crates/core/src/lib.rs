@@ -20,6 +20,8 @@ pub mod packs;
 pub mod problems;
 pub mod profile;
 pub mod read_marks;
+pub mod mr_deps;
+pub mod queue_hold;
 pub mod remote;
 pub mod schedule;
 pub mod schema;
