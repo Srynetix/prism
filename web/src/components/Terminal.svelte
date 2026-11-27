@@ -246,7 +246,11 @@
     // reports (`\e[<…`, `\e[M…`) and focus ones go to tmux as they are, and may enter it.
     let queue: Promise<unknown> = Promise.resolve()
     let leaving = false
+    /** Its attachment (`attach`): true once attached, false if that failed; none before. */
+    let link: Promise<boolean> | null = null
     const input = xt.onData((d) => {
+      // Not attached yet (hidden since its start): nothing to type into.
+      if (!link) return
       if (/^\x1b\[(<|M|I$|O$)/.test(d)) {
         if (d.startsWith('\x1b[<') || d.startsWith('\x1b[M')) {
           mayBeInCopyMode = true
@@ -263,10 +267,26 @@
       if (leaving) queue = queue.then(() => writeAgent(id, d))
       else void writeAgent(id, d)
     })
-    const resize = xt.onResize(({ cols, rows }) => resizeAgent(id, cols, rows))
-    attachAgent(id, xt.cols, xt.rows, (bytes) => xt.write(bytes), () => !disposed && onend?.())
-      .then(() => active && xt.focus())
-      .catch((e) => xt.write(`\r\n\x1b[31m${String(e)}\x1b[0m\r\n`))
+    const resize = xt.onResize(({ cols, rows }) => link && resizeAgent(id, cols, rows))
+    // Attached at its frame's size: one hidden from the start (an agent opened on its Chat) waits
+    // until it shows. Attached at xterm's 80×24 instead, it would shrink the agent's window (the
+    // latest client's size), a tall question's menu scrolled off its screen.
+    // Failed, it is tried again at its frame's next size.
+    function attach() {
+      if (link || disposed) return
+      link = attachAgent(id, xt.cols, xt.rows, (bytes) => xt.write(bytes), () => !disposed && onend?.()).then(
+        () => {
+          if (active) xt.focus()
+          return true
+        },
+        (e) => {
+          xt.write(`\r\n\x1b[31m${String(e)}\x1b[0m\r\n`)
+          link = null
+          return false
+        },
+      )
+    }
+    if (el.clientWidth && el.clientHeight) attach()
 
     // The terminal follows its frame's size; tmux redraws the agent's screen at the new
     // size. Hidden view (zero-size frame): nothing changes, the agent keeps its size.
@@ -274,7 +294,9 @@
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
-        if (el.clientWidth && el.clientHeight) fit.fit()
+        if (!el.clientWidth || !el.clientHeight) return
+        fit.fit()
+        attach()
       })
     })
     ro.observe(el)
@@ -289,7 +311,9 @@
       themed.disconnect()
       input.dispose()
       resize.dispose()
-      void detachAgent(id)
+      cancelAnimationFrame(frame)
+      // Once its attachment is through: a detach sent before it would leave it attached.
+      void link?.then((ok) => ok && detachAgent(id))
       xt.dispose()
       term = undefined
     }
