@@ -30,8 +30,8 @@ import { mrKey } from './mr-ref'
 import { forgeName, meOn } from './forge'
 import { shortcutLabel } from './shortcut'
 import { isMac, keys } from './platform'
-import { hasCore, invoke, isDesktop } from './bridge'
-import { openHomeShell } from './shell-drawer.svelte'
+import { invoke, isDesktop } from './bridge'
+import { homeShellOn, openHomeShell } from './shell-drawer.svelte'
 import { toast } from './toast.svelte'
 import { goToShells, refreshShells, shellGroups } from './open-shells.svelte'
 import { recentPanels, reopenLastPanel, reopenPanel } from './recent-panels.svelte'
@@ -271,7 +271,7 @@ function commandEntries(): Entry[] {
       { id: 'cmd:assistant', kind: 'command' as const, title: t('Assistant'), hint: t('Its conversations and its memory'), words: 'assistant ask prism conversations memory brain', run: () => openAssistant() },
       { id: 'cmd:assistant-memory', kind: 'command' as const, title: t('Assistant memory'), hint: t('What the assistant remembers'), words: 'assistant memory remember forget facts', run: () => openAssistant(undefined, 'memory') },
     ] : []),
-    ...(hasCore() ? [{ id: 'cmd:home-shell', kind: 'command' as const, title: t('Shell in the home folder'), hint: t('tmux keeps it after closing'), words: 'shell terminal home folder console tmux ~', keys: shortcutKeys('home-shell'), run: () => void openHomeShell() }] : []),
+    ...(homeShellOn() ? [{ id: 'cmd:home-shell', kind: 'command' as const, title: t('Shell in the home folder'), hint: t('tmux keeps it after closing'), words: 'shell terminal home folder console tmux ~', keys: shortcutKeys('home-shell'), run: () => void openHomeShell() }] : []),
     { id: 'cmd:reopen', kind: 'command', title: t('Reopen the last closed panel'), words: 'reopen closed panel undo restore', keys: shortcutKeys('reopen'), run: reopenLastPanel },
     { id: 'cmd:zen', kind: 'command', title: t('Zen mode'), words: 'zen', keys: shortcutKeys('zen'), run: toggleZen },
     { id: 'cmd:edit-layout', kind: 'command', title: t('Edit layout'), words: 'edit layout', run: toggleEditing },

@@ -145,7 +145,7 @@ impl Agents {
             let snap = self.inner.hub.subscribe();
             let s = snap.borrow();
             s.worktrees.iter().any(|w| w.path == path && !w.prunable) || s.repos.iter().any(|r| r.path == path) || s.agents.iter().any(|a| a.worktree.as_deref() == Some(path) || a.cwd == path)
-        } || dirs::home_dir().is_some_and(|h| h == Path::new(path));
+        } || dirs::home_dir().is_some_and(|h| h.to_str() == Some(path));
         if !known || !Path::new(path).is_dir() {
             bail!(tr!("not a worktree Prism shows: {path}", path = path));
         }

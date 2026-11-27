@@ -117,6 +117,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{service} unreachable: {err}", "{service} injoignable : {err}"),
     ("only a .csv file is written", "seul un fichier .csv s’écrit ici"),
     ("no sprint read from the tracker: no board to create the ticket on", "aucun sprint lu dans le tracker : pas de tableau où créer le ticket"),
+    ("no home folder", "pas de dossier personnel"),
     ("the tracker offers no board to create the ticket on", "le tracker n’offre aucun tableau où créer le ticket"),
     ("Files", "Fichiers"),
     ("Spotted in passing by {agents}. The prompt for the agent that does it:", "Repéré au passage par {agents}. Le prompt pour l’agent qui s’en chargera :"),

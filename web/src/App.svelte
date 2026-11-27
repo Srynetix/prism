@@ -127,8 +127,8 @@
   import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys, sizeStep } from './shortcuts'
   import { BLOCK_HELP } from './block-help'
   import { chord, inTerminal, keys, pageDigit } from './platform'
-  import { invoke, isDesktop, isLocal, machine, profileWindow, hasCore } from './bridge'
-  import { openHomeShell } from './shell-drawer.svelte'
+  import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
+  import { homeShellOn, openHomeShell } from './shell-drawer.svelte'
   import { consoleKey, toggleConsole } from './console.svelte'
   import { matches, worksWhileTyping } from './shortcut'
   import { watchCelebrations } from './celebrations.svelte'
@@ -399,6 +399,13 @@
     }
     // A page's menu, grid, « + » or name open: Esc is theirs.
     if (e.key === 'Escape' && (pageUi.menu || pageUi.styling || pageUi.adding || pageUi.hiddenMenu || pageUi.renaming)) return
+    // ⌃`: a shell in the home folder, over anything, a terminal included (it lets the key through).
+    if (hit('home-shell', e) && homeShellOn()) {
+      e.preventDefault()
+      keyedAction('home-shell')
+      void openHomeShell()
+      return
+    }
     // Typing in an agent's terminal: everything goes to it (Esc, ⌃1…), except app chords.
     if (inTerminal(e) && !chord(e)) return
     if (e.key === 'Escape' && settingsView.open && !typing(e)) {
@@ -442,13 +449,6 @@
       e.preventDefault()
       keyedAction('new-agent')
       newAgent()
-      return
-    }
-    // ⌃`: a shell in the home folder, over anything.
-    if (hit('home-shell', e) && hasCore()) {
-      e.preventDefault()
-      keyedAction('home-shell')
-      void openHomeShell()
       return
     }
     // ⌘⇧T: the panel closed last comes back (recent-panels.svelte.ts).

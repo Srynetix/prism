@@ -663,10 +663,10 @@ pub async fn agent_close_shell(state: State<'_, AppState>, id: String, n: u32) -
     state.agents.close_shell(&id, n).await.map_err(Into::into)
 }
 
-/// The home folder, where a shell opens from anywhere (⌃`, the palette, File › Terminal).
+/// The home folder, where a shell opens from anywhere (⌃`, the palette, File › Shell in Home Folder).
 #[prism_macros::command]
 pub async fn home_folder() -> Cmd<String> {
-    Ok(dirs::home_dir().ok_or_else(|| anyhow::anyhow!("no home folder"))?.display().to_string())
+    Ok(dirs::home_dir().ok_or_else(|| anyhow::anyhow!(tr("no home folder")))?.display().to_string())
 }
 
 /// Every shell with no agent still open, a worktree's or a pod's (the status bar's list).
