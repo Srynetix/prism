@@ -2,7 +2,7 @@
   import Icon from '../components/Icon.svelte'
   import { live } from '../live.svelte'
   import { afterLaunch, agentsSettings, isLaunchMode, LAUNCH_MODES, launchModeLabel, type LaunchMode, closeLauncherDrawer, filesOf, kindNames, launcherDrawer, openAgents, prepareAgent, slug, spawnAgent, toastLaunched, type Launch } from '../agents.svelte'
-  import { Attachments, nameOf, newStep, newWorktree, takeDraft, tasksFor, testTask, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
+  import { Attachments, nameOf, newStep, newWorktree, projectTitle, takeDraft, tasksFor, testTask, watchPlan, watchTasks } from '../launch-form.svelte'
   import { hasWorktrees, primaryRepo } from '../repositories'
   import { folderBranches } from '../worktrees'
   import { invoke } from '../bridge'
@@ -198,7 +198,8 @@
   const effortChoices = $derived(choices.efforts[effortsKey(provider, effortModel)] ?? [])
   const kinds = $derived(kindNames())
 
-  const autoTitle = $derived(titleOf(title, prompt))
+  /** Without a title, its project's name and the prompt's first line. */
+  const autoTitle = $derived(projectTitle(title, prompt, repo))
   const autoName = $derived(nameOf(prompt))
   /** Its other repositories, while its CLI can work in several folders. */
   const alsoIn = $derived(CLIS[provider].takes_dirs ? also.filter((x) => x !== repo) : [])

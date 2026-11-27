@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { nameOf, newStep, newWorktree, tasksFor, testTask, titleOf } from './launch-form.svelte'
+import { nameOf, newStep, newWorktree, projectTitle, tasksFor, testTask, titleOf } from './launch-form.svelte'
 
 describe('launch form', () => {
   it('titles a launch from its prompt’s first line, unless typed', () => {
     expect(titleOf('', '  Fix the scroll\nof the list')).toBe('Fix the scroll')
     expect(titleOf(' Mine ', 'Fix')).toBe('Mine')
     expect(titleOf('', 'x'.repeat(80))).toHaveLength(60)
+  })
+
+  it('titles a launch in a project with its name, then its prompt’s first line', () => {
+    expect(projectTitle('', 'fix login\nand more', 'prism')).toBe('prism · fix login')
+    expect(projectTitle('', '', 'prism')).toBe('prism')
+    expect(projectTitle('', 'fix login', null)).toBe('fix login')
+    expect(projectTitle(' Mine ', 'fix login', 'prism')).toBe('Mine')
   })
 
   it('names a worktree from the prompt’s first four words, mentions left out', () => {
