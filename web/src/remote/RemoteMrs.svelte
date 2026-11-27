@@ -86,7 +86,7 @@
   const now = $derived(clock(1000).now)
 
   /** The queue's repository's MRs held out of it until the MR they wait for is merged. */
-  const held = $derived(heldIn(snap, qRepo === primaryRepo(snap)?.name ? null : qRepo))
+  const held = $derived(heldIn(snap, qRepo))
   async function heldAct(h: Held, back: boolean) {
     const ref = { iid: h.iid, repo: h.repo ?? null }
     busy = mrKey(ref)

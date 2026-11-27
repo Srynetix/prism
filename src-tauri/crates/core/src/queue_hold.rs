@@ -1,7 +1,8 @@
 //! MRs held out of the merge queue until the MR they depend on is merged (the « Hold » fix of a
 //! merge queue alert, `crate::mr_deps`): Prism took the queue's label off, and puts it back once
 //! that MR is merged. Held while a Prism runs; one that was not running then leaves the MR out
-//! of the queue, as when the MR it waits for was closed instead, or the held one merged or closed.
+//! of the queue (Forget drops the hold), as when the MR it waits for was closed instead, or the
+//! held one merged or closed.
 //!
 //! Kept per profile in its data folder (`queue-held.json`), mirrored in `Snapshot::queue_held`
 //! for the window and the phones. `due` says what is to be done; the forge's collector does it.
@@ -41,7 +42,7 @@ pub enum Outcome {
     /// The MR it waited for is merged: back into the queue.
     Requeue,
     /// Nothing more to wait for, and not to put back: it was merged or closed, or the MR it
-    /// waited for was closed or is no longer read.
+    /// waited for was closed. One not read keeps its hold (Forget, in the window, drops it).
     Drop,
 }
 
@@ -114,10 +115,11 @@ pub fn due(s: &Snapshot) -> Vec<(Held, Outcome)> {
             let outcome = if mr.state != MrState::Opened {
                 Outcome::Drop
             } else {
-                match find(&h.on_repo, h.on_iid).map(|o| o.state) {
-                    Some(MrState::Opened) => return None,
-                    Some(MrState::Merged) => Outcome::Requeue,
-                    _ => Outcome::Drop,
+                // Not read (yet, or a read that failed): still held, rather than lost.
+                match find(&h.on_repo, h.on_iid)?.state {
+                    MrState::Opened => return None,
+                    MrState::Merged => Outcome::Requeue,
+                    MrState::Closed => Outcome::Drop,
                 }
             };
             Some((h.clone(), outcome))
@@ -145,7 +147,8 @@ mod tests {
         use MrState::*;
         s.merge_requests = vec![mr(1, Opened), mr(2, Opened), mr(3, Opened), mr(4, Merged), mr(5, Opened), mr(6, Closed), mr(7, Merged), mr(8, Opened), mr(11, Opened)];
         let got: Vec<(u64, Outcome)> = due(&s).into_iter().map(|(h, o)| (h.iid, o)).collect();
-        assert_eq!(got, [(3, Outcome::Requeue), (5, Outcome::Drop), (7, Outcome::Drop), (11, Outcome::Drop)]);
+        // !11 waits for an MR not read: still held.
+        assert_eq!(got, [(3, Outcome::Requeue), (5, Outcome::Drop), (7, Outcome::Drop)]);
     }
 
     #[test]

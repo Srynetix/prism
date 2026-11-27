@@ -2,6 +2,7 @@
   import { t } from '../i18n.svelte'
   import { live } from '../live.svelte'
   import { hasCore } from '../bridge'
+  import { mrForge } from '../forge'
   import { mrKey, sameMr } from '../mr-ref'
   import { openMr } from '../mr-view.svelte'
   import { cleanTitle } from '../mr-actions'
@@ -27,7 +28,8 @@
   let busy = $state(false)
   let error = $state<string | null>(null)
   /** The open MRs it could wait for: not itself, not one it already waits for. */
-  const choices = $derived(snap ? openMrs(snap).filter((m) => !sameMr(m, mr) && !on.some((d) => sameMr(waitedFor(d), m))).sort((a, b) => mrKey(a).localeCompare(mrKey(b), undefined, { numeric: true })) : [])
+  /** On its forge only (a forge names only its own), and not one waiting for it (a cycle). */
+  const choices = $derived(snap ? openMrs(snap).filter((m) => !sameMr(m, mr) && mrForge(m) === mrForge(mr) && !on.some((d) => sameMr(waitedFor(d), m)) && !by.some((d) => sameMr(waiting(d), m))).sort((a, b) => mrKey(a).localeCompare(mrKey(b), undefined, { numeric: true })) : [])
 
   async function declare() {
     const target = choices.find((m) => mrKey(m) === choice)
@@ -83,7 +85,7 @@
         <button class="btn sm primary" disabled={!choice || busy} onclick={declare}>{busy ? '…' : t('Declare')}</button>
         <button class="btn sm ghost" onclick={() => ((picking = false), (error = null))}>{t('Cancel')}</button>
       </div>
-      <p class="muted hint">{mr.forge === 'github' || snap?.forge === 'github' ? t('Adds a “Depends on” line to its description.') : t('Adds an MR dependency on GitLab.')}</p>
+      <p class="muted hint">{(mrForge(mr) ?? snap?.forge) === 'github' ? t('Adds a “Depends on” line to its description.') : t('Adds an MR dependency on GitLab.')}</p>
       {#if error}<p class="err">{error}</p>{/if}
     {/if}
   </section>

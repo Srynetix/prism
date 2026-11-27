@@ -1,5 +1,6 @@
 import { invoke } from './bridge'
 import { t } from './i18n.svelte'
+import { repoName } from './repositories'
 import { mrArgs, mrKey, sameMr, type MrRef } from './mr-ref'
 import type { MergeRequest, Snapshot } from './types'
 import type { MrDep } from './bindings/MrDep'
@@ -216,8 +217,8 @@ export function arcs(s: Snapshot, queued: MergeRequest[]): Arc[] {
     })
 }
 
-/** The MRs of a repository held out of its queue (`Snapshot.queue_held`). */
-export const heldIn = (s: Snapshot, repo: string | null) => (s.queue_held ?? []).filter((h) => (h.repo ?? null) === repo)
+/** The MRs of a repository (its name, as the Merge queue block's) held out of its queue (`Snapshot.queue_held`). */
+export const heldIn = (s: Snapshot, repo: string) => (s.queue_held ?? []).filter((h) => repoName(h.repo, s) === repo)
 
 /** Out of the merge queue until the MR it waits for is merged, which puts it back. */
 export const holdInQueue = (mr: MrRef, on: MrRef) => invoke<void>('hold_in_queue', { ...mrArgs(mr), on_repo: on.repo ?? null, on_iid: on.iid })

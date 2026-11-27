@@ -160,4 +160,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("not done yet", "pas encore terminée"),
     ("that merge request is not one Prism displays", "cette merge request n’est pas une de celles que Prism affiche"),
     ("that merge request's project is unknown", "le projet de cette merge request est inconnu"),
+    ("only an MR in the merge queue can be held", "seule une MR de la file de merge peut être retenue"),
+    ("the MR it waits for is no longer open", "la MR qu’elle attend n’est plus ouverte"),
 ];

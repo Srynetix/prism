@@ -775,6 +775,10 @@ fn an_mr_in_the_queue_before_the_mr_it_depends_on() {
     assert_eq!(texts(&list), ["!418 would merge before !412, which it depends on"]);
     assert_eq!(list[0].rule, Some(AlertRule::Queue));
     assert_eq!(list[0].fixes.as_ref().unwrap()[0], Fix::Hold { iid: 418, repo: None, on_iid: 412, on_repo: None });
+    // !418 opened later than !412: its base goes first, across their branches.
+    s.merge_requests[1].created_at = Some(ago(10));
+    assert!(queue(&s).is_empty());
+    s.merge_requests[1].created_at = Some(ago(120));
     // !412 out of the queue: !420 would go first.
     s.merge_requests[0].labels.clear();
     assert_eq!(queue(&s).len(), 2);

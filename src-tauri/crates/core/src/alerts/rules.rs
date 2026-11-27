@@ -685,7 +685,10 @@ impl<'a> Ctx<'a> {
             if !queued(m) || on.state != MrState::Opened || !flagged.insert((d.repo.clone(), d.iid)) {
                 continue;
             }
-            let ahead = queued(on) && on.repo == m.repo && on.target_branch == m.target_branch && self.queue_order(on) < self.queue_order(m);
+            // Ahead in the same queue; for a stacked MR, which targets its base's branch, ahead in
+            // the order the job takes them across branches.
+            let same_queue = on.repo == m.repo && (on.target_branch == m.target_branch || d.via == crate::mr_deps::DepVia::Stacked);
+            let ahead = queued(on) && same_queue && self.queue_order(on) < self.queue_order(m);
             if ahead {
                 flagged.remove(&(d.repo.clone(), d.iid));
                 continue;

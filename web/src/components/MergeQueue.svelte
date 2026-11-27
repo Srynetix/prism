@@ -56,7 +56,7 @@
   let view = $state<View>(pref<View>('queue.view', 'list'))
   const setView = (v: View) => setPref('queue.view', (view = v))
   /** The repository's MRs held out of the queue until the MR they wait for is merged. */
-  const held = $derived(heldIn(snap, repo === primaryRepo(snap)?.name ? null : repo))
+  const held = $derived(heldIn(snap, repo))
   let acting = $state<string | null>(null)
   let actError = $state<string | null>(null)
   async function act(h: Held, back: boolean) {

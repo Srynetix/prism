@@ -33,7 +33,27 @@ pub async fn set_merge_queue(state: State<'_, AppState>, repo: Option<String>, i
 /// it back (`prism_core::queue_hold`).
 #[prism_macros::command]
 pub async fn hold_in_queue(state: State<'_, AppState>, repo: Option<String>, iid: u64, on_repo: Option<String>, on_iid: u64) -> Cmd {
+    // Only an MR in the queue, waiting for an MR still open: a hold puts the label back by itself
+    // (`set_merge_queue`, Critical), which it must not give to an MR that was not queued.
+    let auto_merge = {
+        let s = state.hub.subscribe();
+        let s = s.borrow();
+        let label = s.merge_queue_label.clone().filter(|l| !l.is_empty()).context(tr("no merge queue label ([gitlab] merge_queue_label)"))?;
+        let mr = s.merge_requests.iter().find(|m| m.repo == repo && m.iid == iid && m.state == prism_core::state::MrState::Opened).context(tr("that merge request is not one Prism displays"))?;
+        if !mr.labels.contains(&label) {
+            return Err(anyhow::anyhow!("{}", tr("only an MR in the merge queue can be held")).into());
+        }
+        let on = s.merge_requests.iter().find(|m| m.repo == on_repo && m.iid == on_iid).context(tr("that merge request is not one Prism displays"))?;
+        if on.state != prism_core::state::MrState::Opened {
+            return Err(anyhow::anyhow!("{}", tr("the MR it waits for is no longer open")).into());
+        }
+        mr.auto_merge
+    };
     gitlab(&state)?.set_merge_queue(&state.hub, repo.as_deref(), iid, false).await?;
+    // The queue's job may have set its auto-merge already: it would merge it all the same.
+    if auto_merge {
+        state.forge().set_auto_merge(&state.hub, repo.as_deref(), iid, false).await?;
+    }
     prism_core::queue_hold::hold(&state.hub, repo, iid, on_repo, on_iid);
     state.hub.forge_changed();
     Ok(())
