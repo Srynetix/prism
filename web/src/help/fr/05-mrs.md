@@ -85,6 +85,18 @@ La section **Claude** du menu ⋯ lance un agent sur la MR : **Corriger le pipe
 
 [Lire : Travailler avec les agents Claude](prism:help/agents)
 
+## Les dépendances entre MR
+Une MR peut en attendre une autre. Prism le sait de trois façons :
+- **branche empilée** : sa branche cible est la branche d’une autre MR ouverte, dans le même dépôt ;
+- **déclarée** sur la forge : les dépendances de MR de GitLab, ou sur GitHub une ligne de la description, `Depends on #12` ou `Blocked by owner/repo#12` (plusieurs séparées par des virgules) ;
+- **via les tickets** : un de ses tickets attend un ticket (les bloqueurs du tracker) qu’une autre MR nomme. Déduite, elle s’affiche en pointillés et ne lève jamais d’alerte de file de merge.
+
+Sur une ligne, **attend !410** dit ce qu’elle attend (un clic l’ouvre), **bloque 2** combien l’attendent ; les survoler éclaire toute la chaîne dans la liste. Dès qu’une dépendance existe parmi les MR affichées, l’en-tête du bloc propose **Liste** · **Chaînes** · **Graphe** :
+- **Chaînes** : chaque MR sous celle qu’elle attend, une chaîne à la fois, puis les MR sans dépendance ;
+- **Graphe** : de gauche à droite dans l’ordre où elles peuvent merger, une bande par chaîne. Le trait d’une flèche donne la source (plein : empilée, tirets : déclarée, points : via les tickets ; gris une fois la MR attendue mergée), la bordure d’une carte son état (vert : prête, orange : en attend une autre, rouge : CI ou conflits, pointillés : mergée). Survoler une carte éclaire sa lignée, un clic l’ouvre. Deux cases masquent les MR mergées récentes et les dépendances via les tickets.
+
+Le panneau d’une MR a une section **Dépendances** : ce qu’elle attend, ce qui l’attend, sa chaîne en petit graphe, et sur une MR ouverte **Déclarer une dépendance…**, qui l’écrit sur la forge (une dépendance de MR sur GitLab, une ligne `Depends on` ajoutée à la description sur GitHub).
+
 ## Le bloc File de merge
 **File de merge** (+ Bloc › Code et agents) montre ce qui attend d’être mergé dans un dépôt, choisi au-dessus de la liste (le choix est le même sur le téléphone) :
 - **Dans la file**, pour un dépôt avec une file de merge (Réglages › Code › Dépôts, *File*) : les MR qui portent son label, la plus ancienne en premier, dans l’ordre où son job de CI les prend. Avec des labels de priorité (`[gitlab] merge_priority_prefix = "merge-priority::"`, puis `merge-priority::0`, `merge-priority::1`… sur les MR), le plus petit nombre passe d’abord, puis les MR sans, la plus ancienne d’abord dans chaque groupe ; la ligne affiche **P0**, **P1**…, et le menu ⋯ d’une MR la règle (*Priorité de merge* : P0 à P3, — pour aucune ; l’autre label de priorité de la MR part). **▶** marque la suivante. Une MR retenue (conflits, rebase en échec, pipeline en échec) est comptée comme *bloquée* dans l’en-tête : le job ne la mergera pas en l’état.
@@ -92,6 +104,8 @@ La section **Claude** du menu ⋯ lance un agent sur la MR : **Corriger le pipe
 - **Approuvées, pas dans la file** (ou *auto-merge désactivé*, sans file) : des MR approuvées que rien ne mergera. Leur ligne propose **File de merge**, **Auto-merge** ou **Merger**.
 
 Quand les MR visent plusieurs branches cibles, la liste est séparée par branche (la branche principale d’abord, puis celles de release) : chacune a son propre ordre et son propre **▶**.
+
+**Train** (à côté de **Liste** dans l’en-tête, avec des MR dans la file) dessine la file dans son ordre, avec un arc de chaque MR vers la MR qu’elle attend (empilée ou déclarée, encore ouverte). Un arc vers l’arrière, en rouge, veut dire qu’une MR serait mergée avant celle qu’elle attend : une alerte le dit, avec **Retenir jusqu’au merge de !n**. Prism retire alors la MR de la file et l’y remet une fois cette MR mergée ; les MR retenues sont listées sous **Retenues par Prism**, avec **Remettre maintenant** et **Oublier** (elle reste hors de la file). Une MR retenue ne revient que si un Prism tourne au merge de la MR attendue ; sinon, ou si celle-ci est fermée, elle reste simplement hors de la file.
 
 En mode court, l’icône d’auto-merge sur une ligne indique que la forge mergera cette MR d’elle-même une fois au vert (déjà réglé par le job de la file, ou activé à la main).
 
@@ -101,3 +115,5 @@ Les brouillons et les MR encore en revue sont laissés au bloc Merge requests. I
 L’onglet **MR** de l’accès à distance est fait pour le pouce. **Équipe** / **Les miennes** changent la liste ; une rangée défilante filtre par dépôt et par auteur ; les pipelines des branches protégées sont dans un bandeau. Ce qui **a besoin de vous** vient en premier — une MR qui attend votre revue, les vôtres bloquées ou prêtes pour leur prochaine étape — puis les autres, les plus récemment mises à jour en premier. Chaque ligne montre qui et son état, le titre sur deux lignes, son pipeline, son ticket, ses approbations et ses fils, et sa prochaine étape sous forme de bouton (**Corriger**, **Relire**, **Merger**… ; un merge demande un second appui).
 
 Un appui ouvre la MR en plein écran, **‹ MR** revient. Les faits sont des tuiles, puis la description, les approbations et le pipeline. En bas, toujours à portée : l’**action principale du moment** (la prochaine étape de la ligne ; à défaut, **Approuver**) et **Actions**, une feuille avec tout le reste — approuver, demander des modifications, merger, rebaser, auto-merge, brouillon, les actions d’agent, saisir du temps, les liens. Une action d’agent démarre l’agent immédiatement sur le téléphone, et l’ouvre. **Modifications** montre un fichier à la fois, ses lignes renvoyées à la ligne : **‹ ›** ou la liste des fichiers passent de l’un à l’autre, **Vu** passe au fichier suivant pas encore vu. Dans **Discussion**, la zone de commentaire reste en bas.
+
+Sur le téléphone, les lignes ont les mêmes puces **attend** / **bloque**, *Trié par* › **Chaînes** regroupe la liste par chaîne, et l’onglet **File** liste les MR retenues ; le **Retenir** de l’alerte de file y marche aussi. Pas de graphe sur un téléphone.

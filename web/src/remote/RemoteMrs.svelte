@@ -20,6 +20,11 @@
   import { byTarget, mergePriority, mergeQueue, queueCount, queueRepos, type MergeQueue } from '../merge-queue'
   import { primaryRepo } from '../repositories'
   import type { MergeRequest, Snapshot } from '../types'
+  import MrDepChips from '../components/MrDepChips.svelte'
+  import { chains, findMr, heldIn, releaseHeld, tree } from '../mr-deps'
+  import { setMergeQueue } from '../pipeline-actions'
+  import { cleanTitle } from '../mr-actions'
+  import type { Held } from '../bindings/Held'
 
   /**
    * The MRs on a phone: Team / Mine as the page's switch, one scrolled row of filters (repos, then
@@ -57,8 +62,11 @@
   })
   const shown = $derived((tab === 'mine' ? mine : all).filter((m) => (repo === null || (m.repo ?? '') === repo) && (tab === 'mine' || !author || m.author === author)))
   const needsMe = (m: MergeRequest) => mrNeedsMe(m, meOn(snap, m), queueLabel)
-  type Sort = 'updated' | 'oldest' | 'repo'
+  type Sort = 'updated' | 'oldest' | 'repo' | 'chains'
   let sort = $state<Sort>(pref<Sort>('remote.mrs.sort', 'updated'))
+  /** By chain (each MR under the one it waits for), offered when the list has a dependency. */
+  const linked = $derived(chains(snap, shown, { tickets: true, merged: true }))
+  const byChain = $derived(sort === 'chains' && linked.chains.length > 0)
   const setSort = (s: Sort) => setPref('remote.mrs.sort', (sort = s))
   const listed = $derived(
     sort === 'oldest' ? [...shown].reverse() : sort === 'repo' ? [...shown].sort((a, b) => (a.repo ?? '').localeCompare(b.repo ?? '')) : shown,
@@ -76,6 +84,20 @@
   const qBranches = $derived(byTarget(q))
 
   const now = $derived(clock(1000).now)
+
+  /** The queue's repository's MRs held out of it until the MR they wait for is merged. */
+  const held = $derived(heldIn(snap, qRepo === primaryRepo(snap)?.name ? null : qRepo))
+  async function heldAct(h: Held, back: boolean) {
+    const ref = { iid: h.iid, repo: h.repo ?? null }
+    busy = mrKey(ref)
+    try {
+      await (back ? setMergeQueue(ref, true) : releaseHeld(ref))
+    } catch (err) {
+      toastError(String(err))
+    } finally {
+      busy = null
+    }
+  }
 
   /** The row's button: its next step's action, a second tap for one that cannot be undone. */
   let busy = $state<string | null>(null)
@@ -123,6 +145,7 @@
         {#if m.ticket}<span class="tk">{mrTickets(m).join(' ')}</span>{/if}
         {#if !m.draft}<span class:ok={m.approvals_left <= 0 && !changesRequested(m)}><Icon name="check" /> {m.approved_by.length}/{m.approved_by.length + Math.max(0, m.approvals_left)}</span>{/if}
         {#if m.open_threads}<span><Icon name="comment" /> {m.open_threads}</span>{/if}
+        <MrDepChips mr={m} />
       </div>
     </div>
     {#if p && (tab === 'queue' || me)}
@@ -166,6 +189,23 @@
     {:else}
       {@render sections(q)}
     {/if}
+    {#if held.length}
+      <div class="grp"><Icon name="pause" /> {t('Held by Prism')} · {held.length}<span class="hint">{t('back in the queue once the MR they wait for is merged')}</span></div>
+      {#each held as h (mrKey({ iid: h.iid, repo: h.repo }))}
+        {@const k = mrKey({ iid: h.iid, repo: h.repo })}
+        {@const m = findMr(snap, { iid: h.iid, repo: h.repo ?? null })}
+        <div class="held">
+          <div class="body">
+            <div class="h"><span class="iid">{k}</span><span class="grow"></span><span class="step">{t('back at the merge of {mr}', { mr: mrKey({ iid: h.on_iid, repo: h.on_repo }) })}</span></div>
+            <div class="title">{m ? cleanTitle(m) : ''}</div>
+            <div class="acts">
+              <button class="btn sm" disabled={busy === k} onclick={() => heldAct(h, true)}>{t('Put back now')}</button>
+              <button class="btn sm ghost" disabled={busy === k} onclick={() => heldAct(h, false)}>{t('Forget')}</button>
+            </div>
+          </div>
+        </div>
+      {/each}
+    {/if}
     {#if !queueCount(q) && !q.hasQueue}<State kind="empty" title={t('Nothing waiting to merge in {repo}.', { repo: qRepo ?? '' })} />{/if}
   {:else}
   {#if repos.length > 1 || (tab === 'team' && authors.length > 1)}
@@ -191,10 +231,22 @@
         <option value="updated">{t('Last update')}</option>
         <option value="oldest">{t('Oldest first')}</option>
         <option value="repo">{t('Repository')}</option>
+        {#if linked.chains.length}<option value="chains">{t('Chains')}</option>{/if}
       </select>
     </label>
   {/if}
-  {#each listed as m (mrKey(m))}{@render row(m)}{/each}
+  {#if byChain}
+    {#each linked.chains as c, i (i)}
+      <div class="grp">{t('Chain')} · {c.mrs.length}</div>
+      {#each tree(c) as r (mrKey(r.mr))}<div class="nest" style:--d={r.depth}>{@render row(r.mr)}</div>{/each}
+    {/each}
+    {#if linked.alone.length}
+      <div class="grp">{t('No dependency')} · {linked.alone.length}</div>
+      {#each linked.alone as m (mrKey(m))}{@render row(m)}{/each}
+    {/if}
+  {:else}
+    {#each listed as m (mrKey(m))}{@render row(m)}{/each}
+  {/if}
   {#if !shown.length}<State kind="empty" title={tab === 'mine' ? t('No open MR of yours.') : t('No open MR.')} />{/if}
   {/if}
 </div>
@@ -242,6 +294,9 @@
   .meta .pipe { flex: 0 1 140px; min-width: 70px; }
   .meta .tk { color: var(--info); font-family: var(--mono); }
   .meta .ok { color: var(--ok); }
+  .nest { padding-left: calc(var(--d) * 14px); }
+  .held { display: flex; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .held .acts { display: flex; gap: 8px; }
   .act { align-self: center; height: var(--h-md); border-radius: 999px; }
   .act:not(.armed) { border-color: color-mix(in srgb, var(--tone, var(--accent)) 70%, var(--border)); background: none; }
 </style>

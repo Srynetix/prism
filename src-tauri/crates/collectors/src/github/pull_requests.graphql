@@ -5,7 +5,7 @@ query($owner: String!, $name: String!, $states: [PullRequestState!], $first: Int
     pullRequests(states: $states, first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
       pageInfo { hasNextPage endCursor }
       nodes {
-        number title isDraft url headRefName baseRefName createdAt updatedAt mergedAt state
+        number title isDraft url headRefName baseRefName createdAt updatedAt mergedAt state body @include(if: $open)
         author { login avatarUrl ... on User { name } }
         assignees(first: 10) { nodes { login } }
         reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } ... on Team { combinedSlug } } } }

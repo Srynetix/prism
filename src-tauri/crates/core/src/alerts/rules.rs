@@ -671,6 +671,40 @@ impl<'a> Ctx<'a> {
         out
     }
 
+    /// An MR in the merge queue before an MR it depends on (stacked or declared, `crate::mr_deps`),
+    /// still open: the queue would merge it first. Ahead of it in the same queue is fine. The fix
+    /// holds it out of the queue until that MR is merged (`crate::queue_hold`).
+    pub fn dep_queue_alerts(&self) -> Vec<Alert> {
+        let Some(label) = some(&self.s.merge_queue_label) else { return Vec::new() };
+        let queued = |m: &MergeRequest| m.state == MrState::Opened && !m.draft && m.labels.iter().any(|l| l == label) && self.repo_of(m.repo.as_deref()).is_some_and(|r| r.merge_queue);
+        let find = |repo: &Option<String>, iid: u64| self.s.merge_requests.iter().find(|m| &m.repo == repo && m.iid == iid);
+        let mut out = Vec::new();
+        let mut flagged = HashSet::new();
+        for d in self.s.mr_deps.iter().filter(|d| d.blocks()) {
+            let (Some(m), Some(on)) = (find(&d.repo, d.iid), find(&d.on_repo, d.on_iid)) else { continue };
+            if !queued(m) || on.state != MrState::Opened || !flagged.insert((d.repo.clone(), d.iid)) {
+                continue;
+            }
+            let ahead = queued(on) && on.repo == m.repo && on.target_branch == m.target_branch && self.queue_order(on) < self.queue_order(m);
+            if ahead {
+                flagged.remove(&(d.repo.clone(), d.iid));
+                continue;
+            }
+            let text = tr!("{mr} would merge before {on}, which it depends on", mr = self.mr_key(m), on = self.mr_key(on));
+            let fixes = vec![Fix::Hold { iid: m.iid, repo: m.repo.clone(), on_iid: on.iid, on_repo: on.repo.clone() }, Self::mr_fix(m)];
+            out.push(Alert::new("MR", Severity::Warn, text).url(m.url.clone()).open(Self::mr_open(m)).fixes(fixes));
+        }
+        out
+    }
+
+    /// Where an MR stands in its queue: by priority label (`merge_priority_prefix`, none last),
+    /// then the oldest first, as the queue's job takes them.
+    fn queue_order(&self, m: &MergeRequest) -> (i64, Option<DateTime<Utc>>, u64) {
+        let prefix = self.s.merge_priority_prefix.as_deref().filter(|p| !p.is_empty());
+        let priority = prefix.and_then(|p| m.labels.iter().filter_map(|l| l.strip_prefix(p)?.trim().parse::<i64>().ok()).min()).unwrap_or(i64::MAX);
+        (priority, m.created_at, m.iid)
+    }
+
     /// A ticket's open MRs are all approved (none a draft), but it is still in review: it should
     /// be "to merge".
     pub fn approved_alerts(&self) -> Vec<Alert> {

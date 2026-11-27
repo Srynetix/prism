@@ -739,3 +739,43 @@ fn rules_the_window_repeats_agree_with_it() {
         assert_eq!(agents.kind_of(c["prompt"].as_str().unwrap()), c["kind"].as_str(), "{c}");
     }
 }
+
+#[test]
+fn an_mr_in_the_queue_before_the_mr_it_depends_on() {
+    let mut s = snap();
+    s.repositories[0].merge_queue = true;
+    s.merge_queue_label = Some("queue".into());
+    let queued = vec!["queue".into()];
+    s.merge_requests = vec![
+        mr(|m| {
+            m.iid = 412;
+            m.source_branch = "feat/api".into();
+            m.created_at = Some(ago(60));
+            m.labels = queued.clone();
+        }),
+        mr(|m| {
+            m.iid = 418;
+            m.source_branch = "feat/pdf".into();
+            m.target_branch = "feat/api".into();
+            m.created_at = Some(ago(120));
+            m.labels = queued.clone();
+        }),
+        mr(|m| {
+            m.iid = 420;
+            m.source_branch = "feat/later".into();
+            m.created_at = Some(ago(30));
+            m.labels = queued.clone();
+            m.blocked_by = vec![MrBlocker { project: String::new(), iid: 412 }];
+        }),
+    ];
+    s.mr_deps = crate::mr_deps::compute(&s);
+    let queue = |s: &Snapshot| run(s).into_iter().filter(|a| a.rule == Some(AlertRule::Queue)).collect::<Vec<_>>();
+    let list = queue(&s);
+    // !420 comes after !412 in the same queue: fine. !418 targets !412's branch.
+    assert_eq!(texts(&list), ["!418 would merge before !412, which it depends on"]);
+    assert_eq!(list[0].rule, Some(AlertRule::Queue));
+    assert_eq!(list[0].fixes.as_ref().unwrap()[0], Fix::Hold { iid: 418, repo: None, on_iid: 412, on_repo: None });
+    // !412 out of the queue: !420 would go first.
+    s.merge_requests[0].labels.clear();
+    assert_eq!(queue(&s).len(), 2);
+}

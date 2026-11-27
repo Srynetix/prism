@@ -456,6 +456,12 @@ impl Actions {
         review::set_draft(self.project_of(repo)?, hub, repo, iid, draft).await
     }
 
+    /// Declares that an open MR waits for another (`on`: an empty project for its own): one more
+    /// MR dependency on GitLab, the others kept.
+    pub async fn declare_dependency(&self, hub: &Hub, repo: Option<&str>, iid: u64, on: &crate::state::MrBlocker) -> Result<()> {
+        review::declare_dependency(self.project_of(repo)?, hub, repo, iid, on).await
+    }
+
     /// Active project members (bots excluded): the choices for assignees and reviewers.
     pub async fn members(&self, repo: Option<&str>) -> Result<Vec<crate::forge::Member>> {
         review::members(self.project_of(repo)?).await

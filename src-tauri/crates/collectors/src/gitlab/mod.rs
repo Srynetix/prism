@@ -15,11 +15,12 @@ use crate::forge::cli::{Cli, Graphql};
 use crate::forge::{poll, shown};
 use crate::{
     config::GitlabConfig,
-    state::{Hub, JobLink, ManualJob, MergeRequest, PlayedJob, MrSize, MrState, PendingJob, Pipeline, PipelineStatus, Stage},
+    state::{Hub, JobLink, ManualJob, MergeRequest, MrBlocker, PlayedJob, MrSize, MrState, PendingJob, Pipeline, PipelineStatus, Stage},
     ticket,
 };
 
 pub mod ci_health;
+pub mod hold;
 pub mod logs;
 pub mod renovate;
 pub mod review;

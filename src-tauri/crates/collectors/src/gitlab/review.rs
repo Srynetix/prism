@@ -758,6 +758,103 @@ pub fn forget_cached() {
     EMOJI.clear();
 }
 
+/// One more MR dependency of an open MR (`on`: an empty project for its own), the others kept:
+/// GitLab sets them as a whole list, which a dependency hidden from me would lose, hence refused.
+pub async fn declare_dependency(project: &str, hub: &Hub, repo: Option<&str>, iid: u64, on: &crate::state::MrBlocker) -> Result<()> {
+    let ok = hub.subscribe().borrow().merge_requests.iter().any(|m| is(m, repo, iid) && m.state == MrState::Opened);
+    if !ok {
+        bail!("{}", tr!("!{iid} is not an open merge request Prism displays", iid = iid));
+    }
+    #[derive(Deserialize)]
+    struct Data {
+        project: Option<Project>,
+    }
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Project {
+        merge_request: Option<Mr>,
+    }
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Mr {
+        blocking_merge_requests: Option<Blocking>,
+    }
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Blocking {
+        #[serde(default)]
+        hidden_count: u64,
+        #[serde(default)]
+        visible_merge_requests: Option<Vec<Blocker>>,
+    }
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Blocker {
+        iid: String,
+        project: Option<Path>,
+    }
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Path {
+        full_path: String,
+    }
+    #[derive(Deserialize)]
+    struct Payload {
+        errors: Vec<String>,
+    }
+    const FIELDS: &str = "blockingMergeRequests { hiddenCount visibleMergeRequests { iid project { fullPath } } }";
+    let resp: Graphql<Data> = glab(&[
+        "api".into(), "graphql".into(),
+        "-f".into(), format!("query=query($path: ID!, $iid: String!) {{ project(fullPath: $path) {{ mergeRequest(iid: $iid) {{ {FIELDS} }} }} }}"),
+        "-f".into(), format!("path={project}"),
+        "-f".into(), format!("iid={iid}"),
+    ])
+    .await?;
+    let blocking = resp.into_data()?.project.and_then(|p| p.merge_request).and_then(|m| m.blocking_merge_requests);
+    let hidden = blocking.as_ref().map_or(0, |b| b.hidden_count);
+    if hidden > 0 {
+        bail!("{}", tr!("!{iid} has dependencies hidden from you: declare this one on GitLab", iid = iid));
+    }
+    let mut refs: Vec<String> = blocking.and_then(|b| b.visible_merge_requests).unwrap_or_default().into_iter().map(|b| format!("{}!{}", b.project.map(|p| p.full_path).unwrap_or_else(|| project.to_string()), b.iid)).collect();
+    let target = if on.project.is_empty() { project } else { on.project.as_str() };
+    let wanted = format!("{target}!{}", on.iid);
+    if !refs.iter().any(|r| r.eq_ignore_ascii_case(&wanted)) {
+        refs.push(wanted);
+    }
+    // Inlined: paths and numbers only, which a GraphQL string holds as they are.
+    static SAFE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| regex::Regex::new(r"^[\w.\-/]+![0-9]+$").unwrap());
+    if let Some(bad) = refs.iter().find(|r| !SAFE.is_match(r)) {
+        bail!("{}", tr!("unexpected merge request reference: {r}", r = bad));
+    }
+    let list = refs.iter().map(|r| format!("\"{r}\"")).collect::<Vec<_>>().join(", ");
+    tracing::info!("gitlab: !{iid} blocked by {list}");
+    let resp: Graphql<std::collections::HashMap<String, Option<Payload>>> = glab(&[
+        "api".into(), "graphql".into(),
+        "-f".into(), format!("query=mutation($path: ID!, $iid: String!) {{ mergeRequestSetBlockingMergeRequests(input: {{projectPath: $path, iid: $iid, blockingMergeRequestReferences: [{list}]}}) {{ errors }} }}"),
+        "-f".into(), format!("path={project}"),
+        "-f".into(), format!("iid={iid}"),
+    ])
+    .await?;
+    let errors = resp.into_data()?.remove("mergeRequestSetBlockingMergeRequests").flatten().map(|p| p.errors).unwrap_or_default();
+    if !errors.is_empty() {
+        bail!("GitLab: {}", errors.join("; "));
+    }
+    let links: Vec<crate::state::MrBlocker> = refs
+        .iter()
+        .filter_map(|r| {
+            let (path, n) = r.rsplit_once('!')?;
+            Some(crate::state::MrBlocker { project: path.to_string(), iid: n.parse().ok()? })
+        })
+        .collect();
+    hub.update(|s| {
+        let Some(m) = s.merge_requests.iter_mut().find(|m| is(m, repo, iid)) else { return false };
+        let changed = m.blocked_by != links;
+        m.blocked_by = links;
+        changed
+    });
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -868,4 +965,3 @@ mod tests {
         assert_eq!(people.iter().map(|p| p.username.as_str()).collect::<Vec<_>>(), ["alice", "carol"]);
     }
 }
-

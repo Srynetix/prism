@@ -85,6 +85,18 @@ The **Claude** section of the ⋯ menu launches an agent on the MR: **Fix pipeli
 
 [Read: Working with Claude agents](prism:help/agents)
 
+## Dependencies between MRs
+An MR may wait for another. Prism knows it three ways:
+- **stacked branch**: its target branch is another open MR's branch, in the same repository;
+- **declared** on the forge: GitLab's MR dependencies, or on GitHub a line of the description, `Depends on #12` or `Blocked by owner/repo#12` (several separated by commas);
+- **via tickets**: one of its tickets waits for a ticket (the tracker's blockers) that another MR names. Inferred, it shows in dots and never raises a merge queue alert.
+
+On a row, **waits for !410** says what it waits for (a click opens it), **blocks 2** how many wait for it; pointing at them lights the whole chain in the list. Once at least one dependency is among the MRs listed, the block's header offers **List** · **Chains** · **Graph**:
+- **Chains**: each MR under the one it waits for, a chain at a time, then the MRs without dependency;
+- **Graph**: from left to right in the order they can merge, a band per chain. The edge's stroke gives the source (plain: stacked, dashes: declared, dots: via tickets; grey once the MR waited for is merged), the node's border its state (green: ready, orange: waits for another, red: CI or conflicts, dashed: merged). Pointing at a node lights its lineage, a click opens it. Two boxes hide the recently merged MRs and the dependencies via tickets.
+
+The MR drawer has a **Dependencies** section: what it waits for, what waits for it, its chain as a small graph, and on an open MR **Declare a dependency…**, which writes it on the forge (an MR dependency on GitLab, a `Depends on` line added to the description on GitHub).
+
 ## The Merge queue block
 **Merge queue** (+ Block › Code & agents) shows what waits to be merged in one repository, chosen above the list (the choice is the same on the phone):
 - **In the queue**, for a repository with a merge queue (Settings › Code › Repositories, *Queue*): the MRs with its label, oldest first, the order its CI job takes them. With priority labels (`[gitlab] merge_priority_prefix = "merge-priority::"`, then `merge-priority::0`, `merge-priority::1`… on the MRs), the lowest number comes first, then the MRs without one, the oldest first within each; the row shows **P0**, **P1**…, and an MR's ⋯ menu sets it (*Merge priority*: P0 to P3, — for none; the MR's other priority label goes). **▶** marks the next one. One held up (conflicts, a failed rebase, a failed pipeline) is counted as *stuck* in the header: the job will not merge it as it is.
@@ -92,6 +104,8 @@ The **Claude** section of the ⋯ menu launches an agent on the MR: **Fix pipeli
 - **Approved, not in the queue** (or *auto-merge off*, without a queue): approved MRs nothing will merge. Their row offers **Merge queue**, **Auto-merge** or **Merge**.
 
 When the MRs go to several target branches, the list is split by branch (the main branch first, then the release ones): each has its own order and its own **▶**.
+
+**Train** (beside **List** in the header, with MRs in the queue) draws the queue in its order, with an arc from each MR to the MR it waits for (stacked or declared, still open). An arc backwards, in red, means an MR would merge before the one it waits for: an alert says so, with **Hold until !n is merged**. Prism then takes the MR out of the queue and puts it back once that MR is merged; held MRs are listed under **Held by Prism**, with **Put back now** and **Forget** (it stays out of the queue). A hold needs a Prism running when that MR merges; otherwise, or if that MR is closed instead, the held MR simply stays out of the queue.
 
 In short mode, the auto-merge icon on a row says the forge will merge that MR by itself once green (already set by the queue's job, or turned on by hand).
 
@@ -102,3 +116,4 @@ The remote's **MRs** tab is made for a thumb. **Team** / **Mine** switch the lis
 
 A tap opens the MR on the whole screen, **‹ MRs** goes back. The facts are tiles, then the description, approvals and pipeline. At the bottom, always at hand: the **main action of the moment** (the row's next step; failing that, **Approve**) and **Actions**, a sheet with everything else — approve, request changes, merge, rebase, auto-merge, draft, the agent actions, log time, links. An agent action starts the agent at once on the phone, and opens it. **Changes** shows one file at a time, its lines wrapped: **‹ ›** or the file list go from one to the next, **Viewed** moves on to the next file not yet viewed. In **Discussion**, the comment box stays at the bottom.
 
+On the phone, the rows show the same **waits for** / **blocks** chips, *Sorted by* › **Chains** groups the list by chain, and the **Queue** tab lists the held MRs; the merge queue alert's **Hold** works there too. There is no graph on a phone.

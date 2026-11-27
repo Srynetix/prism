@@ -17,6 +17,11 @@
   import { repoColor } from '../people'
   import { primaryRepo } from '../repositories'
   import { mrKey, sameMr } from '../mr-ref'
+  import MergeTrain from './MergeTrain.svelte'
+  import { findMr, heldIn, releaseHeld } from '../mr-deps'
+  import { setMergeQueue } from '../pipeline-actions'
+  import { cleanTitle } from '../mr-actions'
+  import type { Held } from '../bindings/Held'
 
   /**
    * Merge queue: the MRs of one repository waiting to be merged. With a merge queue, those with its
@@ -45,12 +50,37 @@
   /** In the queue but held up: the job will not merge it as it is. */
   const stuck = (m: MergeRequest) => nextStep(m, meOn(snap, m), queueLabel).tone === 'blocked'
   const stuckCount = $derived(q.queued.filter(stuck).length)
+
+  /** The queue as a list, or as a train with its MRs' dependencies (`queue.view`). */
+  type View = 'list' | 'train'
+  let view = $state<View>(pref<View>('queue.view', 'list'))
+  const setView = (v: View) => setPref('queue.view', (view = v))
+  /** The repository's MRs held out of the queue until the MR they wait for is merged. */
+  const held = $derived(heldIn(snap, repo === primaryRepo(snap)?.name ? null : repo))
+  let acting = $state<string | null>(null)
+  let actError = $state<string | null>(null)
+  async function act(h: Held, back: boolean) {
+    const ref = { iid: h.iid, repo: h.repo ?? null }
+    acting = mrKey(ref)
+    actError = null
+    try {
+      await (back ? setMergeQueue(ref, true) : releaseHeld(ref))
+    } catch (e) {
+      actError = String(e)
+    } finally {
+      acting = null
+    }
+  }
 </script>
 
 {#snippet sections(b: MergeQueue)}
   {#if b.hasQueue}
     <div class="section"><Icon name="queue" /> {t('In the queue')} · {b.queued.length}<span class="hint">{prefix ? t('by priority, then oldest first: the order the job takes them') : t('oldest first: the order the job takes them')}</span></div>
-    {#each b.queued as m, i (mrKey(m))}{@render row(m, i + 1)}{:else}<div class="empty">{t('No MR with the “{label}” label.', { label: queueLabel ?? '' })}</div>{/each}
+    {#if view === 'train' && b.queued.length}
+      <MergeTrain mrs={b.queued} {prefix} />
+    {:else}
+      {#each b.queued as m, i (mrKey(m))}{@render row(m, i + 1)}{:else}<div class="empty">{t('No MR with the “{label}” label.', { label: queueLabel ?? '' })}</div>{/each}
+    {/if}
   {/if}
   {#if b.auto.length}
     <div class="section"><Icon name="automerge" /> {b.hasQueue ? t('Auto-merge, out of the queue') : t('Auto-merge')} · {b.auto.length}<span class="hint">{t('merged by the forge once green')}</span></div>
@@ -79,6 +109,12 @@
       {#if stuckCount}<small class="pill ko" title={t('In the queue, but conflicts, a failed rebase or a failed CI hold them up')}>{t('{n} stuck', { n: stuckCount })}</small>{/if}
       {#if q.auto.length}<small class="pill src" title={t('Auto-merge on: the forge merges them once their checks pass')}>{t('{n} auto-merge', { n: q.auto.length })}</small>{/if}
     </span>
+    {#if q.hasQueue && q.queued.length && !isShort('queue')}
+      <span class="seg views" role="group" aria-label={t('Merge queue')}>
+        <button class:on={view === 'list'} onclick={() => setView('list')}>{t('List')}</button>
+        <button class:on={view === 'train'} onclick={() => setView('train')} title={t('The queue in its order, with the dependencies between its MRs')}>{t('Train')}</button>
+      </span>
+    {/if}
     <BlockControls id="queue" />
   </h2>
   {#if repos.length > 1 && !isShort('queue')}
@@ -118,6 +154,21 @@
       {:else}
         {@render sections(q)}
       {/if}
+      {#if held.length}
+        <div class="section"><Icon name="pause" /> {t('Held by Prism')} · {held.length}<span class="hint">{t('back in the queue once the MR they wait for is merged')}</span></div>
+        {#each held as h (mrKey({ iid: h.iid, repo: h.repo }))}
+          {@const m = findMr(snap, { iid: h.iid, repo: h.repo ?? null })}
+          {@const on = { iid: h.on_iid, repo: h.on_repo ?? null }}
+          <div class="held">
+            <button class="iid" onclick={() => openMr({ iid: h.iid, repo: h.repo ?? null })}>{mrKey({ iid: h.iid, repo: h.repo })}</button>
+            <span class="t">{m ? cleanTitle(m) : ''}</span>
+            <span class="wait">{t('back at the merge of {mr}', { mr: mrKey(on) })}</span>
+            <button class="btn sm" disabled={acting === mrKey({ iid: h.iid, repo: h.repo })} onclick={() => act(h, true)} title={t('Into the merge queue now')}>{t('Put back now')}</button>
+            <button class="btn sm ghost" disabled={acting === mrKey({ iid: h.iid, repo: h.repo })} onclick={() => act(h, false)} title={t('No longer held: it stays out of the queue')}>{t('Forget')}</button>
+          </div>
+        {/each}
+        {#if actError}<div class="held-error"><span class="err">{actError}</span></div>{/if}
+      {/if}
       {#if !q.hasQueue && !q.auto.length && !q.ready.length}
         <State kind="empty" icon="queue" title={repo ? t('Nothing waiting to merge in {repo}.', { repo }) : t('No repository with a merge queue or an MR waiting to merge.')} />
       {/if}
@@ -139,6 +190,10 @@
   .branch { display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-bottom: 1px solid var(--border); font: 600 var(--fs-meta) var(--mono); color: var(--text); }
   .branch b { margin-left: auto; font-family: inherit; color: var(--text-muted); }
   .target { flex-shrink: 0; font-family: var(--mono); font-size: var(--fs-tag); color: var(--text-muted); }
+  .held { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-bottom: 1px solid var(--border); font-size: var(--fs-body); }
+  .held .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .held .wait { flex-shrink: 0; padding: 0 7px; border-radius: var(--r10); font-size: var(--fs-tag); line-height: 18px; color: color-mix(in srgb, var(--warn) 75%, var(--text)); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .held-error { padding: 4px 10px; }
   .line { display: flex; align-items: stretch; }
   .line .grow { flex: 1; min-width: 0; }
   .pos { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 22px; font: 600 var(--fs-meta) var(--mono); color: var(--text-muted); }

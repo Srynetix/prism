@@ -378,6 +378,36 @@ pub async fn set_labels(project: &str, hub: &Hub, repo: Option<&str>, number: u6
     Ok(())
 }
 
+/// Declares that the pull request waits for another (`on`, an empty project: this repository's):
+/// a « Depends on » line at the end of its description, unless it already names it.
+pub async fn declare_dependency(project: &str, hub: &Hub, repo: Option<&str>, number: u64, on: &crate::state::MrBlocker) -> Result<()> {
+    let shown = known(hub, repo, number)?;
+    ensure!(shown.state == MrState::Opened, "{}", tr!("#{number} is not an open pull request", number = number));
+    split(project)?;
+    #[derive(Deserialize)]
+    struct Body {
+        body: Option<String>,
+    }
+    let path = format!("repos/{project}/pulls/{number}");
+    let body = super::api::<Body>(&path).await?.body.unwrap_or_default();
+    let same = |l: &crate::state::MrBlocker| l.iid == on.iid && (l.project.eq_ignore_ascii_case(&on.project) || [&l.project, &on.project].iter().all(|p| p.is_empty() || p.eq_ignore_ascii_case(project)));
+    let mut links = prism_core::mr_deps::declared(&body);
+    if !links.iter().any(same) {
+        let line = prism_core::mr_deps::declare_line(on);
+        let text = if body.trim().is_empty() { line } else { format!("{}\n\n{line}", body.trim_end()) };
+        tracing::info!("github: #{number} depends on {}#{}", on.project, on.iid);
+        let _: serde_json::Value = gh_input("PATCH", &path, &serde_json::json!({ "body": text })).await?;
+        links.push(on.clone());
+    }
+    hub.update(|s| {
+        let Some(m) = s.merge_requests.iter_mut().find(|m| m.iid == number && m.repo.as_deref() == repo) else { return false };
+        let changed = m.blocked_by != links;
+        m.blocked_by = links;
+        changed
+    });
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

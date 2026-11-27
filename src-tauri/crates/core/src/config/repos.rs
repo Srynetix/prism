@@ -146,7 +146,7 @@ pub struct PipelineBranches {
 }
 
 /// What the frontend knows of a repository: its role and switches.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct RepoInfo {
     pub name: String,

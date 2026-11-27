@@ -260,6 +260,28 @@ pub(super) struct GqlMr {
     resolved_discussions_count: Option<i64>,
     #[serde(default)]
     diff_stats_summary: Option<GqlDiffStats>,
+    /// Its MR dependencies (a GitLab Premium feature: null or empty elsewhere).
+    #[serde(default)]
+    blocking_merge_requests: Option<GqlBlocking>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GqlBlocking {
+    #[serde(default)]
+    visible_merge_requests: Option<Vec<GqlBlockingMr>>,
+}
+
+#[derive(Deserialize)]
+struct GqlBlockingMr {
+    iid: String,
+    project: Option<GqlProjectPath>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GqlProjectPath {
+    full_path: String,
 }
 
 #[derive(Deserialize)]
@@ -316,6 +338,13 @@ impl From<GqlMr> for MergeRequest {
             created_at: m.created_at,
             updated_at: m.updated_at,
             merged_at: m.merged_at,
+            blocked_by: m
+                .blocking_merge_requests
+                .and_then(|b| b.visible_merge_requests)
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|b| Some(MrBlocker { project: b.project.map(|p| p.full_path).unwrap_or_default(), iid: b.iid.parse().ok()? }))
+                .collect(),
         }
     }
 }

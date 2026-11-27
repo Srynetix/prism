@@ -6,6 +6,9 @@ use super::State;
 
 use crate::app::AppState;
 
+use anyhow::Context;
+use prism_base::i18n::tr;
+
 use super::{gitlab, Cmd};
 
 /// Rebase of a GitLab MR, requested from the window.
@@ -18,7 +21,49 @@ pub async fn rebase_mr(state: State<'_, AppState>, repo: Option<String>, iid: u6
 #[prism_macros::command]
 pub async fn set_merge_queue(state: State<'_, AppState>, repo: Option<String>, iid: u64, on: bool) -> Cmd {
     gitlab(&state)?.set_merge_queue(&state.hub, repo.as_deref(), iid, on).await?;
+    // Into the queue by hand: no longer held.
+    if on {
+        prism_core::queue_hold::release(&state.hub, repo.as_deref(), iid);
+    }
     state.hub.forge_changed();
+    Ok(())
+}
+
+/// Out of the merge queue until the MR it depends on (`on_repo`, `on_iid`) is merged, which puts
+/// it back (`prism_core::queue_hold`).
+#[prism_macros::command]
+pub async fn hold_in_queue(state: State<'_, AppState>, repo: Option<String>, iid: u64, on_repo: Option<String>, on_iid: u64) -> Cmd {
+    gitlab(&state)?.set_merge_queue(&state.hub, repo.as_deref(), iid, false).await?;
+    prism_core::queue_hold::hold(&state.hub, repo, iid, on_repo, on_iid);
+    state.hub.forge_changed();
+    Ok(())
+}
+
+/// No longer held out of the merge queue, and left out of it.
+#[prism_macros::command]
+pub async fn queue_release(state: State<'_, AppState>, repo: Option<String>, iid: u64) -> Cmd {
+    prism_core::queue_hold::release(&state.hub, repo.as_deref(), iid);
+    Ok(())
+}
+
+/// Declares on the forge that an open MR waits for another (`on_repo`, `on_iid`): a GitLab MR
+/// dependency, a « Depends on » line of a GitHub description.
+#[prism_macros::command]
+pub async fn declare_dependency(state: State<'_, AppState>, repo: Option<String>, iid: u64, on_repo: Option<String>, on_iid: u64) -> Cmd {
+    let on = {
+        let s = state.hub.subscribe();
+        let s = s.borrow();
+        let project = if on_repo == repo {
+            String::new()
+        } else {
+            let other = s.merge_requests.iter().find(|m| m.repo == on_repo && m.iid == on_iid).context(tr("that merge request is not one Prism displays"))?;
+            let primary = || s.repositories.iter().find(|r| r.primary).and_then(|r| r.project.clone());
+            other.project.clone().or_else(|| if on_repo.is_none() { primary() } else { None }).context(tr("that merge request's project is unknown"))?
+        };
+        crate::state::MrBlocker { project, iid: on_iid }
+    };
+    state.forge().declare_dependency(&state.hub, repo.as_deref(), iid, &on).await?;
+    state.hub.refresh_alerts();
     Ok(())
 }
 

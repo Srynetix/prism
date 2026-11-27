@@ -19,6 +19,7 @@ query($path: ID!, $state: MergeRequestState!, $after: Time, $stages: Boolean!) {
         labels { nodes { title } }
         resolvableDiscussionsCount resolvedDiscussionsCount
         diffStatsSummary @include(if: $stages) { additions deletions fileCount }
+        blockingMergeRequests @include(if: $stages) { visibleMergeRequests { iid project { fullPath } } }
       }
     }
   }

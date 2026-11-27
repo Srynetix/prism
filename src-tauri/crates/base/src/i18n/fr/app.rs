@@ -158,4 +158,6 @@ pub const TABLE: &[(&str, &str)] = &[
     ("{branch} is already checked out in {path}", "{branch} est déjà extraite dans {path}"),
     ("no such branch any more", "cette branche n'existe plus"),
     ("not done yet", "pas encore terminée"),
+    ("that merge request is not one Prism displays", "cette merge request n’est pas une de celles que Prism affiche"),
+    ("that merge request's project is unknown", "le projet de cette merge request est inconnu"),
 ];

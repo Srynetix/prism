@@ -82,6 +82,8 @@ impl Actions {
         fn labels(&self, repo: Option<&str>) -> Result<Vec<ForgeLabel>>;
         /// An open MR's labels, the whole list; only those that move are sent.
         fn set_labels(&self, hub: &Hub, repo: Option<&str>, iid: u64, labels: Vec<String>) -> Result<()>;
+        /// Declares that an open MR waits for another (`on`: an empty project for its own).
+        fn declare_dependency(&self, hub: &Hub, repo: Option<&str>, iid: u64, on: &crate::state::MrBlocker) -> Result<()>;
 
         /// An image attached to a text of the forge (description, comment), as a `data:` URL.
         fn upload(&self, project: Option<&str>, path: &str) -> Result<String>;
@@ -264,6 +266,7 @@ impl Forge {
         fn set_people(&self, hub: &Hub, repo: Option<&str>, iid: u64, reviewers: bool, usernames: Vec<String>) -> Result<()> => of_repo(repo);
         /// An open MR's labels, the whole list; only those that move are sent.
         fn set_labels(&self, hub: &Hub, repo: Option<&str>, iid: u64, labels: Vec<String>) -> Result<()> => of_repo(repo);
+        fn declare_dependency(&self, hub: &Hub, repo: Option<&str>, iid: u64, on: &crate::state::MrBlocker) -> Result<()> => of_repo(repo);
 
         /* ---------- Renovate: in its repository (`[renovate] repo`) ---------- */
         fn play_renovate(&self, hub: &Hub) -> Result<()> => main();

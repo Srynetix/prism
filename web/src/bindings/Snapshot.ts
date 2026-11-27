@@ -24,11 +24,13 @@ import type { Features } from "./Features";
 import type { FileAccess } from "./FileAccess";
 import type { FilesConfig } from "./FilesConfig";
 import type { ForgeProvider } from "./ForgeProvider";
+import type { Held } from "./Held";
 import type { LeftSession } from "./LeftSession";
 import type { MachinePresence } from "./MachinePresence";
 import type { MailState } from "./MailState";
 import type { McpState } from "./McpState";
 import type { MergeRequest } from "./MergeRequest";
+import type { MrDep } from "./MrDep";
 import type { NodeLoad } from "./NodeLoad";
 import type { NotesConfig } from "./NotesConfig";
 import type { OpenWith } from "./OpenWith";
@@ -270,7 +272,15 @@ usage_account?: string,
 /**
  * The plan usage of the other CLIs agents run on, in the order their first agent was launched.
  */
-other_usage: Array<ProviderUsage>, merge_requests: Array<MergeRequest>, pipelines: Array<Pipeline>, pending_jobs: Array<PendingJob>, 
+other_usage: Array<ProviderUsage>, merge_requests: Array<MergeRequest>, 
+/**
+ * Which open MR waits for which (`crate::mr_deps`), computed with the alerts.
+ */
+mr_deps: Array<MrDep>, 
+/**
+ * MRs held out of the merge queue until the MR they depend on is merged (`crate::queue_hold`).
+ */
+queue_held: Array<Held>, pipelines: Array<Pipeline>, pending_jobs: Array<PendingJob>, 
 /**
  * Absent until the pipelines have been read.
  */

@@ -35,6 +35,7 @@
   import MrThread from './MrThread.svelte'
   import MrDiffView from './MrDiffView.svelte'
   import MrApprovals from './MrApprovals.svelte'
+  import MrDeps from './MrDeps.svelte'
   import CommentBox from './CommentBox.svelte'
   import { forgeMentions } from '../mentions.svelte'
   import Icon from './Icon.svelte'
@@ -447,6 +448,8 @@
           <dd>{new Date((m.state === 'merged' ? m.merged_at : m.updated_at) ?? m.updated_at).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })} <span class="muted">({t('{ago} ago', { ago: ago(m.state === 'merged' ? m.merged_at : m.updated_at) })})</span></dd>
         </dl>
         {/if}
+
+        <MrDeps mr={m} />
 
         {#if canReview()}
           <section>
