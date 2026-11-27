@@ -17,6 +17,9 @@ type NewWorktree = NonNullable<Launch['worktree']>
 /** Without a title, the prompt's first line (60 characters). */
 export const titleOf = (title: string, prompt: string) => title.trim() || (prompt.trim().split('\n')[0] ?? '').slice(0, 60).trim()
 
+/** Without a title, its project's name and the prompt's first line (`prism · fix login`), either alone when the other is missing. */
+export const projectTitle = (title: string, prompt: string, repo: string | null | undefined) => title.trim() || [repo, titleOf('', prompt)].filter(Boolean).join(' · ')
+
 /** A worktree's name from the prompt: its first four words, its @mentions left out. */
 export const nameOf = (prompt: string) => slug(prompt.replace(/@\S+/g, '').trim().split(/\s+/).slice(0, 4).join(' '))
 

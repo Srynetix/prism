@@ -6,7 +6,7 @@
   import { live } from '../live.svelte'
   import { targetsOfCli, targetUse } from '../agent-switch.svelte'
   import { afterLaunch, agentsAvailable, agentsSettings, isLaunchMode, LAUNCH_MODES, launchModeLabel, type LaunchMode, agentsView, allTags, slug, spawnAgent, prepareAgent, closeAgent, draggedFiles, filesOf, type Launch, type LaunchSlot, closeLauncherDrawer, toastLaunched, kindOf } from '../agents.svelte'
-  import { primaryRepo, worktreeRepos } from '../repositories'
+  import { agentRepo, primaryRepo, worktreeRepos } from '../repositories'
   import { canPick, pickPath } from '../pick'
   import { toast } from '../toast.svelte'
   import { choices, effortsKey, loadEfforts, loadModels } from '../settings.svelte'
@@ -19,7 +19,7 @@
   import DictationBar from './chat/DictationBar.svelte'
   import BranchPicker from './BranchPicker.svelte'
   import { folderBranches } from '../worktrees'
-  import { Attachments, nameOf, newStep, newWorktree, takeDraft, titleOf, watchPlan, watchTasks } from '../launch-form.svelte'
+  import { Attachments, nameOf, newStep, newWorktree, projectTitle, takeDraft, watchPlan, watchTasks } from '../launch-form.svelte'
 
   /**
    * The New agent form of the Agents view. Mounted once and hidden when an agent shows: what is
@@ -153,16 +153,16 @@
    * repository's checkout.
    */
   function goTo(to: Where) {
-    const repos = live.snapshot?.repos ?? []
-    const repo =
-      whereTo === 'folder' ? repos.filter((r) => folder === r.path || folder.startsWith(`${r.path}/`)).sort((a, b) => b.path.length - a.path.length)[0]?.name
-      : whereTo === 'new' ? wtRepo
-      : whereTo === 'existing' ? existing.find((w) => w.path === wtPath)?.repo
-      : undefined
-    if (repo && to === 'new' && wtRepos.some((r) => r.name === repo)) wtRepo = repo
-    if (repo && to === 'existing' && existing.find((w) => w.path === wtPath)?.repo !== repo) wtPath = existing.find((w) => w.repo === repo)?.path ?? wtPath
-    const checkout = repo && whereTo !== 'folder' ? repos.find((r) => r.name === repo)?.path : undefined
-    if (to === 'folder' && checkout) folder = checkout
+    if (whereTo === 'folder') {
+      const repo = folder ? agentRepo({ cwd: folder, worktree: null }, live.snapshot) : null
+      if (repo && to === 'new' && wtRepos.some((r) => r.name === repo)) wtRepo = repo
+      if (repo && to === 'existing' && existing.find((w) => w.path === wtPath)?.repo !== repo) wtPath = existing.find((w) => w.repo === repo)?.path ?? wtPath
+    } else if (to === 'folder') {
+      // A folder already in that repository (a subfolder chosen, a draft's) stays as it is.
+      const repo = whereTo === 'new' ? wtRepo : whereTo === 'existing' ? existing.find((w) => w.path === wtPath)?.repo : undefined
+      const checkout = repo ? live.snapshot?.repos?.find((r) => r.name === repo)?.path : undefined
+      if (checkout && (!folder || agentRepo({ cwd: folder, worktree: null }, live.snapshot) !== repo)) folder = checkout
+    }
     whereTo = to
   }
   /** Folder: any one, chosen in the system's picker (outside the repositories too). */
@@ -203,7 +203,8 @@
     slot.quick = false
     if (quick) more = false
     // The short form: the mode last launched with in this repository, failing that the settings'.
-    const lastMode = quick && d.worktree?.repo ? pref<Mode | ''>(`agents.mode.${d.worktree.repo}`, '') : ''
+    const modeRepo = d.worktree?.repo ?? (d.cwd ? agentRepo({ cwd: d.cwd, worktree: null }, live.snapshot) : null)
+    const lastMode = quick && modeRepo ? pref<Mode | ''>(`agents.mode.${modeRepo}`, '') : ''
     mode = (isLaunchMode(d.permission_mode) ? d.permission_mode : '') || lastMode || agentsSettings().permission_mode
     category = d.category ?? ''
     launchTags = d.tags ?? []
@@ -220,9 +221,9 @@
     slot.replacing = null
   })
   /** The repository the agent will run in, whose CLI it gets (`[[repos]] agent`); none: `[agents] provider`. */
-  const launchRepo = $derived(whereTo === 'new' ? wtRepo : whereTo === 'existing' ? existing.find((w) => w.path === wtPath)?.repo : whereTo === 'scratch' ? undefined : live.snapshot?.repos?.find((r) => r.path === folder)?.name)
-  /** Without a title, its project's name, failing that the prompt's first line; the prompt's first words name the worktree. */
-  const autoTitle = $derived(title.trim() || launchRepo || titleOf('', prompt))
+  const launchRepo = $derived(whereTo === 'new' ? wtRepo : whereTo === 'existing' ? existing.find((w) => w.path === wtPath)?.repo : whereTo === 'scratch' || !folder ? undefined : (agentRepo({ cwd: folder, worktree: null }, live.snapshot) ?? undefined))
+  /** Without a title, its project's name and the prompt's first line; the prompt's first words name the worktree. */
+  const autoTitle = $derived(projectTitle(title, prompt, launchRepo))
   /** Its repository's CLI, failing that `[agents] provider`: what the agent runs unless another is picked. */
   const defaultProvider = $derived(providerOf(launchRepo))
   /** The CLI picked for this agent; empty: the default, which follows the repository. */
