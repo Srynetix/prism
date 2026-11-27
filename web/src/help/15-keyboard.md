@@ -74,6 +74,8 @@ A side panel (an MR, a ticket, a pipeline's or a pod's logs, a shell, an event, 
 
 The shells of a worktree or a pod outlive their drawer: tmux keeps them. While one is open, the status bar shows **N shells**: a click lists them (where, since when, what runs there, “kubectl exited” when the pod is gone), a line opens its drawer again, × closes its shells (click twice). The palette lists them too, under **Open shells**.
 
+A shell in your home folder, from anywhere: ``⌃` `` (``Ctrl+` `` elsewhere), **Shell in the home folder** in the palette, or **File › Shell in Home Folder**. The same shells each time, tmux keeps them like a worktree's, and **N shells** lists them under `~`.
+
 To keep a panel open while you click elsewhere, turn on **Pin side panes** (`[appearance] pin_drawers`, Settings › Interface › Appearance): a pin in each panel's header; pinned, only × (or `Esc`) closes it. The pin is remembered per kind of panel.
 
 ## The console

@@ -3,7 +3,8 @@ import type { AgentShellInfo, ShellOwner } from './agents.svelte'
 import { rememberPanel } from './recent-panels.svelte'
 import { t } from './i18n.svelte'
 import { live } from './live.svelte'
-import { baseName } from './platform'
+import { baseName, tildePath } from './platform'
+import { toast } from './toast.svelte'
 
 /**
  * Shells with no agent, in a drawer: a worktree's (Worktrees view) or a pod's (its logs pane, by
@@ -16,10 +17,22 @@ export function openWorktreeShell(path: string, name: string) {
   Object.assign(shellDrawer, { owner: worktreeShellOwner(path, name), where: path, kind: 'folder' })
 }
 
-/** A folder's shells under one name wherever they are opened from: its worktree's branch, else its name. */
+/** A folder's shells under one name wherever they are opened from: its worktree's branch, else its name (`~`: the home folder). */
 export function folderShellTitle(path: string) {
   const w = live.snapshot?.worktrees.find((w) => w.path === path)
-  return w?.branch ?? (baseName(path) || path)
+  return w?.branch ?? (tildePath(path) === '~' ? '~' : baseName(path) || path)
+}
+
+let home: string | null = null
+
+/** A shell in the home folder, from anywhere (⌃`, the palette, File › Terminal): the same shells each time. */
+export async function openHomeShell() {
+  try {
+    home ??= await invoke<string>('home_folder')
+    openFolderShell(home)
+  } catch (e) {
+    toast(String(e), 6000)
+  }
 }
 
 /** A folder's shells (a worktree, a clone, an agent's folder), titled by `folderShellTitle`. */

@@ -11,6 +11,7 @@ import { feedbackOn, openFeedback } from './feedback.svelte'
 import { openPalette } from './palette.svelte'
 import { lang, t } from './i18n.svelte'
 import { zoomBy } from './zoom.svelte'
+import { openHomeShell } from './shell-drawer.svelte'
 
 /**
  * The macOS menu bar (src-tauri/src/menu.rs): its Help menu lists the guides, which the window
@@ -29,6 +30,7 @@ export function run(action: string) {
   if (keyed.action === action && Date.now() - keyed.at < 500) return
   if (action === 'settings') openSettings()
   else if (action === 'new-agent') newAgent()
+  else if (action === 'home-shell') void openHomeShell()
   else if (action === 'zoom-in') void zoomBy(1)
   else if (action === 'zoom-out') void zoomBy(-1)
   else if (action === 'zoom-reset') void zoomBy(0)

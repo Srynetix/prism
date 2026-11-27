@@ -127,7 +127,8 @@
   import { agentsDigit as agentsDigitOf, hit, projectsKey as projectsKeyOf, shortcutKeys, sizeStep } from './shortcuts'
   import { BLOCK_HELP } from './block-help'
   import { chord, inTerminal, keys, pageDigit } from './platform'
-  import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
+  import { invoke, isDesktop, isLocal, machine, profileWindow, hasCore } from './bridge'
+  import { openHomeShell } from './shell-drawer.svelte'
   import { consoleKey, toggleConsole } from './console.svelte'
   import { matches, worksWhileTyping } from './shortcut'
   import { watchCelebrations } from './celebrations.svelte'
@@ -441,6 +442,13 @@
       e.preventDefault()
       keyedAction('new-agent')
       newAgent()
+      return
+    }
+    // ⌃`: a shell in the home folder, over anything.
+    if (hit('home-shell', e) && hasCore()) {
+      e.preventDefault()
+      keyedAction('home-shell')
+      void openHomeShell()
       return
     }
     // ⌘⇧T: the panel closed last comes back (recent-panels.svelte.ts).
