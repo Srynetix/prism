@@ -1,9 +1,10 @@
-import { invoke } from './bridge'
+import { hasCore, invoke, isLocal } from './bridge'
 import type { AgentShellInfo, ShellOwner } from './agents.svelte'
 import { rememberPanel } from './recent-panels.svelte'
 import { t } from './i18n.svelte'
 import { live } from './live.svelte'
 import { baseName } from './platform'
+import { toast } from './toast.svelte'
 
 /**
  * Shells with no agent, in a drawer: a worktree's (Worktrees view) or a pod's (its logs pane, by
@@ -16,10 +17,35 @@ export function openWorktreeShell(path: string, name: string) {
   Object.assign(shellDrawer, { owner: worktreeShellOwner(path, name), where: path, kind: 'folder' })
 }
 
-/** A folder's shells under one name wherever they are opened from: its worktree's branch, else its name. */
+/** The home folder, once read (`home_folder`): its shells are titled `~`. */
+const home = $state({ path: null as string | null })
+
+/** A folder's shells under one name wherever they are opened from: its worktree's branch, else its name (`~`: the home folder). */
 export function folderShellTitle(path: string) {
   const w = live.snapshot?.worktrees.find((w) => w.path === path)
-  return w?.branch ?? (baseName(path) || path)
+  return w?.branch ?? (path === home.path ? '~' : baseName(path) || path)
+}
+
+/** The home folder's shells are this computer's: not in a machine's window, nor on a phone. */
+export const homeShellOn = () => hasCore() && isLocal()
+
+/** ⌃` (Ctrl+` elsewhere), by the physical key: the home folder's shell, a terminal's focus included. */
+export const homeShellKey = (e: KeyboardEvent) => e.type === 'keydown' && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'Backquote'
+
+/** A shell in the home folder, from anywhere (⌃`, the palette, File › Shell in Home Folder): the same shells each time. */
+export async function openHomeShell() {
+  if (!homeShellOn()) return
+  try {
+    home.path ??= await invoke<string>('home_folder')
+    openFolderShell(home.path)
+  } catch (e) {
+    toast(String(e), 6000)
+  }
+}
+
+/** Read at start, so a home shell listed in the status bar is titled `~` before one is opened. */
+export function readHome() {
+  if (homeShellOn() && !home.path) void invoke<string>('home_folder').then((p) => (home.path = p)).catch(() => {})
 }
 
 /** A folder's shells (a worktree, a clone, an agent's folder), titled by `folderShellTitle`. */

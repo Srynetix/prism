@@ -46,6 +46,7 @@ pub fn tr(en: &'static str) -> &'static str {
         "Show Prism" => "Afficher Prism",
         "File" => "Fichier",
         "New Agent" => "Nouvel agent",
+        "Shell in Home Folder" => "Shell dans le dossier personnel",
         "Close Window" => "Fermer la fenêtre",
         "Edit" => "Édition",
         "Undo" => "Annuler",
@@ -153,7 +154,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
     // Closing the window only hides it (see `main`): Prism stays in the menu bar.
-    let file = Submenu::with_items(app, tr("File"), true, &[&item("new-agent", tr("New Agent"), Some("CmdOrCtrl+N"))?, &sep()?, &PredefinedMenuItem::close_window(app, Some(tr("Close Window")))?])?;
+    let file = Submenu::with_items(app, tr("File"), true, &[&item("new-agent", tr("New Agent"), Some("CmdOrCtrl+N"))?, &item("home-shell", tr("Shell in Home Folder"), None)?, &sep()?, &PredefinedMenuItem::close_window(app, Some(tr("Close Window")))?])?;
     let edit = Submenu::with_items(
         app,
         tr("Edit"),

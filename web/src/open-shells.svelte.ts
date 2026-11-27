@@ -1,6 +1,6 @@
 import { invoke, isDesktop } from './bridge'
 import { shellTabs } from './agents.svelte'
-import { folderShellTitle, openPodShell, openWorktreeShell, shellDrawer } from './shell-drawer.svelte'
+import { folderShellTitle, openPodShell, openWorktreeShell, readHome, shellDrawer } from './shell-drawer.svelte'
 import { tildePath } from './platform'
 import type { OpenShell } from './bindings/OpenShell'
 
@@ -14,6 +14,7 @@ export const openShells = $state({ list: [] as OpenShell[] })
 
 export async function refreshShells() {
   if (!isDesktop()) return
+  readHome()
   try {
     openShells.list = await invoke<OpenShell[]>('open_shells')
   } catch {

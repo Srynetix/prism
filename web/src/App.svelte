@@ -128,6 +128,7 @@
   import { BLOCK_HELP } from './block-help'
   import { chord, inTerminal, keys, pageDigit } from './platform'
   import { invoke, isDesktop, isLocal, machine, profileWindow } from './bridge'
+  import { homeShellOn, openHomeShell } from './shell-drawer.svelte'
   import { consoleKey, toggleConsole } from './console.svelte'
   import { matches, worksWhileTyping } from './shortcut'
   import { watchCelebrations } from './celebrations.svelte'
@@ -398,6 +399,13 @@
     }
     // A page's menu, grid, « + » or name open: Esc is theirs.
     if (e.key === 'Escape' && (pageUi.menu || pageUi.styling || pageUi.adding || pageUi.hiddenMenu || pageUi.renaming)) return
+    // ⌃`: a shell in the home folder, over anything, a terminal included (it lets the key through).
+    if (hit('home-shell', e) && homeShellOn()) {
+      e.preventDefault()
+      keyedAction('home-shell')
+      void openHomeShell()
+      return
+    }
     // Typing in an agent's terminal: everything goes to it (Esc, ⌃1…), except app chords.
     if (inTerminal(e) && !chord(e)) return
     if (e.key === 'Escape' && settingsView.open && !typing(e)) {

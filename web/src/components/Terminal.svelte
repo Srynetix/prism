@@ -12,6 +12,7 @@
   import { invoke } from '../bridge'
   import { toast, toastError } from '../toast.svelte'
   import { isMac } from '../platform'
+  import { homeShellKey, homeShellOn } from '../shell-drawer.svelte'
   import '@xterm/xterm/css/xterm.css'
   import { terminalTheme } from '../terminal-theme'
   import { agentsSettings, agentsView, attachAgent, terminalKeeps, detachAgent, inCopyMode, layoutKey, leaveCopyMode, paneArrow, resizeAgent, terminalFontSize, writeAgent } from '../agents.svelte'
@@ -207,8 +208,8 @@
         }
         return true
       }
-      // The Agents view's own: its layout, and the focus moving between agents side by side.
-      if (layoutKey(e) || paneArrow(e)) return false
+      // The Agents view's own: its layout, and the focus moving between agents side by side; ⌃`, the home folder's shell.
+      if (layoutKey(e) || paneArrow(e) || (homeShellOn() && homeShellKey(e))) return false
       if (isMac) return !e.metaKey
       if (!(e.ctrlKey && e.shiftKey)) return true
       if (e.type === 'keydown' && e.code === 'KeyV') {

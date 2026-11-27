@@ -7,6 +7,7 @@ import { views } from './views'
 import { agentsEnabled, projectsDigit, projectsOn } from './agents.svelte'
 import { t } from './i18n.svelte'
 import { assistantOn } from './assistant.svelte'
+import { homeShellKey, homeShellOn } from './shell-drawer.svelte'
 
 /**
  * THE keyboard shortcuts' registry: each one declared once, here. App.svelte, keys.svelte.ts and
@@ -121,6 +122,7 @@ export const REGISTRY: ShortcutDef[] = [
   { id: 'notes', keys: () => shortcutLabel(quickNotesKey()), label: 'quick notes, over any view', group: 'Everywhere' },
   { id: 'palette', keys: () => shortcutLabel(paletteKey()), label: 'command palette: go to anything, run a command (in an agent’s terminal: clears it)', group: 'Everywhere' },
   { id: 'reopen', keys: '⌘⇧T', label: 'reopen the panel closed last (MR, ticket, logs, shell…)', group: 'Everywhere', match: cmdShift('t') },
+  { id: 'home-shell', keys: () => (isMac ? '⌃`' : 'Ctrl+`'), label: 'a shell in the home folder, from anywhere', group: 'Everywhere', when: homeShellOn, match: homeShellKey },
   { id: 'assistant', keys: '⌥↵', label: 'the Assistant: ask Prism, its conversations (out of a field)', group: 'Everywhere', when: () => assistantOn(), match: (e) => e.altKey && e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey },
   { id: 'window-zoom', keys: '⌘+ / ⌘- / ⌘0', label: 'zoom the whole window in, out, back to 100%', group: 'Everywhere', match: (e) => chord(e) && !e.altKey && sizeStep(e) !== null },
   { id: 'settings', keys: '⌘,', label: 'settings', group: 'Everywhere', match: (e) => chord(e) && chordKey(e) === ',' },

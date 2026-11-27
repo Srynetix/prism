@@ -74,6 +74,8 @@ Un panneau latéral (une MR, un ticket, les logs d’un pipeline ou d’un pod, 
 
 Les shells d’un worktree ou d’un pod survivent à leur tiroir : tmux les garde. Tant qu’il en reste un, la barre d’état affiche **N shells** : un clic les liste (où, depuis quand, ce qui y tourne, « kubectl a quitté » quand le pod a disparu), une ligne rouvre son tiroir, × ferme ses shells (cliquer deux fois). La palette les liste aussi, sous **Shells ouverts**.
 
+Un shell dans votre dossier personnel, de n’importe où : ``⌃` `` (``Ctrl+` `` ailleurs), **Shell dans le dossier personnel** dans la palette, ou **Fichier › Shell dans le dossier personnel**. Les mêmes shells à chaque fois ; tmux les garde comme ceux d’un worktree, et **N shells** les liste sous `~`.
+
 Pour garder un panneau ouvert pendant que vous cliquez ailleurs, activez **Épingler les panneaux latéraux** (`[appearance] pin_drawers`, Réglages › Interface › Apparence) : une épingle dans l’en-tête de chaque panneau ; épinglé, seul × (ou `Esc`) le ferme. L’épingle est retenue par type de panneau.
 
 ## La console

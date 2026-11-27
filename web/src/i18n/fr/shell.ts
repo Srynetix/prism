@@ -342,4 +342,7 @@ export default {
   'Send its agent the error, to fix it:\n\n{text}': 'Envoyer l’erreur à son agent, pour qu’il la corrige\xa0:\n\n{text}',
   'Its agent is busy: the error is typed in its prompt, for you to send.\n\n{text}': 'Son agent est occupé\xa0: l’erreur est tapée dans son prompt, à vous de l’envoyer.\n\n{text}',
   'the Assistant: ask Prism, its conversations (out of a field)': 'l’Assistant : demander à Prism, ses conversations (hors d’un champ)',
+  'a shell in the home folder, from anywhere': 'un shell dans le dossier personnel, de n’importe où',
+  'Shell in the home folder': 'Shell dans le dossier personnel',
+  'tmux keeps it after closing': 'tmux le garde après fermeture',
 } satisfies Dictionary

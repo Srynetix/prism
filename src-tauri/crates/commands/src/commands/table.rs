@@ -82,6 +82,8 @@ commands! {
     agents::worktree_shells: Never,
     agents::worktree_shell: Never,
     agents::worktree_close_shell: Never [demo: refused],
+    // The home folder, for its shell (any time, at the desk).
+    agents::home_folder: Never,
     // A worktree's branches, and switching it (Worktrees' Change ▾): from a phone too, with the
     // actions right; nothing is lost (refused with changes not committed or an agent running).
     // Listing them fetches origin (`--prune`): an action too.
