@@ -1,7 +1,8 @@
 import { invoke } from './bridge'
 import { live } from './live.svelte'
 import { afterLaunch, launchNow, openAgents, openLauncher, type Launch } from './agents.svelte'
-import { hasWorktrees } from './repositories'
+import { agentRepo, hasWorktrees } from './repositories'
+import { isArchived } from './agent-archive.svelte'
 import { isBlocked } from './tickets'
 import { implementAction, runClaude, ticketActions } from './claude-actions'
 import { nextTicket, placeIn } from './projects'
@@ -13,10 +14,16 @@ import type { Ticket } from './types'
  * it, the agent left in it brought back, its next ticket implemented.
  */
 
-/** The short launcher on this repository: a new worktree where agents make them, the checkout otherwise. */
+/** Whether no agent works in this repository (archived ones aside): its first one is about to start. */
+export const noAgentIn = (repo: string) => !(live.snapshot?.agents ?? []).some((a) => !isArchived(a) && agentRepo(a, live.snapshot) === repo)
+
+/**
+ * The short launcher on this repository: a new worktree where agents make them, the checkout
+ * otherwise; its first agent in the checkout (nothing to keep apart yet).
+ */
 export function newAgentIn(repo: string) {
   const path = live.snapshot?.repos?.find((r) => r.name === repo)?.path
-  openLauncher({ title: '', ...placeIn({ name: repo, path: path ?? '' }, hasWorktrees(repo) || !path) }, null, null, repo, true)
+  openLauncher({ title: '', ...placeIn({ name: repo, path: path ?? '' }, (hasWorktrees(repo) && !noAgentIn(repo)) || !path) }, null, null, repo, true)
 }
 
 /** The last agent closed in it back in the list, resumed, and shown. */

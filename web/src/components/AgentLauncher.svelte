@@ -147,14 +147,22 @@
     if (!wtRepos.length && whereTo === 'new') whereTo = plain.length ? 'folder' : 'scratch'
   })
   /**
-   * From Folder to a worktree, the repository follows: the folder's (the deepest repository
-   * holding it) becomes the new worktree's, and an existing worktree of it is picked when the one
-   * selected is another repository's.
+   * The project follows from one place to another. From Folder to a worktree: the folder's (the
+   * deepest repository holding it) becomes the new worktree's, and an existing worktree of it is
+   * picked when the one selected is another repository's. From a worktree to Folder: its
+   * repository's checkout.
    */
   function goTo(to: Where) {
-    const repo = whereTo === 'folder' ? (live.snapshot?.repos ?? []).filter((r) => folder === r.path || folder.startsWith(`${r.path}/`)).sort((a, b) => b.path.length - a.path.length)[0]?.name : undefined
+    const repos = live.snapshot?.repos ?? []
+    const repo =
+      whereTo === 'folder' ? repos.filter((r) => folder === r.path || folder.startsWith(`${r.path}/`)).sort((a, b) => b.path.length - a.path.length)[0]?.name
+      : whereTo === 'new' ? wtRepo
+      : whereTo === 'existing' ? existing.find((w) => w.path === wtPath)?.repo
+      : undefined
     if (repo && to === 'new' && wtRepos.some((r) => r.name === repo)) wtRepo = repo
     if (repo && to === 'existing' && existing.find((w) => w.path === wtPath)?.repo !== repo) wtPath = existing.find((w) => w.repo === repo)?.path ?? wtPath
+    const checkout = repo && whereTo !== 'folder' ? repos.find((r) => r.name === repo)?.path : undefined
+    if (to === 'folder' && checkout) folder = checkout
     whereTo = to
   }
   /** Folder: any one, chosen in the system's picker (outside the repositories too). */
@@ -164,8 +172,6 @@
   }
   /** Main checkout of the new worktree's repository: where it goes next to, and its base. */
   const main = $derived(checkouts.find((w) => w.repo === wtRepo) ?? null)
-  /** Without a title, the prompt's first line; its first words name the worktree. */
-  const autoTitle = $derived(titleOf(title, prompt))
   const autoName = $derived(title.trim() ? '' : nameOf(prompt))
   const wtName = $derived(slug(name) || (wtBranch ? slug(wtBranch.split('/').pop() ?? '') : '') || slug(title) || autoName || 'agent')
 
@@ -215,6 +221,8 @@
   })
   /** The repository the agent will run in, whose CLI it gets (`[[repos]] agent`); none: `[agents] provider`. */
   const launchRepo = $derived(whereTo === 'new' ? wtRepo : whereTo === 'existing' ? existing.find((w) => w.path === wtPath)?.repo : whereTo === 'scratch' ? undefined : live.snapshot?.repos?.find((r) => r.path === folder)?.name)
+  /** Without a title, its project's name, failing that the prompt's first line; the prompt's first words name the worktree. */
+  const autoTitle = $derived(title.trim() || launchRepo || titleOf('', prompt))
   /** Its repository's CLI, failing that `[agents] provider`: what the agent runs unless another is picked. */
   const defaultProvider = $derived(providerOf(launchRepo))
   /** The CLI picked for this agent; empty: the default, which follows the repository. */
